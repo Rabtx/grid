@@ -4,7 +4,10 @@
   "private": true,
   "license": "MIT OR Apache-2.0",
   "packageManager": "bun@1.3.13",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "turbo run dev --continue --concurrency=12",
     "build": "turbo run build",
@@ -15,7 +18,7 @@
     "format": "biome format --write . && bun run scripts:format && (cd packages/logger/rust && cargo fmt || true)",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test && bun run test:scripts",
-    "test:coverage": "(cd apps/web && bun run test:coverage) && (cd apps/nest-api && bun run test:cov) && (cd packages/logger && bun run test:coverage) && (cd apps/mobile && bun run test) && bun run test:scripts",
+    "test:coverage": "(cd apps/web && bun run test:coverage) && (cd apps/nest-api && bun run test:cov) && (cd packages/logger && bun run test:coverage) && bun run test:scripts",
     "test:scripts": "bash scripts/bash/tests/main.test.sh && python -m unittest scripts/python/tests/test_main.py",
     "test:e2e:web": "cd apps/web && bun run test:e2e",
     "architecture:check": "bash scripts/architecture/check-boundaries.sh",
@@ -37,19 +40,16 @@
     "lightningcss": "1.32.0",
     "turbo": "^2.10.5"
   },
-  "ignoreScripts": ["sharp", "unrs-resolver"],
-  "trustedDependencies": ["sharp", "unrs-resolver"],
+  "ignoreScripts": [
+    "sharp",
+    "unrs-resolver"
+  ],
+  "trustedDependencies": [
+    "sharp",
+    "unrs-resolver"
+  ],
   "overrides": {
-    "lightningcss": "1.32.0",
-    "@expo/dom-webview": "57.0.0",
-    "@expo/log-box": "57.0.0",
-    "@expo/metro-runtime": "57.0.6",
-    "expo": "57.0.7",
-    "expo-constants": "57.0.6",
-    "expo-font": "57.0.1",
-    "expo-glass-effect": "57.0.1",
-    "expo-linking": "57.0.3",
-    "expo-symbols": "57.0.1"
+    "lightningcss": "1.32.0"
   },
   "dependencies": {
     "@turbo/linux-64": "2.10.5"

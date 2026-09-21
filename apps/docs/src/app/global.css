@@ -6,8 +6,6 @@
    with the real --primary rather than a copy that can drift. */
 @import '../../../../packages/ui/src/styles/globals.css';
 
-/* .ts too — the variant and size class maps live in button.shared.ts. */
-@source '../../../../packages/rabtx/src/**/*.{ts,tsx}';
 
 html {
   scrollbar-gutter: stable;

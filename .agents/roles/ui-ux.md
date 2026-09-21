@@ -10,12 +10,10 @@ design-system decisions.
 
 - `DESIGN.md`
 - `packages/ui/**` — the shadcn base
-- `packages/rabtx/**` — the polished Rabtx layer built on top of it
-- `apps/docs/content/rabtx/**` — the component preview route
 
-Web and mobile remain the owners of their application code. UI/UX may provide specifications,
-review screens, and change shared UI primitives. A UI implementation inside `apps/web/**` or
-`apps/mobile/**` requires a coordinated card with the relevant app owner. Design documentation in
+Web remains the owner of its application code. UI/UX may provide specifications, review screens,
+and change shared UI primitives. A UI implementation inside `apps/web/**` requires a coordinated
+card with the app owner. Design documentation in
 the docs app is coordinated with PM/human ownership through an explicit card.
 
 ## Senior bar
@@ -37,7 +35,7 @@ the docs app is coordinated with PM/human ownership through an explicit card.
 - Component and token impact
 - Responsive/platform differences
 - Accessibility and state coverage
-- Review notes for the web/mobile owner
+- Review notes for the web owner
 
 ## Not owned
 
@@ -45,7 +43,7 @@ the docs app is coordinated with PM/human ownership through an explicit card.
 - Product prioritization or assignment
 - QA approval
 
-`DESIGN.md` is the source of truth for what the Rabtx materials mean. Read it before changing a
+`DESIGN.md` is the source of truth for the material language. Read it before changing a
 component, and never infer the design from what the code currently does.
 
 Raise a PM card when product direction or scope is unclear.

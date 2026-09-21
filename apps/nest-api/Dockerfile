@@ -9,7 +9,6 @@ FROM base AS deps
 COPY package.json bun.lock ./
 COPY apps/nest-api/package.json ./apps/nest-api/
 COPY apps/web/package.json ./apps/web/
-COPY apps/mobile/package.json ./apps/mobile/
 COPY apps/docs/package.json ./apps/docs/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/logger/package.json ./packages/logger/

@@ -48,8 +48,8 @@ bun run dev
 | Nest API | http://localhost:4000 — `/api/v1/health`, `/api/docs` |
 | Docs | http://localhost:3002/docs |
 
-To work on one app in isolation: `bun --cwd=apps/web run dev` (same pattern for `mobile`,
-`nest-api`, `docs`, `rust`).
+To work on one app in isolation: `bun --cwd=apps/web run dev` (same pattern for `nest-api`
+and `docs`).
 
 ## Layout
 
@@ -58,23 +58,16 @@ To work on one app in isolation: `bun --cwd=apps/web run dev` (same pattern for 
 | Path | What it is |
 | --- | --- |
 | `apps/web` | Next.js 16 — the browser control plane |
-| `apps/mobile` | Expo SDK 57 — mobile control surface |
 | `apps/nest-api` | NestJS API spine, Drizzle over Postgres/Neon |
-| `apps/docs` | Fumadocs site — project docs at `/docs`, component docs at `/rabtx` |
+| `apps/docs` | Fumadocs site — project docs at `/docs` |
 
 ### Packages
 
 | Package | Path | Role |
 | --- | --- | --- |
 | `@grid/ui` | `packages/ui` | shadcn base — the unopinionated primitives |
-| `@rabtx/ui` | `packages/rabtx` | Polished animated layer; one API for web and native |
 | `@grid/logger` | `packages/logger` | Shared structured logging |
 | `@grid/typescript-config` | `packages/typescript-config` | Base tsconfigs every workspace extends |
-
-`@rabtx/ui` sits on top of shadcn rather than replacing it. Components take three orthogonal
-props — `kind` (material), `variant` (colour role), `size` — and Metro resolves the `.native.tsx`
-file while Next resolves the web one, so a single import serves both platforms with no
-`Platform.OS` branching. Docs at `/rabtx`.
 
 ### Everything else
 
@@ -150,7 +143,6 @@ bun --cwd=apps/docs run dev
 - [/docs/architecture](http://localhost:3002/docs/architecture)
 - [/docs/deploy](http://localhost:3002/docs/deploy)
 - [/docs/docker](http://localhost:3002/docs/docker)
-- [/rabtx](http://localhost:3002/rabtx) — `@rabtx/ui` component reference
 
 Also in the repo: [PROJECT.md](PROJECT.md), [DESIGN.md](DESIGN.md), [AGENTS.md](AGENTS.md),
 [CHANGELOG.md](CHANGELOG.md).

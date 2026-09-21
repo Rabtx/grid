@@ -66,6 +66,6 @@ CSS variables — and hand-patching those would be undone by the next CLI update
 
 `biome.json` therefore turns those rules off for `packages/ui/src/components/*.tsx`
 and excludes our own components from that override: `bottom-bar.tsx`,
-`glass-card.tsx`, `typeset.tsx` and everything under `src/components/motion/` are
-linted in full. Write new components of our own in `motion/` or exclude them in
-that override — do not relax a rule repo-wide to make our code pass.
+`glass-card.tsx` and `typeset.tsx` are linted in full. Add any new component of
+our own to that exclusion list — do not relax a rule repo-wide to make our code
+pass.

@@ -16,7 +16,7 @@ Backend specialization is selected per card—such as `focus: auth`, `focus: fin
 - Backend-specific migration, integration, and e2e tests
 
 The backend agent owns the complete change when an API feature needs controller, domain, database,
-configuration, migration, and contract updates. Web and mobile consume the documented contract;
+configuration, migration, and contract updates. Web consumes the documented contract;
 they do not patch backend internals.
 
 ## Senior bar
@@ -41,7 +41,7 @@ they do not patch backend internals.
 
 ## Not owned
 
-- Web or mobile implementation
+- Web implementation
 - Design-system implementation in `packages/ui`
 - QA approval, review approval, or PM status decisions
 

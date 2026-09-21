@@ -22,7 +22,6 @@
 env.docker.example
 
 # Host-only / unused for Nest + web images
-apps/mobile
 apps/docs
 apps/c
 scripts

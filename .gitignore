@@ -17,10 +17,6 @@ node_modules
 .next/
 .out/
 
-# expo / react native
-.expo/
-.expo-shared/
-*.expo.json
 
 # production / build output
 /build

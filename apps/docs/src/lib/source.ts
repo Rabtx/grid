@@ -1,4 +1,4 @@
-import { docs, rabtx } from "collections/server";
+import { docs } from "collections/server";
 import { type InferPageType, loader } from "fumadocs-core/source";
 import { lucideIconsPlugin } from "fumadocs-core/source/lucide-icons";
 import { docsContentRoute, docsImageRoute, docsRoute } from "./shared";
@@ -8,12 +8,6 @@ export const source = loader({
 	baseUrl: docsRoute,
 	source: docs.toFumadocsSource(),
 	plugins: [lucideIconsPlugin()],
-});
-
-/** Rabtx UI component docs — its own tree and sidebar, separate from /docs. */
-export const rabtxSource = loader({
-	baseUrl: "/rabtx",
-	source: rabtx.toFumadocsSource(),
 });
 
 export function getPageImage(page: InferPageType<typeof source>) {

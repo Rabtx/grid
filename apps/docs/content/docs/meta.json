@@ -13,7 +13,6 @@
 		"deploy",
 		"qol",
 		"architecture",
-		"overrides",
-		"dependency-upgrade-report"
+		"overrides"
 	]
 }

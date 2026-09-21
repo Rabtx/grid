@@ -1,6 +1,10 @@
 import type { Request } from 'express';
 
-/** Clients that cannot use httpOnly cookies (Expo / React Native). */
+/**
+ * Clients that cannot use httpOnly cookies and need tokens in the response body.
+ * No first-party client sets this today — the web app and the PWA both use cookies —
+ * but the capability stays so a non-browser client can authenticate without one.
+ */
 export const NATIVE_CLIENT_HEADER = 'x-client-platform';
 export const NATIVE_CLIENT_VALUE = 'native';
 

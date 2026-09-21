@@ -15,7 +15,7 @@ never part of this role's scope. Before consuming a NestJS endpoint, read
 
 ## Not owned
 
-- `apps/nest-api/**`, `apps/mobile/**`, or database code
+- `apps/nest-api/**` or database code
 - Public API behavior or backend security fixes
 - Unrelated design-system rewrites
 
@@ -40,6 +40,6 @@ Raise a card to the owning role when the web client exposes a backend defect.
 
 ## Escalation
 
-Raise backend cards for missing or incorrect contracts. Raise mobile or shared-package cards for
+Raise backend cards for missing or incorrect contracts. Raise shared-package cards for
 cross-client design decisions. Record API assumptions on the card rather than hiding them in
 client code.

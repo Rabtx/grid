@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 // and points at what exists today: sign-in, the control-plane shell, and the docs.
 const entries: { href: string; label: string; detail: string }[] = [
 	{ href: "/admin", label: "Control plane", detail: "The shell the Grid surfaces will fill" },
+	{ href: "/admin/board", label: "Board", detail: "Tasks, stages and agent assignments" },
 	{ href: "/login", label: "Sign in", detail: "Email, magic link, passkeys and MFA" },
-	{ href: "/ui", label: "Components", detail: "The shared UI and motion reference" },
 ];
 
 export default function Page() {

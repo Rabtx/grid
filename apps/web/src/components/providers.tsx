@@ -1,6 +1,6 @@
 "use client";
 
-import { ToastProvider } from "@grid/ui/components/toaster";
+import { Toaster } from "@grid/ui/components/toast";
 import type { ReactNode } from "react";
 import { ThemeProvider } from "@/components/theme";
 import { AuthProvider } from "@/modules/auth/context";
@@ -11,7 +11,7 @@ export function Providers({ children }: { children: ReactNode }) {
 		<ThemeProvider>
 			<QueryProvider>
 				<AuthProvider>
-					<ToastProvider>{children}</ToastProvider>
+					<Toaster>{children}</Toaster>
 				</AuthProvider>
 			</QueryProvider>
 		</ThemeProvider>

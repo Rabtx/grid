@@ -24,14 +24,6 @@ roles:
       - reviewer
       - qa
       - ui-ux
-  mobile:
-    team: mobile
-    paths:
-      - apps/mobile/**
-    reviewers:
-      - reviewer
-      - qa
-      - ui-ux
   qa:
     team: quality
     mode: read-only
@@ -49,12 +41,9 @@ roles:
     paths:
       - DESIGN.md
       - packages/ui/**
-      - packages/rabtx/**
-      - apps/docs/content/rabtx/**
     reviewers:
       - reviewer
       - web
-      - mobile
   pm:
     team: product
     operator: codex
@@ -73,7 +62,6 @@ shared:
     reviewers:
       - reviewer
       - web
-      - mobile
   project-policy:
     paths:
       - .agents/agent-contract.md

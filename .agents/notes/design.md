@@ -1,6 +1,6 @@
 # Design notes
 
-Scratchpad owned by the **UI/UX agent** (packages/ui and packages/rabtx). Everyone may read this; only the owner writes it.
+Scratchpad owned by the **UI/UX agent** (packages/ui). Everyone may read this; only the owner writes it.
 
 To ask something of another team, raise a board card addressed to them — do not edit their note.
 

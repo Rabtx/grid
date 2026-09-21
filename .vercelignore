@@ -10,7 +10,6 @@ node_modules
 **/dist
 **/build
 **/target
-**/.expo
 
 # Python: keep virtualenvs and caches out of the deploy payload
 **/.venv

@@ -37,10 +37,10 @@ The short version: claim a card before coding, work in your own worktree on
 
 ## UI design context
 
-Before changing UI components, read [DESIGN.md](DESIGN.md), especially **Rabtx UI: shared design intent**.
-It defines solid, detailed, glass and terminal materials, motion, platform scope and known gaps.
-Detailed means touching tonal contours with no shadows; do not infer the design solely from existing code.
-Keep that document as the shared source of truth instead of copying design rules into agent-specific folders.
+Before changing UI components, read [DESIGN.md](DESIGN.md). It defines the material language,
+motion restraint and the states every surface owes. Do not infer the design solely from existing
+code. Keep that document as the shared source of truth instead of copying design rules into
+agent-specific folders.
 
 ## Documentation
 
@@ -67,7 +67,6 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 grid/
 ├── apps/
 │   ├── web/             # Next.js (React, Tailwind, shadcn-style UI)
-│   ├── mobile/          # Expo Router + NativeWind app (TypeScript)
 │   ├── nest-api/        # NestJS production API (PostgreSQL in later phases)
 │   ├── docs/            # Docs site (Fumadocs); source in apps/docs/content/docs/
 
@@ -136,10 +135,6 @@ grid/
   `packages/ui/src/styles/globals.css`.
 - **TypeScript config**: Extend from `packages/typescript-config/base.json` (or `nextjs.json`
   for Next.js apps).
-- **Expo mobile structure**: Use `src/app` for routes, `src/components/ui` for UI primitives,
-  and `src/components` for non-UI reusable components.
-- **Safe area in mobile**: Use `react-native-safe-area-context` instead of deprecated
-  `react-native` `SafeAreaView`.
 
 ### Git and commits
 
@@ -190,10 +185,7 @@ only, then `bun run dev`. See `/docs/docker` and `docker/README.md`.
   - `/docs/overrides` — policy for project-specific architecture overrides
   - `/docs/docker` — Docker Compose setup
   - `/docs/deploy` — Vercel (web/docs) + Render (Nest) + Neon
-- `.agents/skills/expo-mobile/SKILL.md` — Expo Router + EAS + official Expo Skills / LLM doc links for `apps/mobile`.
 - `.agents/skills/browser-ui-test/SKILL.md` — Browser UI/UX verification via Playwright MCP + `apps/web` e2e after interactive web changes.
-- `.agents/rules/expo-ai-agents.mdc` — Expo remote skills URL, skill table, `llms.txt` bundles (when working under `apps/mobile/**`).
-- `apps/mobile/AGENTS.md` — Short index for agents opening the mobile app folder.
 - `docker/README.md` — Compose fragment layout and `-f` fallback.
 - `biome.json` — Biome config (lint rules, formatter settings).
 - `lefthook.yml` — Git hook definitions.

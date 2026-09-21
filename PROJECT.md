@@ -20,7 +20,6 @@ Monorepo managed by **Bun + Turborepo**, with:
 grid/
 ├── apps/                     # Runnable applications
 │   ├── web/                  # Next.js app
-│   ├── mobile/               # Expo Router + NativeWind app
 │   ├── nest-api/             # NestJS production API
 │   ├── docs/                 # Documentation app (Next.js + Fumadocs)
 ├── packages/
@@ -46,7 +45,6 @@ There is no root `docs/` directory.
 | App | Stack | Notes |
 | --- | --- | --- |
 | `apps/web` | Next.js 16, React 19, Tailwind 4 | Includes unit/integration and Playwright e2e flow |
-| `apps/mobile` | Expo SDK 57, Expo Router, React Native, NativeWind | Mobile-first file-based routing |
 | `apps/nest-api` | NestJS 11, Zod, Jest | Production API spine |
 | `apps/docs` | Next.js + Fumadocs + MDX | Project docs site |
 
@@ -89,7 +87,6 @@ bun --cwd <app-path> run <script>
 Examples:
 
 - `bun --cwd=apps/web run dev`
-- `bun --cwd=apps/mobile run start`
 - `bun --cwd=apps/nest-api run dev`
 - `bun --cwd=apps/docs run dev`
 

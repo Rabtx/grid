@@ -16,16 +16,6 @@ export const docs = defineDocs({
 	},
 });
 
-export const rabtx = defineDocs({
-	dir: "content/rabtx",
-	docs: {
-		schema: pageSchema,
-	},
-	meta: {
-		schema: metaSchema,
-	},
-});
-
 export default defineConfig({
 	mdxOptions: {
 		// MDX options

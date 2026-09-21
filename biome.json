@@ -11,8 +11,6 @@
 			"apps/**/*.tsx",
 			"packages/**/*.ts",
 			"packages/**/*.tsx",
-			"!apps/mobile/src/uniwind-types.d.ts",
-			"!packages/ui/src/uniwind-types.d.ts",
 			"*.config.ts",
 			"*.config.mjs",
 			"!**/.next",
@@ -112,33 +110,6 @@
 					},
 					"nursery": {
 						"noBeforeInteractiveScriptOutsideDocument": "warn"
-					}
-				}
-			}
-		},
-		{
-			"includes": ["apps/mobile/**/*.ts", "apps/mobile/**/*.tsx"],
-			"linter": {
-				"domains": {
-					"next": "none"
-				},
-				"rules": {
-					"suspicious": {
-						"noArrayIndexKey": "off",
-						"noDocumentImportInPage": "off",
-						"noHeadImportInDocument": "off"
-					},
-					"performance": {
-						"noImgElement": "off"
-					},
-					"style": {
-						"noHeadElement": "off"
-					},
-					"correctness": {
-						"noNextAsyncClientComponent": "off"
-					},
-					"nursery": {
-						"noBeforeInteractiveScriptOutsideDocument": "off"
 					}
 				}
 			}

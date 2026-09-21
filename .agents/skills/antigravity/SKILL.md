@@ -26,7 +26,7 @@ Never finish a task without ensuring the project is in a valid state:
 - Verify tests pass in the affected apps/packages.
 
 ### 2. High-Fidelity UI
-When working on the frontend (`apps/web`, `apps/mobile`):
+When working on the frontend (`apps/web`):
 - **Rich Palettes**: Avoid default colors; use curated HSL/CSS variables.
 - **Motion**: Add subtle hover effects and entry animations.
 - **Glassmorphism**: Use backdrop filters and borders where appropriate for a premium feel.

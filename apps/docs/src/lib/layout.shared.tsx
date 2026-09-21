@@ -7,11 +7,7 @@ export function baseOptions(): BaseLayoutProps {
 			// JSX supported
 			title: appName,
 		},
-		// Both doc trees need a way back to each other; /rabtx has its own sidebar.
-		links: [
-			{ text: "Docs", url: "/docs" },
-			{ text: "Components", url: "/rabtx" },
-		],
+		links: [{ text: "Docs", url: "/docs" }],
 		githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
 	};
 }
