@@ -69,6 +69,19 @@ describe('AppController (e2e)', () => {
 		await request(app.getHttpServer()).post('/api/v1/auth/security/passkeys/options').expect(401);
 	});
 
+	it('guards the project and board routes', async () => {
+		// Routing, versioning and the auth guard are all verifiable without a database:
+		// an unauthenticated call must be rejected as 401, never fall through to 404.
+		await request(app.getHttpServer()).get('/api/v1/projects').expect(401);
+		await request(app.getHttpServer()).post('/api/v1/projects').expect(401);
+		await request(app.getHttpServer()).get('/api/v1/projects/grid').expect(401);
+		await request(app.getHttpServer()).patch('/api/v1/projects/grid').expect(401);
+		await request(app.getHttpServer()).get('/api/v1/projects/grid/tasks').expect(401);
+		await request(app.getHttpServer()).post('/api/v1/projects/grid/tasks').expect(401);
+		await request(app.getHttpServer()).patch('/api/v1/projects/grid/tasks/1').expect(401);
+		await request(app.getHttpServer()).delete('/api/v1/projects/grid/tasks/1').expect(401);
+	});
+
 	it('returns the standard not found error shape', async () => {
 		const response = await request(app.getHttpServer()).get('/api/v1/missing').expect(404);
 

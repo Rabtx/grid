@@ -1,12 +1,18 @@
+import Link from "next/link";
 import { FadeIn } from "./_components/fade-in";
 
-type Area = { id: string; label: string; summary: string };
+type Area = { id: string; label: string; summary: string; href?: string };
 
 // Grid's product surfaces. None of these are implemented yet, so this page states
 // that plainly rather than rendering placeholder metrics that look like real data.
 const areas: Area[] = [
 	{ id: "projects", label: "Projects", summary: "Repositories, environments and context" },
-	{ id: "board", label: "Board", summary: "Tasks, dependencies and agent assignments" },
+	{
+		id: "board",
+		label: "Board",
+		summary: "Tasks, stages and agent assignments",
+		href: "/admin/board",
+	},
 	{ id: "build", label: "Build", summary: "Code, terminal, git and agent sessions" },
 	{ id: "review", label: "Review", summary: "Diffs, comments, tests and approvals" },
 	{ id: "ship", label: "Ship", summary: "Builds, releases and deployments" },
@@ -24,23 +30,39 @@ const AdminPage = () => {
 				<header className="space-y-1">
 					<h1 className="font-semibold text-2xl tracking-tight">Home</h1>
 					<p className="text-muted-foreground text-sm">
-						Grid's control plane. The surfaces below are defined but not built yet.
+						Grid's control plane. The Board is live; the rest are defined but not built yet.
 					</p>
 				</header>
 			</FadeIn>
 			<FadeIn delay={0.04}>
 				<ul className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-					{areas.map((area) => (
-						<li key={area.id} className="min-w-0 rounded-lg border border-border bg-card px-4 py-3">
-							<div className="flex items-baseline justify-between gap-3">
-								<span className="font-medium text-sm">{area.label}</span>
-								<span className="shrink-0 font-mono text-[10px] text-muted-foreground uppercase tracking-wide">
-									not built
-								</span>
-							</div>
-							<p className="mt-1 text-muted-foreground text-xs">{area.summary}</p>
-						</li>
-					))}
+					{areas.map((area) => {
+						const body = (
+							<>
+								<div className="flex items-baseline justify-between gap-3">
+									<span className="font-medium text-sm">{area.label}</span>
+									<span className="shrink-0 font-mono text-[10px] text-muted-foreground uppercase tracking-wide">
+										{area.href ? "open" : "not built"}
+									</span>
+								</div>
+								<p className="mt-1 text-muted-foreground text-xs">{area.summary}</p>
+							</>
+						);
+						return (
+							<li key={area.id} className="min-w-0">
+								{area.href ? (
+									<Link
+										href={area.href}
+										className="block rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:border-foreground/20"
+									>
+										{body}
+									</Link>
+								) : (
+									<div className="rounded-lg border border-border bg-card px-4 py-3">{body}</div>
+								)}
+							</li>
+						);
+					})}
 				</ul>
 			</FadeIn>
 		</div>

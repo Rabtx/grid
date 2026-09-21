@@ -54,7 +54,7 @@ const sections: NavSection[] = [
 		items: [
 			{ id: "home", label: "Home", icon: DashboardSquare01Icon, href: "/admin" },
 			{ id: "projects", label: "Projects", icon: Folder01Icon },
-			{ id: "board", label: "Board", icon: KanbanIcon },
+			{ id: "board", label: "Board", icon: KanbanIcon, href: "/admin/board" },
 			{ id: "agents", label: "Agents", icon: Robot01Icon },
 		],
 	},
@@ -116,6 +116,9 @@ function activeNavId(pathname: string): string {
 	}
 	if (pathname.startsWith("/admin/account/security")) {
 		return "account-security";
+	}
+	if (pathname.startsWith("/admin/board")) {
+		return "board";
 	}
 	if (pathname === "/admin" || pathname === "/admin/") {
 		return "home";
