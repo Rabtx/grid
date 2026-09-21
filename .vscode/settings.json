@@ -30,15 +30,6 @@
 		"editor.defaultFormatter": "biomejs.biome"
 	},
 
-	// —— C/C++ ——
-	"[c]": {
-		"editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
-	},
-	"[cpp]": {
-		"editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
-	},
-	"C_Cpp.clang_format_style": "file",
-
 	// —— Rust (packages/logger/rust: rustfmt.toml, rust-toolchain, Clippy) ——
 	"[rust]": {
 		"editor.defaultFormatter": "rust-lang.rust"
@@ -58,11 +49,6 @@
 		"editor.insertSpaces": true
 	},
 	"shfmt.arguments": ["-i", "4"],
-
-	// —— Lua (scripts/lua: luacheck, stylua) ——
-	"[lua]": {
-		"editor.defaultFormatter": "JohnnyMorganz.stylua"
-	},
 
 	// —— CSS / Tailwind ——
 	"css.lint.unknownAtRules": "ignore",
