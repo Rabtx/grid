@@ -1,13 +1,5 @@
 import { MobileBottomBar, MobileBottomBarItem } from "@grid/ui/components/mobile";
-import {
-	ArrowRightIcon,
-	Grid02Icon,
-	Home01Icon,
-	Mail01Icon,
-	Search01Icon,
-	SparklesIcon,
-	UserIcon,
-} from "@hugeicons/core-free-icons";
+import { Home01Icon, Mail01Icon, Search01Icon, UserIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
@@ -15,13 +7,10 @@ import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-	Input,
-	MobileButton,
 	MobileMotionButton,
 	MobileNotTypeset,
 	MobileTypeset,
 	MobileTypesetBlockquote,
-	MobileTypesetCode,
 	MobileTypesetHeading,
 	MobileTypesetParagraph,
 	MobileTypesetScroll,
@@ -31,8 +20,6 @@ import {
 	MotionTabsContent,
 	MotionTabsList,
 	MotionTabsTrigger,
-	Select,
-	StatefulButton,
 } from "../../modules/ui";
 
 const BOTTOM_BAR_CODE_EXAMPLE = `import { MobileBottomBar, MobileBottomBarItem } from "@grid/ui/components/mobile";

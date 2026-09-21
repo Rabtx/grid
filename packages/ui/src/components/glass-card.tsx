@@ -3,7 +3,7 @@
 import { cn } from "@grid/ui/lib/utils";
 import type { HTMLMotionProps } from "motion/react";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
-import React, { type HTMLAttributes, type ReactNode, useId, useMemo } from "react";
+import { type HTMLAttributes, type ReactNode, useId, useMemo } from "react";
 import { generateAaveLensNormalMap } from "./bottom-bar";
 
 export type GlassCardProps = Omit<HTMLMotionProps<"div">, "children" | "className"> & {

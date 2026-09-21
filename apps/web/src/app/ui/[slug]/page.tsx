@@ -1,11 +1,7 @@
 "use client";
 
 import { Badge } from "@grid/ui/components/badge";
-import {
-	BottomBar,
-	BottomBarItem,
-	generateAaveLensNormalMap,
-} from "@grid/ui/components/bottom-bar";
+import { BottomBar, BottomBarItem } from "@grid/ui/components/bottom-bar";
 import { Button } from "@grid/ui/components/button";
 import { Card, CardContent } from "@grid/ui/components/card";
 import {
@@ -23,19 +19,7 @@ import {
 	AccordionTrigger,
 	MotionAccordion,
 } from "@grid/ui/components/motion/accordion";
-import { type ButtonState, StatefulButton } from "@grid/ui/components/motion/button";
 import { MotionCheckbox, StatefulCheckbox } from "@grid/ui/components/motion/checkbox";
-import { MotionInput } from "@grid/ui/components/motion/input";
-import {
-	MotionSelect,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectLabel,
-	SelectSearch,
-	SelectTrigger,
-	SelectValue,
-} from "@grid/ui/components/motion/select";
 import { MotionSlider } from "@grid/ui/components/motion/slider";
 import { MotionSwitch, StatefulSwitch } from "@grid/ui/components/motion/switch";
 import {
@@ -53,12 +37,6 @@ import {
 	useTableSort,
 } from "@grid/ui/components/motion/table";
 import {
-	Tabs as MotionTabs,
-	TabsContent as MotionTabsContent,
-	TabsList as MotionTabsList,
-	TabsTrigger as MotionTabsTrigger,
-} from "@grid/ui/components/motion/tabs";
-import {
 	TableBody,
 	TableCell,
 	TableFooter,
@@ -66,42 +44,22 @@ import {
 	TableHeader,
 	TableRow,
 } from "@grid/ui/components/table";
+import { Typeset, type TypesetPreset } from "@grid/ui/components/typeset";
 import {
-	NotTypeset,
-	Typeset,
-	type TypesetPreset,
-	TypesetScroll,
-} from "@grid/ui/components/typeset";
-import {
-	AccessibilityIcon,
 	Add01Icon,
-	ArrowDown01Icon,
-	ArrowRightIcon,
-	ArrowUp01Icon,
-	ArrowUpDownIcon,
-	BrushIcon,
-	ChevronDownIcon,
 	CodeIcon,
 	Copy01Icon,
 	CubeIcon,
-	DatabaseIcon,
 	Delete02Icon,
 	Download01Icon,
 	EyeIcon,
-	Grid02Icon,
 	Home01Icon,
 	InboxIcon,
-	InputTextIcon,
-	Layers01Icon,
 	Loading01Icon,
-	Mail01Icon,
 	Moon01Icon,
 	Search01Icon,
-	Settings02Icon,
-	SmartPhone01Icon,
 	SparklesIcon,
 	Sun01Icon,
-	TextFontIcon,
 	Tick02Icon,
 	UserIcon,
 } from "@hugeicons/core-free-icons";
@@ -1053,7 +1011,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 	const [cmdCopied, setCmdCopied] = useState(false);
 
 	const [bottomBarTab, setBottomBarTab] = useState("home");
-	const [typesetPreset, setTypesetPreset] = useState<TypesetPreset>("docs");
+	const [typesetPreset] = useState<TypesetPreset>("docs");
 
 	const [manualThemeMode, setManualThemeMode] = useState<"dark" | "light" | null>(null);
 	const activeTheme = manualThemeMode ?? (resolvedTheme === "light" ? "light" : "dark");
@@ -1146,7 +1104,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 		}
 
 		ctx.putImageData(imgData, 0, 0);
-	}, [slug, lensWidth, lensHeight, borderRadius, depth, curvature, splay, glow, activeTheme]);
+	}, [slug, lensWidth, lensHeight, depth, curvature, splay, glow, activeTheme]);
 
 	const codeSnippet =
 		slug === "table"
@@ -1499,7 +1457,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 													<StatefulCheckbox
 														size="lg"
 														variant="destructive"
-														onToggle={async (next) => {
+														onToggle={async (_next) => {
 															await new Promise((res) => setTimeout(res, 1200));
 															return true;
 														}}
@@ -1580,7 +1538,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 												<StatefulSwitch
 													size="lg"
 													variant="destructive"
-													onToggle={async (next) => {
+													onToggle={async (_next) => {
 														await new Promise((res) => setTimeout(res, 1200));
 														return true;
 													}}
@@ -1836,7 +1794,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 											max="500"
 											step="10"
 											value={stiffness}
-											onChange={(e) => setStiffness(Number.parseInt(e.target.value))}
+											onChange={(e) => setStiffness(Number.parseInt(e.target.value, 10))}
 											className="w-full accent-purple-400 cursor-pointer"
 										/>
 										<span className="text-xs font-mono text-foreground w-10 text-right">
@@ -1859,7 +1817,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 											max="40"
 											step="1"
 											value={damping}
-											onChange={(e) => setDamping(Number.parseInt(e.target.value))}
+											onChange={(e) => setDamping(Number.parseInt(e.target.value, 10))}
 											className="w-full accent-purple-400 cursor-pointer"
 										/>
 										<span className="text-xs font-mono text-foreground w-10 text-right">
@@ -1916,7 +1874,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 											min="40"
 											max="160"
 											value={lensWidth}
-											onChange={(e) => setLensWidth(Number.parseInt(e.target.value))}
+											onChange={(e) => setLensWidth(Number.parseInt(e.target.value, 10))}
 											className="w-full accent-indigo-400 cursor-pointer"
 										/>
 										<span className="text-xs font-mono text-foreground w-10 text-right">
@@ -1933,7 +1891,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 											min="0"
 											max="80"
 											value={borderRadius}
-											onChange={(e) => setBorderRadius(Number.parseInt(e.target.value))}
+											onChange={(e) => setBorderRadius(Number.parseInt(e.target.value, 10))}
 											className="w-full accent-indigo-400 cursor-pointer"
 										/>
 										<span className="text-xs font-mono text-foreground w-10 text-right">
@@ -1950,7 +1908,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 											min="10"
 											max="90"
 											value={depth}
-											onChange={(e) => setDepth(Number.parseInt(e.target.value))}
+											onChange={(e) => setDepth(Number.parseInt(e.target.value, 10))}
 											className="w-full accent-indigo-400 cursor-pointer"
 										/>
 										<span className="text-xs font-mono text-foreground w-10 text-right">
@@ -2024,7 +1982,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 											min="30"
 											max="120"
 											value={lensHeight}
-											onChange={(e) => setLensHeight(Number.parseInt(e.target.value))}
+											onChange={(e) => setLensHeight(Number.parseInt(e.target.value, 10))}
 											className="w-full accent-indigo-400 cursor-pointer"
 										/>
 										<span className="text-xs font-mono text-foreground w-10 text-right">
@@ -2059,7 +2017,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 											min="0"
 											max="100"
 											value={curvature}
-											onChange={(e) => setCurvature(Number.parseInt(e.target.value))}
+											onChange={(e) => setCurvature(Number.parseInt(e.target.value, 10))}
 											className="w-full accent-indigo-400 cursor-pointer"
 										/>
 										<span className="text-xs font-mono text-foreground w-10 text-right">
@@ -2113,7 +2071,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 											max="360"
 											step="5"
 											value={specularAngle}
-											onChange={(e) => setSpecularAngle(Number.parseInt(e.target.value))}
+											onChange={(e) => setSpecularAngle(Number.parseInt(e.target.value, 10))}
 											className="w-full accent-indigo-400 cursor-pointer"
 										/>
 										<span className="text-xs font-mono text-foreground w-10 text-right">

@@ -2,7 +2,7 @@
 
 import { cn } from "@grid/ui/lib/utils";
 import { LayoutGroup, MotionConfig, motion, type Transition, useReducedMotion } from "motion/react";
-import React, {
+import {
 	createContext,
 	type ReactNode,
 	useCallback,
@@ -55,7 +55,9 @@ function useBottomBar() {
 export function generateAaveLensNormalMap({
 	width = 120,
 	height = 60,
-	borderRadius = 30,
+	// Accepted for parity with the component's props; the normal map itself is
+	// radius-independent, so the value is deliberately unused here.
+	borderRadius: _borderRadius = 30,
 	depth = 52,
 	curvature = 80,
 	splay = 1.0,
@@ -383,7 +385,7 @@ export function BottomBarItem({
 	children: ReactNode;
 	className?: string;
 }) {
-	const { value: current, setValue, filterId, config } = useBottomBar();
+	const { value: current, setValue, config } = useBottomBar();
 	const active = current === value;
 	const isLight = config.themeMode === "light";
 

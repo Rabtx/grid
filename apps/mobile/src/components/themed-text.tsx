@@ -1,4 +1,4 @@
-import { Platform, Text, type TextProps } from "react-native";
+import { Platform, Text, type TextProps, type TextStyle } from "react-native";
 
 import { Fonts, type ThemeColor } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -34,7 +34,10 @@ export function ThemedText({
 				{ color: theme[themeColor ?? "text"] },
 				type === "code" && {
 					fontFamily: Fonts.mono,
-					fontWeight: Platform.select({ android: "700", default: "500" }) as any,
+					fontWeight: Platform.select<TextStyle["fontWeight"]>({
+						android: "700",
+						default: "500",
+					}),
 				},
 				style,
 			]}

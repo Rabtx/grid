@@ -4,7 +4,7 @@ import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 import { SPRING_PRESS, SPRING_SWAP } from "@grid/ui/lib/ease";
 import { cn } from "@grid/ui/lib/utils";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import React, { type ComponentPropsWithoutRef, useState } from "react";
+import { type ComponentPropsWithoutRef, useState } from "react";
 
 export type MotionSliderVariant = "default" | "indigo" | "emerald" | "destructive";
 
@@ -66,6 +66,7 @@ export function MotionSlider({
 	const ticksCount = showTicks ? Math.floor((max - min) / step) : 0;
 
 	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: hover only drives the thumb scale animation; the slider root beneath owns every real interaction and its keyboard handling
 		<div
 			className="relative w-full py-4 select-none"
 			onMouseEnter={() => setIsHovered(true)}
@@ -100,15 +101,21 @@ export function MotionSlider({
 					{/* OPTIONAL STEP TICKS */}
 					{showTicks && ticksCount > 0 && (
 						<div className="absolute inset-x-0 top-1/2 -translate-y-1/2 pointer-events-none flex justify-between px-1">
-							{Array.from({ length: Math.min(ticksCount + 1, 21) }).map((_, i) => (
-								<span key={i} className="size-1 rounded-full bg-zinc-400/40 dark:bg-zinc-600/40" />
-							))}
+							{Array.from({ length: Math.min(ticksCount + 1, 21) }, (_, i) => min + i * step).map(
+								(tick) => (
+									<span
+										key={tick}
+										className="size-1 rounded-full bg-zinc-400/40 dark:bg-zinc-600/40"
+									/>
+								),
+							)}
 						</div>
 					)}
 
 					{/* THUMBS WITH FLOATING TOOLTIP BADGE */}
 					{currentValues.map((val, index) => (
 						<SliderPrimitive.Thumb
+							// biome-ignore lint/suspicious/noArrayIndexKey: a thumb's position in the array is its identity; keying by value would remount it on every drag frame
 							key={index}
 							data-slot="slider-thumb"
 							onPointerDown={() => setIsDragging(true)}

@@ -12,6 +12,7 @@
 			"packages/**/*.ts",
 			"packages/**/*.tsx",
 			"!apps/mobile/src/uniwind-types.d.ts",
+			"!packages/ui/src/uniwind-types.d.ts",
 			"*.config.ts",
 			"*.config.mjs",
 			"!**/.next",
@@ -138,6 +139,35 @@
 					},
 					"nursery": {
 						"noBeforeInteractiveScriptOutsideDocument": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": [
+				"packages/ui/src/components/*.tsx",
+				"!packages/ui/src/components/bottom-bar.tsx",
+				"!packages/ui/src/components/glass-card.tsx",
+				"!packages/ui/src/components/typeset.tsx"
+			],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"noLabelWithoutControl": "off",
+						"useAriaPropsForRole": "off",
+						"useFocusableInteractive": "off",
+						"useKeyWithClickEvents": "off",
+						"useSemanticElements": "off"
+					},
+					"correctness": {
+						"useExhaustiveDependencies": "off"
+					},
+					"security": {
+						"noDangerouslySetInnerHtml": "off"
+					},
+					"suspicious": {
+						"noArrayIndexKey": "off",
+						"noDocumentCookie": "off"
 					}
 				}
 			}

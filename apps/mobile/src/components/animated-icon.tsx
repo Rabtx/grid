@@ -1,11 +1,17 @@
 import { Image } from "expo-image";
 import { useState } from "react";
-import { Dimensions, View } from "react-native";
+import { Dimensions, View, type ViewStyle } from "react-native";
 import Animated, { Easing, Keyframe } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 
 const INITIAL_SCALE_FACTOR = Dimensions.get("screen").height / 90;
 const DURATION = 600;
+
+// `experimental_backgroundImage` is a React Native Web style prop that ViewStyle
+// does not declare yet, so the cast is the escape hatch rather than `any`.
+const SPLASH_GRADIENT = {
+	experimental_backgroundImage: "linear-gradient(180deg, #3C9FFE, #0274DF)",
+} as unknown as ViewStyle;
 
 export function AnimatedSplashOverlay() {
 	const [visible, setVisible] = useState(true);
@@ -96,7 +102,7 @@ export function AnimatedIcon() {
 			<Animated.View
 				entering={keyframe.duration(DURATION)}
 				className="rounded-[40px] w-32 h-32 absolute"
-				style={{ experimental_backgroundImage: `linear-gradient(180deg, #3C9FFE, #0274DF)` } as any}
+				style={SPLASH_GRADIENT}
 			/>
 			<Animated.View
 				className="justify-center items-center"

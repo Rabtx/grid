@@ -151,7 +151,7 @@ MotionCheckbox.displayName = "MotionCheckbox";
 
 export type StatefulCheckboxProps = Omit<MotionCheckboxProps, "checked" | "onCheckedChange"> & {
 	defaultChecked?: boolean;
-	onToggle?: (checked: boolean) => Promise<boolean | void> | boolean | void;
+	onToggle?: (checked: boolean) => Promise<boolean> | Promise<void> | boolean | void;
 };
 
 export function StatefulCheckbox({

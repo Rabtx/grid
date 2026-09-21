@@ -55,3 +55,17 @@ Apps import shared tokens from this package:
 ## Migration rule
 
 Keep product-specific composed UI in `apps/web/src/components`. Move a component here only when it is a reusable primitive with no app routing/auth/data coupling.
+
+## Linting the CLI-managed primitives
+
+The flat files in `src/components` are shadcn CLI output and are kept as verbatim
+copies, so `bunx --bun shadcn@latest add <component>` can overwrite them without
+losing local work. Upstream's markup trips a handful of Biome rules — `role` on
+plain elements, array indices as keys, the sidebar's cookie, the chart's injected
+CSS variables — and hand-patching those would be undone by the next CLI update.
+
+`biome.json` therefore turns those rules off for `packages/ui/src/components/*.tsx`
+and excludes our own components from that override: `bottom-bar.tsx`,
+`glass-card.tsx`, `typeset.tsx` and everything under `src/components/motion/` are
+linted in full. Write new components of our own in `motion/` or exclude them in
+that override — do not relax a rule repo-wide to make our code pass.
