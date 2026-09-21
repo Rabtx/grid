@@ -1,7 +1,7 @@
 # Dev container: Bun, Rust, Python (scripts), Bash tooling.
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04
 
-ARG BUN_VERSION=1.3.13
+ARG BUN_VERSION=1.4.2
 ARG RUST_CHANNEL=stable
 
 # Shell/Python tooling used by repo scripts (no C/Lua toolchain).

@@ -94,7 +94,7 @@ export const INSTALL_STEPS = [
 ] as const;
 
 export const REQUIREMENTS = [
-	"Bun 1.3.13",
+	"Bun 1.4.2",
 	"PostgreSQL (or Docker Compose)",
 	"Node-compatible system dependencies",
 ] as const;
