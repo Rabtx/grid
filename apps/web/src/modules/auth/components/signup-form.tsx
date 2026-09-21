@@ -28,6 +28,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { BrandLogo } from "@/components/brand";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
 import { buildAuthRedirectUrl } from "@/modules/auth/lib/dev-auth-code";
@@ -90,7 +91,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
 		<div className={cn("flex flex-col gap-6", className)} {...props}>
 			<Card className="rounded-[16px] border border-dashboard-border bg-dashboard-surface ring-0">
 				<CardHeader className="text-center">
-					<p className="text-muted-foreground text-sm font-medium">Grid</p>
+					<BrandLogo className="mx-auto h-5" />
 					<CardTitle className="text-2xl">Create your account</CardTitle>
 					<CardDescription>Create your secure grid account</CardDescription>
 				</CardHeader>

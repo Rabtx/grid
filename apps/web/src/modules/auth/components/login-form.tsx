@@ -15,6 +15,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { BrandLogo } from "@/components/brand";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../context/auth-context";
 import {
@@ -71,7 +72,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
 		<div className={cn("flex flex-col gap-6", className)} {...props}>
 			<Card className="rounded-[16px] border border-dashboard-border bg-dashboard-surface ring-0">
 				<CardHeader className="text-center">
-					<p className="text-muted-foreground text-sm font-medium">Grid</p>
+					<BrandLogo className="mx-auto h-5" />
 					<CardTitle className="text-2xl">
 						{challenge ? "Two-factor verification" : "Welcome back"}
 					</CardTitle>
