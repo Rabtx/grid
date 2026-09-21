@@ -1,9 +1,7 @@
 "use client";
 
-import { Search01Icon, SparklesIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@school-os/ui/components/badge";
-import { Input } from "@school-os/ui/components/input";
+import { Badge } from "@grid/ui/components/badge";
+import { Input } from "@grid/ui/components/input";
 import {
 	Sidebar,
 	SidebarContent,
@@ -18,8 +16,10 @@ import {
 	SidebarRail,
 	SidebarTrigger,
 	useSidebar,
-} from "@school-os/ui/components/sidebar";
-import { cn } from "@school-os/ui/lib/utils";
+} from "@grid/ui/components/sidebar";
+import { cn } from "@grid/ui/lib/utils";
+import { Search01Icon, SparklesIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";

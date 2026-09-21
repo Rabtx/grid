@@ -1,9 +1,9 @@
 "use client";
 
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
-import { Button } from "@school-os/ui/components/button";
+import { Button } from "@grid/ui/components/button";
 
-import { cn } from "@school-os/ui/lib/utils";
+import { cn } from "@grid/ui/lib/utils";
 import type * as React from "react";
 
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {

@@ -1,4 +1,4 @@
-import { cn } from "@school-os/ui/lib/utils";
+import { cn } from "@grid/ui/lib/utils";
 import type * as React from "react";
 
 function MessageGroup({ className, ...props }: React.ComponentProps<"div">) {

@@ -1,9 +1,9 @@
 "use client";
 
+import { Button, buttonVariants } from "@grid/ui/components/button";
+import { cn } from "@grid/ui/lib/utils";
 import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Button, buttonVariants } from "@school-os/ui/components/button";
-import { cn } from "@school-os/ui/lib/utils";
 import * as React from "react";
 import { type DayButton, DayPicker, getDefaultClassNames, type Locale } from "react-day-picker";
 

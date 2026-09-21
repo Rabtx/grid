@@ -32,7 +32,7 @@ const PLANS: PlanOption[] = [
 	{
 		code: "team",
 		label: "Team",
-		tagline: "For small crews shipping the starter into production.",
+		tagline: "For small crews shipping Grid into production.",
 		monthly: 49,
 		recommended: true,
 		features: ["Up to 5 workspaces", "Shared UI + Nest spine", "Email support", "Cancel anytime"],
@@ -184,7 +184,7 @@ export function BillingScreen() {
 							<Text className="text-zinc-500 text-[11px] font-bold tracking-[1.2px]">ACCOUNT</Text>
 							<Text className="text-white text-[28px] font-bold tracking-tight">Billing</Text>
 							<Text className="text-zinc-400 text-sm leading-5 max-w-[360px]">
-								Upgrade when you need team seats or managed support. Starter stays free to clone and
+								Upgrade when you need team seats or managed support. Grid stays free to clone and
 								run.
 							</Text>
 						</View>
@@ -368,7 +368,7 @@ function SubscriptionBanner({
 			<NeonCard className="gap-0">
 				<Text className="text-white text-base font-bold">Current plan</Text>
 				<Text className="text-zinc-400 text-[13px] leading-5 mt-1">
-					Starter (free). Upgrade below when you need seats.
+					Grid (free). Upgrade below when you need seats.
 				</Text>
 			</NeonCard>
 		);

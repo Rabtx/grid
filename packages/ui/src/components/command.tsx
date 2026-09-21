@@ -1,16 +1,16 @@
 "use client";
 
-import { SearchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
-} from "@school-os/ui/components/dialog";
-import { InputGroup, InputGroupAddon } from "@school-os/ui/components/input-group";
-import { cn } from "@school-os/ui/lib/utils";
+} from "@grid/ui/components/dialog";
+import { InputGroup, InputGroupAddon } from "@grid/ui/components/input-group";
+import { cn } from "@grid/ui/lib/utils";
+import { SearchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Command as CommandPrimitive } from "cmdk";
 import type * as React from "react";
 

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@school-os/ui/globals.css";
+@import "@grid/ui/globals.css";
 
 /* Scan UI package for Tailwind classes */
 @source "../../../../packages/ui/src";

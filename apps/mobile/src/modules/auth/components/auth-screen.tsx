@@ -20,7 +20,7 @@ interface AuthScreenProps {
 }
 
 export function AuthScreen({
-	brand = "Starter",
+	brand = "Grid",
 	title,
 	description,
 	children,

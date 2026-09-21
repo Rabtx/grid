@@ -13,11 +13,11 @@
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",
-		"@school-os/ui": "workspace:*",
+		"@grid/ui": "workspace:*",
 		"class-variance-authority": "^0.7.1"
 	},
 	"devDependencies": {
-		"@school-os/typescript-config": "workspace:*",
+		"@grid/typescript-config": "workspace:*",
 		"@types/react": "^19.2.14",
 		"react": "^19.2.6",
 		"typescript": "^6.0.3"

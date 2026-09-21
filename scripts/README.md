@@ -1,4 +1,4 @@
-# Starter scripts
+# Grid scripts
 
 Scripts live under **`scripts/`** at repo root, organized by language: **bash**, **python**.
 

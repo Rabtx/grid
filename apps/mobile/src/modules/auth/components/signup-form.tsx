@@ -59,7 +59,7 @@ export function SignupForm() {
 	return (
 		<AuthScreen
 			title="Create your account"
-			description="Create your secure Starter account"
+			description="Create your secure Grid account"
 			footer={
 				<Text className="text-zinc-500 text-xs text-center px-3">
 					By continuing, you agree to our Terms of Service and Privacy Policy.

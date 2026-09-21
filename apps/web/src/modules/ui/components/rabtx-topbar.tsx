@@ -1,8 +1,6 @@
 "use client";
 
-import { ArrowLeft01Icon, Moon01Icon, Sun01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@school-os/ui/components/badge";
+import { Badge } from "@grid/ui/components/badge";
 import {
 	Breadcrumb,
 	BreadcrumbItem,
@@ -10,9 +8,11 @@ import {
 	BreadcrumbList,
 	BreadcrumbPage,
 	BreadcrumbSeparator,
-} from "@school-os/ui/components/breadcrumb";
-import { Button } from "@school-os/ui/components/button";
-import { SidebarTrigger } from "@school-os/ui/components/sidebar";
+} from "@grid/ui/components/breadcrumb";
+import { Button } from "@grid/ui/components/button";
+import { SidebarTrigger } from "@grid/ui/components/sidebar";
+import { ArrowLeft01Icon, Moon01Icon, Sun01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useState } from "react";
 
 interface RabtxTopbarProps {

@@ -1,23 +1,40 @@
-# Starter
+# Grid
 
-A production-ready monorepo for school-platform work, built on **Bun workspaces + Turborepo**.
+**Grid is an AI-native operating system for building and running a startup.** It brings projects,
+agents, development, deployment, infrastructure, operations and management into one
+browser-accessible control plane.
 
-Six apps — Next.js web, Expo mobile, NestJS API, Fumadocs docs, optional FastAPI AI service and
-Rust demo — sharing one UI layer, one logger, one TypeScript config, one CI pipeline and a slim
-Dev Container.
+For developers: a browser-first, plugin-driven control plane that coordinates humans, AI agents,
+workspaces, tools and infrastructure. Grid is not an IDE with AI bolted on — agents are
+first-class workers inside the system, and Grid is the layer that coordinates them.
 
-Dual-licensed **MIT OR Apache-2.0**.
+The guiding constraints:
+
+- **Browser first** — the browser is the interface; execution happens on a host that may be local,
+  Docker, SSH or a remote VPS.
+- **Agent-native** — humans, agents, automations and runners are all entities that perform work.
+- **Provider agnostic** — no single AI provider becomes architectural bedrock.
+- **Portable** — machines are disposable; projects, tasks, sessions and context are not.
+
+## Where this repository is today
+
+This repository holds the **engineering spine** Grid is being built on — a Bun + Turborepo
+monorepo with the web client, API, mobile control surface, docs site, shared UI and the full
+lint/typecheck/test/CI surface. The Grid product surfaces described above (board, agent runs,
+workspaces, ship, operate) are **not implemented yet**.
+
+Multi-agent development of Grid itself runs through [.agents/](.agents/README.md).
 
 ## Quick start
 
 **Prerequisites**
 
-- [Bun](https://bun.sh) `1.3.13` (pinned via `packageManager`)
+- [Bun](https://bun.sh) `1.3.13` (pinned via `packageManager` and `.mise.toml`)
 - Optional: Docker Compose `v2.20+`, Rust toolchain (`apps/rust`), Python 3 (`apps/ai-api`, script tests)
 
 ```bash
-git clone https://github.com/shabirkhan-dev/starter.git
-cd starter
+git clone https://github.com/shabirkhan-dev/grid.git
+cd grid
 bun install
 bun run prepare
 bun run dev
@@ -41,8 +58,8 @@ To work on one app in isolation: `bun --cwd=apps/web run dev` (same pattern for 
 
 | Path | What it is |
 | --- | --- |
-| `apps/web` | Next.js 16 — admin, marketing, auth and billing |
-| `apps/mobile` | Expo SDK 57 — auth, billing via hosted checkout |
+| `apps/web` | Next.js 16 — the browser control plane |
+| `apps/mobile` | Expo SDK 57 — mobile control surface |
 | `apps/nest-api` | NestJS API spine, Drizzle over Postgres/Neon |
 | `apps/docs` | Fumadocs site — project docs at `/docs`, component docs at `/rabtx` |
 | `apps/ai-api` | Optional FastAPI AI assist; Nest proxies it, never public |
@@ -52,10 +69,10 @@ To work on one app in isolation: `bun --cwd=apps/web run dev` (same pattern for 
 
 | Package | Path | Role |
 | --- | --- | --- |
-| `@school-os/ui` | `packages/ui` | shadcn base — the unopinionated primitives |
+| `@grid/ui` | `packages/ui` | shadcn base — the unopinionated primitives |
 | `@rabtx/ui` | `packages/rabtx` | Polished animated layer; one API for web and native |
-| `@school-os/logger` | `packages/logger` | Shared structured logging |
-| `@school-os/typescript-config` | `packages/typescript-config` | Base tsconfigs every workspace extends |
+| `@grid/logger` | `packages/logger` | Shared structured logging |
+| `@grid/typescript-config` | `packages/typescript-config` | Base tsconfigs every workspace extends |
 
 `@rabtx/ui` sits on top of shadcn rather than replacing it. Components take three orthogonal
 props — `kind` (material), `variant` (colour role), `size` — and Metro resolves the `.native.tsx`
@@ -66,7 +83,7 @@ file while Next resolves the web one, so a single import serves both platforms w
 
 | Path | Purpose |
 | --- | --- |
-| `.agents/` | Agent rules, skills and plans — the single source; there is no second copy |
+| `.agents/` | Agent contract, roles, board and skills — the single source; there is no second copy |
 | `docker/` | Compose fragments: Postgres, Nest, web, optional profiles |
 | `scripts/` | Bash and Python utilities, plus architecture and naming checks |
 | `.github/workflows/` | `ci.yml`, `cd.yml`, `security.yml` |

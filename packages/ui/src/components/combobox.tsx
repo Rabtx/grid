@@ -1,16 +1,16 @@
 "use client";
 
 import { Combobox as ComboboxPrimitive } from "@base-ui/react";
-import { ArrowDown01Icon, Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@school-os/ui/components/button";
+import { Button } from "@grid/ui/components/button";
 import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupButton,
 	InputGroupInput,
-} from "@school-os/ui/components/input-group";
-import { cn } from "@school-os/ui/lib/utils";
+} from "@grid/ui/components/input-group";
+import { cn } from "@grid/ui/lib/utils";
+import { ArrowDown01Icon, Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import * as React from "react";
 
 const Combobox = ComboboxPrimitive.Root;

@@ -2,22 +2,22 @@
 
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
-import { SidebarLeftIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@school-os/ui/components/button";
-import { Input } from "@school-os/ui/components/input";
-import { Separator } from "@school-os/ui/components/separator";
+import { Button } from "@grid/ui/components/button";
+import { Input } from "@grid/ui/components/input";
+import { Separator } from "@grid/ui/components/separator";
 import {
 	Sheet,
 	SheetContent,
 	SheetDescription,
 	SheetHeader,
 	SheetTitle,
-} from "@school-os/ui/components/sheet";
-import { Skeleton } from "@school-os/ui/components/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@school-os/ui/components/tooltip";
-import { useIsMobile } from "@school-os/ui/hooks/use-mobile";
-import { cn } from "@school-os/ui/lib/utils";
+} from "@grid/ui/components/sheet";
+import { Skeleton } from "@grid/ui/components/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@grid/ui/components/tooltip";
+import { useIsMobile } from "@grid/ui/hooks/use-mobile";
+import { cn } from "@grid/ui/lib/utils";
+import { SidebarLeftIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
 

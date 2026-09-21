@@ -1,8 +1,8 @@
 "use client";
 
+import { Badge } from "@grid/ui/components/badge";
 import { ArrowRight01Icon, SecurityLockIcon, UserCircle02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@school-os/ui/components/badge";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";

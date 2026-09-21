@@ -1,10 +1,10 @@
 "use client";
 
+import { useHoverCapable } from "@grid/ui/hooks/use-hover-capable";
+import { EASE_OUT, SPRING_PRESS, SPRING_SWAP } from "@grid/ui/lib/ease";
+import { cn } from "@grid/ui/lib/utils";
 import { Cancel01Icon, CheckIcon, Loading01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useHoverCapable } from "@school-os/ui/hooks/use-hover-capable";
-import { EASE_OUT, SPRING_PRESS, SPRING_SWAP } from "@school-os/ui/lib/ease";
-import { cn } from "@school-os/ui/lib/utils";
 import {
 	AnimatePresence,
 	type HTMLMotionProps,

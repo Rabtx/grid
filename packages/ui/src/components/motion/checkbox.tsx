@@ -1,10 +1,10 @@
 "use client";
 
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox";
+import { SPRING_PRESS, SPRING_SWAP } from "@grid/ui/lib/ease";
+import { cn } from "@grid/ui/lib/utils";
 import { CheckIcon, Loading01Icon, Remove01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { SPRING_PRESS, SPRING_SWAP } from "@school-os/ui/lib/ease";
-import { cn } from "@school-os/ui/lib/utils";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type ComponentPropsWithoutRef, forwardRef, useState } from "react";
 

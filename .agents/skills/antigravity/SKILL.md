@@ -1,6 +1,6 @@
 ---
 name: antigravity
-description: Core operating principles and premium design standards for the Antigravity agent in the Starter.
+description: Core operating principles and premium design standards for the Antigravity agent in the Grid.
 version: 1.0.0
 ---
 
@@ -35,7 +35,7 @@ When working on the frontend (`apps/web`, `apps/mobile`):
 - **Bun**: The only package manager used.
 - **Turbo**: Used for task execution and orchestration.
 - **Biome**: The sole source of truth for linting and formatting.
-- **Workspace Imports**: Always use `@school-os/*` for internal packages.
+- **Workspace Imports**: Always use `@grid/*` for internal packages.
 
 ## Guidelines for Users
 - **Planning**: Antigravity uses `implementation_plan.md` for complex tasks; please review and approve.

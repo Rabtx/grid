@@ -1,12 +1,12 @@
 "use client";
 
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch";
+import { SPRING_PRESS, SPRING_SWAP } from "@grid/ui/lib/ease";
+import { cn } from "@grid/ui/lib/utils";
 import { Cancel01Icon, CheckIcon, Loading01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { SPRING_PRESS, SPRING_SWAP } from "@school-os/ui/lib/ease";
-import { cn } from "@school-os/ui/lib/utils";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { type ComponentPropsWithoutRef, type ReactNode, forwardRef, useState } from "react";
+import { type ComponentPropsWithoutRef, forwardRef, type ReactNode, useState } from "react";
 
 export type SwitchVariant = "default" | "success" | "destructive" | "indigo";
 export type SwitchSize = "sm" | "default" | "lg";

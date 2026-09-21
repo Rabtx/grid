@@ -1,5 +1,41 @@
 "use client";
 
+import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from "@grid/ui/components/avatar";
+import { Badge } from "@grid/ui/components/badge";
+import { Button } from "@grid/ui/components/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardFooter,
+	CardHeader,
+	CardTitle,
+} from "@grid/ui/components/card";
+import {
+	Drawer,
+	DrawerClose,
+	DrawerContent,
+	DrawerDescription,
+	DrawerFooter,
+	DrawerHeader,
+	DrawerTitle,
+	DrawerTrigger,
+} from "@grid/ui/components/drawer";
+import { Input } from "@grid/ui/components/input";
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupButton,
+	InputGroupInput,
+} from "@grid/ui/components/input-group";
+import {
+	Tabs as MotionTabs,
+	TabsContent as MotionTabsContent,
+	TabsList as MotionTabsList,
+	TabsTrigger as MotionTabsTrigger,
+} from "@grid/ui/components/motion/tabs";
+import { Spinner } from "@grid/ui/components/spinner";
+import { cn } from "@grid/ui/lib/utils";
 import {
 	Add01Icon,
 	ArrowRight01Icon,
@@ -12,42 +48,6 @@ import {
 	SparklesIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from "@school-os/ui/components/avatar";
-import { Badge } from "@school-os/ui/components/badge";
-import { Button } from "@school-os/ui/components/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "@school-os/ui/components/card";
-import {
-	Drawer,
-	DrawerClose,
-	DrawerContent,
-	DrawerDescription,
-	DrawerFooter,
-	DrawerHeader,
-	DrawerTitle,
-	DrawerTrigger,
-} from "@school-os/ui/components/drawer";
-import { Input } from "@school-os/ui/components/input";
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupButton,
-	InputGroupInput,
-} from "@school-os/ui/components/input-group";
-import {
-	Tabs as MotionTabs,
-	TabsContent as MotionTabsContent,
-	TabsList as MotionTabsList,
-	TabsTrigger as MotionTabsTrigger,
-} from "@school-os/ui/components/motion/tabs";
-import { Spinner } from "@school-os/ui/components/spinner";
-import { cn } from "@school-os/ui/lib/utils";
 import { motion } from "motion/react";
 import { useState } from "react";
 
@@ -322,7 +322,7 @@ export function RabtxTabsDemo() {
 								<p className="text-muted-foreground">
 									Glides smoothly between triggers with text exclusion color inversion from{" "}
 									<code className="text-teal-600 dark:text-teal-400 font-mono text-[11px]">
-										@school-os/ui/components/motion/tabs
+										@grid/ui/components/motion/tabs
 									</code>
 									.
 								</p>
@@ -358,7 +358,7 @@ export function RabtxTabsDemo() {
 								<p className="text-muted-foreground">
 									Spring stiffness & damping configured via{" "}
 									<code className="font-mono">SPRING_LAYOUT</code> in{" "}
-									<code className="font-mono">@school-os/ui/lib/ease</code>.
+									<code className="font-mono">@grid/ui/lib/ease</code>.
 								</p>
 							</Card>
 						</MotionTabsContent>

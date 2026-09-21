@@ -58,7 +58,7 @@ export function CustomTabList(props: TabListProps) {
 				style={{ maxWidth: MaxContentWidth }}
 			>
 				<ThemedText type="smallBold" className="mr-auto">
-					Expo Starter
+					Expo Grid
 				</ThemedText>
 
 				{props.children}

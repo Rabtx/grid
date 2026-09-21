@@ -1,1 +1,1 @@
-export { cn } from "@school-os/ui/lib/utils";
+export { cn } from "@grid/ui/lib/utils";

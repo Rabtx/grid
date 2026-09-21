@@ -1,9 +1,9 @@
 "use client";
 
-import { Label } from "@school-os/ui/components/label";
-import { Separator } from "@school-os/ui/components/separator";
+import { Label } from "@grid/ui/components/label";
+import { Separator } from "@grid/ui/components/separator";
 
-import { cn } from "@school-os/ui/lib/utils";
+import { cn } from "@grid/ui/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 import { useMemo } from "react";
 

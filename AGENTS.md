@@ -1,11 +1,22 @@
-# Agent instructions (Starter)
+# Agent instructions (Grid)
 
 Universal instructions for AI agents (Cursor, Copilot, Claude Code, Windsurf, Cline, Aider, etc.).
 Read this file first when working in this repo.
 
 ## Project overview
 
-Monorepo Starter managed with **Turborepo + Bun**. Apps, shared packages, and
+**Grid is an AI-native operating system for building and running a startup** — a browser-first,
+provider-agnostic control plane where humans and AI agents build, ship, operate and manage
+products from one system. Agents are first-class workers, not a chat sidebar; execution
+environments (local, Docker, SSH, VPS) are disposable while projects, tasks, sessions and context
+persist. Do not treat Grid as a generic web dashboard or an isolated coding app: judge every change
+by whether it serves that mission, and never couple Grid to one AI provider, one machine or one
+deployment platform.
+
+The Grid product surfaces (board, agent runs, workspaces, ship, operate) are not built yet. This
+repository is currently the engineering spine they will be built on.
+
+Monorepo managed with **Turborepo + Bun**. Apps, shared packages, and
 multi-language scripts, all wired into a single lint/format/build/test surface.
 
 ## Before you write code
@@ -40,8 +51,8 @@ There is **no root `docs/` folder**. Project docs live in the docs app:
 - Browse: http://localhost:3002/docs
 
 Key routes: `/docs/quick-start`, `/docs/production-roadmap`, `/docs/architecture`,
-`/docs/docker`, `/docs/deploy`, `/docs/qol`, `/docs/ai-first-workflow`, `/docs/overrides`,
-`/docs/product-system-design`. Also see root `README.md`, `PROJECT.md`, and `DESIGN.md`.
+`/docs/docker`, `/docs/deploy`, `/docs/qol`, `/docs/ai-first-workflow`, `/docs/overrides`.
+Also see root `README.md`, `PROJECT.md`, and `DESIGN.md`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
@@ -53,7 +64,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 ## Repository layout
 
 ```
-starter/
+grid/
 ├── apps/
 │   ├── web/             # Next.js (React, Tailwind, shadcn-style UI)
 │   ├── mobile/          # Expo Router + NativeWind app (TypeScript)
@@ -111,7 +122,7 @@ starter/
 - **No ESLint/Prettier**: Biome is the only lint/format tool for TS/JS in this project.
 - **Naming**: PascalCase for components; files match component name. Hooks use `use*` prefix;
   utility functions are plain named exports.
-- **Imports**: Prefer workspace imports as `@school-os/<package>` (e.g. `@school-os/ui`).
+- **Imports**: Prefer workspace imports as `@grid/<package>` (e.g. `@grid/ui`).
   Group: external → workspace → relative. No unused imports.
 - **Types**: Explicit types for props and public APIs. Avoid `any`; use `unknown` and narrow.
 - **Errors**: Handle explicitly — log and rethrow, or use result types. No silent catches.
@@ -122,7 +133,7 @@ starter/
 - **Monorepo**: Apps in `apps/`, shared code in `packages/`. When a change applies across apps,
   prefer changing a shared package.
 - **New apps**: Add under `apps/`, wire into `turbo.json` tasks if needed.
-- **New packages**: Add under `packages/`, export via `@school-os/<name>`.
+- **New packages**: Add under `packages/`, export via `@grid/<name>`.
 - **Shared UI**: `packages/ui` uses shadcn-style components. Shared Tailwind tokens live in
   `packages/ui/src/styles/globals.css`.
 - **TypeScript config**: Extend from `packages/typescript-config/base.json` (or `nextjs.json`
@@ -179,13 +190,12 @@ only, then `bun run dev`. See `/docs/docker` and `docker/README.md`.
 - `DESIGN.md` — design-system brief for UI generation and review.
 - **Docs app** (`apps/docs`, run with `bun --cwd=apps/docs run dev`):
   - `/docs/production-roadmap` — production build phases and Nest API spine
-  - `/docs/ai-first-workflow` — starter audit and AI-first workflow roadmap
+  - `/docs/ai-first-workflow` — repository audit and AI-first workflow roadmap
   - `/docs/qol` — full QoL stack (hooks, CI, per-language tools)
   - `/docs/architecture` — architecture baseline and enforceable boundaries
   - `/docs/overrides` — policy for project-specific architecture overrides
   - `/docs/docker` — Docker Compose setup
   - `/docs/deploy` — Vercel (web/docs) + Render (Nest) + Neon
-  - `/docs/product-system-design` — product architecture and security model
 - `.agents/skills/expo-mobile/SKILL.md` — Expo Router + EAS + official Expo Skills / LLM doc links for `apps/mobile`.
 - `.agents/skills/browser-ui-test/SKILL.md` — Browser UI/UX verification via Playwright MCP + `apps/web` e2e after interactive web changes.
 - `.agents/rules/expo-ai-agents.mdc` — Expo remote skills URL, skill table, `llms.txt` bundles (when working under `apps/mobile/**`).

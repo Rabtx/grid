@@ -1,7 +1,7 @@
-# Starter agent working contract
+# Grid agent working contract
 
 This contract applies to every coding, review, planning, and integration agent working on
-Starter. Role charters in `.agents/roles/` add domain-specific requirements; they do not
+Grid. Role charters in `.agents/roles/` add domain-specific requirements; they do not
 override this contract.
 
 The standard is senior engineering behavior: understand the system before changing it, make

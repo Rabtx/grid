@@ -20,7 +20,7 @@ The repo already has a strong base:
 - Docker Compose fragments for Postgres and Hono API.
 - Dev Container support.
 - Agent instructions and rule files.
-- Shared `@school-os/ui` package for stable web primitives.
+- Shared `@grid/ui` package for stable web primitives.
 - Web app already has shadcn-style primitives, dashboard examples, Vitest, and Playwright.
 
 This is already beyond a normal Starter. The next phase should make it easier to turn into a
@@ -75,7 +75,7 @@ Recommendation:
 - Consider Storybook + Chromatic/Percy later for shared components.
 - Store approved screenshots only if the team wants baseline visual regression.
 
-Minimum school-os policy:
+Minimum repository policy:
 
 - Every new product screen should be checked at desktop and mobile widths.
 - Every data view should include loading, empty, error, and populated states.
@@ -199,7 +199,7 @@ Output should be:
 
 For web:
 
-- Use `@school-os/ui` for stable shared primitives.
+- Use `@grid/ui` for stable shared primitives.
 - Keep app-local components in `apps/web/src/components/ui` until they prove reusable.
 - Move reusable primitives into `packages/ui` gradually.
 - Keep route-specific composed components in feature modules.
@@ -233,7 +233,7 @@ Minimum before merge:
 Recommended eventual layout:
 
 ```text
-school-os/
+grid/
 ├── DESIGN.md
 ├── apps/
 │   ├── web/

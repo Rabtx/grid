@@ -1,9 +1,9 @@
 "use client";
 
-import { Button } from "@school-os/ui/components/button";
-import { Input } from "@school-os/ui/components/input";
-import { Textarea } from "@school-os/ui/components/textarea";
-import { cn } from "@school-os/ui/lib/utils";
+import { Button } from "@grid/ui/components/button";
+import { Input } from "@grid/ui/components/input";
+import { Textarea } from "@grid/ui/components/textarea";
+import { cn } from "@grid/ui/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 

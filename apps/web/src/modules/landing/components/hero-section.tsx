@@ -62,8 +62,8 @@ export function HeroSection() {
 						transition={{ duration: 0.8, delay: 0.16, ease: EASE }}
 						className="mx-auto mt-5 max-w-xl text-pretty text-base text-muted-foreground leading-7"
 					>
-						Bun + Turborepo starter with Next.js, Expo, NestJS, docs, and Rust — shared UI, hooks,
-						CI, and Docker included.
+						Bun + Turborepo grid with Next.js, Expo, NestJS, docs, and Rust — shared UI, hooks, CI,
+						and Docker included.
 					</motion.p>
 
 					<motion.div
@@ -123,7 +123,7 @@ function WorkflowCard() {
 					</span>
 					<div>
 						<p className="font-semibold text-neutral-900 text-sm">Workspace bootstrap</p>
-						<p className="text-[11px] text-neutral-500">school-os · just now</p>
+						<p className="text-[11px] text-neutral-500">grid · just now</p>
 					</div>
 				</div>
 
@@ -194,7 +194,7 @@ function AgentChatCard() {
 						<p className="font-semibold text-neutral-900 text-sm">Dev loop</p>
 						<p className="flex items-center gap-1.5 text-[11px] text-neutral-500">
 							<span className="size-1.5 rounded-full bg-emerald-500" />
-							Monorepo starter · ready
+							Monorepo · ready
 						</p>
 					</div>
 				</div>

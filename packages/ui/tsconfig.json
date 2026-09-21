@@ -4,7 +4,7 @@
 		"types": ["react"],
 		"ignoreDeprecations": "6.0",
 		"paths": {
-			"@school-os/ui/*": ["./src/*"]
+			"@grid/ui/*": ["./src/*"]
 		}
 	},
 	"include": ["src/**/*.ts", "src/**/*.tsx"],

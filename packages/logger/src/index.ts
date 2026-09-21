@@ -1,5 +1,5 @@
 /**
- * @school-os/logger — Beautiful, injectable logger for TS/JS. Use createLogger() and inject anywhere.
+ * @grid/logger — Beautiful, injectable logger for TS/JS. Use createLogger() and inject anywhere.
  */
 
 export { type FormatOptions, format, formatTimestamp } from "./format";

@@ -1,14 +1,14 @@
-# Starter - Project overview
+# Grid — project overview
 
-This document is the deeper technical reference for the Starter monorepo.
+This document is the deeper technical reference for the Grid monorepo.
 For quick setup/use, start with `README.md`.
 
 ## What this repository includes
 
-Monorepo starter managed by **Bun + Turborepo**, with:
+Monorepo managed by **Bun + Turborepo**, with:
 
 - Multiple app templates (web, mobile, API, docs, Rust)
-- Shared workspace packages (`@school-os/*`)
+- Shared workspace packages (`@grid/*`)
 - Polyglot scripts and quality tooling
 - Architecture boundary checks
 - Git hooks and CI/CD/security pipelines
@@ -17,7 +17,7 @@ Monorepo starter managed by **Bun + Turborepo**, with:
 ## Repository layout
 
 ```text
-starter/
+grid/
 ├── apps/                     # Runnable applications
 │   ├── web/                  # Next.js app
 │   ├── mobile/               # Expo Router + NativeWind app
@@ -56,9 +56,9 @@ There is no root `docs/` directory.
 
 | Package | Workspace import | Purpose |
 | --- | --- | --- |
-| `packages/ui` | `@school-os/ui` | Shared web UI primitives + design tokens |
-| `packages/logger` | `@school-os/logger` | Shared structured logger for TypeScript and Rust |
-| `packages/typescript-config` | `@school-os/typescript-config` | Reusable TypeScript config presets |
+| `packages/ui` | `@grid/ui` | Shared web UI primitives + design tokens |
+| `packages/logger` | `@grid/logger` | Shared structured logger for TypeScript and Rust |
+| `packages/typescript-config` | `@grid/typescript-config` | Reusable TypeScript config presets |
 
 ## Root command surface
 
@@ -170,11 +170,11 @@ More details: docs app `/docs/docker` and `docker/README.md`.
 - Cursor-specific rules: `.agents/rules/`
 - Architecture baseline: docs app `/docs/architecture`
 - Override process: docs app `/docs/overrides`
-- Use workspace imports as `@school-os/<package>`
+- Use workspace imports as `@grid/<package>`
 
 ## Related docs
 
 - `README.md` - quick start and high-level navigation
-- Docs app (`apps/docs`): `/docs/product-system-design`, `/docs/qol`, `/docs/production-roadmap`
+- Docs app (`apps/docs`): `/docs/qol`, `/docs/production-roadmap`
 - `scripts/README.md` - script usage and structure
 - `apps/*/README.md` - per-app setup and workflows

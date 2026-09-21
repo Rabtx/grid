@@ -16,8 +16,8 @@
   "menuAccent": "subtle",
   "aliases": {
     "components": "@/components",
-    "utils": "@school-os/ui/lib/utils",
-    "ui": "@school-os/ui/components",
+    "utils": "@grid/ui/lib/utils",
+    "ui": "@grid/ui/components",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },

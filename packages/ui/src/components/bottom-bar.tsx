@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@school-os/ui/lib/utils";
+import { cn } from "@grid/ui/lib/utils";
 import { LayoutGroup, MotionConfig, motion, type Transition, useReducedMotion } from "motion/react";
 import React, {
 	createContext,
@@ -97,7 +97,7 @@ export function generateAaveLensNormalMap({
 			const dist = Math.sqrt(dx * dx + dy * dy);
 
 			if (dist <= 1) {
-				const factor = Math.pow(dist, curv) * dep;
+				const factor = dist ** curv * dep;
 				const normX = Math.min(1, Math.max(-1, dx * factor * splay));
 				const normY = Math.min(1, Math.max(-1, dy * factor * splay));
 

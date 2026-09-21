@@ -1,10 +1,10 @@
+import { Button } from "@grid/ui/components/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@grid/ui/components/field";
+import { Input } from "@grid/ui/components/input";
+import { Spinner } from "@grid/ui/components/spinner";
+import { Textarea } from "@grid/ui/components/textarea";
 import { SaveIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@school-os/ui/components/button";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@school-os/ui/components/field";
-import { Input } from "@school-os/ui/components/input";
-import { Spinner } from "@school-os/ui/components/spinner";
-import { Textarea } from "@school-os/ui/components/textarea";
 import type { UpdateUserProfileInput } from "../types/user.types";
 import { AvatarPicker } from "./avatar-picker";
 
@@ -23,7 +23,7 @@ export function ProfileForm({
 	onSubmit: (event: React.FormEvent) => void;
 	onUploadAvatar: (file: File) => void;
 }) {
-	const seed = value.username?.trim() || value.displayName?.trim() || "school-os";
+	const seed = value.username?.trim() || value.displayName?.trim() || "grid";
 
 	return (
 		<form onSubmit={onSubmit}>

@@ -1,8 +1,8 @@
 "use client";
 
+import { Tooltip, TooltipContent, TooltipTrigger } from "@grid/ui/components/tooltip";
 import { Notification03Icon, PrinterIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@school-os/ui/components/tooltip";
 import Link from "next/link";
 import type { ComponentProps } from "react";
 import { ThemeToggleControl } from "@/components/motion/theme-toggle";

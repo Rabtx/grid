@@ -23,9 +23,9 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "Pricing — Starter",
+	title: "Pricing — Grid",
 	description:
-		"Starter is free to clone and run. Slide for team and enterprise seats — no surprise overages.",
+		"Grid is free to clone and run. Slide for team and enterprise seats — no surprise overages.",
 };
 
 export default function PricingPage() {

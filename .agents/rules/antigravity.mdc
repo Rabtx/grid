@@ -1,5 +1,5 @@
 ---
-description: Antigravity-specific operating principles and workflow for the starter monorepo
+description: Antigravity-specific operating principles and workflow for the Grid monorepo
 alwaysApply: true
 ---
 
@@ -20,7 +20,7 @@ I am Antigravity, an advanced agentic coding assistant. When working in this rep
 ## 3. Tooling Consistency
 - **Bun & Turbo**: Use `bun` for all package management and `turbo` for orchestration.
 - **Biome**: Follow Biome's linting and formatting rules strictly (tabs, 100 line width).
-- **Workspace Imports**: Use `@school-os/*` imports to maintain monorepo integrity.
+- **Workspace Imports**: Use `@grid/*` imports to maintain monorepo integrity.
 
 ## 4. Communication & Documentation
 - **Clear Intent**: Use artifacts for complex plans and walkthroughs.

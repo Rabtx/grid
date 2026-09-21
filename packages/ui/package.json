@@ -1,5 +1,5 @@
 {
-	"name": "@school-os/ui",
+	"name": "@grid/ui",
 	"version": "0.0.0",
 	"private": true,
 	"sideEffects": ["**/*.css"],
@@ -42,7 +42,7 @@
 	},
 	"devDependencies": {
 		"@hugeicons/react-native": "^1.0.8",
-		"@school-os/typescript-config": "workspace:*",
+		"@grid/typescript-config": "workspace:*",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
 		"react-native": "0.86.0",

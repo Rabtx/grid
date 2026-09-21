@@ -1,18 +1,18 @@
 "use client";
 
-import { CodeIcon, Copy01Icon, EyeIcon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@school-os/ui/components/badge";
-import { Button } from "@school-os/ui/components/button";
+import { Badge } from "@grid/ui/components/badge";
+import { Button } from "@grid/ui/components/button";
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@school-os/ui/components/card";
-import { Tabs, TabsList, TabsTrigger } from "@school-os/ui/components/tabs";
-import { cn } from "@school-os/ui/lib/utils";
+} from "@grid/ui/components/card";
+import { Tabs, TabsList, TabsTrigger } from "@grid/ui/components/tabs";
+import { cn } from "@grid/ui/lib/utils";
+import { CodeIcon, Copy01Icon, EyeIcon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { motion } from "motion/react";
 import { type ReactNode, useState } from "react";
 

@@ -1,17 +1,17 @@
 "use client";
 
-import { Alert, AlertDescription, AlertTitle } from "@school-os/ui/components/alert";
-import { Button } from "@school-os/ui/components/button";
+import { Alert, AlertDescription, AlertTitle } from "@grid/ui/components/alert";
+import { Button } from "@grid/ui/components/button";
 import {
 	Card,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@school-os/ui/components/card";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@school-os/ui/components/field";
-import { Input } from "@school-os/ui/components/input";
-import { Spinner } from "@school-os/ui/components/spinner";
+} from "@grid/ui/components/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@grid/ui/components/field";
+import { Input } from "@grid/ui/components/input";
+import { Spinner } from "@grid/ui/components/spinner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import * as api from "@/lib/api-client";

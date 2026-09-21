@@ -1,7 +1,7 @@
-import { Button } from "@school-os/ui/components/button";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@school-os/ui/components/field";
-import { Input } from "@school-os/ui/components/input";
-import { Spinner } from "@school-os/ui/components/spinner";
+import { Button } from "@grid/ui/components/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@grid/ui/components/field";
+import { Input } from "@grid/ui/components/input";
+import { Spinner } from "@grid/ui/components/spinner";
 
 export function TwoFactorForm({
 	code,

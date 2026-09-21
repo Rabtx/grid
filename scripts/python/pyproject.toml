@@ -1,7 +1,7 @@
 [project]
-name = "school-scripts"
+name = "grid-scripts"
 version = "0.1.0"
-description = "Python scripts for Starter"
+description = "Python scripts for Grid"
 requires-python = ">=3.11"
 
 [tool.ruff]

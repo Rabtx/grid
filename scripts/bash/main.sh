@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starter scripts – bash
+# Grid scripts – bash
 set -euo pipefail
 
-echo "Hello from Starter scripts (bash)"
+echo "Hello from Grid scripts (bash)"

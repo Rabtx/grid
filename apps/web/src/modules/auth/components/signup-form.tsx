@@ -1,5 +1,22 @@
 "use client";
 
+import { Alert, AlertDescription, AlertTitle } from "@grid/ui/components/alert";
+import { Button } from "@grid/ui/components/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@grid/ui/components/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@grid/ui/components/field";
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupButton,
+	InputGroupInput,
+} from "@grid/ui/components/input-group";
+import { Spinner } from "@grid/ui/components/spinner";
 import {
 	AlertCircleIcon,
 	Mail01Icon,
@@ -8,23 +25,6 @@ import {
 	ViewOffSlashIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Alert, AlertDescription, AlertTitle } from "@school-os/ui/components/alert";
-import { Button } from "@school-os/ui/components/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@school-os/ui/components/card";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@school-os/ui/components/field";
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupButton,
-	InputGroupInput,
-} from "@school-os/ui/components/input-group";
-import { Spinner } from "@school-os/ui/components/spinner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -90,9 +90,9 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
 		<div className={cn("flex flex-col gap-6", className)} {...props}>
 			<Card className="rounded-[16px] border border-dashboard-border bg-dashboard-surface ring-0">
 				<CardHeader className="text-center">
-					<p className="text-muted-foreground text-sm font-medium">Starter</p>
+					<p className="text-muted-foreground text-sm font-medium">Grid</p>
 					<CardTitle className="text-2xl">Create your account</CardTitle>
-					<CardDescription>Create your secure starter account</CardDescription>
+					<CardDescription>Create your secure grid account</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={handleSubmit}>

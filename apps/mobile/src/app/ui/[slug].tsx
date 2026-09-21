@@ -1,3 +1,4 @@
+import { MobileBottomBar, MobileBottomBarItem } from "@grid/ui/components/mobile";
 import {
 	ArrowRightIcon,
 	Grid02Icon,
@@ -8,7 +9,6 @@ import {
 	UserIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { MobileBottomBar, MobileBottomBarItem } from "@school-os/ui/components/mobile";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
@@ -35,7 +35,7 @@ import {
 	StatefulButton,
 } from "../../modules/ui";
 
-const BOTTOM_BAR_CODE_EXAMPLE = `import { MobileBottomBar, MobileBottomBarItem } from "@school-os/ui/components/mobile";
+const BOTTOM_BAR_CODE_EXAMPLE = `import { MobileBottomBar, MobileBottomBarItem } from "@grid/ui/components/mobile";
 
 export function GlassBottomBarDemo() {
   const [active, setActive] = useState("home");
@@ -57,18 +57,18 @@ export function GlassBottomBarDemo() {
   );
 }`;
 
-const TABS_CODE_EXAMPLE = `import { MotionTabs } from "@school-os/ui/components/mobile";`;
-const BUTTON_CODE_EXAMPLE = `import { MobileMotionButton } from "@school-os/ui/components/mobile";`;
-const INPUT_CODE_EXAMPLE = `import { MobileMotionInput } from "@school-os/ui/components/mobile";`;
-const SELECT_CODE_EXAMPLE = `import { MobileMotionSelect } from "@school-os/ui/components/mobile";`;
-const TYPESET_CODE_EXAMPLE = `import { MobileTypeset, MobileTypesetHeading, MobileTypesetParagraph } from "@school-os/ui/components/mobile";`;
+const TABS_CODE_EXAMPLE = `import { MotionTabs } from "@grid/ui/components/mobile";`;
+const BUTTON_CODE_EXAMPLE = `import { MobileMotionButton } from "@grid/ui/components/mobile";`;
+const INPUT_CODE_EXAMPLE = `import { MobileMotionInput } from "@grid/ui/components/mobile";`;
+const SELECT_CODE_EXAMPLE = `import { MobileMotionSelect } from "@grid/ui/components/mobile";`;
+const TYPESET_CODE_EXAMPLE = `import { MobileTypeset, MobileTypesetHeading, MobileTypesetParagraph } from "@grid/ui/components/mobile";`;
 
 export default function ComponentSlugScreen() {
 	const { slug = "tabs" } = useLocalSearchParams<{ slug: string }>();
 	const [activePlatformView, setActivePlatformView] = useState<"preview" | "code">("preview");
 
 	const [bottomBarTab, setBottomBarTab] = useState("home");
-	const [emailVal, setEmailVal] = useState("shabir@school-os.dev");
+	const [emailVal, setEmailVal] = useState("shabir@grid.dev");
 	const [roleSelect, setRoleSelect] = useState("admin");
 
 	// MOBILE STUDIO CONTROL PARAMETERS

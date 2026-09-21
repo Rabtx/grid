@@ -12,10 +12,10 @@ import {
 import type { IconSvgElement } from "@hugeicons/react";
 
 export const SITE = {
-	name: "Starter",
-	title: "Starter — production monorepo starter",
+	name: "Grid",
+	title: "Grid — production monorepo",
 	description:
-		"Bun + Turborepo starter with Next.js, Expo, NestJS, docs, and Rust — shared UI, hooks, CI, and Docker included.",
+		"Bun + Turborepo grid with Next.js, Expo, NestJS, docs, and Rust — shared UI, hooks, CI, and Docker included.",
 } as const;
 
 export type NavLink = {
@@ -73,7 +73,7 @@ export const NAV_ITEMS: NavItem[] = [
 			},
 			{
 				label: "About",
-				description: "Why we built Starter",
+				description: "Why we built Grid",
 				href: "/about",
 			},
 		],
@@ -140,11 +140,11 @@ export const AGENT_MESSAGES: ChatMessage[] = [
 	},
 	{
 		role: "agent",
-		text: "Starter already ships all three — plus docs and a Rust binary.",
+		text: "Grid already ships all three — plus docs and a Rust binary.",
 	},
 	{
 		role: "agent",
-		text: "Shared @school-os/ui and typescript-config keep stacks consistent.",
+		text: "Shared @grid/ui and typescript-config keep stacks consistent.",
 	},
 	{
 		role: "agent",
@@ -170,7 +170,7 @@ export const CUSTOMER_LOGOS: CustomerLogo[] = [
 
 export const PRODUCT_BULLETS: string[] = [
 	"Five apps in one workspace — web, mobile, Nest, docs, Rust",
-	"Shared UI tokens and TypeScript configs via @school-os/*",
+	"Shared UI tokens and TypeScript configs via @grid/*",
 	"Hooks, CI, architecture boundaries, and Compose out of the box",
 ];
 
@@ -208,7 +208,7 @@ export const INCIDENT_TIMELINE: IncidentEvent[] = [
 	},
 	{
 		title: "Ready to ship",
-		detail: "Docker Compose optional — school-os is live",
+		detail: "Docker Compose optional — grid is live",
 		tone: "ok",
 		icon: "shield",
 	},
@@ -247,14 +247,14 @@ export const CAPABILITY_CARDS: CapabilityCard[] = [
 	{
 		title: "Add an app in one workspace",
 		description:
-			"Drop a package under apps/ or packages/, export as @school-os/*, and wire it into turbo.json.",
+			"Drop a package under apps/ or packages/, export as @grid/*, and wire it into turbo.json.",
 		span: 2,
 		kind: "tools",
 		palette: "blue",
 	},
 	{
 		title: "Shared UI that sticks",
-		description: "Design tokens and primitives live in @school-os/ui for web.",
+		description: "Design tokens and primitives live in @grid/ui for web.",
 		span: 2,
 		kind: "memory",
 		palette: "teal",
@@ -325,7 +325,7 @@ export type AboutPrinciple = {
 export const ABOUT_PRINCIPLES: AboutPrinciple[] = [
 	{
 		icon: "bridge",
-		title: "Starter, not a demo dump",
+		title: "Grid, not a demo dump",
 		description:
 			"Every app and package earns its place by helping you ship a real product — not a throwaway scaffold.",
 	},
@@ -386,7 +386,7 @@ export const ABOUT_TEAM: AboutTeamMember[] = [
 		name: "Theo Park",
 		role: "Mobile & UI",
 		seed: "TheoPark",
-		bio: "Expo Router + shared design tokens. Believes the starter should look production-ready on day one.",
+		bio: "Expo Router + shared design tokens. Believes Grid should look production-ready on day one.",
 		tone: "amber",
 		profileHref: "#",
 	},
@@ -402,7 +402,7 @@ export type Testimonial = {
 export const TESTIMONIALS_ROW_ONE: Testimonial[] = [
 	{
 		quote:
-			"We skipped three weeks of wiring Turbo, hooks, and Docker. Starter was already opinionated the right way.",
+			"We skipped three weeks of wiring Turbo, hooks, and Docker. Grid was already opinionated the right way.",
 		name: "Maya Chen",
 		role: "Staff Eng, campus product",
 		seed: "Maya",
@@ -426,7 +426,7 @@ export const TESTIMONIALS_ROW_ONE: Testimonial[] = [
 export const TESTIMONIALS_ROW_TWO: Testimonial[] = [
 	{
 		quote:
-			"Adding a package under packages/ and exporting @school-os/* took minutes. Turbo picked it up immediately.",
+			"Adding a package under packages/ and exporting @grid/* took minutes. Turbo picked it up immediately.",
 		name: "Theo Park",
 		role: "Mobile engineer",
 		seed: "Theo",
@@ -474,8 +474,8 @@ export const PRICING_TIERS: PricingTier[] = [
 ];
 
 export const PRICING_FEATURES: string[] = [
-	"Full monorepo starter (web · mobile · Nest · docs · Rust)",
-	"Shared @school-os packages and TS configs",
+	"Full monorepo (web · mobile · Nest · docs · Rust)",
+	"Shared @grid packages and TS configs",
 	"Lefthook, Biome, Turbo, and architecture checks",
 	"Docker Compose fragments + Dev Container",
 	"Docs site and production roadmap baked in",
@@ -540,7 +540,7 @@ export const FAQ_ITEMS: FaqItem[] = [
 	},
 	{
 		id: "stack",
-		question: "What stacks does Starter include?",
+		question: "What stacks does Grid include?",
 		answer:
 			"Next.js web, Expo mobile, NestJS API, Fumadocs docs, and a Rust binary — plus shared UI, logger, and TypeScript configs.",
 		icon: Package01Icon,
@@ -554,9 +554,9 @@ export const FAQ_ITEMS: FaqItem[] = [
 	},
 	{
 		id: "pricing",
-		question: "Is the starter free to use?",
+		question: "Is Grid free to use?",
 		answer:
-			"The monorepo starter is free to clone and run. Paid tiers are optional for team seats, support, and managed onboarding — annual billing includes two months free.",
+			"Grid is free to clone and run. Paid tiers are optional for team seats, support, and managed onboarding — annual billing includes two months free.",
 		icon: GemIcon,
 	},
 	{

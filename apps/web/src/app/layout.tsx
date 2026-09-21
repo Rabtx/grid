@@ -12,10 +12,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
 	title: {
-		default: "Starter",
-		template: "%s | Starter",
+		default: "Grid",
+		template: "%s | Grid",
 	},
-	description: "Production-ready application starter",
+	description: "Production-ready application grid",
 };
 
 export default function RootLayout({

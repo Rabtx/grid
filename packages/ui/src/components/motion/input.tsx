@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@school-os/ui/lib/utils";
+import { cn } from "@grid/ui/lib/utils";
 import { AnimatePresence, animate, motion, useReducedMotion } from "motion/react";
 import {
 	forwardRef,

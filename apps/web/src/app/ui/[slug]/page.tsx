@@ -1,5 +1,77 @@
 "use client";
 
+import { Badge } from "@grid/ui/components/badge";
+import {
+	BottomBar,
+	BottomBarItem,
+	generateAaveLensNormalMap,
+} from "@grid/ui/components/bottom-bar";
+import { Button } from "@grid/ui/components/button";
+import { Card, CardContent } from "@grid/ui/components/card";
+import {
+	GlassCard,
+	GlassCardBadge,
+	GlassCardContent,
+	GlassCardDescription,
+	GlassCardFooter,
+	GlassCardHeader,
+	GlassCardTitle,
+} from "@grid/ui/components/glass-card";
+import {
+	AccordionContent,
+	AccordionItem,
+	AccordionTrigger,
+	MotionAccordion,
+} from "@grid/ui/components/motion/accordion";
+import { type ButtonState, StatefulButton } from "@grid/ui/components/motion/button";
+import { MotionCheckbox, StatefulCheckbox } from "@grid/ui/components/motion/checkbox";
+import { MotionInput } from "@grid/ui/components/motion/input";
+import {
+	MotionSelect,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectSearch,
+	SelectTrigger,
+	SelectValue,
+} from "@grid/ui/components/motion/select";
+import { MotionSlider } from "@grid/ui/components/motion/slider";
+import { MotionSwitch, StatefulSwitch } from "@grid/ui/components/motion/switch";
+import {
+	MotionTable,
+	MotionTableCell,
+	MotionTableExpandableRow,
+	MotionTableHead,
+	MotionTablePagination,
+	MotionTableRow,
+	MotionTableSkeleton,
+	sortRows,
+	TableEmptyState,
+	TableSortHead,
+	useTableSelection,
+	useTableSort,
+} from "@grid/ui/components/motion/table";
+import {
+	Tabs as MotionTabs,
+	TabsContent as MotionTabsContent,
+	TabsList as MotionTabsList,
+	TabsTrigger as MotionTabsTrigger,
+} from "@grid/ui/components/motion/tabs";
+import {
+	TableBody,
+	TableCell,
+	TableFooter,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@grid/ui/components/table";
+import {
+	NotTypeset,
+	Typeset,
+	type TypesetPreset,
+	TypesetScroll,
+} from "@grid/ui/components/typeset";
 import {
 	AccessibilityIcon,
 	Add01Icon,
@@ -34,78 +106,6 @@ import {
 	UserIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@school-os/ui/components/badge";
-import {
-	BottomBar,
-	BottomBarItem,
-	generateAaveLensNormalMap,
-} from "@school-os/ui/components/bottom-bar";
-import { Button } from "@school-os/ui/components/button";
-import { Card, CardContent } from "@school-os/ui/components/card";
-import {
-	GlassCard,
-	GlassCardBadge,
-	GlassCardContent,
-	GlassCardDescription,
-	GlassCardFooter,
-	GlassCardHeader,
-	GlassCardTitle,
-} from "@school-os/ui/components/glass-card";
-import {
-	AccordionContent,
-	AccordionItem,
-	AccordionTrigger,
-	MotionAccordion,
-} from "@school-os/ui/components/motion/accordion";
-import { type ButtonState, StatefulButton } from "@school-os/ui/components/motion/button";
-import { MotionCheckbox, StatefulCheckbox } from "@school-os/ui/components/motion/checkbox";
-import { MotionInput } from "@school-os/ui/components/motion/input";
-import {
-	MotionSelect,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectLabel,
-	SelectSearch,
-	SelectTrigger,
-	SelectValue,
-} from "@school-os/ui/components/motion/select";
-import { MotionSlider } from "@school-os/ui/components/motion/slider";
-import { MotionSwitch, StatefulSwitch } from "@school-os/ui/components/motion/switch";
-import {
-	MotionTable,
-	MotionTableCell,
-	MotionTableExpandableRow,
-	MotionTableHead,
-	MotionTablePagination,
-	MotionTableRow,
-	MotionTableSkeleton,
-	sortRows,
-	TableEmptyState,
-	TableSortHead,
-	useTableSelection,
-	useTableSort,
-} from "@school-os/ui/components/motion/table";
-import {
-	Tabs as MotionTabs,
-	TabsContent as MotionTabsContent,
-	TabsList as MotionTabsList,
-	TabsTrigger as MotionTabsTrigger,
-} from "@school-os/ui/components/motion/tabs";
-import {
-	TableBody,
-	TableCell,
-	TableFooter,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@school-os/ui/components/table";
-import {
-	NotTypeset,
-	Typeset,
-	type TypesetPreset,
-	TypesetScroll,
-} from "@school-os/ui/components/typeset";
 import { AnimatePresence, motion } from "motion/react";
 import { use, useEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/theme";
@@ -115,8 +115,8 @@ const WEB_TABLE_SORT_CODE = `import {
   MotionTableRow,
   TableSortHead,
   useTableSort,
-} from "@school-os/ui/components/motion/table";
-import { TableHeader, TableBody, TableCell } from "@school-os/ui/components/table";
+} from "@grid/ui/components/motion/table";
+import { TableHeader, TableBody, TableCell } from "@grid/ui/components/table";
 
 const STUDENTS = [
   { id: "1", name: "Elena Rostova", grade: "Grade 11", gpa: 3.95 },
@@ -168,9 +168,9 @@ const WEB_TABLE_SELECT_CODE = `import {
   MotionTable,
   MotionTableRow,
   useTableSelection,
-} from "@school-os/ui/components/motion/table";
-import { TableHeader, TableBody, TableHead, TableCell } from "@school-os/ui/components/table";
-import { MotionCheckbox } from "@school-os/ui/components/motion/checkbox";
+} from "@grid/ui/components/motion/table";
+import { TableHeader, TableBody, TableHead, TableCell } from "@grid/ui/components/table";
+import { MotionCheckbox } from "@grid/ui/components/motion/checkbox";
 
 const ROWS = [
   { id: "1", name: "Elena Rostova", role: "Student" },
@@ -219,8 +219,8 @@ export function MotionTableSelectDemo() {
 const WEB_TABLE_EXPAND_CODE = `import {
   MotionTable,
   MotionTableExpandableRow,
-} from "@school-os/ui/components/motion/table";
-import { TableHeader, TableBody, TableCell } from "@school-os/ui/components/table";
+} from "@grid/ui/components/motion/table";
+import { TableHeader, TableBody, TableCell } from "@grid/ui/components/table";
 
 const TASKS = [
   { id: "1", title: "Design system audit", status: "In progress", detail: "Review all tokens..." },
@@ -260,8 +260,8 @@ const WEB_TABLE_LIVE_CODE = `import { AnimatePresence } from "motion/react";
 import {
   MotionTable,
   MotionTableRow,
-} from "@school-os/ui/components/motion/table";
-import { TableHeader, TableBody, TableCell } from "@school-os/ui/components/table";
+} from "@grid/ui/components/motion/table";
+import { TableHeader, TableBody, TableCell } from "@grid/ui/components/table";
 
 const initial = [{ id: "1", name: "Elena Rostova", status: "Queued" }];
 
@@ -306,8 +306,8 @@ const WEB_TABLE_EMPTY_CODE = `import {
   MotionTable,
   MotionTableRow,
   TableEmptyState,
-} from "@school-os/ui/components/motion/table";
-import { TableHeader, TableBody, TableCell } from "@school-os/ui/components/table";
+} from "@grid/ui/components/motion/table";
+import { TableHeader, TableBody, TableCell } from "@grid/ui/components/table";
 
 export function MotionTableEmptyDemo() {
   const [rows, setRows] = useState<string[]>([]);
@@ -342,8 +342,8 @@ export function MotionTableEmptyDemo() {
 const WEB_TABLE_SKELETON_CODE = `import {
   MotionTable,
   MotionTableSkeleton,
-} from "@school-os/ui/components/motion/table";
-import { TableHeader, TableBody, TableHead, TableCell } from "@school-os/ui/components/table";
+} from "@grid/ui/components/motion/table";
+import { TableHeader, TableBody, TableHead, TableCell } from "@grid/ui/components/table";
 
 export function MotionTableSkeletonDemo() {
   return (
@@ -364,7 +364,7 @@ const WEB_ACCORDION_CODE = `import {
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
-} from "@school-os/ui/components/motion/accordion";
+} from "@grid/ui/components/motion/accordion";
 
 export function MotionAccordionDemo() {
   return (
@@ -379,7 +379,7 @@ export function MotionAccordionDemo() {
   );
 }`;
 
-const WEB_CHECKBOX_CODE = `import { MotionCheckbox, StatefulCheckbox } from "@school-os/ui/components/motion/checkbox";
+const WEB_CHECKBOX_CODE = `import { MotionCheckbox, StatefulCheckbox } from "@grid/ui/components/motion/checkbox";
 
 export function MotionCheckboxDemo() {
   return (
@@ -399,7 +399,7 @@ export function MotionCheckboxDemo() {
   );
 }`;
 
-const WEB_SLIDER_CODE = `import { MotionSlider } from "@school-os/ui/components/motion/slider";
+const WEB_SLIDER_CODE = `import { MotionSlider } from "@grid/ui/components/motion/slider";
 
 export function MotionSliderDemo() {
   return (
@@ -411,7 +411,7 @@ export function MotionSliderDemo() {
   );
 }`;
 
-const WEB_SWITCH_CODE = `import { MotionSwitch, StatefulSwitch } from "@school-os/ui/components/motion/switch";
+const WEB_SWITCH_CODE = `import { MotionSwitch, StatefulSwitch } from "@grid/ui/components/motion/switch";
 
 export function MotionSwitchDemo() {
   return (
@@ -438,7 +438,7 @@ const WEB_GLASS_CARD_CODE = `import {
   GlassCardContent,
   GlassCardFooter,
   GlassCardBadge,
-} from "@school-os/ui/components/glass-card";
+} from "@grid/ui/components/glass-card";
 
 export function LiquidGlassCardDemo() {
   return (
@@ -464,7 +464,7 @@ export function LiquidGlassCardDemo() {
   );
 }`;
 
-const WEB_BOTTOM_BAR_CODE = `import { BottomBar, BottomBarItem } from "@school-os/ui/components/bottom-bar";
+const WEB_BOTTOM_BAR_CODE = `import { BottomBar, BottomBarItem } from "@grid/ui/components/bottom-bar";
 
 export function OfficialAaveGlassStudioDemo() {
   const [active, setActive] = useState("home");
@@ -486,11 +486,11 @@ export function OfficialAaveGlassStudioDemo() {
   );
 }`;
 
-const WEB_TABS_CODE = `import { Tabs, TabsList, TabsTrigger, TabsContent } from "@school-os/ui/components/motion/tabs";`;
-const WEB_BUTTON_CODE = `import { MotionButton, StatefulButton } from "@school-os/ui/components/motion/button";`;
-const WEB_INPUT_CODE = `import { MotionInput } from "@school-os/ui/components/motion/input";`;
-const WEB_SELECT_CODE = `import { MotionSelect } from "@school-os/ui/components/motion/select";`;
-const WEB_TYPESET_CODE = `import { Typeset, TypesetScroll, NotTypeset } from "@school-os/ui";`;
+const WEB_TABS_CODE = `import { Tabs, TabsList, TabsTrigger, TabsContent } from "@grid/ui/components/motion/tabs";`;
+const WEB_BUTTON_CODE = `import { MotionButton, StatefulButton } from "@grid/ui/components/motion/button";`;
+const WEB_INPUT_CODE = `import { MotionInput } from "@grid/ui/components/motion/input";`;
+const WEB_SELECT_CODE = `import { MotionSelect } from "@grid/ui/components/motion/select";`;
+const WEB_TYPESET_CODE = `import { Typeset, TypesetScroll, NotTypeset } from "@grid/ui";`;
 
 /* ─────────────────────────────────────────────────────────────────── */
 /* Motion Table demo sub-components                                    */
@@ -1190,7 +1190,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 	};
 
 	const copyInstall = () => {
-		navigator.clipboard.writeText("bun add @school-os/ui");
+		navigator.clipboard.writeText("bun add @grid/ui");
 		setCmdCopied(true);
 		setTimeout(() => setCmdCopied(false), 2000);
 	};
@@ -2135,7 +2135,7 @@ export default function ComponentPage({ params }: { params: Promise<{ slug: stri
 				</h2>
 				<Card className="border border-border bg-card p-4">
 					<div className="flex items-center justify-between font-mono text-xs bg-zinc-950 text-zinc-100 p-3 rounded-lg border border-zinc-800">
-						<code>bun add @school-os/ui</code>
+						<code>bun add @grid/ui</code>
 						<Button
 							variant="ghost"
 							size="sm"

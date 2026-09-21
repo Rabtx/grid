@@ -1,14 +1,14 @@
-import { Mail01Icon, ViewIcon, ViewOffSlashIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@school-os/ui/components/button";
-import { Field, FieldGroup, FieldLabel } from "@school-os/ui/components/field";
+import { Button } from "@grid/ui/components/button";
+import { Field, FieldGroup, FieldLabel } from "@grid/ui/components/field";
 import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupButton,
 	InputGroupInput,
-} from "@school-os/ui/components/input-group";
-import { Spinner } from "@school-os/ui/components/spinner";
+} from "@grid/ui/components/input-group";
+import { Spinner } from "@grid/ui/components/spinner";
+import { Mail01Icon, ViewIcon, ViewOffSlashIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 
 interface LoginCredentialsFormProps {

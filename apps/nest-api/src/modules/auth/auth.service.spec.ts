@@ -12,8 +12,8 @@ import { AuthCryptoService } from './auth-crypto.service';
 
 const user: UserRecord = {
 	id: 'a01a0cab-a947-44f0-bfcd-4b8e8c907534',
-	email: 'starter@example.com',
-	username: 'starter',
+	email: 'grid@example.com',
+	username: 'grid',
 	passwordHash: 'password-hash',
 	emailVerifiedAt: null,
 	isActive: true,

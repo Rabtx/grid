@@ -1,37 +1,6 @@
 "use client";
 
 import {
-	BluetoothIcon,
-	CodeIcon,
-	ComputerIcon,
-	CreditCardIcon,
-	DownloadIcon,
-	EyeIcon,
-	File01Icon,
-	FileIcon,
-	FloppyDiskIcon,
-	FolderIcon,
-	FolderOpenIcon,
-	HelpCircleIcon,
-	KeyboardIcon,
-	LanguageCircleIcon,
-	LayoutIcon,
-	LogoutIcon,
-	MailIcon,
-	MoonIcon,
-	MoreHorizontalCircle01Icon,
-	MoreVerticalCircle01Icon,
-	NotificationIcon,
-	PaintBoardIcon,
-	PlusSignIcon,
-	SearchIcon,
-	SettingsIcon,
-	ShieldIcon,
-	SunIcon,
-	UserIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
 	AlertDialog,
 	AlertDialogAction,
 	AlertDialogCancel,
@@ -85,7 +54,38 @@ import {
 	SelectTrigger,
 	SelectValue,
 	Textarea,
-} from "@school-os/ui";
+} from "@grid/ui";
+import {
+	BluetoothIcon,
+	CodeIcon,
+	ComputerIcon,
+	CreditCardIcon,
+	DownloadIcon,
+	EyeIcon,
+	File01Icon,
+	FileIcon,
+	FloppyDiskIcon,
+	FolderIcon,
+	FolderOpenIcon,
+	HelpCircleIcon,
+	KeyboardIcon,
+	LanguageCircleIcon,
+	LayoutIcon,
+	LogoutIcon,
+	MailIcon,
+	MoonIcon,
+	MoreHorizontalCircle01Icon,
+	MoreVerticalCircle01Icon,
+	NotificationIcon,
+	PaintBoardIcon,
+	PlusSignIcon,
+	SearchIcon,
+	SettingsIcon,
+	ShieldIcon,
+	SunIcon,
+	UserIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import Image from "next/image";
 import * as React from "react";
 

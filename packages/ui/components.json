@@ -15,11 +15,11 @@
   "menuColor": "inverted",
   "menuAccent": "subtle",
   "aliases": {
-    "components": "@school-os/ui/components",
-    "utils": "@school-os/ui/lib/utils",
-    "ui": "@school-os/ui/components",
-    "lib": "@school-os/ui/lib",
-    "hooks": "@school-os/ui/hooks"
+    "components": "@grid/ui/components",
+    "utils": "@grid/ui/lib/utils",
+    "ui": "@grid/ui/components",
+    "lib": "@grid/ui/lib",
+    "hooks": "@grid/ui/hooks"
   },
   "registries": {
     "@beui": "https://beui.dev/r/{name}.json"

@@ -30,7 +30,7 @@ branch.
 - Make session, foreground/resume, offline, loading, empty, error, and retry states explicit.
 - Protect user isolation in query caches and reset state on account changes.
 - Respect platform differences, keyboard behavior, gestures, accessibility, and reduced motion.
-- Avoid fake data, dead interaction affordances, starter residue, and destructive actions without
+- Avoid fake data, dead interaction affordances, scaffolding residue, and destructive actions without
   confirmation or recovery.
 
 ## Required checks

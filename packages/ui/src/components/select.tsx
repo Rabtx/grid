@@ -1,6 +1,7 @@
 "use client";
 
 import { Select as SelectPrimitive } from "@base-ui/react/select";
+import { cn } from "@grid/ui/lib/utils";
 import {
 	ArrowDown01Icon,
 	ArrowUp01Icon,
@@ -8,7 +9,6 @@ import {
 	UnfoldMoreIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { cn } from "@school-os/ui/lib/utils";
 import type * as React from "react";
 
 const Select = SelectPrimitive.Root;

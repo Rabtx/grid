@@ -50,19 +50,19 @@ function AboutHero() {
 			<div className="mx-auto flex w-full max-w-3xl flex-col items-center text-center">
 				<FadeIn>
 					<span className="inline-flex items-center rounded-full border border-border bg-card px-3.5 py-1.5 font-medium text-muted-foreground text-xs">
-						About Starter
+						About Grid
 					</span>
 				</FadeIn>
 				<FadeIn delay={0.06}>
 					<h1 className="mt-6 text-balance font-serif text-4xl text-foreground leading-[1.1] tracking-tight sm:text-5xl">
-						A monorepo starter built for school-scale products.
+						A monorepo built for school-scale products.
 					</h1>
 				</FadeIn>
 				<FadeIn delay={0.12}>
 					<p className="mt-6 max-w-2xl text-pretty text-muted-foreground text-base leading-8 sm:text-lg">
-						We built Starter after wiring the same five apps together too many times. It&apos;s the
-						Bun + Turborepo workspace we wished we had — shared UI, hooks, CI, Docker, and docs
-						included from day one.
+						We built Grid after wiring the same five apps together too many times. It&apos;s the Bun
+						+ Turborepo workspace we wished we had — shared UI, hooks, CI, Docker, and docs included
+						from day one.
 					</p>
 				</FadeIn>
 			</div>
@@ -82,7 +82,7 @@ function AboutStats() {
 					</FadeIn>
 					<FadeIn delay={0.08}>
 						<h2 className="mt-5 text-balance font-serif text-3xl text-foreground leading-tight sm:text-4xl">
-							Apps in the starter. Minutes to first dev.
+							Apps in the grid. Minutes to first dev.
 						</h2>
 					</FadeIn>
 				</div>
@@ -162,12 +162,12 @@ function AboutTeam() {
 					</FadeIn>
 					<FadeIn delay={0.06}>
 						<h2 className="mt-5 text-balance font-serif text-3xl text-foreground leading-tight sm:text-4xl">
-							The people behind Starter.
+							The people behind Grid.
 						</h2>
 					</FadeIn>
 					<FadeIn delay={0.1}>
 						<p className="mt-4 text-pretty text-muted-foreground text-sm leading-7 sm:text-base">
-							Engineers who&apos;ve shipped polyglot monorepos — now packaging the starter so you
+							Engineers who&apos;ve shipped polyglot monorepos — now packaging Grid so you
 							don&apos;t start from zero.
 						</p>
 					</FadeIn>

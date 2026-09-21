@@ -1,12 +1,12 @@
 # Design System Brief
 
-This file is the source of truth for AI agents and humans when creating UI in this Starter.
+This file is the source of truth for AI agents and humans when creating UI in Grid.
 Keep it updated before generating new screens with Codex, Claude Code, Cursor, v0, Open Design,
 Figma MCP, Onlook, Scamp, or similar tools.
 
 ## Product Intent
 
-This Starter should produce production-grade application interfaces, not generic demo pages.
+Grid should produce production-grade application interfaces, not generic demo pages.
 Generated UI must feel domain-specific, accessible, responsive, and built from reusable components.
 
 ## Audience
@@ -106,7 +106,7 @@ and supported platforms. Be explicit about untested native behavior and simplifi
 
 ### Current implementation and preview
 
-- Foundation: `packages/ui` (`@school-os/ui`). Its namespace remains unchanged intentionally.
+- Foundation: `packages/ui` (`@grid/ui`). Its namespace remains unchanged intentionally.
 - Polished layer: `packages/rabtx` (`@rabtx/ui`), starting with `@rabtx/ui/button`.
 - Shared tokens: `packages/ui/src/styles/globals.css`.
 - Shared Button choices: `packages/rabtx/src/button/button.shared.ts` — `kindShape`, `kindSurface`,
@@ -167,7 +167,7 @@ The repo has a shared web primitive package at `packages/ui` and app-local primi
 
 Current rule:
 
-- Use `@school-os/ui` for stable shared primitives such as `Button`, `Card`, `Badge`, form fields,
+- Use `@grid/ui` for stable shared primitives such as `Button`, `Card`, `Badge`, form fields,
   `Separator`, `Skeleton`, and `Textarea`.
 - Use `@rabtx/ui` for the polished material variants described above; extend that layer one
   component at a time rather than creating another parallel library.

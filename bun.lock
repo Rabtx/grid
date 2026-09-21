@@ -63,6 +63,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@expo/metro-runtime": "~57.0.6",
+        "@grid/ui": "workspace:*",
         "@hugeicons/core-free-icons": "^4.2.2",
         "@hugeicons/react-native": "^1.0.8",
         "@react-navigation/bottom-tabs": "^7.18.11",
@@ -70,7 +71,6 @@
         "@react-navigation/native": "^7.3.11",
         "@rn-primitives/hooks": "^1.5.2",
         "@rn-primitives/types": "^1.5.2",
-        "@school-os/ui": "workspace:*",
         "@tanstack/react-query": "^5.101.2",
         "expo": "~57.0.7",
         "expo-constants": "~57.0.6",
@@ -169,10 +169,10 @@
       "version": "0.0.0",
       "dependencies": {
         "@base-ui/react": "^1.6.0",
+        "@grid/ui": "workspace:*",
         "@hugeicons/core-free-icons": "^4.2.2",
         "@hugeicons/react": "^1.1.9",
         "@paper-design/shaders-react": "^0.0.77",
-        "@school-os/ui": "workspace:*",
         "@simplewebauthn/browser": "^13.3.0",
         "@tanstack/react-query": "^5.100.10",
         "clsx": "^2.1.1",
@@ -185,8 +185,8 @@
         "tw-animate-css": "^1.4.0",
       },
       "devDependencies": {
+        "@grid/typescript-config": "workspace:*",
         "@playwright/test": "^1.61.1",
-        "@school-os/typescript-config": "workspace:*",
         "@tailwindcss/postcss": "^4.3.3",
         "@types/node": "^25.9.5",
         "@types/react": "^19.2.14",
@@ -199,10 +199,10 @@
       },
     },
     "packages/logger": {
-      "name": "@school-os/logger",
+      "name": "@grid/logger",
       "version": "0.0.0",
       "devDependencies": {
-        "@school-os/typescript-config": "workspace:*",
+        "@grid/typescript-config": "workspace:*",
         "@types/node": "^25.9.5",
         "@vitest/coverage-v8": "^4.1.6",
         "typescript": "^6.0.3",
@@ -214,11 +214,11 @@
       "version": "0.0.0",
       "dependencies": {
         "@base-ui/react": "^1.6.0",
-        "@school-os/ui": "workspace:*",
+        "@grid/ui": "workspace:*",
         "class-variance-authority": "^0.7.1",
       },
       "devDependencies": {
-        "@school-os/typescript-config": "workspace:*",
+        "@grid/typescript-config": "workspace:*",
         "@types/react": "^19.2.14",
         "react": "^19.2.6",
         "typescript": "^6.0.3",
@@ -228,11 +228,11 @@
       },
     },
     "packages/typescript-config": {
-      "name": "@school-os/typescript-config",
+      "name": "@grid/typescript-config",
       "version": "0.0.0",
     },
     "packages/ui": {
-      "name": "@school-os/ui",
+      "name": "@grid/ui",
       "version": "0.0.0",
       "dependencies": {
         "@base-ui/react": "^1.6.0",
@@ -253,8 +253,8 @@
         "vaul": "^1.1.2",
       },
       "devDependencies": {
+        "@grid/typescript-config": "workspace:*",
         "@hugeicons/react-native": "^1.0.8",
-        "@school-os/typescript-config": "workspace:*",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
         "react-native": "0.86.0",
@@ -638,6 +638,12 @@
 
     "@fumadocs/tailwind": ["@fumadocs/tailwind@0.1.1", "", { "peerDependencies": { "tailwindcss": "^4.0.0" }, "optionalPeers": ["tailwindcss"] }, "sha512-BnPe52UxSaG8yKlHMKBxXw8h6GpK5qO55ci6+Qd5JnquTvIw6SpfbC1P+qAi82PuPWv1KZAWY8bxRk4+x9ctXw=="],
 
+    "@grid/logger": ["@grid/logger@workspace:packages/logger"],
+
+    "@grid/typescript-config": ["@grid/typescript-config@workspace:packages/typescript-config"],
+
+    "@grid/ui": ["@grid/ui@workspace:packages/ui"],
+
     "@hexagon/base64": ["@hexagon/base64@1.1.28", "", {}, "sha512-lhqDEAvWixy3bZ+UOYbPwUbBkwBq5C1LAJ/xPC8Oi+lL54oyakv/npbA0aU2hgCsx/1NUd4IBvV03+aUBWxerw=="],
 
     "@hono/node-server": ["@hono/node-server@1.19.9", "", { "peerDependencies": { "hono": "^4" } }, "sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw=="],
@@ -1017,12 +1023,6 @@
     "@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.0-rc.12", "", {}, "sha512-HHMwmarRKvoFsJorqYlFeFRzXZqCt2ETQlEDOb9aqssrnVBB1/+xgTGtuTrIk5vzLNX1MjMtTf7W9z3tsSbrxw=="],
 
     "@scarf/scarf": ["@scarf/scarf@1.4.0", "", {}, "sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ=="],
-
-    "@school-os/logger": ["@school-os/logger@workspace:packages/logger"],
-
-    "@school-os/typescript-config": ["@school-os/typescript-config@workspace:packages/typescript-config"],
-
-    "@school-os/ui": ["@school-os/ui@workspace:packages/ui"],
 
     "@scure/base": ["@scure/base@2.2.0", "", {}, "sha512-b8XEupJibegiXV+tDUseI8oLQc8ei3d/4Jkb2RpbHh3MfE054ov3uIz2dhFkB3FI8iwYkEh0gGCApkrYggkPNg=="],
 

@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - NestJS auth API (`/api/v1/auth/*`) with JWT login/register/me for the web app.
-- Shared UI auth components via shadcn (`alert`, `spinner`, `input-group`) in `@school-os/ui`.
+- Shared UI auth components via shadcn (`alert`, `spinner`, `input-group`) in `@grid/ui`.
 - Web login/register flows that call Nest only (no multi-backend API switcher).
 - Conventional Commits enforcement in `commit-msg` hook (typed prefixes + all-lowercase subjects).
 - Docker Compose services for Nest API and Next.js web (multi-stage images, healthchecks, no Compose `version` key).

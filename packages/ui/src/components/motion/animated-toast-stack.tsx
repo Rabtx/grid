@@ -1,6 +1,9 @@
 "use client";
+
 // beui.dev/components/motion/animated-toast-stack
 
+import { EASE_OUT } from "@grid/ui/lib/ease";
+import { cn } from "@grid/ui/lib/utils";
 import {
 	Alert02Icon,
 	InformationCircleIcon,
@@ -10,8 +13,6 @@ import {
 	Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { EASE_OUT } from "@school-os/ui/lib/ease";
-import { cn } from "@school-os/ui/lib/utils";
 import { AnimatePresence, motion, type Transition, useReducedMotion } from "motion/react";
 import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";

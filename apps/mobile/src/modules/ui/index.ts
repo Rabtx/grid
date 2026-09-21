@@ -22,4 +22,4 @@ export {
 	MobileTypesetParagraph,
 	MobileTypesetScroll,
 	useMobileTypeset,
-} from "@school-os/ui/components/mobile";
+} from "@grid/ui/components/mobile";

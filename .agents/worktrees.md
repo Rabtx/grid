@@ -19,7 +19,7 @@ wtp add -b agent/ui-ux/solid-button-material main
 WTP creates a branch-based path under:
 
 ```text
-../starter-worktrees/agent/ui-ux/solid-button-material/
+../grid-worktrees/agent/ui-ux/solid-button-material/
 ```
 
 The `.wtp.yml` post-create hook runs `bun install --frozen-lockfile` in the new worktree. It does

@@ -6,9 +6,7 @@ export default function HomePage() {
 			<p className="mb-4 inline-flex items-center rounded-full border px-3 py-1 text-sm text-fd-muted-foreground">
 				Turborepo + Bun + Next.js + Expo + Hono
 			</p>
-			<h1 className="mb-6 text-4xl font-semibold tracking-tight sm:text-5xl">
-				Starter Documentation
-			</h1>
+			<h1 className="mb-6 text-4xl font-semibold tracking-tight sm:text-5xl">Grid Documentation</h1>
 			<p className="max-w-2xl text-fd-muted-foreground sm:text-lg">
 				A clean, practical guide to the monorepo architecture, workflow, and app stack. Built for
 				fast onboarding and consistent delivery.
@@ -21,7 +19,7 @@ export default function HomePage() {
 					Read the docs
 				</Link>
 				<Link
-					href="https://github.com/shabirkhan-dev/starter"
+					href="https://github.com/shabirkhan-dev/grid"
 					className="rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-fd-accent"
 				>
 					View repository

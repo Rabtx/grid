@@ -1,4 +1,4 @@
-import { cn } from "@school-os/ui/lib/utils";
+import { cn } from "@grid/ui/lib/utils";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 export type TypesetPreset = "docs" | "chat" | "compact" | "reading" | "large";

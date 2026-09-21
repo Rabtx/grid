@@ -1,6 +1,6 @@
 # docs
 
-Starter documentation site (Next.js + Fumadocs).
+Grid documentation site (Next.js + Fumadocs).
 
 All project docs live in `content/docs/` and are served from this app.
 
@@ -17,7 +17,6 @@ Open http://localhost:3002/docs
 | `/docs` | Home |
 | `/docs/quick-start` | Bootstrap |
 | `/docs/production-roadmap` | Nest API / product phases |
-| `/docs/product-system-design` | Architecture & data model |
 | `/docs/architecture` | Boundaries + ADRs |
 | `/docs/docker` | Compose / Postgres |
 | `/docs/qol` | Hooks, CI, tooling |

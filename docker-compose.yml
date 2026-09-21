@@ -5,7 +5,7 @@
 #
 # Compose file format: no top-level `version` key (obsolete since Compose Spec).
 
-name: school-os
+name: grid
 
 include:
   - path: docker/compose/postgres.yml

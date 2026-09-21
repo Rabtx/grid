@@ -1,4 +1,4 @@
-# Starter API
+# Grid API
 
 Production-oriented NestJS authentication and user foundation backed by PostgreSQL, Drizzle ORM,
 Zod validation, secure cookies, and explicit SQL migrations.

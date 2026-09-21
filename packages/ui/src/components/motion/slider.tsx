@@ -1,8 +1,8 @@
 "use client";
 
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
-import { SPRING_PRESS, SPRING_SWAP } from "@school-os/ui/lib/ease";
-import { cn } from "@school-os/ui/lib/utils";
+import { SPRING_PRESS, SPRING_SWAP } from "@grid/ui/lib/ease";
+import { cn } from "@grid/ui/lib/utils";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import React, { type ComponentPropsWithoutRef, useState } from "react";
 
@@ -60,7 +60,6 @@ export function MotionSlider({
 		eventDetails: SliderPrimitive.Root.ChangeEventDetails,
 	) => {
 		if (value === undefined) setInternalValue(val);
-		// @ts-ignore - Base UI polymorphic onValueChange handler signature variance
 		onValueChange?.(val, eventDetails);
 	};
 

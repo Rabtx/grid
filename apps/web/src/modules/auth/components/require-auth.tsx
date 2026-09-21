@@ -1,6 +1,6 @@
 "use client";
 
-import { Spinner } from "@school-os/ui/components/spinner";
+import { Spinner } from "@grid/ui/components/spinner";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 import { useAuth } from "@/context/auth-context";

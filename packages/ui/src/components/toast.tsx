@@ -1,6 +1,8 @@
 "use client";
 
 import { Toast as ToastPrimitive } from "@base-ui/react/toast";
+import { Button } from "@grid/ui/components/button";
+import { cn } from "@grid/ui/lib/utils";
 import {
 	Alert02Icon,
 	Cancel01Icon,
@@ -10,8 +12,6 @@ import {
 	MultiplicationSignCircleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@school-os/ui/components/button";
-import { cn } from "@school-os/ui/lib/utils";
 import type * as React from "react";
 
 const toast = ToastPrimitive.createToastManager();

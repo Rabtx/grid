@@ -2,8 +2,6 @@
 
 // beui.dev/components/motion/theme-toggle
 
-import { ArrowDown01Icon, Moon01Icon, Sun01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -13,7 +11,9 @@ import {
 	DropdownMenuRadioItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "@school-os/ui/components/dropdown-menu";
+} from "@grid/ui/components/dropdown-menu";
+import { ArrowDown01Icon, Moon01Icon, Sun01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useReducedMotion } from "motion/react";
 import {
 	type ComponentPropsWithoutRef,

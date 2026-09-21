@@ -1,12 +1,12 @@
 "use client";
 
 import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion";
+import { SPRING_PRESS, SPRING_SWAP } from "@grid/ui/lib/ease";
+import { cn } from "@grid/ui/lib/utils";
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { SPRING_PRESS, SPRING_SWAP } from "@school-os/ui/lib/ease";
-import { cn } from "@school-os/ui/lib/utils";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import React, { type ComponentPropsWithoutRef, type ReactNode, forwardRef } from "react";
+import React, { type ComponentPropsWithoutRef, forwardRef, type ReactNode } from "react";
 
 export type AccordionVariant = "default" | "contained" | "ghost";
 

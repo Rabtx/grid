@@ -23,9 +23,8 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "About — Starter",
-	description:
-		"A Bun + Turborepo monorepo starter for school-scale products. Meet the team behind Starter.",
+	title: "About — Grid",
+	description: "A Bun + Turborepo monorepo. Meet the team behind Grid.",
 };
 
 export default function AboutPage() {

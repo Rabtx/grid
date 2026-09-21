@@ -2,8 +2,6 @@
 
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { Menubar as MenubarPrimitive } from "@base-ui/react/menubar";
-import { Tick02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -18,8 +16,10 @@ import {
 	DropdownMenuSubContent,
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
-} from "@school-os/ui/components/dropdown-menu";
-import { cn } from "@school-os/ui/lib/utils";
+} from "@grid/ui/components/dropdown-menu";
+import { cn } from "@grid/ui/lib/utils";
+import { Tick02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type * as React from "react";
 
 function Menubar({ className, ...props }: MenubarPrimitive.Props) {

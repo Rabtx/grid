@@ -1,5 +1,9 @@
 "use client";
 
+import { Skeleton } from "@grid/ui/components/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableRow } from "@grid/ui/components/table";
+import { EASE_OUT, SPRING_PRESS, SPRING_SWAP } from "@grid/ui/lib/ease";
+import { cn } from "@grid/ui/lib/utils";
 import {
 	ArrowDown01Icon,
 	ArrowLeft01Icon,
@@ -10,10 +14,6 @@ import {
 	InboxIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Skeleton } from "@school-os/ui/components/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableRow } from "@school-os/ui/components/table";
-import { EASE_OUT, SPRING_PRESS, SPRING_SWAP } from "@school-os/ui/lib/ease";
-import { cn } from "@school-os/ui/lib/utils";
 import type { HTMLMotionProps } from "motion/react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {

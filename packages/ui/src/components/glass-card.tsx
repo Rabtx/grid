@@ -1,11 +1,10 @@
 "use client";
 
-import { cn } from "@school-os/ui/lib/utils";
+import { cn } from "@grid/ui/lib/utils";
+import type { HTMLMotionProps } from "motion/react";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import React, { type HTMLAttributes, type ReactNode, useId, useMemo } from "react";
 import { generateAaveLensNormalMap } from "./bottom-bar";
-
-import type { HTMLMotionProps } from "motion/react";
 
 export type GlassCardProps = Omit<HTMLMotionProps<"div">, "children" | "className"> & {
 	themeMode?: "dark" | "light" | "auto";

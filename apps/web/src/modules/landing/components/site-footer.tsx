@@ -60,7 +60,7 @@ export function SiteFooter() {
 							{SITE.name}
 						</span>
 						<p className="mt-3 max-w-xs text-muted-foreground text-sm leading-6">
-							Production-ready monorepo starter for web, mobile, API, docs, and Rust.
+							Production-ready monorepo for web, mobile, API, docs, and Rust.
 						</p>
 						<span className="mt-5 inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-muted-foreground text-xs">
 							<span className="relative flex size-2">
@@ -73,17 +73,17 @@ export function SiteFooter() {
 						<div className="mt-8">
 							<p className="font-medium text-foreground text-sm">Release notes</p>
 							<p className="mt-1 text-muted-foreground text-sm">
-								What landed in Starter this month. Once a month, no noise.
+								What landed in Grid this month. Once a month, no noise.
 							</p>
 							<form
 								onSubmit={handleSubmit}
 								className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:items-center"
 							>
-								<label htmlFor="school-os-newsletter" className="sr-only">
+								<label htmlFor="grid-newsletter" className="sr-only">
 									Email address
 								</label>
 								<input
-									id="school-os-newsletter"
+									id="grid-newsletter"
 									type="email"
 									required
 									value={email}

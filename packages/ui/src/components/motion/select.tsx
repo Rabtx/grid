@@ -1,9 +1,9 @@
 "use client";
 
+import { EASE_OUT } from "@grid/ui/lib/ease";
+import { cn } from "@grid/ui/lib/utils";
 import { ArrowDown01Icon, CheckIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { EASE_OUT } from "@school-os/ui/lib/ease";
-import { cn } from "@school-os/ui/lib/utils";
 import { motion, type Transition, useReducedMotion, type Variants } from "motion/react";
 import {
 	createContext,

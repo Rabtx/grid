@@ -1,5 +1,11 @@
 "use client";
 
+import { Alert, AlertDescription, AlertTitle } from "@grid/ui/components/alert";
+import { Badge } from "@grid/ui/components/badge";
+import { Button } from "@grid/ui/components/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@grid/ui/components/field";
+import { Input } from "@grid/ui/components/input";
+import { Spinner } from "@grid/ui/components/spinner";
 import {
 	CheckmarkCircle02Icon,
 	ComputerIcon,
@@ -18,12 +24,6 @@ import {
 	SmartPhone01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Alert, AlertDescription, AlertTitle } from "@school-os/ui/components/alert";
-import { Badge } from "@school-os/ui/components/badge";
-import { Button } from "@school-os/ui/components/button";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@school-os/ui/components/field";
-import { Input } from "@school-os/ui/components/input";
-import { Spinner } from "@school-os/ui/components/spinner";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { type ComponentProps, useState } from "react";
