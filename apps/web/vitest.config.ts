@@ -14,7 +14,12 @@ export default defineConfig({
 			reporter: ["text", "json-summary", "lcov"],
 			reportsDirectory: "./coverage",
 			// Only enforce coverage on modules that currently have unit tests.
-			include: ["src/lib/utils.ts", "src/lib/api-client.ts", "src/lib/api/client.ts"],
+			include: [
+				"src/lib/utils.ts",
+				"src/lib/api-client.ts",
+				"src/lib/api/client.ts",
+				"src/modules/landing/data/*.ts",
+			],
 			thresholds: {
 				lines: 60,
 				functions: 55,
