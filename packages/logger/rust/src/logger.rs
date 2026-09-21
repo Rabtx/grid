@@ -34,7 +34,9 @@ impl Default for Logger {
 }
 
 impl Logger {
-	pub fn new() -> Self { Self::default() }
+	pub fn new() -> Self {
+		Self::default()
+	}
 	pub fn with_prefix(mut self, prefix: impl Into<String>) -> Self {
 		self.opts.prefix = Some(prefix.into());
 		self
@@ -67,10 +69,18 @@ impl Logger {
 		}
 	}
 
-	pub fn debug(&self, msg: &str) { self.log(Level::Debug, msg); }
-	pub fn info(&self, msg: &str) { self.log(Level::Info, msg); }
-	pub fn warn(&self, msg: &str) { self.log(Level::Warn, msg); }
-	pub fn error(&self, msg: &str) { self.log(Level::Error, msg); }
+	pub fn debug(&self, msg: &str) {
+		self.log(Level::Debug, msg);
+	}
+	pub fn info(&self, msg: &str) {
+		self.log(Level::Info, msg);
+	}
+	pub fn warn(&self, msg: &str) {
+		self.log(Level::Warn, msg);
+	}
+	pub fn error(&self, msg: &str) {
+		self.log(Level::Error, msg);
+	}
 
 	pub fn child(&self, prefix: impl AsRef<str>) -> Logger {
 		let child_prefix = match &self.opts.prefix {

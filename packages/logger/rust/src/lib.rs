@@ -5,5 +5,5 @@ mod level;
 mod logger;
 
 pub use format::{format_line, format_timestamp, FormatOptions};
-pub use level::{Level, RESET, DIM};
+pub use level::{Level, DIM, RESET};
 pub use logger::{Logger, Transport};
