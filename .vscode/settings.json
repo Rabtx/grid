@@ -39,7 +39,7 @@
 	},
 	"C_Cpp.clang_format_style": "file",
 
-	// —— Rust (apps/rust: rustfmt.toml, rust-toolchain, Clippy) ——
+	// —— Rust (packages/logger/rust: rustfmt.toml, rust-toolchain, Clippy) ——
 	"[rust]": {
 		"editor.defaultFormatter": "rust-lang.rust"
 	},

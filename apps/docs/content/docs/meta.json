@@ -12,8 +12,6 @@
 		"docker",
 		"deploy",
 		"qol",
-		"production-roadmap",
-		"ai-first-workflow",
 		"architecture",
 		"overrides",
 		"dependency-upgrade-report"

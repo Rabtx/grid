@@ -1,8 +1,8 @@
 # Agent coordination hub
 
 Cross-team communication for the agents building this monorepo:
-**backend** (NestJS), **web** (Next.js), **mobile** (Expo), **rust** (Axum),
-**ai-python** (FastAPI), **ui-ux** (the design system), and the human.
+**backend** (NestJS), **web** (Next.js), **mobile** (Expo), **ui-ux** (the design
+system), and the human.
 
 ```
 .agents/
@@ -21,7 +21,6 @@ Cross-team communication for the agents building this monorepo:
 │   ├── backend.md    owned by backend agent
 │   ├── frontend.md   owned by web agent
 │   ├── mobile.md     owned by mobile agent
-│   ├── rust.md       owned by rust agent
 │   └── design.md     owned by ui-ux agent
 ├── plans/            ← long-form implementation plans
 ├── rules/            ← always-apply editor rules (`.mdc`)

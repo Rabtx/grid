@@ -16,11 +16,9 @@ Open http://localhost:3002/docs
 | --- | --- |
 | `/docs` | Home |
 | `/docs/quick-start` | Bootstrap |
-| `/docs/production-roadmap` | Nest API / product phases |
 | `/docs/architecture` | Boundaries + ADRs |
 | `/docs/docker` | Compose / Postgres |
 | `/docs/qol` | Hooks, CI, tooling |
-| `/docs/ai-first-workflow` | AI-assisted workflow |
 | `/docs/overrides` | Architecture override policy |
 
 Agents should use these pages plus root `AGENTS.md` / `DESIGN.md` / `PROJECT.md`.

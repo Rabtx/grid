@@ -56,7 +56,3 @@ services:
         sync: false
       - key: WEBAUTHN_ORIGIN
         sync: false
-      # Optional until apps/ai-api is hosted; use a public URL or leave localhost
-      # (assist routes will fail until set).
-      - key: AI_API_URL
-        value: http://127.0.0.1:8000

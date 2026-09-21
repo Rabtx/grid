@@ -11,7 +11,7 @@ type Props = {
 };
 
 export function GlobalSearch({
-	placeholder = "Search students, staff, pages...",
+	placeholder = "Search projects, tasks, agents...",
 	className,
 }: Props) {
 	const inputRef = useRef<HTMLInputElement>(null);

@@ -11,7 +11,6 @@ Run the Starter stack with Docker Compose. Fragments live under **`docker/compos
 | `docker/compose/postgres.yml` | Postgres 16, named volume, healthcheck |
 | `docker/compose/nest-api.yml` | NestJS API (multi-stage Bun image) |
 | `docker/compose/web.yml` | Next.js web (standalone image) |
-| `docker/compose/rust-api.yml` | Optional Rust demo API (`--profile rust`) |
 
 See **`docker/README.md`** for the manual `-f` fallback.
 
@@ -44,11 +43,9 @@ See **`docker/README.md`** for the manual `-f` fallback.
 | Postgres | 5433 (container 5432) |
 | Nest API | 4000 |
 | Web | 3000 |
-| Rust API (profile) | 3002 |
 
 ## Notes
 
 - Nest runs migrations on startup when `RUN_MIGRATIONS=true` (default).
 - `NEXT_PUBLIC_NEST_API_URL` is baked in at **web image build** time and must be reachable from the browser (typically `http://localhost:4000`).
 - Host-only API/web development: `docker compose up -d postgres`, then `bun run dev`.
-- Optional Rust service: `docker compose --profile rust up -d --build`.

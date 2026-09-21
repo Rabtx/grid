@@ -130,10 +130,4 @@ export class AppConfigService {
 	get billingPrices(): AppConfig['billingPrices'] {
 		return this.config.billingPrices;
 	}
-	get aiApiUrl(): string {
-		return this.config.aiApiUrl;
-	}
-	get aiServiceToken(): string {
-		return this.config.aiServiceToken;
-	}
 }

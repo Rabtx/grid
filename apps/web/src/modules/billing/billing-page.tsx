@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@grid/ui/components/badge";
-import { Button, buttonVariants } from "@grid/ui/components/button";
+import { Button } from "@grid/ui/components/button";
 import {
 	ArrowRight01Icon,
 	CheckmarkCircle02Icon,
@@ -9,7 +9,6 @@ import {
 	Loading03Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/auth-context";
@@ -193,16 +192,9 @@ export function BillingPageContent() {
 							Billing
 						</h1>
 						<p className="mt-1.5 max-w-xl text-[13px] text-dashboard-text-muted leading-5">
-							Upgrade when you need team seats or managed support. Grid stays free to clone and run.
+							Upgrade when you need team seats or managed support.
 						</p>
 					</div>
-					<Link
-						href="/pricing"
-						className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
-					>
-						Public pricing
-						<HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" strokeWidth={1.8} />
-					</Link>
 				</header>
 
 				<div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">

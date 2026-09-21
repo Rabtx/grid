@@ -15,7 +15,8 @@ export const metadata: Metadata = {
 		default: "Grid",
 		template: "%s | Grid",
 	},
-	description: "Production-ready application grid",
+	description:
+		"AI-native operating system for building and running a startup — projects, agents, development, deployment and operations in one control plane.",
 };
 
 export default function RootLayout({

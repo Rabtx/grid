@@ -25,7 +25,7 @@ RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
 ENV BUN_INSTALL="/home/vscode/.bun" \
 	PATH="/home/vscode/.bun/bin:${PATH}"
 
-# Rust (apps/rust + packages/logger Rust side)
+# Rust (packages/logger Rust side)
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain "${RUST_CHANNEL}" --profile minimal \
 	&& . "${HOME}/.cargo/env" \
 	&& rustup component add rustfmt clippy

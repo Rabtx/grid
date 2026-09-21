@@ -45,4 +45,3 @@ When working on the frontend (`apps/web`, `apps/mobile`):
 ## References
 - [AGENTS.md](../../../AGENTS.md)
 - [.agents/rules/antigravity.mdc](../../rules/antigravity.mdc)
-- [.agents/plans/next-phase-roadmap.plan.md](../../plans/next-phase-roadmap.plan.md)

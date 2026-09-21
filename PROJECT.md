@@ -7,7 +7,7 @@ For quick setup/use, start with `README.md`.
 
 Monorepo managed by **Bun + Turborepo**, with:
 
-- Multiple app templates (web, mobile, API, docs, Rust)
+- Applications (web, mobile, API, docs)
 - Shared workspace packages (`@grid/*`)
 - Polyglot scripts and quality tooling
 - Architecture boundary checks
@@ -23,7 +23,6 @@ grid/
 │   ├── mobile/               # Expo Router + NativeWind app
 │   ├── nest-api/             # NestJS production API
 │   ├── docs/                 # Documentation app (Next.js + Fumadocs)
-│   └── rust/                 # Rust binary app (Cargo)
 ├── packages/
 │   ├── logger/               # Shared logger (TypeScript + Rust)
 │   ├── typescript-config/    # Shared TS config bases
@@ -50,7 +49,6 @@ There is no root `docs/` directory.
 | `apps/mobile` | Expo SDK 57, Expo Router, React Native, NativeWind | Mobile-first file-based routing |
 | `apps/nest-api` | NestJS 11, Zod, Jest | Production API spine |
 | `apps/docs` | Next.js + Fumadocs + MDX | Project docs site |
-| `apps/rust` | Cargo, clippy, rustfmt | Rust application template |
 
 ## Shared packages
 
@@ -71,7 +69,7 @@ Run commands from repo root:
 | `bun run start` | Start runtime targets |
 | `bun run lint` | Lint workspace + scripts |
 | `bun run lint:fix` | Apply lint autofixes |
-| `bun run format` | Format TS/JS + shell/Python + Rust |
+| `bun run format` | Format TS/JS + shell/Python + the Rust logger |
 | `bun run typecheck` | TypeScript type checking |
 | `bun run test` | Run tests in workspace + scripts |
 | `bun run test:coverage` | Run full coverage-oriented pass |
@@ -94,7 +92,6 @@ Examples:
 - `bun --cwd=apps/mobile run start`
 - `bun --cwd=apps/nest-api run dev`
 - `bun --cwd=apps/docs run dev`
-- `bun --cwd=apps/rust run dev`
 
 ## Tooling and quality system
 
@@ -152,8 +149,7 @@ cp env.docker.example .env
 docker compose up -d --build
 ```
 
-Defaults: web `3000`, Nest `4000`, Postgres host `5433`. Optional Rust profile:
-`docker compose --profile rust up -d --build`.
+Defaults: web `3000`, Nest `4000`, Postgres host `5433`.
 
 More details: docs app `/docs/docker` and `docker/README.md`.
 
@@ -175,6 +171,6 @@ More details: docs app `/docs/docker` and `docker/README.md`.
 ## Related docs
 
 - `README.md` - quick start and high-level navigation
-- Docs app (`apps/docs`): `/docs/qol`, `/docs/production-roadmap`
+- Docs app (`apps/docs`): `/docs/qol`, `/docs/architecture`
 - `scripts/README.md` - script usage and structure
 - `apps/*/README.md` - per-app setup and workflows

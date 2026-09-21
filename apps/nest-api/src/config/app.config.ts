@@ -49,8 +49,6 @@ export type AppConfig = {
 			enterprise: { monthly?: string; yearly?: string };
 		};
 	};
-	aiApiUrl: string;
-	aiServiceToken: string;
 };
 
 export function createAppConfig(env: Env = parseEnv()): AppConfig {
@@ -128,7 +126,5 @@ export function createAppConfig(env: Env = parseEnv()): AppConfig {
 				},
 			},
 		},
-		aiApiUrl: env.AI_API_URL.replace(/\/$/, ''),
-		aiServiceToken: env.AI_SERVICE_TOKEN,
 	};
 }

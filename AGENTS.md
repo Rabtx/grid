@@ -50,8 +50,8 @@ There is **no root `docs/` folder**. Project docs live in the docs app:
 - Dev: `bun --cwd=apps/docs run dev`
 - Browse: http://localhost:3002/docs
 
-Key routes: `/docs/quick-start`, `/docs/production-roadmap`, `/docs/architecture`,
-`/docs/docker`, `/docs/deploy`, `/docs/qol`, `/docs/ai-first-workflow`, `/docs/overrides`.
+Key routes: `/docs/quick-start`, `/docs/architecture`, `/docs/docker`, `/docs/deploy`,
+`/docs/qol`, `/docs/overrides`.
 Also see root `README.md`, `PROJECT.md`, and `DESIGN.md`.
 
 <!-- BEGIN:nextjs-agent-rules -->
@@ -70,8 +70,6 @@ grid/
 │   ├── mobile/          # Expo Router + NativeWind app (TypeScript)
 │   ├── nest-api/        # NestJS production API (PostgreSQL in later phases)
 │   ├── docs/            # Docs site (Fumadocs); source in apps/docs/content/docs/
-│   ├── ai-api/          # FastAPI AI assist (uv); Nest proxies, never public LLM keys
-│   └── rust/            # Rust binary (Cargo, Axum)
 
 ├── packages/
 │   ├── typescript-config/ # Shared tsconfig bases (base.json, nextjs.json)
@@ -159,7 +157,6 @@ grid/
 | Language | Lint | Format | Test |
 |----------|------|--------|------|
 | **TypeScript/JS** | Biome | Biome | Vitest/Jest (if added) |
-| **Rust** | Clippy | rustfmt | `cargo test` |
 | **Bash** | ShellCheck | shfmt | — |
 | **Python** | ruff check | ruff format | — |
 
@@ -173,8 +170,7 @@ cp env.docker.example .env
 docker compose up -d --build
 ```
 
-Defaults: web `:3000`, Nest `:4000`, Postgres host `:5433`. Optional Rust:
-`docker compose --profile rust up -d --build`. Host-only API/web: start `postgres`
+Defaults: web `:3000`, Nest `:4000`, Postgres host `:5433`. Host-only API/web: start `postgres`
 only, then `bun run dev`. See `/docs/docker` and `docker/README.md`.
 
 ## Before finishing any task
@@ -189,8 +185,6 @@ only, then `bun run dev`. See `/docs/docker` and `docker/README.md`.
 - `PROJECT.md` — detailed layout, tooling, and commands.
 - `DESIGN.md` — design-system brief for UI generation and review.
 - **Docs app** (`apps/docs`, run with `bun --cwd=apps/docs run dev`):
-  - `/docs/production-roadmap` — production build phases and Nest API spine
-  - `/docs/ai-first-workflow` — repository audit and AI-first workflow roadmap
   - `/docs/qol` — full QoL stack (hooks, CI, per-language tools)
   - `/docs/architecture` — architecture baseline and enforceable boundaries
   - `/docs/overrides` — policy for project-specific architecture overrides

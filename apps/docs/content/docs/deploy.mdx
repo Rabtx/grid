@@ -46,7 +46,7 @@ curl -sS https://<your-service>.onrender.com/api/v1/health
 
 Migrations run on container start when `RUN_MIGRATIONS=true` (default in the Blueprint).
 
-**Note:** Free Render services spin down when idle; the first request can take ~30s. AI assist still needs a hosted `apps/ai-api` (`AI_API_URL`) later — Nest will boot without it.
+**Note:** Free Render services spin down when idle; the first request can take ~30s.
 
 ## 3) Web on Vercel
 
@@ -102,5 +102,4 @@ Long-term option: put both under one parent domain (e.g. `app.example.com` + `ap
 ## Related
 
 - [Docker](/docs/docker) — local Compose stack
-- [Production roadmap](/docs/production-roadmap) — product phases
 - Nest API README production notes under `apps/nest-api/`

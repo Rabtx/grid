@@ -30,7 +30,7 @@ Multi-agent development of Grid itself runs through [.agents/](.agents/README.md
 **Prerequisites**
 
 - [Bun](https://bun.sh) `1.3.13` (pinned via `packageManager` and `.mise.toml`)
-- Optional: Docker Compose `v2.20+`, Rust toolchain (`apps/rust`), Python 3 (`apps/ai-api`, script tests)
+- Optional: Docker Compose `v2.20+`, Rust toolchain (`packages/logger` Rust side), Python 3 (script tests)
 
 ```bash
 git clone https://github.com/shabirkhan-dev/grid.git
@@ -40,8 +40,7 @@ bun run prepare
 bun run dev
 ```
 
-`bun run dev` starts every workspace except Rust. Add it with `bun run dev:rust`, the AI service
-with `bun run dev:ai`, or run the lot with `bun run dev:all`.
+`bun run dev` starts every workspace.
 
 | App | Dev URL |
 | --- | --- |
@@ -62,8 +61,6 @@ To work on one app in isolation: `bun --cwd=apps/web run dev` (same pattern for 
 | `apps/mobile` | Expo SDK 57 — mobile control surface |
 | `apps/nest-api` | NestJS API spine, Drizzle over Postgres/Neon |
 | `apps/docs` | Fumadocs site — project docs at `/docs`, component docs at `/rabtx` |
-| `apps/ai-api` | Optional FastAPI AI assist; Nest proxies it, never public |
-| `apps/rust` | Optional Rust/Axum demo |
 
 ### Packages
 
@@ -93,11 +90,10 @@ file while Next resolves the web one, so a single import serves both platforms w
 
 | Command | Does |
 | --- | --- |
-| `bun run dev` | All dev servers except Rust |
-| `bun run dev:all` / `dev:rust` / `dev:ai` | Everything / Rust only / FastAPI only |
+| `bun run dev` | All dev servers |
 | `bun run build` | Build every app |
 | `bun run lint` / `lint:fix` | Biome, plus ShellCheck and Ruff over `scripts/` |
-| `bun run format` | Format TS/JS, shell, Python and Rust |
+| `bun run format` | Format TS/JS, shell, Python and the Rust logger |
 | `bun run typecheck` | TypeScript across workspaces |
 | `bun run test` / `test:coverage` | Unit tests / coverage gates |
 | `bun run test:e2e:web` | Playwright e2e for web |
@@ -119,8 +115,7 @@ cp env.docker.example .env
 docker compose up -d --build
 ```
 
-Web `:3000`, Nest `:4000`, Postgres on host `:5433`. Optional profiles:
-`docker compose --profile rust up -d --build`, or `--profile ai` for FastAPI.
+Web `:3000`, Nest `:4000`, Postgres on host `:5433`.
 
 More in [docker/README.md](docker/README.md) and `/docs/docker`.
 
@@ -155,7 +150,6 @@ bun --cwd=apps/docs run dev
 - [/docs/architecture](http://localhost:3002/docs/architecture)
 - [/docs/deploy](http://localhost:3002/docs/deploy)
 - [/docs/docker](http://localhost:3002/docs/docker)
-- [/docs/production-roadmap](http://localhost:3002/docs/production-roadmap)
 - [/rabtx](http://localhost:3002/rabtx) — `@rabtx/ui` component reference
 
 Also in the repo: [PROJECT.md](PROJECT.md), [DESIGN.md](DESIGN.md), [AGENTS.md](AGENTS.md),

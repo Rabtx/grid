@@ -21,12 +21,6 @@ export default function BillingCancelPage() {
 							<HugeiconsIcon icon={ArrowLeft01Icon} className="size-3.5" strokeWidth={1.8} />
 							Back to billing
 						</Link>
-						<Link
-							href="/pricing"
-							className={cn(buttonVariants({ variant: "outline" }), "w-full sm:w-auto")}
-						>
-							Pricing
-						</Link>
 					</div>
 				</section>
 			</main>

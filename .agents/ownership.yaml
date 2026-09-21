@@ -12,13 +12,6 @@ roles:
     team: backend
     paths:
       - apps/nest-api/**
-    reviewers:
-      - reviewer
-      - qa
-  ai-python:
-    team: ai
-    paths:
-      - apps/ai-api/**
       - scripts/python/**
     reviewers:
       - reviewer
@@ -39,13 +32,6 @@ roles:
       - reviewer
       - qa
       - ui-ux
-  rust:
-    team: backend
-    paths:
-      - apps/rust/**
-    reviewers:
-      - reviewer
-      - qa
   qa:
     team: quality
     mode: read-only
@@ -75,7 +61,6 @@ roles:
     final_approver: human
     paths:
       - .agents/board/**
-      - apps/docs/content/docs/production-roadmap.mdx
     reviewers:
       - human
 
