@@ -1,6 +1,6 @@
 ---
 title: Quick Start
-description: Get the Starter running in minutes.
+description: Get Grid running in minutes.
 ---
 
 ## Prerequisites
@@ -33,9 +33,11 @@ Turbo will run relevant app/dev tasks across the monorepo.
 
 ## 4) Open apps
 
-- Web app: `apps/web`
-- API app: `apps/hono-api`
-- Docs app: `apps/docs`
+With Docker up (or after `docker compose up -d postgres` for a host-only API/web setup):
+
+- Web app: `apps/web` — http://localhost:3000
+- Nest API: `apps/nest-api` — http://localhost:4000/api/v1/health (Swagger: `/api/docs`)
+- Docs app: `apps/docs` — http://localhost:3002/docs
 
 ## 5) Validate quality before pushing
 

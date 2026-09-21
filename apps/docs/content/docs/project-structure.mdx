@@ -8,15 +8,13 @@ description: A clear map of the monorepo layout and responsibilities.
 ```text
 grid/
 ├── apps/
-│   ├── web/
-│   ├── mobile/
-│   ├── docs/          # Fumadocs site; MDX in apps/docs/content/docs/
-│   ├── nest-api/
-│   └── rust/
+│   ├── web/             # Next.js control plane
+│   ├── nest-api/        # NestJS production API
+│   └── docs/            # Fumadocs site; MDX in apps/docs/content/docs/
 ├── packages/
 │   ├── ui/
 │   ├── typescript-config/
-│   └── logger/
+│   └── logger/          # Shared logger (TypeScript + Rust)
 ├── scripts/
 ├── docker/
 ├── turbo.json

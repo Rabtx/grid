@@ -2,7 +2,7 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
-/* Shared design tokens — same file the web and mobile apps use, so previews render
+/* Shared design tokens — same file the web app uses, so previews render
    with the real --primary rather than a copy that can drift. */
 @import '../../../../packages/ui/src/styles/globals.css';
 

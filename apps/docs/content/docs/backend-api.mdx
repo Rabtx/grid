@@ -4,12 +4,10 @@ description: The single home for the NestJS API contract.
 ---
 
 This page is the one place the NestJS API contract lives. The agent contract in
-`.agents/agent-contract.md` points every role here: web and mobile read it before consuming an
+`.agents/agent-contract.md` points every role here: consumers read it before using an
 endpoint, and backend updates it in the same commit as any public API change.
 
-It is a stub in the starter, because the API surface is yours to define. The convention matters
-more than the current contents — a contract that lives in one file stays consistent, while one
-scattered across cards and notes drifts immediately.
+Base URL prefix: `/api/v1` (URI versioning). Auth uses JWT bearer tokens unless noted.
 
 ## What belongs here
 
@@ -25,12 +23,29 @@ scattered across cards and notes drifts immediately.
 
 ## Endpoints
 
-The starter ships a health check and Swagger. Document real endpoints here as you add them.
+Health and Swagger ship with the API. Auth, profile, and billing routes also live under
+`/api/v1/*` — see Swagger at `/api/docs` for the full interactive list.
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | `GET` | `/api/v1/health` | none | Liveness probe |
 | — | `/api/docs` | none in dev | Swagger UI |
+
+### Projects and tasks
+
+All project routes require `JwtAuthGuard` (bearer token). `:slug` is the project slug;
+`:number` is the integer task number on that board.
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/projects` | JWT | List projects owned by the caller |
+| `POST` | `/api/v1/projects` | JWT | Create a project (`201`) |
+| `GET` | `/api/v1/projects/:slug` | JWT | Get one project |
+| `PATCH` | `/api/v1/projects/:slug` | JWT | Update a project |
+| `GET` | `/api/v1/projects/:slug/tasks` | JWT | List tasks on a project board |
+| `POST` | `/api/v1/projects/:slug/tasks` | JWT | Create a task (`201`) |
+| `PATCH` | `/api/v1/projects/:slug/tasks/:number` | JWT | Update a task (including stage moves) |
+| `DELETE` | `/api/v1/projects/:slug/tasks/:number` | JWT | Delete a task (`204`) |
 
 ## Changelog
 
@@ -38,4 +53,4 @@ Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
-| — | Nothing documented yet | — |
+| 2026-09-22 | Documented existing projects and tasks endpoints | no |
