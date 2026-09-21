@@ -30,6 +30,8 @@ Multi-agent development of Grid itself runs through [.agents/](.agents/README.md
 **Prerequisites**
 
 - [Bun](https://bun.sh) `1.4.2` (pinned via `packageManager` and `.mise.toml`)
+- [mise](https://mise.jdx.dev) — `mise install` also provides `shellcheck`, `shfmt` and `ruff`,
+  which `bun run lint` and `bun run format` need for the shell and Python scripts
 - Optional: Docker Compose `v2.20+`, Rust toolchain (`packages/logger` Rust side), Python 3 (script tests)
 
 ```bash

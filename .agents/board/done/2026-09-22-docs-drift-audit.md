@@ -5,7 +5,7 @@ type: chore
 from: pm
 to: web
 priority: normal
-status: open
+status: done
 assignee: none
 reviewer: reviewer
 parent: none
@@ -73,4 +73,14 @@ change. Stage explicit paths — never `git add -A`.
 
 ## Resolution
 
-<!-- filled by the resolver: what changed, the commit, and the command output that proves it -->
+Done in `b4eec62`. Nine pages plus a stale comment in `apps/docs/src/app/global.css`.
+
+`backend-api.mdx` described the API as a stub with only health and Swagger; it now documents all
+eight projects and tasks routes. `project-structure.mdx` and `index.mdx` still listed `apps/mobile`,
+`apps/rust` and an `apps/hono-api` that never existed here. `quick-start.mdx` gained the three real
+apps and their ports.
+
+Verified on review: the route table matches the decorators in `projects.controller.ts` including the
+201 and 204 codes, the documented ports match the app configs, the docs build compiles and type
+checks, and no stale app or package names remain in the content. The assignee's own validation had
+skipped the docs build, which the card required.
