@@ -23,6 +23,13 @@ if rg -n "from\\s+\"@/modules/[^\\\"]+/[^\\\"]+/[^\\\"]+\"" apps/web/src/app app
     failed=1
 fi
 
+# Same rule for the console app: its routes and shared layers import module entrypoints.
+if rg -n "from\\s+\"@/modules/[^\\\"]+/[^\\\"]+/[^\\\"]+\"" apps/console/src/routes apps/console/src/lib -g "*.ts" -g "*.tsx" >/dev/null 2>&1; then
+    echo "error: deep module imports outside modules/ are forbidden; import from module public entrypoints."
+    rg -n "from\\s+\"@/modules/[^\\\"]+/[^\\\"]+/[^\\\"]+\"" apps/console/src/routes apps/console/src/lib -g "*.ts" -g "*.tsx" || true
+    failed=1
+fi
+
 # apps should not import each other via relative cross-app paths.
 if rg -n "\\.\\./\\.\\./apps/" apps -g "*.ts" -g "*.tsx" >/dev/null 2>&1; then
     echo "error: cross-app relative imports are forbidden."

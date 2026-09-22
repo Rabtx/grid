@@ -1,0 +1,14 @@
+{
+	"extends": "../../packages/typescript-config/base.json",
+	"compilerOptions": {
+		"jsx": "preserve",
+		"jsxImportSource": "@solidjs/web",
+		"types": ["vite/client"],
+		"noEmit": true,
+		"paths": {
+			"@/*": ["./src/*"]
+		}
+	},
+	"include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"],
+	"exclude": ["node_modules", "dist"]
+}

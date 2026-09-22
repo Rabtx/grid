@@ -66,6 +66,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 ```
 grid/
 ├── apps/
+│   ├── console/         # Vite + Solid 2 SPA — the control plane in progress
 │   ├── web/             # Next.js (React, Tailwind, shadcn-style UI)
 │   ├── nest-api/        # NestJS production API (PostgreSQL in later phases)
 │   ├── docs/            # Docs site (Fumadocs); source in apps/docs/content/docs/
@@ -86,8 +87,7 @@ grid/
 
 | Tool | Purpose | Config |
 |------|---------|--------|
-| **Bun** | Package manager and script runner (not npm/yarn/pnpm) | `package.json` workspaces |
-| **Bun** | Workspaces and task running | `bun run --filter` |
+| **Bun** | Package manager, workspaces and task running (`bun run --filter`) | `package.json` |
 | **oxlint + oxfmt** | Lint + format for TS/JS | `.oxlintrc.json` / `.oxfmtrc.json` (tabs, line width 100) |
 | **Lefthook** | Git hooks (pre-commit, commit-msg) | `lefthook.yml` |
 | **EditorConfig** | Consistent indent/charset/line endings | `.editorconfig` |

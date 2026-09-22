@@ -47,6 +47,7 @@ bun run dev
 | App | Dev URL |
 | --- | --- |
 | Web | http://localhost:3000 |
+| Console | http://localhost:3001 |
 | Nest API | http://localhost:4000 — `/api/v1/health`, `/api/docs` |
 | Docs | http://localhost:3002/docs |
 
@@ -59,7 +60,8 @@ and `docs`).
 
 | Path | What it is |
 | --- | --- |
-| `apps/web` | Next.js 16 — the browser control plane |
+| `apps/web` | Next.js 16 — landing page and the outgoing control plane |
+| `apps/console` | Vite + Solid 2 SPA — the control plane being built to replace it |
 | `apps/nest-api` | NestJS API spine, Drizzle over Postgres/Neon |
 | `apps/docs` | Fumadocs site — project docs at `/docs` |
 
