@@ -1,27 +1,27 @@
 {
-  "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "base-nova",
-  "rsc": true,
-  "tsx": true,
-  "tailwind": {
-    "config": "",
-    "css": "src/styles/globals.css",
-    "baseColor": "neutral",
-    "cssVariables": true,
-    "prefix": ""
-  },
-  "iconLibrary": "hugeicons",
-  "rtl": true,
-  "menuColor": "inverted",
-  "menuAccent": "subtle",
-  "aliases": {
-    "components": "@grid/ui/components",
-    "utils": "@grid/ui/lib/utils",
-    "ui": "@grid/ui/components",
-    "lib": "@grid/ui/lib",
-    "hooks": "@grid/ui/hooks"
-  },
-  "registries": {
-    "@beui": "https://beui.dev/r/{name}.json"
-  }
+	"$schema": "https://ui.shadcn.com/schema.json",
+	"style": "base-nova",
+	"rsc": true,
+	"tsx": true,
+	"tailwind": {
+		"config": "",
+		"css": "src/styles/globals.css",
+		"baseColor": "neutral",
+		"cssVariables": true,
+		"prefix": ""
+	},
+	"iconLibrary": "hugeicons",
+	"rtl": true,
+	"menuColor": "inverted",
+	"menuAccent": "subtle",
+	"aliases": {
+		"components": "@grid/ui/components",
+		"utils": "@grid/ui/lib/utils",
+		"ui": "@grid/ui/components",
+		"lib": "@grid/ui/lib",
+		"hooks": "@grid/ui/hooks"
+	},
+	"registries": {
+		"@beui": "https://beui.dev/r/{name}.json"
+	}
 }

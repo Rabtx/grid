@@ -1,0 +1,24 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"useTabs": true,
+	"tabWidth": 2,
+	"printWidth": 100,
+	"singleQuote": false,
+	"jsxSingleQuote": false,
+	"quoteProps": "as-needed",
+	"trailingComma": "all",
+	"semi": true,
+	"arrowParens": "always",
+	"bracketSameLine": false,
+	"bracketSpacing": true,
+	"ignorePatterns": ["**/.next", "**/dist"],
+	"overrides": [
+		{
+			"files": ["apps/nest-api/**/*.ts"],
+			"options": {
+				"singleQuote": true,
+				"trailingComma": "all"
+			}
+		}
+	]
+}

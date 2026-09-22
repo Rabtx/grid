@@ -19,7 +19,7 @@ I am Antigravity, an advanced agentic coding assistant. When working in this rep
 
 ## 3. Tooling Consistency
 - **Bun & Turbo**: Use `bun` for all package management and `turbo` for orchestration.
-- **Biome**: Follow Biome's linting and formatting rules strictly (tabs, 100 line width).
+- **oxlint / oxfmt**: Follow oxlint's linting and oxfmt's formatting rules strictly (tabs, 100 line width).
 - **Workspace Imports**: Use `@grid/*` imports to maintain monorepo integrity.
 
 ## 4. Communication & Documentation

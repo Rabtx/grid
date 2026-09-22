@@ -46,7 +46,7 @@ Confirmed findings, each verified as unreferenced:
 ## Proposal or Ask
 
 Delete the five SVGs. Strip the dead language blocks from `.vscode/settings.json`, keeping
-TypeScript, Biome and anything that still applies. Delete the `hono` and `domain-cli` skills.
+TypeScript, the TS/JS linter and anything that still applies. Delete the `hono` and `domain-cli` skills.
 
 Check `.agents/skills/m01-ownership` through `m12-lifecycle` and `ponytail` before touching
 them: several read as Rust teaching modules. If they are Rust-specific, **do not delete them** —

@@ -1,7 +1,7 @@
 {
-  "extends": "./packages/typescript-config/base.json",
-  "compilerOptions": {
-    "noEmit": true
-  },
-  "files": []
+	"extends": "./packages/typescript-config/base.json",
+	"compilerOptions": {
+		"noEmit": true
+	},
+	"files": []
 }

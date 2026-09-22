@@ -297,7 +297,7 @@ export function AccountSecurity({ basePath = "/admin/account" }: { basePath?: st
 
 				<AccountSection
 					title="Passkeys"
-					description="Use biometrics, a device PIN, or a physical security key."
+					description="Use a fingerprint, a device PIN, or a physical security key."
 					icon={FingerPrintIcon}
 					action={<Badge variant="outline">{passkeys.length} registered</Badge>}
 				>

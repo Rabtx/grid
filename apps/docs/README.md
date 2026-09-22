@@ -12,13 +12,13 @@ Open http://localhost:3002/docs
 
 ## Content map
 
-| Path | Topic |
-| --- | --- |
-| `/docs` | Home |
-| `/docs/quick-start` | Bootstrap |
-| `/docs/architecture` | Boundaries + ADRs |
-| `/docs/docker` | Compose / Postgres |
-| `/docs/qol` | Hooks, CI, tooling |
-| `/docs/overrides` | Architecture override policy |
+| Path                 | Topic                        |
+| -------------------- | ---------------------------- |
+| `/docs`              | Home                         |
+| `/docs/quick-start`  | Bootstrap                    |
+| `/docs/architecture` | Boundaries + ADRs            |
+| `/docs/docker`       | Compose / Postgres           |
+| `/docs/qol`          | Hooks, CI, tooling           |
+| `/docs/overrides`    | Architecture override policy |
 
 Agents should use these pages plus root `AGENTS.md` / `DESIGN.md` / `PROJECT.md`.

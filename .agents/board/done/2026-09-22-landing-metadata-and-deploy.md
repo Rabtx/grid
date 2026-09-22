@@ -124,21 +124,36 @@ Route (app)
 Built HTML head (`apps/web/.next/server/app/index.html`):
 
 ```html
-<meta property="og:title" content="Grid — An AI-native operating system for building and running a startup"/>
-<meta property="og:description" content="Grid brings projects, agents, development, deployment, infrastructure and operations into one browser-accessible control plane. Humans and AI agents are both first-class workers inside it."/>
-<meta property="og:url" content="http://localhost:3000"/>
-<meta property="og:image" content="http://localhost:3000/opengraph-image?8f12275addc85f91"/>
-<meta property="og:image:type" content="image/png"/>
-<meta property="og:image:width" content="1200"/>
-<meta property="og:image:height" content="630"/>
-<meta property="og:image:alt" content="Grid — An AI-native operating system for building and running a startup"/>
-<meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:title" content="Grid — An AI-native operating system for building and running a startup"/>
-<meta name="twitter:description" content="Grid brings projects, agents, development, deployment, infrastructure and operations into one browser-accessible control plane. Humans and AI agents are both first-class workers inside it."/>
-<meta name="twitter:image" content="http://localhost:3000/opengraph-image?8f12275addc85f91"/>
-<meta name="twitter:image:width" content="1200"/>
-<meta name="twitter:image:height" content="630"/>
-<link rel="canonical" href="http://localhost:3000"/>
+<meta
+	property="og:title"
+	content="Grid — An AI-native operating system for building and running a startup"
+/>
+<meta
+	property="og:description"
+	content="Grid brings projects, agents, development, deployment, infrastructure and operations into one browser-accessible control plane. Humans and AI agents are both first-class workers inside it."
+/>
+<meta property="og:url" content="http://localhost:3000" />
+<meta property="og:image" content="http://localhost:3000/opengraph-image?8f12275addc85f91" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta
+	property="og:image:alt"
+	content="Grid — An AI-native operating system for building and running a startup"
+/>
+<meta name="twitter:card" content="summary_large_image" />
+<meta
+	name="twitter:title"
+	content="Grid — An AI-native operating system for building and running a startup"
+/>
+<meta
+	name="twitter:description"
+	content="Grid brings projects, agents, development, deployment, infrastructure and operations into one browser-accessible control plane. Humans and AI agents are both first-class workers inside it."
+/>
+<meta name="twitter:image" content="http://localhost:3000/opengraph-image?8f12275addc85f91" />
+<meta name="twitter:image:width" content="1200" />
+<meta name="twitter:image:height" content="630" />
+<link rel="canonical" href="http://localhost:3000" />
 ```
 
 OG PNG generated at build: `opengraph-image.body` 47572 bytes, magic `\x89PNG`.

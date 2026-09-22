@@ -55,7 +55,7 @@ apply here.
 9. **Close the loop.** When done, move to `done/`, fill `Resolution`, set
    `status: done`. Done cards stay as history.
 10. **Commit only your worktree's paths.** Stage explicit paths (`git add <your/files>`),
-   never `git add -A`. Other agents work side by side in this repo.
+    never `git add -A`. Other agents work side by side in this repo.
 11. **Reference cards by filename**, not folder path (cards move between folders).
 
 ## Card lifecycle

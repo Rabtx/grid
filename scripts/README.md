@@ -19,12 +19,12 @@ scripts/
 
 ## Commands (from root)
 
-| Command | Purpose |
-| --- | --- |
+| Command                      | Purpose                                      |
+| ---------------------------- | -------------------------------------------- |
 | `bun run architecture:check` | Import-boundary rules, then the naming check |
-| `bun run naming:check` | kebab-case file and folder names |
-| `bun run scripts:lint` | ShellCheck over every script in this tree |
-| `bun run scripts:format` | shfmt, four-space indent |
+| `bun run naming:check`       | kebab-case file and folder names             |
+| `bun run scripts:lint`       | ShellCheck over every script in this tree    |
+| `bun run scripts:format`     | shfmt, four-space indent                     |
 
 `shellcheck` and `shfmt` come from `mise install` — see `.mise.toml`.
 

@@ -1,4 +1,4 @@
-# The Rust logger was written with hard tabs to match the tab style Biome
+# The Rust logger was written with hard tabs to match the tab style oxfmt
 # enforces across the TypeScript workspaces. `bun run format` now runs
 # `cargo fmt` here (the rust app that used to own the rustfmt config is gone),
 # so pin the style rather than letting rustfmt convert the crate to spaces.

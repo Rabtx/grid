@@ -45,4 +45,3 @@ body:
     attributes:
       label: Technical notes
       description: APIs, data model, affected apps/packages, security, migrations, or tests.
-

@@ -44,11 +44,11 @@ bun run dev
 
 `bun run dev` starts every workspace.
 
-| App | Dev URL |
-| --- | --- |
-| Web | http://localhost:3000 |
+| App      | Dev URL                                               |
+| -------- | ----------------------------------------------------- |
+| Web      | http://localhost:3000                                 |
 | Nest API | http://localhost:4000 — `/api/v1/health`, `/api/docs` |
-| Docs | http://localhost:3002/docs |
+| Docs     | http://localhost:3002/docs                            |
 
 To work on one app in isolation: `bun --cwd=apps/web run dev` (same pattern for `nest-api`
 and `docs`).
@@ -57,49 +57,49 @@ and `docs`).
 
 ### Apps
 
-| Path | What it is |
-| --- | --- |
-| `apps/web` | Next.js 16 — the browser control plane |
+| Path            | What it is                                   |
+| --------------- | -------------------------------------------- |
+| `apps/web`      | Next.js 16 — the browser control plane       |
 | `apps/nest-api` | NestJS API spine, Drizzle over Postgres/Neon |
-| `apps/docs` | Fumadocs site — project docs at `/docs` |
+| `apps/docs`     | Fumadocs site — project docs at `/docs`      |
 
 ### Packages
 
-| Package | Path | Role |
-| --- | --- | --- |
-| `@grid/ui` | `packages/ui` | shadcn base — the unopinionated primitives |
-| `@grid/logger` | `packages/logger` | Shared structured logging |
-| `@grid/typescript-config` | `packages/typescript-config` | Base tsconfigs every workspace extends |
+| Package                   | Path                         | Role                                       |
+| ------------------------- | ---------------------------- | ------------------------------------------ |
+| `@grid/ui`                | `packages/ui`                | shadcn base — the unopinionated primitives |
+| `@grid/logger`            | `packages/logger`            | Shared structured logging                  |
+| `@grid/typescript-config` | `packages/typescript-config` | Base tsconfigs every workspace extends     |
 
 ### Everything else
 
-| Path | Purpose |
-| --- | --- |
-| `.agents/` | Agent contract, roles, board and skills — the single source; there is no second copy |
-| `docker/` | Compose fragments: Postgres, Nest, web, optional profiles |
-| `scripts/` | Shell utilities, git hooks, plus architecture and naming checks |
-| `.github/workflows/` | `ci.yml`, `cd.yml`, `security.yml` |
-| `.devcontainer/` | Bun + Rust + Bash tooling |
+| Path                 | Purpose                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `.agents/`           | Agent contract, roles, board and skills — the single source; there is no second copy |
+| `docker/`            | Compose fragments: Postgres, Nest, web, optional profiles                            |
+| `scripts/`           | Shell utilities, git hooks, plus architecture and naming checks                      |
+| `.github/workflows/` | `ci.yml`, `cd.yml`, `security.yml`                                                   |
+| `.devcontainer/`     | Bun + Rust + Bash tooling                                                            |
 
 ## Commands
 
-| Command | Does |
-| --- | --- |
-| `bun run dev` | All dev servers |
-| `bun run build` | Build every app |
-| `bun run lint` / `lint:fix` | Biome, plus ShellCheck over `scripts/` |
-| `bun run format` | Format TS/JS, shell and the Rust logger |
-| `bun run typecheck` | TypeScript across workspaces |
-| `bun run test` / `test:coverage` | Unit tests / coverage gates |
-| `bun run test:e2e:web` | Playwright e2e for web |
-| `bun run architecture:check` | Import-boundary rules |
-| `bun run naming:check` | File and symbol naming rules |
-| `bun run preflight` | `lint` + `typecheck` + `test` — run before pushing |
+| Command                          | Does                                               |
+| -------------------------------- | -------------------------------------------------- |
+| `bun run dev`                    | All dev servers                                    |
+| `bun run build`                  | Build every app                                    |
+| `bun run lint` / `lint:fix`      | oxlint, plus ShellCheck over `scripts/`            |
+| `bun run format`                 | Format TS/JS, shell and the Rust logger            |
+| `bun run typecheck`              | TypeScript across workspaces                       |
+| `bun run test` / `test:coverage` | Unit tests / coverage gates                        |
+| `bun run test:e2e:web`           | Playwright e2e for web                             |
+| `bun run architecture:check`     | Import-boundary rules                              |
+| `bun run naming:check`           | File and symbol naming rules                       |
+| `bun run preflight`              | `lint` + `typecheck` + `test` — run before pushing |
 
 ## Tooling
 
 - **Bun** workspaces and **Turborepo** for the task graph
-- **Biome** for TS/JS — tabs, line width 100
+- **oxlint + oxfmt** for TS/JS — tabs, line width 100
 - **Lefthook** pre-commit and commit-msg, enforcing Conventional Commits
 - Bash: ShellCheck + shfmt · Rust: rustfmt + clippy
 
@@ -116,11 +116,11 @@ More in [docker/README.md](docker/README.md) and `/docs/docker`.
 
 ## Deploy
 
-| Piece | Host | Config |
-| --- | --- | --- |
+| Piece      | Host                         | Config               |
+| ---------- | ---------------------------- | -------------------- |
 | Web + docs | [Vercel](https://vercel.com) | `apps/*/vercel.json` |
-| Nest API | [Render](https://render.com) | `render.yaml` |
-| Database | [Neon](https://neon.tech) | `DATABASE_URL` |
+| Nest API   | [Render](https://render.com) | `render.yaml`        |
+| Database   | [Neon](https://neon.tech)    | `DATABASE_URL`       |
 
 Walkthrough: `/docs/deploy` — [apps/docs/content/docs/deploy.mdx](apps/docs/content/docs/deploy.mdx).
 

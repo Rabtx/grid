@@ -1,41 +1,41 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1783952700031,
-      "tag": "0000_supreme_hellfire_club",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1783968371180,
-      "tag": "0001_tired_hellcat",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1783977546984,
-      "tag": "0002_tearful_dorian_gray",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1784059578300,
-      "tag": "0003_abnormal_kate_bishop",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1790022253828,
-      "tag": "0004_brief_rachel_grey",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1783952700031,
+			"tag": "0000_supreme_hellfire_club",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1783968371180,
+			"tag": "0001_tired_hellcat",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1783977546984,
+			"tag": "0002_tearful_dorian_gray",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1784059578300,
+			"tag": "0003_abnormal_kate_bishop",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1790022253828,
+			"tag": "0004_brief_rachel_grey",
+			"breakpoints": true
+		}
+	]
 }
