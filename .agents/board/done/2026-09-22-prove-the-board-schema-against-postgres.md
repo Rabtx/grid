@@ -5,7 +5,7 @@ type: chore
 from: backend
 to: backend
 priority: high
-status: open
+status: done
 assignee: none
 reviewer: reviewer
 parent: none
@@ -87,4 +87,27 @@ database, CI runs it, and the card records the actual `psql \d tasks` output.
 
 ## Resolution
 
-<!-- filled by the resolver -->
+Done. Postgres 16 was brought up on host port 5434 — 5433 was already taken by another
+project's container — and migration `0004` was applied for the first time. Verified in the
+database: `projects` and `tasks` exist, all three enums (`project_status`, `task_owner_kind`,
+`task_status` with the seven stages in order) and all six indexes are present, and deleting a
+project cascades to its tasks.
+
+**The concurrency check found a real bug, which is the reason this card existed.** Eight
+parallel `createTask` calls produced five failures: the old allocation read
+`coalesce(max(number), 0) + 1` in a subquery, so concurrent transactions at READ COMMITTED read
+the same maximum and collided on `tasks_project_number_unique`. The unique index held — the
+numbers that survived were distinct — but five creates were rejected outright. Two agents filing
+tasks on one board at the same time would have hit this immediately.
+
+Fixed by taking `select … for update` on the project row inside a transaction before allocating,
+which serialises per board and leaves other projects unaffected. The comment claiming a subquery
+made this safe was wrong and has been replaced with what actually happens.
+
+The whole proof is now `apps/nest-api/test/projects.database.integration-spec.ts`, so it cannot
+rot: numbering, the concurrency case, owner scoping returning 404 rather than 403, no leak
+through a slug two owners share, stage persistence and the cascade. CI gained a Postgres 16
+service, a migrate step and an integration-test step, so this runs on every push.
+
+One caveat recorded honestly: the browser path — sign in, create a project, file and move a task
+through the UI — still has not been exercised against a running stack.

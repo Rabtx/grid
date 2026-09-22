@@ -59,23 +59,40 @@ export class ProjectsRepository {
 	}
 
 	/**
-	 * Allocates the task's per-project number and trailing position inside one
-	 * statement, so two concurrent creates cannot pick the same number. The unique
-	 * index on (project_id, number) is the backstop if they ever do.
+	 * Allocates the task's per-project number and trailing board position.
+	 *
+	 * Computing `max(number) + 1` in a subquery is not enough: under READ COMMITTED
+	 * two concurrent inserts both read the same maximum, and one of them dies on the
+	 * unique index. That is exactly what happened when this was first exercised
+	 * against Postgres — five of eight concurrent creates were rejected. Locking the
+	 * project row first serialises allocation per board, which is the granularity
+	 * that matters, and leaves boards in other projects free to proceed.
 	 */
 	async createTask(input: Omit<NewTaskRecord, 'number' | 'position'>) {
-		const nextNumber = sql`(select coalesce(max(${tasks.number}), 0) + 1 from ${tasks} where ${tasks.projectId} = ${input.projectId})`;
-		const nextPosition = sql`(select coalesce(max(${tasks.position}), 0) + 1 from ${tasks} where ${tasks.projectId} = ${input.projectId})`;
-		const [task] = await this.database.db
-			.insert(tasks)
-			.values({
-				...input,
-				number: nextNumber as unknown as number,
-				position: nextPosition as unknown as number,
-			})
-			.returning();
-		if (!task) throw new Error('Task insert did not return a record');
-		return task;
+		return this.database.db.transaction(async (tx) => {
+			await tx.execute(
+				sql`select 1 from ${projects} where ${projects.id} = ${input.projectId} for update`,
+			);
+
+			const [current] = await tx
+				.select({
+					number: sql<number>`coalesce(max(${tasks.number}), 0)`,
+					position: sql<number>`coalesce(max(${tasks.position}), 0)`,
+				})
+				.from(tasks)
+				.where(eq(tasks.projectId, input.projectId));
+
+			const [task] = await tx
+				.insert(tasks)
+				.values({
+					...input,
+					number: Number(current?.number ?? 0) + 1,
+					position: Number(current?.position ?? 0) + 1,
+				})
+				.returning();
+			if (!task) throw new Error('Task insert did not return a record');
+			return task;
+		});
 	}
 
 	async updateTask(taskId: string, input: Partial<NewTaskRecord>) {
