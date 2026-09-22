@@ -3,18 +3,19 @@ import type { JSX } from "@solidjs/web";
 import { createEffect } from "solid-js";
 
 import { AuthProvider, LoginForm, useAuth } from "@/modules/auth";
-import { BoardScreen } from "@/modules/projects";
+import { BoardScreen, ProjectRedirect } from "@/modules/projects";
 
 import { AppShell } from "./routes/app-shell";
 import { RequireAuth } from "./routes/require-auth";
 
 // The console has no landing page of its own — that still lives in the marketing
-// site — so the board is the front door and "/" renders it behind the guard.
+// site — so the board is the front door: "/" and "/board" open the first project.
 const Router = createRouter({
 	routes: [
-		{ path: "/", component: BoardRoute },
+		{ path: "/", component: RedirectRoute },
 		{ path: "/login", component: LoginRoute },
-		{ path: "/board", component: BoardRoute },
+		{ path: "/board", component: RedirectRoute },
+		{ path: "/board/:slug", component: BoardRoute },
 		{ path: "*", component: NotFoundRoute },
 	],
 });
@@ -42,6 +43,14 @@ function LoginRoute(): JSX.Element {
 		<div class="flex justify-center py-12">
 			<LoginForm />
 		</div>
+	);
+}
+
+function RedirectRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<ProjectRedirect />
+		</RequireAuth>
 	);
 }
 

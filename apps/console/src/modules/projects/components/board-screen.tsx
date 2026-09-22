@@ -1,10 +1,8 @@
 import type { JSX } from "@solidjs/web";
-import { createMemo, createSignal, For, Loading, Show } from "solid-js";
+import { createMemo, For, Loading, Show } from "solid-js";
 
-import { useAuth } from "@/modules/auth";
-
+import { useWorkspace } from "../context/workspace-context";
 import { groupByStatus } from "../lib/board";
-import { projectsService } from "../services/projects.service";
 import {
 	TASK_STATUS_LABELS,
 	TASK_STATUSES,
@@ -13,60 +11,12 @@ import {
 } from "../types/project.types";
 
 export function BoardScreen(): JSX.Element {
-	const auth = useAuth();
-	const [selectedSlug, setSelectedSlug] = createSignal<string | null>(null);
-	// Bumped after every write so the async reads below re-run. An explicit token
-	// beats reaching for a refetch helper: the dependency is visible in the memo.
-	const [revision, setRevision] = createSignal(0);
-
-	const projects = createMemo(async () => {
-		const token = auth.token();
-		if (!token) return [];
-		return projectsService.list(token);
-	});
-
-	const activeSlug = createMemo(() => selectedSlug() ?? projects()[0]?.slug ?? null);
-
-	const tasks = createMemo(async () => {
-		revision();
-		const token = auth.token();
-		const slug = activeSlug();
-		if (!token || !slug) return [];
-		return projectsService.listTasks(token, slug);
-	});
-
-	const columns = createMemo(() => groupByStatus(tasks()));
+	const workspace = useWorkspace();
+	const columns = createMemo(() => groupByStatus(workspace.tasks()));
 
 	return (
 		<Loading fallback={<p class="text-muted-foreground text-ui-sm">Loading board…</p>}>
-			<div class="flex min-w-0 flex-col gap-4">
-				<header class="flex min-w-0 flex-wrap items-end justify-between gap-3">
-					<div class="min-w-0 space-y-1">
-						<h1 class="font-semibold text-title tracking-tight">Board</h1>
-						<p class="text-muted-foreground text-ui-sm">
-							{tasks().length} task{tasks().length === 1 ? "" : "s"} across {TASK_STATUSES.length}{" "}
-							stages
-						</p>
-					</div>
-					<label class="flex items-center gap-2 text-muted-foreground text-ui-xs">
-						Project
-						<select
-							class="h-7 rounded-md border border-border bg-background px-2 text-foreground text-ui-input outline-none focus-visible:border-ring"
-							onChange={(event) => setSelectedSlug(event.currentTarget.value)}
-						>
-							<For each={projects()}>
-								{(project) => (
-									<option value={project.slug} selected={project.slug === activeSlug()}>
-										{project.name}
-									</option>
-								)}
-							</For>
-						</select>
-					</label>
-				</header>
-
-				<NewTaskForm slug={activeSlug()} onCreated={() => setRevision((n) => n + 1)} />
-
+			<Show when={workspace.activeProject()} fallback={<ProjectNotFound />}>
 				<div class="min-w-0 overflow-x-auto pb-2">
 					<div class="flex min-w-max gap-3">
 						<For each={TASK_STATUSES}>
@@ -74,8 +24,20 @@ export function BoardScreen(): JSX.Element {
 						</For>
 					</div>
 				</div>
-			</div>
+			</Show>
 		</Loading>
+	);
+}
+
+function ProjectNotFound(): JSX.Element {
+	return (
+		<div class="space-y-2 py-8">
+			<h1 class="font-semibold text-title">Project not found</h1>
+			<p class="text-muted-foreground text-ui">It may have been renamed or archived.</p>
+			<a href="/board" class="inline-flex min-h-row items-center text-primary text-ui underline">
+				Open your first project
+			</a>
+		</div>
 	);
 }
 
@@ -120,54 +82,5 @@ function TaskCard(props: { task: Task }): JSX.Element {
 				)}
 			</Show>
 		</article>
-	);
-}
-
-function NewTaskForm(props: { slug: string | null; onCreated: () => void }): JSX.Element {
-	const auth = useAuth();
-	const [title, setTitle] = createSignal("");
-	const [pending, setPending] = createSignal(false);
-	const [error, setError] = createSignal<string | null>(null);
-
-	async function submit(event: SubmitEvent) {
-		event.preventDefault();
-		const trimmed = title().trim();
-		const token = auth.token();
-		const slug = props.slug;
-		if (!trimmed || !token || !slug) return;
-
-		setError(null);
-		setPending(true);
-		try {
-			await projectsService.createTask(token, slug, { title: trimmed });
-			setTitle("");
-			props.onCreated();
-		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : "Could not add the task");
-		} finally {
-			setPending(false);
-		}
-	}
-
-	return (
-		<form class="flex min-w-0 flex-wrap items-center gap-2" onSubmit={submit}>
-			<input
-				value={title()}
-				onInput={(event) => setTitle(event.currentTarget.value)}
-				placeholder="New task title"
-				maxlength={200}
-				class="h-8 w-full rounded-md border border-border bg-background px-3 text-ui-input outline-none focus-visible:border-ring sm:w-72"
-			/>
-			<button
-				type="submit"
-				disabled={!title().trim() || pending()}
-				class="h-8 rounded-md bg-primary px-3 font-medium text-primary-foreground text-ui disabled:opacity-60"
-			>
-				{pending() ? "Adding…" : "Add to backlog"}
-			</button>
-			<Show when={error()}>
-				{(message) => <p class="text-destructive text-ui-xs">{message()}</p>}
-			</Show>
-		</form>
 	);
 }
