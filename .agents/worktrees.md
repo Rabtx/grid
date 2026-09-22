@@ -46,12 +46,12 @@ Branches use `agent/<role>/<card-slug>`. WTP preserves the branch hierarchy in t
 
 The canonical single-worktree development ports are:
 
-| Service  | Canonical port |
-| -------- | -------------: |
-| Web      |           3000 |
-| Docs     |           3002 |
-| Nest API |           4000 |
-| AI API   |           8000 |
+| Service | Canonical port |
+| --- | ---: |
+| Web | 3000 |
+| Docs | 3002 |
+| Nest API | 4000 |
+| AI API | 8000 |
 
 Parallel agents must choose non-conflicting ports and record them on the card. Do not maintain a
 large permanent role-to-port matrix. The PM assigns ports only to roles that actually run a local

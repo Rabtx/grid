@@ -73,7 +73,7 @@ and deleted, without a page reload, and the board reflects the change.
 - `bun run architecture:check` — note that deep imports across module boundaries are rejected
 - Exercise it in a browser against a running API and paste what you did; a screenshot of the
   panel open, and one of a failed save showing the error, are the useful evidence here
-- Confirm no new lint findings: the repo is currently at zero and the pre-commit hook enforces it
+- Confirm no new Biome findings: the repo is currently at zero and the pre-commit hook enforces it
 
 ## Resolution
 
@@ -111,7 +111,7 @@ Decisions recorded:
 ### Validation
 
 - `bun --cwd=apps/web run typecheck`: pass (`tsc --noEmit`, no output)
-- `bun --cwd=apps/web run lint`: pass (repo linter, 107 files, 0 findings after `lint:fix`)
+- `bun --cwd=apps/web run lint`: pass (`biome check .`, 107 files, 0 findings after `lint:fix`)
 - `bun --cwd=apps/web run test`: pass (6 files, 31 tests, includes new `task-form.test.ts`)
 - `bun run architecture:check`: pass (boundaries + kebab-case naming, 392 paths)
 - Browser exercise against a running API: **not done** — no API/web stack is running in this

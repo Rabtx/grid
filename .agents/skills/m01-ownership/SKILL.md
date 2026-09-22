@@ -13,7 +13,6 @@ user-invocable: false
 **Who should own this data, and for how long?**
 
 Before fixing ownership errors, understand the data's role:
-
 - Is it shared or exclusive?
 - Is it short-lived or long-lived?
 - Is it transformed or just read?
@@ -22,15 +21,15 @@ Before fixing ownership errors, understand the data's role:
 
 ## Error → Design Question
 
-| Error | Don't Just Say      | Ask Instead                               |
-| ----- | ------------------- | ----------------------------------------- |
-| E0382 | "Clone it"          | Who should own this data?                 |
-| E0597 | "Extend lifetime"   | Is the scope boundary correct?            |
-| E0506 | "End borrow first"  | Should mutation happen elsewhere?         |
-| E0507 | "Clone before move" | Why are we moving from a reference?       |
-| E0515 | "Return owned"      | Should caller own the data?               |
-| E0716 | "Bind to variable"  | Why is this temporary?                    |
-| E0106 | "Add 'a"            | What is the actual lifetime relationship? |
+| Error | Don't Just Say | Ask Instead |
+|-------|----------------|-------------|
+| E0382 | "Clone it" | Who should own this data? |
+| E0597 | "Extend lifetime" | Is the scope boundary correct? |
+| E0506 | "End borrow first" | Should mutation happen elsewhere? |
+| E0507 | "Clone before move" | Why are we moving from a reference? |
+| E0515 | "Return owned" | Should caller own the data? |
+| E0716 | "Bind to variable" | Why is this temporary? |
+| E0106 | "Add 'a" | What is the actual lifetime relationship? |
 
 ---
 
@@ -63,11 +62,11 @@ E0382 (moved value)
     ↑ Check: domain-* (what constraints apply?)
 ```
 
-| Persistent Error | Trace To       | Question                          |
-| ---------------- | -------------- | --------------------------------- |
-| E0382 repeated   | m02-resource   | Should use Arc/Rc for sharing?    |
-| E0597 repeated   | m09-domain     | Is scope boundary at right place? |
-| E0506/E0507      | m03-mutability | Should use interior mutability?   |
+| Persistent Error | Trace To | Question |
+|-----------------|----------|----------|
+| E0382 repeated | m02-resource | Should use Arc/Rc for sharing? |
+| E0597 repeated | m09-domain | Is scope boundary at right place? |
+| E0506/E0507 | m03-mutability | Should use interior mutability? |
 
 ---
 
@@ -90,46 +89,46 @@ From design decisions to implementation:
 
 ## Quick Reference
 
-| Pattern   | Ownership        | Cost             | Use When                 |
-| --------- | ---------------- | ---------------- | ------------------------ |
-| Move      | Transfer         | Zero             | Caller doesn't need data |
-| `&T`      | Borrow           | Zero             | Read-only access         |
-| `&mut T`  | Exclusive borrow | Zero             | Need to modify           |
-| `clone()` | Duplicate        | Alloc + copy     | Actually need a copy     |
-| `Rc<T>`   | Shared (single)  | Ref count        | Single-thread sharing    |
-| `Arc<T>`  | Shared (multi)   | Atomic ref count | Multi-thread sharing     |
-| `Cow<T>`  | Clone-on-write   | Alloc if mutated | Might modify             |
+| Pattern | Ownership | Cost | Use When |
+|---------|-----------|------|----------|
+| Move | Transfer | Zero | Caller doesn't need data |
+| `&T` | Borrow | Zero | Read-only access |
+| `&mut T` | Exclusive borrow | Zero | Need to modify |
+| `clone()` | Duplicate | Alloc + copy | Actually need a copy |
+| `Rc<T>` | Shared (single) | Ref count | Single-thread sharing |
+| `Arc<T>` | Shared (multi) | Atomic ref count | Multi-thread sharing |
+| `Cow<T>` | Clone-on-write | Alloc if mutated | Might modify |
 
 ## Error Code Reference
 
-| Error | Cause                    | Quick Fix                               |
-| ----- | ------------------------ | --------------------------------------- |
-| E0382 | Value moved              | Clone, reference, or redesign ownership |
-| E0597 | Reference outlives owner | Extend owner scope or restructure       |
-| E0506 | Assign while borrowed    | End borrow before mutation              |
-| E0507 | Move out of borrowed     | Clone or use reference                  |
-| E0515 | Return local reference   | Return owned value                      |
-| E0716 | Temporary dropped        | Bind to variable                        |
-| E0106 | Missing lifetime         | Add `'a` annotation                     |
+| Error | Cause | Quick Fix |
+|-------|-------|-----------|
+| E0382 | Value moved | Clone, reference, or redesign ownership |
+| E0597 | Reference outlives owner | Extend owner scope or restructure |
+| E0506 | Assign while borrowed | End borrow before mutation |
+| E0507 | Move out of borrowed | Clone or use reference |
+| E0515 | Return local reference | Return owned value |
+| E0716 | Temporary dropped | Bind to variable |
+| E0106 | Missing lifetime | Add `'a` annotation |
 
 ---
 
 ## Anti-Patterns
 
-| Anti-Pattern             | Why Bad               | Better                    |
-| ------------------------ | --------------------- | ------------------------- |
-| `.clone()` everywhere    | Hides design issues   | Design ownership properly |
-| Fight borrow checker     | Increases complexity  | Work with the compiler    |
+| Anti-Pattern | Why Bad | Better |
+|--------------|---------|--------|
+| `.clone()` everywhere | Hides design issues | Design ownership properly |
+| Fight borrow checker | Increases complexity | Work with the compiler |
 | `'static` for everything | Restricts flexibility | Use appropriate lifetimes |
-| Leak with `Box::leak`    | Memory leak           | Proper lifetime design    |
+| Leak with `Box::leak` | Memory leak | Proper lifetime design |
 
 ---
 
 ## Related Skills
 
-| When                        | See              |
-| --------------------------- | ---------------- |
-| Need smart pointers         | m02-resource     |
-| Need interior mutability    | m03-mutability   |
-| Data is domain entity       | m09-domain       |
+| When | See |
+|------|-----|
+| Need smart pointers | m02-resource |
+| Need interior mutability | m03-mutability |
+| Data is domain entity | m09-domain |
 | Learning ownership concepts | m14-mental-model |

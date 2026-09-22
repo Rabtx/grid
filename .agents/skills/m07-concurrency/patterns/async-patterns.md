@@ -3,7 +3,6 @@
 ## Task Spawning
 
 ### Basic Spawn
-
 ```rust
 use tokio::task;
 
@@ -23,7 +22,6 @@ async fn main() {
 ```
 
 ### Spawn with Shared State
-
 ```rust
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -53,7 +51,6 @@ async fn process_with_state() {
 ## Select Pattern
 
 ### Racing Multiple Futures
-
 ```rust
 use tokio::select;
 use tokio::time::{sleep, Duration};
@@ -71,7 +68,6 @@ async fn first_response() {
 ```
 
 ### Select with Timeout
-
 ```rust
 use tokio::time::timeout;
 
@@ -93,7 +89,6 @@ async fn with_timeout2() -> Result<Data, Error> {
 ```
 
 ### Select with Channel
-
 ```rust
 use tokio::sync::mpsc;
 
@@ -117,7 +112,6 @@ async fn process_messages(mut rx: mpsc::Receiver<Message>) {
 ## Channel Patterns
 
 ### MPSC (Multi-Producer, Single-Consumer)
-
 ```rust
 use tokio::sync::mpsc;
 
@@ -143,7 +137,6 @@ async fn producer_consumer() {
 ```
 
 ### Oneshot (Single-Shot Response)
-
 ```rust
 use tokio::sync::oneshot;
 
@@ -161,7 +154,6 @@ async fn request_response() {
 ```
 
 ### Broadcast (Multi-Consumer)
-
 ```rust
 use tokio::sync::broadcast;
 
@@ -190,7 +182,6 @@ async fn pub_sub() {
 ```
 
 ### Watch (Single Latest Value)
-
 ```rust
 use tokio::sync::watch;
 
@@ -215,7 +206,6 @@ async fn config_updates() {
 ## Structured Concurrency
 
 ### JoinSet for Task Groups
-
 ```rust
 use tokio::task::JoinSet;
 
@@ -237,7 +227,6 @@ async fn parallel_fetch(urls: Vec<String>) -> Vec<Result<Response, Error>> {
 ```
 
 ### Scoped Tasks (no 'static)
-
 ```rust
 // Using tokio-scoped or async-scoped crate
 use async_scoped::TokioScope;
@@ -258,7 +247,6 @@ async fn scoped_example(data: &[u32]) {
 ## Cancellation Patterns
 
 ### Using CancellationToken
-
 ```rust
 use tokio_util::sync::CancellationToken;
 
@@ -291,7 +279,6 @@ async fn main_with_cancellation() {
 ```
 
 ### Graceful Shutdown
-
 ```rust
 async fn serve_with_shutdown(shutdown: impl Future) {
     let server = TcpListener::bind("0.0.0.0:8080").await.unwrap();
@@ -324,7 +311,6 @@ async fn main() {
 ## Backpressure Patterns
 
 ### Bounded Channels
-
 ```rust
 use tokio::sync::mpsc;
 
@@ -352,7 +338,6 @@ async fn with_backpressure() {
 ```
 
 ### Semaphore for Rate Limiting
-
 ```rust
 use tokio::sync::Semaphore;
 use std::sync::Arc;
@@ -382,7 +367,6 @@ async fn rate_limited_requests(urls: Vec<String>) {
 ## Error Handling in Async
 
 ### Propagating Errors
-
 ```rust
 async fn fetch_and_parse(url: &str) -> Result<Data, Error> {
     let response = fetch(url).await?;
@@ -392,7 +376,6 @@ async fn fetch_and_parse(url: &str) -> Result<Data, Error> {
 ```
 
 ### Handling Task Panics
-
 ```rust
 async fn robust_spawn() {
     let handle = tokio::spawn(async {
@@ -412,7 +395,6 @@ async fn robust_spawn() {
 ```
 
 ### Try-Join for Multiple Results
-
 ```rust
 use tokio::try_join;
 

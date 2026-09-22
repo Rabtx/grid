@@ -6,7 +6,7 @@
 	},
 	"ignorePatterns": ["**/.next", "**/dist", ".agents"],
 	"rules": {
-		"react/exhaustive-deps": "warn",
+		"react/exhaustive-deps": "error",
 		"react/rules-of-hooks": "error",
 		"react/no-array-index-key": "error",
 		"react/no-danger": "error",

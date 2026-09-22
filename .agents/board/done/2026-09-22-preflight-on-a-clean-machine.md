@@ -37,7 +37,7 @@ either provide them or degrade cleanly, so a new contributor or agent can run th
 ```
 
 On a clean machine `shellcheck` is missing, so the script exits 127 and takes `preflight` with
-it, _after_ every TypeScript check has already passed. `shfmt` is missing too, though `format`
+it, *after* every TypeScript check has already passed. `shfmt` is missing too, though `format`
 tolerates it with `|| true`. CI installs shellcheck explicitly
 (`.github/workflows/ci.yml`), so this only bites humans and agents locally — which is exactly
 who needs the gate to work.
@@ -113,7 +113,7 @@ Validation:
   missing, `scripts:lint` exits 127 while `scripts:format` exits 0 via `|| true`. That asymmetry
   now only bites machines that skip mise entirely — outside the DoD ("only Bun and mise"). On the
   supported path both `bun run lint` and `bun run format` run their shell tools and pass
-  consistently. Option 2 (skip-with-warning) was the card's _conditional_ fallback for when mise
+  consistently. Option 2 (skip-with-warning) was the card's *conditional* fallback for when mise
   cannot supply the tools; mise can, so the check was not weakened. `mise install` restores
   everything in ~6s.
 - CI strictness unchanged — `.github/workflows/ci.yml`:

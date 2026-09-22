@@ -5,12 +5,12 @@ description: Host web and docs on Vercel, Nest API on Render with Neon Postgres.
 
 Ship the Grid stack without Docker on the public internet:
 
-| App             | Platform                     | Notes                                   |
-| --------------- | ---------------------------- | --------------------------------------- |
-| `apps/web`      | [Vercel](https://vercel.com) | Next.js, Bun monorepo install           |
-| `apps/docs`     | [Vercel](https://vercel.com) | Separate Vercel project                 |
-| `apps/nest-api` | [Render](https://render.com) | Docker Blueprint + Neon `DATABASE_URL`  |
-| Database        | [Neon](https://neon.tech)    | Serverless Postgres (TLS auto-detected) |
+| App | Platform | Notes |
+|-----|----------|--------|
+| `apps/web` | [Vercel](https://vercel.com) | Next.js, Bun monorepo install |
+| `apps/docs` | [Vercel](https://vercel.com) | Separate Vercel project |
+| `apps/nest-api` | [Render](https://render.com) | Docker Blueprint + Neon `DATABASE_URL` |
+| Database | [Neon](https://neon.tech) | Serverless Postgres (TLS auto-detected) |
 
 Repo files: `apps/web/vercel.json`, `apps/docs/vercel.json`, root `render.yaml`.
 
@@ -26,15 +26,15 @@ Repo files: `apps/web/vercel.json`, `apps/docs/vercel.json`, root `render.yaml`.
 2. Use `render.yaml` at the repo root (dockerfile `apps/nest-api/Dockerfile`, context `.`).
 3. Fill **sync: false** env vars in the dashboard:
 
-| Variable          | Example                                                       |
-| ----------------- | ------------------------------------------------------------- |
-| `DATABASE_URL`    | Neon pooled URL                                               |
-| `RESEND_API_KEY`  | `re_...` from [Resend](https://resend.com)                    |
-| `AUTH_EMAIL_FROM` | `Grid <noreply@your-domain.com>`                              |
-| `WEB_APP_URL`     | `https://your-web.vercel.app` (set after step 3)              |
-| `CORS_ORIGIN`     | same as `WEB_APP_URL` (comma-separate preview URLs if needed) |
-| `WEBAUTHN_RP_ID`  | `your-web.vercel.app` (hostname only)                         |
-| `WEBAUTHN_ORIGIN` | `https://your-web.vercel.app`                                 |
+| Variable | Example |
+|----------|---------|
+| `DATABASE_URL` | Neon pooled URL |
+| `RESEND_API_KEY` | `re_...` from [Resend](https://resend.com) |
+| `AUTH_EMAIL_FROM` | `Grid <noreply@your-domain.com>` |
+| `WEB_APP_URL` | `https://your-web.vercel.app` (set after step 3) |
+| `CORS_ORIGIN` | same as `WEB_APP_URL` (comma-separate preview URLs if needed) |
+| `WEBAUTHN_RP_ID` | `your-web.vercel.app` (hostname only) |
+| `WEBAUTHN_ORIGIN` | `https://your-web.vercel.app` |
 
 Blueprint already sets `COOKIE_SAME_SITE=none`, `TRUST_PROXY=true`, and generates `JWT_SECRET`, `AUTH_TOKEN_SECRET`, and `AI_SERVICE_TOKEN`.
 
@@ -56,11 +56,11 @@ Migrations run on container start when `RUN_MIGRATIONS=true` (default in the Blu
 4. `vercel.json` already sets install/build via Turbo (`--filter=web`).
 5. Environment variables:
 
-| Variable                       | Value                                                                                                                             |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_NEST_API_URL`     | `https://<your-service>.onrender.com` (no `/api` path)                                                                            |
-| `NEXT_PUBLIC_SITE_URL`         | `https://your-web.vercel.app` — absolute origin for canonical URL, Open Graph, `sitemap.xml` and `robots.txt` (no trailing slash) |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | optional; must match Nest `GOOGLE_CLIENT_ID`                                                                                      |
+| Variable | Value |
+|----------|--------|
+| `NEXT_PUBLIC_NEST_API_URL` | `https://<your-service>.onrender.com` (no `/api` path) |
+| `NEXT_PUBLIC_SITE_URL` | `https://your-web.vercel.app` — absolute origin for canonical URL, Open Graph, `sitemap.xml` and `robots.txt` (no trailing slash) |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | optional; must match Nest `GOOGLE_CLIENT_ID` |
 
 6. Deploy. Then go back to Render and set `WEB_APP_URL` / `CORS_ORIGIN` / WebAuthn to this Vercel URL, and **redeploy Nest** if needed.
 
@@ -72,10 +72,10 @@ Migrations run on container start when `RUN_MIGRATIONS=true` (default in the Blu
 2. **Root Directory:** `apps/docs`.
 3. Env (optional, for docs AI chat):
 
-| Variable             | Value                                    |
-| -------------------- | ---------------------------------------- |
+| Variable | Value |
+|----------|--------|
 | `OPENROUTER_API_KEY` | from [OpenRouter](https://openrouter.ai) |
-| `OPENROUTER_MODEL`   | e.g. `anthropic/claude-3.5-sonnet`       |
+| `OPENROUTER_MODEL` | e.g. `anthropic/claude-3.5-sonnet` |
 
 4. Deploy. Docs do not call Nest.
 

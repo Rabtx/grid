@@ -4,11 +4,11 @@ Compose is split into **fragments** under `compose/` and merged by the root
 `docker-compose.yml` via [`include`](https://docs.docker.com/compose/how-tos/multiple-compose-files/include/)
 (Compose **v2.20+**). Files use the Compose Specification — **no** obsolete top-level `version:` key.
 
-| File                   | Role                                     |
-| ---------------------- | ---------------------------------------- |
-| `compose/postgres.yml` | Postgres 16, volume, healthcheck         |
+| File | Role |
+|------|------|
+| `compose/postgres.yml` | Postgres 16, volume, healthcheck |
 | `compose/nest-api.yml` | NestJS API image (Bun multi-stage build) |
-| `compose/web.yml`      | Next.js web image (standalone output)    |
+| `compose/web.yml` | Next.js web image (standalone output) |
 
 **Env:** copy `env.docker.example` from the repo root to `.env`.
 
@@ -17,11 +17,11 @@ cp env.docker.example .env
 docker compose up -d --build
 ```
 
-| Service  | Host port (default) |
-| -------- | ------------------- |
-| Postgres | 5433 → 5432         |
-| Nest API | 4000                |
-| Web      | 3000                |
+| Service | Host port (default) |
+|---------|---------------------|
+| Postgres | 5433 → 5432 |
+| Nest API | 4000 |
+| Web | 3000 |
 
 `NEXT_PUBLIC_NEST_API_URL` must be a URL the **browser** can reach (usually `http://localhost:4000`), not the Docker service hostname.
 

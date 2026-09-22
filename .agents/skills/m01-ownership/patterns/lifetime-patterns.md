@@ -3,7 +3,6 @@
 ## Basic Lifetime Annotation
 
 ### When Required
-
 ```rust
 // ERROR: missing lifetime specifier
 fn longest(x: &str, y: &str) -> &str {
@@ -17,7 +16,6 @@ fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
 ```
 
 ### Lifetime Elision Rules
-
 1. Each input reference gets its own lifetime
 2. If one input lifetime, output uses same
 3. If `&self` or `&mut self`, output uses self's lifetime
@@ -40,7 +38,6 @@ impl MyStruct {
 ## Struct Lifetimes
 
 ### Struct Holding References
-
 ```rust
 // Struct must declare lifetime for references
 struct Excerpt<'a> {
@@ -58,7 +55,6 @@ impl<'a> Excerpt<'a> {
 ```
 
 ### Multiple Lifetimes in Struct
-
 ```rust
 struct Multi<'a, 'b> {
     x: &'a str,
@@ -76,7 +72,6 @@ fn make_multi<'a, 'b>(x: &'a str, y: &'b str) -> Multi<'a, 'b> {
 ## 'static Lifetime
 
 ### When to Use
-
 ```rust
 // String literals are 'static
 let s: &'static str = "hello";
@@ -91,7 +86,6 @@ std::thread::spawn(move || {
 ```
 
 ### Avoid Overusing 'static
-
 ```rust
 // BAD: requires 'static unnecessarily
 fn process(s: &'static str) { ... }
@@ -107,7 +101,6 @@ fn process(s: &str) { ... }  // lifetime elision
 ## Higher-Ranked Trait Bounds (HRTB)
 
 ### for<'a> Syntax
-
 ```rust
 // Function that works with any lifetime
 fn apply_to_ref<F>(f: F)
@@ -121,7 +114,6 @@ where
 ```
 
 ### Common Use: Closure Bounds
-
 ```rust
 // Closure that borrows any lifetime
 fn filter_refs<F>(items: &[&str], pred: F) -> Vec<&str>
@@ -137,7 +129,6 @@ where
 ## Lifetime Bounds
 
 ### 'a: 'b (Outlives)
-
 ```rust
 // 'a must live at least as long as 'b
 fn coerce<'a, 'b>(x: &'a str) -> &'b str
@@ -149,7 +140,6 @@ where
 ```
 
 ### T: 'a (Type Outlives Lifetime)
-
 ```rust
 // T must live at least as long as 'a
 struct Wrapper<'a, T: 'a> {
@@ -165,7 +155,6 @@ fn use_trait<'a, T: MyTrait + 'a>(t: &'a T) { ... }
 ## Common Lifetime Mistakes
 
 ### Mistake 1: Returning Reference to Local
-
 ```rust
 // WRONG
 fn dangle() -> &String {
@@ -180,7 +169,6 @@ fn no_dangle() -> String {
 ```
 
 ### Mistake 2: Conflicting Lifetimes
-
 ```rust
 // WRONG: might return reference to y which has shorter lifetime
 fn wrong<'a, 'b>(x: &'a str, y: &'b str) -> &'a str {
@@ -194,7 +182,6 @@ fn right<'a>(x: &'a str, y: &'a str) -> &'a str {
 ```
 
 ### Mistake 3: Struct Outlives Reference
-
 ```rust
 // WRONG: s might outlive the string it references
 let r;
@@ -215,7 +202,6 @@ println!("{}", r.part);  // OK: s still in scope
 ## Subtyping and Variance
 
 ### Covariance
-
 ```rust
 // &'a T is covariant in 'a
 // Can use &'long where &'short expected
@@ -225,7 +211,6 @@ fn example<'short, 'long: 'short>(long_ref: &'long str) {
 ```
 
 ### Invariance
-
 ```rust
 // &'a mut T is invariant in 'a
 fn example<'a, 'b>(x: &'a mut &'b str, y: &'b str) {
@@ -234,7 +219,6 @@ fn example<'a, 'b>(x: &'a mut &'b str, y: &'b str) {
 ```
 
 ### Practical Impact
-
 ```rust
 // This works due to covariance
 fn accept_any<'a>(s: &'a str) { ... }

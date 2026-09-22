@@ -1,11 +1,17 @@
 {
-	"extends": "../../packages/typescript-config/nextjs.json",
-	"compilerOptions": {
-		"paths": {
-			"@/*": ["./src/*"],
-			"@grid/ui/*": ["../../packages/ui/src/*"]
-		}
-	},
-	"include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "**/*.mts"],
-	"exclude": ["node_modules", "src/components/component-example.tsx"]
+  "extends": "../../packages/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "@grid/ui/*": ["../../packages/ui/src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules", "src/components/component-example.tsx"]
 }

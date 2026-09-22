@@ -61,7 +61,6 @@ Also see root `README.md`, `PROJECT.md`, and `DESIGN.md`.
 Before any Next.js work, find and read the relevant doc in `node_modules/next/dist/docs/`. Your training data is outdated — the docs are the source of truth.
 
 <!-- END:nextjs-agent-rules -->
-
 ## Repository layout
 
 ```
@@ -85,31 +84,31 @@ grid/
 
 ## Tooling and commands
 
-| Tool             | Purpose                                               | Config                                                    |
-| ---------------- | ----------------------------------------------------- | --------------------------------------------------------- |
-| **Bun**          | Package manager and script runner (not npm/yarn/pnpm) | `package.json` workspaces                                 |
-| **Turborepo**    | Monorepo orchestration                                | `turbo.json`                                              |
-| **oxlint+oxfmt** | Lint + format for TS/JS                               | `.oxlintrc.json` / `.oxfmtrc.json` (tabs, line width 100) |
-| **Lefthook**     | Git hooks (pre-commit, commit-msg)                    | `lefthook.yml`                                            |
-| **EditorConfig** | Consistent indent/charset/line endings                | `.editorconfig`                                           |
+| Tool | Purpose | Config |
+|------|---------|--------|
+| **Bun** | Package manager and script runner (not npm/yarn/pnpm) | `package.json` workspaces |
+| **Turborepo** | Monorepo orchestration | `turbo.json` |
+| **oxlint + oxfmt** | Lint + format for TS/JS | `.oxlintrc.json` / `.oxfmtrc.json` (tabs, line width 100) |
+| **Lefthook** | Git hooks (pre-commit, commit-msg) | `lefthook.yml` |
+| **EditorConfig** | Consistent indent/charset/line endings | `.editorconfig` |
 
 **Run everything from repo root:**
 
-| Command                      | What it does                                               |
-| ---------------------------- | ---------------------------------------------------------- |
-| `bun install`                | Install all dependencies                                   |
-| `bun run prepare`            | Install git hooks (lefthook)                               |
-| `bun run dev`                | Start all dev servers (Turbo)                              |
-| `bun run build`              | Build all apps (Turbo)                                     |
-| `bun run lint`               | Lint: oxlint (TS/JS) + ShellCheck                          |
-| `bun run lint:fix`           | Lint with auto-fix                                         |
-| `bun run format`             | Format: oxfmt + shfmt + cargo fmt                          |
-| `bun run typecheck`          | TypeScript typecheck                                       |
-| `bun run test`               | Run tests (e.g. cargo test)                                |
-| `bun run test:coverage`      | Run TS coverage + all language tests                       |
-| `bun run test:e2e:web`       | Run web Playwright e2e tests                               |
+| Command | What it does |
+|---------|-------------|
+| `bun install` | Install all dependencies |
+| `bun run prepare` | Install git hooks (lefthook) |
+| `bun run dev` | Start all dev servers (Turbo) |
+| `bun run build` | Build all apps (Turbo) |
+| `bun run lint` | Lint: oxlint (TS/JS) + ShellCheck |
+| `bun run lint:fix` | Lint with auto-fix |
+| `bun run format` | Format: oxfmt + shfmt + cargo fmt |
+| `bun run typecheck` | TypeScript typecheck |
+| `bun run test` | Run tests (e.g. cargo test) |
+| `bun run test:coverage` | Run TS coverage + all language tests |
+| `bun run test:e2e:web` | Run web Playwright e2e tests |
 | `bun run architecture:check` | Enforce architecture import boundaries + kebab-case naming |
-| `bun run naming:check`       | Enforce kebab-case (dotted Nest-style) file/folder names   |
+| `bun run naming:check` | Enforce kebab-case (dotted Nest-style) file/folder names |
 
 ## Conventions
 
@@ -150,10 +149,10 @@ grid/
 
 ### Per-language notes
 
-| Language          | Lint       | Format | Test                   |
-| ----------------- | ---------- | ------ | ---------------------- |
-| **TypeScript/JS** | oxlint     | oxfmt  | Vitest/Jest (if added) |
-| **Bash**          | ShellCheck | shfmt  | —                      |
+| Language | Lint | Format | Test |
+|----------|------|--------|------|
+| **TypeScript/JS** | oxlint | oxfmt | Vitest/Jest (if added) |
+| **Bash** | ShellCheck | shfmt | — |
 
 ### Docker
 
@@ -187,6 +186,7 @@ only, then `bun run dev`. See `/docs/docker` and `docker/README.md`.
   - `/docs/deploy` — Vercel (web/docs) + Render (Nest) + Neon
 - `.agents/skills/browser-ui-test/SKILL.md` — Browser UI/UX verification via Playwright MCP + `apps/web` e2e after interactive web changes.
 - `docker/README.md` — Compose fragment layout and `-f` fallback.
-- `.oxlintrc.json` / `.oxfmtrc.json` — oxlint and oxfmt configs (lint rules, formatter settings).
+- `.oxlintrc.json` — oxlint config (lint rules).
+- `.oxfmtrc.json` — oxfmt config (formatter settings).
 - `lefthook.yml` — Git hook definitions.
 - `turbo.json` — Turborepo pipeline config.

@@ -3,7 +3,6 @@
 ## The ? Operator
 
 ### Basic Usage
-
 ```rust
 fn read_config() -> Result<Config, io::Error> {
     let content = std::fs::read_to_string("config.toml")?;
@@ -13,7 +12,6 @@ fn read_config() -> Result<Config, io::Error> {
 ```
 
 ### With Different Error Types
-
 ```rust
 use std::error::Error;
 
@@ -26,7 +24,6 @@ fn process() -> Result<(), Box<dyn Error>> {
 ```
 
 ### Custom Conversion with From
-
 ```rust
 #[derive(Debug)]
 enum MyError {
@@ -58,7 +55,6 @@ fn process() -> Result<i32, MyError> {
 ## Error Type Design
 
 ### Simple Enum Error
-
 ```rust
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConfigError {
@@ -81,7 +77,6 @@ impl std::error::Error for ConfigError {}
 ```
 
 ### Error with Source (Wrapping)
-
 ```rust
 #[derive(Debug)]
 pub struct AppError {
@@ -118,7 +113,6 @@ impl std::error::Error for AppError {
 ## Using thiserror
 
 ### Basic Usage
-
 ```rust
 use thiserror::Error;
 
@@ -147,7 +141,6 @@ fn load_data(path: &str) -> Result<Data, DataError> {
 ```
 
 ### Transparent Wrapper
-
 ```rust
 use thiserror::Error;
 
@@ -163,7 +156,6 @@ pub struct MyError(#[from] InnerError);
 ## Using anyhow
 
 ### For Applications
-
 ```rust
 use anyhow::{Context, Result, bail, ensure};
 
@@ -191,7 +183,6 @@ fn main() -> Result<()> {
 ```
 
 ### Error Chain
-
 ```rust
 use anyhow::{Context, Result};
 
@@ -226,7 +217,6 @@ fn top_function() -> Result<()> {
 ## Option Handling
 
 ### Converting Option to Result
-
 ```rust
 fn find_user(id: u32) -> Option<User> { ... }
 
@@ -242,7 +232,6 @@ fn get_user(id: u32) -> Result<User, String> {
 ```
 
 ### Chaining Options
-
 ```rust
 fn get_nested_value(data: &Data) -> Option<&str> {
     data.config
@@ -267,7 +256,6 @@ fn get_nested_value(data: &Data) -> Option<&str> {
 ## Pattern: Result Combinators
 
 ### map and map_err
-
 ```rust
 fn parse_port(s: &str) -> Result<u16, ParseError> {
     s.parse::<u16>()
@@ -281,7 +269,6 @@ fn get_url(config: &Config) -> Result<String, Error> {
 ```
 
 ### and_then (flatMap)
-
 ```rust
 fn validate_and_save(input: &str) -> Result<(), Error> {
     validate(input)
@@ -291,7 +278,6 @@ fn validate_and_save(input: &str) -> Result<(), Error> {
 ```
 
 ### unwrap_or and unwrap_or_else
-
 ```rust
 // Default value
 let port = config.port().unwrap_or(8080);
@@ -308,7 +294,6 @@ let data = load_data().unwrap_or_default();
 ## Pattern: Early Return vs Combinators
 
 ### Early Return Style
-
 ```rust
 fn process(input: &str) -> Result<Output, Error> {
     let step1 = validate(input)?;
@@ -324,7 +309,6 @@ fn process(input: &str) -> Result<Output, Error> {
 ```
 
 ### Combinator Style
-
 ```rust
 fn process(input: &str) -> Result<Output, Error> {
     validate(input)
@@ -342,18 +326,17 @@ fn process(input: &str) -> Result<Output, Error> {
 
 ### When to Use Which
 
-| Style              | Best For                         |
-| ------------------ | -------------------------------- |
-| Early return (`?`) | Most cases, clearer flow         |
-| Combinators        | Functional pipelines, one-liners |
-| Match              | Complex branching on errors      |
+| Style | Best For |
+|-------|----------|
+| Early return (`?`) | Most cases, clearer flow |
+| Combinators | Functional pipelines, one-liners |
+| Match | Complex branching on errors |
 
 ---
 
 ## Panic vs Result
 
 ### When to Panic
-
 ```rust
 // 1. Unrecoverable programmer error
 fn get_config() -> &'static Config {
@@ -374,7 +357,6 @@ fn main() {
 ```
 
 ### When to Return Result
-
 ```rust
 // 1. Any I/O operation
 fn read_file(path: &str) -> Result<String, io::Error>
@@ -394,7 +376,6 @@ fn connect(addr: &str) -> Result<Connection, Error>
 ## Error Context Best Practices
 
 ### Add Context at Boundaries
-
 ```rust
 fn load_user_config(user_id: u64) -> Result<Config, Error> {
     let path = format!("/home/{}/config.toml", user_id);
@@ -408,7 +389,6 @@ fn load_user_config(user_id: u64) -> Result<Config, Error> {
 ```
 
 ### Include Relevant Data
-
 ```rust
 // Good: includes the problematic value
 fn parse_age(s: &str) -> Result<u8, Error> {

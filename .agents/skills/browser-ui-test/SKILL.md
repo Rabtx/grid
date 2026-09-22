@@ -48,11 +48,11 @@ bun run test:e2e:web
 
 These throw at runtime when composition is wrong — typecheck will not catch them:
 
-| Part                                        | Must be inside                                      |
-| ------------------------------------------- | --------------------------------------------------- |
-| `DropdownMenuLabel`                         | `DropdownMenuGroup` **or** `DropdownMenuRadioGroup` |
-| `DropdownMenuItem` / checkbox / radio items | Group or RadioGroup as documented                   |
-| `SelectLabel` / `SelectItem`                | `SelectGroup`                                       |
+| Part | Must be inside |
+|------|----------------|
+| `DropdownMenuLabel` | `DropdownMenuGroup` **or** `DropdownMenuRadioGroup` |
+| `DropdownMenuItem` / checkbox / radio items | Group or RadioGroup as documented |
+| `SelectLabel` / `SelectItem` | `SelectGroup` |
 
 Error looks like: `MenuGroupContext is missing. Menu group parts must be used within <Menu.Group> or <Menu.RadioGroup>.`
 

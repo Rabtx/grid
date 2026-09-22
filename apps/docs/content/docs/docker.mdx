@@ -2,16 +2,15 @@
 title: Docker
 description: Compose stack for Postgres, Nest API, and Next.js web.
 ---
-
 Run the Grid stack with Docker Compose. Fragments live under **`docker/compose/`** and are merged by the root **`docker-compose.yml`** via [`include`](https://docs.docker.com/compose/how-tos/multiple-compose-files/include/) (Compose **v2.20+**). Compose files follow the Compose Spec (**no** top-level `version` key).
 
 ## Layout
 
-| Fragment                      | Contents                               |
-| ----------------------------- | -------------------------------------- |
+| Fragment | Contents |
+|----------|----------|
 | `docker/compose/postgres.yml` | Postgres 16, named volume, healthcheck |
-| `docker/compose/nest-api.yml` | NestJS API (multi-stage Bun image)     |
-| `docker/compose/web.yml`      | Next.js web (standalone image)         |
+| `docker/compose/nest-api.yml` | NestJS API (multi-stage Bun image) |
+| `docker/compose/web.yml` | Next.js web (standalone image) |
 
 See **`docker/README.md`** for the manual `-f` fallback.
 
@@ -39,11 +38,11 @@ See **`docker/README.md`** for the manual `-f` fallback.
 
 ## Ports
 
-| Service  | Host port (default)   |
-| -------- | --------------------- |
+| Service | Host port (default) |
+|---------|---------------------|
 | Postgres | 5433 (container 5432) |
-| Nest API | 4000                  |
-| Web      | 3000                  |
+| Nest API | 4000 |
+| Web | 3000 |
 
 ## Notes
 

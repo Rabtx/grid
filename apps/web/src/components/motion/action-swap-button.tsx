@@ -172,6 +172,9 @@ export function ActionSwapText({
 	const measureRef = useRef<HTMLSpanElement>(null);
 	const [width, setWidth] = useState<number>();
 
+	// Deliberately runs on every render to re-measure; the identity check below makes
+	// setState a no-op once the width settles, so this cannot loop.
+	// oxlint-disable-next-line react-hooks/exhaustive-deps
 	useLayoutEffect(() => {
 		const nextWidth = measureRef.current?.offsetWidth;
 		if (!nextWidth) return;

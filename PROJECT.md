@@ -30,7 +30,8 @@ grid/
 ├── docker/                   # Docker Compose fragments
 ├── .github/workflows/        # CI/CD/security workflows
 ├── .devcontainer/            # Reproducible development environment
-├── .oxlintrc.json, .oxfmtrc.json  # oxlint + oxfmt configs (TS/JS)
+├── .oxlintrc.json            # Linter config (TS/JS)
+├── .oxfmtrc.json             # Formatter config (TS/JS)
 ├── lefthook.yml              # Git hooks
 ├── turbo.json                # Turborepo pipeline
 ├── package.json              # Root scripts + workspaces
@@ -40,42 +41,41 @@ grid/
 
 Documentation is served by `apps/docs` (`bun --cwd=apps/docs run dev` → http://localhost:3002/docs).
 There is no root `docs/` directory.
-
 ## Apps and stacks
 
-| App             | Stack                            | Notes                                             |
-| --------------- | -------------------------------- | ------------------------------------------------- |
-| `apps/web`      | Next.js 16, React 19, Tailwind 4 | Includes unit/integration and Playwright e2e flow |
-| `apps/nest-api` | NestJS 11, Zod, Jest             | Production API spine                              |
-| `apps/docs`     | Next.js + Fumadocs + MDX         | Project docs site                                 |
+| App | Stack | Notes |
+| --- | --- | --- |
+| `apps/web` | Next.js 16, React 19, Tailwind 4 | Includes unit/integration and Playwright e2e flow |
+| `apps/nest-api` | NestJS 11, Zod, Jest | Production API spine |
+| `apps/docs` | Next.js + Fumadocs + MDX | Project docs site |
 
 ## Shared packages
 
-| Package                      | Workspace import          | Purpose                                          |
-| ---------------------------- | ------------------------- | ------------------------------------------------ |
-| `packages/ui`                | `@grid/ui`                | Shared web UI primitives + design tokens         |
-| `packages/logger`            | `@grid/logger`            | Shared structured logger for TypeScript and Rust |
-| `packages/typescript-config` | `@grid/typescript-config` | Reusable TypeScript config presets               |
+| Package | Workspace import | Purpose |
+| --- | --- | --- |
+| `packages/ui` | `@grid/ui` | Shared web UI primitives + design tokens |
+| `packages/logger` | `@grid/logger` | Shared structured logger for TypeScript and Rust |
+| `packages/typescript-config` | `@grid/typescript-config` | Reusable TypeScript config presets |
 
 ## Root command surface
 
 Run commands from repo root:
 
-| Command                      | Purpose                                             |
-| ---------------------------- | --------------------------------------------------- |
-| `bun run dev`                | Start `dev` tasks via Turborepo                     |
-| `bun run build`              | Build workspace targets                             |
-| `bun run start`              | Start runtime targets                               |
-| `bun run lint`               | Lint workspace + scripts                            |
-| `bun run lint:fix`           | Apply lint autofixes                                |
-| `bun run format`             | Format TS/JS + shell + the Rust logger              |
-| `bun run typecheck`          | TypeScript type checking                            |
-| `bun run test`               | Run tests in workspace + scripts                    |
-| `bun run test:coverage`      | Run full coverage-oriented pass                     |
-| `bun run test:e2e:web`       | Web Playwright e2e                                  |
+| Command | Purpose |
+| --- | --- |
+| `bun run dev` | Start `dev` tasks via Turborepo |
+| `bun run build` | Build workspace targets |
+| `bun run start` | Start runtime targets |
+| `bun run lint` | Lint workspace + scripts |
+| `bun run lint:fix` | Apply lint autofixes |
+| `bun run format` | Format TS/JS + shell + the Rust logger |
+| `bun run typecheck` | TypeScript type checking |
+| `bun run test` | Run tests in workspace + scripts |
+| `bun run test:coverage` | Run full coverage-oriented pass |
+| `bun run test:e2e:web` | Web Playwright e2e |
 | `bun run architecture:check` | Enforce architecture boundaries + kebab-case naming |
-| `bun run preflight`          | Lint + typecheck + test                             |
-| `bun run prepare`            | Install git hooks (Lefthook)                        |
+| `bun run preflight` | Lint + typecheck + test |
+| `bun run prepare` | Install git hooks (Lefthook) |
 
 ### Running one app directly
 

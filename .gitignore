@@ -88,6 +88,7 @@ venv/
 # lua (if any)
 *.luac
 
+
 # editor / IDE (local only)
 .idea/
 

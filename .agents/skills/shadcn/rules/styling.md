@@ -22,7 +22,7 @@ See [customization.md](../customization.md) for theming, CSS variables, and addi
 
 ```tsx
 <div className="bg-blue-500 text-white">
-	<p className="text-gray-600">Secondary text</p>
+  <p className="text-gray-600">Secondary text</p>
 </div>
 ```
 
@@ -30,7 +30,7 @@ See [customization.md](../customization.md) for theming, CSS variables, and addi
 
 ```tsx
 <div className="bg-primary text-primary-foreground">
-	<p className="text-muted-foreground">Secondary text</p>
+  <p className="text-muted-foreground">Secondary text</p>
 </div>
 ```
 
@@ -65,7 +65,9 @@ If you need a success/positive color that doesn't exist as a semantic token, use
 **Incorrect:**
 
 ```tsx
-<Button className="border border-input bg-transparent hover:bg-accent">Click me</Button>
+<Button className="border border-input bg-transparent hover:bg-accent">
+  Click me
+</Button>
 ```
 
 **Correct:**
@@ -84,7 +86,7 @@ Use `className` for layout (e.g. `max-w-md`, `mx-auto`, `mt-4`), **not** for ove
 
 ```tsx
 <Card className="bg-blue-100 text-blue-900 font-bold">
-	<CardContent>Dashboard</CardContent>
+  <CardContent>Dashboard</CardContent>
 </Card>
 ```
 
@@ -92,12 +94,11 @@ Use `className` for layout (e.g. `max-w-md`, `mx-auto`, `mt-4`), **not** for ove
 
 ```tsx
 <Card className="max-w-md mx-auto">
-	<CardContent>Dashboard</CardContent>
+  <CardContent>Dashboard</CardContent>
 </Card>
 ```
 
 To customize a component's appearance, prefer these approaches in order:
-
 1. **Built-in variants** — `variant="outline"`, `variant="destructive"`, etc.
 2. **Semantic color tokens** — `bg-primary`, `text-muted-foreground`.
 3. **CSS variables** — define custom colors in the global CSS file (see [customization.md](../customization.md)).
@@ -110,9 +111,9 @@ Use `gap-*` instead. `space-y-4` → `flex flex-col gap-4`. `space-x-2` → `fle
 
 ```tsx
 <div className="flex flex-col gap-4">
-	<Input />
-	<Input />
-	<Button>Submit</Button>
+  <Input />
+  <Input />
+  <Button>Submit</Button>
 </div>
 ```
 

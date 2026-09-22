@@ -13,7 +13,6 @@ user-invocable: false
 **Do we need compile-time or runtime polymorphism?**
 
 Before choosing between generics and trait objects:
-
 - Is the type known at compile time?
 - Is a heterogeneous collection needed?
 - What's the performance priority?
@@ -22,12 +21,12 @@ Before choosing between generics and trait objects:
 
 ## Error → Design Question
 
-| Error | Don't Just Say     | Ask Instead                             |
-| ----- | ------------------ | --------------------------------------- |
-| E0277 | "Add trait bound"  | Is this abstraction at the right level? |
-| E0308 | "Fix the type"     | Should types be unified or distinct?    |
-| E0599 | "Import the trait" | Is the trait the right abstraction?     |
-| E0038 | "Make object-safe" | Do we really need dynamic dispatch?     |
+| Error | Don't Just Say | Ask Instead |
+|-------|----------------|-------------|
+| E0277 | "Add trait bound" | Is this abstraction at the right level? |
+| E0308 | "Fix the type" | Should types be unified or distinct? |
+| E0599 | "Import the trait" | Is the trait the right abstraction? |
+| E0038 | "Make object-safe" | Do we really need dynamic dispatch? |
 
 ---
 
@@ -62,11 +61,11 @@ E0277 (trait bound not satisfied)
     ↑ Check: m05-type-driven (should use newtype?)
 ```
 
-| Persistent Error     | Trace To        | Question                  |
-| -------------------- | --------------- | ------------------------- |
-| Complex trait bounds | m09-domain      | Is the abstraction right? |
-| Object safety issues | m05-type-driven | Can typestate help?       |
-| Type explosion       | m10-performance | Accept dyn overhead?      |
+| Persistent Error | Trace To | Question |
+|-----------------|----------|----------|
+| Complex trait bounds | m09-domain | Is the abstraction right? |
+| Object safety issues | m05-type-driven | Can typestate help? |
+| Type explosion | m10-performance | Accept dyn overhead? |
 
 ---
 
@@ -92,12 +91,12 @@ From design to implementation:
 
 ## Quick Reference
 
-| Pattern                 | Dispatch | Code Size | Runtime Cost        |
-| ----------------------- | -------- | --------- | ------------------- |
-| `fn foo<T: Trait>()`    | Static   | +bloat    | Zero                |
-| `fn foo(x: &dyn Trait)` | Dynamic  | Minimal   | vtable lookup       |
-| `impl Trait` return     | Static   | +bloat    | Zero                |
-| `Box<dyn Trait>`        | Dynamic  | Minimal   | Allocation + vtable |
+| Pattern | Dispatch | Code Size | Runtime Cost |
+|---------|----------|-----------|--------------|
+| `fn foo<T: Trait>()` | Static | +bloat | Zero |
+| `fn foo(x: &dyn Trait)` | Dynamic | Minimal | vtable lookup |
+| `impl Trait` return | Static | +bloat | Zero |
+| `Box<dyn Trait>` | Dynamic | Minimal | Allocation + vtable |
 
 ## Syntax Comparison
 
@@ -114,31 +113,30 @@ fn process(x: Box<dyn Display>) { }  // owned
 
 ## Error Code Reference
 
-| Error | Cause                   | Quick Fix                |
-| ----- | ----------------------- | ------------------------ |
+| Error | Cause | Quick Fix |
+|-------|-------|-----------|
 | E0277 | Type doesn't impl trait | Add impl or change bound |
-| E0308 | Type mismatch           | Check generic params     |
-| E0599 | No method found         | Import trait with `use`  |
-| E0038 | Trait not object-safe   | Use generics or redesign |
+| E0308 | Type mismatch | Check generic params |
+| E0599 | No method found | Import trait with `use` |
+| E0038 | Trait not object-safe | Use generics or redesign |
 
 ---
 
 ## Decision Guide
 
-| Scenario                 | Choose      | Why                        |
-| ------------------------ | ----------- | -------------------------- |
-| Performance critical     | Generics    | Zero runtime cost          |
+| Scenario | Choose | Why |
+|----------|--------|-----|
+| Performance critical | Generics | Zero runtime cost |
 | Heterogeneous collection | `dyn Trait` | Different types at runtime |
-| Plugin architecture      | `dyn Trait` | Unknown types at compile   |
-| Reduce compile time      | `dyn Trait` | Less monomorphization      |
-| Small, known type set    | `enum`      | No indirection             |
+| Plugin architecture | `dyn Trait` | Unknown types at compile |
+| Reduce compile time | `dyn Trait` | Less monomorphization |
+| Small, known type set | `enum` | No indirection |
 
 ---
 
 ## Object Safety
 
 A trait is object-safe if it:
-
 - Doesn't have `Self: Sized` bound
 - Doesn't return `Self`
 - Doesn't have generic methods
@@ -148,20 +146,20 @@ A trait is object-safe if it:
 
 ## Anti-Patterns
 
-| Anti-Pattern              | Why Bad                  | Better                       |
-| ------------------------- | ------------------------ | ---------------------------- |
-| Over-generic everything   | Compile time, complexity | Concrete types when possible |
-| `dyn` for known types     | Unnecessary indirection  | Generics                     |
-| Complex trait hierarchies | Hard to understand       | Simpler design               |
-| Ignore object safety      | Limits flexibility       | Plan for dyn if needed       |
+| Anti-Pattern | Why Bad | Better |
+|--------------|---------|--------|
+| Over-generic everything | Compile time, complexity | Concrete types when possible |
+| `dyn` for known types | Unnecessary indirection | Generics |
+| Complex trait hierarchies | Hard to understand | Simpler design |
+| Ignore object safety | Limits flexibility | Plan for dyn if needed |
 
 ---
 
 ## Related Skills
 
-| When                 | See             |
-| -------------------- | --------------- |
-| Type-driven design   | m05-type-driven |
-| Domain abstraction   | m09-domain      |
+| When | See |
+|------|-----|
+| Type-driven design | m05-type-driven |
+| Domain abstraction | m09-domain |
 | Performance concerns | m10-performance |
-| Send/Sync bounds     | m07-concurrency |
+| Send/Sync bounds | m07-concurrency |

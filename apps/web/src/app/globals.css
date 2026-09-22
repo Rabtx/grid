@@ -7,11 +7,10 @@
 @source "../../../../packages/ui/src";
 
 :root {
-	--font-sans:
-		var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-		sans-serif;
-	--font-geist-mono:
-		ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", monospace;
+	--font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+		"Segoe UI", sans-serif;
+	--font-geist-mono: ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
+		monospace;
 
 	/* Chat-derived application palette. Keep semantic names stable for future themes. */
 	--background: #ffffff;
@@ -78,9 +77,8 @@
 	--dashboard-accent-hover: #0d9488;
 	--dashboard-accent-fg: #ffffff;
 	--dashboard-accent-soft: color-mix(in oklab, #0f766e 12%, transparent);
-	--dashboard-shadow-card:
-		inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(23, 23, 23, 0.04),
-		0 12px 32px -20px rgba(23, 23, 23, 0.12);
+	--dashboard-shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.8),
+		0 1px 2px rgba(23, 23, 23, 0.04), 0 12px 32px -20px rgba(23, 23, 23, 0.12);
 }
 
 .dark {
@@ -146,9 +144,8 @@
 	--dashboard-accent-hover: #5eead4;
 	--dashboard-accent-fg: #042f2e;
 	--dashboard-accent-soft: color-mix(in oklab, #2dd4bf 16%, transparent);
-	--dashboard-shadow-card:
-		inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.4),
-		0 12px 32px -16px rgba(0, 0, 0, 0.55);
+	--dashboard-shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.04),
+		0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -16px rgba(0, 0, 0, 0.55);
 }
 
 @theme inline {

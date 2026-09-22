@@ -3,7 +3,6 @@
 ## E0382: Use of Moved Value
 
 ### Error Pattern
-
 ```rust
 let s = String::from("hello");
 let s2 = s;          // s moved here
@@ -13,7 +12,6 @@ println!("{}", s);   // ERROR: value borrowed after move
 ### Fix Options
 
 **Option 1: Clone (if ownership not needed)**
-
 ```rust
 let s = String::from("hello");
 let s2 = s.clone();  // s is cloned
@@ -21,7 +19,6 @@ println!("{}", s);   // OK: s still valid
 ```
 
 **Option 2: Borrow (if modification not needed)**
-
 ```rust
 let s = String::from("hello");
 let s2 = &s;         // borrow, not move
@@ -30,7 +27,6 @@ println!("{}", s2);  // OK
 ```
 
 **Option 3: Use Rc/Arc (for shared ownership)**
-
 ```rust
 use std::rc::Rc;
 let s = Rc::new(String::from("hello"));
@@ -44,7 +40,6 @@ println!("{}", s2);      // OK
 ## E0597: Borrowed Value Does Not Live Long Enough
 
 ### Error Pattern
-
 ```rust
 fn get_str() -> &str {
     let s = String::from("hello");
@@ -55,7 +50,6 @@ fn get_str() -> &str {
 ### Fix Options
 
 **Option 1: Return owned value**
-
 ```rust
 fn get_str() -> String {
     String::from("hello")  // return owned value
@@ -63,7 +57,6 @@ fn get_str() -> String {
 ```
 
 **Option 2: Use 'static lifetime**
-
 ```rust
 fn get_str() -> &'static str {
     "hello"  // string literal has 'static lifetime
@@ -71,7 +64,6 @@ fn get_str() -> &'static str {
 ```
 
 **Option 3: Accept reference parameter**
-
 ```rust
 fn get_str<'a>(s: &'a str) -> &'a str {
     s  // return reference with same lifetime as input
@@ -83,7 +75,6 @@ fn get_str<'a>(s: &'a str) -> &'a str {
 ## E0499: Cannot Borrow as Mutable More Than Once
 
 ### Error Pattern
-
 ```rust
 let mut s = String::from("hello");
 let r1 = &mut s;
@@ -94,7 +85,6 @@ println!("{}, {}", r1, r2);
 ### Fix Options
 
 **Option 1: Sequential borrows**
-
 ```rust
 let mut s = String::from("hello");
 {
@@ -105,7 +95,6 @@ let r2 = &mut s;  // OK: r1 no longer exists
 ```
 
 **Option 2: Use RefCell for interior mutability**
-
 ```rust
 use std::cell::RefCell;
 let s = RefCell::new(String::from("hello"));
@@ -120,7 +109,6 @@ let mut r2 = s.borrow_mut();
 ## E0502: Cannot Borrow as Mutable While Immutable Borrow Exists
 
 ### Error Pattern
-
 ```rust
 let mut v = vec![1, 2, 3];
 let first = &v[0];      // immutable borrow
@@ -131,7 +119,6 @@ println!("{}", first);
 ### Fix Options
 
 **Option 1: Finish using immutable borrow first**
-
 ```rust
 let mut v = vec![1, 2, 3];
 let first = v[0];       // copy value, not borrow
@@ -140,7 +127,6 @@ println!("{}", first);  // OK: using copied value
 ```
 
 **Option 2: Clone before mutating**
-
 ```rust
 let mut v = vec![1, 2, 3];
 let first = v[0].clone();  // if T: Clone
@@ -153,7 +139,6 @@ println!("{}", first);
 ## E0507: Cannot Move Out of Borrowed Content
 
 ### Error Pattern
-
 ```rust
 fn take_string(s: &String) {
     let moved = *s;  // ERROR: cannot move out of borrowed content
@@ -163,7 +148,6 @@ fn take_string(s: &String) {
 ### Fix Options
 
 **Option 1: Clone**
-
 ```rust
 fn take_string(s: &String) {
     let cloned = s.clone();
@@ -171,7 +155,6 @@ fn take_string(s: &String) {
 ```
 
 **Option 2: Take ownership in function signature**
-
 ```rust
 fn take_string(s: String) {  // take ownership
     let moved = s;
@@ -179,7 +162,6 @@ fn take_string(s: String) {  // take ownership
 ```
 
 **Option 3: Use mem::take for Option/Default types**
-
 ```rust
 fn take_from_option(opt: &mut Option<String>) -> Option<String> {
     std::mem::take(opt)  // replaces with None, returns owned value
@@ -191,7 +173,6 @@ fn take_from_option(opt: &mut Option<String>) -> Option<String> {
 ## E0515: Return Local Reference
 
 ### Error Pattern
-
 ```rust
 fn create_string() -> &String {
     let s = String::from("hello");
@@ -202,7 +183,6 @@ fn create_string() -> &String {
 ### Fix Options
 
 **Option 1: Return owned value**
-
 ```rust
 fn create_string() -> String {
     String::from("hello")
@@ -210,7 +190,6 @@ fn create_string() -> String {
 ```
 
 **Option 2: Use static/const**
-
 ```rust
 fn get_static_str() -> &'static str {
     "hello"
@@ -222,7 +201,6 @@ fn get_static_str() -> &'static str {
 ## E0716: Temporary Value Dropped While Borrowed
 
 ### Error Pattern
-
 ```rust
 let r: &str = &String::from("hello");  // ERROR: temporary dropped
 println!("{}", r);
@@ -231,7 +209,6 @@ println!("{}", r);
 ### Fix Options
 
 **Option 1: Bind to variable first**
-
 ```rust
 let s = String::from("hello");
 let r: &str = &s;
@@ -239,7 +216,6 @@ println!("{}", r);
 ```
 
 **Option 2: Use let binding with reference**
-
 ```rust
 let r: &str = {
     let s = String::from("hello");
@@ -253,7 +229,6 @@ let r: &str = {
 ## Pattern: Loop Ownership Issues
 
 ### Error Pattern
-
 ```rust
 let strings = vec![String::from("a"), String::from("b")];
 for s in strings {
@@ -266,7 +241,6 @@ println!("{:?}", strings);
 ### Fix Options
 
 **Option 1: Iterate by reference**
-
 ```rust
 let strings = vec![String::from("a"), String::from("b")];
 for s in &strings {
@@ -276,7 +250,6 @@ println!("{:?}", strings);  // OK
 ```
 
 **Option 2: Use iter()**
-
 ```rust
 for s in strings.iter() {
     println!("{}", s);
@@ -284,7 +257,6 @@ for s in strings.iter() {
 ```
 
 **Option 3: Clone if needed**
-
 ```rust
 for s in strings.clone() {
     // consumes cloned vec
