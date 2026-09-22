@@ -21,7 +21,7 @@ export class CsrfGuard implements CanActivate {
 		}
 
 		const requestedWith = request.headers['x-requested-with'];
-		if (this.config.corsOrigins.includes(origin) && requestedWith === 'XMLHttpRequest') {
+		if (this.config.isAllowedOrigin(origin) && requestedWith === 'XMLHttpRequest') {
 			return true;
 		}
 

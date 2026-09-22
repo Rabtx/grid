@@ -11,7 +11,12 @@ export default defineConfig({
 			"@": fileURLToPath(new URL("./src", import.meta.url)),
 		},
 	},
+	// Listen on every interface so other devices on the LAN can open the console by IP.
 	server: {
+		host: true,
 		port: 3001,
+	},
+	preview: {
+		host: true,
 	},
 });

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { type AppConfig, createAppConfig } from './app.config';
+import { isLocalNetworkVariant } from './local-network';
 
 @Injectable()
 export class AppConfigService {
@@ -83,6 +84,12 @@ export class AppConfigService {
 	}
 	get corsOrigins(): string[] {
 		return this.config.corsOrigin.split(',').map((origin) => origin.trim());
+	}
+	/** Outside production, also allows the configured origins served from this machine's LAN IPs. */
+	isAllowedOrigin(origin: string): boolean {
+		const allowed = this.corsOrigins;
+		if (allowed.includes(origin)) return true;
+		return !this.isProduction && isLocalNetworkVariant(origin, allowed);
 	}
 	get trustProxy(): boolean {
 		return this.config.trustProxy;
