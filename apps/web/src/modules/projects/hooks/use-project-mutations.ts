@@ -37,6 +37,17 @@ export function useUpdateTaskMutation(slug: string | null) {
 	});
 }
 
+export function useDeleteTaskMutation(slug: string | null) {
+	const { token } = useAuth();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (number: number) =>
+			projectsService.deleteTask(requireToken(token), requireSlug(slug), number),
+		onSuccess: () =>
+			queryClient.invalidateQueries({ queryKey: projectQueryKeys.tasks(slug ?? "") }),
+	});
+}
+
 function requireToken(token: string | null): string {
 	if (!token) throw new Error("Authentication required");
 	return token;

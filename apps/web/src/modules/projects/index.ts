@@ -2,6 +2,7 @@ export { BoardScreen } from "./components/board-screen";
 export {
 	useCreateProjectMutation,
 	useCreateTaskMutation,
+	useDeleteTaskMutation,
 	useUpdateTaskMutation,
 } from "./hooks/use-project-mutations";
 export { useProjectsQuery, useProjectTasksQuery } from "./hooks/use-project-queries";

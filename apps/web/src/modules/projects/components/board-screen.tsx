@@ -5,11 +5,7 @@ import { Button } from "@grid/ui/components/button";
 import { Input } from "@grid/ui/components/input";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import {
-	useCreateProjectMutation,
-	useCreateTaskMutation,
-	useUpdateTaskMutation,
-} from "../hooks/use-project-mutations";
+import { useCreateProjectMutation, useCreateTaskMutation } from "../hooks/use-project-mutations";
 import { useProjectsQuery, useProjectTasksQuery } from "../hooks/use-project-queries";
 import { groupByStatus } from "../lib/board";
 import { toSlug } from "../lib/slug";
@@ -19,6 +15,7 @@ import {
 	type Task,
 	type TaskStatus,
 } from "../types/project.types";
+import { TaskDetailSheet } from "./task-detail-sheet";
 
 const selectClassName =
 	"h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring";
@@ -26,10 +23,15 @@ const selectClassName =
 export function BoardScreen() {
 	const projects = useProjectsQuery();
 	const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+	const [openTaskNumber, setOpenTaskNumber] = useState<number | null>(null);
 	const activeSlug = selectedSlug ?? projects.data?.[0]?.slug ?? null;
 	const tasks = useProjectTasksQuery(activeSlug);
 
 	const columns = useMemo(() => groupByStatus(tasks.data ?? []), [tasks.data]);
+	const openTask =
+		openTaskNumber === null
+			? undefined
+			: tasks.data?.find((task) => task.number === openTaskNumber);
 
 	if (projects.isLoading) {
 		return <BoardMessage>Loading projects…</BoardMessage>;
@@ -58,7 +60,10 @@ export function BoardScreen() {
 					<select
 						className={selectClassName}
 						value={activeSlug ?? ""}
-						onChange={(event) => setSelectedSlug(event.target.value)}
+						onChange={(event) => {
+							setSelectedSlug(event.target.value);
+							setOpenTaskNumber(null);
+						}}
 					>
 						{projects.data.map((project) => (
 							<option key={project.slug} value={project.slug}>
@@ -81,13 +86,26 @@ export function BoardScreen() {
 								key={status}
 								status={status}
 								tasks={columns[status]}
-								slug={activeSlug}
 								loading={tasks.isLoading}
+								onOpenTask={setOpenTaskNumber}
 							/>
 						))}
 					</div>
 				</div>
 			)}
+
+			{openTaskNumber !== null ? (
+				<TaskDetailSheet
+					slug={activeSlug}
+					open
+					onOpenChange={(isOpen) => {
+						if (!isOpen) setOpenTaskNumber(null);
+					}}
+					task={openTask}
+					loading={tasks.isLoading}
+					error={tasks.error}
+				/>
+			) : null}
 		</div>
 	);
 }
@@ -95,13 +113,13 @@ export function BoardScreen() {
 function BoardColumn({
 	status,
 	tasks,
-	slug,
 	loading,
+	onOpenTask,
 }: {
 	status: TaskStatus;
 	tasks: Task[];
-	slug: string | null;
 	loading: boolean;
+	onOpenTask: (number: number) => void;
 }) {
 	return (
 		<section className="flex w-64 shrink-0 flex-col gap-2">
@@ -117,49 +135,37 @@ function BoardColumn({
 				) : tasks.length === 0 ? (
 					<p className="px-1 py-2 text-muted-foreground text-xs">Empty</p>
 				) : (
-					tasks.map((task) => <TaskCard key={task.key} task={task} slug={slug} />)
+					tasks.map((task) => (
+						<TaskCard key={task.key} task={task} onOpen={() => onOpenTask(task.number)} />
+					))
 				)}
 			</div>
 		</section>
 	);
 }
 
-function TaskCard({ task, slug }: { task: Task; slug: string | null }) {
-	const move = useUpdateTaskMutation(slug);
-
+function TaskCard({ task, onOpen }: { task: Task; onOpen: () => void }) {
 	return (
-		<article className="space-y-2 rounded-md border border-border bg-card p-2.5">
-			<div className="flex items-baseline justify-between gap-2">
+		<button
+			type="button"
+			onClick={onOpen}
+			className="w-full space-y-2 rounded-md border border-border bg-card p-2.5 text-left transition-colors hover:border-ring/50 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+		>
+			<span className="flex items-baseline justify-between gap-2">
 				<span className="font-mono text-[10px] text-muted-foreground">{task.key}</span>
 				{task.owner ? (
 					<Badge variant={task.owner.kind === "agent" ? "secondary" : "outline"}>
 						{task.owner.name ?? task.owner.kind}
 					</Badge>
 				) : null}
-			</div>
-			<p className="font-medium text-sm leading-5">{task.title}</p>
+			</span>
+			<span className="block font-medium text-sm leading-5">{task.title}</span>
 			{task.branch ? (
-				<p className="truncate font-mono text-[10px] text-muted-foreground">{task.branch}</p>
+				<span className="block truncate font-mono text-[10px] text-muted-foreground">
+					{task.branch}
+				</span>
 			) : null}
-			<select
-				className={cn(selectClassName, "w-full")}
-				value={task.status}
-				disabled={move.isPending}
-				aria-label={`Move ${task.key} to another stage`}
-				onChange={(event) =>
-					move.mutate({ number: task.number, input: { status: event.target.value as TaskStatus } })
-				}
-			>
-				{TASK_STATUSES.map((status) => (
-					<option key={status} value={status}>
-						{TASK_STATUS_LABELS[status]}
-					</option>
-				))}
-			</select>
-			{move.isError ? (
-				<p className="text-destructive text-[10px]">{errorMessage(move.error)}</p>
-			) : null}
-		</article>
+		</button>
 	);
 }
 
