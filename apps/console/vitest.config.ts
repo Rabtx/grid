@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 
-import { defineConfig } from "vitest/config";
 import solid from "@solidjs/vite-plugin";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
 	plugins: [solid()],
@@ -11,23 +11,17 @@ export default defineConfig({
 		},
 	},
 	test: {
-		include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+		// Two projects rather than per-file environments: the environment decides which Solid
+		// build Vite resolves, so component tests need the browser build end to end.
+		// `include` lives only in the projects — a root one would be merged into both.
 		projects: [
 			{
 				extends: true,
-				test: {
-					name: "client",
-					environment: "happy-dom",
-					include: ["src/**/*.test.tsx"],
-				},
+				test: { name: "dom", environment: "happy-dom", include: ["src/**/*.test.tsx"] },
 			},
 			{
 				extends: true,
-				test: {
-					name: "server",
-					environment: "node",
-					include: ["src/**/*.test.ts"],
-				},
+				test: { name: "logic", environment: "node", include: ["src/**/*.test.ts"] },
 			},
 		],
 	},

@@ -6,7 +6,7 @@ from: human
 to: web
 priority: normal
 status: done
-assignee: agy (gemini-3.8-flash-high)
+assignee: opencode (nemotron-3-ultra-free)
 reviewer: claude
 parent: none
 depends_on: []
@@ -143,3 +143,13 @@ $ bun run format
 $ oxfmt --write . && bun run scripts:format && (cd packages/logger/rust && cargo fmt || true)
 Finished in 26ms on 331 files using 4 threads.
 ```
+
+**Reviewer follow-up (claude, 2026-09-23):** the agent split tests into Vitest projects with
+`extends: true` but also kept a root `include`, which is merged into every project, so each file
+ran twice (6 files / 14 tests reported for 3 files / 7) and the DOM test also ran under node. The
+brief's per-file `// @vitest-environment happy-dom` alternative does not work: with a node base
+environment Vite resolves Solid's server build ("Client-only API called on the server side").
+Kept the projects — `dom` (happy-dom, `*.test.tsx`) and `logic` (node, `*.test.ts`) — with
+`include` only inside each project, and dropped the per-file comment. Verbose run: 7 tests, each
+once, in the right project. Implemented by opencode (nemotron-3-ultra-free) after two agy runs
+died on network errors.
