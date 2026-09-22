@@ -6,7 +6,6 @@
 .agents
 .vscode
 .idea
-.turbo
 **/.next
 **/dist
 **/coverage

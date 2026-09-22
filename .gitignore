@@ -51,8 +51,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# turborepo (cache – do not track)
-.turbo/
 
 # playwright
 playwright-report/

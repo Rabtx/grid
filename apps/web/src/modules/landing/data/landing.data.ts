@@ -70,7 +70,7 @@ export const NOT_LIST = [
  */
 export const STATUS = {
 	heading: "Where Grid is today",
-	body: "Grid is early and open. The engineering spine is real — a Bun and Turborepo monorepo with a Next.js control plane, a NestJS API over Postgres, a shared UI package, a docs site and a full lint, typecheck, test and CI pipeline. You can sign in today, create a project and file tasks on a board; the surfaces that turn those tasks into agent work are next.",
+	body: "Grid is early and open. The engineering spine is real — a Bun workspaces monorepo with a Next.js control plane, a NestJS API over Postgres, a shared UI package, a docs site and a full lint, typecheck, test and CI pipeline. You can sign in today, create a project and file tasks on a board; the surfaces that turn those tasks into agent work are next.",
 	shipped: ["Projects and tasks", "The board", "Auth, MFA and passkeys", "Docs site"],
 	next: ["Agent runs in isolated worktrees", "Review and diff surface", "Ship and operate"],
 } as const;

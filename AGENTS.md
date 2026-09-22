@@ -16,7 +16,7 @@ deployment platform.
 The Grid product surfaces (board, agent runs, workspaces, ship, operate) are not built yet. This
 repository is currently the engineering spine they will be built on.
 
-Monorepo managed with **Turborepo + Bun**. Apps, shared packages, and
+Monorepo managed with **Bun workspaces**. Apps, shared packages, and
 multi-language scripts, all wired into a single lint/format/build/test surface.
 
 ## Before you write code
@@ -79,7 +79,7 @@ grid/
 ├── .agents/rules/       # Cursor-specific rules (also summarised below)
 ├── .devcontainer/       # Dev Container (Bun, Rust, Bash tooling)
 ├── .github/workflows/   # CI (lint, typecheck, build, test)
-└── (root config)        # .oxlintrc.json, .oxfmtrc.json, turbo.json, lefthook.yml, etc.
+└── (root config)        # .oxlintrc.json, .oxfmtrc.json, lefthook.yml, etc.
 ```
 
 ## Tooling and commands
@@ -87,7 +87,7 @@ grid/
 | Tool | Purpose | Config |
 |------|---------|--------|
 | **Bun** | Package manager and script runner (not npm/yarn/pnpm) | `package.json` workspaces |
-| **Turborepo** | Monorepo orchestration | `turbo.json` |
+| **Bun** | Workspaces and task running | `bun run --filter` |
 | **oxlint + oxfmt** | Lint + format for TS/JS | `.oxlintrc.json` / `.oxfmtrc.json` (tabs, line width 100) |
 | **Lefthook** | Git hooks (pre-commit, commit-msg) | `lefthook.yml` |
 | **EditorConfig** | Consistent indent/charset/line endings | `.editorconfig` |
@@ -98,8 +98,8 @@ grid/
 |---------|-------------|
 | `bun install` | Install all dependencies |
 | `bun run prepare` | Install git hooks (lefthook) |
-| `bun run dev` | Start all dev servers (Turbo) |
-| `bun run build` | Build all apps (Turbo) |
+| `bun run dev` | Start all dev servers (parallel) |
+| `bun run build` | Build all apps |
 | `bun run lint` | Lint: oxlint (TS/JS) + ShellCheck |
 | `bun run lint:fix` | Lint with auto-fix |
 | `bun run format` | Format: oxfmt + shfmt + cargo fmt |
@@ -129,7 +129,7 @@ grid/
 
 - **Monorepo**: Apps in `apps/`, shared code in `packages/`. When a change applies across apps,
   prefer changing a shared package.
-- **New apps**: Add under `apps/`, wire into `turbo.json` tasks if needed.
+- **New apps**: Add under `apps/`; `bun run --filter '*'` picks up any matching script.
 - **New packages**: Add under `packages/`, export via `@grid/<name>`.
 - **Shared UI**: `packages/ui` uses shadcn-style components. Shared Tailwind tokens live in
   `packages/ui/src/styles/globals.css`.
@@ -189,4 +189,3 @@ only, then `bun run dev`. See `/docs/docker` and `docker/README.md`.
 - `.oxlintrc.json` — oxlint config (lint rules).
 - `.oxfmtrc.json` — oxfmt config (formatter settings).
 - `lefthook.yml` — Git hook definitions.
-- `turbo.json` — Turborepo pipeline config.

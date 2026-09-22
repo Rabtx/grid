@@ -18,7 +18,7 @@ I am Antigravity, an advanced agentic coding assistant. When working in this rep
 - **No Placeholders**: Use `generate_image` or real assets instead of generic placeholders.
 
 ## 3. Tooling Consistency
-- **Bun & Turbo**: Use `bun` for all package management and `turbo` for orchestration.
+- **Bun**: Use `bun` for package management and for running tasks across workspaces (`bun run --filter`).
 - **oxlint / oxfmt**: Follow oxlint's linting and oxfmt's formatting rules strictly (tabs, 100 line width).
 - **Workspace Imports**: Use `@grid/*` imports to maintain monorepo integrity.
 

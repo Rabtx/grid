@@ -5,7 +5,7 @@ For quick setup/use, start with `README.md`.
 
 ## What this repository includes
 
-Monorepo managed by **Bun + Turborepo**, with:
+Monorepo managed by **Bun workspaces**, with:
 
 - Applications (web, mobile, API, docs)
 - Shared workspace packages (`@grid/*`)
@@ -33,7 +33,6 @@ grid/
 ├── .oxlintrc.json            # Linter config (TS/JS)
 ├── .oxfmtrc.json             # Formatter config (TS/JS)
 ├── lefthook.yml              # Git hooks
-├── turbo.json                # Turborepo pipeline
 ├── package.json              # Root scripts + workspaces
 ├── CHANGELOG.md              # Keep a Changelog history
 └── AGENTS.md                 # Universal AI agent guidance
@@ -63,7 +62,7 @@ Run commands from repo root:
 
 | Command | Purpose |
 | --- | --- |
-| `bun run dev` | Start `dev` tasks via Turborepo |
+| `bun run dev` | Start every workspace's `dev` task in parallel |
 | `bun run build` | Build workspace targets |
 | `bun run start` | Start runtime targets |
 | `bun run lint` | Lint workspace + scripts |
@@ -97,7 +96,7 @@ Examples:
 
 - **Bun** is the only package manager (`bun@1.3.11`)
 - Workspaces: `apps/*` and `packages/*`
-- **Turborepo** orchestrates shared tasks (`turbo.json`)
+- **Bun** orchestrates shared tasks (`bun run --filter '*' <task>`)
 
 ### Linting and formatting
 

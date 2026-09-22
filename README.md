@@ -18,7 +18,7 @@ The guiding constraints:
 
 ## Where this repository is today
 
-This repository holds the **engineering spine** Grid is being built on — a Bun + Turborepo
+This repository holds the **engineering spine** Grid is being built on — a Bun workspaces
 monorepo with the web client, API, mobile control surface, docs site, shared UI and the full
 lint/typecheck/test/CI surface. The Grid product surfaces described above (board, agent runs,
 workspaces, ship, operate) are **not implemented yet**.
@@ -98,7 +98,7 @@ and `docs`).
 
 ## Tooling
 
-- **Bun** workspaces and **Turborepo** for the task graph
+- **Bun** workspaces, with `bun run --filter` driving tasks across them
 - **oxlint + oxfmt** for TS/JS — tabs, line width 100
 - **Lefthook** pre-commit and commit-msg, enforcing Conventional Commits
 - Bash: ShellCheck + shfmt · Rust: rustfmt + clippy
