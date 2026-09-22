@@ -1,12 +1,19 @@
 import { docs } from "collections/server";
-import { type InferPageType, loader } from "fumadocs-core/source";
+import { type InferPageType, loader, type StaticSource } from "fumadocs-core/source";
 import { lucideIconsPlugin } from "fumadocs-core/source/lucide-icons";
 import { docsContentRoute, docsImageRoute, docsRoute } from "./shared";
+
+type DocsSourceConfig = {
+	pageData: (typeof docs)["docs"][number];
+	metaData: (typeof docs)["meta"][number];
+};
+
+const docsSource: StaticSource<DocsSourceConfig> = docs.toFumadocsSource();
 
 // See https://fumadocs.dev/docs/headless/source-api for more info
 export const source = loader({
 	baseUrl: docsRoute,
-	source: docs.toFumadocsSource(),
+	source: docsSource,
 	plugins: [lucideIconsPlugin()],
 });
 
