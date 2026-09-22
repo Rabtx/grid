@@ -38,7 +38,9 @@ The short version: claim a card before coding, work in your own worktree on
 ## UI design context
 
 Before changing UI components, read [DESIGN.md](DESIGN.md). It defines the material language,
-motion restraint and the states every surface owes. Do not infer the design solely from existing
+motion restraint and the states every surface owes. All UI is built **mobile first** — follow
+[.agents/skills/mobile-first](.agents/skills/mobile-first/SKILL.md): unprefixed Tailwind classes
+are the phone layout and `sm:`/`md:`/`lg:` layer the desktop layout on top, in one component. Do not infer the design solely from existing
 code. Keep that document as the shared source of truth instead of copying design rules into
 agent-specific folders.
 
@@ -56,6 +58,13 @@ Also see root `README.md`, `PROJECT.md`, and `DESIGN.md`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
+# Solid: Solid 2 only
+
+`apps/console` is the product and runs Solid 2. Before any Solid work, read
+[.agents/skills/solid-2](.agents/skills/solid-2/SKILL.md) and check the installed typings — never
+write Solid 1.x APIs (`createResource`, `onMount`, `Suspense`, `ErrorBoundary`, `classList`,
+`solid-js/web`, `<Router root>`, `createAsync`…).
+
 # Next.js: ALWAYS read docs before coding
 
 Before any Next.js work, find and read the relevant doc in `node_modules/next/dist/docs/`. Your training data is outdated — the docs are the source of truth.
@@ -66,8 +75,8 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 ```
 grid/
 ├── apps/
-│   ├── console/         # Vite + Solid 2 SPA — the control plane in progress
-│   ├── web/             # Next.js (React, Tailwind, shadcn-style UI)
+│   ├── console/         # Vite + Solid 2 SPA — the product (control plane), performance-first
+│   ├── web/             # Next.js — to be trimmed to the marketing/landing site only
 │   ├── nest-api/        # NestJS production API (PostgreSQL in later phases)
 │   ├── docs/            # Docs site (Fumadocs); source in apps/docs/content/docs/
 
@@ -184,6 +193,8 @@ only, then `bun run dev`. See `/docs/docker` and `docker/README.md`.
   - `/docs/overrides` — policy for project-specific architecture overrides
   - `/docs/docker` — Docker Compose setup
   - `/docs/deploy` — Vercel (web/docs) + Render (Nest) + Neon
+- `.agents/skills/solid-2/SKILL.md` — Solid 2 only in `apps/console`: removed 1.x APIs, their replacements, and idioms. Read before any Solid work.
+- `.agents/skills/mobile-first/SKILL.md` — Mobile-first responsive rules and checklist for all UI, especially the Solid console.
 - `.agents/skills/browser-ui-test/SKILL.md` — Browser UI/UX verification via Playwright MCP + `apps/web` e2e after interactive web changes.
 - `docker/README.md` — Compose fragment layout and `-f` fallback.
 - `.oxlintrc.json` — oxlint config (lint rules).

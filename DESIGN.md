@@ -34,6 +34,9 @@ Generated UI must feel domain-specific, accessible, responsive, and built from r
 - Keep desktop workflows scannable and narrow-viewport workflows thumb-friendly; Grid is a
   browser-first control plane, and a phone is a control surface for it rather than a separate app.
 - Use responsive constraints instead of viewport-scaled font sizes.
+- Design mobile first: the unprefixed styles are the phone layout, and breakpoint prefixes add the
+  tablet and desktop layout in the same component. The rules and checklist live in
+  `.agents/skills/mobile-first/SKILL.md`.
 
 ## Tokens
 
