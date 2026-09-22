@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { themeInitScript } from "@/components/theme";
+import { SITE } from "@/modules/landing";
+import { SITE_URL } from "./site";
 import "./globals.css";
 
 const inter = Inter({
@@ -10,13 +12,29 @@ const inter = Inter({
 	display: "swap",
 });
 
+const description =
+	"AI-native operating system for building and running a startup — projects, agents, development, deployment and operations in one control plane.";
+
 export const metadata: Metadata = {
+	metadataBase: new URL(SITE_URL),
 	title: {
-		default: "Grid",
-		template: "%s | Grid",
+		default: SITE.name,
+		template: `%s | ${SITE.name}`,
 	},
-	description:
-		"AI-native operating system for building and running a startup — projects, agents, development, deployment and operations in one control plane.",
+	description,
+	applicationName: SITE.name,
+	openGraph: {
+		type: "website",
+		locale: "en_US",
+		siteName: SITE.name,
+		title: SITE.name,
+		description,
+	},
+	twitter: {
+		card: "summary_large_image",
+		title: SITE.name,
+		description,
+	},
 };
 
 export default function RootLayout({

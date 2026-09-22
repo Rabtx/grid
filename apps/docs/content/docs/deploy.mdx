@@ -59,11 +59,12 @@ Migrations run on container start when `RUN_MIGRATIONS=true` (default in the Blu
 | Variable | Value |
 |----------|--------|
 | `NEXT_PUBLIC_NEST_API_URL` | `https://<your-service>.onrender.com` (no `/api` path) |
+| `NEXT_PUBLIC_SITE_URL` | `https://your-web.vercel.app` — absolute origin for canonical URL, Open Graph, `sitemap.xml` and `robots.txt` (no trailing slash) |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | optional; must match Nest `GOOGLE_CLIENT_ID` |
 
 6. Deploy. Then go back to Render and set `WEB_APP_URL` / `CORS_ORIGIN` / WebAuthn to this Vercel URL, and **redeploy Nest** if needed.
 
-`NEXT_PUBLIC_*` is baked at **build** time — change the API URL → redeploy web.
+`NEXT_PUBLIC_*` is baked at **build** time — change the API URL or site URL → redeploy web.
 
 ## 4) Docs on Vercel
 
@@ -95,6 +96,7 @@ Long-term option: put both under one parent domain (e.g. `app.example.com` + `ap
 - [ ] Resend key + verified from-address
 - [ ] Nest health returns OK
 - [ ] Web `NEXT_PUBLIC_NEST_API_URL` → Render origin
+- [ ] Web `NEXT_PUBLIC_SITE_URL` → Vercel web origin (canonical / OG / sitemap)
 - [ ] Nest `CORS_ORIGIN` / `WEB_APP_URL` → Vercel web URL
 - [ ] Login works (cookie + credentials)
 - [ ] Docs project live (optional OpenRouter)
