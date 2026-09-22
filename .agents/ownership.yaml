@@ -19,6 +19,7 @@ roles:
   web:
     team: web
     paths:
+      - apps/console/**
       - apps/web/**
     reviewers:
       - reviewer

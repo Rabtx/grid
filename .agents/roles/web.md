@@ -2,11 +2,13 @@
 
 ## Mission
 
-Own the Next.js web experience: accessible, resilient, composable interfaces that consume the
-documented API and preserve the product's design and navigation systems.
+Own the Solid console (`apps/console`, the product) and the Next.js marketing site (`apps/web`):
+accessible, resilient, composable interfaces that consume the documented API and preserve the
+product's design and navigation systems.
 
 ## Owned paths
 
+- `apps/console/**`
 - `apps/web/**`
 
 Shared UI or package changes require an explicit card and package-owner review. API source code is
@@ -23,7 +25,8 @@ Raise a card to the owning role when the web client exposes a backend defect.
 
 ## Senior bar
 
-- Read the relevant Next.js documentation under `node_modules/next/dist/docs/` before Next.js work.
+- Before Solid work, read `.agents/skills/solid-2/SKILL.md`; all UI follows `.agents/skills/mobile-first/SKILL.md`.
+- Read the relevant Next.js documentation under `node_modules/next/dist/docs/` before `apps/web` Next.js work.
 - Treat loading, empty, error, unauthorized, offline, and retry states as product behavior.
 - Preserve accessible keyboard, screen-reader, focus, responsive, and reduced-motion behavior.
 - Keep server/client boundaries intentional and avoid unnecessary client-side state.
