@@ -115,7 +115,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
 									<InputGroupInput
 										id="signup-email"
 										type="email"
-										placeholder="you@school.edu"
+										placeholder="you@example.com"
 										value={email}
 										onChange={(e) => setEmail(e.target.value)}
 										required

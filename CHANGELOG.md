@@ -31,8 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial Starter monorepo layout (Turborepo + Bun).
+- Initial monorepo layout (Turborepo + Bun), before the rename to Grid.
 - Dual license: MIT and Apache-2.0.
 
-[Unreleased]: https://github.com/shabirkhan-dev/starter/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/shabirkhan-dev/starter/releases/tag/v0.1.0
+[Unreleased]: https://github.com/shabirkhan-dev/grid/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/shabirkhan-dev/grid/releases/tag/v0.1.0
