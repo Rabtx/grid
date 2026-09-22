@@ -30,7 +30,8 @@ grid/
 ├── docker/                   # Docker Compose fragments
 ├── .github/workflows/        # CI/CD/security workflows
 ├── .devcontainer/            # Reproducible development environment
-├── biome.json                # Formatter/linter config (TS/JS)
+├── .oxlintrc.json            # Linter config (TS/JS)
+├── .oxfmtrc.json             # Formatter config (TS/JS)
 ├── lefthook.yml              # Git hooks
 ├── turbo.json                # Turborepo pipeline
 ├── package.json              # Root scripts + workspaces
@@ -100,7 +101,7 @@ Examples:
 
 ### Linting and formatting
 
-- **Biome** is the TS/JS formatter+linter (`biome.json`)
+- **oxlint** + **oxfmt** are the TS/JS linter+formatter (`.oxlintrc.json`, `.oxfmtrc.json`)
 - Formatting style: tabs, line width 100
 - Root `format` and `lint` scripts also run language-specific tools
 

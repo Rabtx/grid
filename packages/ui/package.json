@@ -2,10 +2,10 @@
 	"name": "@grid/ui",
 	"version": "0.0.0",
 	"private": true,
+	"type": "module",
 	"sideEffects": [
 		"**/*.css"
 	],
-	"type": "module",
 	"exports": {
 		"./globals.css": "./src/styles/globals.css",
 		"./components/*": "./src/components/*.tsx",
@@ -18,8 +18,8 @@
 		}
 	},
 	"scripts": {
-		"lint": "biome check .",
-		"lint:fix": "biome check --write .",
+		"lint": "oxlint .",
+		"lint:fix": "oxlint . --fix",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {

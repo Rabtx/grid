@@ -25,8 +25,10 @@ export type ActionSwapAnimation = "blur" | "roll" | "cascade";
 /** Animations with a single-element variant set (cascade animates per letter). */
 type CoreAnimation = "blur" | "roll";
 
-export interface ActionSwapButtonProps
-	extends Omit<HTMLMotionProps<"button">, "children" | "onChange"> {
+export interface ActionSwapButtonProps extends Omit<
+	HTMLMotionProps<"button">,
+	"children" | "onChange"
+> {
 	items: ActionSwapItem[];
 	value?: string;
 	defaultValue?: string;
@@ -170,6 +172,9 @@ export function ActionSwapText({
 	const measureRef = useRef<HTMLSpanElement>(null);
 	const [width, setWidth] = useState<number>();
 
+	// Deliberately runs on every render to re-measure; the identity check below makes
+	// setState a no-op once the width settles, so this cannot loop.
+	// oxlint-disable-next-line react-hooks/exhaustive-deps
 	useLayoutEffect(() => {
 		const nextWidth = measureRef.current?.offsetWidth;
 		if (!nextWidth) return;
@@ -211,7 +216,7 @@ export function ActionSwapText({
 						>
 							{label.split("").map((char, i) => (
 								<motion.span
-									// biome-ignore lint/suspicious/noArrayIndexKey: position is the slot identity — the letter at a position is exactly what rolls.
+									// oxlint-disable-next-line react/no-array-index-key -- position is the slot identity — the letter at a position is exactly what rolls.
 									key={i}
 									custom={i * CASCADE_STAGGER}
 									variants={CASCADE_LETTER_VARIANTS}

@@ -13,8 +13,8 @@
 		}
 	},
 	"scripts": {
-		"lint": "biome check .",
-		"lint:fix": "biome check --write .",
+		"lint": "oxlint .",
+		"lint:fix": "oxlint . --fix",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",

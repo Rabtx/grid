@@ -29,7 +29,7 @@ export default async function OpengraphImage() {
 			}}
 		>
 			<div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-				{/* biome-ignore lint/performance/noImgElement: ImageResponse asset buffer, not an HTML img */}
+				{/* oxlint-disable-next-line nextjs/no-img-element -- ImageResponse asset buffer, not an HTML img */}
 				<img src={markSrc} width={144} height={144} alt="" />
 				<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 					<div style={{ fontSize: 64, fontWeight: 700, lineHeight: 1 }}>{SITE.name}</div>

@@ -88,8 +88,6 @@ venv/
 # lua (if any)
 *.luac
 
-# biome (cache)
-.biome/
 
 # editor / IDE (local only)
 .idea/

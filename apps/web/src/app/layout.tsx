@@ -45,7 +45,7 @@ export default function RootLayout({
 	return (
 		<html lang="en" className={inter.variable} suppressHydrationWarning>
 			<head>
-				{/* biome-ignore lint/security/noDangerouslySetInnerHtml: static FOUC bootstrap, not user input */}
+				{/* oxlint-disable-next-line react/no-danger -- static FOUC bootstrap, not user input */}
 				<script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
 			</head>
 			<body className="font-sans antialiased" suppressHydrationWarning>

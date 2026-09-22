@@ -1,6 +1,6 @@
 {
 	"recommendations": [
-		"biomejs.biome",
+		"oxc.oxc-vscode",
 		"bradlc.vscode-tailwindcss",
 		"rust-lang.rust-analyzer",
 		"llvm-vs-code-extensions.vscode-clangd",
@@ -11,8 +11,5 @@
 		"sumneko.lua",
 		"JohnnyMorganz.stylua"
 	],
-	"unwantedRecommendations": [
-		"dbaeumer.vscode-eslint",
-		"esbenp.prettier-vscode"
-	]
+	"unwantedRecommendations": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"]
 }

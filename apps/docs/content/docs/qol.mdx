@@ -19,7 +19,7 @@ Consistency, fast feedback, and automation across TS, Rust (logger), Bash, and P
 
 | Language | Lint / format | Test / types |
 |----------|----------------|--------------|
-| **TS/JS** | Biome (lint + format) | tsc (typecheck), Vitest |
+| **TS/JS** | oxlint + oxfmt (lint + format) | tsc (typecheck), Vitest |
 | **Rust** | rustfmt, clippy | cargo test (packages/logger Rust side) |
 | **Bash** | shellcheck, shfmt | (bats optional) |
 | **Python** | ruff (check + format) | (pytest optional); scripts/python |
@@ -28,7 +28,7 @@ Consistency, fast feedback, and automation across TS, Rust (logger), Bash, and P
 
 From repo root:
 
-- **`bun run format`** — Biome + scripts (shfmt, ruff) + cargo fmt
+- **`bun run format`** — oxfmt + scripts (shfmt, ruff) + cargo fmt
 - **`bun run lint`** — Turbo lint + scripts (shellcheck, ruff)
 - **`bun run typecheck`** — TS only
 - **`bun run test`** — Turbo tests + script tests

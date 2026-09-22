@@ -1,53 +1,54 @@
 {
-  "name": "grid",
-  "version": "0.1.0",
-  "private": true,
-  "license": "MIT OR Apache-2.0",
-  "packageManager": "bun@1.4.2",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-  "scripts": {
-    "dev": "turbo run dev --continue --concurrency=12",
-    "build": "turbo run build",
-    "start": "turbo run start",
-    "preflight": "bun run lint && bun run typecheck && bun run test",
-    "lint": "turbo run lint && bun run scripts:lint",
-    "lint:fix": "turbo run lint:fix",
-    "format": "biome format --write . && bun run scripts:format && (cd packages/logger/rust && cargo fmt || true)",
-    "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
-    "test:coverage": "(cd apps/web && bun run test:coverage) && (cd apps/nest-api && bun run test:cov) && (cd packages/logger && bun run test:coverage)",
-    "test:e2e:web": "cd apps/web && bun run test:e2e",
-    "architecture:check": "bash scripts/architecture/check-boundaries.sh",
-    "naming:check": "bash scripts/architecture/check-naming.sh",
-    "ci:lint": "bun run lint && bun run architecture:check",
-    "ci:typecheck": "bun run typecheck",
-    "ci:test": "bun run test:coverage",
-    "ci:e2e:web": "bun run test:e2e:web",
-    "scripts:lint": "shellcheck scripts/bash/*.sh scripts/git-hooks/*.sh scripts/architecture/*.sh",
-    "scripts:format": "shfmt -i 4 -w scripts/bash/*.sh scripts/git-hooks/*.sh scripts/architecture/*.sh || true",
-    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 || exit 0; lefthook install"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "2.4.15",
-    "lefthook": "2.1.6",
-    "lightningcss": "1.32.0",
-    "turbo": "^2.11.2"
-  },
-  "ignoreScripts": [
-    "sharp",
-    "unrs-resolver"
-  ],
-  "trustedDependencies": [
-    "sharp",
-    "unrs-resolver"
-  ],
-  "overrides": {
-    "lightningcss": "1.32.0"
-  },
-  "dependencies": {
-    "@turbo/linux-64": "2.10.5"
-  }
+	"name": "grid",
+	"version": "0.1.0",
+	"private": true,
+	"license": "MIT OR Apache-2.0",
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	],
+	"scripts": {
+		"dev": "turbo run dev --continue --concurrency=12",
+		"build": "turbo run build",
+		"start": "turbo run start",
+		"preflight": "bun run lint && bun run typecheck && bun run test",
+		"lint": "turbo run lint && bun run scripts:lint",
+		"lint:fix": "turbo run lint:fix",
+		"format": "oxfmt --write . && bun run scripts:format && (cd packages/logger/rust && cargo fmt || true)",
+		"typecheck": "turbo run typecheck",
+		"test": "turbo run test",
+		"test:coverage": "(cd apps/web && bun run test:coverage) && (cd apps/nest-api && bun run test:cov) && (cd packages/logger && bun run test:coverage)",
+		"test:e2e:web": "cd apps/web && bun run test:e2e",
+		"architecture:check": "bash scripts/architecture/check-boundaries.sh",
+		"naming:check": "bash scripts/architecture/check-naming.sh",
+		"ci:lint": "bun run lint && bun run architecture:check",
+		"ci:typecheck": "bun run typecheck",
+		"ci:test": "bun run test:coverage",
+		"ci:e2e:web": "bun run test:e2e:web",
+		"scripts:lint": "shellcheck scripts/bash/*.sh scripts/git-hooks/*.sh scripts/architecture/*.sh",
+		"scripts:format": "shfmt -i 4 -w scripts/bash/*.sh scripts/git-hooks/*.sh scripts/architecture/*.sh || true",
+		"prepare": "git rev-parse --git-dir >/dev/null 2>&1 || exit 0; lefthook install"
+	},
+	"dependencies": {
+		"@turbo/linux-64": "2.10.5"
+	},
+	"devDependencies": {
+		"lefthook": "2.1.6",
+		"lightningcss": "1.32.0",
+		"oxfmt": "0.70.0",
+		"oxlint": "1.85.0",
+		"turbo": "^2.11.2"
+	},
+	"overrides": {
+		"lightningcss": "1.32.0"
+	},
+	"packageManager": "bun@1.4.2",
+	"ignoreScripts": [
+		"sharp",
+		"unrs-resolver"
+	],
+	"trustedDependencies": [
+		"sharp",
+		"unrs-resolver"
+	]
 }

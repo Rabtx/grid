@@ -7,8 +7,8 @@ alwaysApply: true
 
 - **Monorepo**: Turborepo with `apps/*` and `packages/*`. Run from root: `bun run dev`, `bun run build`, `bun run lint`, `bun run format`.
 - **Package manager**: Bun only. Use `bun` for install/run — never npm, yarn, or pnpm.
-- **Lint/format**: Biome only (no ESLint/Prettier). Config: root `biome.json`. Pre-commit hook (lefthook) runs `biome check --write .`.
-- **Style**: Tabs, line width 100. Biome applies to `apps/**/*.ts(x)`, `packages/**/*.ts(x)`, `*.config.ts`, `*.config.mjs`.
+- **Lint/format**: oxlint + oxfmt only (no ESLint/Prettier). Configs: root `.oxlintrc.json`, `.oxfmtrc.json`. Pre-commit hook (lefthook) runs `bun run format` and `bun run lint:fix`.
+- **Style**: Tabs, line width 100. oxfmt applies to `apps/**/*.ts(x)`, `packages/**/*.ts(x)`, `*.config.ts`, `*.config.mjs`.
 - **Shared packages**: `packages/ui` (shadcn components + design tokens in `src/styles/globals.css`), `packages/typescript-config` (tsconfig bases), `packages/logger` (TS + Rust logger).
 - **Apps**: `apps/web` (Next.js), `apps/nest-api` (NestJS + Drizzle + PostgreSQL), `apps/docs` (Fumadocs). Add new apps under `apps/` and wire in `turbo.json`.
 - **Workspace imports**: Use `@grid/<package>` (e.g. `@grid/ui`, `@grid/logger`). Prefer shared packages over duplicating code across apps.

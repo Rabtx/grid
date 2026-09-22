@@ -87,7 +87,7 @@ and `docs`).
 | --- | --- |
 | `bun run dev` | All dev servers |
 | `bun run build` | Build every app |
-| `bun run lint` / `lint:fix` | Biome, plus ShellCheck over `scripts/` |
+| `bun run lint` / `lint:fix` | oxlint, plus ShellCheck over `scripts/` |
 | `bun run format` | Format TS/JS, shell and the Rust logger |
 | `bun run typecheck` | TypeScript across workspaces |
 | `bun run test` / `test:coverage` | Unit tests / coverage gates |
@@ -99,7 +99,7 @@ and `docs`).
 ## Tooling
 
 - **Bun** workspaces and **Turborepo** for the task graph
-- **Biome** for TS/JS — tabs, line width 100
+- **oxlint + oxfmt** for TS/JS — tabs, line width 100
 - **Lefthook** pre-commit and commit-msg, enforcing Conventional Commits
 - Bash: ShellCheck + shfmt · Rust: rustfmt + clippy
 

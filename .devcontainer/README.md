@@ -11,18 +11,18 @@ After start, `postCreateCommand` runs `bun install` and `bun run prepare` (git h
 
 ## What’s installed
 
-| Tool | Why |
-|------|-----|
-| **Bun** `1.4.2` | Package manager + JS/TS runtime |
+| Tool                               | Why                             |
+| ---------------------------------- | ------------------------------- |
+| **Bun** `1.4.2`                    | Package manager + JS/TS runtime |
 | **Rust** (stable, rustfmt, clippy) | the `packages/logger` Rust side |
-| **ShellCheck** + **shfmt** | Bash script quality |
+| **ShellCheck** + **shfmt**         | Bash script quality             |
 
 C and Lua toolchains were removed — they are not part of the product stack.
 
 ## Ports
 
-| Port | App |
-|------|-----|
+| Port | App           |
+| ---- | ------------- |
 | 3000 | Web (Next.js) |
-| 3002 | Docs |
-| 4000 | Nest API |
+| 3002 | Docs          |
+| 4000 | Nest API      |

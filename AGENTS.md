@@ -79,7 +79,7 @@ grid/
 ├── .agents/rules/       # Cursor-specific rules (also summarised below)
 ├── .devcontainer/       # Dev Container (Bun, Rust, Bash tooling)
 ├── .github/workflows/   # CI (lint, typecheck, build, test)
-└── (root config)        # biome.json, turbo.json, lefthook.yml, .editorconfig, etc.
+└── (root config)        # .oxlintrc.json, .oxfmtrc.json, turbo.json, lefthook.yml, etc.
 ```
 
 ## Tooling and commands
@@ -88,7 +88,7 @@ grid/
 |------|---------|--------|
 | **Bun** | Package manager and script runner (not npm/yarn/pnpm) | `package.json` workspaces |
 | **Turborepo** | Monorepo orchestration | `turbo.json` |
-| **Biome** | Lint + format for TS/JS | `biome.json` (tabs, line width 100) |
+| **oxlint + oxfmt** | Lint + format for TS/JS | `.oxlintrc.json` / `.oxfmtrc.json` (tabs, line width 100) |
 | **Lefthook** | Git hooks (pre-commit, commit-msg) | `lefthook.yml` |
 | **EditorConfig** | Consistent indent/charset/line endings | `.editorconfig` |
 
@@ -100,9 +100,9 @@ grid/
 | `bun run prepare` | Install git hooks (lefthook) |
 | `bun run dev` | Start all dev servers (Turbo) |
 | `bun run build` | Build all apps (Turbo) |
-| `bun run lint` | Lint: Biome (TS/JS) + ShellCheck |
+| `bun run lint` | Lint: oxlint (TS/JS) + ShellCheck |
 | `bun run lint:fix` | Lint with auto-fix |
-| `bun run format` | Format: Biome + shfmt + cargo fmt |
+| `bun run format` | Format: oxfmt + shfmt + cargo fmt |
 | `bun run typecheck` | TypeScript typecheck |
 | `bun run test` | Run tests (e.g. cargo test) |
 | `bun run test:coverage` | Run TS coverage + all language tests |
@@ -114,9 +114,9 @@ grid/
 
 ### Code style
 
-- **Formatter**: Biome. Tabs, line width 100. Applies to `apps/**/*.ts(x)`, `packages/**/*.ts(x)`,
+- **Formatter**: oxfmt. Tabs, line width 100. Applies to `apps/**/*.ts(x)`, `packages/**/*.ts(x)`,
   root config files. Run `bun run format` or rely on pre-commit hook.
-- **No ESLint/Prettier**: Biome is the only lint/format tool for TS/JS in this project.
+- **No ESLint/Prettier**: oxlint + oxfmt are the only lint/format tools for TS/JS in this project.
 - **Naming**: PascalCase for components; files match component name. Hooks use `use*` prefix;
   utility functions are plain named exports.
 - **Imports**: Prefer workspace imports as `@grid/<package>` (e.g. `@grid/ui`).
@@ -151,7 +151,7 @@ grid/
 
 | Language | Lint | Format | Test |
 |----------|------|--------|------|
-| **TypeScript/JS** | Biome | Biome | Vitest/Jest (if added) |
+| **TypeScript/JS** | oxlint | oxfmt | Vitest/Jest (if added) |
 | **Bash** | ShellCheck | shfmt | — |
 
 ### Docker
@@ -186,6 +186,7 @@ only, then `bun run dev`. See `/docs/docker` and `docker/README.md`.
   - `/docs/deploy` — Vercel (web/docs) + Render (Nest) + Neon
 - `.agents/skills/browser-ui-test/SKILL.md` — Browser UI/UX verification via Playwright MCP + `apps/web` e2e after interactive web changes.
 - `docker/README.md` — Compose fragment layout and `-f` fallback.
-- `biome.json` — Biome config (lint rules, formatter settings).
+- `.oxlintrc.json` — oxlint config (lint rules).
+- `.oxfmtrc.json` — oxfmt config (formatter settings).
 - `lefthook.yml` — Git hook definitions.
 - `turbo.json` — Turborepo pipeline config.
