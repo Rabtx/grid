@@ -1,95 +1,61 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, For, onSettled } from "solid-js";
+import { createEffect, For } from "solid-js";
 
-import { TASK_STATUSES, TASK_STATUS_LABELS } from "../types/project.types";
+import { laneId, STATUS_DOT_CLASS } from "../lib/stage-style";
+import {
+	TASK_STATUS_LABELS,
+	TASK_STATUSES,
+	type Task,
+	type TaskStatus,
+} from "../types/project.types";
 
-interface StageTabsProps {
-	columns: Record<string, unknown[]>;
-	activeStatus: string;
-	setActiveStatus: (status: string) => void;
-}
+/**
+ * Phone-only stage switcher above the swipeable lanes. Tapping a stage scrolls its lane in;
+ * swiping updates `active`, and the active stage is kept in view in this row.
+ */
+export function StageTabs(props: {
+	columns: Record<TaskStatus, Task[]>;
+	active: TaskStatus;
+	onSelect: (status: TaskStatus) => void;
+}): JSX.Element {
+	const tabs = new Map<TaskStatus, HTMLButtonElement>();
 
-export function StageTabs(props: StageTabsProps): JSX.Element {
-	const [, setForceUpdate] = createSignal(0);
-	const lanesContainerRef = { current: null as HTMLDivElement | null };
-
-	onSettled(() => {
-		const container = lanesContainerRef.current;
-		if (!container) return;
-
-		const observer = new IntersectionObserver(
-			(entries) => {
-				let maxRatio = 0;
-				let activeId = "";
-				for (const entry of entries) {
-					if (entry.intersectionRatio > maxRatio) {
-						maxRatio = entry.intersectionRatio;
-						activeId = entry.target.id;
-					}
-				}
-				if (activeId && maxRatio >= 0.6) {
-					const status = activeId.replace("lane-", "");
-					if (status !== props.activeStatus) {
-						props.setActiveStatus(status);
-						setForceUpdate((n) => n + 1);
-						const tab = document.getElementById(`tab-${status}`);
-						tab?.scrollIntoView({ behavior: "smooth", inline: "nearest" });
-					}
-				}
-			},
-			{ root: container, threshold: [0.6] },
-		);
-
-		const lanes = container.querySelectorAll("[id^=lane-]");
-		lanes.forEach((lane) => observer.observe(lane));
-
-		return () => {
-			lanes.forEach((lane) => observer.unobserve(lane));
-			observer.disconnect();
-		};
-	});
-
-	const scrollToLane = (status: string) => {
-		const lane = document.getElementById(`lane-${status}`);
-		lane?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
-	};
+	createEffect(
+		() => props.active,
+		(status) => {
+			// Block body on purpose: newer browsers return a promise from scrollIntoView, and an
+			// effect's return value is treated as its cleanup.
+			tabs.get(status)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+		},
+	);
 
 	return (
-		<div class="md:hidden" role="tablist" aria-label="Workflow stages">
-			<div
-				ref={(el) => {
-					lanesContainerRef.current = el;
-				}}
-				class="flex gap-1 overflow-x-auto px-4 pb-2 min-h-row scrollbar-hide"
-				aria-controls="lanes-container"
-			>
+		<nav
+			aria-label="Stages"
+			class="-mx-4 mb-3 overflow-x-auto px-4 [scrollbar-width:none] md:hidden"
+		>
+			<div class="flex w-max gap-1.5">
 				<For each={TASK_STATUSES}>
 					{(status) => (
 						<button
-							id={`tab-${status}`}
-							role="tab"
-							aria-controls={`lane-${status}`}
-							aria-selected={props.activeStatus === status ? "true" : "false"}
-							aria-current={props.activeStatus === status ? "true" : "false"}
-							class="flex min-h-row items-center gap-1.5 shrink-0 rounded-lg bg-muted px-3 py-1.5 text-ui-sm font-medium transition-colors duration-fast ease-out-grid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							onClick={() => {
-								props.setActiveStatus(status);
-								scrollToLane(status);
+							type="button"
+							ref={(el) => {
+								tabs.set(status, el);
 							}}
+							aria-controls={laneId(status)}
+							aria-current={props.active === status ? "true" : undefined}
+							onClick={() => props.onSelect(status)}
+							class="flex min-h-row shrink-0 items-center gap-2 rounded-full border border-border px-3 text-ui-sm transition-colors duration-fast ease-out-grid aria-[current=true]:border-transparent aria-[current=true]:bg-accent aria-[current=true]:font-medium"
 						>
-							<span
-								class="size-2 rounded-full"
-								style={{ background: `var(--color-status-${status})` }}
-								aria-hidden="true"
-							/>
-							<span>{TASK_STATUS_LABELS[status as keyof typeof TASK_STATUS_LABELS]}</span>
-							<span class="font-mono text-ui-xs text-muted-foreground">
-								{props.columns[status]?.length ?? 0}
+							<span class={`size-2 rounded-full ${STATUS_DOT_CLASS[status]}`} aria-hidden="true" />
+							{TASK_STATUS_LABELS[status]}
+							<span class="font-mono text-muted-foreground text-ui-xs">
+								{props.columns[status].length}
 							</span>
 						</button>
 					)}
 				</For>
 			</div>
-		</div>
+		</nav>
 	);
 }

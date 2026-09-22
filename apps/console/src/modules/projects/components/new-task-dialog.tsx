@@ -57,7 +57,9 @@ export function NewTaskDialog(): JSX.Element {
 	return (
 		// oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- backdrop light-dismiss; the modal dialog already closes on Escape
 		<dialog
-			ref={(el) => (dialog = el)}
+			ref={(el) => {
+				dialog = el;
+			}}
 			aria-labelledby="new-task-title"
 			onClose={() => workspace.setNewTaskOpen(false)}
 			onClick={(event) => {
@@ -73,7 +75,9 @@ export function NewTaskDialog(): JSX.Element {
 					New task
 				</h2>
 				<input
-					ref={(el) => (input = el)}
+					ref={(el) => {
+						input = el;
+					}}
 					value={title()}
 					onInput={(event) => setTitle(event.currentTarget.value)}
 					placeholder="What needs doing?"

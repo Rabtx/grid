@@ -123,12 +123,15 @@ describe("BoardScreen", () => {
 	it("renders seven stage tabs with correct counts on mobile", async () => {
 		await settle();
 
-		const tabs = container.querySelectorAll('[role="tab"]');
+		const tabs = container.querySelectorAll('nav[aria-label="Stages"] button');
 		expect(tabs.length).toBe(7);
 		const tabCounts = Array.from(tabs).map((tab) =>
 			parseInt(tab.querySelector(".font-mono")?.textContent || "0", 10),
 		);
 		expect(tabCounts).toEqual([1, 1, 0, 0, 0, 0, 0]);
+		// Backlog is the first lane, so it starts as the current stage.
+		expect(tabs[0].getAttribute("aria-current")).toBe("true");
+		expect(tabs[0].getAttribute("aria-controls")).toBe("lane-backlog");
 	});
 
 	it("shows 'No tasks' in empty lanes", async () => {

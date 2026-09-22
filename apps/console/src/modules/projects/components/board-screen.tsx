@@ -1,57 +1,68 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, isPending, Loading, Show, Errored } from "solid-js";
+import { createMemo, createSignal, Errored, isPending, Loading, Show } from "solid-js";
 
 import { useWorkspace } from "../context/workspace-context";
 import { groupByStatus } from "../lib/board";
-import { type TaskStatus } from "../types/project.types";
+import { laneId } from "../lib/stage-style";
+import type { TaskStatus } from "../types/project.types";
 
-import { StageTabs } from "./stage-tabs";
 import { BoardLanes, SkeletonLanes } from "./board-lanes";
+import { StageTabs } from "./stage-tabs";
 
 export function BoardScreen(): JSX.Element {
+	return (
+		<Loading fallback={<SkeletonLanes />}>
+			<Errored fallback={(error, reset) => <BoardError error={error()} onRetry={reset} />}>
+				<Board />
+			</Errored>
+		</Loading>
+	);
+}
+
+function Board(): JSX.Element {
 	const workspace = useWorkspace();
-	const [activeStatus, setActiveStatus] = createSignal<TaskStatus>("backlog");
-	const lanesContainerRef = { current: null as HTMLDivElement | null };
+	const columns = createMemo(() => groupByStatus(workspace.tasks()));
+	const [active, setActive] = createSignal<TaskStatus>("backlog");
+	const count = createMemo(() => workspace.tasks().length);
+
+	function select(status: TaskStatus) {
+		setActive(status);
+		document
+			.getElementById(laneId(status))
+			?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+	}
 
 	return (
-		<Loading fallback={<SkeletonLanes isMobile={true} />}>
-			<Show when={workspace.activeProject()} fallback={<ProjectNotFound />}>
-				<Errored
-					fallback={(err, reset) => (
-						<div class="space-y-3 py-8 text-center">
-							<p class="text-ui text-destructive" role="alert">
-								{(err() as Error).message}
-							</p>
-							<button
-								class="min-h-row px-4 rounded-md bg-primary text-primary-foreground text-ui font-medium"
-								onClick={reset}
-							>
-								Try again
-							</button>
-						</div>
-					)}
-				>
-					{isPending(() => workspace.tasks()) && (
-						<div
-							class="h-0.5 bg-primary animate-pulse fixed top-14 left-0 right-0 z-10"
-							aria-hidden="true"
-						/>
-					)}
-					<div class="lg:hidden px-4 py-2 text-ui-sm text-muted-foreground">
-						{workspace.tasks().length} tasks
-					</div>
-					<StageTabs
-						columns={groupByStatus(workspace.tasks())}
-						activeStatus={activeStatus()}
-						setActiveStatus={setActiveStatus}
-					/>
-					<BoardLanes
-						columns={groupByStatus(workspace.tasks())}
-						lanesContainerRef={lanesContainerRef}
-					/>
-				</Errored>
-			</Show>
-		</Loading>
+		<Show when={workspace.activeProject()} fallback={<ProjectNotFound />}>
+			{/* Always in the layout so switching projects never shifts the board. */}
+			<div
+				aria-hidden="true"
+				class={`-mt-2 mb-2 h-0.5 rounded-full ${isPending(() => workspace.tasks()) ? "animate-pulse bg-primary" : "bg-transparent"}`}
+			/>
+			<p class="mb-3 text-muted-foreground text-ui-sm lg:hidden">
+				{count()} task{count() === 1 ? "" : "s"}
+			</p>
+			<StageTabs columns={columns()} active={active()} onSelect={select} />
+			<BoardLanes columns={columns()} onActiveChange={setActive} />
+		</Show>
+	);
+}
+
+function BoardError(props: { error: unknown; onRetry: () => void }): JSX.Element {
+	return (
+		<div role="alert" class="space-y-3 py-8">
+			<h1 class="font-semibold text-title">The board could not load</h1>
+			<p class="text-muted-foreground text-ui">
+				{props.error instanceof Error ? props.error.message : "Something went wrong."}
+			</p>
+			<button
+				type="button"
+				onClick={() => props.onRetry()}
+				class="h-control rounded-md bg-primary px-3 font-medium text-primary-foreground text-ui"
+			>
+				Try again
+			</button>
+		</div>
 	);
 }
 

@@ -225,3 +225,27 @@ Architecture checks passed. [naming] OK (449 path(s) checked)
 $ grep -rnE "max-(sm|md|lg|xl):" apps/console/src
 (no output)
 ```
+
+**Reviewer fixes to part 2 (claude, 2026-09-23):** the agent's board passed its tests but had
+defects found in review and in the browser:
+- the IntersectionObserver observed the *tab row* (which contains no lanes), so swiping never
+  updated the active tab — the observer now lives in `BoardLanes` on the lane scroller;
+- status dots used an inline `var(--color-status-*)` style; replaced with a literal class map
+  (`lib/stage-style.ts`) so Tailwind generates them;
+- ARIA `tablist`/`tab` roles on buttons whose lanes are not tab panels — now a `nav` of buttons with
+  `aria-current` + `aria-controls`, as the card specifies;
+- double horizontal padding, "1 tasks", a progress bar fixed under the phone top bar on every
+  width, a non-existent `scrollbar-hide` class, and `groupByStatus` computed twice;
+- Solid 2 treats an effect's (and ref callback's) return value as its cleanup: expression-bodied
+  `ref={(el) => (x = el)}` / `tabs.set(...)` and `scrollIntoView(...)` (which returns a promise in
+  current Chromium) made the board fail with "effect callback returned an invalid cleanup value" —
+  caught by the new `<Errored>` boundary in the browser, invisible in happy-dom. All such callbacks
+  now have block bodies.
+
+Validation (final): console `Tests 13 passed (13)`; typecheck 0 errors; build `✓ built`;
+`bun run lint` exit 0; `architecture:check` OK; no `max-*:` variants. Browser: 375px — "12 tasks",
+seven stage tabs with coloured dots and counts, one full-width lane, no horizontal page scroll;
+tapping "Done" scrolls its lane in and keeps the tab in view; scrolling the lanes to QA updates the
+current tab (IntersectionObserver). 1280px dark — tabs hidden, 288px columns side by side, no page
+overflow. Note: the in-app browser pane only renders frames around screenshots, so smooth scrolling
+and observers there only advance when a frame is produced.

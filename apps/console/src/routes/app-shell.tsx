@@ -49,7 +49,11 @@ function SignedInShell(props: { children: JSX.Element }): JSX.Element {
 					{props.children}
 				</main>
 			</div>
-			<NavDrawer dialogRef={(el) => (drawer = el)} />
+			<NavDrawer
+				dialogRef={(el) => {
+					drawer = el;
+				}}
+			/>
 			<NewTaskDialog />
 		</div>
 	);
