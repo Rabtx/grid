@@ -1,43 +1,38 @@
 # Grid scripts
 
-Scripts live under **`scripts/`** at repo root, organized by language: **bash**, **python**.
+Shell utilities that support the repository. There is no example code here — every script
+has a job.
 
 ## Layout
 
 ```
 scripts/
-├── bash/           # Bash – ShellCheck, shfmt
-│   ├── main.sh
+├── architecture/   # boundary and kebab-case naming checks, run by CI and the pre-commit hook
+│   ├── check-boundaries.sh
+│   └── check-naming.sh
+├── bash/           # developer utilities
+│   ├── docker-group.sh
 │   └── .shellcheckrc
-├── python/         # Python – ruff (lint + format)
-│   ├── main.py
-│   └── pyproject.toml
-└── README.md       # This file
+├── git-hooks/      # the scripts lefthook runs
+└── README.md
 ```
 
 ## Commands (from root)
 
 | Command | Purpose |
-|---------|---------|
-| `bun run scripts:lint` | Lint bash (ShellCheck), python (ruff) |
-| `bun run scripts:format` | Format bash (shfmt), python (ruff format) |
-| `bun run scripts:run` | Run bash main script (same as `scripts:run:bash`) |
-| `bun run scripts:run:bash` | Run `scripts/bash/main.sh` |
-| `bun run scripts:run:python` | Run `scripts/python/main.py` |
-| `bun run test:scripts` | Run script tests for bash and python |
+| --- | --- |
+| `bun run architecture:check` | Import-boundary rules, then the naming check |
+| `bun run naming:check` | kebab-case file and folder names |
+| `bun run scripts:lint` | ShellCheck over every script in this tree |
+| `bun run scripts:format` | shfmt, four-space indent |
 
-## Prerequisites
+`shellcheck` and `shfmt` come from `mise install` — see `.mise.toml`.
 
-- **Bash** – for `scripts/bash`
-- **Python 3.11+** – for `scripts/python`
+## docker-group.sh
 
-Optional (for lint/format):
+Adds the current user to the `docker` group so `docker compose` runs without sudo, which is
+how the local Postgres comes up. Run it once, then log out and back in, or `newgrp docker`.
 
-- Bash: **ShellCheck**, **shfmt** (e.g. `pacman -S shellcheck shfmt`)
-- Python: **ruff** (e.g. `pip install ruff` or `pacman -S ruff`)
-
-## QoL / goodies
-
-- **bash** – `.shellcheckrc`, shfmt 4-space indent.
-- **python** – `pyproject.toml` (ruff + black-style line-length 100, Python 3.11).
-
+```bash
+bash scripts/bash/docker-group.sh
+```

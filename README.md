@@ -30,9 +30,9 @@ Multi-agent development of Grid itself runs through [.agents/](.agents/README.md
 **Prerequisites**
 
 - [Bun](https://bun.sh) `1.4.2` (pinned via `packageManager` and `.mise.toml`)
-- [mise](https://mise.jdx.dev) — `mise install` also provides `shellcheck`, `shfmt` and `ruff`,
-  which `bun run lint` and `bun run format` need for the shell and Python scripts
-- Optional: Docker Compose `v2.20+`, Rust toolchain (`packages/logger` Rust side), Python 3 (script tests)
+- [mise](https://mise.jdx.dev) — `mise install` also provides `shellcheck` and `shfmt`, which
+  `bun run lint` and `bun run format` need for the shell scripts
+- Optional: Docker Compose `v2.20+`, Rust toolchain (`packages/logger` Rust side)
 
 ```bash
 git clone https://github.com/shabirkhan-dev/grid.git
@@ -77,9 +77,9 @@ and `docs`).
 | --- | --- |
 | `.agents/` | Agent contract, roles, board and skills — the single source; there is no second copy |
 | `docker/` | Compose fragments: Postgres, Nest, web, optional profiles |
-| `scripts/` | Bash and Python utilities, plus architecture and naming checks |
+| `scripts/` | Shell utilities, git hooks, plus architecture and naming checks |
 | `.github/workflows/` | `ci.yml`, `cd.yml`, `security.yml` |
-| `.devcontainer/` | Bun + Rust + Python/Bash tooling |
+| `.devcontainer/` | Bun + Rust + Bash tooling |
 
 ## Commands
 
@@ -87,8 +87,8 @@ and `docs`).
 | --- | --- |
 | `bun run dev` | All dev servers |
 | `bun run build` | Build every app |
-| `bun run lint` / `lint:fix` | Biome, plus ShellCheck and Ruff over `scripts/` |
-| `bun run format` | Format TS/JS, shell, Python and the Rust logger |
+| `bun run lint` / `lint:fix` | Biome, plus ShellCheck over `scripts/` |
+| `bun run format` | Format TS/JS, shell and the Rust logger |
 | `bun run typecheck` | TypeScript across workspaces |
 | `bun run test` / `test:coverage` | Unit tests / coverage gates |
 | `bun run test:e2e:web` | Playwright e2e for web |
@@ -101,7 +101,7 @@ and `docs`).
 - **Bun** workspaces and **Turborepo** for the task graph
 - **Biome** for TS/JS — tabs, line width 100
 - **Lefthook** pre-commit and commit-msg, enforcing Conventional Commits
-- Bash: ShellCheck + shfmt · Python: Ruff · Rust: rustfmt + clippy
+- Bash: ShellCheck + shfmt · Rust: rustfmt + clippy
 
 ## Docker
 
@@ -126,7 +126,7 @@ Walkthrough: `/docs/deploy` — [apps/docs/content/docs/deploy.mdx](apps/docs/co
 
 ## Dev Container
 
-`.devcontainer/` installs **Bun**, **Rust**, **Python/Ruff** and the Bash lint tools. C and Lua are
+`.devcontainer/` installs **Bun**, **Rust** and the Bash lint tools. C, Lua and Python are
 deliberately excluded.
 
 ```text

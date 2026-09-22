@@ -74,10 +74,10 @@ grid/
 │   ├── typescript-config/ # Shared tsconfig bases (base.json, nextjs.json)
 │   ├── ui/              # Shared web UI primitives + shadcn styles/tokens
 │   └── logger/          # Shared logger (TS + Rust)
-├── scripts/             # Utility scripts: bash/, python/
+├── scripts/             # Shell utilities, git hooks and repo checks
 ├── docker/              # Docker Compose fragments (see docker/README.md)
 ├── .agents/rules/       # Cursor-specific rules (also summarised below)
-├── .devcontainer/       # Dev Container (Bun, Rust, Python, Bash tooling)
+├── .devcontainer/       # Dev Container (Bun, Rust, Bash tooling)
 ├── .github/workflows/   # CI (lint, typecheck, build, test)
 └── (root config)        # biome.json, turbo.json, lefthook.yml, .editorconfig, etc.
 ```
@@ -100,9 +100,9 @@ grid/
 | `bun run prepare` | Install git hooks (lefthook) |
 | `bun run dev` | Start all dev servers (Turbo) |
 | `bun run build` | Build all apps (Turbo) |
-| `bun run lint` | Lint: Biome (TS/JS) + ShellCheck + ruff |
+| `bun run lint` | Lint: Biome (TS/JS) + ShellCheck |
 | `bun run lint:fix` | Lint with auto-fix |
-| `bun run format` | Format: Biome + shfmt + ruff + cargo fmt |
+| `bun run format` | Format: Biome + shfmt + cargo fmt |
 | `bun run typecheck` | TypeScript typecheck |
 | `bun run test` | Run tests (e.g. cargo test) |
 | `bun run test:coverage` | Run TS coverage + all language tests |
@@ -153,7 +153,6 @@ grid/
 |----------|------|--------|------|
 | **TypeScript/JS** | Biome | Biome | Vitest/Jest (if added) |
 | **Bash** | ShellCheck | shfmt | — |
-| **Python** | ruff check | ruff format | — |
 
 ### Docker
 

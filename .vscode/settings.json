@@ -7,7 +7,6 @@
 	"editor.codeActionsOnSave": {
 		"quickfix.biome": "explicit",
 		"source.organizeImports.biome": "explicit",
-		"source.fixAll.ruff": "explicit"
 	},
 
 	// —— Language-specific formatters (Biome for TS/JS/JSON) ——
@@ -36,11 +35,6 @@
 	},
 	"rust-analyzer.check.command": "clippy",
 
-	// —— Python (scripts/python: ruff check, ruff format) ——
-	"[python]": {
-		"editor.defaultFormatter": "charliermarsh.ruff"
-	},
-	"ruff.lint.run": "onSave",
 
 	// —— Bash (scripts/bash: ShellCheck, shfmt -i 4) ——
 	"[shellscript]": {
