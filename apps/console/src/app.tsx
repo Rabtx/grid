@@ -54,5 +54,5 @@ function BoardRoute(): JSX.Element {
 }
 
 function NotFoundRoute(): JSX.Element {
-	return <p class="text-muted-foreground text-sm">That page does not exist.</p>;
+	return <p class="text-muted-foreground text-ui-sm">That page does not exist.</p>;
 }

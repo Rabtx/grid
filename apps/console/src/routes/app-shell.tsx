@@ -10,10 +10,10 @@ export function AppShell(props: { children: JSX.Element }): JSX.Element {
 	return (
 		<div class="min-h-dvh bg-background text-foreground">
 			<header class="flex items-center justify-between border-border border-b px-4 py-3">
-				<span class="font-semibold text-sm tracking-tight">Grid</span>
+				<span class="font-semibold text-ui-sm tracking-tight">Grid</span>
 				<Show when={auth.user()}>
 					{(user) => (
-						<span class="flex items-center gap-3 text-xs">
+						<span class="flex items-center gap-3 text-ui-xs">
 							<span class="text-muted-foreground">{user().email}</span>
 							<button
 								type="button"
