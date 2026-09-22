@@ -1,2 +1,4 @@
 @import "tailwindcss";
-@import "@grid/ui/globals.css";
+@import "@grid/tokens/tokens.css";
+@import "@grid/tokens/product.css";
+@import "@grid/tokens/base.css";

@@ -1,0 +1,16 @@
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+
+	body {
+		@apply bg-background text-foreground;
+	}
+
+	/* Tailwind v4 ships buttons as cursor: default. shadcn documents this opt-in,
+	   equivalent to `shadcn init --pointer`, and it is what people expect on web. */
+	button:not(:disabled),
+	[role="button"]:not(:disabled) {
+		cursor: pointer;
+	}
+}

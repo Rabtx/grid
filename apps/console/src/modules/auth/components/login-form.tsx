@@ -29,40 +29,42 @@ export function LoginForm(): JSX.Element {
 	return (
 		<form class="w-full max-w-sm space-y-4" onSubmit={submit}>
 			<header class="space-y-1">
-				<h1 class="font-semibold text-2xl tracking-tight">Sign in to Grid</h1>
-				<p class="text-muted-foreground text-sm">Your projects, tasks and agent runs.</p>
+				<h1 class="font-semibold text-title tracking-tight">Sign in to Grid</h1>
+				<p class="text-muted-foreground text-ui-sm">Your projects, tasks and agent runs.</p>
 			</header>
 
 			<label class="block space-y-1.5">
-				<span class="font-medium text-sm">Email</span>
+				<span class="font-medium text-ui-sm">Email</span>
 				<input
 					type="email"
 					required
 					autocomplete="email"
 					value={email()}
 					onInput={(event) => setEmail(event.currentTarget.value)}
-					class="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:border-ring"
+					class="h-9 w-full rounded-md border border-border bg-background px-3 text-ui-input outline-none focus-visible:border-ring"
 				/>
 			</label>
 
 			<label class="block space-y-1.5">
-				<span class="font-medium text-sm">Password</span>
+				<span class="font-medium text-ui-sm">Password</span>
 				<input
 					type="password"
 					required
 					autocomplete="current-password"
 					value={password()}
 					onInput={(event) => setPassword(event.currentTarget.value)}
-					class="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:border-ring"
+					class="h-9 w-full rounded-md border border-border bg-background px-3 text-ui-input outline-none focus-visible:border-ring"
 				/>
 			</label>
 
-			<Show when={error()}>{(message) => <p class="text-destructive text-sm">{message()}</p>}</Show>
+			<Show when={error()}>
+				{(message) => <p class="text-destructive text-ui-sm">{message()}</p>}
+			</Show>
 
 			<button
 				type="submit"
 				disabled={pending()}
-				class="h-9 w-full rounded-md bg-primary font-medium text-primary-foreground text-sm disabled:opacity-60"
+				class="h-9 w-full rounded-md bg-primary font-medium text-primary-foreground text-ui disabled:opacity-60"
 			>
 				{pending() ? "Signing in…" : "Sign in"}
 			</button>
