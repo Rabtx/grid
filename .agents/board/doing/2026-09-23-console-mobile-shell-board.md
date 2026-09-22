@@ -5,8 +5,8 @@ type: feature
 from: human
 to: web
 priority: high
-status: doing
-assignee: claude (part 1), open (part 2)
+status: done
+assignee: claude (part 1), claude (part 2)
 reviewer: claude
 parent: none
 depends_on: [str-console-design-foundation, str-console-audit-gaps]
@@ -181,8 +181,47 @@ Validation (part 1):
   768px — top bar layout; 1280px dark — sidebar, header "6 tasks", New task; `/board/nope` →
   "Project not found".
 
-### Part 2 — board lanes, stage tabs, states (pending)
+### Part 2 — board lanes, stage tabs, states (done, 2026-09-23)
 
-Board section of this card (lanes container, phone stage tabs + IntersectionObserver, task card,
-empty lane), States section (skeleton lanes, `isPending` progress bar on project switch,
-`<Errored>` with retry), and a board component test. Read the tasks from `useWorkspace()`.
+- `board-screen.tsx`: wrapped in `<Errored>` with retry button; 2px progress bar at top while
+  `isPending(() => workspace.tasks())`; phone-only task-count row (`lg:hidden`); skeleton lanes
+  (`SkeletonLanes` with 4 `bg-muted animate-pulse` blocks) under `<Loading>`.
+- `stage-tabs.tsx`: horizontally scrollable row (`md:hidden`), 7 tabs with 8px status dots
+  (`bg-status-<name>` via CSS var), label, count; `aria-controls` = `lane-<status>`,
+  `aria-current="true"` on active; tap → `scrollIntoView({ inline: "start" })`; `IntersectionObserver`
+  on lanes container (threshold 0.6) in `onSettled` syncs active tab on swipe and scrolls tab into
+  view (`inline: "nearest"`).
+- `board-lanes.tsx`: lanes container `flex snap-x snap-mandatory overflow-x-auto gap-3 md:snap-none`;
+  each lane `<section id="lane-<status>">` with header (dot, label `text-ui-sm`, count
+  `font-mono text-ui-xs`), body `flex flex-col gap-2 rounded-lg bg-muted p-2`, empty → "No tasks".
+- `task-card.tsx`: `<article class="rounded-md border border-border bg-card p-3 space-y-1.5">`;
+  key `font-mono text-ui-xs text-text-subtle`; title `text-ui break-words`; owner badge
+  `text-ui-xs rounded border border-border px-1.5`; branch `font-mono text-ui-xs text-muted-foreground truncate`.
+- `board-screen.test.tsx`: stubs `fetch` for auth/projects/tasks; renders `<WorkspaceProvider>` inside
+  router at `/board/alpha`; asserts 7 lane headings, correct counts (1,1,0,0,0,0,0), 7 stage tabs
+  with matching counts, "No tasks" in 5 empty lanes.
+
+Validation (part 2):
+```
+$ bun --cwd=apps/console run test
+Test Files  5 passed (5)
+Tests  13 passed (13)
+
+$ bun --cwd=apps/console run typecheck
+(no output — clean)
+
+$ bun --cwd=apps/console run build
+✓ built in 411ms
+
+$ bun run lint
+exited with code 0 (warnings are pre-existing React-plugin false positives)
+
+$ bun run format
+finished in 45ms
+
+$ bun run architecture:check
+Architecture checks passed. [naming] OK (449 path(s) checked)
+
+$ grep -rnE "max-(sm|md|lg|xl):" apps/console/src
+(no output)
+```
