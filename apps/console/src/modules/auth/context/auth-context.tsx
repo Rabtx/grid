@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createContext, createSignal, useContext } from "solid-js";
+import { createContext, createSignal, onSettled, useContext } from "solid-js";
 
 import { authService } from "../services/auth.service";
 import { type AuthUser, isTwoFactorChallenge, type LoginInput } from "../types/auth.types";
@@ -28,16 +28,18 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 	const [user, setUser] = createSignal<AuthUser | null>(null);
 	const [ready, setReady] = createSignal(false);
 
-	void authService
-		.refresh()
-		.then((session) => {
-			setToken(session.accessToken);
-			setUser(session.user);
-		})
-		.catch(() => {
-			// No usable refresh cookie: this is a signed-out visitor, not an error.
-		})
-		.finally(() => setReady(true));
+	onSettled(() => {
+		void authService
+			.refresh()
+			.then((session) => {
+				setToken(session.accessToken);
+				setUser(session.user);
+			})
+			.catch(() => {
+				// No usable refresh cookie: this is a signed-out visitor, not an error.
+			})
+			.finally(() => setReady(true));
+	});
 
 	const state: AuthState = {
 		token,
@@ -63,8 +65,7 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 	return <AuthContext value={state}>{props.children}</AuthContext>;
 }
 
+/** Throws `ContextNotFoundError` outside an `AuthProvider`: the context has no default. */
 export function useAuth(): AuthState {
-	const state = useContext(AuthContext);
-	if (!state) throw new Error("useAuth must be used inside an AuthProvider");
-	return state;
+	return useContext(AuthContext);
 }

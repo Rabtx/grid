@@ -22,14 +22,23 @@ Cross-team communication for the agents building this monorepo:
 │   └── design.md     owned by ui-ux agent
 ├── plans/            ← long-form implementation plans
 ├── rules/            ← always-apply editor rules (`.mdc`)
-├── skills/           ← vendored agent skills (see below)
+├── skills/           ← Grid skills + vendored agent skills (see below)
 ```
 
 Everything above `rules/` is project policy and is owned by the human. `rules/` mirrors the
-editor rules, and `skills/` is vendored reference material copied from
-upstream projects — read them for guidance, but they are not project policy, are not covered by
-`ownership.yaml`, and may carry upstream files (including their own `.github/`) that do not
-apply here.
+editor rules.
+
+`skills/` holds two kinds of skill:
+
+- **Grid skills** — written for this repo and binding for every agent doing that kind of work:
+  - [`mobile-first`](skills/mobile-first/SKILL.md) — any UI work, especially `apps/console`:
+    phone layout first, breakpoint prefixes layer desktop on top, in one component.
+  - [`solid-2`](skills/solid-2/SKILL.md) — any Solid code (`apps/console`): Solid 2 APIs only,
+    with the 1.x → 2.0 replacement table and idioms.
+  - [`browser-ui-test`](skills/browser-ui-test/SKILL.md) — verifying interactive UI in a browser.
+- **Vendored skills** — everything else, copied from upstream projects. Read them for guidance,
+  but they are not project policy, are not covered by `ownership.yaml`, and may carry upstream
+  files (including their own `.github/`) that do not apply here.
 
 ## Rules of engagement
 

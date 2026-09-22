@@ -22,12 +22,12 @@
 	},
 	"devDependencies": {
 		"@grid/typescript-config": "workspace:*",
+		"@solidjs/vite-plugin": "3.0.0-next.44",
 		"@tailwindcss/vite": "^4.3.3",
 		"@vitest/coverage-v8": "^5.0.1",
 		"tailwindcss": "^4.3.3",
 		"typescript": "^6.0.3",
 		"vite": "^8.3.0",
-		"vite-plugin-solid": "3.0.0-next.27",
 		"vitest": "^5.0.1"
 	}
 }

@@ -36,7 +36,7 @@ export class ApiError extends Error {
 	}
 }
 
-const apiOrigin = resolveApiOrigin(import.meta.env.VITE_API_URL ?? "http://localhost:4000");
+const apiOrigin = resolveApiOrigin(import.meta.env.VITE_API_URL || defaultApiUrl());
 const apiPrefix = "/api/v1";
 
 export type ApiRequestOptions = RequestInit & { accessToken?: string };
@@ -93,6 +93,12 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
 		);
 	}
 	return isSuccess<T>(payload) ? payload.data : (payload as T);
+}
+
+/** Without an explicit URL, reach the API on whichever host served this page (localhost or a LAN IP). */
+function defaultApiUrl(): string {
+	if (typeof window === "undefined") return "http://localhost:4000";
+	return `${window.location.protocol}//${window.location.hostname}:4000`;
 }
 
 function resolveApiOrigin(value: string): string {

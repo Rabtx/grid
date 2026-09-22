@@ -25,17 +25,17 @@ export function BoardScreen(): JSX.Element {
 		return projectsService.list(token);
 	});
 
-	const activeSlug = createMemo(async () => selectedSlug() ?? (await projects())[0]?.slug ?? null);
+	const activeSlug = createMemo(() => selectedSlug() ?? projects()[0]?.slug ?? null);
 
 	const tasks = createMemo(async () => {
 		revision();
 		const token = auth.token();
-		const slug = await activeSlug();
+		const slug = activeSlug();
 		if (!token || !slug) return [];
 		return projectsService.listTasks(token, slug);
 	});
 
-	const columns = createMemo(async () => groupByStatus(await tasks()));
+	const columns = createMemo(() => groupByStatus(tasks()));
 
 	return (
 		<Loading fallback={<p class="text-muted-foreground text-sm">Loading board…</p>}>
@@ -65,7 +65,7 @@ export function BoardScreen(): JSX.Element {
 					</label>
 				</header>
 
-				<NewTaskForm slug={() => activeSlug()} onCreated={() => setRevision((n) => n + 1)} />
+				<NewTaskForm slug={activeSlug()} onCreated={() => setRevision((n) => n + 1)} />
 
 				<div class="min-w-0 overflow-x-auto pb-2">
 					<div class="flex min-w-max gap-3">
@@ -123,7 +123,7 @@ function TaskCard(props: { task: Task }): JSX.Element {
 	);
 }
 
-function NewTaskForm(props: { slug: () => string | null; onCreated: () => void }): JSX.Element {
+function NewTaskForm(props: { slug: string | null; onCreated: () => void }): JSX.Element {
 	const auth = useAuth();
 	const [title, setTitle] = createSignal("");
 	const [pending, setPending] = createSignal(false);
@@ -133,7 +133,7 @@ function NewTaskForm(props: { slug: () => string | null; onCreated: () => void }
 		event.preventDefault();
 		const trimmed = title().trim();
 		const token = auth.token();
-		const slug = props.slug();
+		const slug = props.slug;
 		if (!trimmed || !token || !slug) return;
 
 		setError(null);

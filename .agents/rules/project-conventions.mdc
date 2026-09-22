@@ -10,8 +10,10 @@ alwaysApply: true
 - **Lint/format**: oxlint + oxfmt only (no ESLint/Prettier). Configs: root `.oxlintrc.json`, `.oxfmtrc.json`. Pre-commit hook (lefthook) runs `bun run format` and `bun run lint:fix`.
 - **Style**: Tabs, line width 100. oxfmt applies to `apps/**/*.ts(x)`, `packages/**/*.ts(x)`, `*.config.ts`, `*.config.mjs`.
 - **Shared packages**: `packages/ui` (shadcn components + design tokens in `src/styles/globals.css`), `packages/typescript-config` (tsconfig bases), `packages/logger` (TS + Rust logger).
-- **Apps**: `apps/web` (Next.js), `apps/nest-api` (NestJS + Drizzle + PostgreSQL), `apps/docs` (Fumadocs). Add new apps under `apps/`; no task-runner wiring is needed.
+- **Apps**: `apps/console` (Vite + Solid 2 — the product), `apps/web` (Next.js — marketing/landing only, being trimmed), `apps/nest-api` (NestJS + Drizzle + PostgreSQL), `apps/docs` (Fumadocs). Add new apps under `apps/`; no task-runner wiring is needed.
 - **Workspace imports**: Use `@grid/<package>` (e.g. `@grid/ui`, `@grid/logger`). Prefer shared packages over duplicating code across apps.
 - **Git hooks**: Lefthook handles format, lint, typecheck, large-file guard (2 MB), secret scan, and commit-msg checks. Install with `bun run prepare`.
 - **Before finishing**: Run `bun run lint` and `bun run format` from root. Don't leave errors. Separate lint/format fixes from feature commits.
+- **UI**: Mobile first — see `.agents/skills/mobile-first/SKILL.md` and `DESIGN.md`.
+- **Solid**: Solid 2 APIs only in `apps/console` — see `.agents/skills/solid-2/SKILL.md`.
 - **Full reference**: See `AGENTS.md` at repo root for universal agent instructions.
