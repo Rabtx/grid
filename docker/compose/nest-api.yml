@@ -17,7 +17,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (min 32 chars)}
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
       AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:?Set AUTH_TOKEN_SECRET in .env (min 32 chars)}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000,http://localhost:3001}
       AUTH_DEV_EXPOSE_CODES: ${AUTH_DEV_EXPOSE_CODES:-false}
       AUTH_EMAIL_FROM: ${AUTH_EMAIL_FROM:-Grid <auth@example.com>}
       RESEND_API_KEY: ${RESEND_API_KEY:?Set RESEND_API_KEY in .env}
