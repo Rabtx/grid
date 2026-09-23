@@ -177,6 +177,7 @@ switch (see above). Same trade-off the existing `apps/nest-api/**` override alre
 ### Commit
 
 - `f7d99ff` — `chore(lint): silence react and nextjs rules on the solid console` (config + card).
-  The hash was inserted by one amend right after that commit (a commit cannot contain its own
-  hash), so the PR head differs from it by that amend only; `git log agent/pm/console-lint-override`
-  is authoritative.
+  That hash was inserted by an amend right after the commit (a commit cannot contain its own hash),
+  so the branch tip differs from it by the amend only; `git log agent/pm/console-lint-override` is
+  authoritative.
+- PR: https://github.com/shabirkhan-dev/grid/pull/26 (open, awaiting review; not merged).
