@@ -13,6 +13,12 @@
       "skillPath": "skills/domain-web/SKILL.md",
       "computedHash": "dd853ce97875f139da437df6e09eaca8b326931a98f3eb8dc02669670c12161d"
     },
+    "improve": {
+      "source": "shadcn/improve",
+      "sourceType": "github",
+      "skillPath": "skills/improve/SKILL.md",
+      "computedHash": "39a9358732dcff385e9e4d3e60b4547856f834e54a58b35e455aa9bd49928c13"
+    },
     "m01-ownership": {
       "source": "actionbook/rust-skills",
       "sourceType": "github",
