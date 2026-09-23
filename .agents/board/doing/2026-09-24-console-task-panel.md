@@ -5,8 +5,8 @@ type: feature
 from: human
 to: web
 priority: high
-status: open
-assignee: none
+status: doing
+assignee: buffy (deepseek-v4-flash)
 reviewer: claude
 parent: .agents/plans/console-design-migration.md (step 2.1)
 depends_on: [str-console-primitives-phase-two]
@@ -24,6 +24,7 @@ scope:
 allowed_shared: []
 created: 2026-09-24
 updated: 2026-09-24
+ports: none (no dev server started)
 ---
 
 ## What
