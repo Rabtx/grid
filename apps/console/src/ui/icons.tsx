@@ -90,3 +90,11 @@ export function SignOutIcon(props: IconProps): JSX.Element {
 		</Icon>
 	);
 }
+
+export function ChevronDownIcon(props: IconProps): JSX.Element {
+	return (
+		<Icon class={props.class}>
+			<path d="m6 9 6 6 6-6" />
+		</Icon>
+	);
+}

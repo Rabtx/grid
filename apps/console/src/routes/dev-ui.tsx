@@ -8,16 +8,20 @@ import {
 	Caption,
 	Chip,
 	CloseIcon,
+	ConfirmDialog,
 	EmptyState,
 	ErrorNotice,
 	Field,
 	IconButton,
 	Input,
+	Menu,
 	PlusIcon,
 	SearchIcon,
+	Select,
 	SegmentedControl,
 	Sheet,
 	Skeleton,
+	Textarea,
 } from "@/ui";
 
 /**
@@ -29,6 +33,9 @@ export function DevUiRoute(): JSX.Element {
 	const [density, setDensity] = createSignal<Density>("comfortable");
 	const [view, setView] = createSignal<"status" | "owner">("status");
 	const [sheet, setSheet] = createSignal(false);
+	const [panel, setPanel] = createSignal(false);
+	const [confirm, setConfirm] = createSignal(false);
+	const [selectValue, setSelectValue] = createSignal("backlog");
 
 	return (
 		<div class="mx-auto flex max-w-3xl flex-col gap-8 py-6">
@@ -131,6 +138,21 @@ export function DevUiRoute(): JSX.Element {
 					<Field label="Disabled">
 						<Input disabled value="read only" />
 					</Field>
+					<Field label="Description" hint="Plain text for now.">
+						<Textarea placeholder="What is this task about?" />
+					</Field>
+					<Field label="Status">
+						<Select
+							aria-label="Status"
+							options={[
+								{ value: "backlog", label: "Backlog" },
+								{ value: "in_progress", label: "In progress" },
+								{ value: "done", label: "Done" },
+							]}
+							value={selectValue()}
+							onChange={setSelectValue}
+						/>
+					</Field>
 				</div>
 			</Section>
 
@@ -195,6 +217,58 @@ export function DevUiRoute(): JSX.Element {
 						</div>
 					</div>
 				</Sheet>
+			</Section>
+
+			<Section title="Panel">
+				<Button onClick={() => setPanel(true)}>Open panel</Button>
+				<Sheet
+					placement="panel"
+					open={panel()}
+					onClose={() => setPanel(false)}
+					label="Example panel"
+				>
+					<div class="flex h-full flex-col gap-3 p-4">
+						<h2 class="font-semibold text-ui">Example panel</h2>
+						<p class="text-ink/70 text-ui-sm">
+							Full-screen on phones; a right-hand side panel from lg.
+						</p>
+						<div class="flex justify-end">
+							<Button variant="primary" onClick={() => setPanel(false)}>
+								Close
+							</Button>
+						</div>
+					</div>
+				</Sheet>
+			</Section>
+
+			<Section title="Menu">
+				<Menu
+					label="More actions"
+					trigger={<PlusIcon class="size-4" />}
+					items={[
+						{ id: "edit", label: "Edit" },
+						{ id: "duplicate", label: "Duplicate" },
+						{ id: "delete", label: "Delete", danger: true },
+					]}
+					onSelect={(id) => {
+						console.info("menu select", id);
+					}}
+				/>
+			</Section>
+
+			<Section title="Confirm">
+				<Button variant="danger" onClick={() => setConfirm(true)}>
+					Delete something
+				</Button>
+				<ConfirmDialog
+					open={confirm()}
+					title="Delete TASK-1?"
+					description="This can't be undone."
+					confirmLabel="Delete task"
+					tone="danger"
+					onConfirm={() => setConfirm(false)}
+					onCancel={() => setConfirm(false)}
+				/>
 			</Section>
 		</div>
 	);

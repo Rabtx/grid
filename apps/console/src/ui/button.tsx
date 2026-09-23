@@ -1,18 +1,20 @@
 import type { JSX } from "@solidjs/web";
 import { omit } from "solid-js";
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "danger-solid";
 type ButtonSize = "sm" | "md" | "lg";
 
 const BASE =
 	"focus-ring inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-[background-color,color,transform] duration-fast ease-out-grid active:scale-[0.97] disabled:pointer-events-none";
 
 // Primary is an ink inversion — white on dark, ink on light — never a brand colour.
+// danger-solid is the only solid red fill, reserved for a confirm dialog's final action.
 const VARIANT: Record<ButtonVariant, string> = {
 	primary: "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30",
 	secondary: "border border-ink/10 text-ink/70 hover:bg-ink/10 hover:text-ink disabled:text-ink/35",
 	ghost: "text-ink/70 hover:bg-ink/8 hover:text-ink disabled:text-ink/35",
 	danger: "text-danger hover:bg-danger/10 disabled:opacity-40",
+	"danger-solid": "bg-danger text-canvas hover:bg-danger/90 disabled:opacity-40",
 };
 
 const SIZE: Record<ButtonSize, string> = {

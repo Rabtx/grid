@@ -12,6 +12,17 @@ export function Input(props: InputProps): JSX.Element {
 	return <input class={`${INPUT} ${props.class ?? ""}`} {...rest} />;
 }
 
+const TEXTAREA =
+	"min-h-24 w-full min-w-0 resize-y rounded-md border border-ink/12 bg-canvas/40 px-2.5 py-2 text-ink text-ui-input outline-none transition-colors duration-fast ease-out-grid placeholder:text-ink/35 hover:border-ink/20 focus:border-ink/30 disabled:opacity-50 aria-[invalid=true]:border-danger/60";
+
+type TextareaProps = JSX.TextareaHTMLAttributes<HTMLTextAreaElement>;
+
+/** A multi-line text input with the same material as `Input`. */
+export function Textarea(props: TextareaProps): JSX.Element {
+	const rest = omit(props, "class");
+	return <textarea class={`${TEXTAREA} ${props.class ?? ""}`} {...rest} />;
+}
+
 /**
  * A labelled form field: label above, the control, then either the error or a hint. The label
  * wraps the control, so clicking it focuses the input without ids.
