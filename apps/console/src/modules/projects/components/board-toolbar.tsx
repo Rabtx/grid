@@ -35,7 +35,7 @@ export function BoardToolbar(props: {
 				aria-label="Filter by owner"
 				value={props.owner}
 				onChange={(event) => props.onOwnerChange(event.currentTarget.value)}
-				class="col-start-2 row-start-2 h-field w-full min-w-0 rounded-md border border-ink/12 bg-canvas/40 px-2.5 text-ink text-ui-input outline-none transition-colors duration-fast ease-out-grid hover:border-ink/20 focus:border-ink/30 md:order-2 md:w-40"
+				class="col-start-2 row-start-2 h-field w-full min-w-0 rounded-md border border-ink/12 bg-canvas/40 px-2.5 text-ink text-ui-input outline-none transition-colors duration-fast ease-out-grid hover:border-ink/20 focus:border-ink/30 md:order-2 md:ml-auto md:w-40"
 			>
 				<For each={props.ownerOptions}>
 					{(option) => <option value={option.value}>{option.label}</option>}
