@@ -1,42 +1,55 @@
 import type { JSX } from "@solidjs/web";
-import { For, onSettled, Show } from "solid-js";
+import { createEffect, For, onSettled, Show } from "solid-js";
 
 import { Skeleton } from "@/ui";
 
-import { laneId } from "../lib/stage-style";
-import {
-	TASK_STATUS_LABELS,
-	TASK_STATUSES,
-	type Task,
-	type TaskStatus,
-} from "../types/project.types";
+import type { Task } from "../types/project.types";
 
-import { StatusIcon } from "./status-icon";
 import { TaskCard } from "./task-card";
 
-/**
- * Every stage as a lane in one scroller. Phones see one full-width lane at a time and swipe
- * between them (scroll snap); from `md:` the same lanes sit side by side as columns.
- */
+export type BoardLane = {
+	id: string;
+	title: string;
+	icon: JSX.Element;
+	tasks: Task[];
+};
+
+export function boardLaneId(id: string): string {
+	return `lane-${id}`;
+}
+
 export function BoardLanes(props: {
-	columns: Record<TaskStatus, Task[]>;
-	onActiveChange: (status: TaskStatus) => void;
+	lanes: BoardLane[];
+	onActiveChange: (laneId: string) => void;
 }): JSX.Element {
 	let scroller: HTMLDivElement | undefined;
+	let observer: IntersectionObserver | undefined;
+
+	function observeCurrentLanes(): void {
+		if (!scroller || !observer) return;
+		observer.disconnect();
+		for (const lane of scroller.querySelectorAll<HTMLElement>("[data-lane]")) {
+			observer.observe(lane);
+		}
+	}
 
 	onSettled(() => {
-		if (!scroller) return;
-		const observer = new IntersectionObserver(
+		observer = new IntersectionObserver(
 			(entries) => {
 				const visible = entries.find((entry) => entry.isIntersecting);
-				const status = visible?.target.getAttribute("data-status") as TaskStatus | null;
-				if (status) props.onActiveChange(status);
+				const lane = visible?.target.getAttribute("data-lane");
+				if (lane) props.onActiveChange(lane);
 			},
 			{ root: scroller, threshold: 0.6 },
 		);
-		for (const lane of scroller.querySelectorAll("[data-status]")) observer.observe(lane);
-		return () => observer.disconnect();
+		observeCurrentLanes();
+		return () => {
+			observer?.disconnect();
+			observer = undefined;
+		};
 	});
+
+	createEffect(() => props.lanes.map((lane) => lane.id).join("|"), observeCurrentLanes);
 
 	return (
 		<div
@@ -45,33 +58,33 @@ export function BoardLanes(props: {
 			}}
 			class="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 [scrollbar-width:none] motion-safe:scroll-smooth md:-mx-6 md:snap-none md:scroll-px-6 md:px-6 md:[scrollbar-width:thin] lg:-mx-4 lg:px-4"
 		>
-			<For each={TASK_STATUSES}>
-				{(status) => (
+			<For each={props.lanes} keyed={false}>
+				{(lane) => (
 					<section
-						id={laneId(status)}
-						data-status={status}
-						aria-labelledby={`${laneId(status)}-title`}
+						id={boardLaneId(lane().id)}
+						data-lane={lane().id}
+						aria-labelledby={`${boardLaneId(lane().id)}-title`}
 						class="flex w-full shrink-0 snap-start flex-col md:w-[17.75rem]"
 					>
 						<header class="flex h-9 items-center gap-2 px-1">
-							<StatusIcon status={status} />
-							<h2 id={`${laneId(status)}-title`} class="font-medium text-ink/80 text-ui-sm">
-								{TASK_STATUS_LABELS[status]}
+							{lane().icon}
+							<h2 id={`${boardLaneId(lane().id)}-title`} class="font-medium text-ink/80 text-ui-sm">
+								{lane().title}
 							</h2>
 							<span data-count class="text-ink/40 text-ui-xs tabular-nums">
-								{props.columns[status].length}
+								{lane().tasks.length}
 							</span>
 						</header>
 						<div class="flex flex-col gap-2 p-0.5">
 							<Show
-								when={props.columns[status].length > 0}
+								when={lane().tasks.length > 0}
 								fallback={
 									<p class="grid h-20 place-items-center rounded-lg border border-ink/10 border-dashed text-ink/35 text-ui-sm">
 										No tasks
 									</p>
 								}
 							>
-								<For each={props.columns[status]}>{(task) => <TaskCard task={task} />}</For>
+								<For each={lane().tasks}>{(task) => <TaskCard task={task} />}</For>
 							</Show>
 						</div>
 					</section>
@@ -81,7 +94,6 @@ export function BoardLanes(props: {
 	);
 }
 
-/** First-load placeholder: one lane on phones, four columns from `md:`. */
 export function SkeletonLanes(): JSX.Element {
 	return (
 		<div class="flex gap-3" aria-hidden="true">

@@ -5,8 +5,8 @@ type: feature
 from: human
 to: web
 priority: high
-status: open
-assignee: none
+status: done
+assignee: opencode (space-bunny-free)
 reviewer: claude
 parent: .agents/plans/console-design-migration.md (step 2.2)
 depends_on: []
@@ -97,4 +97,49 @@ Run from the worktree root and paste the real output tails into Resolution:
 
 ## Resolution
 
-<Filled by the resolver.>
+Changed:
+- `components/board-toolbar.tsx`, `components/board-screen.tsx`, `components/board-lanes.tsx`, and
+  `components/stage-tabs.tsx`
+- `lib/board.ts`, `lib/board.test.ts`, and `components/board-screen.test.tsx`
+
+Validation:
+- `bun --cwd=apps/console run test` — exit 0:
+  ```
+  Test Files  6 passed (6)
+       Tests  29 passed (29)
+    Duration  6.19s
+  ```
+- `bun --cwd=apps/console run typecheck` — exit 0:
+  ```
+  $ tsc --noEmit
+  ```
+- `bun --cwd=apps/console run build` — exit 0:
+  ```
+  ✓ 104 modules transformed.
+  ✓ built in 1.31s
+  ```
+- `bun run lint` — exit 0 (warnings only):
+  ```
+  $ shellcheck scripts/bash/*.sh scripts/git-hooks/*.sh scripts/architecture/*.sh
+  ```
+- `bun run format` — exit 0:
+  ```
+  Finished in 37ms on 358 files using 4 threads.
+  $ shfmt -i 4 -w scripts/bash/*.sh scripts/git-hooks/*.sh scripts/architecture/*.sh || true
+  ```
+- `bun run architecture:check` — exit 0:
+  ```
+  Architecture checks passed.
+  [naming] OK (461 path(s) checked)
+  ```
+- No service on ports 3000, 3001, or 4000 was started or stopped. Browser review at 375 and 1280 px
+  remains with the named reviewer, as specified by the card.
+
+Contract impact:
+- None. Existing task data is unchanged; view and filter state is client-side URL query state.
+
+Review:
+- `claude` — pending in the pull request; the branch will not be merged by the implementation agent.
+
+Commit:
+- Pending; the exact feature commit hash will be appended in the evidence commit.
