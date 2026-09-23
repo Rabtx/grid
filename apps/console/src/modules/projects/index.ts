@@ -2,6 +2,7 @@ export { BoardScreen } from "./components/board-screen";
 export { NewTaskDialog } from "./components/new-task-dialog";
 export { ProjectRedirect } from "./components/project-redirect";
 export { StatusIcon } from "./components/status-icon";
+export { TaskPanel } from "./components/task-panel";
 export { useWorkspace, WorkspaceProvider } from "./context/workspace-context";
 export { groupByStatus } from "./lib/board";
 export { projectsService } from "./services/projects.service";
