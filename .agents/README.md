@@ -38,7 +38,11 @@ editor rules.
   - [`browser-ui-test`](skills/browser-ui-test/SKILL.md) — verifying interactive UI in a browser.
 - **Vendored skills** — everything else, copied from upstream projects. Read them for guidance,
   but they are not project policy, are not covered by `ownership.yaml`, and may carry upstream
-  files (including their own `.github/`) that do not apply here.
+  files (including their own `.github/`) that do not apply here. They are installed with
+  `bunx skills add <repo> --skill <name>` and pinned in `skills-lock.json`.
+  - [`improve`](skills/improve/SKILL.md) — read-only audit that writes self-contained plans for
+    other agents to execute. In Grid its plans go in `.agents/plans/`, not a root `plans/`
+    folder (there are no root doc folders); findings still become cards on the board.
 
 ## Rules of engagement
 
