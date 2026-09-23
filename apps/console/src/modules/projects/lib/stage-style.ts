@@ -13,7 +13,3 @@ export const STATUS_TEXT_CLASS: Record<TaskStatus, string> = {
 	blocked: "text-status-blocked",
 	done: "text-status-done",
 };
-
-export function laneId(status: TaskStatus): string {
-	return `lane-${status}`;
-}
