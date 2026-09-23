@@ -38,7 +38,7 @@ const tasks = [
 		title: "Second task ready for work",
 		description: null,
 		status: "ready",
-		owner: { kind: "agent", name: "Codex" },
+		owner: { kind: "agent", name: "Morgan" },
 		branch: "feature/second-task",
 		position: 1,
 		createdAt: "2026-09-23T00:00:00.000Z",
@@ -120,18 +120,20 @@ describe("BoardScreen", () => {
 		expect(countValues).toEqual([1, 1, 0, 0, 0, 0, 0]);
 	});
 
-	it("renders seven stage tabs with correct counts on mobile", async () => {
+	it("renders seven lane tabs with correct counts on mobile", async () => {
 		await settle();
 
-		const tabs = container.querySelectorAll('nav[aria-label="Stages"] button');
+		const tabs = container.querySelectorAll('nav[aria-label="Board lanes"] button');
 		expect(tabs.length).toBe(7);
 		const tabCounts = Array.from(tabs).map((tab) =>
 			parseInt(tab.querySelector("[data-count]")?.textContent || "0", 10),
 		);
 		expect(tabCounts).toEqual([1, 1, 0, 0, 0, 0, 0]);
-		// Backlog is the first lane, so it starts as the current stage.
 		expect(tabs[0].getAttribute("aria-current")).toBe("true");
 		expect(tabs[0].getAttribute("aria-controls")).toBe("lane-backlog");
+		expect(container.querySelector("section[data-lane]")?.getAttribute("data-lane")).toBe(
+			"backlog",
+		);
 	});
 
 	it("shows 'No tasks' in empty lanes", async () => {
@@ -142,5 +144,67 @@ describe("BoardScreen", () => {
 			p.textContent?.includes("No tasks"),
 		).length;
 		expect(noTasksCount).toBe(5);
+	});
+
+	it("groups tasks into one lane per owner", async () => {
+		await settle();
+
+		const ownerView = Array.from(
+			container.querySelectorAll<HTMLButtonElement>("fieldset button"),
+		).find((button) => button.textContent?.trim() === "By owner");
+		expect(ownerView).toBeDefined();
+		ownerView?.click();
+		await settle();
+
+		const lanes = container.querySelectorAll("section[data-lane]");
+		const labels = Array.from(lanes).map((lane) => lane.querySelector("h2")?.textContent?.trim());
+		const counts = Array.from(lanes).map((lane) =>
+			parseInt(lane.querySelector("[data-count]")?.textContent || "0", 10),
+		);
+		expect(Array.from(lanes).map((lane) => lane.getAttribute("data-lane"))).toEqual([
+			"human:Alice",
+			"agent:Morgan",
+		]);
+		expect(labels).toEqual(["Alice", "Morgan"]);
+		expect(counts).toEqual([1, 1]);
+	});
+
+	it("hides task cards that do not match the query", async () => {
+		await settle();
+
+		const input = container.querySelector<HTMLInputElement>('input[placeholder="Filter tasks"]');
+		expect(input).not.toBeNull();
+		if (!input) return;
+		input.value = "second";
+		input.dispatchEvent(new Event("input", { bubbles: true }));
+		await settle();
+
+		const cards = container.querySelectorAll("article");
+		expect(cards).toHaveLength(1);
+		expect(cards[0].textContent).toContain("Second task ready for work");
+		expect(container.textContent).toContain("1 of 2 tasks");
+	});
+
+	it("shows the filtered empty state and restores every task", async () => {
+		await settle();
+
+		const input = container.querySelector<HTMLInputElement>('input[placeholder="Filter tasks"]');
+		expect(input).not.toBeNull();
+		if (!input) return;
+		input.value = "missing";
+		input.dispatchEvent(new Event("input", { bubbles: true }));
+		await settle();
+
+		expect(container.textContent).toContain("No tasks match these filters");
+		expect(container.querySelectorAll("section[data-lane]")).toHaveLength(0);
+		const clear = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(
+			(button) => button.textContent?.trim() === "Clear filters",
+		);
+		expect(clear).toBeDefined();
+		clear?.click();
+		await settle();
+
+		expect(container.querySelectorAll("section[data-lane]")).toHaveLength(7);
+		expect(container.querySelectorAll("article")).toHaveLength(2);
 	});
 });
