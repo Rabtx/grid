@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: buffy (deepseek-v4-flash)
 reviewer: claude
 parent: .agents/plans/console-design-migration.md (step 2.1)
@@ -110,4 +110,87 @@ Run from the worktree root and paste the real output tails into Resolution:
 
 ## Resolution
 
-<Filled by the resolver.>
+**Changed**
+
+- `apps/console/src/app.tsx` — route `/board/:slug/tasks/:number` renders the same `BoardRoute`,
+  which now mounts `<TaskPanel />` beside `<BoardScreen />`.
+- `apps/console/src/modules/projects/context/workspace-context.tsx` — `activeSlug` is derived from
+  either board URL; added `activeTaskNumber()`, `activeTask()`, `openTask(number)` and
+  `closeTask()`, both navigating between the two URLs and carrying the current search string so
+  board filters survive.
+- `apps/console/src/modules/projects/components/task-card.tsx` — the card is an `<a>` to the task's
+  URL (focus ring, hover `bg-ink/8`, `active:scale-[0.98]`, colour/transform transition); content
+  and `data-*` hooks unchanged.
+- `apps/console/src/modules/projects/components/task-panel.tsx` (new) — header (key, "· updated
+  4m", quiet "Saving…", delete + close `IconButton`s), borderless title input, Status / Owner /
+  Branch / Description rows, `ConfirmDialog` delete, "Task not found" `EmptyState`, and a skeleton
+  while the board's first read settles.
+- `apps/console/src/modules/projects/lib/relative-time.ts` (new) — `relativeTime(iso, now)`:
+  "just now", "4m", "3h", "yesterday", "5d", then "Sep 3".
+- `apps/console/src/modules/projects/components/task-panel.test.tsx` (new) — 4 happy-dom tests:
+  fields render from the URL, a Status change `PATCH`es only `{ status }`, delete needs the
+  confirmation then closes the panel, and an unknown number shows "Task not found".
+- `apps/console/src/modules/projects/lib/relative-time.test.ts` (new) — 4 threshold tests.
+- `apps/console/src/modules/projects/index.ts` — exports `TaskPanel`.
+
+**Validation** (worktree root, real tails)
+
+```text
+$ bun --cwd=apps/console run test
+ ✓  dom  src/modules/projects/components/task-panel.test.tsx (4 tests) 553ms
+ ✓  logic  src/modules/projects/lib/relative-time.test.ts (4 tests) 7ms
+ Test Files  8 passed (8)
+      Tests  41 passed (41)
+
+$ bun --cwd=apps/console run typecheck
+$ tsc --noEmit                     # exit 0, no diagnostics
+
+$ bun --cwd=apps/console run build
+dist/assets/index-DmP_oaDs.js  130.53 kB │ gzip: 44.15 kB
+✓ built in 404ms
+
+$ bun run lint
+console lint: Found 0 warnings and 0 errors.
+web lint: Exited with code 0        # 9 pre-existing warnings, all in apps/web
+
+$ bun run format
+Finished in 28ms on 365 files       # formatted nothing outside this card's scope
+
+$ bun run architecture:check
+Architecture checks passed.
+[naming] OK (468 path(s) checked)
+```
+
+No dev server was started: ports 3000, 3001 and 4000 were not touched. The tests were also run
+per-file to confirm the panel's new code emits no Solid dev diagnostics
+(`STRICT_READ_UNTRACKED`, `ASYNC_OUTSIDE_LOADING_BOUNDARY`) — the remaining console warnings in a
+full run all come from pre-existing code.
+
+**Deliberate deviations from the brief** (each one had a concrete reason)
+
+1. `Sheet` label is `Task <number>`, not the task title. Reading `activeTask()` in the Sheet's own
+   props read the board's first load outside the `Loading` boundary: Solid reported
+   `ASYNC_OUTSIDE_LOADING_BOUNDARY` and deferred the whole app's first render until projects and
+   tasks settled. The panel body still names the task (key plus editable title).
+2. `open={activeTaskNumber() !== null}` instead of `open={Boolean(activeTask())}` — with the
+   brief's form the "Task not found" state could never render, because a missing task keeps the
+   sheet shut.
+3. Header rows use `min-h-10` rather than a fixed `h-10`: `--spacing-control` is 44px on a coarse
+   pointer, so the 44px icon buttons would otherwise cross the header's divider.
+4. Drafts are seeded in an effect keyed on the task's *number*, with an explicit `untrack`ed read.
+   Re-seeding on every task object would wipe an edit still being typed when another field's save
+   triggers `refreshTasks()`.
+5. Missing primitive: `@/ui` has no trash icon, so `TrashIcon` is drawn locally in
+   `task-panel.tsx` on the same 24px grid and 1.75 stroke. It belongs in `ui/icons.tsx` the next
+   time the ui-ux owner touches that set — `ui/` itself was not changed here, as the card requires.
+6. `task-card.tsx` reads `useWorkspace()` for the project slug its href needs, so `board-lanes.tsx`
+   (out of scope) keeps calling `<TaskCard task={…} />` unchanged.
+7. `task-card.tsx` also carries an `aria-label` (key + title): the anchor wraps a whole card, and
+   `jsx-a11y/control-has-associated-label` cannot see text inside the nested `<article>`.
+
+**Not done / deferred:** Markdown rendering of the description (deferred by the card); browser
+verification at 375 and 1280 px is the reviewer's step.
+
+**Review:** branch pushed, PR to `main` open, not merged — reviewer: claude.
+
+**Commit:** `80cb1ad` (feature); the claim and this resolution are separate `chore`/`docs` commits.
