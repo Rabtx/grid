@@ -1,6 +1,6 @@
 # Plan: bring the console onto the prototype's design, step by step
 
-Status: **in progress** — Phase 0 and Phase 1 landing together; decisions below taken with the recommended defaults (2026-09-24)
+Status: **in progress** — Phases 0–1 merged (#22); Phase 2 cards open on the board; decisions below taken with the recommended defaults (2026-09-24)
 Owner: human · Coordinator: pm · Implementers: ui-ux (tokens, primitives), web (screens), backend (API)
 Created: 2026-09-24
 
@@ -141,4 +141,9 @@ Cross-cutting steps (0.1, 0.2, 1.2, 2.1, Phase 4–5) are done or closely paired
 
 | Step | Card | PR | Status |
 |---|---|---|---|
-| 0.1–0.4, 1.1–1.4 | `2026-09-24-console-design-foundation-v2.md` | — | in review |
+| 0.1–0.4, 1.1–1.4 | `2026-09-24-console-design-foundation-v2.md` | #22 | done |
+| 2 prerequisite: primitives | `2026-09-24-console-primitives-phase-two.md` | — | open — start now |
+| 2.2 views and filters | `2026-09-24-console-board-views-filters.md` | — | open — start now |
+| tooling: console lint override | `2026-09-24-console-lint-override.md` | — | open — start now |
+| 2.1 task panel | `2026-09-24-console-task-panel.md` | — | open — after primitives |
+| 2.3 moving tasks | `2026-09-24-console-move-tasks.md` | — | open — after the three above |
