@@ -1,3 +1,4 @@
+export { BrandLogo, BrandMark } from "./brand";
 export { Button, IconButton } from "./button";
 export { ConfirmDialog } from "./confirm-dialog";
 export { Caption, Chip, EmptyState, ErrorNotice, Skeleton } from "./feedback";

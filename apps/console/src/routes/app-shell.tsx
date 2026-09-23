@@ -4,6 +4,7 @@ import { createSignal, Show } from "solid-js";
 import { useAuth } from "@/modules/auth";
 import { NewTaskDialog, WorkspaceProvider } from "@/modules/projects";
 import { NavDrawer, ProjectNav, TopBar, WorkspaceHeader } from "@/modules/shell";
+import { BrandLogo } from "@/ui";
 
 /**
  * Frame shared by every route. Signed out it is just the brand; signed in it is one layout
@@ -27,7 +28,7 @@ function SignedOutShell(props: { children: JSX.Element }): JSX.Element {
 	return (
 		<>
 			<header class="flex h-12 items-center px-4 pt-[env(safe-area-inset-top)] md:px-6">
-				<span class="font-semibold text-ui">Grid</span>
+				<BrandLogo class="h-7" />
 			</header>
 			<main class="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6">{props.children}</main>
 		</>
