@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: web
 reviewer: claude
 parent: .agents/plans/console-design-migration.md (phase 2 prerequisite)
@@ -111,4 +111,37 @@ Run from the worktree root and paste the real output tails into Resolution:
 
 ## Resolution
 
-<Filled by the resolver.>
+Shipped on `agent/web/console-primitives-phase-two`.
+
+Changed:
+- `apps/console/src/ui/field.tsx` — added `Textarea`
+- `apps/console/src/ui/select.tsx` — new native `Select` with `ChevronDownIcon` overlay
+- `apps/console/src/ui/icons.tsx` — added `ChevronDownIcon` (`m6 9 6 6 6-6`)
+- `apps/console/src/ui/menu.tsx` — new `Menu` (Popover API, keyboard nav, phone bottom sheet,
+  md+ CSS anchor positioning with `CSS.supports("position-area")` JS fallback; Firefox 147+,
+  Chrome 129+, Safari 26+ support checked on MDN BCD)
+- `apps/console/src/ui/confirm-dialog.tsx` — new `ConfirmDialog` on `Sheet` (bottom)
+- `apps/console/src/ui/button.tsx` — added `danger-solid` variant
+- `apps/console/src/ui/sheet.tsx` — added `panel` placement (full-screen phone / lg right panel)
+- `apps/console/src/ui/index.ts` — exported all new primitives
+- `apps/console/src/routes/dev-ui.tsx` — gallery sections for Textarea, Select, Menu, Confirm, Panel
+- `apps/console/src/ui/primitives.test.tsx` — tests for Textarea, Select, Menu, ConfirmDialog
+  (Popover/showModal stubbed for happy-dom)
+
+Validation:
+- `bun --cwd=apps/console run test` → 6 files, 23 tests passed
+- `bun --cwd=apps/console run typecheck` → tsc --noEmit clean
+- `bun --cwd=apps/console run build` → ✓ built in 419ms
+- `bun run lint` → exit 0 (only pre-existing warnings; no errors)
+- `bun run format` → clean
+- `bun run architecture:check` → boundaries + kebab-case OK (463 paths)
+
+Contract impact:
+- none (console-only; no API/token package changes)
+
+Review:
+- reviewer: claude — pending
+
+Commit:
+- `c0b35e2` feat(console): add textarea, select, menu, confirm dialog and panel sheet
+- claim: `24d321e`
