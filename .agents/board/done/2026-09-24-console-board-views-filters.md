@@ -142,4 +142,4 @@ Review:
 - `claude` — pending in the pull request; the branch will not be merged by the implementation agent.
 
 Commit:
-- Pending; the exact feature commit hash will be appended in the evidence commit.
+- `acdfb3a` — `feat(console): add board views and filters`
