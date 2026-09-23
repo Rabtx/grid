@@ -1,3 +1,15 @@
+/*
+ * Grid product tokens (the console). Imported after tokens.css, before base.css.
+ *
+ * The model: every theme is two colours — a canvas and one ink. Every border, fill, hover,
+ * selection and secondary text is ink mixed over transparent at a fixed strength, so there is
+ * no grey palette to drift. Hierarchy comes from how much ink an element carries, not from
+ * colour or size. Colour is reserved for four signals: accent, success, danger, warning.
+ *
+ * Use `bg-ink/5`, `text-ink/50`, `border-ink/10` directly. DESIGN.md → "Product tokens" lists
+ * the ladder; the legacy shadcn names at the bottom keep older markup working.
+ */
+
 @custom-variant dark {
 	&:where(.dark, .dark *) {
 		@slot;
@@ -9,127 +21,194 @@
 	}
 }
 
+/* ── Theme inputs ─────────────────────────────────────────────────────────────────────────── */
+
 :root {
-	--hue: 250; /* neutral tint hue (cool grey) */
-	--tint: 0.008; /* neutral chroma — near-monochrome */
-	--accent-hue: 163; /* Grid green, same as today's --primary */
+	/* One hue and saturation tint the whole UI; 0% saturation is neutral. */
+	--hue: 240;
+	--saturation: 0%;
 
-	color-scheme: light dark;
+	/* Light (the base values; dark overrides below). */
+	--canvas-lightness: 97%;
+	--ink-lightness: 18%;
+	--selection-subtle-strength: 5%;
+	--selection-strength: 6%;
+	--selection-strong-strength: 7%;
+	--selection-hover-strength: 10%;
+	--selection-emphasis-strength: 14%;
+	--signal-accent: hsl(211 92% 50%);
+	--signal-link: hsl(211 92% 40%);
+	--signal-success: #059669;
+	--signal-danger: #dc2626;
+	--signal-warning: #d97706;
+	--primary-fill: var(--ink);
+	--primary-ink: var(--canvas);
 
-	/* System fonts */
-	--font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-	--font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-
-	/* Neutral scale (Light) */
-	--surface-0: oklch(0.99 var(--tint) var(--hue));
-	--surface-1: oklch(0.975 var(--tint) var(--hue));
-	--surface-2: oklch(1 var(--tint) var(--hue));
-	--surface-3: oklch(0.955 var(--tint) var(--hue));
-	--text: oklch(0.2 var(--tint) var(--hue));
-	--text-muted: oklch(0.5 var(--tint) var(--hue));
-	--text-subtle: oklch(0.62 var(--tint) var(--hue));
-	--border: color-mix(in oklab, var(--text) 9%, transparent);
-	--border-strong: color-mix(in oklab, var(--text) 16%, transparent);
-
-	/* Accent and primary */
-	--primary: oklch(0.6 0.13 var(--accent-hue));
-	--primary-foreground: oklch(0.98 0.02 166);
-	--ring: color-mix(in oklab, var(--primary) 60%, transparent);
-
-	/* Status colours (Light: L 0.6) */
-	--status-backlog: var(--text-subtle);
-	--status-ready: oklch(0.6 0.12 250);
-	--status-in-progress: oklch(0.6 0.15 75);
-	--status-review: oklch(0.6 0.13 300);
-	--status-qa: oklch(0.6 0.12 200);
-	--status-blocked: oklch(0.6 0.19 25);
-	--status-done: oklch(0.6 0.13 var(--accent-hue));
-
-	/* Map existing shadcn variables to product tokens */
-	--background: var(--surface-0);
-	--sidebar: var(--surface-1);
-	--muted: var(--surface-1);
-	--card: var(--surface-2);
-	--popover: var(--surface-2);
-	--accent: var(--surface-3);
-	--foreground: var(--text);
-	--muted-foreground: var(--text-muted);
-	--sidebar-foreground: var(--text);
-	--card-foreground: var(--text);
-	--popover-foreground: var(--text);
-	--accent-foreground: var(--text);
-	--secondary: var(--surface-1);
-	--secondary-foreground: var(--text);
-	--input: var(--border-strong);
-
-	/* Type scale variables (Phone defaults) */
-	--fs-ui-xs: 0.75rem;
-	--lh-ui-xs: 1rem;
-	--fs-ui-sm: 0.875rem;
-	--lh-ui-sm: 1.25rem;
-	--fs-ui: 0.9375rem;
-	--lh-ui: 1.375rem;
-	--fs-ui-input: 1rem;
-	--lh-ui-input: 1.5rem;
-	--fs-ui-lg: 1.0625rem;
-	--lh-ui-lg: 1.5rem;
-	--fs-title: 1.25rem;
-	--lh-title: 1.75rem;
-
-	/* Density (default comfortable) */
-	--density: 1;
-	--spacing-row: calc(2.5rem * var(--density));
-	--spacing-control: calc(2.25rem * var(--density));
-	--spacing-gutter: calc(1rem * var(--density));
-
-	/* Motion */
-	--duration-fast: 120ms;
-	--duration-base: 200ms;
-	--duration-slow: 280ms;
-	--ease-out-grid: cubic-bezier(0.2, 0, 0, 1);
-	--ease-in-grid: cubic-bezier(0.4, 0, 1, 1);
+	color-scheme: light;
 }
 
-/* Tablet & desktop type scale (>= 48rem) */
-@media (width >= 48rem) {
-	:root {
-		--fs-ui-xs: 0.6875rem;
-		--lh-ui-xs: 1rem;
-		--fs-ui-sm: 0.8125rem;
-		--lh-ui-sm: 1.125rem;
-		--fs-ui: 0.875rem;
-		--lh-ui: 1.25rem;
-		--fs-ui-input: 0.875rem;
-		--lh-ui-input: 1.25rem;
-		--fs-ui-lg: 1rem;
-		--lh-ui-lg: 1.5rem;
-		--fs-title: 1.375rem;
-		--lh-title: 1.875rem;
+@media (prefers-color-scheme: dark) {
+	:root:not(.light) {
+		--canvas-lightness: 9%;
+		--ink-lightness: 92%;
+		--selection-subtle-strength: 8%;
+		--selection-strength: 10%;
+		--selection-strong-strength: 12%;
+		--selection-hover-strength: 15%;
+		--selection-emphasis-strength: 20%;
+		--signal-accent: hsl(211 92% 62%);
+		--signal-link: #7dd3fc;
+		--signal-success: #34d399;
+		--signal-danger: #f87171;
+		--signal-warning: #fbbf24;
+		--primary-fill: #fff;
+		--primary-ink: #000;
+
+		color-scheme: dark;
 	}
 }
 
-/* Density modes */
-:root[data-density="compact"] {
-	--density: 0.85;
+:root.dark {
+	--canvas-lightness: 9%;
+	--ink-lightness: 92%;
+	--selection-subtle-strength: 8%;
+	--selection-strength: 10%;
+	--selection-strong-strength: 12%;
+	--selection-hover-strength: 15%;
+	--selection-emphasis-strength: 20%;
+	--signal-accent: hsl(211 92% 62%);
+	--signal-link: #7dd3fc;
+	--signal-success: #34d399;
+	--signal-danger: #f87171;
+	--signal-warning: #fbbf24;
+	--primary-fill: #fff;
+	--primary-ink: #000;
+
+	color-scheme: dark;
 }
 
+/* ── Derived colours ──────────────────────────────────────────────────────────────────────── */
+
+:root {
+	--canvas: hsl(var(--hue) var(--saturation) var(--canvas-lightness));
+	--ink: hsl(var(--hue) var(--saturation) var(--ink-lightness));
+	/* Structural separators only: pane dividers, header underlines, row dividers. */
+	--stroke: color-mix(in srgb, var(--ink) 7%, transparent);
+	--selection-subtle: color-mix(in srgb, var(--ink) var(--selection-subtle-strength), transparent);
+	--selection: color-mix(in srgb, var(--ink) var(--selection-strength), transparent);
+	--selection-strong: color-mix(in srgb, var(--ink) var(--selection-strong-strength), transparent);
+	--selection-hover: color-mix(in srgb, var(--ink) var(--selection-hover-strength), transparent);
+	--selection-emphasis: color-mix(
+		in srgb,
+		var(--ink) var(--selection-emphasis-strength),
+		transparent
+	);
+
+	/* Board stages, as signals: low ink for waiting stages, colour for live and final ones. */
+	--status-backlog: color-mix(in srgb, var(--ink) 40%, transparent);
+	--status-ready: color-mix(in srgb, var(--ink) 55%, transparent);
+	--status-in-progress: var(--signal-warning);
+	--status-review: var(--signal-accent);
+	--status-qa: color-mix(in srgb, var(--signal-accent) 55%, var(--signal-success));
+	--status-blocked: var(--signal-danger);
+	--status-done: var(--signal-success);
+
+	/* Legacy names, mapped onto the model so existing markup keeps working. */
+	--background: var(--canvas);
+	--foreground: var(--ink);
+	--card: var(--canvas);
+	--card-foreground: var(--ink);
+	--popover: var(--canvas);
+	--popover-foreground: var(--ink);
+	--muted: color-mix(in srgb, var(--ink) 5%, var(--canvas));
+	--muted-foreground: color-mix(in srgb, var(--ink) 55%, transparent);
+	--secondary: color-mix(in srgb, var(--ink) 8%, var(--canvas));
+	--secondary-foreground: var(--ink);
+	--primary: var(--primary-fill);
+	--primary-foreground: var(--primary-ink);
+	--destructive: var(--signal-danger);
+	--border: color-mix(in srgb, var(--ink) 10%, transparent);
+	--input: color-mix(in srgb, var(--ink) 12%, transparent);
+	--ring: var(--signal-accent);
+	--sidebar: var(--canvas);
+	--sidebar-foreground: var(--ink);
+	--sidebar-border: var(--stroke);
+
+	/* ── Type (phone defaults; the desktop scale starts at md) ── */
+	--font-sans:
+		system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
+		"Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+	--font-mono:
+		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+		monospace;
+	--fs-ui-caption: 0.6875rem;
+	--fs-ui-xs: 0.75rem;
+	--fs-ui-sm: 0.8125rem;
+	--fs-ui: 0.9375rem;
+	--fs-ui-input: 1rem; /* ≥16px on phones: iOS zooms smaller inputs on focus */
+	--fs-ui-lg: 1rem;
+	--fs-title: 1.25rem;
+	--lh-label: 1.4;
+	--lh-input: 1.5rem;
+	--lh-title: 1.3;
+
+	/* ── Density ── */
+	--density: 1;
+	--row-base: 2.5rem;
+	--control-base: 2.5rem;
+	--field-base: 2.75rem;
+
+	/* ── Motion ── */
+	--duration-fast: 120ms; /* press, toggle, hover feedback */
+	--duration-base: 160ms; /* disclosure, reorder, tab switch */
+	--duration-slow: 260ms; /* sheets and drawers arriving */
+	--ease-out-grid: cubic-bezier(0.22, 1, 0.36, 1);
+	--ease-in-grid: cubic-bezier(0.4, 0, 1, 1);
+	--ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Desktop scale: dense, 12–13px UI text, 28px rows. */
+@media (width >= 48rem) {
+	:root {
+		--fs-ui-caption: 0.625rem;
+		--fs-ui-xs: 0.6875rem;
+		--fs-ui-sm: 0.75rem;
+		--fs-ui: 0.8125rem;
+		--fs-ui-input: 0.75rem;
+		--fs-ui-lg: 0.875rem;
+		--fs-title: 1.25rem;
+		--lh-input: 1.25rem;
+		--row-base: 1.75rem;
+		--control-base: 1.75rem;
+		--field-base: 2.25rem;
+	}
+}
+
+:root[data-density="compact"] {
+	--density: 0.86;
+}
 :root[data-density="comfortable"] {
 	--density: 1;
 }
-
 :root[data-density="spacious"] {
 	--density: 1.15;
 }
 
-/* Touch targets never go below 2.75rem (44px) on coarse pointer */
+:root {
+	--spacing-row: calc(var(--row-base) * var(--density));
+	--spacing-control: calc(var(--control-base) * var(--density));
+	--spacing-field: calc(var(--field-base) * var(--density));
+}
+
+/* Touch targets never shrink below 44px, whatever the width or density. */
 @media (pointer: coarse) {
 	:root {
-		--spacing-row: max(2.75rem, calc(2.5rem * var(--density)));
-		--spacing-control: max(2.75rem, calc(2.25rem * var(--density)));
+		--spacing-row: max(2.75rem, calc(var(--row-base) * var(--density)));
+		--spacing-control: max(2.75rem, calc(var(--control-base) * var(--density)));
+		--spacing-field: max(2.75rem, calc(var(--field-base) * var(--density)));
 	}
 }
 
-/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
 	:root {
 		--duration-fast: 0.01ms;
@@ -138,142 +217,88 @@
 	}
 }
 
-/* OS dark default */
-@media (prefers-color-scheme: dark) {
-	:root:not(.light) {
-		color-scheme: dark;
-		--surface-0: oklch(0.145 var(--tint) var(--hue));
-		--surface-1: oklch(0.175 var(--tint) var(--hue));
-		--surface-2: oklch(0.205 var(--tint) var(--hue));
-		--surface-3: oklch(0.245 var(--tint) var(--hue));
-		--text: oklch(0.96 var(--tint) var(--hue));
-		--text-muted: oklch(0.7 var(--tint) var(--hue));
-		--text-subtle: oklch(0.56 var(--tint) var(--hue));
-		--border: color-mix(in oklab, var(--text) 10%, transparent);
-		--border-strong: color-mix(in oklab, var(--text) 18%, transparent);
-
-		--primary: oklch(0.7 0.15 var(--accent-hue));
-		--primary-foreground: oklch(0.26 0.05 173);
-		--ring: color-mix(in oklab, var(--primary) 60%, transparent);
-
-		--status-backlog: var(--text-subtle);
-		--status-ready: oklch(0.72 0.12 250);
-		--status-in-progress: oklch(0.72 0.15 75);
-		--status-review: oklch(0.72 0.13 300);
-		--status-qa: oklch(0.72 0.12 200);
-		--status-blocked: oklch(0.72 0.19 25);
-		--status-done: oklch(0.72 0.13 var(--accent-hue));
-	}
-}
-
-/* Forced dark mode */
-:root.dark,
-.dark {
-	color-scheme: dark;
-	--surface-0: oklch(0.145 var(--tint) var(--hue));
-	--surface-1: oklch(0.175 var(--tint) var(--hue));
-	--surface-2: oklch(0.205 var(--tint) var(--hue));
-	--surface-3: oklch(0.245 var(--tint) var(--hue));
-	--text: oklch(0.96 var(--tint) var(--hue));
-	--text-muted: oklch(0.7 var(--tint) var(--hue));
-	--text-subtle: oklch(0.56 var(--tint) var(--hue));
-	--border: color-mix(in oklab, var(--text) 10%, transparent);
-	--border-strong: color-mix(in oklab, var(--text) 18%, transparent);
-
-	--primary: oklch(0.7 0.15 var(--accent-hue));
-	--primary-foreground: oklch(0.26 0.05 173);
-	--ring: color-mix(in oklab, var(--primary) 60%, transparent);
-
-	--status-backlog: var(--text-subtle);
-	--status-ready: oklch(0.72 0.12 250);
-	--status-in-progress: oklch(0.72 0.15 75);
-	--status-review: oklch(0.72 0.13 300);
-	--status-qa: oklch(0.72 0.12 200);
-	--status-blocked: oklch(0.72 0.19 25);
-	--status-done: oklch(0.72 0.13 var(--accent-hue));
-}
-
-/* Forced light mode */
-:root.light,
-.light {
-	color-scheme: light;
-	--surface-0: oklch(0.99 var(--tint) var(--hue));
-	--surface-1: oklch(0.975 var(--tint) var(--hue));
-	--surface-2: oklch(1 var(--tint) var(--hue));
-	--surface-3: oklch(0.955 var(--tint) var(--hue));
-	--text: oklch(0.2 var(--tint) var(--hue));
-	--text-muted: oklch(0.5 var(--tint) var(--hue));
-	--text-subtle: oklch(0.62 var(--tint) var(--hue));
-	--border: color-mix(in oklab, var(--text) 9%, transparent);
-	--border-strong: color-mix(in oklab, var(--text) 16%, transparent);
-
-	--primary: oklch(0.6 0.13 var(--accent-hue));
-	--primary-foreground: oklch(0.98 0.02 166);
-	--ring: color-mix(in oklab, var(--primary) 60%, transparent);
-
-	--status-backlog: var(--text-subtle);
-	--status-ready: oklch(0.6 0.12 250);
-	--status-in-progress: oklch(0.6 0.15 75);
-	--status-review: oklch(0.6 0.13 300);
-	--status-qa: oklch(0.6 0.12 200);
-	--status-blocked: oklch(0.6 0.19 25);
-	--status-done: oklch(0.6 0.13 var(--accent-hue));
-}
+/* ── Tailwind theme ───────────────────────────────────────────────────────────────────────── */
 
 @theme inline {
-	/* Font family */
 	--font-sans: var(--font-sans);
 	--font-mono: var(--font-mono);
 
-	/* Letter spacing 0 */
-	--tracking-normal: 0;
+	--color-canvas: var(--canvas);
+	--color-ink: var(--ink);
+	--color-stroke: var(--stroke);
+	--color-selection-subtle: var(--selection-subtle);
+	--color-selection: var(--selection);
+	--color-selection-strong: var(--selection-strong);
+	--color-selection-hover: var(--selection-hover);
+	--color-selection-emphasis: var(--selection-emphasis);
+	--color-accent: var(--signal-accent);
+	--color-link: var(--signal-link);
+	--color-success: var(--signal-success);
+	--color-danger: var(--signal-danger);
+	--color-warning: var(--signal-warning);
 
-	/* Color surfaces & text */
-	--color-surface-0: var(--surface-0);
-	--color-surface-1: var(--surface-1);
-	--color-surface-2: var(--surface-2);
-	--color-surface-3: var(--surface-3);
-	--color-text: var(--text);
-	--color-text-muted: var(--text-muted);
-	--color-text-subtle: var(--text-subtle);
-	--color-border-strong: var(--border-strong);
-
-	/* Status colours */
 	--color-status-backlog: var(--status-backlog);
 	--color-status-ready: var(--status-ready);
-	--color-status-in-progress: var(--status-in-progress);
 	--color-status-in_progress: var(--status-in-progress);
 	--color-status-review: var(--status-review);
 	--color-status-qa: var(--status-qa);
 	--color-status-blocked: var(--status-blocked);
 	--color-status-done: var(--status-done);
 
-	/* Type scale */
+	--text-ui-caption: var(--fs-ui-caption);
+	--text-ui-caption--line-height: var(--lh-label);
 	--text-ui-xs: var(--fs-ui-xs);
-	--text-ui-xs--line-height: var(--lh-ui-xs);
+	--text-ui-xs--line-height: var(--lh-label);
 	--text-ui-sm: var(--fs-ui-sm);
-	--text-ui-sm--line-height: var(--lh-ui-sm);
+	--text-ui-sm--line-height: var(--lh-label);
 	--text-ui: var(--fs-ui);
-	--text-ui--line-height: var(--lh-ui);
+	--text-ui--line-height: var(--lh-label);
 	--text-ui-input: var(--fs-ui-input);
-	--text-ui-input--line-height: var(--lh-ui-input);
+	--text-ui-input--line-height: var(--lh-input);
 	--text-ui-lg: var(--fs-ui-lg);
-	--text-ui-lg--line-height: var(--lh-ui-lg);
+	--text-ui-lg--line-height: var(--lh-label);
 	--text-title: var(--fs-title);
 	--text-title--line-height: var(--lh-title);
 
-	/* Density spacing */
 	--spacing-row: var(--spacing-row);
 	--spacing-control: var(--spacing-control);
-	--spacing-gutter: var(--spacing-gutter);
+	--spacing-field: var(--spacing-field);
 
-	/* Motion */
+	/* Radius by nesting level: chips 4, controls 6, cards 8, floating surfaces 12. */
+	--radius-xs: 2px;
+	--radius-sm: 4px;
+	--radius-md: 6px;
+	--radius-lg: 8px;
+	--radius-xl: 12px;
+
 	--transition-duration-fast: var(--duration-fast);
 	--transition-duration-base: var(--duration-base);
 	--transition-duration-slow: var(--duration-slow);
-	--duration-fast: var(--duration-fast);
-	--duration-base: var(--duration-base);
-	--duration-slow: var(--duration-slow);
 	--ease-out-grid: var(--ease-out-grid);
 	--ease-in-grid: var(--ease-in-grid);
+	--ease-sheet: var(--ease-sheet);
+}
+
+/* Navigation layer: the canvas at 85% over the window, blurred. */
+@utility glass {
+	background: color-mix(in srgb, var(--canvas) 85%, transparent);
+	backdrop-filter: blur(20px) saturate(140%);
+}
+
+/* Keyboard-only focus, the one place the accent outlines something. */
+@utility focus-ring {
+	outline: none;
+	&:focus-visible {
+		outline: 2px solid var(--signal-accent);
+		outline-offset: 1px;
+	}
+}
+
+@layer base {
+	:root {
+		scrollbar-color: color-mix(in srgb, var(--ink) 16%, transparent) transparent;
+	}
+	body {
+		font-family: var(--font-sans);
+	}
 }
