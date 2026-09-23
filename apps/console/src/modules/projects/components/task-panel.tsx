@@ -15,6 +15,7 @@ import {
 	Sheet,
 	Skeleton,
 	Textarea,
+	TrashIcon,
 } from "@/ui";
 
 import { useWorkspace } from "../context/workspace-context";
@@ -349,26 +350,5 @@ function TaskNotFound(): JSX.Element {
 				}
 			/>
 		</div>
-	);
-}
-
-/**
- * The delete glyph, drawn to the same 24px grid and stroke weight as the `@/ui` set. It belongs
- * there once that package owns a trash icon; kept local for now rather than widening this card.
- */
-function TrashIcon(): JSX.Element {
-	return (
-		<svg
-			viewBox="0 0 24 24"
-			class="size-4"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="1.75"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<path d="M5 7h14M10 7V5.5h4V7M7.5 7l.7 11a1.5 1.5 0 0 0 1.5 1.4h4.6a1.5 1.5 0 0 0 1.5-1.4L16.5 7" />
-		</svg>
 	);
 }
