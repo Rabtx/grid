@@ -1,3 +1,4 @@
+import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { Show } from "solid-js";
 
@@ -12,11 +13,13 @@ import type { Task } from "../types/project.types";
  */
 export function TaskCard(props: { task: Task }): JSX.Element {
 	const workspace = useWorkspace();
+	// Carry the board's filters into the task URL, so closing the panel returns to the same view.
+	const location = useLocation();
 
 	return (
 		// The link wraps a whole card, so it is named explicitly: the label repeats what is visible.
 		<a
-			href={`/board/${workspace.activeSlug()}/tasks/${props.task.number}`}
+			href={`/board/${workspace.activeSlug()}/tasks/${props.task.number}${location.search}`}
 			aria-label={`${props.task.key} ${props.task.title}`}
 			class="focus-ring block rounded-lg border border-ink/10 bg-ink/5 transition-[background-color,transform] duration-fast ease-out-grid hover:bg-ink/8 active:scale-[0.98]"
 		>
