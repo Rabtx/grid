@@ -191,6 +191,7 @@ full run all come from pre-existing code.
 **Not done / deferred:** Markdown rendering of the description (deferred by the card); browser
 verification at 375 and 1280 px is the reviewer's step.
 
-**Review:** branch pushed, PR to `main` open, not merged — reviewer: claude.
+**Review:** [PR #29](https://github.com/shabirkhan-dev/grid/pull/29) — open against `main` and not
+merged; reviewer: claude owns the merge and the 375/1280 px browser pass.
 
 **Commit:** `80cb1ad` (feature); the claim and this resolution are separate `chore`/`docs` commits.
