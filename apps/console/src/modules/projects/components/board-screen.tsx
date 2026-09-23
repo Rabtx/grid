@@ -1,6 +1,8 @@
 import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, Errored, isPending, Loading, Show } from "solid-js";
 
+import { Button, EmptyState, ErrorNotice } from "@/ui";
+
 import { useWorkspace } from "../context/workspace-context";
 import { groupByStatus } from "../lib/board";
 import { laneId } from "../lib/stage-style";
@@ -37,9 +39,9 @@ function Board(): JSX.Element {
 			{/* Always in the layout so switching projects never shifts the board. */}
 			<div
 				aria-hidden="true"
-				class={`-mt-2 mb-2 h-0.5 rounded-full ${isPending(() => workspace.tasks()) ? "animate-pulse bg-primary" : "bg-transparent"}`}
+				class={`-mt-1 mb-2 h-0.5 rounded-full ${isPending(() => workspace.tasks()) ? "animate-pulse bg-accent" : "bg-transparent"}`}
 			/>
-			<p class="mb-3 text-muted-foreground text-ui-sm lg:hidden">
+			<p class="mb-2 text-ink/45 text-ui-sm tabular-nums lg:hidden">
 				{count()} task{count() === 1 ? "" : "s"}
 			</p>
 			<StageTabs columns={columns()} active={active()} onSelect={select} />
@@ -50,30 +52,32 @@ function Board(): JSX.Element {
 
 function BoardError(props: { error: unknown; onRetry: () => void }): JSX.Element {
 	return (
-		<div role="alert" class="space-y-3 py-8">
-			<h1 class="font-semibold text-title">The board could not load</h1>
-			<p class="text-muted-foreground text-ui">
-				{props.error instanceof Error ? props.error.message : "Something went wrong."}
-			</p>
-			<button
-				type="button"
-				onClick={() => props.onRetry()}
-				class="h-control rounded-md bg-primary px-3 font-medium text-primary-foreground text-ui"
-			>
-				Try again
-			</button>
+		<div class="py-6">
+			<ErrorNotice
+				message={`The board could not load: ${props.error instanceof Error ? props.error.message : "something went wrong"}.`}
+				action={
+					<Button size="sm" variant="secondary" onClick={() => props.onRetry()}>
+						Try again
+					</Button>
+				}
+			/>
 		</div>
 	);
 }
 
 function ProjectNotFound(): JSX.Element {
 	return (
-		<div class="space-y-2 py-8">
-			<h1 class="font-semibold text-title">Project not found</h1>
-			<p class="text-muted-foreground text-ui">It may have been renamed or archived.</p>
-			<a href="/board" class="inline-flex min-h-row items-center text-primary text-ui underline">
-				Open your first project
-			</a>
-		</div>
+		<EmptyState
+			title="Project not found"
+			description="It may have been renamed or archived."
+			action={
+				<a
+					href="/board"
+					class="focus-ring rounded-sm text-link text-ui-sm underline-offset-2 hover:underline"
+				>
+					Open your first project
+				</a>
+			}
+		/>
 	);
 }

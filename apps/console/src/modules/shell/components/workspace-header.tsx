@@ -2,37 +2,36 @@ import type { JSX } from "@solidjs/web";
 import { Loading, Show } from "solid-js";
 
 import { useWorkspace } from "@/modules/projects";
+import { BoardIcon, Button, PlusIcon, Skeleton } from "@/ui";
 
-import { PlusIcon } from "./icons";
-
-/** Desktop page header: the project's name and size, and the labelled primary action. */
+/** Desktop view header, 40px: where you are and how big it is on the left, the action right. */
 export function WorkspaceHeader(): JSX.Element {
 	const workspace = useWorkspace();
 
 	return (
-		<header class="hidden items-center justify-between gap-4 border-border border-b px-8 py-4 lg:flex">
-			<Loading fallback={<div class="h-8 w-48 animate-pulse rounded-md bg-accent" />}>
+		<header class="hidden h-10 shrink-0 items-center justify-between gap-4 border-stroke border-b px-4 lg:flex">
+			<Loading fallback={<Skeleton class="h-4 w-40" />}>
 				<Show when={workspace.activeProject()} fallback={<span />}>
 					{(project) => (
-						<div class="min-w-0">
-							<h1 class="truncate font-semibold text-title">{project().name}</h1>
-							<p class="text-muted-foreground text-ui-sm">
+						<div class="flex min-w-0 items-center gap-2">
+							<BoardIcon class="size-4 shrink-0 text-ink/45" />
+							<h1 class="truncate font-medium text-ui">{project().name}</h1>
+							<span class="shrink-0 text-ink/45 text-ui-xs tabular-nums">
 								{workspace.tasks().length} task{workspace.tasks().length === 1 ? "" : "s"}
-							</p>
+							</span>
 						</div>
 					)}
 				</Show>
 			</Loading>
-			<button
-				type="button"
+			<Button
+				variant="primary"
 				aria-haspopup="dialog"
 				disabled={!workspace.activeSlug()}
 				onClick={() => workspace.setNewTaskOpen(true)}
-				class="flex h-control shrink-0 items-center gap-2 rounded-md bg-primary px-3 font-medium text-primary-foreground text-ui transition-opacity duration-fast ease-out-grid hover:opacity-90 disabled:opacity-40"
 			>
-				<PlusIcon class="size-4" />
+				<PlusIcon class="size-3.5" />
 				New task
-			</button>
+			</Button>
 		</header>
 	);
 }

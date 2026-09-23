@@ -115,7 +115,7 @@ describe("BoardScreen", () => {
 	it("shows correct task counts for alpha project in lane headings", async () => {
 		await settle();
 
-		const counts = container.querySelectorAll("section[id^=lane-] header span.font-mono");
+		const counts = container.querySelectorAll("section[id^=lane-] header [data-count]");
 		const countValues = Array.from(counts).map((s) => parseInt(s.textContent || "0", 10));
 		expect(countValues).toEqual([1, 1, 0, 0, 0, 0, 0]);
 	});
@@ -126,7 +126,7 @@ describe("BoardScreen", () => {
 		const tabs = container.querySelectorAll('nav[aria-label="Stages"] button');
 		expect(tabs.length).toBe(7);
 		const tabCounts = Array.from(tabs).map((tab) =>
-			parseInt(tab.querySelector(".font-mono")?.textContent || "0", 10),
+			parseInt(tab.querySelector("[data-count]")?.textContent || "0", 10),
 		);
 		expect(tabCounts).toEqual([1, 1, 0, 0, 0, 0, 0]);
 		// Backlog is the first lane, so it starts as the current stage.
@@ -137,9 +137,7 @@ describe("BoardScreen", () => {
 	it("shows 'No tasks' in empty lanes", async () => {
 		await settle();
 
-		const emptyMessages = container.querySelectorAll(
-			'section[id^=lane-] div[class*="bg-muted"] > p',
-		);
+		const emptyMessages = container.querySelectorAll("section[id^=lane-] p");
 		const noTasksCount = Array.from(emptyMessages).filter((p) =>
 			p.textContent?.includes("No tasks"),
 		).length;

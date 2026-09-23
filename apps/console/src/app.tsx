@@ -4,8 +4,10 @@ import { createEffect } from "solid-js";
 
 import { AuthProvider, LoginForm, useAuth } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect } from "@/modules/projects";
+import { EmptyState } from "@/ui";
 
 import { AppShell } from "./routes/app-shell";
+import { DevUiRoute } from "./routes/dev-ui";
 import { RequireAuth } from "./routes/require-auth";
 
 // The console has no landing page of its own — that still lives in the marketing
@@ -16,6 +18,8 @@ const Router = createRouter({
 		{ path: "/login", component: LoginRoute },
 		{ path: "/board", component: RedirectRoute },
 		{ path: "/board/:slug", component: BoardRoute },
+		// Development-only primitives gallery; tree-shaken out of production builds.
+		...(import.meta.env.DEV ? [{ path: "/dev/ui", component: DevUiRoute }] : []),
 		{ path: "*", component: NotFoundRoute },
 	],
 });
@@ -40,7 +44,7 @@ function LoginRoute(): JSX.Element {
 	);
 
 	return (
-		<div class="flex justify-center py-12">
+		<div class="flex justify-center pt-[12vh] pb-12">
 			<LoginForm />
 		</div>
 	);
@@ -63,5 +67,17 @@ function BoardRoute(): JSX.Element {
 }
 
 function NotFoundRoute(): JSX.Element {
-	return <p class="text-muted-foreground text-ui-sm">That page does not exist.</p>;
+	return (
+		<EmptyState
+			title="That page does not exist"
+			action={
+				<a
+					href="/"
+					class="focus-ring rounded-sm text-link text-ui-sm underline-offset-2 hover:underline"
+				>
+					Go to your board
+				</a>
+			}
+		/>
+	);
 }
