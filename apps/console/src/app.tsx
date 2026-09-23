@@ -3,7 +3,7 @@ import type { JSX } from "@solidjs/web";
 import { createEffect } from "solid-js";
 
 import { AuthProvider, LoginForm, useAuth } from "@/modules/auth";
-import { BoardScreen, ProjectRedirect } from "@/modules/projects";
+import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { EmptyState } from "@/ui";
 
 import { AppShell } from "./routes/app-shell";
@@ -18,6 +18,8 @@ const Router = createRouter({
 		{ path: "/login", component: LoginRoute },
 		{ path: "/board", component: RedirectRoute },
 		{ path: "/board/:slug", component: BoardRoute },
+		// The same board with one task open in the panel over it.
+		{ path: "/board/:slug/tasks/:number", component: BoardRoute },
 		// Development-only primitives gallery; tree-shaken out of production builds.
 		...(import.meta.env.DEV ? [{ path: "/dev/ui", component: DevUiRoute }] : []),
 		{ path: "*", component: NotFoundRoute },
@@ -62,6 +64,7 @@ function BoardRoute(): JSX.Element {
 	return (
 		<RequireAuth>
 			<BoardScreen />
+			<TaskPanel />
 		</RequireAuth>
 	);
 }

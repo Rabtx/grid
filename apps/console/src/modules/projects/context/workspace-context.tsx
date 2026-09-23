@@ -1,6 +1,6 @@
-import { useMatch } from "@solidjs/router";
+import { useLocation, useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createContext, createMemo, createSignal, useContext } from "solid-js";
+import { createContext, createMemo, createSignal, untrack, useContext } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 
@@ -9,13 +9,21 @@ import type { Project, Task } from "../types/project.types";
 
 type WorkspaceState = {
 	projects: () => Project[];
-	/** Slug from the `/board/:slug` URL, or null on any other route. */
+	/** Slug from `/board/:slug` or `/board/:slug/tasks/:number`, or null on any other route. */
 	activeSlug: () => string | null;
 	/** The project the URL points at; null when there is no slug or it matches nothing. */
 	activeProject: () => Project | null;
 	tasks: () => Task[];
 	/** Re-read the active project's tasks after a write. */
 	refreshTasks: () => void;
+	/** Task number the URL opens, or null when no task is open. */
+	activeTaskNumber: () => number | null;
+	/** The open task, looked up in the loaded tasks; null while they load or when none matches. */
+	activeTask: () => Task | null;
+	/** Open a task over the board, keeping the board's filters. */
+	openTask: (number: number) => void;
+	/** Leave the panel for the board, keeping the board's filters. */
+	closeTask: () => void;
 	newTaskOpen: () => boolean;
 	setNewTaskOpen: (open: boolean) => void;
 };
@@ -31,7 +39,11 @@ const WorkspaceContext = createContext<WorkspaceState>();
  */
 export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element {
 	const auth = useAuth();
+	const navigate = useNavigate();
+	const location = useLocation();
+	// The board, and the same board with one task open over it.
 	const boardMatch = useMatch(() => "/board/:slug");
+	const taskMatch = useMatch(() => "/board/:slug/tasks/:number");
 	// Bumped after every write so the task read re-runs; the dependency stays visible in the memo.
 	const [revision, setRevision] = createSignal(0);
 	const [newTaskOpen, setNewTaskOpen] = createSignal(false);
@@ -42,7 +54,8 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		return projectsService.list(token);
 	});
 
-	const activeSlug = createMemo(() => boardMatch()?.params.slug ?? null);
+	// The task URL is the board URL plus a panel, so both spell the same project.
+	const activeSlug = createMemo(() => (taskMatch() ?? boardMatch())?.params.slug ?? null);
 	const activeProject = createMemo(
 		() => projects().find((project) => project.slug === activeSlug()) ?? null,
 	);
@@ -55,12 +68,46 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		return projectsService.listTasks(token, project.slug);
 	});
 
+	const activeTaskNumber = createMemo(() => {
+		const raw = taskMatch()?.params.number;
+		if (raw === undefined) return null;
+		const number = Number(raw);
+		return Number.isInteger(number) && number > 0 ? number : null;
+	});
+
+	const activeTask = createMemo(() => {
+		const number = activeTaskNumber();
+		if (number === null) return null;
+		return tasks().find((task) => task.number === number) ?? null;
+	});
+
+	// Opening a task is a URL change, so the open task is linkable and survives a reload.
+	// The reads are untracked on purpose: these run from clicks and from the sheet's own close
+	// event, which a `Sheet` fires while closing itself from inside an effect.
+	function openTask(number: number): void {
+		const slug = untrack(activeSlug);
+		if (!slug) return;
+		const search = untrack(() => location.search);
+		navigate(`/board/${slug}/tasks/${number}${search}`, { scroll: false });
+	}
+
+	function closeTask(): void {
+		const slug = untrack(activeSlug);
+		if (!slug) return;
+		const search = untrack(() => location.search);
+		navigate(`/board/${slug}${search}`, { scroll: false });
+	}
+
 	const state: WorkspaceState = {
 		projects,
 		activeSlug,
 		activeProject,
 		tasks,
 		refreshTasks: () => setRevision((n) => n + 1),
+		activeTaskNumber,
+		activeTask,
+		openTask,
+		closeTask,
 		newTaskOpen,
 		setNewTaskOpen,
 	};
