@@ -97,7 +97,7 @@ describe("LoginForm", () => {
 		await new Promise((r) => setTimeout(r, 0));
 		await new Promise((r) => setTimeout(r, 0));
 
-		const errorText = container.querySelector("p.text-destructive");
+		const errorText = container.querySelector('[role="alert"]');
 		expect(errorText).not.toBeNull();
 		expect(errorText?.textContent).toBe("Invalid email or password");
 	});

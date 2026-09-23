@@ -1,13 +1,15 @@
 import type { JSX } from "@solidjs/web";
 import { createEffect, For } from "solid-js";
 
-import { laneId, STATUS_DOT_CLASS } from "../lib/stage-style";
+import { laneId } from "../lib/stage-style";
 import {
 	TASK_STATUS_LABELS,
 	TASK_STATUSES,
 	type Task,
 	type TaskStatus,
 } from "../types/project.types";
+
+import { StatusIcon } from "./status-icon";
 
 /**
  * Phone-only stage switcher above the swipeable lanes. Tapping a stage scrolls its lane in;
@@ -32,9 +34,9 @@ export function StageTabs(props: {
 	return (
 		<nav
 			aria-label="Stages"
-			class="-mx-4 mb-3 overflow-x-auto px-4 [scrollbar-width:none] md:hidden"
+			class="-mx-4 mb-1 overflow-x-auto px-4 [scrollbar-width:none] md:hidden"
 		>
-			<div class="flex w-max gap-1.5">
+			<div class="flex w-max gap-1">
 				<For each={TASK_STATUSES}>
 					{(status) => (
 						<button
@@ -45,11 +47,11 @@ export function StageTabs(props: {
 							aria-controls={laneId(status)}
 							aria-current={props.active === status ? "true" : undefined}
 							onClick={() => props.onSelect(status)}
-							class="flex min-h-row shrink-0 items-center gap-2 rounded-full border border-border px-3 text-ui-sm transition-colors duration-fast ease-out-grid aria-[current=true]:border-transparent aria-[current=true]:bg-accent aria-[current=true]:font-medium"
+							class="focus-ring flex h-row shrink-0 items-center gap-1.5 rounded-md px-2.5 text-ink/55 text-ui-sm transition-colors duration-fast ease-out-grid aria-[current=true]:bg-selection aria-[current=true]:font-medium aria-[current=true]:text-ink"
 						>
-							<span class={`size-2 rounded-full ${STATUS_DOT_CLASS[status]}`} aria-hidden="true" />
+							<StatusIcon status={status} />
 							{TASK_STATUS_LABELS[status]}
-							<span class="font-mono text-muted-foreground text-ui-xs">
+							<span data-count class="text-ink/40 text-ui-xs tabular-nums">
 								{props.columns[status].length}
 							</span>
 						</button>

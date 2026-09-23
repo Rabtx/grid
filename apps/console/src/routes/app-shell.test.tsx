@@ -81,7 +81,12 @@ describe("AppShell", () => {
 		const links = [
 			...container.querySelectorAll<HTMLAnchorElement>('nav[aria-label="Projects"] a'),
 		];
-		expect(links.map((link) => link.textContent)).toEqual(["Alpha", "Beta", "Alpha", "Beta"]);
+		expect(links.map((link) => link.querySelector(".truncate")?.textContent)).toEqual([
+			"Alpha",
+			"Beta",
+			"Alpha",
+			"Beta",
+		]);
 
 		const current = links.filter((link) => link.getAttribute("aria-current") === "page");
 		expect(current.map((link) => link.getAttribute("href"))).toEqual([

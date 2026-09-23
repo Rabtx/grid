@@ -3,29 +3,42 @@ import { Show } from "solid-js";
 
 import type { Task } from "../types/project.types";
 
-interface TaskCardProps {
-	task: Task;
-}
-
-export function TaskCard(props: TaskCardProps): JSX.Element {
+/** A task on the board: key, title, then who owns it and where the work lives. */
+export function TaskCard(props: { task: Task }): JSX.Element {
 	return (
-		<article class="rounded-md border border-border bg-card p-3 space-y-1.5">
-			<div class="flex items-baseline justify-between gap-2">
-				<span class="font-mono text-ui-xs text-text-subtle">{props.task.key}</span>
-				<Show when={props.task.owner}>
+		<article class="flex flex-col gap-1.5 rounded-lg border border-ink/10 bg-ink/5 p-2.5">
+			<span class="font-mono text-ink/40 text-ui-caption">{props.task.key}</span>
+			<p class="line-clamp-3 break-words font-medium text-ink/90 text-ui leading-snug">
+				{props.task.title}
+			</p>
+			<div class="flex min-w-0 items-center gap-2 pt-0.5 text-ink/45 text-ui-xs">
+				<Show
+					when={props.task.owner}
+					fallback={
+						<>
+							<span
+								class="size-3.5 shrink-0 rounded-full border border-ink/30 border-dashed"
+								aria-hidden="true"
+							/>
+							<span>Unassigned</span>
+						</>
+					}
+				>
 					{(owner) => (
-						<span class="rounded border border-border px-1.5 text-ui-xs">
-							{owner().name ?? owner().kind}
+						<>
+							<span class="size-3.5 shrink-0 rounded-full bg-ink/20" aria-hidden="true" />
+							<span class="max-w-[60%] shrink-0 truncate">{owner().name ?? owner().kind}</span>
+						</>
+					)}
+				</Show>
+				<Show when={props.task.branch}>
+					{(branch) => (
+						<span class="ml-auto min-w-0 truncate font-mono" title={branch()}>
+							{branch()}
 						</span>
 					)}
 				</Show>
 			</div>
-			<span class="block text-ui break-words">{props.task.title}</span>
-			<Show when={props.task.branch}>
-				{(branch) => (
-					<span class="block truncate font-mono text-ui-xs text-muted-foreground">{branch()}</span>
-				)}
-			</Show>
 		</article>
 	);
 }

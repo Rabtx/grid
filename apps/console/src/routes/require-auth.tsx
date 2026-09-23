@@ -30,5 +30,5 @@ export function RequireAuth(props: { children: JSX.Element }): JSX.Element {
 }
 
 function AuthPending(): JSX.Element {
-	return <p class="text-muted-foreground text-ui-sm">Checking your session…</p>;
+	return <p class="py-12 text-center text-ink/40 text-ui-sm">Checking your session…</p>;
 }
