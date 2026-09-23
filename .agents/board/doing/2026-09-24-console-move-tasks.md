@@ -5,8 +5,8 @@ type: feature
 from: human
 to: web
 priority: normal
-status: open
-assignee: none
+status: doing
+assignee: buffy (deepseek-v4-flash)
 reviewer: claude
 parent: .agents/plans/console-design-migration.md (step 2.3)
 depends_on: [str-console-primitives-phase-two, str-console-board-views-filters, str-console-task-panel]
