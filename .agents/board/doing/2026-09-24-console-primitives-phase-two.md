@@ -5,8 +5,8 @@ type: feature
 from: human
 to: web
 priority: high
-status: open
-assignee: none
+status: doing
+assignee: web
 reviewer: claude
 parent: .agents/plans/console-design-migration.md (phase 2 prerequisite)
 depends_on: []
