@@ -3,7 +3,7 @@ import { For, Loading, Show } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import { useWorkspace } from "@/modules/projects";
-import { BoardIcon, Caption, SignOutIcon, Skeleton } from "@/ui";
+import { BoardIcon, BrandLogo, Caption, SignOutIcon, Skeleton } from "@/ui";
 
 // One nav row recipe for every destination: secondary ink at rest, selection fill when current.
 const NAV_ROW =
@@ -19,9 +19,9 @@ export function ProjectNav(): JSX.Element {
 
 	return (
 		<div class="flex h-full min-h-0 flex-col gap-3 p-2">
-			<div class="flex h-10 items-center px-2">
-				<span class="font-semibold text-ui">Grid</span>
-			</div>
+			<a href="/" class="focus-ring flex h-10 items-center self-start rounded-md px-1">
+				<BrandLogo class="h-7" />
+			</a>
 
 			<nav aria-label="Workspace" class="flex flex-col gap-0.5">
 				<a
