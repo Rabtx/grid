@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { applyModifiers, arrowSequence } from "./keys";
 
-const none = { ctrl: false, alt: false };
-const ctrl = { ctrl: true, alt: false };
-const alt = { ctrl: false, alt: true };
+const none = { ctrl: false, alt: false, shift: false };
+const ctrl = { ...none, ctrl: true };
+const alt = { ...none, alt: true };
+const shift = { ...none, shift: true };
 
 describe("applyModifiers", () => {
 	it("passes input through when nothing is armed", () => {
@@ -26,7 +27,13 @@ describe("applyModifiers", () => {
 
 	it("prefixes ESC for Alt, and combines with Ctrl", () => {
 		expect(applyModifiers("b", alt)).toBe("\x1bb");
-		expect(applyModifiers("x", { ctrl: true, alt: true })).toBe("\x1b\x18");
+		expect(applyModifiers("x", { ...none, ctrl: true, alt: true })).toBe("\x1b\x18");
+	});
+
+	it("turns Shift+Tab into back tab, and capitalises with Shift", () => {
+		expect(applyModifiers("\t", shift)).toBe("\x1b[Z");
+		expect(applyModifiers("a", shift)).toBe("A");
+		expect(applyModifiers("\t", none)).toBe("\t");
 	});
 
 	it("leaves a paste or an IME word alone", () => {
@@ -44,5 +51,6 @@ describe("arrowSequence", () => {
 	it("encodes modifiers as xterm does", () => {
 		expect(arrowSequence("right", true, ctrl)).toBe("\x1b[1;5C");
 		expect(arrowSequence("left", false, alt)).toBe("\x1b[1;3D");
+		expect(arrowSequence("up", true, shift)).toBe("\x1b[1;2A");
 	});
 });

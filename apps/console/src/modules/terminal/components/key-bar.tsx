@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For } from "solid-js";
 
-import type { Arrow, Modifiers } from "../lib/keys";
+import { type Arrow, BACK_TAB, type Modifiers } from "../lib/keys";
 
 type Key =
 	| { kind: "send"; label: string; name: string; data: string }
@@ -12,6 +12,9 @@ type Key =
 const KEYS: Key[] = [
 	{ kind: "send", label: "esc", name: "Escape", data: "\x1b" },
 	{ kind: "send", label: "tab", name: "Tab", data: "\t" },
+	// One tap for Shift+Tab: agent CLIs use it to cycle modes.
+	{ kind: "send", label: "⇤", name: "Shift Tab", data: BACK_TAB },
+	{ kind: "modifier", label: "shift", name: "Shift", modifier: "shift" },
 	{ kind: "modifier", label: "ctrl", name: "Control", modifier: "ctrl" },
 	{ kind: "modifier", label: "alt", name: "Alt", modifier: "alt" },
 	{ kind: "arrow", label: "←", name: "Left", arrow: "left" },

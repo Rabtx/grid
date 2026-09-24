@@ -35,7 +35,7 @@ export function TopBar(props: { onOpenMenu: () => void }): JSX.Element {
 							<Loading fallback="Grid">{workspace.activeProject()?.name ?? "Grid"}</Loading>
 						}
 					>
-						{(title) => title()}
+						{section()}
 					</Show>
 				</p>
 				{/* Balance the menu button so the title stays centred when there is no action. */}
