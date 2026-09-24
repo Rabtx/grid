@@ -1,9 +1,10 @@
+import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { For, Loading, Show } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import { useWorkspace } from "@/modules/projects";
-import { BoardIcon, BrandLogo, Caption, SignOutIcon, Skeleton } from "@/ui";
+import { BoardIcon, BrandLogo, Caption, SettingsIcon, SignOutIcon, Skeleton } from "@/ui";
 
 // One nav row recipe for every destination: secondary ink at rest, selection fill when current.
 const NAV_ROW =
@@ -16,6 +17,7 @@ const NAV_ROW =
 export function ProjectNav(): JSX.Element {
 	const auth = useAuth();
 	const workspace = useWorkspace();
+	const location = useLocation();
 
 	return (
 		<div class="flex h-full min-h-0 flex-col gap-3 p-2">
@@ -42,6 +44,14 @@ export function ProjectNav(): JSX.Element {
 			</nav>
 
 			<div class="flex flex-col gap-0.5 border-stroke border-t pt-2">
+				<a
+					href="/settings/appearance"
+					aria-current={location.pathname.startsWith("/settings") ? "page" : undefined}
+					class={NAV_ROW}
+				>
+					<SettingsIcon class="size-4 shrink-0" />
+					Settings
+				</a>
 				<Show when={auth.user()}>
 					{(user) => (
 						<p class="truncate px-2 py-1 text-ink/45 text-ui-xs" title={user().email}>

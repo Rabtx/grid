@@ -4,6 +4,7 @@ import { createEffect } from "solid-js";
 
 import { AuthProvider, LoginForm, useAuth } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
+import { AppearanceScreen } from "@/modules/settings";
 import { EmptyState } from "@/ui";
 
 import { AppShell } from "./routes/app-shell";
@@ -20,6 +21,9 @@ const Router = createRouter({
 		{ path: "/board/:slug", component: BoardRoute },
 		// The same board with one task open in the panel over it.
 		{ path: "/board/:slug/tasks/:number", component: BoardRoute },
+		// Settings is a section of its own; appearance is the only page in it today.
+		{ path: "/settings", component: SettingsRedirectRoute },
+		{ path: "/settings/appearance", component: SettingsRoute },
 		// Development-only primitives gallery; tree-shaken out of production builds.
 		...(import.meta.env.DEV ? [{ path: "/dev/ui", component: DevUiRoute }] : []),
 		{ path: "*", component: NotFoundRoute },
@@ -67,6 +71,25 @@ function BoardRoute(): JSX.Element {
 			<TaskPanel />
 		</RequireAuth>
 	);
+}
+
+function SettingsRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<AppearanceScreen />
+		</RequireAuth>
+	);
+}
+
+function SettingsRedirectRoute(): JSX.Element {
+	const navigate = useNavigate();
+
+	createEffect(
+		() => true,
+		() => navigate("/settings/appearance", { replace: true }),
+	);
+
+	return <></>;
 }
 
 function NotFoundRoute(): JSX.Element {

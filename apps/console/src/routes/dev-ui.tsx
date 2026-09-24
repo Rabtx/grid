@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, For } from "solid-js";
 
-import { appearance, updateAppearance } from "@/lib/appearance";
+import { APPEARANCE_LIMITS, appearance, updateAppearance } from "@/lib/appearance";
 import { StatusIcon, TASK_STATUS_LABELS, TASK_STATUSES } from "@/modules/projects";
 import {
 	Button,
@@ -21,6 +21,7 @@ import {
 	SegmentedControl,
 	Sheet,
 	Skeleton,
+	Slider,
 	Textarea,
 } from "@/ui";
 
@@ -34,6 +35,7 @@ export function DevUiRoute(): JSX.Element {
 	const [panel, setPanel] = createSignal(false);
 	const [confirm, setConfirm] = createSignal(false);
 	const [selectValue, setSelectValue] = createSignal("backlog");
+	const [scale, setScale] = createSignal(1);
 
 	return (
 		<div class="mx-auto flex max-w-3xl flex-col gap-8 py-6">
@@ -145,6 +147,18 @@ export function DevUiRoute(): JSX.Element {
 							onChange={setSelectValue}
 						/>
 					</Field>
+				</div>
+			</Section>
+
+			<Section title="Slider">
+				<div class="max-w-sm">
+					<Slider
+						label="Interface scale"
+						{...APPEARANCE_LIMITS.uiScale}
+						value={scale()}
+						onInput={setScale}
+						format={(value) => `${Math.round(value * 100)}%`}
+					/>
 				</div>
 			</Section>
 

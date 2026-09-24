@@ -7,7 +7,9 @@ import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
 import Logout01Icon from "@hugeicons/core-free-icons/Logout01Icon";
 import Menu01Icon from "@hugeicons/core-free-icons/Menu01Icon";
 import MoreHorizontalIcon from "@hugeicons/core-free-icons/MoreHorizontalIcon";
+import RotateCcwIcon from "@hugeicons/core-free-icons/RotateCcwIcon";
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon";
+import Settings01Icon from "@hugeicons/core-free-icons/Settings01Icon";
 import Tick02Icon from "@hugeicons/core-free-icons/Tick02Icon";
 import type { JSX } from "@solidjs/web";
 
@@ -105,4 +107,12 @@ export function TrashIcon(props: IconProps): JSX.Element {
 
 export function MoreIcon(props: IconProps): JSX.Element {
 	return <Icon icon={MoreHorizontalIcon} class={props.class} />;
+}
+
+export function SettingsIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Settings01Icon} class={props.class} />;
+}
+
+export function RestoreIcon(props: IconProps): JSX.Element {
+	return <Icon icon={RotateCcwIcon} class={props.class} />;
 }
