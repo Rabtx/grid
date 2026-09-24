@@ -5,12 +5,8 @@ import { createContext, createSignal, onSettled, useContext } from "solid-js";
 type Slot = () => JSX.Element;
 
 type ShellState = {
-	/** The workspace panel beside the sidebar (a screen's list), or null when the screen has none. */
-	panel: () => Slot | null;
 	/** The screen's tabs for the title bar, or null to show the section's name. */
 	tabs: () => Slot | null;
-	/** Phones: the current project's chats, listed under it in the drawer. */
-	projectChats: () => Slot | null;
 	setSlot: (name: SlotName, slot: Slot | null) => void;
 	/** Desktop only: the sidebar and panel folded away to give the screen the width. */
 	collapsed: () => boolean;
@@ -23,7 +19,7 @@ type ShellState = {
 	desktop: () => boolean;
 };
 
-type SlotName = "panel" | "tabs" | "projectChats";
+type SlotName = "tabs";
 
 const COLLAPSED_KEY = "grid.shell.collapsed";
 const DESKTOP_QUERY = "(min-width: 64rem)";
@@ -39,9 +35,7 @@ function rememberedCollapsed(): boolean {
 }
 
 export function ShellProvider(props: { children: JSX.Element }): JSX.Element {
-	const [panel, setPanel] = createSignal<Slot | null>(null);
 	const [tabs, setTabs] = createSignal<Slot | null>(null);
-	const [projectChats, setProjectChats] = createSignal<Slot | null>(null);
 	const [collapsed, setCollapsed] = createSignal(rememberedCollapsed());
 	const [drawerOpen, setDrawerOpen] = createSignal(false);
 	const [paletteOpen, setPaletteOpen] = createSignal(false);
@@ -55,14 +49,9 @@ export function ShellProvider(props: { children: JSX.Element }): JSX.Element {
 	});
 
 	const state: ShellState = {
-		panel,
 		tabs,
-		projectChats,
-		// Setters take the slot through a function so Solid does not call it as an updater.
-		setSlot: (name, slot) => {
-			const set = { panel: setPanel, tabs: setTabs, projectChats: setProjectChats }[name];
-			set(() => slot);
-		},
+		// The setter takes the slot through a function so Solid does not call it as an updater.
+		setSlot: (_name, slot) => setTabs(() => slot),
 		collapsed,
 		toggleCollapsed: () => {
 			const next = !collapsed();
@@ -90,8 +79,8 @@ export function useShell(): ShellState {
 }
 
 /**
- * Hand part of a screen to the shell: its list as the workspace panel, or its tabs for the title
- * bar. The shell draws it for as long as the screen is open.
+ * Hand part of a screen to the shell: its tabs for the title bar. The shell draws them for as
+ * long as the screen is open.
  */
 export function ShellSlot(props: { name: SlotName; children: JSX.Element }): JSX.Element {
 	const shell = useShell();

@@ -11,6 +11,8 @@ import {
 import { useAuth } from "@/modules/auth";
 import { Button, RestoreIcon, SegmentedControl, SignOutIcon, Slider } from "@/ui";
 
+import { SettingsNav } from "./settings-nav";
+
 // The presets without the leading `null`, which is the split default swatch drawn first.
 const COLOR_PRESETS = ACCENT_PRESETS.filter((color): color is string => color !== null);
 const CUSTOM_GRADIENT =
@@ -22,6 +24,7 @@ export function AppearanceScreen(): JSX.Element {
 
 	return (
 		<div class="mx-auto flex w-full max-w-[60rem] flex-col py-6 md:py-10">
+			<SettingsNav />
 			<header class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 				<div class="min-w-0">
 					<h1 class="font-semibold text-title">Appearance</h1>

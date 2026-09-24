@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
-import type { ChatEvent } from "../agents/events";
+import type { ChatEvent, Choice } from "../agents/events";
 
 /** A conversation with an agent, as the console lists it. */
 export type ChatSessionRow = {
@@ -95,6 +95,21 @@ export class ChatStore {
 				project TEXT NOT NULL,
 				path TEXT NOT NULL,
 				PRIMARY KEY (owner_id, project)
+			);
+		`);
+		// Each agent's model list, asked of the agent once and kept until someone refreshes it; and
+		// each person's settings per agent (defaults, whether it is offered at all).
+		this.db.exec(`
+			CREATE TABLE IF NOT EXISTS provider_catalogs (
+				provider TEXT PRIMARY KEY,
+				data TEXT NOT NULL,
+				refreshed_at TEXT NOT NULL
+			);
+			CREATE TABLE IF NOT EXISTS provider_settings (
+				owner_id TEXT NOT NULL,
+				provider TEXT NOT NULL,
+				data TEXT NOT NULL,
+				PRIMARY KEY (owner_id, provider)
 			);
 		`);
 		// Added after the first release: older databases gain the column in place.
@@ -212,7 +227,62 @@ export class ChatStore {
 			.run(ownerId, project, path);
 	}
 
+	/** A kept model list, or null when the agent has not been asked yet. */
+	catalog(provider: string): { data: ProviderCatalog; refreshedAt: string } | null {
+		const row = this.db
+			.query<{ data: string; refreshed_at: string }, [string]>(
+				"SELECT data, refreshed_at FROM provider_catalogs WHERE provider = ?",
+			)
+			.get(provider);
+		return row
+			? { data: JSON.parse(row.data) as ProviderCatalog, refreshedAt: row.refreshed_at }
+			: null;
+	}
+
+	setCatalog(provider: string, data: ProviderCatalog): string {
+		const refreshedAt = new Date().toISOString();
+		this.db
+			.query(
+				`INSERT INTO provider_catalogs (provider, data, refreshed_at) VALUES (?, ?, ?)
+				 ON CONFLICT (provider) DO UPDATE SET data = excluded.data, refreshed_at = excluded.refreshed_at`,
+			)
+			.run(provider, JSON.stringify(data), refreshedAt);
+		return refreshedAt;
+	}
+
+	providerSettings(ownerId: string): Record<string, ProviderSettings> {
+		const rows = this.db
+			.query<{ provider: string; data: string }, [string]>(
+				"SELECT provider, data FROM provider_settings WHERE owner_id = ?",
+			)
+			.all(ownerId);
+		return Object.fromEntries(
+			rows.map((row) => [row.provider, JSON.parse(row.data) as ProviderSettings]),
+		);
+	}
+
+	setProviderSettings(ownerId: string, provider: string, settings: ProviderSettings): void {
+		this.db
+			.query(
+				`INSERT INTO provider_settings (owner_id, provider, data) VALUES (?, ?, ?)
+				 ON CONFLICT (owner_id, provider) DO UPDATE SET data = excluded.data`,
+			)
+			.run(ownerId, provider, JSON.stringify(settings));
+	}
+
 	close(): void {
 		this.db.close();
 	}
 }
+
+/** What an agent said it offers: its models (with effort levels) and modes. */
+export type ProviderCatalog = { models: Choice[]; modes?: Choice[] };
+
+/** One person's choices for one agent. Everything is optional: unset means the agent's default. */
+export type ProviderSettings = {
+	/** False hides the agent from new chats. */
+	enabled?: boolean;
+	model?: string;
+	effort?: string;
+	mode?: string;
+};

@@ -1,6 +1,6 @@
-import { useLocation, useNavigate } from "@solidjs/router";
+import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { For, Loading, Show } from "solid-js";
+import { Loading, Show } from "solid-js";
 
 import { useWorkspace } from "@/modules/projects";
 import {
@@ -10,9 +10,6 @@ import {
 	ChatIcon,
 	CloseIcon,
 	ForwardIcon,
-	Menu,
-	type MenuItem,
-	MoreIcon,
 	PlusIcon,
 	SearchIcon,
 	SettingsIcon,
@@ -22,6 +19,8 @@ import {
 } from "@/ui";
 
 import { useShell } from "../context/shell-context";
+
+import { ProjectTree } from "./project-tree";
 
 // One row recipe for every destination: quiet ink at rest, full ink and a fill when current.
 export const NAV_ROW =
@@ -41,14 +40,10 @@ function Hint(props: { children: string }): JSX.Element {
 }
 
 /**
- * The primary sidebar: history and folding, search, destinations, projects and settings. The
- * same component is the desktop column and the top of the phone drawer.
+ * The primary sidebar: history and folding, search, destinations, projects with their threads,
+ * and settings. The same component is the desktop column and the phone drawer.
  */
-export function Sidebar(props: {
-	onClose?: () => void;
-	/** In the phone drawer: the current project's chats are listed under it. */
-	nested?: boolean;
-}): JSX.Element {
+export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 	const shell = useShell();
 	const workspace = useWorkspace();
 	const location = useLocation();
@@ -117,7 +112,7 @@ export function Sidebar(props: {
 					<h2 class="min-w-0 flex-1 truncate px-1 text-ink/50 text-ui-xs">Projects</h2>
 					<button
 						type="button"
-						title="Add project"
+						title="Open a folder as a project"
 						aria-label="Add project"
 						class="focus-ring grid size-5 shrink-0 place-items-center rounded-md text-ink/50 hover:bg-ink/8 hover:text-ink pointer-coarse:size-9"
 						onClick={() => workspace.setAddProjectOpen(true)}
@@ -133,7 +128,7 @@ export function Sidebar(props: {
 						</div>
 					}
 				>
-					<ProjectList nested={props.nested} />
+					<ProjectTree />
 				</Loading>
 			</div>
 
@@ -145,94 +140,6 @@ export function Sidebar(props: {
 				</a>
 			</div>
 		</nav>
-	);
-}
-
-const PROJECT_MENU: MenuItem[] = [
-	{ id: "rename", label: "Rename" },
-	{ id: "folder", label: "Change folder" },
-	{ id: "board", label: "Open board" },
-	{ id: "remove", label: "Remove from Grid", danger: true },
-];
-
-/**
- * The projects: each opens where you left it (its last chat), with a menu to rename it, change
- * its folder, open its board or remove it. In the drawer the current one lists its chats.
- */
-function ProjectList(props: { nested?: boolean }): JSX.Element {
-	const shell = useShell();
-	const workspace = useWorkspace();
-	const navigate = useNavigate();
-
-	function onMenu(slug: string, id: string): void {
-		// The dialogs open over the page, so the phone drawer steps aside first.
-		shell.setDrawerOpen(false);
-		if (id === "rename" || id === "remove") workspace.setProjectAction({ kind: id, slug });
-		else if (id === "folder") workspace.chooseFolderFor(slug);
-		else if (id === "board") navigate(`/board/${slug}`);
-	}
-
-	return (
-		<Show
-			when={workspace.projects().length > 0}
-			fallback={
-				<div class="px-2">
-					<button type="button" class={NAV_ROW} onClick={() => workspace.setAddProjectOpen(true)}>
-						<PlusIcon class="size-4 shrink-0" />
-						Add your first project
-					</button>
-				</div>
-			}
-		>
-			<ul class="flex flex-col gap-px px-2">
-				<For each={workspace.projects()}>
-					{(project) => {
-						const current = () => project.slug === workspace.currentSlug();
-						return (
-							<li>
-								<div class="group/project relative">
-									<a
-										href={`/chat/${project.slug}`}
-										aria-current={current() ? "page" : undefined}
-										class={`${NAV_ROW} pr-9`}
-										onClick={(event) => {
-											if (event.metaKey || event.ctrlKey || event.shiftKey) return;
-											event.preventDefault();
-											// Read at click time: the last chat changes as you work.
-											navigate(workspace.projectHref(project.slug));
-										}}
-									>
-										<ProjectMark name={project.name} />
-										<span class="min-w-0 flex-1 truncate">{project.name}</span>
-										<Show when={!workspace.folders()[project.slug]}>
-											<span
-												class="shrink-0 font-normal text-ink/35 text-ui-caption group-focus-within/project:invisible group-hover/project:invisible pointer-coarse:hidden"
-												title="No folder on this machine yet"
-											>
-												no folder
-											</span>
-										</Show>
-									</a>
-									<div class="absolute inset-y-0 right-0.5 flex items-center opacity-0 transition-opacity duration-fast focus-within:opacity-100 group-hover/project:opacity-100 pointer-coarse:opacity-100">
-										<Menu
-											label={`${project.name} options`}
-											trigger={<MoreIcon class="size-4" />}
-											items={PROJECT_MENU}
-											onSelect={(id) => onMenu(project.slug, id)}
-										/>
-									</div>
-								</div>
-								<Show when={props.nested && current() && shell.projectChats()}>
-									{(chats) => (
-										<div class="mt-px mb-1 ml-4 border-ink/10 border-l pl-1">{chats()()}</div>
-									)}
-								</Show>
-							</li>
-						);
-					}}
-				</For>
-			</ul>
-		</Show>
 	);
 }
 

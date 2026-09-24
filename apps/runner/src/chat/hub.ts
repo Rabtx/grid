@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import type { ChatEvent } from "../agents/events";
 import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
-import type { ChatSessionRow, ChatStore } from "./store";
+import type { ChatSessionRow, ChatStore, ProviderCatalog, ProviderSettings } from "./store";
 
 /** One device watching a session. */
 export type ChatClient = {
@@ -21,6 +21,22 @@ type Live = {
 	flushTimer: ReturnType<typeof setTimeout> | undefined;
 	idleTimer: ReturnType<typeof setTimeout> | undefined;
 };
+
+/** An agent as the console lists it: what it offers, when that was asked, and your settings. */
+export type ProviderListing = ProviderInfo & {
+	refreshedAt: string | null;
+	settings: ProviderSettings;
+};
+
+function merge(
+	info: ProviderInfo,
+	catalog: ProviderCatalog,
+): Pick<ProviderInfo, "models" | "modes"> {
+	return {
+		models: catalog.models.length ? catalog.models : info.models,
+		modes: catalog.modes ?? info.modes,
+	};
+}
 
 export class ChatError extends Error {
 	constructor(
@@ -58,42 +74,74 @@ export class ChatHub {
 	) {}
 
 	/**
-	 * Every agent, with its real model list where the agent can give one (exact names, effort
-	 * levels). A catalog that fails or is slow leaves the basic list rather than failing the call.
+	 * Every agent, with its model list (exact names, effort levels) and this person's settings for
+	 * it. Model lists are asked of each agent once and kept, since they rarely change;
+	 * `refreshProvider` asks again. A list that fails leaves the basic one rather than failing.
 	 */
-	async providerList(): Promise<ProviderInfo[]> {
+	async providerList(ownerId: string): Promise<ProviderListing[]> {
+		const settings = this.store.providerSettings(ownerId);
 		return Promise.all(
-			[...this.providers.values()].map(async (provider) => {
-				const info = provider.info();
-				if (!info.available || !provider.catalog) return info;
-				try {
-					const catalog = await provider.catalog();
-					return {
-						...info,
-						models: catalog.models.length ? catalog.models : info.models,
-						modes: catalog.modes ?? info.modes,
-					};
-				} catch (cause) {
-					console.warn(
-						`[runner] ${info.name} did not list its models:`,
-						cause instanceof Error ? cause.message : cause,
-					);
-					return info;
-				}
-			}),
+			[...this.providers.keys()].map(async (id) => ({
+				...(await this.providerInfo(id, false)),
+				settings: settings[id] ?? {},
+			})),
 		);
+	}
+
+	/** Ask one agent for its models again, keep the answer, and return the fresh listing. */
+	async refreshProvider(ownerId: string, id: string): Promise<ProviderListing> {
+		if (!this.providers.has(id)) throw new ChatError(`No agent called ${id}`, 404);
+		return {
+			...(await this.providerInfo(id, true)),
+			settings: this.store.providerSettings(ownerId)[id] ?? {},
+		};
+	}
+
+	setProviderSettings(ownerId: string, id: string, settings: ProviderSettings): void {
+		if (!this.providers.has(id)) throw new ChatError(`No agent called ${id}`, 404);
+		this.store.setProviderSettings(ownerId, id, settings);
+	}
+
+	private async providerInfo(
+		id: string,
+		fresh: boolean,
+	): Promise<ProviderInfo & { refreshedAt: string | null }> {
+		const provider = this.providers.get(id) as Provider;
+		const info = provider.info();
+		if (!info.available || !provider.catalog) return { ...info, refreshedAt: null };
+		const kept = fresh ? null : this.store.catalog(id);
+		if (kept) return { ...info, ...merge(info, kept.data), refreshedAt: kept.refreshedAt };
+		try {
+			const catalog = await provider.catalog(fresh);
+			const refreshedAt = catalog.models.length ? this.store.setCatalog(id, catalog) : null;
+			return { ...info, ...merge(info, catalog), refreshedAt };
+		} catch (cause) {
+			console.warn(
+				`[runner] ${info.name} did not list its models:`,
+				cause instanceof Error ? cause.message : cause,
+			);
+			const previous = this.store.catalog(id);
+			return previous
+				? { ...info, ...merge(info, previous.data), refreshedAt: previous.refreshedAt }
+				: { ...info, refreshedAt: null };
+		}
 	}
 
 	list(ownerId: string, project: string): ChatSessionRow[] {
 		return this.store.list(ownerId, project);
 	}
 
-	/** Where a project's code lives on this machine: its linked folder, else the usual layout. */
+	/**
+	 * Where a project's code lives on this machine. The folder is the project: its linked folder,
+	 * else `~/Projects/<slug>` when that exists; otherwise there is nowhere to work and a chat
+	 * cannot start.
+	 */
 	defaultCwd(ownerId: string, project: string): string {
 		const linked = this.store.projectFolders(ownerId)[project];
 		if (linked && isDirectory(linked)) return linked;
 		const guess = join(this.projectsDir, project);
-		return isDirectory(guess) ? guess : homedir();
+		if (isDirectory(guess)) return guess;
+		throw new ChatError("Choose this project's folder first: chats work inside it.", 409);
 	}
 
 	projectFolders(ownerId: string): Record<string, string> {

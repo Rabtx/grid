@@ -11,7 +11,30 @@ export async function chatRequest(
 	hub: ChatHub,
 ): Promise<Response | null> {
 	if (url.pathname === "/chat/providers" && request.method === "GET") {
-		return Response.json({ data: await hub.providerList() });
+		return Response.json({ data: await hub.providerList(userId) });
+	}
+	const provider = url.pathname.match(/^\/chat\/providers\/([\w-]+)\/(refresh|settings)$/);
+	if (provider) {
+		const [, id, action] = provider;
+		if (action === "refresh" && request.method === "POST") {
+			return runAsync(async () => Response.json({ data: await hub.refreshProvider(userId, id) }));
+		}
+		if (action === "settings" && request.method === "PUT") {
+			const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+			if (!body || typeof body !== "object") return failure(400, "Send the settings");
+			const text = (key: string) =>
+				typeof body[key] === "string" && body[key] ? (body[key] as string) : undefined;
+			return run(() => {
+				hub.setProviderSettings(userId, id, {
+					enabled: typeof body.enabled === "boolean" ? body.enabled : undefined,
+					model: text("model"),
+					effort: text("effort"),
+					mode: text("mode"),
+				});
+				return new Response(null, { status: 204 });
+			});
+		}
+		return failure(405, "Method not allowed");
 	}
 	if (url.pathname === "/chat/sessions" && request.method === "GET") {
 		const project = url.searchParams.get("project");
@@ -106,6 +129,15 @@ export function chatCommand(
 function run(respond: () => Response): Response {
 	try {
 		return respond();
+	} catch (cause) {
+		if (cause instanceof ChatError) return failure(cause.status, cause.message);
+		throw cause;
+	}
+}
+
+async function runAsync(respond: () => Promise<Response>): Promise<Response> {
+	try {
+		return await respond();
 	} catch (cause) {
 		if (cause instanceof ChatError) return failure(cause.status, cause.message);
 		throw cause;

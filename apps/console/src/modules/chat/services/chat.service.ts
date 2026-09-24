@@ -1,4 +1,4 @@
-import type { ChatProvider, ChatSession } from "../types/chat.types";
+import type { ChatProvider, ChatSession, ProviderSettings } from "../types/chat.types";
 
 /** The runner, on the console's own origin (`/runner`), like the terminals. */
 function runnerUrl(path: string): string {
@@ -36,6 +36,14 @@ async function call<T>(path: string, token: string, init: RequestInit = {}): Pro
 
 export const chatService = {
 	providers: (token: string) => call<ChatProvider[]>("/chat/providers", token),
+	/** Ask one agent for its models again (they are kept otherwise). */
+	refreshProvider: (token: string, id: string) =>
+		call<ChatProvider>(`/chat/providers/${id}/refresh`, token, { method: "POST" }),
+	saveProviderSettings: (token: string, id: string, settings: ProviderSettings) =>
+		call<void>(`/chat/providers/${id}/settings`, token, {
+			method: "PUT",
+			body: JSON.stringify(settings),
+		}),
 	sessions: (token: string, project: string) =>
 		call<ChatSession[]>(`/chat/sessions?project=${encodeURIComponent(project)}`, token),
 	create: (

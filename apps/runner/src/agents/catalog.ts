@@ -1,11 +1,14 @@
 import type { Choice } from "./events";
 
-/** Keep an expensive lookup (spawning a CLI to list its models) for a while, sharing one run. */
-export function cached<T>(ttlMs: number, load: () => Promise<T>): () => Promise<T> {
+/**
+ * Keep an expensive lookup (spawning a CLI to list its models) for a while, sharing one run.
+ * `fresh` skips the kept value, for an explicit refresh.
+ */
+export function cached<T>(ttlMs: number, load: () => Promise<T>): (fresh?: boolean) => Promise<T> {
 	let value: { at: number; data: T } | null = null;
 	let pending: Promise<T> | null = null;
-	return () => {
-		if (value && Date.now() - value.at < ttlMs) return Promise.resolve(value.data);
+	return (fresh = false) => {
+		if (!fresh && value && Date.now() - value.at < ttlMs) return Promise.resolve(value.data);
 		pending ??= load()
 			.then((data) => {
 				value = { at: Date.now(), data };

@@ -1,19 +1,21 @@
 import { useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import { useWorkspace } from "@/modules/projects";
-import { useShell, ShellSlot } from "@/modules/shell";
-import { ErrorNotice, FolderIcon } from "@/ui";
+import { ShellSlot, useShell } from "@/modules/shell";
+import { Button, ErrorNotice, FolderIcon } from "@/ui";
 
 import { chatService } from "../services/chat.service";
+import { offeredProviders, providersStore } from "../stores/providers";
+import { threadsStore } from "../stores/threads";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
 
 import { Composer } from "./composer";
 import { Conversation, queueFirstMessage } from "./conversation";
 import { ModelPicker, ModePicker } from "./pickers";
-import { ProjectChats, SessionList, SessionTabs } from "./session-list";
+import { SessionTabs } from "./session-list";
 
 const AGENT_KEY = "grid.chat.agent";
 
@@ -88,41 +90,17 @@ export function ChatScreen(): JSX.Element {
 		workspace.projects().find((item) => item.slug === project())?.name ?? project() ?? "";
 	const folder = () => (project() ? workspace.folders()[project() ?? ""] : undefined);
 
-	const [providers, setProviders] = createSignal<ChatProvider[]>([]);
-	const [sessions, setSessions] = createSignal<ChatSession[]>([]);
-	const [loaded, setLoaded] = createSignal(false);
-	// Which project the loaded list belongs to, so a switch never judges the new URL by old chats.
-	const [loadedFor, setLoadedFor] = createSignal<string | null>(null);
-	const [error, setError] = createSignal<string | null>(null);
+	const providers = () => providersStore.providers();
+	const sessions = () => threadsStore.threads(project() ?? "");
 	const [tabIds, setTabIds] = createSignal<string[]>([]);
 
-	async function loadSessions(slug: string, token: string): Promise<void> {
-		try {
-			setSessions(await chatService.sessions(token, slug));
-			setLoadedFor(slug);
-			setError(null);
-		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : "Could not load chats");
-		} finally {
-			setLoaded(true);
-		}
-	}
-
-	onSettled(() => {
-		const token = untrack(auth.token);
-		if (!token) return;
-		chatService
-			.providers(token)
-			.then(setProviders, (cause: unknown) =>
-				setError(cause instanceof Error ? cause.message : "Could not reach the runner"),
-			);
-	});
-
-	// Read in the effect's tracked half, so a project switch (or a renewed token) reloads the list.
+	// The agents are read once per visit and kept; the threads are shared with the sidebar.
 	createEffect(
 		() => [project(), auth.token()] as const,
 		([slug, token]) => {
-			if (slug && token) void loadSessions(slug, token);
+			if (!token) return;
+			void providersStore.load(token);
+			if (slug) void threadsStore.load(token, slug);
 		},
 	);
 
@@ -135,9 +113,9 @@ export function ChatScreen(): JSX.Element {
 	);
 	// A chat that no longer exists (removed on the runner) falls back to a new one.
 	createEffect(
-		() => [loadedFor(), project(), activeId(), sessions()] as const,
-		([listed, slug, id, list]) => {
-			if (!slug || listed !== slug || !id || list.some((session) => session.id === id)) return;
+		() => [project(), activeId(), sessions(), threadsStore.loaded(project() ?? "")] as const,
+		([slug, id, list, loaded]) => {
+			if (!slug || !id || !loaded || list.some((session) => session.id === id)) return;
 			workspace.rememberChat(slug, null);
 			navigate(`/chat/${slug}`, { replace: true });
 		},
@@ -182,35 +160,8 @@ export function ChatScreen(): JSX.Element {
 		navigate(neighbour ? chatUrl(neighbour) : chatUrl());
 	}
 
-	function updateSession(session: ChatSession): void {
-		setSessions((list) => {
-			const rest = list.filter((item) => item.id !== session.id);
-			return [session, ...rest].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-		});
-	}
-
 	return (
 		<>
-			<ShellSlot name="panel">
-				<SessionList
-					projectName={projectName()}
-					sessions={sessions()}
-					providers={providers()}
-					loaded={loaded()}
-					error={error()}
-					activeId={activeId()}
-					hrefFor={chatUrl}
-					onNew={() => navigate(chatUrl())}
-				/>
-			</ShellSlot>
-			<ShellSlot name="projectChats">
-				<ProjectChats
-					sessions={sessions()}
-					activeId={activeId()}
-					hrefFor={chatUrl}
-					newHref={chatUrl()}
-				/>
-			</ShellSlot>
 			<ShellSlot name="tabs">
 				<SessionTabs
 					tabs={tabs()}
@@ -231,13 +182,13 @@ export function ChatScreen(): JSX.Element {
 						folder={folder()}
 						onChooseFolder={() => workspace.chooseFolderFor(project())}
 						onCreated={(session) => {
-							updateSession(session);
+							threadsStore.upsert(session);
 							navigate(chatUrl(session.id));
 						}}
 					/>
 				}
 			>
-				{(id) => <Conversation id={id} providers={providers()} onSession={updateSession} />}
+				{(id) => <Conversation id={id} providers={providers()} onSession={threadsStore.upsert} />}
 			</Show>
 		</>
 	);
@@ -254,7 +205,8 @@ function NewChat(props: {
 	onCreated: (session: ChatSession) => void;
 }): JSX.Element {
 	const auth = useAuth();
-	const available = () => props.providers.filter((provider) => provider.available);
+	// Installed agents that are not turned off in Settings → Agents.
+	const available = () => offeredProviders(props.providers);
 	const [agent, setAgent] = createSignal<string | null>(null);
 	const [error, setError] = createSignal<string | null>(null);
 
@@ -270,14 +222,18 @@ function NewChat(props: {
 	const model = () => {
 		const provider = chosen();
 		if (!provider) return null;
-		const wanted = pickedModel() ?? remembered(modelKey(provider.id));
+		// Your pick, else the last one used, else the default set in Settings, else the first.
+		const wanted =
+			pickedModel() ?? remembered(modelKey(provider.id)) ?? provider.settings?.model ?? null;
 		return models().find((item) => item.id === wanted)?.id ?? models()[0]?.id ?? null;
 	};
 	const currentModel = () => models().find((item) => item.id === model());
 	const efforts = () => currentModel()?.efforts ?? [];
 	const effort = () => {
 		const provider = chosen();
-		const wanted = pickedEffort() ?? (provider ? remembered(effortKey(provider.id)) : null);
+		const wanted =
+			pickedEffort() ??
+			(provider ? (remembered(effortKey(provider.id)) ?? provider.settings?.effort ?? null) : null);
 		return (
 			efforts().find((level) => level.id === wanted)?.id ?? currentModel()?.defaultEffort ?? null
 		);
@@ -286,15 +242,17 @@ function NewChat(props: {
 	async function start(text: string): Promise<boolean> {
 		const token = auth.token();
 		const provider = chosen();
-		if (!token || !provider || !props.project) return false;
+		if (!token || !provider || !props.project || !props.folder) return false;
 		setError(null);
 		try {
 			const session = await chatService.create(token, {
 				project: props.project,
 				provider: provider.id,
+				// The project's folder, sent explicitly: the chat works there and resumes there.
+				cwd: props.folder,
 				model: model() ?? undefined,
 				effort: effort() ?? undefined,
-				mode: mode() ?? undefined,
+				mode: mode() ?? provider.settings?.mode ?? undefined,
 			});
 			remember(AGENT_KEY, provider.id);
 			remember(modelKey(provider.id), model());
@@ -321,15 +279,26 @@ function NewChat(props: {
 						</div>
 					)}
 				</Show>
+				<Show when={!props.folder && props.project}>
+					<div class="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-ink/10 bg-ink/4 px-3 py-2.5">
+						<FolderIcon class="size-4 shrink-0 text-ink/50" />
+						<p class="min-w-0 flex-1 text-ink/70 text-ui-sm">
+							A project is a folder: choose this project's folder so its threads work inside it.
+						</p>
+						<Button variant="primary" onClick={() => props.onChooseFolder()}>
+							Choose folder
+						</Button>
+					</div>
+				</Show>
 				<Show
 					when={available().length > 0 || props.providers.length === 0}
 					fallback={
-						<ErrorNotice message="No supported agent is installed on this machine (Claude Code, opencode, or an ACP agent)." />
+						<ErrorNotice message="No agent is available: install one (Claude Code, opencode, Antigravity or an ACP agent), or turn one on in Settings → Agents." />
 					}
 				>
 					<Composer
 						running={false}
-						disabled={!chosen() || !props.project}
+						disabled={!chosen() || !props.project || !props.folder}
 						onSend={start}
 						header={<FolderLine folder={props.folder} onChoose={props.onChooseFolder} />}
 						controls={
@@ -361,7 +330,12 @@ function NewChat(props: {
 										<Show when={provider().modes.length > 0}>
 											<ModePicker
 												modes={provider().modes}
-												mode={mode() ?? provider().defaultMode ?? provider().modes[0].id}
+												mode={
+													mode() ??
+													provider().settings?.mode ??
+													provider().defaultMode ??
+													provider().modes[0].id
+												}
 												onMode={setMode}
 											/>
 										</Show>

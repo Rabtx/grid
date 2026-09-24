@@ -81,8 +81,10 @@ describe("AppShell", () => {
 		await settle();
 
 		const links = [
-			...container.querySelectorAll<HTMLAnchorElement>('nav[aria-label="Navigation"] ul a'),
-		];
+			...container.querySelectorAll<HTMLAnchorElement>(
+				'nav[aria-label="Navigation"] ul a:not([aria-label])',
+			),
+		].filter((link) => link.querySelector(".truncate"));
 		expect(links.map((link) => link.querySelector(".truncate")?.textContent)).toEqual([
 			"Alpha",
 			"Beta",
