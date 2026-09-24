@@ -49,7 +49,7 @@
 
 @media (prefers-color-scheme: dark) {
 	:root:not(.light) {
-		--canvas-lightness: 9%;
+		--canvas-lightness: var(--dark-lightness, 9%);
 		--ink-lightness: 92%;
 		--selection-subtle-strength: 8%;
 		--selection-strength: 10%;
@@ -69,7 +69,7 @@
 }
 
 :root.dark {
-	--canvas-lightness: 9%;
+	--canvas-lightness: var(--dark-lightness, 9%);
 	--ink-lightness: 92%;
 	--selection-subtle-strength: 8%;
 	--selection-strength: 10%;
@@ -124,8 +124,9 @@
 	--muted-foreground: color-mix(in srgb, var(--ink) 55%, transparent);
 	--secondary: color-mix(in srgb, var(--ink) 8%, var(--canvas));
 	--secondary-foreground: var(--ink);
-	--primary: var(--primary-fill);
-	--primary-foreground: var(--primary-ink);
+	/* A user-chosen accent (Settings → Appearance) replaces the ink-inverted primary action. */
+	--primary: var(--user-accent, var(--primary-fill));
+	--primary-foreground: var(--user-accent-ink, var(--primary-ink));
 	--destructive: var(--signal-danger);
 	--border: color-mix(in srgb, var(--ink) 10%, transparent);
 	--input: color-mix(in srgb, var(--ink) 12%, transparent);
@@ -279,10 +280,14 @@
 	--ease-sheet: var(--ease-sheet);
 }
 
-/* Navigation layer: the canvas at 85% over the window, blurred. */
+/* Navigation layer: the canvas at the glass opacity (default 85%) over what is behind, blurred. */
 @utility glass {
-	background: color-mix(in srgb, var(--canvas) 85%, transparent);
-	backdrop-filter: blur(20px) saturate(140%);
+	background: color-mix(
+		in srgb,
+		var(--canvas) calc(var(--glass-opacity, 0.85) * 100%),
+		transparent
+	);
+	backdrop-filter: blur(var(--glass-blur, 24px)) saturate(140%);
 }
 
 /* Keyboard-only focus, the one place the accent outlines something. */
@@ -297,6 +302,8 @@
 @layer base {
 	:root {
 		scrollbar-color: color-mix(in srgb, var(--ink) 16%, transparent) transparent;
+		/* Interface scale (Settings → Appearance): every rem-based size follows the root. */
+		font-size: calc(var(--ui-scale, 1) * 100%);
 	}
 	body {
 		font-family: var(--font-sans);

@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, For } from "solid-js";
 
-import { applyDensity, applyTheme, type Density, type Theme } from "@/lib/preferences";
+import { appearance, updateAppearance } from "@/lib/appearance";
 import { StatusIcon, TASK_STATUS_LABELS, TASK_STATUSES } from "@/modules/projects";
 import {
 	Button,
@@ -29,8 +29,6 @@ import {
  * against the prototype. Registered only when `import.meta.env.DEV`, so it never ships.
  */
 export function DevUiRoute(): JSX.Element {
-	const [theme, setTheme] = createSignal<Theme>("system");
-	const [density, setDensity] = createSignal<Density>("comfortable");
 	const [view, setView] = createSignal<"status" | "owner">("status");
 	const [sheet, setSheet] = createSignal(false);
 	const [panel, setPanel] = createSignal(false);
@@ -49,11 +47,8 @@ export function DevUiRoute(): JSX.Element {
 							{ value: "light", label: "Light" },
 							{ value: "dark", label: "Dark" },
 						]}
-						value={theme()}
-						onChange={(value) => {
-							setTheme(value);
-							applyTheme(value);
-						}}
+						value={appearance().theme}
+						onChange={(theme) => updateAppearance({ theme })}
 					/>
 					<SegmentedControl
 						label="Density"
@@ -62,11 +57,8 @@ export function DevUiRoute(): JSX.Element {
 							{ value: "comfortable", label: "Comfortable" },
 							{ value: "spacious", label: "Spacious" },
 						]}
-						value={density()}
-						onChange={(value) => {
-							setDensity(value);
-							applyDensity(value);
-						}}
+						value={appearance().density}
+						onChange={(density) => updateAppearance({ density })}
 					/>
 				</div>
 			</header>
