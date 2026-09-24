@@ -6,7 +6,9 @@ import type { JSX } from "@solidjs/web";
 const RANGE =
 	"h-1 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-ink/15 focus-ring md:w-44 " +
 	"[&::-moz-range-thumb]:size-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-ink " +
-	"[&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink";
+	"[&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink " +
+	// A fingertip needs a bigger thumb than a cursor does.
+	"pointer-coarse:[&::-moz-range-thumb]:size-6 pointer-coarse:[&::-webkit-slider-thumb]:size-6";
 
 /**
  * A labelled range: the track on the left, the formatted value right-aligned beside it. The
