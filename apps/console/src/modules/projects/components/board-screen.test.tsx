@@ -1,11 +1,14 @@
 import { createRouter, memoryHistory } from "@solidjs/router";
+import type { JSX } from "@solidjs/web";
 import { render } from "@solidjs/web";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/modules/auth";
-import { WorkspaceProvider } from "@/modules/projects/context/workspace-context";
+import { WorkspaceProvider, useWorkspace } from "@/modules/projects/context/workspace-context";
+import { Toaster } from "@/ui";
 
 import { BoardScreen } from "./board-screen";
+import { NewTaskDialog } from "./new-task-dialog";
 
 const projects = [
 	{ slug: "alpha", name: "Alpha" },
@@ -91,6 +94,16 @@ function clickMenuItem(container: HTMLElement, menu: string, item: string): void
 	button?.click();
 }
 
+/** Opens the new-task sheet through the workspace, the way the shell's control does. */
+function NewTaskTrigger(): JSX.Element {
+	const workspace = useWorkspace();
+	return (
+		<button type="button" onClick={() => workspace.setNewTaskOpen(true)}>
+			New task
+		</button>
+	);
+}
+
 describe("BoardScreen", () => {
 	let container: HTMLElement;
 	let dispose: () => void;
@@ -101,6 +114,19 @@ describe("BoardScreen", () => {
 	let holdPatch: boolean;
 	let releasePatch: () => void;
 	let patchFailure: string | null;
+
+	beforeAll(() => {
+		if (!HTMLDialogElement.prototype.showModal) {
+			HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+				this.open = true;
+			});
+		}
+		if (!HTMLDialogElement.prototype.close) {
+			HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
+				this.open = false;
+			});
+		}
+	});
 
 	beforeEach(() => {
 		calls = [];
@@ -123,6 +149,18 @@ describe("BoardScreen", () => {
 						user: { id: "u1", email: "person@example.com", username: "person" },
 					});
 				}
+				if (method === "POST" && url.endsWith("/tasks")) {
+					const created = {
+						...tasks[0],
+						key: "TASK-3",
+						number: 3,
+						title: String(body?.title ?? "New task"),
+						status: "backlog",
+						position: -1,
+					};
+					board = [created, ...board];
+					return json(created);
+				}
 				if (method === "PATCH") {
 					if (holdPatch) await new Promise<void>((resolve) => (releasePatch = resolve));
 					if (patchFailure) return fail(patchFailure);
@@ -140,7 +178,19 @@ describe("BoardScreen", () => {
 		);
 
 		const Router = createRouter({
-			routes: [{ path: "/board/:slug", component: () => <BoardScreen /> }],
+			routes: [
+				{
+					path: "/board/:slug",
+					component: () => (
+						<>
+							<BoardScreen />
+							<NewTaskTrigger />
+							<NewTaskDialog />
+							<Toaster />
+						</>
+					),
+				},
+			],
 			history: memoryHistory("/board/alpha"),
 		});
 
@@ -318,5 +368,45 @@ describe("BoardScreen", () => {
 		);
 		expect(laneTaskKeys(container, "backlog")).toEqual(["TASK-1"]);
 		expect(laneTaskKeys(container, "in_progress")).toEqual([]);
+	});
+
+	it("toasts after adding a task and keeps the sheet open with ctrl+enter", async () => {
+		await settle();
+
+		const trigger = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(
+			(button) => button.textContent?.trim() === "New task",
+		);
+		expect(trigger).toBeDefined();
+		trigger?.click();
+		await settle();
+
+		const input = container.querySelector<HTMLInputElement>('input[aria-label="Task title"]');
+		expect(input).not.toBeNull();
+		if (!input) return;
+		input.value = "Write the docs";
+		input.dispatchEvent(new Event("input", { bubbles: true }));
+		await settle();
+
+		const form = input.closest("form");
+		expect(form).not.toBeNull();
+		const addAnother = new Event("submit", { bubbles: true, cancelable: true });
+		Object.assign(addAnother, { ctrlKey: true, metaKey: false });
+		form?.dispatchEvent(addAnother);
+		await settle();
+
+		expect(container.textContent).toContain("Added TASK-3");
+		const sheet = container.querySelector<HTMLDialogElement>('dialog[aria-label="New task"]');
+		expect(sheet?.open).toBe(true);
+		expect(input.value).toBe("");
+		expect(document.activeElement).toBe(input);
+
+		input.value = "One more";
+		input.dispatchEvent(new Event("input", { bubbles: true }));
+		await settle();
+		form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+		await settle();
+
+		expect(sheet?.open).toBe(false);
+		expect(container.textContent).toContain("Added TASK-3");
 	});
 });
