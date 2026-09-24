@@ -95,10 +95,14 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
 	return isSuccess<T>(payload) ? payload.data : (payload as T);
 }
 
-/** Without an explicit URL, reach the API on whichever host served this page (localhost or a LAN IP). */
+/**
+ * Without an explicit URL, call the API on this page's own origin: the console's dev and preview
+ * servers forward `/api` to it (see vite.config.ts), so it works on localhost, a LAN IP or an
+ * HTTPS tunnel alike.
+ */
 function defaultApiUrl(): string {
 	if (typeof window === "undefined") return "http://localhost:4000";
-	return `${window.location.protocol}//${window.location.hostname}:4000`;
+	return window.location.origin;
 }
 
 function resolveApiOrigin(value: string): string {
