@@ -8,7 +8,8 @@
 		"start": "bun run src/main.ts",
 		"lint": "oxlint .",
 		"typecheck": "tsc --noEmit",
-		"test": "bun test"
+		"test": "bun test",
+		"smoke": "bun run scripts/smoke.ts"
 	},
 	"devDependencies": {
 		"@types/bun": "1.4.2",
