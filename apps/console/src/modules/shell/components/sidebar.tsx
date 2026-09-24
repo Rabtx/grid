@@ -1,4 +1,4 @@
-import { useLocation } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { For, Loading, Show } from "solid-js";
 
@@ -10,6 +10,9 @@ import {
 	ChatIcon,
 	CloseIcon,
 	ForwardIcon,
+	Menu,
+	type MenuItem,
+	MoreIcon,
 	PlusIcon,
 	SearchIcon,
 	SettingsIcon,
@@ -43,8 +46,8 @@ function Hint(props: { children: string }): JSX.Element {
  */
 export function Sidebar(props: {
 	onClose?: () => void;
-	/** In the drawer above the workspace panel: natural height instead of filling the column. */
-	stacked?: boolean;
+	/** In the phone drawer: the current project's chats are listed under it. */
+	nested?: boolean;
 }): JSX.Element {
 	const shell = useShell();
 	const workspace = useWorkspace();
@@ -52,10 +55,7 @@ export function Sidebar(props: {
 	const current = (prefix: string) => (location.pathname.startsWith(prefix) ? "page" : undefined);
 
 	return (
-		<nav
-			aria-label="Navigation"
-			class={`flex min-h-0 flex-col ${props.stacked ? "shrink-0" : "h-full"}`}
-		>
+		<nav aria-label="Navigation" class="flex h-full min-h-0 flex-col">
 			<div class="flex h-10 shrink-0 select-none items-center gap-0.5 pr-1.5 pl-3 pointer-coarse:h-12">
 				<a href="/" class="focus-ring mr-auto rounded-sm" aria-label="Grid home">
 					<BrandMark class="size-5" />
@@ -112,9 +112,7 @@ export function Sidebar(props: {
 				</a>
 			</div>
 
-			<div
-				class={`flex min-h-0 flex-col pb-2 ${props.stacked ? "" : "flex-1 overflow-y-auto overscroll-contain"}`}
-			>
+			<div class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-2">
 				<div class="flex items-center gap-1 px-3 pt-1 pb-1.5">
 					<h2 class="min-w-0 flex-1 truncate px-1 text-ink/50 text-ui-xs">Projects</h2>
 					<button
@@ -135,13 +133,11 @@ export function Sidebar(props: {
 						</div>
 					}
 				>
-					<ProjectList />
+					<ProjectList nested={props.nested} />
 				</Loading>
 			</div>
 
-			<div
-				class={`flex shrink-0 flex-col gap-px p-2 ${props.stacked ? "" : "pb-[max(0.5rem,env(safe-area-inset-bottom))]"}`}
-			>
+			<div class="flex shrink-0 flex-col gap-px p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
 				<a href="/settings/appearance" aria-current={current("/settings")} class={NAV_ROW}>
 					<SettingsIcon class="size-4 shrink-0" />
 					<span class="min-w-0 flex-1 truncate">Settings</span>
@@ -152,12 +148,29 @@ export function Sidebar(props: {
 	);
 }
 
-function ProjectList(): JSX.Element {
+const PROJECT_MENU: MenuItem[] = [
+	{ id: "rename", label: "Rename" },
+	{ id: "folder", label: "Change folder" },
+	{ id: "board", label: "Open board" },
+	{ id: "remove", label: "Remove from Grid", danger: true },
+];
+
+/**
+ * The projects: each opens where you left it (its last chat), with a menu to rename it, change
+ * its folder, open its board or remove it. In the drawer the current one lists its chats.
+ */
+function ProjectList(props: { nested?: boolean }): JSX.Element {
+	const shell = useShell();
 	const workspace = useWorkspace();
-	const location = useLocation();
-	// Switching project keeps you where you are: in Chat, you land in that project's chats.
-	const hrefFor = (slug: string) =>
-		location.pathname.startsWith("/chat") ? `/chat/${slug}` : `/board/${slug}`;
+	const navigate = useNavigate();
+
+	function onMenu(slug: string, id: string): void {
+		// The dialogs open over the page, so the phone drawer steps aside first.
+		shell.setDrawerOpen(false);
+		if (id === "rename" || id === "remove") workspace.setProjectAction({ kind: id, slug });
+		else if (id === "folder") workspace.chooseFolderFor(slug);
+		else if (id === "board") navigate(`/board/${slug}`);
+	}
 
 	return (
 		<Show
@@ -173,26 +186,50 @@ function ProjectList(): JSX.Element {
 		>
 			<ul class="flex flex-col gap-px px-2">
 				<For each={workspace.projects()}>
-					{(project) => (
-						<li>
-							<a
-								href={hrefFor(project.slug)}
-								aria-current={project.slug === workspace.currentSlug() ? "page" : undefined}
-								class={NAV_ROW}
-							>
-								<ProjectMark name={project.name} />
-								<span class="min-w-0 flex-1 truncate">{project.name}</span>
-								<Show when={!workspace.folders()[project.slug]}>
-									<span
-										class="shrink-0 font-normal text-ink/35 text-ui-caption"
-										title="No folder on this machine yet"
+					{(project) => {
+						const current = () => project.slug === workspace.currentSlug();
+						return (
+							<li>
+								<div class="group/project relative">
+									<a
+										href={`/chat/${project.slug}`}
+										aria-current={current() ? "page" : undefined}
+										class={`${NAV_ROW} pr-9`}
+										onClick={(event) => {
+											if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+											event.preventDefault();
+											// Read at click time: the last chat changes as you work.
+											navigate(workspace.projectHref(project.slug));
+										}}
 									>
-										no folder
-									</span>
+										<ProjectMark name={project.name} />
+										<span class="min-w-0 flex-1 truncate">{project.name}</span>
+										<Show when={!workspace.folders()[project.slug]}>
+											<span
+												class="shrink-0 font-normal text-ink/35 text-ui-caption group-focus-within/project:invisible group-hover/project:invisible pointer-coarse:hidden"
+												title="No folder on this machine yet"
+											>
+												no folder
+											</span>
+										</Show>
+									</a>
+									<div class="absolute inset-y-0 right-0.5 flex items-center opacity-0 transition-opacity duration-fast focus-within:opacity-100 group-hover/project:opacity-100 pointer-coarse:opacity-100">
+										<Menu
+											label={`${project.name} options`}
+											trigger={<MoreIcon class="size-4" />}
+											items={PROJECT_MENU}
+											onSelect={(id) => onMenu(project.slug, id)}
+										/>
+									</div>
+								</div>
+								<Show when={props.nested && current() && shell.projectChats()}>
+									{(chats) => (
+										<div class="mt-px mb-1 ml-4 border-ink/10 border-l pl-1">{chats()()}</div>
+									)}
 								</Show>
-							</a>
-						</li>
-					)}
+							</li>
+						);
+					}}
 				</For>
 			</ul>
 		</Show>

@@ -1,7 +1,11 @@
 export { BoardScreen } from "./components/board-screen";
 export { NewTaskDialog } from "./components/new-task-dialog";
 export { ProjectRedirect } from "./components/project-redirect";
-export { AddProjectSheet, ChooseFolderSheet } from "./components/project-sheets";
+export {
+	AddProjectSheet,
+	ChooseFolderSheet,
+	ProjectActionDialogs,
+} from "./components/project-sheets";
 export { StatusIcon } from "./components/status-icon";
 export { TaskPanel } from "./components/task-panel";
 export { useWorkspace, WorkspaceProvider } from "./context/workspace-context";

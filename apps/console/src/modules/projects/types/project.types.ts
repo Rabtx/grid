@@ -39,6 +39,14 @@ export type CreateProjectInput = {
 	repoUrl?: string | null;
 };
 
+/** A rename, a new repository link, or archiving (which removes it from the console). */
+export type UpdateProjectInput = {
+	name?: string;
+	summary?: string | null;
+	repoUrl?: string | null;
+	status?: "active" | "archived";
+};
+
 export type Task = {
 	key: string;
 	number: number;

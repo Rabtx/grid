@@ -1,9 +1,19 @@
 import { useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createSignal, Match, Show, Switch } from "solid-js";
+import { createEffect, createSignal, Match, Show, Switch } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
-import { Button, CloseIcon, ErrorNotice, Field, FolderIcon, IconButton, Input, Sheet } from "@/ui";
+import {
+	Button,
+	CloseIcon,
+	ConfirmDialog,
+	ErrorNotice,
+	Field,
+	FolderIcon,
+	IconButton,
+	Input,
+	Sheet,
+} from "@/ui";
 
 import { useWorkspace } from "../context/workspace-context";
 import { slugify } from "../lib/slug";
@@ -45,6 +55,15 @@ export function AddProjectSheet(): JSX.Element {
 		setFolder(null);
 		setError(null);
 		setSlugEdited(false);
+	}
+
+	// A short name no other project uses: `app`, then `app-2`, `app-3`…
+	function uniqueSlug(name: string): string {
+		const taken = new Set(workspace.projects().map((project) => project.slug));
+		const base = slugify(name) || "project";
+		let slug = base;
+		for (let n = 2; taken.has(slug); n++) slug = `${base}-${n}`;
+		return slug;
 	}
 
 	async function pick(path: string): Promise<void> {
@@ -127,39 +146,48 @@ export function AddProjectSheet(): JSX.Element {
 											maxlength={120}
 											onInput={(event) => {
 												setName(event.currentTarget.value);
-												if (!slugEdited()) setSlug(slugify(event.currentTarget.value));
+												if (!slugEdited()) setSlug(uniqueSlug(event.currentTarget.value));
 											}}
 										/>
 									</Field>
-									<Field
-										label="Short name"
-										hint="Used in links: lowercase letters, numbers and dashes."
-									>
-										<Input
-											value={slug()}
-											required
-											minlength={2}
-											maxlength={64}
-											pattern="[a-z0-9]([a-z0-9\-]*[a-z0-9])?"
-											autocapitalize="off"
-											spellcheck={false}
-											class="font-mono"
-											onInput={(event) => {
-												setSlugEdited(true);
-												setSlug(event.currentTarget.value.toLowerCase());
-											}}
-										/>
-									</Field>
-									<Field label="Repository" hint="Read from the folder's git remote; optional.">
-										<Input
-											type="url"
-											value={repoUrl()}
-											placeholder="https://github.com/you/project"
-											autocapitalize="off"
-											spellcheck={false}
-											onInput={(event) => setRepoUrl(event.currentTarget.value)}
-										/>
-									</Field>
+									{/* The name is all most projects need; the rest is filled in from the folder. */}
+									<details class="group/more">
+										<summary class="focus-ring w-fit cursor-pointer list-none rounded-sm text-ink/55 text-ui-sm hover:text-ink [&::-webkit-details-marker]:hidden">
+											More: short name <span class="font-mono">{slug()}</span>
+											{repoUrl() ? " · repository" : ""}
+										</summary>
+										<div class="mt-3 flex flex-col gap-4">
+											<Field
+												label="Short name"
+												hint="Used in links: lowercase letters, numbers and dashes."
+											>
+												<Input
+													value={slug()}
+													required
+													minlength={2}
+													maxlength={64}
+													pattern="[a-z0-9]([a-z0-9\-]*[a-z0-9])?"
+													autocapitalize="off"
+													spellcheck={false}
+													class="font-mono"
+													onInput={(event) => {
+														setSlugEdited(true);
+														setSlug(event.currentTarget.value.toLowerCase());
+													}}
+												/>
+											</Field>
+											<Field label="Repository" hint="Read from the folder's git remote; optional.">
+												<Input
+													type="url"
+													value={repoUrl()}
+													placeholder="https://github.com/you/project"
+													autocapitalize="off"
+													spellcheck={false}
+													onInput={(event) => setRepoUrl(event.currentTarget.value)}
+												/>
+											</Field>
+										</div>
+									</details>
 									<Button
 										type="submit"
 										variant="primary"
@@ -225,5 +253,89 @@ export function ChooseFolderSheet(): JSX.Element {
 				</div>
 			</div>
 		</Sheet>
+	);
+}
+
+/** Rename a project, or remove it from the console; both from the project's menu. */
+export function ProjectActionDialogs(): JSX.Element {
+	const workspace = useWorkspace();
+	const [name, setName] = createSignal("");
+	const [error, setError] = createSignal<string | null>(null);
+	const [pending, setPending] = createSignal(false);
+	const action = () => workspace.projectAction();
+	const project = () => workspace.projects().find((item) => item.slug === action()?.slug);
+
+	// Start from the current name each time the rename sheet opens.
+	createEffect(
+		() => (action()?.kind === "rename" ? (project()?.name ?? "") : null),
+		(current) => {
+			if (current !== null) setName(current);
+		},
+	);
+
+	function close(): void {
+		workspace.setProjectAction(null);
+		setError(null);
+		setPending(false);
+	}
+
+	async function run(work: () => Promise<void>): Promise<void> {
+		setPending(true);
+		setError(null);
+		try {
+			await work();
+			close();
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : "Could not update the project");
+			setPending(false);
+		}
+	}
+
+	return (
+		<>
+			<Sheet open={action()?.kind === "rename"} onClose={close} label="Rename project">
+				<form
+					class="flex flex-col gap-4 p-4"
+					onSubmit={(event) => {
+						event.preventDefault();
+						const slug = action()?.slug;
+						const next = name().trim();
+						if (slug && next) void run(() => workspace.renameProject(slug, next));
+					}}
+				>
+					<h2 class="font-semibold text-ui">Rename project</h2>
+					<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
+					<Field label="Name">
+						<Input
+							value={name()}
+							required
+							maxlength={120}
+							onInput={(event) => setName(event.currentTarget.value)}
+						/>
+					</Field>
+					<div class="flex justify-end gap-2">
+						<Button type="button" variant="ghost" onClick={close}>
+							Cancel
+						</Button>
+						<Button type="submit" variant="primary" disabled={pending() || !name().trim()}>
+							{pending() ? "Saving…" : "Save"}
+						</Button>
+					</div>
+				</form>
+			</Sheet>
+			<ConfirmDialog
+				open={action()?.kind === "remove"}
+				title={`Remove ${project()?.name ?? "this project"}?`}
+				description={`It leaves Grid; the folder on this machine and its chats stay as they are.${error() ? ` ${error()}` : ""}`}
+				confirmLabel="Remove"
+				tone="danger"
+				pending={pending()}
+				onConfirm={() => {
+					const slug = action()?.slug;
+					if (slug) void run(() => workspace.removeProject(slug));
+				}}
+				onCancel={close}
+			/>
+		</>
 	);
 }

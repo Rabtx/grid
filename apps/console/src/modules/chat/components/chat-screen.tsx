@@ -13,7 +13,7 @@ import type { ChatProvider, ChatSession } from "../types/chat.types";
 import { Composer } from "./composer";
 import { Conversation, queueFirstMessage } from "./conversation";
 import { ModelPicker, ModePicker } from "./pickers";
-import { SessionList, SessionTabs } from "./session-list";
+import { ProjectChats, SessionList, SessionTabs } from "./session-list";
 
 const AGENT_KEY = "grid.chat.agent";
 
@@ -81,7 +81,7 @@ export function ChatScreen(): JSX.Element {
 	createEffect(
 		() => [project(), inChat() ?? inProject()] as const,
 		([slug, matched]) => {
-			if (slug && !matched) navigate(`/chat/${slug}`, { replace: true });
+			if (slug && !matched) navigate(workspace.projectHref(slug), { replace: true });
 		},
 	);
 	const projectName = () =>
@@ -91,12 +91,15 @@ export function ChatScreen(): JSX.Element {
 	const [providers, setProviders] = createSignal<ChatProvider[]>([]);
 	const [sessions, setSessions] = createSignal<ChatSession[]>([]);
 	const [loaded, setLoaded] = createSignal(false);
+	// Which project the loaded list belongs to, so a switch never judges the new URL by old chats.
+	const [loadedFor, setLoadedFor] = createSignal<string | null>(null);
 	const [error, setError] = createSignal<string | null>(null);
 	const [tabIds, setTabIds] = createSignal<string[]>([]);
 
 	async function loadSessions(slug: string, token: string): Promise<void> {
 		try {
 			setSessions(await chatService.sessions(token, slug));
+			setLoadedFor(slug);
 			setError(null);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : "Could not load chats");
@@ -128,6 +131,22 @@ export function ChatScreen(): JSX.Element {
 		() => project(),
 		(slug) => {
 			if (slug) setTabIds(rememberedTabs(slug));
+		},
+	);
+	// A chat that no longer exists (removed on the runner) falls back to a new one.
+	createEffect(
+		() => [loadedFor(), project(), activeId(), sessions()] as const,
+		([listed, slug, id, list]) => {
+			if (!slug || listed !== slug || !id || list.some((session) => session.id === id)) return;
+			workspace.rememberChat(slug, null);
+			navigate(`/chat/${slug}`, { replace: true });
+		},
+	);
+	// The project reopens on the chat you were in.
+	createEffect(
+		() => [project(), routeId()] as const,
+		([slug, route]) => {
+			if (slug && route) workspace.rememberChat(slug, route === "new" ? null : route);
 		},
 	);
 	createEffect(
@@ -182,6 +201,14 @@ export function ChatScreen(): JSX.Element {
 					activeId={activeId()}
 					hrefFor={chatUrl}
 					onNew={() => navigate(chatUrl())}
+				/>
+			</ShellSlot>
+			<ShellSlot name="projectChats">
+				<ProjectChats
+					sessions={sessions()}
+					activeId={activeId()}
+					hrefFor={chatUrl}
+					newHref={chatUrl()}
 				/>
 			</ShellSlot>
 			<ShellSlot name="tabs">

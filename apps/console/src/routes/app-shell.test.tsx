@@ -89,7 +89,7 @@ describe("AppShell", () => {
 		]);
 
 		const current = links.filter((link) => link.getAttribute("aria-current") === "page");
-		expect(current.map((link) => link.getAttribute("href"))).toEqual(["/board/beta"]);
+		expect(current.map((link) => link.getAttribute("href"))).toEqual(["/chat/beta"]);
 	});
 
 	it("names the active project in the title bar", async () => {
@@ -260,7 +260,7 @@ describe("login polish", () => {
 		mount(`/login?next=${encodeURIComponent(next)}`);
 		await settle();
 		await signIn();
-		expect(location()).toBe("/board");
+		expect(location()).toBe("/");
 	});
 	it("redirects a restored session to next", async () => {
 		mount("/login?next=%2Fterminal%2Fabc%3Fview%3Dfull", async () => json(session()));

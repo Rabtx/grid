@@ -233,3 +233,45 @@ export function SessionTabs(props: {
 		</div>
 	);
 }
+
+/**
+ * The project's chats as a compact list, for the phone drawer where they sit under their project:
+ * a new-chat row, then each chat's title and age.
+ */
+export function ProjectChats(props: {
+	sessions: ChatSession[];
+	activeId: string | null;
+	hrefFor: (id: string) => string;
+	newHref: string;
+}): JSX.Element {
+	const row =
+		"focus-ring flex h-10 items-center gap-2 rounded-md px-2 text-ink/60 text-ui-sm hover:bg-ink/8 hover:text-ink aria-[current=page]:bg-selection aria-[current=page]:text-ink";
+
+	return (
+		<ul class="flex flex-col gap-px" aria-label="Chats">
+			<li>
+				<a href={props.newHref} aria-current={props.activeId ? undefined : "page"} class={row}>
+					<PlusIcon class="size-3.5 shrink-0" />
+					New chat
+				</a>
+			</li>
+			<For each={props.sessions}>
+				{(session) => (
+					<li>
+						<a
+							href={props.hrefFor(session.id)}
+							aria-current={props.activeId === session.id ? "page" : undefined}
+							class={row}
+						>
+							<ProviderMark provider={session.provider} />
+							<span class="min-w-0 flex-1 truncate">{session.title}</span>
+							<span class="shrink-0 text-ink/40 text-ui-caption tabular-nums">
+								{relative(session.updatedAt)}
+							</span>
+						</a>
+					</li>
+				)}
+			</For>
+		</ul>
+	);
+}

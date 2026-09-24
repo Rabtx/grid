@@ -52,7 +52,24 @@ type WorkspaceState = {
 	/** The "Choose folder" sheet for one project, or null. */
 	choosingFolderFor: () => string | null;
 	chooseFolderFor: (slug: string | null) => void;
+	/**
+	 * Where a project opens: its last chat, else a new one. Projects are where the chats live, so
+	 * picking one never lands on the board.
+	 */
+	projectHref: (slug: string) => string;
+	/** Remember the chat open in a project, so coming back to the project reopens it. */
+	rememberChat: (slug: string, id: string | null) => void;
+	/** The rename or remove dialog for one project, or null. */
+	projectAction: () => ProjectAction | null;
+	setProjectAction: (action: ProjectAction | null) => void;
+	renameProject: (slug: string, name: string) => Promise<void>;
+	/** Archive the project: it leaves the console; its folder and chats are untouched. */
+	removeProject: (slug: string) => Promise<void>;
 };
+
+export type ProjectAction = { kind: "rename" | "remove"; slug: string };
+
+const lastChatKey = (slug: string) => `grid.chat.last.${slug}`;
 
 const CURRENT_KEY = "grid.project";
 
@@ -116,7 +133,8 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		projectsRevision();
 		const token = auth.token();
 		if (!token) return [];
-		return projectsService.list(token);
+		// Archived projects have been removed from the console.
+		return (await projectsService.list(token)).filter((project) => project.status !== "archived");
 	});
 
 	// The task URL is the board URL plus a panel, so both spell the same project.
@@ -196,6 +214,45 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		navigate(`/board/${slug}${search}`, { scroll: false });
 	}
 
+	const [projectAction, setProjectAction] = createSignal<ProjectAction | null>(null);
+
+	function projectHref(slug: string): string {
+		let last: string | null = null;
+		try {
+			last = localStorage.getItem(lastChatKey(slug));
+		} catch {
+			// Nothing remembered; the project opens on a new chat.
+		}
+		return last ? `/chat/${slug}/${last}` : `/chat/${slug}`;
+	}
+
+	function rememberChat(slug: string, id: string | null): void {
+		try {
+			if (id) localStorage.setItem(lastChatKey(slug), id);
+			else localStorage.removeItem(lastChatKey(slug));
+		} catch {
+			// Not remembered; the project opens on a new chat next time.
+		}
+	}
+
+	async function renameProject(slug: string, name: string): Promise<void> {
+		const token = untrack(auth.token);
+		if (!token) return;
+		await projectsService.update(token, slug, { name });
+		setProjectsRevision((n) => n + 1);
+	}
+
+	async function removeProject(slug: string): Promise<void> {
+		const token = untrack(auth.token);
+		if (!token) return;
+		await projectsService.update(token, slug, { status: "archived" });
+		rememberChat(slug, null);
+		const next = untrack(projects).find((project) => project.slug !== slug);
+		setProjectsRevision((n) => n + 1);
+		// Leaving the removed project: open the next one, or the empty start.
+		if (untrack(currentSlug) === slug) navigate(next ? projectHref(next.slug) : "/chat");
+	}
+
 	const state: WorkspaceState = {
 		projects,
 		activeSlug,
@@ -217,6 +274,12 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		setAddProjectOpen,
 		choosingFolderFor,
 		chooseFolderFor,
+		projectHref,
+		rememberChat,
+		projectAction,
+		setProjectAction,
+		renameProject,
+		removeProject,
 	};
 
 	return <WorkspaceContext value={state}>{props.children}</WorkspaceContext>;
