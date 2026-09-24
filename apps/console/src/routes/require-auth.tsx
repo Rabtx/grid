@@ -1,8 +1,9 @@
-import { useNavigate } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, Show } from "solid-js";
+import { createEffect, createSignal, onSettled, Show } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
+import { BrandMark } from "@/ui";
 
 /**
  * Keeps signed-out visitors off the authenticated routes.
@@ -14,11 +15,15 @@ import { useAuth } from "@/modules/auth";
 export function RequireAuth(props: { children: JSX.Element }): JSX.Element {
 	const auth = useAuth();
 	const navigate = useNavigate();
+	const location = useLocation();
 
 	createEffect(
-		() => auth.ready() && !auth.token(),
-		(signedOut) => {
-			if (signedOut) navigate("/login", { replace: true });
+		() => (auth.ready() && !auth.token() ? location.pathname + location.search : null),
+		(next) => {
+			if (next !== null)
+				navigate(`/login?next=${encodeURIComponent(next)}`, {
+					replace: true,
+				});
 		},
 	);
 
@@ -30,5 +35,16 @@ export function RequireAuth(props: { children: JSX.Element }): JSX.Element {
 }
 
 function AuthPending(): JSX.Element {
-	return <p class="py-12 text-center text-ink/40 text-ui-sm">Checking your session…</p>;
+	const [visible, setVisible] = createSignal(false);
+	onSettled(() => {
+		const timer = setTimeout(() => setVisible(true), 300);
+		return () => clearTimeout(timer);
+	});
+	return (
+		<Show when={visible()}>
+			<output aria-label="Checking your session" class="flex justify-center py-12">
+				<BrandMark class="motion-safe:animate-pulse" />
+			</output>
+		</Show>
+	);
 }

@@ -2,7 +2,7 @@ import { createRouter, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, lazy, Loading } from "solid-js";
 
-import { AuthProvider, LoginForm, useAuth } from "@/modules/auth";
+import { AuthProvider, LoginForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { AppearanceScreen } from "@/modules/settings";
 import { EmptyState } from "@/ui";
@@ -42,16 +42,6 @@ export function App(): JSX.Element {
 }
 
 function LoginRoute(): JSX.Element {
-	const auth = useAuth();
-	const navigate = useNavigate();
-
-	createEffect(
-		() => auth.ready() && Boolean(auth.token()),
-		(signedIn) => {
-			if (signedIn) navigate("/board", { replace: true });
-		},
-	);
-
 	return (
 		<div class="flex justify-center pt-[12vh] pb-12">
 			<LoginForm />
