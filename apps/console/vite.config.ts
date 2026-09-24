@@ -9,6 +9,12 @@ import { defineConfig, type Plugin, type ProxyOptions } from "vite";
 const API_TARGET = process.env.GRID_API_PROXY ?? "http://localhost:4000";
 
 /**
+ * Hostnames Vite accepts besides localhost and IPs: any Tailscale MagicDNS name, so a phone can
+ * open the console over `tailscale serve` HTTPS. Add more with GRID_ALLOWED_HOSTS (comma-separated).
+ */
+const allowedHosts = [".ts.net", ...(process.env.GRID_ALLOWED_HOSTS?.split(",") ?? [])];
+
+/**
  * The console calls the API on its own origin (`/api/…`) and this forwards it, in dev and in
  * `vite preview`. One origin means no CORS, and it keeps working behind HTTPS tunnels (a phone
  * on Tailscale, say) where a separate `http://…:4000` would be blocked as mixed content.
@@ -69,10 +75,12 @@ export default defineConfig({
 	server: {
 		host: true,
 		port: 3001,
+		allowedHosts,
 		proxy: apiProxy,
 	},
 	preview: {
 		host: true,
+		allowedHosts,
 		proxy: apiProxy,
 	},
 });
