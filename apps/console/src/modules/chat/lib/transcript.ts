@@ -41,12 +41,24 @@ export type Transcript = {
 	model: string | null;
 	modes: Choice[];
 	mode: string | null;
+	/** Effort levels the agent reported live for the current model (ACP agents), if any. */
+	efforts: Choice[] | null;
+	effort: string | null;
 	/** The latest usage the agent reported. */
 	usage: Extract<ChatEvent, { type: "usage" }> | null;
 };
 
 export function emptyTranscript(): Transcript {
-	return { blocks: [], models: [], model: null, modes: [], mode: null, usage: null };
+	return {
+		blocks: [],
+		models: [],
+		model: null,
+		modes: [],
+		mode: null,
+		efforts: null,
+		effort: null,
+		usage: null,
+	};
 }
 
 /**
@@ -151,6 +163,8 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 				model: event.model ?? transcript.model,
 				modes: event.modes?.length ? event.modes : transcript.modes,
 				mode: event.mode ?? transcript.mode,
+				efforts: event.efforts ?? transcript.efforts,
+				effort: event.effort ?? transcript.effort,
 			};
 		case "turn_end":
 			if (event.reason === "error") {

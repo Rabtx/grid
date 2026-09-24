@@ -1,6 +1,16 @@
 /** The runner's chat event stream (apps/runner/src/agents/events.ts). */
 
-export type Choice = { id: string; name: string; description?: string };
+/** Something to pick: a model, a mode, an effort level. */
+export type Choice = {
+	id: string;
+	name: string;
+	description?: string;
+	/** The heading it is listed under (a model's provider). */
+	group?: string;
+	/** A model's reasoning-effort levels, when it has them. */
+	efforts?: Choice[];
+	defaultEffort?: string;
+};
 
 export type ToolKind = "read" | "edit" | "execute" | "search" | "fetch" | "think" | "other";
 
@@ -36,7 +46,15 @@ export type ChatEvent =
 	  }
 	| { type: "turn_start" }
 	| { type: "turn_end"; reason: "done" | "cancelled" | "error"; error?: string }
-	| { type: "info"; models?: Choice[]; model?: string; modes?: Choice[]; mode?: string }
+	| {
+			type: "info";
+			models?: Choice[];
+			model?: string;
+			modes?: Choice[];
+			mode?: string;
+			efforts?: Choice[];
+			effort?: string;
+	  }
 	| { type: "error"; message: string };
 
 /** A chat session as the runner lists it. */
@@ -48,6 +66,7 @@ export type ChatSession = {
 	cwd: string;
 	model: string | null;
 	mode: string | null;
+	effort: string | null;
 	createdAt: string;
 	updatedAt: string;
 };

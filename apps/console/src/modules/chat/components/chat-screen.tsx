@@ -27,18 +27,31 @@ import {
 import { chatService } from "../services/chat.service";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
 
-import { Composer, PillSelect } from "./composer";
+import { Composer } from "./composer";
 import { Conversation, queueFirstMessage } from "./conversation";
+import { ModelPicker, ModePicker } from "./pickers";
 
 const AGENT_KEY = "grid.chat.agent";
 
-function rememberedAgent(): string | null {
+function remembered(key: string): string | null {
 	try {
-		return localStorage.getItem(AGENT_KEY);
+		return localStorage.getItem(key);
 	} catch {
 		return null;
 	}
 }
+
+function remember(key: string, value: string | null): void {
+	try {
+		if (value) localStorage.setItem(key, value);
+	} catch {
+		// Not remembered; the defaults are fine next time.
+	}
+}
+
+// The last model and effort chosen for each agent, so a new chat starts where the last one did.
+const modelKey = (agent: string) => `grid.chat.model.${agent}`;
+const effortKey = (agent: string) => `grid.chat.effort.${agent}`;
 
 function relative(iso: string): string {
 	const minutes = Math.round((Date.now() - Date.parse(iso)) / 60_000);
@@ -286,11 +299,29 @@ function NewChat(props: {
 	const [error, setError] = createSignal<string | null>(null);
 
 	const chosen = () => {
-		const wanted = agent() ?? rememberedAgent();
+		const wanted = agent() ?? remembered(AGENT_KEY);
 		return available().find((provider) => provider.id === wanted) ?? available()[0] ?? null;
 	};
-	const [model, setModel] = createSignal<string | null>(null);
+	const [pickedModel, setPickedModel] = createSignal<string | null>(null);
+	const [pickedEffort, setPickedEffort] = createSignal<string | null>(null);
 	const [mode, setMode] = createSignal<string | null>(null);
+
+	const models = () => chosen()?.models ?? [];
+	const model = () => {
+		const provider = chosen();
+		if (!provider) return null;
+		const wanted = pickedModel() ?? remembered(modelKey(provider.id));
+		return models().find((item) => item.id === wanted)?.id ?? models()[0]?.id ?? null;
+	};
+	const currentModel = () => models().find((item) => item.id === model());
+	const efforts = () => currentModel()?.efforts ?? [];
+	const effort = () => {
+		const provider = chosen();
+		const wanted = pickedEffort() ?? (provider ? remembered(effortKey(provider.id)) : null);
+		return (
+			efforts().find((level) => level.id === wanted)?.id ?? currentModel()?.defaultEffort ?? null
+		);
+	};
 
 	async function start(text: string): Promise<boolean> {
 		const token = auth.token();
@@ -303,13 +334,12 @@ function NewChat(props: {
 				provider: provider.id,
 				cwd: cwd().trim() || undefined,
 				model: model() ?? undefined,
+				effort: effort() ?? undefined,
 				mode: mode() ?? undefined,
 			});
-			try {
-				localStorage.setItem(AGENT_KEY, provider.id);
-			} catch {
-				// Not remembered; the default is fine next time.
-			}
+			remember(AGENT_KEY, provider.id);
+			remember(modelKey(provider.id), model());
+			remember(effortKey(provider.id), effort());
 			queueFirstMessage(session.id, text);
 			props.onCreated(session);
 			return true;
@@ -356,30 +386,33 @@ function NewChat(props: {
 							<Show when={chosen()}>
 								{(provider) => (
 									<>
-										<PillSelect
-											label="Agent"
-											value={provider().id}
-											options={available().map((item) => ({ id: item.id, name: item.name }))}
-											onChange={(id) => {
+										<ModelPicker
+											agents={available()}
+											agent={provider().id}
+											onAgent={(id) => {
 												setAgent(id);
-												setModel(null);
+												setPickedModel(null);
+												setPickedEffort(null);
 												setMode(null);
 											}}
+											models={models()}
+											model={model() ?? ""}
+											onModel={(id) => {
+												// Keep the chosen effort when the new model has that level too.
+												const levels = models().find((item) => item.id === id)?.efforts ?? [];
+												if (!levels.some((level) => level.id === effort())) setPickedEffort(null);
+												else setPickedEffort(effort());
+												setPickedModel(id);
+											}}
+											efforts={efforts()}
+											effort={effort()}
+											onEffort={setPickedEffort}
 										/>
-										<Show when={provider().models.length > 0}>
-											<PillSelect
-												label="Model"
-												value={model() ?? provider().models[0].id}
-												options={provider().models}
-												onChange={setModel}
-											/>
-										</Show>
 										<Show when={provider().modes.length > 0}>
-											<PillSelect
-												label="Mode"
-												value={mode() ?? provider().defaultMode ?? provider().modes[0].id}
-												options={provider().modes}
-												onChange={setMode}
+											<ModePicker
+												modes={provider().modes}
+												mode={mode() ?? provider().defaultMode ?? provider().modes[0].id}
+												onMode={setMode}
 											/>
 										</Show>
 									</>

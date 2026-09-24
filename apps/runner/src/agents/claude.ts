@@ -1,3 +1,6 @@
+import { homedir } from "node:os";
+
+import { cached, effortChoices } from "./catalog";
 import { type Choice, clip, type PlanEntry, type ToolKind } from "./events";
 import type { AgentContext, AgentSession, Provider, ProviderInfo, TurnResult } from "./provider";
 import { type JsonProcess, type Spawn, spawnJsonProcess } from "./stdio";
@@ -8,12 +11,89 @@ import { type JsonProcess, type Spawn, spawnJsonProcess } from "./stdio";
  * Model and mode changes restart the process on the same conversation (`--resume`).
  */
 
-const MODELS: Choice[] = [
+// Used only if Claude Code cannot be asked for its own list.
+const FALLBACK_MODELS: Choice[] = [
 	{ id: "default", name: "Default", description: "Whatever Claude Code is set to" },
 	{ id: "opus", name: "Opus" },
 	{ id: "sonnet", name: "Sonnet" },
 	{ id: "haiku", name: "Haiku" },
 ];
+
+type ListedModel = {
+	value?: string;
+	resolvedModel?: string;
+	displayName?: string;
+	description?: string;
+	supportsEffort?: boolean;
+	supportedEffortLevels?: string[];
+	disabled?: boolean;
+};
+
+/**
+ * Claude Code's own `list_models` row as a picker entry, named by exact model ("Opus 5.5 (1M
+ * context)" rather than "Opus"), with the resolved model id and its effort levels.
+ */
+export function claudeModelChoice(row: ListedModel): Choice | null {
+	if (!row.value || row.disabled || row.value.startsWith("cc-update-required")) return null;
+	const [head = "", ...rest] = (row.description ?? "").split(" · ");
+	const exact = head.replace(/ with 1M context$/, " (1M context)") || row.displayName || row.value;
+	const name = row.value === "default" ? `Default · ${exact}` : exact;
+	const resolved = row.resolvedModel?.replace(/\[1m\]$/, "");
+	const levels = row.supportedEffortLevels ?? [];
+	return {
+		id: row.value,
+		name,
+		description: [resolved, ...rest].filter(Boolean).join(" · ") || undefined,
+		...(levels.length
+			? {
+					efforts: effortChoices(levels),
+					defaultEffort: levels.includes("high") ? "high" : levels[0],
+				}
+			: {}),
+	};
+}
+
+/** Ask a short-lived Claude Code process for its models; no prompt is sent, nothing is spent. */
+function listClaudeModels(binary: string, spawn: Spawn): Promise<Choice[]> {
+	return new Promise((resolve, reject) => {
+		let proc: JsonProcess | null = null;
+		const timer = setTimeout(() => {
+			proc?.kill();
+			reject(new Error("Claude Code did not list its models in time"));
+		}, 20_000);
+		proc = spawn(claudeArgs(binary, {}), {
+			cwd: homedir(),
+			onMessage: (raw) => {
+				const message = raw as {
+					type?: string;
+					response?: { request_id?: string; response?: { models?: ListedModel[] } };
+				};
+				if (
+					message.type !== "control_response" ||
+					message.response?.request_id !== "grid-list-models"
+				)
+					return;
+				clearTimeout(timer);
+				proc?.kill();
+				const models = (message.response.response?.models ?? [])
+					.map(claudeModelChoice)
+					.filter((model): model is Choice => model !== null);
+				if (models.length) resolve(models);
+				else reject(new Error("Claude Code listed no models"));
+			},
+		});
+		proc.send({
+			type: "control_request",
+			request_id: "grid-init",
+			request: { subtype: "initialize" },
+		});
+		proc.send({
+			type: "control_request",
+			request_id: "grid-list-models",
+			request: { subtype: "list_models" },
+		});
+	});
+}
 
 const MODES: Choice[] = [
 	{ id: "default", name: "Ask", description: "Ask before editing files or running commands" },
@@ -36,16 +116,21 @@ export function claudeProvider(options: {
 		id: "claude",
 		name: "Claude Code",
 		available: options.available(),
-		models: MODELS,
+		models: FALLBACK_MODELS,
 		modes: MODES,
 		defaultMode: "default",
 	});
-	return { info, start: async (context) => startClaudeSession(options.binary, spawn, context) };
+	const models = cached(10 * 60 * 1000, () => listClaudeModels(options.binary, spawn));
+	return {
+		info,
+		catalog: async () => ({ models: await models(), modes: MODES }),
+		start: async (context) => startClaudeSession(options.binary, spawn, context),
+	};
 }
 
 export function claudeArgs(
 	binary: string,
-	input: { model?: string; mode?: string; resume?: string },
+	input: { model?: string; mode?: string; effort?: string; resume?: string },
 ): string[] {
 	const args = [
 		binary,
@@ -60,6 +145,7 @@ export function claudeArgs(
 		"stdio",
 	];
 	if (input.model && input.model !== "default") args.push("--model", input.model);
+	if (input.effort) args.push("--effort", input.effort);
 	if (input.mode) args.push("--permission-mode", input.mode);
 	if (input.mode === "bypassPermissions") args.push("--allow-dangerously-skip-permissions");
 	if (input.resume) args.push("--resume", input.resume);
@@ -141,6 +227,7 @@ async function startClaudeSession(
 ): Promise<AgentSession> {
 	let model = context.model;
 	let mode = context.mode;
+	let effort = context.effort;
 	let resume = context.resume;
 	let proc: JsonProcess | null = null;
 	let finishTurn: ((result: TurnResult) => void) | null = null;
@@ -287,7 +374,7 @@ async function startClaudeSession(
 	function ensureProcess(): JsonProcess {
 		if (proc) return proc;
 		stderr = [];
-		const started = spawn(claudeArgs(binary, { model, mode, resume }), {
+		const started = spawn(claudeArgs(binary, { model, mode, effort, resume }), {
 			cwd: context.cwd,
 			onMessage: (message) => handle(message as Record<string, unknown>),
 			onStderr: (line) => {
@@ -315,10 +402,10 @@ async function startClaudeSession(
 
 	context.emit({
 		type: "info",
-		models: MODELS,
 		model: model ?? "default",
 		modes: MODES,
 		mode: mode ?? "default",
+		...(effort ? { effort } : {}),
 	});
 
 	return {
@@ -369,6 +456,11 @@ async function startClaudeSession(
 			mode = next;
 			restart();
 			context.emit({ type: "info", mode: next });
+		},
+		setEffort: async (next) => {
+			effort = next;
+			restart();
+			context.emit({ type: "info", effort: next });
 		},
 		close: () => proc?.kill(),
 	};
