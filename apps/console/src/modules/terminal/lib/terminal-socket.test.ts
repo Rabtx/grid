@@ -26,7 +26,8 @@ class FakeSocket extends EventTarget {
 	}
 	drop(code = 1006): void {
 		this.readyState = 3;
-		this.dispatchEvent(new CloseEvent("close", { code }));
+		// Not every runtime has CloseEvent; the client reads only `code`.
+		this.dispatchEvent(Object.assign(new Event("close"), { code }));
 	}
 	text(): string[] {
 		return this.sent.map((item) =>

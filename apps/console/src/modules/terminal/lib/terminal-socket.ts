@@ -40,6 +40,9 @@ export type TerminalSocket = {
 const CLOSE_UNAUTHORIZED = 4401;
 const CLOSE_NOT_FOUND = 4404;
 
+// WebSocket.OPEN, spelled out so this module does not depend on a global WebSocket to load.
+const OPEN = 1;
+
 // Typing while the link is down is kept (up to this much) and sent once it is back.
 const MAX_PENDING_INPUT = 16 * 1024;
 
@@ -154,14 +157,14 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 	return {
 		send(data) {
 			if (finished) return;
-			if (socket && attached && socket.readyState === WebSocket.OPEN) {
+			if (socket && attached && socket.readyState === OPEN) {
 				socket.send(encoder.encode(data));
 			} else if (pending.length + data.length <= MAX_PENDING_INPUT) {
 				pending += data;
 			}
 		},
 		resize(cols, rows) {
-			if (socket && attached && socket.readyState === WebSocket.OPEN) {
+			if (socket && attached && socket.readyState === OPEN) {
 				socket.send(JSON.stringify({ t: "resize", cols, rows }));
 			}
 		},
