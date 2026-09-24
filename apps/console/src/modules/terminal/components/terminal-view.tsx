@@ -9,6 +9,7 @@ import { createEffect, onSettled, untrack } from "solid-js";
 import { useAuth } from "@/modules/auth";
 
 import { type Arrow, arrowSequence, applyModifiers, type Modifiers } from "../lib/keys";
+import { lineForThumb, type ScrollState, thumbGeometry } from "../lib/scrollbar";
 import { type ConnectionState, connectTerminal } from "../lib/terminal-socket";
 import { monoFontFamily, terminalTheme } from "../lib/terminal-theme";
 import { terminalSocketUrl } from "../services/terminals.service";
@@ -37,6 +38,8 @@ export function TerminalView(props: {
 }): JSX.Element {
 	const auth = useAuth();
 	let host: HTMLDivElement | undefined;
+	let track: HTMLDivElement | undefined;
+	let thumb: HTMLDivElement | undefined;
 	let term: Terminal | undefined;
 	let fit: FitAddon | undefined;
 	let frame = 0;
@@ -157,8 +160,11 @@ export function TerminalView(props: {
 		document.addEventListener("visibilitychange", resume);
 		window.addEventListener("online", resume);
 
+		const detachScrollbar = track && thumb ? attachScrollbar(terminal, track, thumb) : () => {};
+
 		props.onHandle({
-			send: (data) => live.send(data),
+			// Key-bar keys take the armed modifiers too, so Shift then Tab sends back tab.
+			send: (data) => live.send(applyModifiers(data, props.takeModifiers())),
 			arrow: (arrow) =>
 				live.send(
 					arrowSequence(arrow, terminal.modes.applicationCursorKeysMode, props.takeModifiers()),
@@ -177,6 +183,7 @@ export function TerminalView(props: {
 			host?.removeEventListener("copy", onCopy);
 			host?.removeEventListener("paste", onPaste);
 			for (const subscription of subscriptions) subscription.dispose();
+			detachScrollbar();
 			live.close();
 			terminal.dispose();
 			term = undefined;
@@ -204,15 +211,120 @@ export function TerminalView(props: {
 	);
 
 	return (
-		<div
-			ref={(el) => {
-				host = el;
-			}}
-			// xterm draws its own padding-free grid; the gutter keeps glyphs off the rounded edge.
-			class="size-full overflow-hidden px-2 py-1.5"
-			data-terminal={props.id}
-		/>
+		<div class="relative size-full">
+			<div
+				ref={(el) => {
+					host = el;
+				}}
+				// xterm draws its own padding-free grid; the gutter keeps glyphs off the rounded edge.
+				// On touch screens its mouse-only scrollbar gives way to the draggable one below.
+				class="size-full overflow-hidden px-2 py-1.5 pointer-coarse:pr-5 pointer-coarse:[&_.xterm-scrollable-element>.scrollbar]:hidden!"
+				data-terminal={props.id}
+			/>
+			{/* A wide, invisible grab strip; the visible thumb inside it is thin, like a native one. */}
+			<div
+				ref={(el) => {
+					track = el;
+				}}
+				aria-hidden="true"
+				data-no-swipe
+				class="absolute inset-y-1 right-0 z-10 hidden w-5 touch-none pointer-coarse:block"
+			>
+				<div
+					ref={(el) => {
+						thumb = el;
+					}}
+					class="absolute right-1 hidden w-1 rounded-full bg-ink/25 transition-[width,background-color] duration-fast ease-out-grid data-[dragging]:w-1.5 data-[dragging]:bg-ink/60"
+				/>
+			</div>
+		</div>
 	);
+}
+
+/**
+ * A touch scrollbar for the terminal's scrollback: grab the thumb (or anywhere on the strip) and
+ * drag, and the output follows the finger line by line. xterm.js's own scrollbar only listens to
+ * a mouse. Hidden while there is nothing to scroll, including in full-screen programs.
+ */
+function attachScrollbar(
+	terminal: Terminal,
+	track: HTMLDivElement,
+	thumb: HTMLDivElement,
+): () => void {
+	let frame = 0;
+	let dragOffset: number | null = null;
+
+	const state = (): ScrollState => ({
+		trackHeight: track.clientHeight,
+		rows: terminal.rows,
+		viewportY: terminal.buffer.active.viewportY,
+		baseY: terminal.buffer.active.baseY,
+	});
+
+	const paint = () => {
+		frame = 0;
+		const geometry = thumbGeometry(state());
+		thumb.style.display = geometry ? "block" : "none";
+		if (!geometry) return;
+		thumb.style.height = `${geometry.height}px`;
+		thumb.style.translate = `0 ${geometry.top}px`;
+	};
+	const schedulePaint = () => {
+		if (!frame) frame = requestAnimationFrame(paint);
+	};
+
+	const scrollTo = (clientY: number) => {
+		if (dragOffset === null) return;
+		const top = clientY - track.getBoundingClientRect().top - dragOffset;
+		terminal.scrollToLine(lineForThumb(top, state()));
+	};
+
+	// Touch events, not pointer events: the strip is a touch-only control, and a non-passive
+	// `touchmove` is what reliably keeps the browser from turning the drag into a page gesture.
+	const onStart = (event: TouchEvent) => {
+		const geometry = thumbGeometry(state());
+		if (!geometry || event.touches.length !== 1) return;
+		event.preventDefault();
+		const y = event.touches[0].clientY - track.getBoundingClientRect().top;
+		const onThumb = y >= geometry.top && y <= geometry.top + geometry.height;
+		// On the thumb: keep the finger where it grabbed. On the strip: centre the thumb there.
+		dragOffset = onThumb ? y - geometry.top : geometry.height / 2;
+		thumb.dataset.dragging = "";
+		scrollTo(event.touches[0].clientY);
+	};
+	const onMove = (event: TouchEvent) => {
+		if (dragOffset === null) return;
+		event.preventDefault();
+		scrollTo(event.touches[0].clientY);
+	};
+	const onEnd = () => {
+		dragOffset = null;
+		delete thumb.dataset.dragging;
+	};
+
+	track.addEventListener("touchstart", onStart, { passive: false });
+	track.addEventListener("touchmove", onMove, { passive: false });
+	track.addEventListener("touchend", onEnd);
+	track.addEventListener("touchcancel", onEnd);
+	const subscriptions = [
+		terminal.onScroll(schedulePaint),
+		terminal.onWriteParsed(schedulePaint),
+		terminal.onResize(schedulePaint),
+		terminal.buffer.onBufferChange(schedulePaint),
+	];
+	const resize = new ResizeObserver(schedulePaint);
+	resize.observe(track);
+	schedulePaint();
+
+	return () => {
+		cancelAnimationFrame(frame);
+		resize.disconnect();
+		for (const subscription of subscriptions) subscription.dispose();
+		track.removeEventListener("touchstart", onStart);
+		track.removeEventListener("touchmove", onMove);
+		track.removeEventListener("touchend", onEnd);
+		track.removeEventListener("touchcancel", onEnd);
+	};
 }
 
 export type { ConnectionState };

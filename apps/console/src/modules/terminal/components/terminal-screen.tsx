@@ -5,7 +5,7 @@ import { createEffect, createMemo, createSignal, For, onSettled, Show } from "so
 import { useAuth } from "@/modules/auth";
 import { Button, CloseIcon, ErrorNotice, IconButton, PlusIcon, Skeleton, TerminalIcon } from "@/ui";
 
-import type { Modifiers } from "../lib/keys";
+import { type Modifiers, NO_MODIFIERS } from "../lib/keys";
 import type { ConnectionState } from "../lib/terminal-socket";
 import { RunnerError, terminalsService } from "../services/terminals.service";
 import type { TerminalInfo } from "../types/terminal.types";
@@ -46,13 +46,13 @@ export function TerminalScreen(): JSX.Element {
 	const [load, setLoad] = createSignal<Load>({ status: "loading" });
 	const [titles, setTitles] = createSignal<Record<string, string>>({});
 	const [states, setStates] = createSignal<Record<string, ConnectionState>>({});
-	const [modifiers, setModifiers] = createSignal<Modifiers>({ ctrl: false, alt: false });
+	const [modifiers, setModifiers] = createSignal<Modifiers>(NO_MODIFIERS);
 	const [fontSize, setFontSize] = createSignal(initialFontSize());
 	const [busy, setBusy] = createSignal(false);
 	// Plain maps: handles are imperative objects, not state to render.
 	const handles = new Map<string, TerminalHandle>();
 	// Armed modifiers are read by the terminal on the very next key, before signals settle.
-	let armed: Modifiers = { ctrl: false, alt: false };
+	let armed: Modifiers = NO_MODIFIERS;
 	let root: HTMLDivElement | undefined;
 
 	const activeId = createMemo(() => {
@@ -126,7 +126,7 @@ export function TerminalScreen(): JSX.Element {
 
 	function takeModifiers(): Modifiers {
 		const current = armed;
-		if (current.ctrl || current.alt) setArmed({ ctrl: false, alt: false });
+		if (current.ctrl || current.alt || current.shift) setArmed(NO_MODIFIERS);
 		return current;
 	}
 
