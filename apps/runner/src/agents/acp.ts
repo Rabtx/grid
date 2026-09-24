@@ -19,6 +19,8 @@ export function acpProvider(options: {
 	name: string;
 	command: string[];
 	available: () => boolean;
+	/** The agent's model list with names, groups and effort levels, when it offers one. */
+	catalog?: Provider["catalog"];
 	spawn?: Spawn;
 }): Provider {
 	const spawn = options.spawn ?? spawnJsonProcess;
@@ -30,7 +32,11 @@ export function acpProvider(options: {
 		models: [],
 		modes: [],
 	});
-	return { info, start: (context) => startAcpSession(options.command, spawn, context) };
+	return {
+		info,
+		catalog: options.catalog,
+		start: (context) => startAcpSession(options.command, spawn, context),
+	};
 }
 
 type ConfigOption = {
@@ -153,7 +159,10 @@ async function startAcpSession(
 	// While the agent replays an old conversation (session/load) we already have it in our log.
 	let replaying = false;
 	const approvals = new Map<string, (result: unknown) => void>();
+	// Config option ids the agent uses for model, mode and effort (ACP `configOptions`).
 	let modelConfigId: string | null = null;
+	let modeConfigId: string | null = null;
+	let effortConfigId: string | null = null;
 
 	rpc = new JsonRpc(proc, {
 		onNotification: (method, params) => {
@@ -241,17 +250,38 @@ async function startAcpSession(
 	}
 
 	function reportConfig(configOptions: ConfigOption[]): void {
-		const model = configOptions.find(
-			(option) => option.category === "model" || option.id === "model",
-		);
-		const mode = configOptions.find((option) => option.category === "mode" || option.id === "mode");
+		const find = (...keys: string[]) =>
+			configOptions.find(
+				(option) => keys.includes(option.category ?? "") || keys.includes(option.id),
+			);
+		const model = find("model");
+		const mode = find("mode");
+		// opencode calls it `effort`; the ACP draft calls the category `thought_level`.
+		const effort = find("effort", "thought_level", "reasoning", "variant");
 		if (model) modelConfigId = model.id;
-		if (!model && !mode) return;
+		if (mode) modeConfigId = mode.id;
+		effortConfigId = effort?.id ?? null;
+		if (!model && !mode && !effort) return;
 		context.emit({
 			type: "info",
 			...(model ? { models: choicesFrom(model.options), model: model.currentValue } : {}),
 			...(mode ? { modes: choicesFrom(mode.options), mode: mode.currentValue } : {}),
+			// Always sent, so a model without levels clears the previous model's.
+			efforts: effort ? choicesFrom(effort.options) : [],
+			...(effort ? { effort: effort.currentValue } : {}),
 		});
+	}
+
+	async function setOption(configId: string, value: string): Promise<void> {
+		const result = await (rpc as JsonRpc).request<{ configOptions?: ConfigOption[] }>(
+			"session/set_config_option",
+			{
+				sessionId,
+				configId,
+				value,
+			},
+		);
+		if (result?.configOptions) reportConfig(result.configOptions);
 	}
 
 	function report(result: NewSessionResult): void {
@@ -308,26 +338,27 @@ async function startAcpSession(
 
 	const setModel = async (model: string) => {
 		if (modelConfigId) {
-			const result = await rpc.request<{ configOptions?: ConfigOption[] }>(
-				"session/set_config_option",
-				{
-					sessionId,
-					configId: modelConfigId,
-					value: model,
-				},
-			);
-			if (result?.configOptions) reportConfig(result.configOptions);
-			else context.emit({ type: "info", model });
+			await setOption(modelConfigId, model);
 		} else {
 			await rpc.request("session/set_model", { sessionId, modelId: model });
 			context.emit({ type: "info", model });
 		}
 	};
+	const setMode = async (mode: string) => {
+		if (modeConfigId) {
+			await setOption(modeConfigId, mode);
+		} else {
+			await rpc.request("session/set_mode", { sessionId, modeId: mode });
+			context.emit({ type: "info", mode });
+		}
+	};
+	const setEffort = async (effort: string) => {
+		// Only models with levels have the option; the picker hides effort for the rest.
+		if (effortConfigId) await setOption(effortConfigId, effort);
+	};
 	if (context.model) await setModel(context.model).catch(() => undefined);
-	if (context.mode)
-		await rpc
-			.request("session/set_mode", { sessionId, modeId: context.mode })
-			.catch(() => undefined);
+	if (context.effort) await setEffort(context.effort).catch(() => undefined);
+	if (context.mode) await setMode(context.mode).catch(() => undefined);
 
 	return {
 		prompt: async (text) => {
@@ -362,10 +393,8 @@ async function startAcpSession(
 			context.emit({ type: "approval_resolved", id, optionId });
 		},
 		setModel,
-		setMode: async (mode) => {
-			await rpc.request("session/set_mode", { sessionId, modeId: mode });
-			context.emit({ type: "info", mode });
-		},
+		setMode,
+		setEffort,
 		close: () => proc.kill(),
 	};
 }

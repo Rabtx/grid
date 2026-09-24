@@ -40,7 +40,14 @@ export const chatService = {
 		call<ChatSession[]>(`/chat/sessions?project=${encodeURIComponent(project)}`, token),
 	create: (
 		token: string,
-		input: { project: string; provider: string; cwd?: string; model?: string; mode?: string },
+		input: {
+			project: string;
+			provider: string;
+			cwd?: string;
+			model?: string;
+			mode?: string;
+			effort?: string;
+		},
 	) => call<ChatSession>("/chat/sessions", token, { method: "POST", body: JSON.stringify(input) }),
 	rename: (token: string, id: string, title: string) =>
 		call<void>(`/chat/sessions/${id}`, token, { method: "PATCH", body: JSON.stringify({ title }) }),

@@ -5,6 +5,8 @@ export type AgentContext = {
 	cwd: string;
 	model?: string;
 	mode?: string;
+	/** Reasoning effort for the model, when it has levels. */
+	effort?: string;
 	/** The provider's own session id from an earlier run, to continue that conversation. */
 	resume?: string;
 	emit: (event: ChatEvent) => void;
@@ -23,6 +25,7 @@ export type AgentSession = {
 	approve: (id: string, optionId: string | null) => void;
 	setModel: (model: string) => Promise<void>;
 	setMode: (mode: string) => Promise<void>;
+	setEffort: (effort: string) => Promise<void>;
 	close: () => void;
 };
 
@@ -38,5 +41,10 @@ export type ProviderInfo = {
 
 export type Provider = {
 	info: () => ProviderInfo;
+	/**
+	 * The agent's real model list (exact names, effort levels), asked of the agent itself. Slower
+	 * than `info`, so callers cache it; when it fails, `info().models` is the fallback.
+	 */
+	catalog?: () => Promise<{ models: Choice[]; modes?: Choice[] }>;
 	start: (context: AgentContext) => Promise<AgentSession>;
 };

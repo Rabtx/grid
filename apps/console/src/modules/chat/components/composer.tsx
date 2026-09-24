@@ -1,44 +1,8 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, For, onSettled, Show } from "solid-js";
+import { createSignal, onSettled, Show } from "solid-js";
 
 import { insertIntoField, MicButton, registerDictationTarget } from "@/modules/voice";
-import { ChevronDownIcon, SendIcon, StopSquareIcon } from "@/ui";
-
-import type { Choice } from "../types/chat.types";
-
-/**
- * A compact picker in the composer's footer. A native select underneath, so phones get the
- * platform's own picker, which also copes with an agent offering hundreds of models.
- */
-export function PillSelect(props: {
-	label: string;
-	value: string;
-	options: readonly Choice[];
-	onChange: (id: string) => void;
-	icon?: JSX.Element;
-	disabled?: boolean;
-}): JSX.Element {
-	const current = () =>
-		props.options.find((option) => option.id === props.value)?.name ?? props.value;
-	return (
-		<label class="relative inline-flex h-7 min-w-0 max-w-[11rem] shrink items-center gap-1.5 rounded-md border border-ink/10 px-2 text-ink/70 text-ui-xs transition-colors duration-fast ease-out-grid focus-within:border-ink/30 hover:bg-ink/6 hover:text-ink pointer-coarse:h-9">
-			{props.icon}
-			<span class="truncate">{current()}</span>
-			<ChevronDownIcon class="size-3 shrink-0 text-ink/40" />
-			<select
-				aria-label={props.label}
-				value={props.value}
-				disabled={props.disabled}
-				onChange={(event) => props.onChange(event.currentTarget.value)}
-				class="absolute inset-0 cursor-pointer opacity-0"
-			>
-				<For each={props.options}>
-					{(option) => <option value={option.id}>{option.name}</option>}
-				</For>
-			</select>
-		</label>
-	);
-}
+import { SendIcon, StopSquareIcon } from "@/ui";
 
 /**
  * Where a message is written. Enter sends on a physical keyboard (Shift+Enter for a new line);
