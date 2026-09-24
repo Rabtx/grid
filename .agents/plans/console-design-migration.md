@@ -141,9 +141,21 @@ Cross-cutting steps (0.1, 0.2, 1.2, 2.1, Phase 4–5) are done or closely paired
 
 | Step | Card | PR | Status |
 |---|---|---|---|
-| 0.1–0.4, 1.1–1.4 | `2026-09-24-console-design-foundation-v2.md` | #22 | done |
-| 2 prerequisite: primitives | `2026-09-24-console-primitives-phase-two.md` | — | open — start now |
-| 2.2 views and filters | `2026-09-24-console-board-views-filters.md` | — | open — start now |
-| tooling: console lint override | `2026-09-24-console-lint-override.md` | — | open — start now |
-| 2.1 task panel | `2026-09-24-console-task-panel.md` | — | open — after primitives |
-| 2.3 moving tasks | `2026-09-24-console-move-tasks.md` | — | open — after the three above |
+| 0.1–0.4, 1.1–1.4 foundation and re-skin | `2026-09-24-console-design-foundation-v2.md` | #22 | done |
+| 2 prerequisite: primitives | `2026-09-24-console-primitives-phase-two.md` | #27 | done |
+| 2.2 views and filters | `2026-09-24-console-board-views-filters.md` | #25 | done |
+| tooling: console lint override | `2026-09-24-console-lint-override.md` | #26 | done |
+| brand logo and app icons | — | #28 | done |
+| 2.1 task panel | `2026-09-24-console-task-panel.md` | #29 | done |
+| icons: Hugeicons | — | #30 | done |
+| appearance model | — | #31 | done |
+| installable PWA | `2026-09-24-console-pwa.md` | #32, #33 | done |
+| 2.3 moving tasks | `2026-09-24-console-move-tasks.md` | #34 | done |
+| 6: settings → appearance | `2026-09-24-console-appearance-settings.md` | #35 | done |
+| 6: terminal (apps/runner) | `2026-09-24-console-terminal.md` | #36 | done |
+| UX polish: native feel | `2026-09-24-console-native-feel.md` | — | doing (claude) |
+| UX polish: session keep-alive | `2026-09-24-console-session-keepalive.md` | — | open |
+| UX polish: touch targets | `2026-09-24-console-touch-targets.md` | — | open |
+| UX polish: toasts and new-task flow | `2026-09-24-console-toasts.md` | — | open |
+| UX polish: keyboard shortcuts | `2026-09-24-console-keyboard-shortcuts.md` | — | open |
+| UX polish: sign-in polish | `2026-09-24-console-login-polish.md` | — | open |
