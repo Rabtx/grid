@@ -4,7 +4,15 @@ import { For, Loading, Show } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import { useWorkspace } from "@/modules/projects";
-import { BoardIcon, BrandLogo, Caption, SettingsIcon, SignOutIcon, Skeleton } from "@/ui";
+import {
+	BoardIcon,
+	BrandLogo,
+	Caption,
+	SettingsIcon,
+	SignOutIcon,
+	Skeleton,
+	TerminalIcon,
+} from "@/ui";
 
 // One nav row recipe for every destination: secondary ink at rest, selection fill when current.
 const NAV_ROW =
@@ -33,6 +41,14 @@ export function ProjectNav(): JSX.Element {
 				>
 					<BoardIcon class="size-4 shrink-0" />
 					Board
+				</a>
+				<a
+					href="/terminal"
+					aria-current={location.pathname.startsWith("/terminal") ? "page" : undefined}
+					class={NAV_ROW}
+				>
+					<TerminalIcon class="size-4 shrink-0" />
+					Terminal
 				</a>
 			</nav>
 

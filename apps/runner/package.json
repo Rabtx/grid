@@ -1,0 +1,17 @@
+{
+	"name": "runner",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "bun run src/main.ts",
+		"start": "bun run src/main.ts",
+		"lint": "oxlint .",
+		"typecheck": "tsc --noEmit",
+		"test": "bun test"
+	},
+	"devDependencies": {
+		"@types/bun": "1.4.2",
+		"typescript": "^6.0.3"
+	}
+}

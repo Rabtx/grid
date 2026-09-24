@@ -17,7 +17,7 @@
 		"format": "oxfmt --write . && bun run scripts:format && (cd packages/logger/rust && cargo fmt || true)",
 		"typecheck": "bun run --filter '*' typecheck",
 		"test": "bun run --filter '*' test",
-		"test:coverage": "(cd apps/web && bun run test:coverage) && (cd apps/nest-api && bun run test:cov) && (cd packages/logger && bun run test:coverage)",
+		"test:coverage": "(cd apps/web && bun run test:coverage) && (cd apps/nest-api && bun run test:cov) && (cd packages/logger && bun run test:coverage) && (cd apps/console && bun run test) && (cd apps/runner && bun run test)",
 		"test:e2e:web": "cd apps/web && bun run test:e2e",
 		"architecture:check": "bash scripts/architecture/check-boundaries.sh",
 		"naming:check": "bash scripts/architecture/check-naming.sh",

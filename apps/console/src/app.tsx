@@ -1,6 +1,6 @@
 import { createRouter, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect } from "solid-js";
+import { createEffect, lazy, Loading } from "solid-js";
 
 import { AuthProvider, LoginForm, useAuth } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
@@ -21,6 +21,9 @@ const Router = createRouter({
 		{ path: "/board/:slug", component: BoardRoute },
 		// The same board with one task open in the panel over it.
 		{ path: "/board/:slug/tasks/:number", component: BoardRoute },
+		// Terminals on this machine; the id keeps a tab linkable and survives a reload.
+		{ path: "/terminal", component: TerminalRoute },
+		{ path: "/terminal/:id", component: TerminalRoute },
 		// Settings is a section of its own; appearance is the only page in it today.
 		{ path: "/settings", component: SettingsRedirectRoute },
 		{ path: "/settings/appearance", component: SettingsRoute },
@@ -69,6 +72,19 @@ function BoardRoute(): JSX.Element {
 		<RequireAuth>
 			<BoardScreen />
 			<TaskPanel />
+		</RequireAuth>
+	);
+}
+
+// The terminal brings xterm.js (a few hundred KB), so it loads only when someone opens it.
+const TerminalScreen = lazy(() => import("@/modules/terminal"), { export: "TerminalScreen" });
+
+function TerminalRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<Loading fallback={<p class="p-4 text-ink/45 text-ui-sm">Opening the terminal…</p>}>
+				<TerminalScreen />
+			</Loading>
 		</RequireAuth>
 	);
 }

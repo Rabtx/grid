@@ -7,7 +7,7 @@
  * - Page navigations go to the network first and fall back to the cached shell offline; the
  *   router then renders the right screen from the URL.
  * - Hashed assets are served from the cache first — their names change whenever they change.
- * - API calls (/api/…, /uploads/…) are never cached: tasks and sessions must always be live.
+ * - API and terminal calls (/api/…, /uploads/…, /runner/…) are never cached: they must be live.
  */
 const BUILD_ID = "__BUILD_ID__";
 const CACHE = `grid-shell-${BUILD_ID}`;
@@ -42,7 +42,7 @@ self.addEventListener("fetch", (event) => {
 	if (request.method !== "GET") return;
 	const url = new URL(request.url);
 	if (url.origin !== self.location.origin) return;
-	if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/uploads/")) return;
+	if (["/api/", "/uploads/", "/runner/"].some((prefix) => url.pathname.startsWith(prefix))) return;
 
 	if (request.mode === "navigate") {
 		event.respondWith(
