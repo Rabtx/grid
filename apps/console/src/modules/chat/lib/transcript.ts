@@ -222,3 +222,100 @@ export function pendingApprovals(transcript: Transcript): Extract<Block, { kind:
 			block.kind === "approval" && block.resolved === undefined,
 	);
 }
+
+type ToolBlock = Extract<Block, { kind: "tool" }>;
+
+/** A conversation row: one block, or a run of consecutive tool calls shown as one line. */
+export type Row =
+	| { kind: "block"; block: Block }
+	| { kind: "work"; key: string; tools: ToolBlock[] };
+
+/** Group consecutive tool calls; every other block (approvals included) stands on its own. */
+export function groupRows(blocks: Block[]): Row[] {
+	const out: Row[] = [];
+	for (const block of blocks) {
+		const last = out.at(-1);
+		if (block.kind === "tool") {
+			if (last?.kind === "work") last.tools.push(block);
+			else out.push({ kind: "work", key: block.key, tools: [block] });
+		} else {
+			out.push({ kind: "block", block });
+		}
+	}
+	return out;
+}
+
+const PATH = /(?:^|[\s"'`(=:])((?:[\w.@~-]+\/)*[\w@-][\w.@-]*\.[a-z][\w]{0,7})(?=$|[\s"'`),:])/i;
+
+/** The file a tool touched: a `path`/`file_path` field in its input, or a path in its title. */
+export function toolFile(tool: Pick<ToolBlock, "title" | "input">): string | null {
+	if (tool.input) {
+		try {
+			const input: unknown = JSON.parse(tool.input);
+			if (input && typeof input === "object") {
+				const fields = input as Record<string, unknown>;
+				for (const name of ["file_path", "path", "filePath", "notebook_path"]) {
+					const value = fields[name];
+					if (typeof value === "string" && value) return value.split("/").pop() ?? value;
+				}
+			}
+		} catch {
+			// Not JSON; fall back to the title.
+		}
+	}
+	const match = tool.title.match(PATH);
+	return match ? (match[1].split("/").pop() ?? match[1]) : null;
+}
+
+function toolHost(tool: Pick<ToolBlock, "title" | "input">): string | null {
+	const match = `${tool.title} ${tool.input ?? ""}`.match(/https?:\/\/([^/\s"']+)/);
+	return match ? match[1] : null;
+}
+
+/** One tool call in words: "Read density.ts", "Ran a command", "Searched the project". */
+export function toolLabel(tool: Pick<ToolBlock, "title" | "input" | "tool">): string {
+	const file = toolFile(tool);
+	switch (tool.tool) {
+		case "read":
+			return file ? `Read ${file}` : "Read a file";
+		case "edit":
+			return file ? `Edited ${file}` : "Edited a file";
+		case "execute":
+			return "Ran a command";
+		case "search":
+			return "Searched the project";
+		case "fetch": {
+			const host = toolHost(tool);
+			return host ? `Fetched ${host}` : "Fetched a page";
+		}
+		case "think":
+			return "Thought";
+		default:
+			return tool.title || "Used a tool";
+	}
+}
+
+const COUNTED: Record<ToolBlock["tool"], [one: string, many: string]> = {
+	read: ["Read a file", "Read {n} files"],
+	edit: ["Edited a file", "Edited {n} files"],
+	execute: ["Ran a command", "Ran {n} commands"],
+	search: ["Searched the project", "Searched {n} times"],
+	fetch: ["Fetched a page", "Fetched {n} pages"],
+	think: ["Thought", "Thought {n} times"],
+	other: ["Used a tool", "Used {n} tools"],
+};
+
+/**
+ * What a run of tool calls did, in one line: each distinct action once, joined with " · "
+ * ("Read density.ts · Edited density.ts · Ran a command"). Long runs are counted per kind instead,
+ * so the line stays short.
+ */
+export function summariseTools(tools: Pick<ToolBlock, "title" | "input" | "tool">[]): string {
+	const labels = [...new Set(tools.map(toolLabel))];
+	if (labels.length <= 3) return labels.join(" · ");
+	const counts = new Map<ToolBlock["tool"], number>();
+	for (const tool of tools) counts.set(tool.tool, (counts.get(tool.tool) ?? 0) + 1);
+	return [...counts]
+		.map(([kind, n]) => (n === 1 ? COUNTED[kind][0] : COUNTED[kind][1].replace("{n}", String(n))))
+		.join(" · ");
+}
