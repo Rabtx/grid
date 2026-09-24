@@ -323,6 +323,13 @@ export function TerminalScreen(): JSX.Element {
 				}}
 				onArrow={(arrow) => handles.get(activeId() ?? "")?.arrow(arrow)}
 				onPaste={() => void paste()}
+				dictationTarget={() => {
+					const handle = handles.get(activeId() ?? "");
+					// No focus hand-back: dictating should not pop the phone keyboard up.
+					return handle
+						? { insert: handle.paste, focus: () => {}, label: "Terminal", floatingMic: false }
+						: null;
+				}}
 			/>
 		</div>
 	);

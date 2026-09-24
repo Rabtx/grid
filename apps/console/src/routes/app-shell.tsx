@@ -12,6 +12,7 @@ import {
 	UpdateBanner,
 	WorkspaceHeader,
 } from "@/modules/shell";
+import { VoiceControls } from "@/modules/voice";
 import { BrandLogo } from "@/ui";
 
 /**
@@ -62,6 +63,7 @@ function SignedInShell(props: { children: JSX.Element }): JSX.Element {
 			</div>
 			<NavDrawer open={drawerOpen()} onClose={() => setDrawerOpen(false)} />
 			<NewTaskDialog />
+			<VoiceControls />
 			<ShortcutsHelp />
 		</div>
 	);

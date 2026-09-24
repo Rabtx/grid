@@ -7,6 +7,7 @@ import "@xterm/xterm/css/xterm.css";
 import { createEffect, onSettled, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
+import { registerDictationTarget } from "@/modules/voice";
 
 import { type Arrow, arrowSequence, applyModifiers, type Modifiers } from "../lib/keys";
 import { lineForThumb, type ScrollState, thumbGeometry } from "../lib/scrollbar";
@@ -162,6 +163,14 @@ export function TerminalView(props: {
 
 		const detachScrollbar = track && thumb ? attachScrollbar(terminal, track, thumb) : () => {};
 
+		// Voice input typed into the shell, as if pasted: never with Enter, so nothing runs unseen.
+		const unregisterDictation = registerDictationTarget(host, {
+			insert: (text) => terminal.paste(text),
+			focus: () => terminal.focus(),
+			label: "Terminal",
+			floatingMic: false,
+		});
+
 		props.onHandle({
 			// Key-bar keys take the armed modifiers too, so Shift then Tab sends back tab.
 			send: (data) => live.send(applyModifiers(data, props.takeModifiers())),
@@ -184,6 +193,7 @@ export function TerminalView(props: {
 			host?.removeEventListener("paste", onPaste);
 			for (const subscription of subscriptions) subscription.dispose();
 			detachScrollbar();
+			unregisterDictation();
 			live.close();
 			terminal.dispose();
 			term = undefined;

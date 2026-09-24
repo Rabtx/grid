@@ -20,7 +20,7 @@ export function SegmentedControl<T extends string>(props: {
 						type="button"
 						aria-pressed={props.value === option.value ? "true" : "false"}
 						onClick={() => props.onChange(option.value)}
-						class="focus-ring inline-flex h-[calc(var(--spacing-control)-0.25rem)] items-center rounded-sm px-2.5 text-ink/55 text-ui-sm transition-colors duration-fast ease-out-grid hover:text-ink aria-pressed:bg-ink/10 aria-pressed:text-ink"
+						class="focus-ring inline-flex h-[calc(var(--spacing-control)-0.25rem)] items-center rounded-sm px-2.5 text-ink/55 text-ui-sm transition-colors duration-fast ease-out-grid hover:text-ink aria-pressed:bg-ink/10 aria-pressed:text-ink pointer-coarse:min-h-10"
 					>
 						{option.label}
 					</button>

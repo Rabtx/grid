@@ -2,7 +2,7 @@ import { createRouter, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, lazy, Loading } from "solid-js";
 
-import { AuthProvider, LoginForm, useAuth } from "@/modules/auth";
+import { AuthProvider, LoginForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { AppearanceScreen } from "@/modules/settings";
 import { EmptyState } from "@/ui";
@@ -21,6 +21,9 @@ const Router = createRouter({
 		{ path: "/board/:slug", component: BoardRoute },
 		// The same board with one task open in the panel over it.
 		{ path: "/board/:slug/tasks/:number", component: BoardRoute },
+		// Chats with agents, per project (`?project=`); the id makes a chat linkable.
+		{ path: "/chat", component: ChatRoute },
+		{ path: "/chat/:id", component: ChatRoute },
 		// Terminals on this machine; the id keeps a tab linkable and survives a reload.
 		{ path: "/terminal", component: TerminalRoute },
 		{ path: "/terminal/:id", component: TerminalRoute },
@@ -42,16 +45,6 @@ export function App(): JSX.Element {
 }
 
 function LoginRoute(): JSX.Element {
-	const auth = useAuth();
-	const navigate = useNavigate();
-
-	createEffect(
-		() => auth.ready() && Boolean(auth.token()),
-		(signedIn) => {
-			if (signedIn) navigate("/board", { replace: true });
-		},
-	);
-
 	return (
 		<div class="flex justify-center pt-[12vh] pb-12">
 			<LoginForm />
@@ -72,6 +65,19 @@ function BoardRoute(): JSX.Element {
 		<RequireAuth>
 			<BoardScreen />
 			<TaskPanel />
+		</RequireAuth>
+	);
+}
+
+// Chat brings a Markdown renderer; like the terminal, it loads when someone opens it.
+const ChatScreen = lazy(() => import("@/modules/chat"), { export: "ChatScreen" });
+
+function ChatRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<Loading fallback={<p class="p-4 text-ink/45 text-ui-sm">Opening chat…</p>}>
+				<ChatScreen />
+			</Loading>
 		</RequireAuth>
 	);
 }

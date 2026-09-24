@@ -26,7 +26,7 @@ export function Select(props: {
 				name={props.name}
 				value={props.value}
 				onChange={(event) => props.onChange(event.currentTarget.value)}
-				class="h-field w-full min-w-0 appearance-none rounded-md border border-ink/12 bg-canvas/40 pr-8 pl-2.5 text-ink text-ui-input outline-none transition-colors duration-fast ease-out-grid hover:border-ink/20 focus:border-ink/30 disabled:opacity-50"
+				class="h-field w-full min-w-0 appearance-none rounded-md border border-ink/12 bg-canvas/40 pr-8 pl-2.5 text-ink text-ui-input outline-none transition-colors duration-fast ease-out-grid hover:border-ink/20 focus:border-ink/30 disabled:opacity-50 pointer-coarse:min-h-10"
 			>
 				<For each={props.options}>
 					{(option) => <option value={option.value}>{option.label}</option>}

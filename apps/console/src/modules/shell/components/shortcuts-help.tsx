@@ -3,7 +3,7 @@ import { createSignal, onSettled } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
 
 import { useWorkspace } from "@/modules/projects";
-import { Sheet } from "@/ui";
+import { CloseIcon, IconButton, Sheet } from "@/ui";
 
 import { installShortcuts, type Shortcut } from "@/lib/shortcuts";
 
@@ -11,6 +11,7 @@ const SHORTCUTS: readonly Omit<Shortcut, "run">[] = [
 	{ keys: "n", label: "New task" },
 	{ keys: "/", label: "Filter tasks" },
 	{ keys: "g b", label: "Go to board" },
+	{ keys: "g c", label: "Go to chat" },
 	{ keys: "g t", label: "Go to terminal" },
 	{ keys: "g s", label: "Go to settings" },
 	{ keys: "?", label: "Show shortcuts" },
@@ -36,6 +37,7 @@ export function ShortcutsHelp(): JSX.Element {
 			},
 			{ keys: "/", label: "Filter tasks", run: focusFilter },
 			{ keys: "g b", label: "Go to board", run: () => navigate("/board") },
+			{ keys: "g c", label: "Go to chat", run: () => navigate("/chat") },
 			{ keys: "g t", label: "Go to terminal", run: () => navigate("/terminal") },
 			{ keys: "g s", label: "Go to settings", run: () => navigate("/settings") },
 			{ keys: "?", label: "Show shortcuts", run: () => setOpen(true) },
@@ -53,14 +55,9 @@ export function ShortcutsHelp(): JSX.Element {
 							Move through Grid without leaving the keyboard.
 						</p>
 					</div>
-					<button
-						type="button"
-						class="focus-ring min-h-11 min-w-11 rounded-md text-ink/55 hover:bg-ink/5 hover:text-ink"
-						onClick={() => setOpen(false)}
-						aria-label="Close keyboard shortcuts"
-					>
-						×
-					</button>
+					<IconButton label="Close keyboard shortcuts" onClick={() => setOpen(false)}>
+						<CloseIcon />
+					</IconButton>
 				</div>
 				<div class="mt-5 grid gap-2 sm:grid-cols-2">
 					{SHORTCUTS.map((shortcut) => (
