@@ -5,7 +5,17 @@
  * approvals are upserted by id, so a later event for the same id updates the earlier one.
  */
 
-export type Choice = { id: string; name: string; description?: string };
+/** Something to pick: a model, a mode, an effort level. */
+export type Choice = {
+	id: string;
+	name: string;
+	description?: string;
+	/** For long lists: the heading it is listed under (a model's provider, say). */
+	group?: string;
+	/** A model's reasoning-effort levels, when it has them. */
+	efforts?: Choice[];
+	defaultEffort?: string;
+};
 
 export type ToolKind = "read" | "edit" | "execute" | "search" | "fetch" | "think" | "other";
 
@@ -50,7 +60,16 @@ export type ChatEvent =
 	| { type: "turn_start" }
 	| { type: "turn_end"; reason: "done" | "cancelled" | "error"; error?: string }
 	/** What the agent offers and has chosen: models, modes. Sent when it changes. */
-	| { type: "info"; models?: Choice[]; model?: string; modes?: Choice[]; mode?: string }
+	| {
+			type: "info";
+			models?: Choice[];
+			model?: string;
+			modes?: Choice[];
+			mode?: string;
+			/** Effort levels for the current model, when the agent reports them live. */
+			efforts?: Choice[];
+			effort?: string;
+	  }
 	| { type: "error"; message: string };
 
 /** Output shown in the transcript is capped: a tool can print megabytes. */

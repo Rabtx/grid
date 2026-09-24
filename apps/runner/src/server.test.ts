@@ -121,3 +121,43 @@ describe("runner server", () => {
 		expect(list.data.some((terminal) => terminal.id === id)).toBe(false);
 	});
 });
+
+describe("folders and project links", () => {
+	it("browses folders, reads a folder's details and links a project to it", async () => {
+		const listing = (await (
+			await fetch(`${base}/fs/folders?path=/tmp`, { headers: auth })
+		).json()) as {
+			data: { path: string; folders: unknown[] };
+		};
+		expect(listing.data.path).toBe("/tmp");
+		expect(Array.isArray(listing.data.folders)).toBe(true);
+
+		const inspected = (await (
+			await fetch(`${base}/fs/inspect?path=/tmp`, { headers: auth })
+		).json()) as {
+			data: { name: string };
+		};
+		expect(inspected.data.name).toBe("tmp");
+
+		const linked = await fetch(`${base}/projects/folders/demo`, {
+			method: "PUT",
+			headers: { ...auth, "Content-Type": "application/json" },
+			body: JSON.stringify({ path: "/tmp" }),
+		});
+		expect(linked.status).toBe(204);
+		const folders = (await (await fetch(`${base}/projects/folders`, { headers: auth })).json()) as {
+			data: Record<string, string>;
+		};
+		expect(folders.data.demo).toBe("/tmp");
+	});
+
+	it("refuses without sign-in, and refuses a folder that does not exist", async () => {
+		expect((await fetch(`${base}/fs/folders`)).status).toBe(401);
+		const missing = await fetch(`${base}/projects/folders/demo`, {
+			method: "PUT",
+			headers: { ...auth, "Content-Type": "application/json" },
+			body: JSON.stringify({ path: "/no/such/folder" }),
+		});
+		expect(missing.status).toBe(400);
+	});
+});

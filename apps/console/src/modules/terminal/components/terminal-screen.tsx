@@ -1,8 +1,9 @@
 import { useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
+import { useWorkspace } from "@/modules/projects";
 import { Button, CloseIcon, ErrorNotice, IconButton, PlusIcon, Skeleton, TerminalIcon } from "@/ui";
 
 import { type Modifiers, NO_MODIFIERS } from "../lib/keys";
@@ -38,6 +39,7 @@ type Load = { status: "loading" } | { status: "ready" } | { status: "error"; mes
  */
 export function TerminalScreen(): JSX.Element {
 	const auth = useAuth();
+	const workspace = useWorkspace();
 	const navigate = useNavigate();
 	const match = useMatch(() => "/terminal/:id");
 	const routeId = createMemo(() => match()?.params.id ?? null);
@@ -53,7 +55,6 @@ export function TerminalScreen(): JSX.Element {
 	const handles = new Map<string, TerminalHandle>();
 	// Armed modifiers are read by the terminal on the very next key, before signals settle.
 	let armed: Modifiers = NO_MODIFIERS;
-	let root: HTMLDivElement | undefined;
 
 	const activeId = createMemo(() => {
 		const list = terminals();
@@ -92,7 +93,10 @@ export function TerminalScreen(): JSX.Element {
 		if (!token || busy()) return;
 		setBusy(true);
 		try {
-			const info = await terminalsService.open(token, DEFAULT_SIZE);
+			// A new shell starts in the current project's folder, where the work is.
+			const slug = untrack(workspace.currentSlug);
+			const cwd = slug ? untrack(workspace.folders)[slug] : undefined;
+			const info = await terminalsService.open(token, DEFAULT_SIZE, cwd);
 			setTerminals((list) => [...list, info]);
 			navigate(`/terminal/${info.id}`);
 		} catch (cause) {
@@ -167,39 +171,8 @@ export function TerminalScreen(): JSX.Element {
 		},
 	);
 
-	// Fit the screen to the visible viewport. On phones the keyboard shrinks the visual viewport
-	// (not the layout one), so dvh alone would leave the prompt under the keyboard.
-	onSettled(() => {
-		const fitViewport = () => {
-			if (!root) return;
-			const viewport = window.visualViewport;
-			const visibleBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
-			const top = root.getBoundingClientRect().top;
-			root.style.height = `${Math.max(160, visibleBottom - top - 8)}px`;
-		};
-		fitViewport();
-		// The page itself must not scroll under a full-height terminal.
-		const html = document.documentElement;
-		const previousOverflow = html.style.overflow;
-		html.style.overflow = "hidden";
-		window.visualViewport?.addEventListener("resize", fitViewport);
-		window.visualViewport?.addEventListener("scroll", fitViewport);
-		window.addEventListener("resize", fitViewport);
-		return () => {
-			html.style.overflow = previousOverflow;
-			window.visualViewport?.removeEventListener("resize", fitViewport);
-			window.visualViewport?.removeEventListener("scroll", fitViewport);
-			window.removeEventListener("resize", fitViewport);
-		};
-	});
-
 	return (
-		<div
-			ref={(el) => {
-				root = el;
-			}}
-			class="-mx-4 -mt-3 flex min-h-0 flex-col overflow-hidden border-stroke md:mx-0 md:mt-0 md:rounded-xl md:border"
-		>
+		<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 			<div class="flex h-10 shrink-0 items-center gap-1 border-stroke border-b pr-1 pl-2">
 				<div
 					role="tablist"

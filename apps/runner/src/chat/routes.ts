@@ -11,7 +11,7 @@ export async function chatRequest(
 	hub: ChatHub,
 ): Promise<Response | null> {
 	if (url.pathname === "/chat/providers" && request.method === "GET") {
-		return Response.json({ data: hub.providerList() });
+		return Response.json({ data: await hub.providerList() });
 	}
 	if (url.pathname === "/chat/sessions" && request.method === "GET") {
 		const project = url.searchParams.get("project");
@@ -32,6 +32,7 @@ export async function chatRequest(
 						cwd: typeof body.cwd === "string" ? body.cwd : undefined,
 						model: typeof body.model === "string" ? body.model : undefined,
 						mode: typeof body.mode === "string" ? body.mode : undefined,
+						effort: typeof body.effort === "string" ? body.effort : undefined,
 					}),
 				},
 				{ status: 201 },
@@ -65,7 +66,7 @@ export type ChatCommand =
 	| { t: "prompt"; text: string }
 	| { t: "cancel" }
 	| { t: "approve"; id: string; optionId: string | null }
-	| { t: "configure"; model?: string; mode?: string };
+	| { t: "configure"; model?: string; mode?: string; effort?: string };
 
 export function chatCommand(
 	hub: ChatHub,
@@ -93,6 +94,7 @@ export function chatCommand(
 				.configure(userId, sessionId, {
 					model: typeof command.model === "string" ? command.model : undefined,
 					mode: typeof command.mode === "string" ? command.mode : undefined,
+					effort: typeof command.effort === "string" ? command.effort : undefined,
 				})
 				.catch(fail);
 		}

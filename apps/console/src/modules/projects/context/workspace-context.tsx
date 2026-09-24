@@ -1,9 +1,18 @@
 import { useLocation, useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createContext, createMemo, createSignal, onSettled, untrack, useContext } from "solid-js";
+import {
+	createContext,
+	createEffect,
+	createMemo,
+	createSignal,
+	onSettled,
+	untrack,
+	useContext,
+} from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 
+import { foldersService } from "../services/folders.service";
 import { projectsService } from "../services/projects.service";
 import type { Project, Task } from "../types/project.types";
 
@@ -26,7 +35,34 @@ type WorkspaceState = {
 	closeTask: () => void;
 	newTaskOpen: () => boolean;
 	setNewTaskOpen: (open: boolean) => void;
+	/**
+	 * The project everything else is about: the one the URL names (board or chat), else the last
+	 * one used, else the first. Board, Chat and a new terminal all follow it.
+	 */
+	currentSlug: () => string | null;
+	currentProject: () => Project | null;
+	/** Re-read the project list, e.g. after adding one. */
+	refreshProjects: () => void;
+	/** Each project's folder on this machine (from the runner); empty when the runner is down. */
+	folders: () => Record<string, string>;
+	refreshFolders: () => void;
+	/** The "Add project" sheet, opened from any "+" in the navigation. */
+	addProjectOpen: () => boolean;
+	setAddProjectOpen: (open: boolean) => void;
+	/** The "Choose folder" sheet for one project, or null. */
+	choosingFolderFor: () => string | null;
+	chooseFolderFor: (slug: string | null) => void;
 };
+
+const CURRENT_KEY = "grid.project";
+
+function rememberedProject(): string | null {
+	try {
+		return localStorage.getItem(CURRENT_KEY);
+	} catch {
+		return null;
+	}
+}
 
 const WorkspaceContext = createContext<WorkspaceState>();
 
@@ -47,6 +83,13 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 	// Bumped after every write so the task read re-runs; the dependency stays visible in the memo.
 	const [revision, setRevision] = createSignal(0);
 	const [newTaskOpen, setNewTaskOpen] = createSignal(false);
+	// Chat pages are per project too: `/chat/:slug` and `/chat/:slug/:id`.
+	const chatMatch = useMatch(() => "/chat/:slug/*");
+	const [projectsRevision, setProjectsRevision] = createSignal(0);
+	const [foldersRevision, setFoldersRevision] = createSignal(0);
+	const [addProjectOpen, setAddProjectOpen] = createSignal(false);
+	const [choosingFolderFor, chooseFolderFor] = createSignal<string | null>(null);
+	const [remembered, setRemembered] = createSignal(rememberedProject());
 
 	// Coming back to the app (switching back to it, unlocking the phone, the network returning)
 	// re-reads the board, so what shows is current without a manual reload. A quick glance away
@@ -70,6 +113,7 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 	});
 
 	const projects = createMemo(async () => {
+		projectsRevision();
 		const token = auth.token();
 		if (!token) return [];
 		return projectsService.list(token);
@@ -80,6 +124,39 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 	const activeProject = createMemo(
 		() => projects().find((project) => project.slug === activeSlug()) ?? null,
 	);
+
+	const currentSlug = createMemo(() => {
+		const list = projects();
+		const known = (slug: string | null | undefined) =>
+			slug && list.some((project) => project.slug === slug) ? slug : null;
+		return (
+			known(activeSlug()) ??
+			known(chatMatch()?.params.slug) ??
+			known(remembered()) ??
+			list[0]?.slug ??
+			null
+		);
+	});
+	const currentProject = createMemo(
+		() => projects().find((project) => project.slug === currentSlug()) ?? null,
+	);
+	createEffect(currentSlug, (slug) => {
+		if (!slug) return;
+		setRemembered(slug);
+		try {
+			localStorage.setItem(CURRENT_KEY, slug);
+		} catch {
+			// Not remembered; the URL still says which project is open.
+		}
+	});
+
+	// Folder links live with the runner on this machine; without it they are simply unknown.
+	const folders = createMemo(async () => {
+		foldersRevision();
+		const token = auth.token();
+		if (!token) return {};
+		return foldersService.projectFolders(token).catch(() => ({}));
+	});
 
 	const tasks = createMemo(async () => {
 		revision();
@@ -131,6 +208,15 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		closeTask,
 		newTaskOpen,
 		setNewTaskOpen,
+		currentSlug,
+		currentProject,
+		refreshProjects: () => setProjectsRevision((n) => n + 1),
+		folders,
+		refreshFolders: () => setFoldersRevision((n) => n + 1),
+		addProjectOpen,
+		setAddProjectOpen,
+		choosingFolderFor,
+		chooseFolderFor,
 	};
 
 	return <WorkspaceContext value={state}>{props.children}</WorkspaceContext>;

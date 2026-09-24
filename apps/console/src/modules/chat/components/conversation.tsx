@@ -9,7 +9,10 @@ import { applyEvent, emptyTranscript, replay, type Transcript } from "../lib/tra
 import { chatSocketUrl } from "../services/chat.service";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
 
-import { Composer, PillSelect } from "./composer";
+import { mergeModels } from "../lib/choices";
+
+import { Composer } from "./composer";
+import { ModelPicker, ModePicker } from "./pickers";
 import { TranscriptView } from "./transcript-view";
 
 /** A first message typed on the new-chat screen, sent as soon as the session's socket is up. */
@@ -41,11 +44,24 @@ export function Conversation(props: {
 	let pinned = true;
 
 	const provider = () => props.providers.find((item) => item.id === session()?.provider);
-	const models = () =>
-		transcript().models.length ? transcript().models : (provider()?.models ?? []);
+	// The agent's catalog (exact names, effort levels), plus anything it reported live.
+	const models = () => mergeModels(provider()?.models ?? [], transcript().models);
 	const modes = () => (transcript().modes.length ? transcript().modes : (provider()?.modes ?? []));
 	const model = () => transcript().model ?? session()?.model ?? models()[0]?.id ?? "";
 	const mode = () => transcript().mode ?? session()?.mode ?? modes()[0]?.id ?? "";
+	const currentModel = () => models().find((item) => item.id === model());
+	// Live levels from the agent (ACP) win; otherwise the catalog's levels for this model.
+	const efforts = () => transcript().efforts ?? currentModel()?.efforts ?? [];
+	const effort = () =>
+		transcript().effort ?? session()?.effort ?? currentModel()?.defaultEffort ?? null;
+
+	function chooseModel(next: string): void {
+		const levels = models().find((item) => item.id === next)?.efforts ?? [];
+		const keep = levels.some((level) => level.id === effort());
+		const nextEffort =
+			levels.length && !keep ? models().find((item) => item.id === next)?.defaultEffort : undefined;
+		socket?.send({ t: "configure", model: next, ...(nextEffort ? { effort: nextEffort } : {}) });
+	}
 
 	function scrollToEnd(): void {
 		requestAnimationFrame(() => {
@@ -186,19 +202,20 @@ export function Conversation(props: {
 						controls={
 							<>
 								<Show when={models().length > 0}>
-									<PillSelect
-										label="Model"
-										value={model()}
-										options={models()}
-										onChange={(next) => socket?.send({ t: "configure", model: next })}
+									<ModelPicker
+										models={models()}
+										model={model()}
+										onModel={chooseModel}
+										efforts={efforts()}
+										effort={effort()}
+										onEffort={(next) => socket?.send({ t: "configure", effort: next })}
 									/>
 								</Show>
 								<Show when={modes().length > 0}>
-									<PillSelect
-										label="Mode"
-										value={mode()}
-										options={modes()}
-										onChange={(next) => socket?.send({ t: "configure", mode: next })}
+									<ModePicker
+										modes={modes()}
+										mode={mode()}
+										onMode={(next) => socket?.send({ t: "configure", mode: next })}
 									/>
 								</Show>
 								<Show when={transcript().usage?.contextWindow}>

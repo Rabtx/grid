@@ -17,7 +17,9 @@ import { transcribeWithRunner } from "../services/transcribe.service";
 export function VoiceControls(): JSX.Element {
 	const auth = useAuth();
 	const [focused, setFocused] = createSignal<DictationTarget | null>(null);
-	const [bottom, setBottom] = createSignal(16);
+	// Clear of the status bar that closes every signed-in screen.
+	const CLEARANCE = 48;
+	const [bottom, setBottom] = createSignal(CLEARANCE);
 
 	configureTranscription(async (audio) => {
 		const token = auth.token() ?? (await auth.renew());
@@ -35,7 +37,7 @@ export function VoiceControls(): JSX.Element {
 		const place = () => {
 			const viewport = window.visualViewport;
 			const hidden = viewport ? window.innerHeight - (viewport.offsetTop + viewport.height) : 0;
-			setBottom(Math.max(0, hidden) + 16);
+			setBottom(Math.max(0, hidden) + CLEARANCE);
 		};
 		place();
 		window.visualViewport?.addEventListener("resize", place);

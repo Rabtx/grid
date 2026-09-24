@@ -57,28 +57,69 @@ export class ChatHub {
 		private readonly projectsDir: string = join(homedir(), "Projects"),
 	) {}
 
-	providerList(): ProviderInfo[] {
-		return [...this.providers.values()].map((provider) => provider.info());
+	/**
+	 * Every agent, with its real model list where the agent can give one (exact names, effort
+	 * levels). A catalog that fails or is slow leaves the basic list rather than failing the call.
+	 */
+	async providerList(): Promise<ProviderInfo[]> {
+		return Promise.all(
+			[...this.providers.values()].map(async (provider) => {
+				const info = provider.info();
+				if (!info.available || !provider.catalog) return info;
+				try {
+					const catalog = await provider.catalog();
+					return {
+						...info,
+						models: catalog.models.length ? catalog.models : info.models,
+						modes: catalog.modes ?? info.modes,
+					};
+				} catch (cause) {
+					console.warn(
+						`[runner] ${info.name} did not list its models:`,
+						cause instanceof Error ? cause.message : cause,
+					);
+					return info;
+				}
+			}),
+		);
 	}
 
 	list(ownerId: string, project: string): ChatSessionRow[] {
 		return this.store.list(ownerId, project);
 	}
 
-	/** Where a project's code lives on this machine, if it follows the usual layout. */
-	defaultCwd(project: string): string {
+	/** Where a project's code lives on this machine: its linked folder, else the usual layout. */
+	defaultCwd(ownerId: string, project: string): string {
+		const linked = this.store.projectFolders(ownerId)[project];
+		if (linked && isDirectory(linked)) return linked;
 		const guess = join(this.projectsDir, project);
 		return isDirectory(guess) ? guess : homedir();
 	}
 
+	projectFolders(ownerId: string): Record<string, string> {
+		return this.store.projectFolders(ownerId);
+	}
+
+	linkProjectFolder(ownerId: string, project: string, path: string): void {
+		if (!isDirectory(path)) throw new ChatError(`${path} is not a folder on this machine`, 400);
+		this.store.setProjectFolder(ownerId, project, path);
+	}
+
 	create(
 		ownerId: string,
-		input: { project: string; provider: string; cwd?: string; model?: string; mode?: string },
+		input: {
+			project: string;
+			provider: string;
+			cwd?: string;
+			model?: string;
+			mode?: string;
+			effort?: string;
+		},
 	): ChatSessionRow {
 		const provider = this.providers.get(input.provider);
 		if (!provider?.info().available)
 			throw new ChatError("That agent is not installed on this machine", 400);
-		const cwd = input.cwd?.trim() || this.defaultCwd(input.project);
+		const cwd = input.cwd?.trim() || this.defaultCwd(ownerId, input.project);
 		if (!existsSync(cwd) || !isDirectory(cwd))
 			throw new ChatError(`${cwd} is not a folder on this machine`, 400);
 		return this.store.create({
@@ -90,6 +131,7 @@ export class ChatHub {
 			cwd,
 			model: input.model ?? null,
 			mode: input.mode ?? provider.info().defaultMode ?? null,
+			effort: input.effort ?? null,
 		});
 	}
 
@@ -167,7 +209,7 @@ export class ChatHub {
 	async configure(
 		ownerId: string,
 		id: string,
-		change: { model?: string; mode?: string },
+		change: { model?: string; mode?: string; effort?: string },
 	): Promise<void> {
 		const session = this.owned(ownerId, id);
 		this.store.update(id, change);
@@ -178,11 +220,13 @@ export class ChatHub {
 				type: "info",
 				...(change.model ? { model: change.model } : {}),
 				...(change.mode ? { mode: change.mode } : {}),
+				...(change.effort ? { effort: change.effort } : {}),
 			});
 			return;
 		}
 		const agent = await this.agentFor(session, live);
 		if (change.model) await agent.setModel(change.model);
+		if (change.effort) await agent.setEffort(change.effort);
 		if (change.mode) await agent.setMode(change.mode);
 	}
 
@@ -223,6 +267,7 @@ export class ChatHub {
 			cwd: fresh.cwd,
 			model: fresh.model ?? undefined,
 			mode: fresh.mode ?? undefined,
+			effort: fresh.effort ?? undefined,
 			resume: fresh.resumeToken ?? undefined,
 			emit: (event) => this.record(session.id, event),
 			onResumeToken: (token) => this.store.update(session.id, { resumeToken: token }),
@@ -237,10 +282,11 @@ export class ChatHub {
 	private record(id: string, event: ChatEvent): void {
 		const live = this.liveFor(id);
 		if (event.type === "info") {
-			const change: { model?: string; mode?: string } = {};
+			const change: { model?: string; mode?: string; effort?: string } = {};
 			if (event.model) change.model = event.model;
 			if (event.mode) change.mode = event.mode;
-			if (change.model || change.mode) this.store.update(id, change);
+			if (event.effort) change.effort = event.effort;
+			if (change.model || change.mode || change.effort) this.store.update(id, change);
 		}
 		for (const client of live.clients) client.event(event);
 

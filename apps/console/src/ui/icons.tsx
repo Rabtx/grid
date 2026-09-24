@@ -1,7 +1,9 @@
 import Add01Icon from "@hugeicons/core-free-icons/Add01Icon";
 import AlertCircleIcon from "@hugeicons/core-free-icons/AlertCircleIcon";
 import ArrowDown01Icon from "@hugeicons/core-free-icons/ArrowDown01Icon";
+import Archive01Icon from "@hugeicons/core-free-icons/Archive01Icon";
 import ArrowLeft01Icon from "@hugeicons/core-free-icons/ArrowLeft01Icon";
+import ArrowRight01Icon from "@hugeicons/core-free-icons/ArrowRight01Icon";
 import ArrowUp02Icon from "@hugeicons/core-free-icons/ArrowUp02Icon";
 import BubbleChatIcon from "@hugeicons/core-free-icons/BubbleChatIcon";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
@@ -10,6 +12,7 @@ import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon";
 import File01Icon from "@hugeicons/core-free-icons/File01Icon";
 import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
 import Folder01Icon from "@hugeicons/core-free-icons/Folder01Icon";
+import GitBranchIcon from "@hugeicons/core-free-icons/GitBranchIcon";
 import Globe02Icon from "@hugeicons/core-free-icons/Globe02Icon";
 import Idea01Icon from "@hugeicons/core-free-icons/Idea01Icon";
 import Loading03Icon from "@hugeicons/core-free-icons/Loading03Icon";
@@ -21,6 +24,7 @@ import PencilEdit01Icon from "@hugeicons/core-free-icons/PencilEdit01Icon";
 import RotateCcwIcon from "@hugeicons/core-free-icons/RotateCcwIcon";
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon";
 import Settings01Icon from "@hugeicons/core-free-icons/Settings01Icon";
+import SidebarLeftIcon from "@hugeicons/core-free-icons/SidebarLeftIcon";
 import StopIcon from "@hugeicons/core-free-icons/StopIcon";
 import Tick02Icon from "@hugeicons/core-free-icons/Tick02Icon";
 import Wrench01Icon from "@hugeicons/core-free-icons/Wrench01Icon";
@@ -176,6 +180,22 @@ export function ToolIcon(props: IconProps): JSX.Element {
 
 export function FolderIcon(props: IconProps): JSX.Element {
 	return <Icon icon={Folder01Icon} class={props.class} />;
+}
+
+export function ForwardIcon(props: IconProps): JSX.Element {
+	return <Icon icon={ArrowRight01Icon} class={props.class} />;
+}
+
+export function SidebarIcon(props: IconProps): JSX.Element {
+	return <Icon icon={SidebarLeftIcon} class={props.class} />;
+}
+
+export function BranchIcon(props: IconProps): JSX.Element {
+	return <Icon icon={GitBranchIcon} class={props.class} />;
+}
+
+export function ArchiveIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Archive01Icon} class={props.class} />;
 }
 
 /** A spinning ring for work in progress; still under reduced motion. */

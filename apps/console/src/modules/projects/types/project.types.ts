@@ -32,6 +32,13 @@ export type Project = {
 	updatedAt: string;
 };
 
+export type CreateProjectInput = {
+	slug: string;
+	name: string;
+	summary?: string | null;
+	repoUrl?: string | null;
+};
+
 export type Task = {
 	key: string;
 	number: number;

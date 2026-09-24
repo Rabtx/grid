@@ -124,6 +124,7 @@ describe("ACP adapter", () => {
 			type: "info",
 			models: [{ id: "m1", name: "Model One", description: undefined }],
 			model: "m1",
+			efforts: [],
 		});
 
 		const turn = session.prompt("list files");
@@ -285,6 +286,7 @@ describe("ChatHub", () => {
 			approve: () => {},
 			setModel: async () => {},
 			setMode: async () => {},
+			setEffort: async () => {},
 			close: () => {},
 		}),
 	};

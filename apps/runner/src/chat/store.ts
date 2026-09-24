@@ -14,6 +14,7 @@ export type ChatSessionRow = {
 	cwd: string;
 	model: string | null;
 	mode: string | null;
+	effort: string | null;
 	/** The provider's own session id, to resume the conversation in a fresh process. */
 	resumeToken: string | null;
 	createdAt: string;
@@ -29,6 +30,7 @@ type Row = {
 	cwd: string;
 	model: string | null;
 	mode: string | null;
+	effort: string | null;
 	resume_token: string | null;
 	created_at: string;
 	updated_at: string;
@@ -44,6 +46,7 @@ function toSession(row: Row): ChatSessionRow {
 		cwd: row.cwd,
 		model: row.model,
 		mode: row.mode,
+		effort: row.effort,
 		resumeToken: row.resume_token,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
@@ -84,14 +87,29 @@ export class ChatStore {
 			);
 		`);
 		this.db.exec("PRAGMA foreign_keys = ON");
+		// Which folder on this machine holds each project's code. Per machine by design: another
+		// machine running Grid links its own checkout of the same project.
+		this.db.exec(`
+			CREATE TABLE IF NOT EXISTS project_folders (
+				owner_id TEXT NOT NULL,
+				project TEXT NOT NULL,
+				path TEXT NOT NULL,
+				PRIMARY KEY (owner_id, project)
+			);
+		`);
+		// Added after the first release: older databases gain the column in place.
+		const columns = this.db.query<{ name: string }, []>("PRAGMA table_info(sessions)").all();
+		if (!columns.some((column) => column.name === "effort")) {
+			this.db.exec("ALTER TABLE sessions ADD COLUMN effort TEXT");
+		}
 	}
 
 	create(session: Omit<ChatSessionRow, "createdAt" | "updatedAt" | "resumeToken">): ChatSessionRow {
 		const now = new Date().toISOString();
 		this.db
 			.query(
-				`INSERT INTO sessions (id, owner_id, project, provider, title, cwd, model, mode, resume_token, created_at, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+				`INSERT INTO sessions (id, owner_id, project, provider, title, cwd, model, mode, effort, resume_token, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
 			)
 			.run(
 				session.id,
@@ -102,6 +120,7 @@ export class ChatStore {
 				session.cwd,
 				session.model,
 				session.mode,
+				session.effort,
 				now,
 				now,
 			);
@@ -124,12 +143,13 @@ export class ChatStore {
 
 	update(
 		id: string,
-		fields: Partial<Pick<ChatSessionRow, "title" | "model" | "mode" | "resumeToken">>,
+		fields: Partial<Pick<ChatSessionRow, "title" | "model" | "mode" | "effort" | "resumeToken">>,
 	): void {
 		const columns: Record<string, string> = {
 			title: "title",
 			model: "model",
 			mode: "mode",
+			effort: "effort",
 			resumeToken: "resume_token",
 		};
 		const entries = Object.entries(fields).filter(([key]) => key in columns);
@@ -171,6 +191,25 @@ export class ChatStore {
 			)
 			.all(sessionId)
 			.map((row) => JSON.parse(row.data) as ChatEvent);
+	}
+
+	/** Every project folder this person has linked on this machine, by project slug. */
+	projectFolders(ownerId: string): Record<string, string> {
+		const rows = this.db
+			.query<{ project: string; path: string }, [string]>(
+				"SELECT project, path FROM project_folders WHERE owner_id = ?",
+			)
+			.all(ownerId);
+		return Object.fromEntries(rows.map((row) => [row.project, row.path]));
+	}
+
+	setProjectFolder(ownerId: string, project: string, path: string): void {
+		this.db
+			.query(
+				`INSERT INTO project_folders (owner_id, project, path) VALUES (?, ?, ?)
+				 ON CONFLICT (owner_id, project) DO UPDATE SET path = excluded.path`,
+			)
+			.run(ownerId, project, path);
 	}
 
 	close(): void {

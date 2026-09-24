@@ -1,5 +1,7 @@
 import { acpProvider } from "./acp";
+import { antigravityProvider } from "./antigravity";
 import { claudeProvider } from "./claude";
+import { opencodeCatalog } from "./opencode";
 import type { Provider } from "./provider";
 
 /** Found on PATH now; checked each time so installing an agent needs no runner restart. */
@@ -45,8 +47,10 @@ export function providerRegistry(
 			name: "opencode",
 			command: ["opencode", "acp"],
 			available: installed("opencode"),
+			catalog: opencodeCatalog,
 		}),
 	);
+	providers.set("antigravity", antigravityProvider({ binary: "agy", available: installed("agy") }));
 	for (const agent of extraAgents(env.RUNNER_ACP_AGENTS)) {
 		providers.set(agent.id, acpProvider({ ...agent, available: installed(agent.command[0]) }));
 	}

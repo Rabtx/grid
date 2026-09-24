@@ -21,9 +21,11 @@ const Router = createRouter({
 		{ path: "/board/:slug", component: BoardRoute },
 		// The same board with one task open in the panel over it.
 		{ path: "/board/:slug/tasks/:number", component: BoardRoute },
-		// Chats with agents, per project (`?project=`); the id makes a chat linkable.
+		// Chats with agents, inside their project; `new` is the new-chat composer, any other id a
+		// chat. `/chat` opens the current project.
 		{ path: "/chat", component: ChatRoute },
-		{ path: "/chat/:id", component: ChatRoute },
+		{ path: "/chat/:project", component: ChatRoute },
+		{ path: "/chat/:project/:id", component: ChatRoute },
 		// Terminals on this machine; the id keeps a tab linkable and survives a reload.
 		{ path: "/terminal", component: TerminalRoute },
 		{ path: "/terminal/:id", component: TerminalRoute },

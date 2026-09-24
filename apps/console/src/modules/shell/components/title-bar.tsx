@@ -1,0 +1,141 @@
+import { useLocation } from "@solidjs/router";
+import type { JSX } from "@solidjs/web";
+import { Loading, Show } from "solid-js";
+
+import { useWorkspace } from "@/modules/projects";
+import { BoardIcon, Button, IconButton, MenuIcon, PlusIcon, SidebarIcon } from "@/ui";
+
+import { useShell } from "../context/shell-context";
+
+// Screens without tabs of their own are named in the bar.
+const SECTION_TITLES: [prefix: string, title: string][] = [
+	["/chat", "Chat"],
+	["/terminal", "Terminal"],
+	["/settings", "Settings"],
+];
+
+function useSection(): () => string | null {
+	const location = useLocation();
+	return () => SECTION_TITLES.find(([prefix]) => location.pathname.startsWith(prefix))?.[1] ?? null;
+}
+
+/** Where you are when a screen has no tabs: the board's project and size, or the section. */
+function Heading(): JSX.Element {
+	const workspace = useWorkspace();
+	const section = useSection();
+
+	return (
+		<Show
+			when={!section() && workspace.activeSlug()}
+			fallback={<h1 class="truncate px-1.5 font-medium text-ui">{section() ?? "Grid"}</h1>}
+		>
+			<Loading fallback={<span />}>
+				<div class="flex min-w-0 items-center gap-2 px-1.5">
+					<BoardIcon class="size-4 shrink-0 text-ink/45" />
+					<h1 class="truncate font-medium text-ui">{workspace.activeProject()?.name ?? "Board"}</h1>
+					<span class="shrink-0 text-ink/45 text-ui-xs tabular-nums">
+						{workspace.tasks().length} task{workspace.tasks().length === 1 ? "" : "s"}
+					</span>
+				</div>
+			</Loading>
+		</Show>
+	);
+}
+
+/** The screen's own action at the right of the bar: a new task on the board. */
+function Action(props: { compact?: boolean }): JSX.Element {
+	const workspace = useWorkspace();
+
+	return (
+		<Show when={workspace.activeSlug()}>
+			<Show
+				when={props.compact}
+				fallback={
+					<Button
+						variant="primary"
+						size="sm"
+						aria-haspopup="dialog"
+						onClick={() => workspace.setNewTaskOpen(true)}
+					>
+						<PlusIcon class="size-3.5" />
+						New task
+					</Button>
+				}
+			>
+				<IconButton
+					label="New task"
+					aria-haspopup="dialog"
+					onClick={() => workspace.setNewTaskOpen(true)}
+				>
+					<PlusIcon class="size-5" />
+				</IconButton>
+			</Show>
+		</Show>
+	);
+}
+
+/**
+ * Desktop title bar, 40px: the screen's tabs (or its name) on the left, the project centred and
+ * quiet, the screen's action on the right.
+ */
+export function TitleBar(): JSX.Element {
+	const shell = useShell();
+	const workspace = useWorkspace();
+
+	return (
+		<header class="flex h-10 shrink-0 select-none items-stretch border-stroke border-b">
+			<Show when={shell.collapsed()}>
+				<div class="flex items-center pl-1.5">
+					<button
+						type="button"
+						title="Show sidebar"
+						class="focus-ring grid size-6.5 place-items-center rounded-md text-ink/50 hover:bg-ink/10 hover:text-ink"
+						onClick={() => shell.toggleCollapsed()}
+					>
+						<SidebarIcon class="size-3.5" />
+					</button>
+				</div>
+			</Show>
+			<div class="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overscroll-none pr-2.5 pl-1.5 [scrollbar-width:none]">
+				<Show when={shell.tabs()} fallback={<Heading />}>
+					{(tabs) => <>{tabs()()}</>}
+				</Show>
+			</div>
+			<div class="hidden min-w-0 flex-1 items-center justify-center px-4 xl:flex">
+				<span class="pointer-events-none truncate font-medium text-ink/40 text-ui-caption">
+					<Loading fallback="Grid">
+						{workspace.currentProject() ? `${workspace.currentProject()?.name} — Grid` : "Grid"}
+					</Loading>
+				</span>
+			</div>
+			<div class="flex shrink-0 items-center gap-1 pr-2">
+				<Action />
+			</div>
+		</header>
+	);
+}
+
+/** Phone title bar: the menu, the screen's tabs (or its name), and its action in thumb reach. */
+export function TopBar(): JSX.Element {
+	const shell = useShell();
+
+	return (
+		<header class="glass z-30 shrink-0 border-stroke border-b pt-[env(safe-area-inset-top)]">
+			<div class="flex h-12 items-center gap-1 px-1.5">
+				<IconButton
+					label="Open navigation"
+					aria-haspopup="dialog"
+					onClick={() => shell.setDrawerOpen(true)}
+				>
+					<MenuIcon class="size-5" />
+				</IconButton>
+				<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
+					<Show when={shell.tabs()} fallback={<Heading />}>
+						{(tabs) => <>{tabs()()}</>}
+					</Show>
+				</div>
+				<Action compact />
+			</div>
+		</header>
+	);
+}

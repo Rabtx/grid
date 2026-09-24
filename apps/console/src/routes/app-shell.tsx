@@ -1,15 +1,26 @@
+import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createSignal, Show } from "solid-js";
+import { onSettled, Show } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
-import { NewTaskDialog, WorkspaceProvider } from "@/modules/projects";
 import {
+	AddProjectSheet,
+	ChooseFolderSheet,
+	NewTaskDialog,
+	WorkspaceProvider,
+} from "@/modules/projects";
+import {
+	CommandPalette,
 	NavDrawer,
 	OfflineBanner,
-	ProjectNav,
+	ShellProvider,
+	ShortcutsHelp,
+	Sidebar,
+	StatusBar,
+	TitleBar,
 	TopBar,
 	UpdateBanner,
-	WorkspaceHeader,
+	useShell,
 } from "@/modules/shell";
 import { VoiceControls } from "@/modules/voice";
 import { BrandLogo } from "@/ui";
@@ -46,23 +57,83 @@ function SignedOutShell(props: { children: JSX.Element }): JSX.Element {
 }
 
 function SignedInShell(props: { children: JSX.Element }): JSX.Element {
-	const [drawerOpen, setDrawerOpen] = createSignal(false);
+	return (
+		<ShellProvider>
+			<ShellFrame>{props.children}</ShellFrame>
+		</ShellProvider>
+	);
+}
+
+// Screens that fill the frame edge to edge and scroll inside themselves.
+const FULL_BLEED = /^\/(chat|terminal)(\/|$)/;
+
+/**
+ * The signed-in frame, sized to the visible viewport so everything stays above a phone keyboard.
+ * Desktop: sidebar, the screen's workspace panel, then the screen under its title bar. Phone: a
+ * top bar and a drawer holding the sidebar and panel. A status bar closes both.
+ */
+function ShellFrame(props: { children: JSX.Element }): JSX.Element {
+	const shell = useShell();
+	const location = useLocation();
+
+	onSettled(() => {
+		const html = document.documentElement;
+		const fit = () => {
+			const height = window.visualViewport?.height ?? window.innerHeight;
+			html.style.setProperty("--app-height", `${height}px`);
+		};
+		fit();
+		// The frame scrolls inside itself; the page never does.
+		const previous = html.style.overflow;
+		html.style.overflow = "hidden";
+		window.visualViewport?.addEventListener("resize", fit);
+		window.addEventListener("resize", fit);
+		return () => {
+			html.style.overflow = previous;
+			html.style.removeProperty("--app-height");
+			window.visualViewport?.removeEventListener("resize", fit);
+			window.removeEventListener("resize", fit);
+		};
+	});
 
 	return (
-		<div class="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)]">
-			<aside class="glass sticky top-0 hidden h-dvh border-stroke border-r lg:block">
-				<ProjectNav />
-			</aside>
-			<div class="flex min-h-dvh min-w-0 flex-col">
-				<TopBar onOpenMenu={() => setDrawerOpen(true)} />
-				<WorkspaceHeader />
-				<main class="min-w-0 flex-1 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 lg:px-4 lg:pt-3">
+		<div class="flex h-[var(--app-height,100dvh)] overflow-hidden">
+			<Show when={shell.desktop()}>
+				<Show when={!shell.collapsed()}>
+					<aside class="glass w-50 shrink-0 border-stroke border-r">
+						<Sidebar />
+					</aside>
+				</Show>
+				<Show when={shell.panel()}>
+					{(panel) => (
+						<aside class="flex min-h-0 w-65 shrink-0 flex-col border-stroke border-r">
+							{panel()()}
+						</aside>
+					)}
+				</Show>
+			</Show>
+			<div class="flex min-w-0 flex-1 flex-col">
+				<Show when={shell.desktop()} fallback={<TopBar />}>
+					<TitleBar />
+				</Show>
+				<main
+					class={
+						FULL_BLEED.test(location.pathname)
+							? "flex min-h-0 flex-1 flex-col overflow-hidden"
+							: "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-4 md:px-6 lg:px-4"
+					}
+				>
 					{props.children}
 				</main>
+				<StatusBar />
 			</div>
-			<NavDrawer open={drawerOpen()} onClose={() => setDrawerOpen(false)} />
+			<NavDrawer />
+			<CommandPalette />
 			<NewTaskDialog />
+			<AddProjectSheet />
+			<ChooseFolderSheet />
 			<VoiceControls />
+			<ShortcutsHelp />
 		</div>
 	);
 }

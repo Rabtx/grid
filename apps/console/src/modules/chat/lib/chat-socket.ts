@@ -6,7 +6,7 @@ export type ChatCommand =
 	| { t: "prompt"; text: string }
 	| { t: "cancel" }
 	| { t: "approve"; id: string; optionId: string | null }
-	| { t: "configure"; model?: string; mode?: string };
+	| { t: "configure"; model?: string; mode?: string; effort?: string };
 
 export type ChatSocketOptions = {
 	url: string;

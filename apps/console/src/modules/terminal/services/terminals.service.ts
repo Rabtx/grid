@@ -46,11 +46,11 @@ async function call<T>(path: string, token: string, init: RequestInit = {}): Pro
 
 export const terminalsService = {
 	list: (token: string) => call<TerminalInfo[]>("/terminals", token),
-	open: (token: string, size: { cols: number; rows: number }) =>
+	open: (token: string, size: { cols: number; rows: number }, cwd?: string) =>
 		call<TerminalInfo>("/terminals", token, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(size),
+			body: JSON.stringify({ ...size, ...(cwd ? { cwd } : {}) }),
 		}),
 	close: (token: string, id: string) =>
 		call<void>(`/terminals/${encodeURIComponent(id)}`, token, { method: "DELETE" }),
