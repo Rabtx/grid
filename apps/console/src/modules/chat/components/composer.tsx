@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, onSettled, Show } from "solid-js";
+import { createSignal, onSettled, Show, untrack } from "solid-js";
 
 import { insertIntoField, MicButton, registerDictationTarget } from "@/modules/voice";
 import { BranchIcon, PlusIcon, SendIcon, StopSquareIcon } from "@/ui";
@@ -29,8 +29,10 @@ export function Composer(props: {
 	header?: JSX.Element;
 	/** The branch that folder is on, when it is known. */
 	branch?: string;
+	/** Text to start with, e.g. a task a thread is started from. */
+	initial?: string;
 }): JSX.Element {
-	const [draft, setDraft] = createSignal("");
+	const [draft, setDraft] = createSignal(untrack(() => props.initial) ?? "");
 	const [sending, setSending] = createSignal(false);
 	let textarea: HTMLTextAreaElement | undefined;
 	let form: HTMLFormElement | undefined;

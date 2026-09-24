@@ -3,7 +3,7 @@ import type { JSX } from "@solidjs/web";
 import { Loading, Show } from "solid-js";
 
 import { useWorkspace } from "@/modules/projects";
-import { BoardIcon, Button, IconButton, MenuIcon, PlusIcon, SidebarIcon } from "@/ui";
+import { BoardIcon, Button, ChatIcon, IconButton, MenuIcon, PlusIcon, SidebarIcon } from "@/ui";
 
 import { useShell } from "../context/shell-context";
 
@@ -38,6 +38,50 @@ function Heading(): JSX.Element {
 					</span>
 				</div>
 			</Loading>
+		</Show>
+	);
+}
+
+const VIEW =
+	"focus-ring inline-flex h-6.5 items-center gap-1.5 rounded-md px-2 text-ink/55 text-ui-sm hover:text-ink aria-[current=page]:bg-selection aria-[current=page]:text-ink pointer-coarse:h-10 pointer-coarse:px-2.5";
+
+/**
+ * A project's two views, side by side in the bar: its threads and its board. Shown wherever a
+ * project is open (chat or board).
+ */
+function ProjectViews(props: { compact?: boolean }): JSX.Element {
+	const workspace = useWorkspace();
+	const location = useLocation();
+	const slug = () =>
+		location.pathname.startsWith("/chat/") || location.pathname.startsWith("/board/")
+			? workspace.currentSlug()
+			: null;
+	const onBoard = () => location.pathname.startsWith("/board/");
+
+	return (
+		<Show when={slug()}>
+			{(project) => (
+				<nav aria-label="Project views" class="flex items-center gap-0.5 rounded-lg bg-ink/5 p-0.5">
+					<a
+						href={workspace.projectHref(project())}
+						aria-current={onBoard() ? undefined : "page"}
+						class={VIEW}
+						title="Threads"
+					>
+						<ChatIcon class="size-3.5" />
+						<span class={props.compact ? "sr-only" : ""}>Threads</span>
+					</a>
+					<a
+						href={`/board/${project()}`}
+						aria-current={onBoard() ? "page" : undefined}
+						class={VIEW}
+						title="Board"
+					>
+						<BoardIcon class="size-3.5" />
+						<span class={props.compact ? "sr-only" : ""}>Board</span>
+					</a>
+				</nav>
+			)}
 		</Show>
 	);
 }
@@ -108,7 +152,8 @@ export function TitleBar(): JSX.Element {
 					</Loading>
 				</span>
 			</div>
-			<div class="flex shrink-0 items-center gap-1 pr-2">
+			<div class="flex shrink-0 items-center gap-2 pr-2">
+				<ProjectViews />
 				<Action />
 			</div>
 		</header>
@@ -134,6 +179,7 @@ export function TopBar(): JSX.Element {
 						{(tabs) => <>{tabs()()}</>}
 					</Show>
 				</div>
+				<ProjectViews compact />
 				<Action compact />
 			</div>
 		</header>

@@ -1,9 +1,12 @@
 import type { JSX } from "@solidjs/web";
+import { useNavigate } from "@solidjs/router";
 import { createEffect, createSignal, Loading, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
+import { draftsStore, taskDraft } from "@/modules/chat/stores/drafts";
 import {
 	Button,
+	ChatIcon,
 	CloseIcon,
 	ConfirmDialog,
 	EmptyState,
@@ -14,13 +17,14 @@ import {
 	Select,
 	Sheet,
 	Skeleton,
-	Textarea,
 	TrashIcon,
 } from "@/ui";
 
 import { useWorkspace } from "../context/workspace-context";
 import { relativeTime } from "../lib/relative-time";
 import { projectsService } from "../services/projects.service";
+
+import { MarkdownField } from "./markdown-field";
 import {
 	TASK_STATUS_LABELS,
 	TASK_STATUSES,
@@ -73,6 +77,7 @@ export function TaskPanel(): JSX.Element {
 function TaskFields(props: { task: Task }): JSX.Element {
 	const auth = useAuth();
 	const workspace = useWorkspace();
+	const navigate = useNavigate();
 	// The drafts start neutral and are seeded from the task below: a `props` read in a component
 	// body is untracked, so Solid's dev build flags it instead of letting it silently not update.
 	const [title, setTitle] = createSignal("");
@@ -209,6 +214,20 @@ function TaskFields(props: { task: Task }): JSX.Element {
 				<Show when={saving()}>
 					<span class="shrink-0 text-ink/40 text-ui-xs">Saving…</span>
 				</Show>
+				<Button
+					size="sm"
+					variant="secondary"
+					title="Start a thread in this project about this task"
+					onClick={() => {
+						const slug = workspace.activeSlug();
+						if (!slug) return;
+						draftsStore.set(slug, taskDraft(props.task));
+						navigate(`/chat/${slug}`);
+					}}
+				>
+					<ChatIcon class="size-3.5" />
+					Start a thread
+				</Button>
 				<IconButton
 					label="Delete task"
 					class="hover:bg-danger/10 hover:text-danger"
@@ -282,17 +301,15 @@ function TaskFields(props: { task: Task }): JSX.Element {
 					/>
 				</div>
 
-				<div class="flex flex-col gap-1 md:flex-row md:items-start md:gap-3">
-					<span class="shrink-0 text-ink/45 text-ui-sm md:w-24 md:pt-2">Description</span>
-					<Textarea
-						value={description()}
-						onInput={(event) => setDescription(event.currentTarget.value)}
-						onBlur={() => void commitDescription()}
-						aria-label="Description"
-						placeholder="Context a teammate or an agent needs"
-						class="w-full min-w-0 whitespace-pre-wrap"
-					/>
-				</div>
+				<MarkdownField
+					label="Description"
+					value={description()}
+					onInput={setDescription}
+					onBlur={() => void commitDescription()}
+					onSubmit={() => void commitDescription()}
+					placeholder="Context a teammate or an agent needs, in Markdown"
+					rows={6}
+				/>
 			</div>
 
 			<ConfirmDialog

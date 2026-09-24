@@ -1,10 +1,10 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
-import { Button, ErrorNotice, Skeleton } from "@/ui";
+import { Button, ErrorNotice, PlusIcon, Skeleton, toast } from "@/ui";
 
-import { useWorkspace } from "../context/workspace-context";
+import { type NewTaskDefaults, useWorkspace } from "../context/workspace-context";
 import { ownerKey } from "../lib/board";
 import { applyMove, nextPosition } from "../lib/move-task";
 import { projectsService } from "../services/projects.service";
@@ -243,7 +243,22 @@ export function BoardLanes(props: {
 										<span data-count class="text-ink/40 text-ui-xs tabular-nums">
 											{String(laneTasks().length)}
 										</span>
+										{/* Stages add inline below; owner lanes open the sheet with the owner set. */}
+										<Show when={!laneStatus(lane().id)}>
+											<button
+												type="button"
+												aria-label={`Add a task to ${lane().title}`}
+												title="Add a task"
+												class="focus-ring ml-auto grid size-6 place-items-center rounded-md text-ink/45 hover:bg-ink/8 hover:text-ink pointer-coarse:size-10"
+												onClick={() => workspace.openNewTask(laneDefaults(lane().id))}
+											>
+												<PlusIcon class="size-3.5" />
+											</button>
+										</Show>
 									</header>
+									<Show when={laneStatus(lane().id)}>
+										{(status) => <QuickAdd status={status()} />}
+									</Show>
 									<div class="flex flex-col gap-2 p-0.5">
 										<Show
 											when={laneTasks().length > 0}
@@ -291,6 +306,104 @@ export function SkeletonLanes(): JSX.Element {
 					</div>
 				)}
 			</For>
+		</div>
+	);
+}
+
+/** What a task added from a lane starts with: the lane's stage, or its owner. */
+function laneDefaults(laneId: string): NewTaskDefaults {
+	if ((TASK_STATUSES as readonly string[]).includes(laneId))
+		return { status: laneId as TaskStatus };
+	if (laneId === "unassigned") return {};
+	const [kind, ...name] = laneId.split(":");
+	return kind === "human" || kind === "agent"
+		? { ownerKind: kind, ownerName: name.join(":") || null }
+		: {};
+}
+
+/**
+ * Type a title at the top of a lane and press Enter: the task is added to that stage and the
+ * field stays ready for the next. Escape (or leaving it empty) closes it.
+ */
+function QuickAdd(props: { status: TaskStatus }): JSX.Element {
+	const auth = useAuth();
+	const workspace = useWorkspace();
+	const [open, setOpen] = createSignal(false);
+	const [title, setTitle] = createSignal("");
+	const [pending, setPending] = createSignal(false);
+	const [error, setError] = createSignal<string | null>(null);
+
+	async function add(): Promise<void> {
+		const trimmed = title().trim();
+		const token = auth.token();
+		const slug = workspace.activeSlug();
+		if (!trimmed || !token || !slug || pending()) return;
+		setPending(true);
+		setError(null);
+		try {
+			const task = await projectsService.createTask(token, slug, {
+				title: trimmed,
+				status: props.status,
+			});
+			setTitle("");
+			workspace.refreshTasks();
+			toast({
+				message: `Added ${task.key}`,
+				action: { label: "Open", onClick: () => workspace.openTask(task.number) },
+			});
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : "Could not add the task");
+		} finally {
+			setPending(false);
+		}
+	}
+
+	return (
+		<div class="px-0.5 pb-2">
+			<Show
+				when={open()}
+				fallback={
+					<button
+						type="button"
+						class="focus-ring flex h-8 w-full items-center gap-1.5 rounded-lg px-2 text-left text-ink/40 text-ui-sm hover:bg-ink/5 hover:text-ink/70 pointer-coarse:h-11"
+						onClick={() => setOpen(true)}
+					>
+						<PlusIcon class="size-3.5" />
+						Add task
+					</button>
+				}
+			>
+				<form
+					onSubmit={(event) => {
+						event.preventDefault();
+						void add();
+					}}
+				>
+					<input
+						ref={(el) => queueMicrotask(() => el.focus())}
+						value={title()}
+						onInput={(event) => setTitle(event.currentTarget.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Escape") {
+								setTitle("");
+								setOpen(false);
+							}
+						}}
+						onBlur={() => {
+							if (!untrack(title).trim()) setOpen(false);
+						}}
+						aria-label="New task title"
+						placeholder="Title, then Enter"
+						maxlength={200}
+						enterkeyhint="done"
+						disabled={pending()}
+						class="h-9 w-full rounded-lg border border-ink/15 bg-canvas px-2.5 text-ink text-ui-input outline-none placeholder:text-ink/35 focus:border-ink/30"
+					/>
+				</form>
+				<Show when={error()}>
+					{(message) => <p class="mt-1 px-1 text-danger text-ui-xs">{message()}</p>}
+				</Show>
+			</Show>
 		</div>
 	);
 }

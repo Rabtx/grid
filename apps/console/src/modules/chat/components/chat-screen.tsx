@@ -8,6 +8,7 @@ import { ShellSlot, useShell } from "@/modules/shell";
 import { Button, ErrorNotice, FolderIcon } from "@/ui";
 
 import { chatService } from "../services/chat.service";
+import { draftsStore } from "../stores/drafts";
 import { offeredProviders, providersStore } from "../stores/providers";
 import { threadsStore } from "../stores/threads";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
@@ -205,6 +206,8 @@ function NewChat(props: {
 	onCreated: (session: ChatSession) => void;
 }): JSX.Element {
 	const auth = useAuth();
+	// A draft left for this project (a thread started from a task), taken once.
+	const initial = untrack(() => (props.project ? draftsStore.take(props.project) : undefined));
 	// Installed agents that are not turned off in Settings → Agents.
 	const available = () => offeredProviders(props.providers);
 	const [agent, setAgent] = createSignal<string | null>(null);
@@ -297,6 +300,7 @@ function NewChat(props: {
 					}
 				>
 					<Composer
+						initial={initial}
 						running={false}
 						disabled={!chosen() || !props.project || !props.folder}
 						onSend={start}
