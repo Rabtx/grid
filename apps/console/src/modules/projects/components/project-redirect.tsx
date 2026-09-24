@@ -6,13 +6,13 @@ import { EmptyState } from "@/ui";
 
 import { useWorkspace } from "../context/workspace-context";
 
-/** `/` and `/board` have no project of their own: send the visitor to the first one. */
+/** `/` and `/board` have no project of their own: open the current one (last used, else first). */
 export function ProjectRedirect(): JSX.Element {
 	const workspace = useWorkspace();
 	const navigate = useNavigate();
 
 	createEffect(
-		() => workspace.projects()[0]?.slug,
+		() => workspace.currentSlug(),
 		(slug) => {
 			if (slug) navigate(`/board/${slug}`, { replace: true });
 		},

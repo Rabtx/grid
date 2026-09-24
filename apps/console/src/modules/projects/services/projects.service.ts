@@ -1,9 +1,17 @@
 import { apiClient } from "@/lib/api-client";
 
-import type { CreateTaskInput, Project, Task, UpdateTaskInput } from "../types/project.types";
+import type {
+	CreateProjectInput,
+	CreateTaskInput,
+	Project,
+	Task,
+	UpdateTaskInput,
+} from "../types/project.types";
 
 export const projectsService = {
 	list: (accessToken: string) => apiClient.get<Project[]>("/projects", { accessToken }),
+	create: (accessToken: string, input: CreateProjectInput) =>
+		apiClient.post<Project>("/projects", input, { accessToken }),
 	listTasks: (accessToken: string, slug: string) =>
 		apiClient.get<Task[]>(`/projects/${slug}/tasks`, { accessToken }),
 	createTask: (accessToken: string, slug: string, input: CreateTaskInput) =>
