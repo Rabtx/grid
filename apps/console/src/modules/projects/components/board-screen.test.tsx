@@ -46,8 +46,18 @@ const tasks = [
 	},
 ];
 
+type Call = { method: string; url: string; body: Record<string, unknown> | undefined };
+
 function json(data: unknown, status = 200): Response {
 	return new Response(JSON.stringify({ success: status < 400, statusCode: status, data }), {
+		status,
+		headers: { "Content-Type": "application/json" },
+	});
+}
+
+/** The API's failure envelope, which carries the human reason in `message`. */
+function fail(message: string, status = 500): Response {
+	return new Response(JSON.stringify({ success: false, statusCode: status, message }), {
 		status,
 		headers: { "Content-Type": "application/json" },
 	});
@@ -57,16 +67,55 @@ async function settle(): Promise<void> {
 	for (let i = 0; i < 20; i++) await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-describe("BoardScreen", () => {
+/** The keys of the cards currently in one lane, in the order the lane shows them. */
+function laneTaskKeys(container: HTMLElement, lane: string): string[] {
+	const section = container.querySelector(`section[data-lane="${lane}"]`);
+	if (!section) return [];
+	return [...section.querySelectorAll("article")].map(
+		(card) => card.querySelector("span")?.textContent ?? "",
+	);
+}
+
+/**
+ * Click one entry of a card's "Move to…" menu. happy-dom has no Popover API, so the list is in
+ * the DOM and no trigger click is needed to reveal it.
+ */
+function clickMenuItem(container: HTMLElement, menu: string, item: string): void {
+	const list = container.querySelector(`[role="menu"][aria-label="${menu}"]`);
+	const button = list
+		? [...list.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(
+				(candidate) => candidate.textContent?.trim() === item,
+			)
+		: undefined;
+	expect(button, `no "${item}" entry in the ${menu} menu`).toBeDefined();
+	button?.click();
+}describe("BoardScreen", () => {
 	let container: HTMLElement;
 	let dispose: () => void;
+	let calls: Call[];
+	/** The stub's own board, so a re-read after a write returns the move that was accepted. */
+	let board: typeof tasks;
+	/** Hold the next PATCH open, so a test can watch the board before the write lands. */
+	let holdPatch: boolean;
+	let releasePatch: () => void;
+	let patchFailure: string | null;
 
 	beforeEach(() => {
+		calls = [];
+		board = tasks.map((task) => ({ ...task }));
+		holdPatch = false;
+		releasePatch = () => undefined;
+		patchFailure = null;
 		vi.stubGlobal(
 			"fetch",
-			vi.fn(async (input: string | URL | Request) => {
+			vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
 				const url = input.toString();
-				console.log("FETCH:", url);
+				const method = init?.method ?? "GET";
+				calls.push({
+					method,
+					url,
+					body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+				});
 				if (url.endsWith("/auth/refresh")) {
 					return json({
 						accessToken: "token",
@@ -74,8 +123,18 @@ describe("BoardScreen", () => {
 						user: { id: "u1", email: "person@example.com", username: "person" },
 					});
 				}
+				if (method === "PATCH") {
+					if (holdPatch) await new Promise<void>((resolve) => (releasePatch = resolve));
+					if (patchFailure) return fail(patchFailure);
+					const number = Number(url.slice(url.lastIndexOf("/") + 1));
+					const moved = board.find((task) => task.number === number);
+					if (!moved) return fail("That task does not exist", 404);
+					if (typeof body?.status === "string") moved.status = body.status;
+					if (typeof body?.position === "number") moved.position = body.position;
+					return json(moved);
+				}
 				if (url.endsWith("/projects")) return json(projects);
-				if (url.includes("/tasks")) return json(tasks);
+				if (url.includes("/tasks")) return json(board);
 				return json(null, 404);
 			}),
 		);
@@ -206,5 +265,58 @@ describe("BoardScreen", () => {
 
 		expect(container.querySelectorAll("section[data-lane]")).toHaveLength(7);
 		expect(container.querySelectorAll("article")).toHaveLength(2);
+	});
+
+	it("offers the other six stages from a menu outside the card's link", async () => {
+		await settle();
+
+		const card = container.querySelector('a[href="/board/alpha/tasks/1"]');
+		const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Move TASK-1"]');
+		expect(trigger).not.toBeNull();
+		// Opening the menu must not navigate, so it cannot live inside the card's link.
+		expect(trigger?.closest("a")).toBeNull();
+		expect(card?.contains(trigger ?? null)).toBe(false);
+
+		const items = [
+			...(container.querySelectorAll('[role="menu"][aria-label="Move TASK-1"] button') ?? []),
+		].map((item) => item.textContent?.trim());
+		expect(items).toEqual(["Ready", "In progress", "Review", "QA", "Blocked", "Done"]);
+	});
+
+	it("moves a card into the target lane as soon as the move is chosen", async () => {
+		await settle();
+		holdPatch = true;
+
+		clickMenuItem(container, "Move TASK-1", "In progress");
+		await settle();
+
+		// Optimistic: the card changes lane before the write has come back.
+		expect(laneTaskKeys(container, "backlog")).toEqual([]);
+		expect(laneTaskKeys(container, "in_progress")).toEqual(["TASK-1"]);
+
+		releasePatch();
+		await settle();
+
+		const patches = calls.filter((call) => call.method === "PATCH");
+		expect(patches).toHaveLength(1);
+		expect(patches[0].url).toContain("/projects/alpha/tasks/1");
+		expect(patches[0].body).toEqual({ status: "in_progress", position: 0 });
+		// Once the write lands the overlay is gone: the card stays where the API put it.
+		expect(laneTaskKeys(container, "backlog")).toEqual([]);
+		expect(laneTaskKeys(container, "in_progress")).toEqual(["TASK-1"]);
+	});
+
+	it("puts the card back and says why when the move is rejected", async () => {
+		await settle();
+		patchFailure = "Stage 'in_progress' is not allowed here";
+
+		clickMenuItem(container, "Move TASK-1", "In progress");
+		await settle();
+
+		expect(container.textContent).toContain(
+			"Couldn't move TASK-1: Stage 'in_progress' is not allowed here",
+		);
+		expect(laneTaskKeys(container, "backlog")).toEqual(["TASK-1"]);
+		expect(laneTaskKeys(container, "in_progress")).toEqual([]);
 	});
 });
