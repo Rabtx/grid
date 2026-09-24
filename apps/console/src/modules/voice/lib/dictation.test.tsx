@@ -107,7 +107,7 @@ describe("dictation", () => {
 		};
 	}
 
-	it("shows words as they come and inserts each finished phrase", () => {
+	it("shows words as they come and inserts the whole utterance once, on stop", () => {
 		const { inserted, target: into } = target();
 		dictation.toggle(into);
 		flush();
@@ -116,10 +116,31 @@ describe("dictation", () => {
 		flush();
 		expect(dictation.interim()).toBe("run the");
 		FakeRecognition.last?.emit([{ text: "run the tests", final: true }]);
-		expect(inserted).toEqual(["run the tests"]);
+		FakeRecognition.last?.emit([{ text: "and lint", final: true }]);
+		expect(inserted).toEqual([]);
 		dictation.toggle(into);
 		flush();
+		expect(inserted).toEqual(["run the tests and lint"]);
 		expect(dictation.status()).toBe("idle");
+	});
+
+	it("does not repeat words when the recogniser re-sends what was already said", () => {
+		const { inserted, target: into } = target();
+		dictation.toggle(into);
+		// Android's speech service: every result is final and holds the sentence so far.
+		for (const text of ["hello", "hello", "hello how", "hello how are you", "hello how are you"]) {
+			FakeRecognition.last?.emit([{ text, final: true }]);
+		}
+		dictation.toggle(into);
+		expect(inserted).toEqual(["hello how are you"]);
+	});
+
+	it("inserts nothing when cancelled", () => {
+		const { inserted, target: into } = target();
+		dictation.toggle(into);
+		FakeRecognition.last?.emit([{ text: "never mind", final: true }]);
+		dictation.cancel();
+		expect(inserted).toEqual([]);
 	});
 
 	it("asks for a place to type when there is none", () => {
