@@ -301,7 +301,6 @@ function NewChat(props: {
 					}
 				>
 					<Composer
-						placeholder="Ask, build, fix…"
 						running={false}
 						disabled={!chosen() || !props.project}
 						onSend={start}

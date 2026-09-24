@@ -5,8 +5,8 @@ type: feature
 from: human
 to: ui-ux
 priority: high
-status: open
-assignee: none
+status: done
+assignee: opencode
 reviewer: claude
 parent: none
 depends_on: [str-console-shell-match]
@@ -17,6 +17,7 @@ scope:
   - apps/console/src/modules/chat/components/pickers.tsx
   - apps/console/src/modules/chat/lib/choices.ts
   - apps/console/src/modules/chat/lib/choices.test.ts
+  - apps/console/src/modules/chat/components/chat-screen.tsx (reviewer: placeholder only)
 allowed_shared: []
 created: 2026-09-24
 updated: 2026-09-24
@@ -73,3 +74,19 @@ are bottom sheets with 44px rows.
   reference, attached to this card with the command output.
 
 ## Resolution
+
+Implemented by opencode (mimo-v2.6-flash-free); reviewed, finished and verified by claude.
+
+- `composer.tsx`: `rounded-lg border-ink/10 bg-ink/3` box; context row with the folder chip and an
+  optional branch chip; field with the new default placeholder; toolbar with a 26px `+` (attach,
+  disabled for now), the pickers, the mic, and a 26px send/stop button; 44px targets on touch.
+- `pickers.tsx`: model chip (agent mark, model name, effort in ink/50) opening a 248px panel with
+  Effort and Model rows that open the effort submenu and the searchable, provider-grouped model
+  list; mode chip with a glyph opening a 286px list of modes with one-line descriptions; bottom
+  sheets on phones.
+- `choices.ts`: `findChoice`, `modeGlyph`, `modeDescription` (with tests).
+- Reviewer fixes: phones show the mode chip as its icon only so the model name has room; tighter
+  context chips on touch; chat-screen stops overriding the placeholder.
+
+Validation: console 154 tests pass, typecheck and lint clean; Playwright at 1440×900 and 390×844
+(composer, model panel, mode panel, phone sheet) with no console errors or strict warnings.
