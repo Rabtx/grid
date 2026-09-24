@@ -69,7 +69,7 @@ export function agyModelId(
 
 export function agyArgs(
 	binary: string,
-	input: { model?: string; mode?: string; resume?: string },
+	input: { model?: string; mode?: string; resume?: string; cwd?: string },
 ): string[] {
 	const args = [
 		binary,
@@ -83,6 +83,8 @@ export function agyArgs(
 	if (input.mode === "accept-edits" || input.mode === "plan") args.push("--mode", input.mode);
 	if (input.mode === "full-access") args.push("--dangerously-skip-permissions");
 	if (input.resume) args.push("--conversation", input.resume);
+	// Antigravity ignores the process's folder: without this it works with no workspace at all.
+	if (input.cwd) args.push("--add-dir", input.cwd);
 	return args;
 }
 
@@ -159,7 +161,7 @@ export function antigravityProvider(options: {
 	);
 	return {
 		info,
-		catalog: async () => ({ models: await models(), modes: MODES }),
+		catalog: async (fresh) => ({ models: await models(fresh), modes: MODES }),
 		start: async (context) => startAgySession(options.binary, spawn, context),
 	};
 }
@@ -241,14 +243,17 @@ async function startAgySession(
 	function ensureProcess(): JsonProcess {
 		if (proc) return proc;
 		stderr = [];
-		const started = spawn(agyArgs(binary, { model: agyModelId(model, effort), mode, resume }), {
-			cwd: context.cwd,
-			onMessage: (message) => handle(message as Record<string, unknown>),
-			onStderr: (line) => {
-				stderr.push(line);
-				if (stderr.length > 20) stderr.shift();
+		const started = spawn(
+			agyArgs(binary, { model: agyModelId(model, effort), mode, resume, cwd: context.cwd }),
+			{
+				cwd: context.cwd,
+				onMessage: (message) => handle(message as Record<string, unknown>),
+				onStderr: (line) => {
+					stderr.push(line);
+					if (stderr.length > 20) stderr.shift();
+				},
 			},
-		});
+		);
 		void started.exited.then((code) => {
 			if (proc === started) proc = null;
 			finishTurn?.({

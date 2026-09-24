@@ -9,8 +9,8 @@ import { useShell } from "../context/shell-context";
 import { Sidebar } from "./sidebar";
 
 /**
- * Phone navigation: the sidebar, with the current project's chats listed under it, in a drawer
- * that closes itself after navigating.
+ * Phone navigation: the sidebar (projects with their threads) in a drawer that closes itself
+ * after navigating.
  */
 export function NavDrawer(): JSX.Element {
 	const shell = useShell();
@@ -28,7 +28,7 @@ export function NavDrawer(): JSX.Element {
 		<Sheet open={shell.drawerOpen()} onClose={close} label="Navigation" placement="side">
 			{/* Phones only (the sheet is hidden from lg), so the sidebar and panel never draw twice. */}
 			<Show when={!shell.desktop()}>
-				<Sidebar onClose={close} nested />
+				<Sidebar onClose={close} />
 			</Show>
 		</Sheet>
 	);

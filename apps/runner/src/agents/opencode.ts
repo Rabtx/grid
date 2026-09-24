@@ -57,6 +57,8 @@ export function parseOpencodeModels(text: string): Choice[] {
 	return models;
 }
 
-export const opencodeCatalog = cached(10 * 60 * 1000, async () => ({
+const opencodeModels = cached(10 * 60 * 1000, async () => ({
 	models: parseOpencodeModels(await runCli(["opencode", "models", "--verbose"], 60_000)),
 }));
+
+export const opencodeCatalog = (fresh?: boolean) => opencodeModels(fresh);

@@ -139,6 +139,13 @@ describe("Antigravity", () => {
 		expect(agyArgs("agy", { mode: "plan" })).toContain("plan");
 	});
 
+	it("opens the project's folder as Antigravity's workspace", () => {
+		expect(agyArgs("agy", { cwd: "/home/me/Projects/grid" }).slice(-2)).toEqual([
+			"--add-dir",
+			"/home/me/Projects/grid",
+		]);
+	});
+
 	it("streams a turn: text, a tool, usage, and a note when a tool was refused", async () => {
 		const sent: unknown[] = [];
 		let commands: string[] = [];

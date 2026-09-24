@@ -79,4 +79,16 @@ export type ChatProvider = {
 	models: Choice[];
 	modes: Choice[];
 	defaultMode?: string;
+	/** When the model list was last asked of the agent; null when it never answered. */
+	refreshedAt?: string | null;
+	settings?: ProviderSettings;
+};
+
+/** Your choices for one agent, kept by the runner. Unset means the agent's own default. */
+export type ProviderSettings = {
+	/** False hides the agent from new chats. */
+	enabled?: boolean;
+	model?: string;
+	effort?: string;
+	mode?: string;
 };

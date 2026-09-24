@@ -70,8 +70,8 @@ const FULL_BLEED = /^\/(chat|terminal)(\/|$)/;
 
 /**
  * The signed-in frame, sized to the visible viewport so everything stays above a phone keyboard.
- * Desktop: sidebar, the screen's workspace panel, then the screen under its title bar. Phone: a
- * top bar and a drawer holding the sidebar and panel. A status bar closes both.
+ * Desktop: the sidebar (projects and their threads), then the screen under its title bar.
+ * Phone: a top bar and a drawer holding the sidebar. A status bar closes both.
  */
 function ShellFrame(props: { children: JSX.Element }): JSX.Element {
 	const shell = useShell();
@@ -101,16 +101,9 @@ function ShellFrame(props: { children: JSX.Element }): JSX.Element {
 		<div class="flex h-[var(--app-height,100dvh)] overflow-hidden">
 			<Show when={shell.desktop()}>
 				<Show when={!shell.collapsed()}>
-					<aside class="glass w-50 shrink-0 border-stroke border-r">
+					<aside class="glass w-64 shrink-0 border-stroke border-r">
 						<Sidebar />
 					</aside>
-				</Show>
-				<Show when={shell.panel()}>
-					{(panel) => (
-						<aside class="flex min-h-0 w-65 shrink-0 flex-col border-stroke border-r">
-							{panel()()}
-						</aside>
-					)}
 				</Show>
 			</Show>
 			<div class="flex min-w-0 flex-1 flex-col">

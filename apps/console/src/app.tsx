@@ -4,7 +4,7 @@ import { createEffect, lazy, Loading } from "solid-js";
 
 import { AuthProvider, LoginForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
-import { AppearanceScreen } from "@/modules/settings";
+import { AgentsScreen, AppearanceScreen } from "@/modules/settings";
 import { EmptyState } from "@/ui";
 
 import { AppShell } from "./routes/app-shell";
@@ -29,9 +29,10 @@ const Router = createRouter({
 		// Terminals on this machine; the id keeps a tab linkable and survives a reload.
 		{ path: "/terminal", component: TerminalRoute },
 		{ path: "/terminal/:id", component: TerminalRoute },
-		// Settings is a section of its own; appearance is the only page in it today.
+		// Settings is a section of its own: appearance, and the coding agents.
 		{ path: "/settings", component: SettingsRedirectRoute },
 		{ path: "/settings/appearance", component: SettingsRoute },
+		{ path: "/settings/agents", component: AgentsRoute },
 		// Development-only primitives gallery; tree-shaken out of production builds.
 		...(import.meta.env.DEV ? [{ path: "/dev/ui", component: DevUiRoute }] : []),
 		{ path: "*", component: NotFoundRoute },
@@ -109,6 +110,14 @@ function SettingsRoute(): JSX.Element {
 	return (
 		<RequireAuth>
 			<AppearanceScreen />
+		</RequireAuth>
+	);
+}
+
+function AgentsRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<AgentsScreen />
 		</RequireAuth>
 	);
 }

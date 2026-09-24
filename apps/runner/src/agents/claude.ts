@@ -123,7 +123,7 @@ export function claudeProvider(options: {
 	const models = cached(10 * 60 * 1000, () => listClaudeModels(options.binary, spawn));
 	return {
 		info,
-		catalog: async () => ({ models: await models(), modes: MODES }),
+		catalog: async (fresh) => ({ models: await models(fresh), modes: MODES }),
 		start: async (context) => startClaudeSession(options.binary, spawn, context),
 	};
 }

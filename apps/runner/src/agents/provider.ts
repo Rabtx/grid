@@ -45,6 +45,6 @@ export type Provider = {
 	 * The agent's real model list (exact names, effort levels), asked of the agent itself. Slower
 	 * than `info`, so callers cache it; when it fails, `info().models` is the fallback.
 	 */
-	catalog?: () => Promise<{ models: Choice[]; modes?: Choice[] }>;
+	catalog?: (fresh?: boolean) => Promise<{ models: Choice[]; modes?: Choice[] }>;
 	start: (context: AgentContext) => Promise<AgentSession>;
 };
