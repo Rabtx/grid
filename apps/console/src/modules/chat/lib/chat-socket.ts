@@ -1,3 +1,5 @@
+import { onRunnerRecovered, reportRunnerFailure, reportRunnerSuccess } from "@/lib/runner-health";
+
 import type { ChatEvent, ChatSession } from "../types/chat.types";
 
 export type ChatConnection = "connecting" | "open" | "reconnecting" | "gone" | "signed-out";
@@ -26,6 +28,7 @@ export type ChatSocketOptions = {
 const CLOSE_UNAUTHORIZED = 4401;
 const CLOSE_NOT_FOUND = 4404;
 const OPEN = 1;
+const HEARTBEAT_INTERVAL_MS = 20_000;
 
 /**
  * A chat session's live link to the runner. Like the terminal's: reconnects with backoff,
@@ -34,7 +37,7 @@ const OPEN = 1;
  */
 export function connectChat(options: ChatSocketOptions) {
 	const createSocket = options.createSocket ?? ((url: string) => new WebSocket(url));
-	const delays = options.retryDelaysMs ?? [250, 1000, 2000, 4000, 8000];
+	const delays = options.retryDelaysMs ?? [250, 1000, 2000, 4000, 5000];
 	let socket: WebSocket | null = null;
 	let attached = false;
 	let closed = false;
@@ -42,10 +45,33 @@ export function connectChat(options: ChatSocketOptions) {
 	let attempt = 0;
 	let renewedOnce = false;
 	let retryTimer: ReturnType<typeof setTimeout> | undefined;
+	let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+	let lastActivityAt = Date.now();
+
+	function startHeartbeat(): void {
+		stopHeartbeat();
+		heartbeatTimer = setInterval(() => {
+			if (socket && attached && socket.readyState === OPEN) {
+				try {
+					socket.send(JSON.stringify({ t: "ping" }));
+				} catch {
+					// Socket write failed, will reconnect
+				}
+			}
+		}, HEARTBEAT_INTERVAL_MS);
+	}
+
+	function stopHeartbeat(): void {
+		if (heartbeatTimer) {
+			clearInterval(heartbeatTimer);
+			heartbeatTimer = undefined;
+		}
+	}
 
 	function open(): void {
 		if (closed || finished) return;
 		clearTimeout(retryTimer);
+		retryTimer = undefined;
 		attached = false;
 		options.onConnection(attempt === 0 ? "connecting" : "reconnecting");
 		const ws = createSocket(options.url);
@@ -55,16 +81,22 @@ export function connectChat(options: ChatSocketOptions) {
 		});
 		ws.addEventListener("message", (event: MessageEvent) => {
 			if (socket !== ws || typeof event.data !== "string") return;
+			lastActivityAt = Date.now();
 			let message: { t?: string; [key: string]: unknown };
 			try {
 				message = JSON.parse(event.data);
 			} catch {
 				return;
 			}
+			if (message.t === "pong") {
+				return;
+			}
 			if (message.t === "ready") {
 				attached = true;
 				attempt = 0;
 				renewedOnce = false;
+				reportRunnerSuccess();
+				startHeartbeat();
 				options.onConnection("open");
 				options.onReady(
 					message as unknown as { session: ChatSession; history: ChatEvent[]; running: boolean },
@@ -78,6 +110,7 @@ export function connectChat(options: ChatSocketOptions) {
 			}
 		});
 		ws.addEventListener("close", (event: CloseEvent) => {
+			stopHeartbeat();
 			if (socket !== ws) return;
 			socket = null;
 			attached = false;
@@ -88,6 +121,7 @@ export function connectChat(options: ChatSocketOptions) {
 			} else if (event.code === CLOSE_UNAUTHORIZED) {
 				void reauthenticate();
 			} else {
+				reportRunnerFailure();
 				options.onConnection("reconnecting");
 				const delay = delays[Math.min(attempt, delays.length - 1)];
 				attempt += 1;
@@ -108,7 +142,30 @@ export function connectChat(options: ChatSocketOptions) {
 		else options.onConnection("signed-out");
 	}
 
+	const unsubscribeRecovery = onRunnerRecovered(() => {
+		reconnectNow();
+	});
+
 	open();
+
+	function reconnectNow(): void {
+		if (closed || finished) return;
+		clearTimeout(retryTimer);
+		retryTimer = undefined;
+		const isStale = Date.now() - lastActivityAt > 35_000;
+		if (socket && (socket.readyState !== OPEN || isStale)) {
+			try {
+				socket.close();
+			} catch {
+				// Ignore close errors
+			}
+			socket = null;
+		}
+		if (!socket) {
+			attempt = Math.max(attempt, 1);
+			open();
+		}
+	}
 
 	return {
 		/** False while the link is down: the caller keeps the draft instead of losing it. */
@@ -117,14 +174,12 @@ export function connectChat(options: ChatSocketOptions) {
 			socket.send(JSON.stringify(command));
 			return true;
 		},
-		reconnectNow(): void {
-			if (closed || finished || socket) return;
-			attempt = Math.max(attempt, 1);
-			open();
-		},
+		reconnectNow,
 		close(): void {
 			closed = true;
 			clearTimeout(retryTimer);
+			stopHeartbeat();
+			unsubscribeRecovery();
 			socket?.close();
 			socket = null;
 		},

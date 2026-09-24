@@ -36,12 +36,15 @@ export type TerminalSocket = {
 	close: () => void;
 };
 
+import { onRunnerRecovered, reportRunnerFailure, reportRunnerSuccess } from "@/lib/runner-health";
+
 // Close codes the runner uses; see apps/runner/src/server.ts.
 const CLOSE_UNAUTHORIZED = 4401;
 const CLOSE_NOT_FOUND = 4404;
 
 // WebSocket.OPEN, spelled out so this module does not depend on a global WebSocket to load.
 const OPEN = 1;
+const HEARTBEAT_INTERVAL_MS = 20_000;
 
 // Typing while the link is down is kept (up to this much) and sent once it is back.
 const MAX_PENDING_INPUT = 16 * 1024;
@@ -62,8 +65,30 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 	let finished = false;
 	let attempt = 0;
 	let retryTimer: ReturnType<typeof setTimeout> | undefined;
+	let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 	let renewedOnce = false;
 	let pending = "";
+	let lastActivityAt = Date.now();
+
+	function startHeartbeat(): void {
+		stopHeartbeat();
+		heartbeatTimer = setInterval(() => {
+			if (socket && attached && socket.readyState === OPEN) {
+				try {
+					socket.send(JSON.stringify({ t: "ping" }));
+				} catch {
+					// Socket write failed, will reconnect
+				}
+			}
+		}, HEARTBEAT_INTERVAL_MS);
+	}
+
+	function stopHeartbeat(): void {
+		if (heartbeatTimer) {
+			clearInterval(heartbeatTimer);
+			heartbeatTimer = undefined;
+		}
+	}
 
 	function setState(state: ConnectionState): void {
 		options.onState(state);
@@ -89,15 +114,21 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 
 		ws.addEventListener("message", (event: MessageEvent) => {
 			if (socket !== ws) return;
+			lastActivityAt = Date.now();
 			if (typeof event.data !== "string") {
 				options.onOutput(new Uint8Array(event.data as ArrayBuffer));
 				return;
 			}
 			const message = parse(event.data);
+			if (message?.t === "pong") {
+				return;
+			}
 			if (message?.t === "ready") {
 				attached = true;
 				attempt = 0;
 				renewedOnce = false;
+				reportRunnerSuccess();
+				startHeartbeat();
 				options.onReset();
 				setState("open");
 				if (pending) {
@@ -114,6 +145,7 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 		});
 
 		ws.addEventListener("close", (event: CloseEvent) => {
+			stopHeartbeat();
 			if (socket !== ws) return;
 			socket = null;
 			attached = false;
@@ -127,6 +159,7 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 				void reauthenticate();
 				return;
 			}
+			reportRunnerFailure();
 			scheduleRetry();
 		});
 	}
@@ -152,7 +185,30 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 		retryTimer = setTimeout(open, delay);
 	}
 
+	const unsubscribeRecovery = onRunnerRecovered(() => {
+		reconnectNow();
+	});
+
 	open();
+
+	function reconnectNow(): void {
+		if (closed || finished) return;
+		clearTimeout(retryTimer);
+		retryTimer = undefined;
+		const isStale = Date.now() - lastActivityAt > 35_000;
+		if (socket && (socket.readyState !== OPEN || isStale)) {
+			try {
+				socket.close();
+			} catch {
+				// Ignore close error
+			}
+			socket = null;
+		}
+		if (!socket) {
+			attempt = Math.max(attempt, 1);
+			open();
+		}
+	}
 
 	return {
 		send(data) {
@@ -168,14 +224,12 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 				socket.send(JSON.stringify({ t: "resize", cols, rows }));
 			}
 		},
-		reconnectNow() {
-			if (closed || finished || socket) return;
-			attempt = Math.max(attempt, 1);
-			open();
-		},
+		reconnectNow,
 		close() {
 			closed = true;
 			clearTimeout(retryTimer);
+			stopHeartbeat();
+			unsubscribeRecovery();
 			socket?.close();
 			socket = null;
 		},

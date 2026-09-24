@@ -1,6 +1,8 @@
 import { useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
+
+import { onRunnerRecovered } from "@/lib/runner-health";
 
 import { useAuth } from "@/modules/auth";
 import { useWorkspace } from "@/modules/projects";
@@ -104,6 +106,17 @@ export function ChatScreen(): JSX.Element {
 			if (slug) void threadsStore.load(token, slug);
 		},
 	);
+
+	onSettled(() => {
+		const unsub = onRunnerRecovered(() => {
+			const token = auth.token();
+			if (!token) return;
+			void providersStore.reload(token);
+			const slug = untrack(project);
+			if (slug) void threadsStore.reload(token, slug);
+		});
+		return unsub;
+	});
 
 	// Each project remembers its open tabs; opening a chat adds it to them.
 	createEffect(

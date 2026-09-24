@@ -52,6 +52,11 @@ export const providersStore = {
 		);
 		return loading;
 	},
+	/** Re-fetch agents after a drop or runner restart. */
+	reload(token: string): Promise<void> {
+		loading = null;
+		return providersStore.load(token);
+	},
 	/** Ask one agent for its models again. */
 	async refresh(token: string, id: string): Promise<void> {
 		replace(await chatService.refreshProvider(token, id));

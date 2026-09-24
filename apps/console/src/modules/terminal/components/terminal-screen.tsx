@@ -123,6 +123,36 @@ export function TerminalScreen(): JSX.Element {
 		});
 	}
 
+	async function restartActiveTerminal(): Promise<void> {
+		const token = auth.token();
+		const currentId = activeId();
+		if (!token || !currentId || busy()) return;
+		const currentTerminal = terminals().find((terminal) => terminal.id === currentId);
+		const cwd = currentTerminal?.cwd;
+		setBusy(true);
+		try {
+			const info = await terminalsService.open(token, DEFAULT_SIZE, cwd);
+			setTerminals((list) => list.map((terminal) => (terminal.id === currentId ? info : terminal)));
+			handles.delete(currentId);
+			setStates((all) => {
+				const next = { ...all };
+				delete next[currentId];
+				return next;
+			});
+			setTitles((all) => {
+				const next = { ...all };
+				delete next[currentId];
+				return next;
+			});
+			navigate(`/terminal/${info.id}`, { replace: true });
+			void terminalsService.close(token, currentId).catch(() => {});
+		} catch (cause) {
+			setLoad({ status: "error", message: describe(cause) });
+		} finally {
+			setBusy(false);
+		}
+	}
+
 	function setArmed(next: Modifiers): void {
 		armed = next;
 		setModifiers(next);
@@ -193,6 +223,9 @@ export function TerminalScreen(): JSX.Element {
 								>
 									<StatusDot state={states()[terminal.id]} exited={terminal.exitCode !== null} />
 									<span class="truncate">{titleOf(terminal)}</span>
+									<Show when={states()[terminal.id] === "gone"}>
+										<span class="rounded bg-ink/10 px-1 py-0.5 text-ink/50 text-ui-2xs">ended</span>
+									</Show>
 								</a>
 								<IconButton
 									size="sm"
@@ -233,23 +266,35 @@ export function TerminalScreen(): JSX.Element {
 				)}
 			</Show>
 
-			<Show
-				when={
-					activeState() === "reconnecting" ||
-					activeState() === "signed-out" ||
-					activeState() === "gone"
-				}
-			>
+			<Show when={activeState() === "reconnecting" || activeState() === "signed-out"}>
 				<output
 					aria-live="polite"
 					class="block shrink-0 bg-ink/5 px-3 py-1.5 text-ink/60 text-ui-xs"
 				>
 					{activeState() === "reconnecting"
 						? "Connection lost — reconnecting…"
-						: activeState() === "gone"
-							? "This terminal ended on the machine. Close it or open a new one."
-							: "Your session ended. Sign in again to keep using the terminal."}
+						: "Your session ended. Sign in again to keep using the terminal."}
 				</output>
+			</Show>
+
+			<Show when={activeState() === "gone"}>
+				<div class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-stroke border-b bg-ink/5 px-3 py-1.5 text-ui-xs">
+					<span class="text-ink/70">The runner restarted and this terminal ended</span>
+					<div class="flex items-center gap-2">
+						<Button size="sm" variant="primary" onClick={() => void restartActiveTerminal()}>
+							Start again
+						</Button>
+						<Button
+							size="sm"
+							onClick={() => {
+								const id = activeId();
+								if (id) void closeTerminal(id);
+							}}
+						>
+							Close
+						</Button>
+					</div>
+				</div>
 			</Show>
 
 			<div class="relative min-h-0 flex-1 bg-canvas">

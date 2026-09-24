@@ -160,4 +160,33 @@ describe("folders and project links", () => {
 		});
 		expect(missing.status).toBe(400);
 	});
+
+	it("returns health status with startedAt timestamp", async () => {
+		const res = await fetch(`${base}/health`);
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as { ok: boolean; startedAt: number };
+		expect(json.ok).toBe(true);
+		expect(typeof json.startedAt).toBe("number");
+		expect(json.startedAt).toBeGreaterThan(0);
+	});
+
+	it("responds to websocket ping with pong", async () => {
+		const id = await openTerminal();
+		const ws = socket();
+		await new Promise((resolve) => ws.addEventListener("open", resolve));
+		ws.send(JSON.stringify({ t: "hello", token: "good", id }));
+
+		const pongReceived = new Promise<string>((resolve) => {
+			ws.addEventListener("message", (event) => {
+				if (typeof event.data === "string" && event.data.includes("pong")) {
+					resolve(event.data);
+				}
+			});
+		});
+
+		ws.send(JSON.stringify({ t: "ping" }));
+		const pong = await pongReceived;
+		expect(JSON.parse(pong)).toEqual({ t: "pong" });
+		ws.close();
+	});
 });
