@@ -10,7 +10,7 @@ type MenuItem = {
 };
 
 const TRIGGER_CLASS =
-	"focus-ring inline-flex size-control shrink-0 select-none items-center justify-center rounded-md text-ink/50 transition-[background-color,color,transform] duration-fast ease-out-grid hover:bg-ink/8 hover:text-ink active:scale-[0.96]";
+	"focus-ring inline-flex size-control shrink-0 select-none items-center justify-center rounded-md text-ink/50 transition-[background-color,color,transform] duration-fast ease-out-grid hover:bg-ink/8 hover:text-ink active:scale-[0.96] pointer-coarse:min-h-10 pointer-coarse:min-w-10";
 
 // Phones: bottom sheet, full width, safe-area padded. From md: clears the sheet insets so CSS
 // anchor positioning (`position-area`) or the JS fallback can place it under the trigger.
@@ -18,7 +18,7 @@ const SURFACE_CLASS =
 	"fixed inset-x-0 bottom-0 top-auto m-0 min-w-44 w-full rounded-t-xl border border-b-0 border-ink/10 bg-canvas p-1 shadow-xl pb-[max(0.25rem,env(safe-area-inset-bottom))] md:inset-auto md:w-auto md:rounded-xl md:border-b md:pb-1 md:[position-area:block-end_span-inline-end] md:[position-try-fallbacks:flip-block]";
 
 const ITEM_CLASS =
-	"flex h-row w-full items-center gap-2 rounded-md px-2 text-left text-ui-sm focus-ring";
+	"flex h-row w-full items-center gap-2 rounded-md px-2 text-left text-ui-sm focus-ring pointer-coarse:min-h-11";
 
 function supportsAnchorPositioning(): boolean {
 	return (

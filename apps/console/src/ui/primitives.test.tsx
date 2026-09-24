@@ -134,6 +134,48 @@ describe("SegmentedControl", () => {
 	});
 });
 
+describe("coarse-pointer touch targets", () => {
+	it("adds minimum target sizes to interactive primitives only for coarse pointers", () => {
+		const root = mount(() => (
+			<>
+				<Button size="sm">Small</Button>
+				<Button size="md">Medium</Button>
+				<IconButton label="Small icon" size="sm">
+					x
+				</IconButton>
+				<IconButton label="Medium icon">x</IconButton>
+				<SegmentedControl
+					label="View"
+					options={[{ value: "all", label: "All" }]}
+					value="all"
+					onChange={() => {}}
+				/>
+				<Menu
+					label="Actions"
+					trigger={<span>More</span>}
+					items={[{ id: "edit", label: "Edit" }]}
+					onSelect={() => {}}
+				/>
+				<Select options={[{ value: "all", label: "All" }]} value="all" onChange={() => {}} />
+				<Input aria-label="Name" />
+			</>
+		));
+		const [smallButton, mediumButton, smallIconButton, mediumIconButton] =
+			root.querySelectorAll("button");
+		for (const button of [smallButton, mediumButton, smallIconButton, mediumIconButton]) {
+			expect(button?.className).toContain("pointer-coarse:min-h-10");
+			expect(button?.className).toContain("pointer-coarse:min-w-10");
+		}
+		expect(root.querySelector("fieldset button")?.className).toContain("pointer-coarse:min-h-10");
+		expect(root.querySelector('button[aria-label="Actions"]')?.className).toContain(
+			"pointer-coarse:min-h-10",
+		);
+		expect(root.querySelector('[role="menuitem"]')?.className).toContain("pointer-coarse:min-h-11");
+		expect(root.querySelector("select")?.className).toContain("pointer-coarse:min-h-10");
+		expect(root.querySelector("input")?.className).toContain("pointer-coarse:min-h-10");
+	});
+});
+
 describe("feedback", () => {
 	it("renders an error as an alert with its action, and an empty state with its sentence", () => {
 		const root = mount(() => (
