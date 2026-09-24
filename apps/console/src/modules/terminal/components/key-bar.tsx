@@ -1,6 +1,8 @@
 import type { JSX } from "@solidjs/web";
 import { For } from "solid-js";
 
+import { type DictationTarget, MicButton } from "@/modules/voice";
+
 import { type Arrow, BACK_TAB, type Modifiers } from "../lib/keys";
 
 type Key =
@@ -41,6 +43,8 @@ export function KeyBar(props: {
 	onSend: (data: string) => void;
 	onArrow: (arrow: Arrow) => void;
 	onPaste: () => void;
+	/** Where the key bar's mic types: the terminal that is showing. */
+	dictationTarget: () => DictationTarget | null;
 }): JSX.Element {
 	function press(key: Key): void {
 		if (key.kind === "modifier") props.onToggle(key.modifier);
@@ -75,6 +79,10 @@ export function KeyBar(props: {
 					</button>
 				)}
 			</For>
+			<MicButton
+				target={props.dictationTarget}
+				class={`${KEY} aria-pressed:bg-danger aria-pressed:text-canvas`}
+			/>
 			<button
 				type="button"
 				aria-label="Paste"

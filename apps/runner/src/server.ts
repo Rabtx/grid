@@ -2,6 +2,7 @@ import type { Server, ServerWebSocket } from "bun";
 
 import type { RunnerConfig } from "./config";
 import type { TerminalStore } from "./terminals";
+import { transcribe, TranscribeError } from "./transcribe";
 
 /** What the console sends first on a socket: who it is and which terminal it wants. */
 type Hello = { t: "hello"; token: string; id: string; cols?: number; rows?: number };
@@ -13,6 +14,9 @@ type SocketData = { userId: string | null; terminalId: string | null; detach: ((
 /** Close codes the console acts on: sign in again, or drop the tab. */
 export const CLOSE_UNAUTHORIZED = 4401;
 export const CLOSE_NOT_FOUND = 4404;
+
+// About ten minutes of compressed speech; longer clips are almost certainly a stuck recording.
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 
 // A socket must say hello this soon, or it is dropped.
 const HELLO_TIMEOUT_MS = 10_000;
@@ -35,6 +39,21 @@ export function startServer(
 			const url = new URL(request.url);
 
 			if (url.pathname === "/health") return Response.json({ ok: true });
+
+			if (url.pathname === "/transcribe" && request.method === "POST") {
+				const userId = await userFrom(request);
+				if (!userId) return error(401, "Sign in to use voice input");
+				const audio = await request.blob();
+				if (audio.size === 0) return error(400, "The recording is empty");
+				if (audio.size > MAX_AUDIO_BYTES) return error(413, "The recording is too long");
+				try {
+					const text = await transcribe(config.transcribe, audio);
+					return Response.json({ data: { text } });
+				} catch (cause) {
+					if (cause instanceof TranscribeError) return error(cause.status, cause.message);
+					throw cause;
+				}
+			}
 
 			if (url.pathname === "/terminal") {
 				const upgraded = server.upgrade(request, {

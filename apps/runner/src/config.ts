@@ -1,5 +1,7 @@
 import { homedir } from "node:os";
 
+import { readTranscribeConfig, type TranscribeConfig } from "./transcribe";
+
 /** Everything the runner reads from its environment, resolved once at start-up. */
 export type RunnerConfig = {
 	/** Loopback by default: the console reaches the runner through its own proxy, never directly. */
@@ -15,6 +17,8 @@ export type RunnerConfig = {
 	replayBytes: number;
 	/** Upper bound on terminals one person can hold open at once. */
 	maxTerminalsPerUser: number;
+	/** Speech-to-text for voice input, when the browser has no recogniser of its own. */
+	transcribe: TranscribeConfig;
 };
 
 export function readConfig(env: Record<string, string | undefined> = process.env): RunnerConfig {
@@ -26,5 +30,6 @@ export function readConfig(env: Record<string, string | undefined> = process.env
 		defaultCwd: env.RUNNER_CWD ?? homedir(),
 		replayBytes: Number(env.RUNNER_REPLAY_BYTES ?? 512 * 1024),
 		maxTerminalsPerUser: Number(env.RUNNER_MAX_TERMINALS ?? 16),
+		transcribe: readTranscribeConfig(env),
 	};
 }
