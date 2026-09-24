@@ -2,3 +2,46 @@
 @import "@grid/tokens/tokens.css";
 @import "@grid/tokens/product.css";
 @import "@grid/tokens/base.css";
+
+/*
+ * Touch behaviour of a native app rather than a web page. Only the browser's own gestures and
+ * flashes are turned off; focus rings and selecting text in content are untouched.
+ */
+@layer base {
+	html {
+		/* The grey flash on every tap; controls draw their own pressed state. */
+		-webkit-tap-highlight-color: transparent;
+		-webkit-text-size-adjust: 100%;
+	}
+
+	/* No double-tap zoom on controls, so a tap lands at once. */
+	a,
+	button,
+	input,
+	select,
+	textarea,
+	label,
+	summary,
+	[role="button"],
+	[role="tab"] {
+		touch-action: manipulation;
+	}
+
+	/* Holding a button or a link selects its label or opens a callout; neither is wanted. */
+	button,
+	[role="button"],
+	[role="tab"],
+	nav a {
+		-webkit-touch-callout: none;
+		-webkit-user-select: none;
+		user-select: none;
+	}
+}
+
+/* Installed as an app, the whole window must not bounce or pull to refresh like a page. */
+@media (display-mode: standalone) {
+	html,
+	body {
+		overscroll-behavior: none;
+	}
+}
