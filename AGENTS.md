@@ -78,6 +78,7 @@ grid/
 │   ├── console/         # Vite + Solid 2 SPA — the product (control plane), performance-first
 │   ├── web/             # Next.js — to be trimmed to the marketing/landing site only
 │   ├── nest-api/        # NestJS production API (PostgreSQL in later phases)
+│   ├── runner/          # Bun service on this machine: terminals (PTY over WebSocket) for the console
 │   ├── docs/            # Docs site (Fumadocs); source in apps/docs/content/docs/
 
 ├── packages/

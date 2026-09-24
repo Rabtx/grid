@@ -2,6 +2,7 @@ import Add01Icon from "@hugeicons/core-free-icons/Add01Icon";
 import AlertCircleIcon from "@hugeicons/core-free-icons/AlertCircleIcon";
 import ArrowDown01Icon from "@hugeicons/core-free-icons/ArrowDown01Icon";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
+import ComputerTerminal01Icon from "@hugeicons/core-free-icons/ComputerTerminal01Icon";
 import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon";
 import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
 import Logout01Icon from "@hugeicons/core-free-icons/Logout01Icon";
@@ -115,4 +116,8 @@ export function SettingsIcon(props: IconProps): JSX.Element {
 
 export function RestoreIcon(props: IconProps): JSX.Element {
 	return <Icon icon={RotateCcwIcon} class={props.class} />;
+}
+
+export function TerminalIcon(props: IconProps): JSX.Element {
+	return <Icon icon={ComputerTerminal01Icon} class={props.class} />;
 }

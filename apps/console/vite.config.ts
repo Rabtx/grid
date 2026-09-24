@@ -7,6 +7,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type Plugin, type ProxyOptions } from "vite";
 
 const API_TARGET = process.env.GRID_API_PROXY ?? "http://localhost:4000";
+const RUNNER_TARGET = process.env.GRID_RUNNER_PROXY ?? "http://localhost:4100";
 
 /**
  * Hostnames Vite accepts besides localhost and IPs: any Tailscale MagicDNS name, so a phone can
@@ -21,20 +22,29 @@ const allowedHosts = [".ts.net", ...(process.env.GRID_ALLOWED_HOSTS?.split(",") 
  * The API's CSRF check only trusts known console origins, and a tunnel's hostname isn't one of
  * them — so the forwarded request presents the console's canonical dev origin instead.
  */
-const apiProxy: Record<string, ProxyOptions> = Object.fromEntries(
-	["/api", "/uploads"].map((path) => [
-		path,
-		{
-			target: API_TARGET,
-			changeOrigin: true,
-			configure: (proxy) => {
-				proxy.on("proxyReq", (request) => {
-					if (request.getHeader("origin")) request.setHeader("origin", "http://localhost:3001");
-				});
+const apiProxy: Record<string, ProxyOptions> = {
+	...Object.fromEntries(
+		["/api", "/uploads"].map((path) => [
+			path,
+			{
+				target: API_TARGET,
+				changeOrigin: true,
+				configure: (proxy) => {
+					proxy.on("proxyReq", (request) => {
+						if (request.getHeader("origin")) request.setHeader("origin", "http://localhost:3001");
+					});
+				},
 			},
-		},
-	]),
-);
+		]),
+	),
+	// The runner (terminals) listens on loopback only; the console reaches it here, WebSocket
+	// included. Its sockets authenticate with the access token, not with cookies or the origin.
+	"/runner": {
+		target: RUNNER_TARGET,
+		ws: true,
+		rewrite: (path) => path.replace(/^\/runner/, ""),
+	},
+};
 
 /**
  * Emit `sw.js` from `src/pwa/service-worker.js` at build time, filling in the files to precache

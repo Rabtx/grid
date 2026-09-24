@@ -1,0 +1,116 @@
+import { afterAll, describe, expect, it } from "bun:test";
+
+import { readConfig } from "./config";
+import { spawnPty } from "./pty";
+import { CLOSE_NOT_FOUND, CLOSE_UNAUTHORIZED, startServer } from "./server";
+import { TerminalStore } from "./terminals";
+
+// A real shell on a real PTY behind the real server; only sign-in is stubbed.
+const config = { ...readConfig({}), port: 0, shell: "/bin/sh" };
+const store = new TerminalStore(config, spawnPty);
+const server = startServer(config, store, async (token) => (token === "good" ? "user-1" : null));
+const base = `http://127.0.0.1:${server.port}`;
+const auth = { Authorization: "Bearer good" };
+
+afterAll(() => {
+	store.closeAll();
+	void server.stop(true);
+});
+
+async function openTerminal(): Promise<string> {
+	const response = await fetch(`${base}/terminals`, {
+		method: "POST",
+		headers: { ...auth, "Content-Type": "application/json" },
+		body: JSON.stringify({ cols: 100, rows: 30 }),
+	});
+	expect(response.status).toBe(201);
+	return ((await response.json()) as { data: { id: string } }).data.id;
+}
+
+function socket(): WebSocket {
+	const ws = new WebSocket(`ws://127.0.0.1:${server.port}/terminal`);
+	ws.binaryType = "arraybuffer";
+	return ws;
+}
+
+/** Collect the terminal's output until it contains `needle`. */
+function waitForOutput(ws: WebSocket, needle: string): Promise<string> {
+	return new Promise((resolve, reject) => {
+		let seen = "";
+		const timer = setTimeout(() => reject(new Error(`no "${needle}" in: ${seen}`)), 5000);
+		ws.addEventListener("message", (event) => {
+			if (typeof event.data === "string") return;
+			seen += new TextDecoder().decode(event.data as ArrayBuffer);
+			if (seen.includes(needle)) {
+				clearTimeout(timer);
+				resolve(seen);
+			}
+		});
+	});
+}
+
+function closeCode(ws: WebSocket): Promise<number> {
+	return new Promise((resolve) => ws.addEventListener("close", (event) => resolve(event.code)));
+}
+
+describe("runner server", () => {
+	it("refuses to list terminals without a valid token", async () => {
+		expect((await fetch(`${base}/terminals`)).status).toBe(401);
+		expect(
+			(await fetch(`${base}/terminals`, { headers: { Authorization: "Bearer bad" } })).status,
+		).toBe(401);
+	});
+
+	it("runs a command in a real shell and streams the output", async () => {
+		const id = await openTerminal();
+		const ws = socket();
+		await new Promise((resolve) => ws.addEventListener("open", resolve));
+		ws.send(JSON.stringify({ t: "hello", token: "good", id, cols: 100, rows: 30 }));
+		const output = waitForOutput(ws, "grid-says-hi");
+		ws.send(new TextEncoder().encode("echo grid-says-$((1+0))hi | sed s/1//\r"));
+		expect(await output).toContain("grid-says-hi");
+		ws.close();
+	});
+
+	it("replays what a terminal printed to a socket that reconnects", async () => {
+		const id = await openTerminal();
+		const first = socket();
+		await new Promise((resolve) => first.addEventListener("open", resolve));
+		first.send(JSON.stringify({ t: "hello", token: "good", id }));
+		const printed = waitForOutput(first, "before-reconnect");
+		first.send(JSON.stringify({ t: "input", d: "echo before-reconnect\r" }));
+		await printed;
+		first.close();
+
+		const second = socket();
+		const replayed = waitForOutput(second, "before-reconnect");
+		await new Promise((resolve) => second.addEventListener("open", resolve));
+		second.send(JSON.stringify({ t: "hello", token: "good", id }));
+		expect(await replayed).toContain("before-reconnect");
+		second.close();
+	});
+
+	it("closes the socket with a code the console can act on", async () => {
+		const unsigned = socket();
+		const unauthorized = closeCode(unsigned);
+		await new Promise((resolve) => unsigned.addEventListener("open", resolve));
+		unsigned.send(JSON.stringify({ t: "hello", token: "bad", id: "x" }));
+		expect(await unauthorized).toBe(CLOSE_UNAUTHORIZED);
+
+		const missing = socket();
+		const notFound = closeCode(missing);
+		await new Promise((resolve) => missing.addEventListener("open", resolve));
+		missing.send(JSON.stringify({ t: "hello", token: "good", id: "no-such-terminal" }));
+		expect(await notFound).toBe(CLOSE_NOT_FOUND);
+	});
+
+	it("ends the shell when the terminal is closed", async () => {
+		const id = await openTerminal();
+		const response = await fetch(`${base}/terminals/${id}`, { method: "DELETE", headers: auth });
+		expect(response.status).toBe(204);
+		const list = (await (await fetch(`${base}/terminals`, { headers: auth })).json()) as {
+			data: { id: string }[];
+		};
+		expect(list.data.some((terminal) => terminal.id === id)).toBe(false);
+	});
+});

@@ -12,6 +12,7 @@ roles:
     team: backend
     paths:
       - apps/nest-api/**
+      - apps/runner/**
       - scripts/python/**
     reviewers:
       - reviewer
