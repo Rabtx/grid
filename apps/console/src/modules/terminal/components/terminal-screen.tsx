@@ -224,7 +224,9 @@ export function TerminalScreen(): JSX.Element {
 									<StatusDot state={states()[terminal.id]} exited={terminal.exitCode !== null} />
 									<span class="truncate">{titleOf(terminal)}</span>
 									<Show when={states()[terminal.id] === "gone"}>
-										<span class="rounded bg-ink/10 px-1 py-0.5 text-ink/50 text-ui-2xs">ended</span>
+										<span class="rounded bg-ink/10 px-1 py-0.5 text-ink/50 text-ui-caption">
+											ended
+										</span>
 									</Show>
 								</a>
 								<IconButton
@@ -279,7 +281,9 @@ export function TerminalScreen(): JSX.Element {
 
 			<Show when={activeState() === "gone"}>
 				<div class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-stroke border-b bg-ink/5 px-3 py-1.5 text-ui-xs">
-					<span class="text-ink/70">The runner restarted and this terminal ended</span>
+					<span class="text-ink/70">
+						This terminal ended — its shell exited or the runner restarted.
+					</span>
 					<div class="flex items-center gap-2">
 						<Button size="sm" variant="primary" onClick={() => void restartActiveTerminal()}>
 							Start again

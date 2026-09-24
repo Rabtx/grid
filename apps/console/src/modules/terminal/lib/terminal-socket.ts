@@ -1,3 +1,5 @@
+import { onRunnerRecovered, reportRunnerFailure, reportRunnerSuccess } from "@/lib/runner-health";
+
 /** Where a terminal's connection stands, as the screen shows it. */
 export type ConnectionState =
 	| "connecting"
@@ -35,8 +37,6 @@ export type TerminalSocket = {
 	reconnectNow: () => void;
 	close: () => void;
 };
-
-import { onRunnerRecovered, reportRunnerFailure, reportRunnerSuccess } from "@/lib/runner-health";
 
 // Close codes the runner uses; see apps/runner/src/server.ts.
 const CLOSE_UNAUTHORIZED = 4401;
