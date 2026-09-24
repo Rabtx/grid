@@ -7,6 +7,7 @@ import {
 	NavDrawer,
 	OfflineBanner,
 	ProjectNav,
+	ShortcutsHelp,
 	TopBar,
 	UpdateBanner,
 	WorkspaceHeader,
@@ -61,6 +62,7 @@ function SignedInShell(props: { children: JSX.Element }): JSX.Element {
 			</div>
 			<NavDrawer open={drawerOpen()} onClose={() => setDrawerOpen(false)} />
 			<NewTaskDialog />
+			<ShortcutsHelp />
 		</div>
 	);
 }
