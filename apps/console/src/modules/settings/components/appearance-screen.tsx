@@ -8,7 +8,8 @@ import {
 	resetAppearance,
 	updateAppearance,
 } from "@/lib/appearance";
-import { Button, RestoreIcon, SegmentedControl, Slider } from "@/ui";
+import { useAuth } from "@/modules/auth";
+import { Button, RestoreIcon, SegmentedControl, SignOutIcon, Slider } from "@/ui";
 
 // The presets without the leading `null`, which is the split default swatch drawn first.
 const COLOR_PRESETS = ACCENT_PRESETS.filter((color): color is string => color !== null);
@@ -17,6 +18,8 @@ const CUSTOM_GRADIENT =
 
 /** Settings → Appearance: theme, accent, tint, translucency and interface scale. */
 export function AppearanceScreen(): JSX.Element {
+	const auth = useAuth();
+
 	return (
 		<div class="mx-auto flex w-full max-w-[60rem] flex-col py-6 md:py-10">
 			<header class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -130,6 +133,15 @@ export function AppearanceScreen(): JSX.Element {
 						onInput={(uiScale) => updateAppearance({ uiScale })}
 						format={(value) => `${Math.round(value * 100)}%`}
 					/>
+				</Row>
+			</Group>
+
+			<Group title="Account" description="Who is signed in to this console.">
+				<Row label={auth.user()?.email ?? "Signed in"} description="Signing out ends this session.">
+					<Button variant="secondary" onClick={() => void auth.logout()}>
+						<SignOutIcon class="size-4" />
+						Sign out
+					</Button>
 				</Row>
 			</Group>
 		</div>

@@ -77,32 +77,25 @@ describe("AppShell", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("lists every project and marks the one in the URL as current", async () => {
+	it("lists every project once and marks the one in the URL as current", async () => {
 		await settle();
 
-		// The list renders twice — phone drawer and desktop sidebar — from one shared component.
 		const links = [
-			...container.querySelectorAll<HTMLAnchorElement>('nav[aria-label="Projects"] a'),
+			...container.querySelectorAll<HTMLAnchorElement>('nav[aria-label="Navigation"] ul a'),
 		];
 		expect(links.map((link) => link.querySelector(".truncate")?.textContent)).toEqual([
-			"Alpha",
-			"Beta",
 			"Alpha",
 			"Beta",
 		]);
 
 		const current = links.filter((link) => link.getAttribute("aria-current") === "page");
-		expect(current.map((link) => link.getAttribute("href"))).toEqual([
-			"/board/beta",
-			"/board/beta",
-		]);
+		expect(current.map((link) => link.getAttribute("href"))).toEqual(["/board/beta"]);
 	});
 
-	it("shows the signed-in email and the active project in the top bar", async () => {
+	it("names the active project in the title bar", async () => {
 		await settle();
 
-		expect(container.textContent).toContain("person@example.com");
-		expect(container.querySelector("header p")?.textContent).toBe("Beta");
+		expect(container.querySelector("header h1")?.textContent).toBe("Beta");
 	});
 });
 
@@ -147,21 +140,21 @@ describe("AppShell top bar", () => {
 			container,
 		);
 		await settle();
-		const header = container.querySelector("header.glass") as HTMLElement;
+		const header = container.querySelector("header") as HTMLElement;
 		return { header, dispose };
 	}
 
 	it("names the board after its project and offers New task there", async () => {
 		const { header, dispose } = await mountAt("/board/beta");
 		expect(header.textContent).toContain("Beta");
-		expect(header.querySelector('button[aria-label="New task"]')).not.toBeNull();
+		expect(header.textContent).toContain("New task");
 		dispose();
 	});
 
 	it("names other screens after themselves and drops the board's action", async () => {
 		const { header, dispose } = await mountAt("/terminal");
 		expect(header.textContent).toContain("Terminal");
-		expect(header.querySelector('button[aria-label="New task"]')).toBeNull();
+		expect(header.textContent).not.toContain("New task");
 		dispose();
 	});
 });

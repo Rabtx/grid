@@ -101,7 +101,10 @@ export function AddProjectSheet(): JSX.Element {
 							<p class="text-ink/55 text-ui-sm">
 								The folder with the project's code, on the machine Grid runs on.
 							</p>
-							<FolderBrowser actionLabel="Use" onPick={(path) => void pick(path)} />
+							{/* Mounted only while open: the browser lists folders as soon as it mounts. */}
+							<Show when={workspace.addProjectOpen()}>
+								<FolderBrowser actionLabel="Use" onPick={(path) => void pick(path)} />
+							</Show>
 						</Match>
 						<Match when={folder()}>
 							{(path) => (
