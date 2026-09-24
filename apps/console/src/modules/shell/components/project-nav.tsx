@@ -7,6 +7,7 @@ import { useWorkspace } from "@/modules/projects";
 import {
 	BoardIcon,
 	BrandLogo,
+	ChatIcon,
 	Caption,
 	SettingsIcon,
 	SignOutIcon,
@@ -41,6 +42,14 @@ export function ProjectNav(): JSX.Element {
 				>
 					<BoardIcon class="size-4 shrink-0" />
 					Board
+				</a>
+				<a
+					href="/chat"
+					aria-current={location.pathname.startsWith("/chat") ? "page" : undefined}
+					class={NAV_ROW}
+				>
+					<ChatIcon class="size-4 shrink-0" />
+					Chat
 				</a>
 				<a
 					href="/terminal"

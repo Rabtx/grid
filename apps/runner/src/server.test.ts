@@ -1,6 +1,8 @@
 import { afterAll, describe, expect, it } from "bun:test";
 
 import { readConfig } from "./config";
+import { ChatHub } from "./chat/hub";
+import { ChatStore } from "./chat/store";
 import { spawnPty } from "./pty";
 import { CLOSE_NOT_FOUND, CLOSE_UNAUTHORIZED, startServer } from "./server";
 import { TerminalStore } from "./terminals";
@@ -8,7 +10,12 @@ import { TerminalStore } from "./terminals";
 // A real shell on a real PTY behind the real server; only sign-in is stubbed.
 const config = { ...readConfig({}), port: 0, shell: "/bin/sh" };
 const store = new TerminalStore(config, spawnPty);
-const server = startServer(config, store, async (token) => (token === "good" ? "user-1" : null));
+const server = startServer(
+	config,
+	store,
+	async (token) => (token === "good" ? "user-1" : null),
+	new ChatHub(new ChatStore(":memory:"), new Map()),
+);
 const base = `http://127.0.0.1:${server.port}`;
 const auth = { Authorization: "Bearer good" };
 
