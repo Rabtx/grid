@@ -5,7 +5,7 @@ type: chore
 from: human
 to: ui-ux
 priority: high
-status: open
+status: done
 assignee: claude
 reviewer: human
 parent: .agents/plans/next-foundations.md
@@ -32,3 +32,19 @@ asks it to change the file, and checks both happened in that folder. Fix whateve
 The script's real output for every installed agent, on the card.
 
 ## Resolution
+
+Landed in #56. `apps/runner/scripts/smoke.ts` (`bun --cwd=apps/runner run smoke [agent…]`): per
+installed agent, a fresh temp project folder in a real `ChatStore`, a thread through `ChatHub`
+that creates `grid-smoke.txt`, then a new hub on the same store (a runner restart) and a resumed
+turn that appends to it; approvals are answered with the first allow option.
+
+Real results (2026-09-25):
+
+```
+agent        created  resumed
+claude       ✓        ✓
+opencode     ✓        ✓
+antigravity  ✓        ✓   (first run wandered 4 min via its cross-chat memory; rerun passed)
+codex        ✓        ✓
+```
+
