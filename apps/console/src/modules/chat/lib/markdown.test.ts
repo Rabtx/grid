@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.stubGlobal("window", { location: { origin: "https://grid.test" } });
 
-const { renderMarkdown } = await import("./markdown");
+const { renderMarkdown, splitLines } = await import("./markdown");
 
 describe("renderMarkdown", () => {
 	it("renders the usual Markdown", () => {
@@ -39,5 +39,34 @@ describe("renderMarkdown", () => {
 		expect(html).toContain("data-copy-code");
 		expect(html.match(/class="code-line"/g)).toHaveLength(2);
 		expect(html).toContain("&lt;b&gt;");
+	});
+
+	it("highlights known languages and keeps unknown ones plain", () => {
+		const ts = renderMarkdown("```ts\nconst answer = 42;\n```");
+		expect(ts).toContain('class="hljs-keyword"');
+		expect(ts).toContain('class="hljs-number"');
+		const plain = renderMarkdown("```nonsense\n<b>x</b>\n```");
+		expect(plain).not.toContain("hljs-");
+		expect(plain).toContain("&lt;b&gt;");
+	});
+
+	it("keeps spans balanced on every line of a multi-line token", () => {
+		const lines = splitLines('<span class="hljs-comment">/* one\ntwo */</span> x');
+		expect(lines).toEqual([
+			'<span class="hljs-comment">/* one</span>',
+			'<span class="hljs-comment">two */</span> x',
+		]);
+	});
+
+	it("renders task lists and tables", () => {
+		const html = renderMarkdown("- [x] done\n- [ ] todo\n\n| a | b |\n| - | - |\n| 1 | 2 |");
+		expect(html).toContain('type="checkbox"');
+		expect(html).toContain("<table>");
+	});
+
+	it("keeps key caps and nothing else of raw HTML", () => {
+		const html = renderMarkdown("Press <kbd>Ctrl</kbd>+<kbd>K</kbd> <span onclick=x>no</span>");
+		expect(html).toContain("<kbd>Ctrl</kbd>");
+		expect(html).not.toContain("<span onclick");
 	});
 });

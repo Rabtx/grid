@@ -17,7 +17,7 @@ import {
 	ToolIcon,
 } from "@/ui";
 
-import { renderMarkdown } from "../lib/markdown";
+import { copyCodeFrom, renderMarkdown } from "../lib/markdown";
 import { type Block, groupRows, type Row, summariseTools, toolFile } from "../lib/transcript";
 import type { ToolKind } from "../types/chat.types";
 
@@ -52,17 +52,6 @@ function toolParts(tool: ToolBlock): [verb: string, target: string] {
 	}
 }
 
-/** Copy a code card's text when its button is pressed; the cards are rendered as HTML. */
-function copyCode(event: MouseEvent): void {
-	const button = (event.target as Element | null)?.closest<HTMLButtonElement>("[data-copy-code]");
-	const code = button?.closest("figure")?.querySelector("code");
-	if (!button || !code) return;
-	void navigator.clipboard?.writeText(code.textContent ?? "").then(() => {
-		button.textContent = "Copied";
-		setTimeout(() => (button.textContent = "Copy"), 1500);
-	});
-}
-
 export function TranscriptView(props: {
 	blocks: Block[];
 	running: boolean;
@@ -72,7 +61,7 @@ export function TranscriptView(props: {
 
 	return (
 		// oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- delegates clicks from the code cards' own buttons
-		<div class="flex flex-col gap-3" onClick={copyCode}>
+		<div class="flex flex-col gap-3" onClick={copyCodeFrom}>
 			{/* keyed={false}: rows only ever append or update in place, so each keeps its DOM (and an open <details>). */}
 			<For each={grouped()} keyed={false}>
 				{(row) => (
