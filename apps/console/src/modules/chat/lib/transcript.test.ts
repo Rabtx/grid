@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ChatEvent } from "../types/chat.types";
-import { pendingApprovals, replay } from "./transcript";
+import { groupRows, pendingApprovals, replay, summariseTools, toolLabel } from "./transcript";
 
 describe("replay", () => {
 	it("joins streamed text into one reply and keeps reasoning apart", () => {
@@ -103,5 +103,64 @@ describe("replay", () => {
 			{ kind: "notice", tone: "error", text: "Boom" },
 			{ kind: "notice", tone: "muted", text: "Stopped." },
 		]);
+	});
+});
+
+describe("tool call summaries", () => {
+	const tool = (event: Extract<ChatEvent, { type: "tool" }>): ChatEvent => event;
+	const events: ChatEvent[] = [
+		{ type: "user", text: "tighten the rows" },
+		tool({
+			type: "tool",
+			id: "a",
+			kind: "read",
+			title: "Read src/lib/density.ts",
+			status: "completed",
+		}),
+		tool({
+			type: "tool",
+			id: "b",
+			kind: "edit",
+			title: "Edit",
+			input: JSON.stringify({ file_path: "/repo/src/lib/density.ts" }),
+			status: "completed",
+		}),
+		tool({ type: "tool", id: "c", kind: "execute", title: "bun test", status: "completed" }),
+		{ type: "message", text: "Done." },
+		{ type: "approval", id: "p", title: "Run rm -rf dist?", options: [] },
+		tool({ type: "tool", id: "d", kind: "search", title: "grep contrast", status: "completed" }),
+	];
+
+	it("groups consecutive tool calls and never folds approvals", () => {
+		const rows = groupRows(replay(events).blocks);
+		expect(
+			rows.map((row) => (row.kind === "work" ? `work:${row.tools.length}` : row.block.kind)),
+		).toEqual(["user", "work:3", "assistant", "approval", "work:1"]);
+	});
+
+	it("names each call by what it touched", () => {
+		const blocks = replay(events).blocks.filter((block) => block.kind === "tool");
+		expect(blocks.map((block) => (block.kind === "tool" ? toolLabel(block) : ""))).toEqual([
+			"Read density.ts",
+			"Edited density.ts",
+			"Ran a command",
+			"Searched the project",
+		]);
+	});
+
+	it("joins distinct actions and counts long runs", () => {
+		const rows = groupRows(replay(events).blocks);
+		const first = rows[1];
+		expect(first.kind === "work" && summariseTools(first.tools)).toBe(
+			"Read density.ts · Edited density.ts · Ran a command",
+		);
+		const reads = ["a.ts", "b.ts", "c.ts", "d.ts"].map((file) => ({
+			tool: "read" as const,
+			title: `Read ${file}`,
+		}));
+		expect(summariseTools([...reads, { tool: "execute", title: "ls" }])).toBe(
+			"Read 4 files · Ran a command",
+		);
+		expect(summariseTools([reads[0], reads[0]])).toBe("Read a.ts");
 	});
 });

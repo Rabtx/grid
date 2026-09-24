@@ -8,6 +8,7 @@ import ArrowUp02Icon from "@hugeicons/core-free-icons/ArrowUp02Icon";
 import BubbleChatIcon from "@hugeicons/core-free-icons/BubbleChatIcon";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import ComputerTerminal01Icon from "@hugeicons/core-free-icons/ComputerTerminal01Icon";
+import Copy01Icon from "@hugeicons/core-free-icons/Copy01Icon";
 import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon";
 import File01Icon from "@hugeicons/core-free-icons/File01Icon";
 import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
@@ -196,6 +197,10 @@ export function BranchIcon(props: IconProps): JSX.Element {
 
 export function ArchiveIcon(props: IconProps): JSX.Element {
 	return <Icon icon={Archive01Icon} class={props.class} />;
+}
+
+export function CopyIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Copy01Icon} class={props.class} />;
 }
 
 /** A spinning ring for work in progress; still under reduced motion. */

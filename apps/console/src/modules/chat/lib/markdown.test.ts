@@ -31,4 +31,13 @@ describe("renderMarkdown", () => {
 	it("does not load remote images", () => {
 		expect(renderMarkdown("![tracker](https://evil.test/pixel.png)")).not.toContain("<img");
 	});
+
+	it("draws fenced code as a card with its language, a copy button and one span per line", () => {
+		const html = renderMarkdown("```ts\nconst a = 1;\nconst b = '<b>';\n```");
+		expect(html).toContain('<figure class="code-block">');
+		expect(html).toContain("<span>ts</span>");
+		expect(html).toContain("data-copy-code");
+		expect(html.match(/class="code-line"/g)).toHaveLength(2);
+		expect(html).toContain("&lt;b&gt;");
+	});
 });

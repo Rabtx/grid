@@ -1,11 +1,12 @@
 import type { JSX } from "@solidjs/web";
-import { createMemo, For, Match, Show, Switch } from "solid-js";
+import { createMemo, createSignal, For, Match, Show, Switch } from "solid-js";
 
 import {
 	AlertIcon,
 	Button,
 	CheckIcon,
 	CloseIcon,
+	CopyIcon,
 	EditIcon,
 	FileIcon,
 	GlobeIcon,
@@ -17,27 +18,10 @@ import {
 } from "@/ui";
 
 import { renderMarkdown } from "../lib/markdown";
-import type { Block } from "../lib/transcript";
+import { type Block, groupRows, type Row, summariseTools, toolFile } from "../lib/transcript";
 import type { ToolKind } from "../types/chat.types";
 
 type ToolBlock = Extract<Block, { kind: "tool" }>;
-
-/** Consecutive tool calls are shown as one group, folded to a single summary line once done. */
-type Row = { kind: "block"; block: Block } | { kind: "work"; key: string; tools: ToolBlock[] };
-
-function rows(blocks: Block[]): Row[] {
-	const out: Row[] = [];
-	for (const block of blocks) {
-		const last = out.at(-1);
-		if (block.kind === "tool") {
-			if (last?.kind === "work") last.tools.push(block);
-			else out.push({ kind: "work", key: block.key, tools: [block] });
-		} else {
-			out.push({ kind: "block", block });
-		}
-	}
-	return out;
-}
 
 const TOOL_ICONS: Record<ToolKind, (props: { class?: string }) => JSX.Element> = {
 	read: FileIcon,
@@ -49,24 +33,34 @@ const TOOL_ICONS: Record<ToolKind, (props: { class?: string }) => JSX.Element> =
 	other: ToolIcon,
 };
 
-const VERBS: Record<ToolKind, [one: string, many: string]> = {
-	read: ["Read a file", "Read {n} files"],
-	edit: ["Edited a file", "Edited {n} files"],
-	execute: ["Ran a command", "Ran {n} commands"],
-	search: ["Searched", "Searched {n} times"],
-	fetch: ["Fetched a page", "Fetched {n} pages"],
-	think: ["Thought", "Thought {n} times"],
-	other: ["Used a tool", "Used {n} tools"],
-};
+/** How a call reads in the expanded list: a quiet verb, then what it acted on. */
+function toolParts(tool: ToolBlock): [verb: string, target: string] {
+	const file = toolFile(tool);
+	switch (tool.tool) {
+		case "read":
+			return ["Read", file ?? tool.title];
+		case "edit":
+			return ["Edited", file ?? tool.title];
+		case "execute":
+			return ["Ran", tool.title];
+		case "search":
+			return ["Find", tool.title];
+		case "fetch":
+			return ["Fetch", tool.title];
+		default:
+			return [tool.title, ""];
+	}
+}
 
-/** "Read 3 files, ran a command" — what a finished group of tool calls did. */
-export function summarise(tools: ToolBlock[]): string {
-	const counts = new Map<ToolKind, number>();
-	for (const tool of tools) counts.set(tool.tool, (counts.get(tool.tool) ?? 0) + 1);
-	return [...counts]
-		.map(([kind, n]) => (n === 1 ? VERBS[kind][0] : VERBS[kind][1].replace("{n}", String(n))))
-		.map((part, index) => (index === 0 ? part : part.charAt(0).toLowerCase() + part.slice(1)))
-		.join(", ");
+/** Copy a code card's text when its button is pressed; the cards are rendered as HTML. */
+function copyCode(event: MouseEvent): void {
+	const button = (event.target as Element | null)?.closest<HTMLButtonElement>("[data-copy-code]");
+	const code = button?.closest("figure")?.querySelector("code");
+	if (!button || !code) return;
+	void navigator.clipboard?.writeText(code.textContent ?? "").then(() => {
+		button.textContent = "Copied";
+		setTimeout(() => (button.textContent = "Copy"), 1500);
+	});
 }
 
 export function TranscriptView(props: {
@@ -74,10 +68,11 @@ export function TranscriptView(props: {
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
 }): JSX.Element {
-	const grouped = createMemo(() => rows(props.blocks));
+	const grouped = createMemo(() => groupRows(props.blocks));
 
 	return (
-		<div class="flex flex-col gap-4">
+		// oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- delegates clicks from the code cards' own buttons
+		<div class="flex flex-col gap-3" onClick={copyCode}>
 			{/* keyed={false}: rows only ever append or update in place, so each keeps its DOM (and an open <details>). */}
 			<For each={grouped()} keyed={false}>
 				{(row) => (
@@ -110,16 +105,12 @@ function BlockView(props: {
 	return (
 		<Switch>
 			<Match when={props.block.kind === "user" && props.block}>
-				{(block) => (
-					<div class="whitespace-pre-wrap break-words rounded-xl border border-ink/12 bg-ink/4 px-3.5 py-2.5 text-ink text-ui">
-						{(block() as Extract<Block, { kind: "user" }>).text}
-					</div>
-				)}
+				{(block) => <UserMessage text={(block() as Extract<Block, { kind: "user" }>).text} />}
 			</Match>
 			<Match when={props.block.kind === "assistant" && props.block}>
 				{(block) => (
 					<div
-						class="chat-prose min-w-0 break-words text-ink/90 text-ui"
+						class="chat-prose min-w-0 break-words px-1 text-ink text-ui"
 						innerHTML={renderMarkdown((block() as Extract<Block, { kind: "assistant" }>).text)}
 					/>
 				)}
@@ -191,29 +182,82 @@ function BlockView(props: {
 	);
 }
 
-/** A run of tool calls: live while any is working, then one line that opens to show them all. */
+/** What you sent: a full-width bubble, clamped to four lines until opened, with a copy button. */
+function UserMessage(props: { text: string }): JSX.Element {
+	const [open, setOpen] = createSignal(false);
+	const [copied, setCopied] = createSignal(false);
+	const long = () => props.text.split("\n").length > 4 || props.text.length > 400;
+
+	return (
+		<div class="group/user">
+			<div class="rounded-lg border border-ink/10 bg-ink/10 px-3 py-2">
+				<p
+					class={`whitespace-pre-wrap break-words text-ink text-ui ${open() ? "" : "line-clamp-4"}`}
+				>
+					{props.text}
+				</p>
+			</div>
+			<div class="flex h-6 items-center gap-1 px-1 pt-1 opacity-0 transition-opacity duration-fast group-hover/user:opacity-100 group-focus-within/user:opacity-100 pointer-coarse:opacity-100">
+				<button
+					type="button"
+					aria-label="Copy message"
+					title={copied() ? "Copied" : "Copy"}
+					class="focus-ring grid size-6 place-items-center rounded-md text-ink/40 hover:bg-ink/8 hover:text-ink/70 pointer-coarse:size-9"
+					onClick={() =>
+						void navigator.clipboard?.writeText(props.text).then(() => {
+							setCopied(true);
+							setTimeout(() => setCopied(false), 1500);
+						})
+					}
+				>
+					<Show when={copied()} fallback={<CopyIcon class="size-3.5" />}>
+						<CheckIcon class="size-3.5" />
+					</Show>
+				</button>
+				<Show when={long()}>
+					<button
+						type="button"
+						class="focus-ring rounded-md px-1.5 text-ink/45 text-ui-xs hover:bg-ink/8 hover:text-ink/70 pointer-coarse:min-h-9"
+						onClick={() => setOpen(!open())}
+					>
+						{open() ? "Show less" : "Show more"}
+					</button>
+				</Show>
+			</div>
+		</div>
+	);
+}
+
+/**
+ * A run of tool calls as one quiet line — "Read density.ts · Edited density.ts · Ran a command" —
+ * live while any is working, opening to a rail that lists each call.
+ */
 function WorkGroup(props: { tools: ToolBlock[] }): JSX.Element {
 	const busy = () =>
 		props.tools.some((tool) => tool.status === "running" || tool.status === "pending");
 	const failed = () => props.tools.some((tool) => tool.status === "failed");
+	const Icon = () => TOOL_ICONS[props.tools[0]?.tool ?? "other"] ?? ToolIcon;
+
 	return (
-		<details class="group rounded-lg text-ui-sm" open={busy()}>
-			<summary class="flex cursor-pointer list-none items-center gap-2 text-ink/55 hover:text-ink/80">
-				<Show
-					when={busy()}
-					fallback={
-						<Show when={failed()} fallback={<CheckIcon class="size-3.5 text-ink/40" />}>
-							<AlertIcon class="size-3.5 text-danger" />
-						</Show>
-					}
-				>
-					<SpinnerIcon class="size-3.5" />
-				</Show>
-				<span class="truncate">
-					{busy() ? (props.tools.at(-1)?.title ?? "Working") : summarise(props.tools)}
+		<details class="group/work">
+			<summary class="flex min-h-7 cursor-pointer list-none items-center gap-1.5 px-1 py-1 text-ink/50 text-ui transition-colors duration-fast hover:text-ink/80 pointer-coarse:min-h-10 [&::-webkit-details-marker]:hidden">
+				<span class="grid size-3.5 shrink-0 place-items-center">
+					<Show
+						when={busy()}
+						fallback={
+							<Show when={failed()} fallback={Icon()({ class: "size-3.5 text-ink/45" })}>
+								<AlertIcon class="size-3.5 text-danger" />
+							</Show>
+						}
+					>
+						<SpinnerIcon class="size-3.5" />
+					</Show>
+				</span>
+				<span class="min-w-0 flex-1 truncate">
+					{busy() ? (props.tools.at(-1)?.title ?? "Working…") : summariseTools(props.tools)}
 				</span>
 			</summary>
-			<ul class="mt-2 flex flex-col gap-1 border-ink/10 border-l-2 pl-3">
+			<ul class="mt-0.5 mb-1 ml-2.5 flex flex-col border-ink/10 border-l pl-3.5">
 				<For each={props.tools} keyed={false}>
 					{(tool) => <ToolRow tool={tool()} />}
 				</For>
@@ -224,12 +268,16 @@ function WorkGroup(props: { tools: ToolBlock[] }): JSX.Element {
 
 function ToolRow(props: { tool: ToolBlock }): JSX.Element {
 	const Icon = () => TOOL_ICONS[props.tool.tool] ?? ToolIcon;
+	const parts = () => toolParts(props.tool);
 	return (
 		<li>
 			<details class="group/tool">
-				<summary class="flex cursor-pointer list-none items-center gap-2 py-0.5 text-ink/65 hover:text-ink">
-					{Icon()({ class: "size-3.5 shrink-0 text-ink/45" })}
-					<span class="min-w-0 flex-1 truncate">{props.tool.title}</span>
+				<summary class="flex min-h-7 cursor-pointer list-none items-center gap-1.5 py-1 hover:text-ink pointer-coarse:min-h-10 [&::-webkit-details-marker]:hidden">
+					{Icon()({ class: "size-3.5 shrink-0 text-ink/40" })}
+					<span class="shrink-0 text-ink/50 text-ui">{parts()[0]}</span>
+					<span class="min-w-0 flex-1 truncate pl-1 font-mono text-ink/70 text-ui-sm">
+						{parts()[1]}
+					</span>
 					<Show when={props.tool.status === "failed"}>
 						<CloseIcon class="size-3.5 shrink-0 text-danger" />
 					</Show>

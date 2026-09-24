@@ -166,7 +166,7 @@ export function Conversation(props: {
 				}}
 				class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 md:px-6"
 			>
-				<div class="mx-auto w-full max-w-3xl">
+				<div class="mx-auto w-full max-w-4xl">
 					<TranscriptView
 						blocks={transcript().blocks}
 						running={running()}
@@ -175,7 +175,7 @@ export function Conversation(props: {
 				</div>
 			</div>
 			<div class="shrink-0 px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-6">
-				<div class="mx-auto w-full max-w-3xl">
+				<div class="mx-auto w-full max-w-4xl">
 					<Show when={error()}>
 						{(message) => (
 							<div class="mb-2">
@@ -184,7 +184,6 @@ export function Conversation(props: {
 						)}
 					</Show>
 					<Composer
-						placeholder="Ask, build, fix…"
 						running={running()}
 						disabled={connection() === "gone" || connection() === "signed-out"}
 						onSend={send}
@@ -203,6 +202,7 @@ export function Conversation(props: {
 							<>
 								<Show when={models().length > 0}>
 									<ModelPicker
+										agent={session()?.provider}
 										models={models()}
 										model={model()}
 										onModel={chooseModel}
