@@ -11,11 +11,11 @@ import { AppShell } from "./routes/app-shell";
 import { DevUiRoute } from "./routes/dev-ui";
 import { RequireAuth } from "./routes/require-auth";
 
-// The console has no landing page of its own — that still lives in the marketing
-// site — so the board is the front door: "/" and "/board" open the first project.
+// The console has no landing page of its own — that still lives in the marketing site — so "/"
+// opens the current project's chats and "/board" its board.
 const Router = createRouter({
 	routes: [
-		{ path: "/", component: RedirectRoute },
+		{ path: "/", component: ProjectRoute },
 		{ path: "/login", component: LoginRoute },
 		{ path: "/board", component: RedirectRoute },
 		{ path: "/board/:slug", component: BoardRoute },
@@ -54,10 +54,18 @@ function LoginRoute(): JSX.Element {
 	);
 }
 
+function ProjectRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<ProjectRedirect to="chat" />
+		</RequireAuth>
+	);
+}
+
 function RedirectRoute(): JSX.Element {
 	return (
 		<RequireAuth>
-			<ProjectRedirect />
+			<ProjectRedirect to="board" />
 		</RequireAuth>
 	);
 }

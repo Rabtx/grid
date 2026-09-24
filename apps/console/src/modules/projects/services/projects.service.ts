@@ -5,6 +5,7 @@ import type {
 	CreateTaskInput,
 	Project,
 	Task,
+	UpdateProjectInput,
 	UpdateTaskInput,
 } from "../types/project.types";
 
@@ -12,6 +13,8 @@ export const projectsService = {
 	list: (accessToken: string) => apiClient.get<Project[]>("/projects", { accessToken }),
 	create: (accessToken: string, input: CreateProjectInput) =>
 		apiClient.post<Project>("/projects", input, { accessToken }),
+	update: (accessToken: string, slug: string, input: UpdateProjectInput) =>
+		apiClient.patch<Project>(`/projects/${slug}`, input, { accessToken }),
 	listTasks: (accessToken: string, slug: string) =>
 		apiClient.get<Task[]>(`/projects/${slug}/tasks`, { accessToken }),
 	createTask: (accessToken: string, slug: string, input: CreateTaskInput) =>

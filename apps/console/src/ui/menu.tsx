@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createUniqueId, For, Show } from "solid-js";
 
-type MenuItem = {
+export type MenuItem = {
 	id: string;
 	label: string;
 	icon?: JSX.Element;

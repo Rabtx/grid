@@ -9,6 +9,8 @@ type ShellState = {
 	panel: () => Slot | null;
 	/** The screen's tabs for the title bar, or null to show the section's name. */
 	tabs: () => Slot | null;
+	/** Phones: the current project's chats, listed under it in the drawer. */
+	projectChats: () => Slot | null;
 	setSlot: (name: SlotName, slot: Slot | null) => void;
 	/** Desktop only: the sidebar and panel folded away to give the screen the width. */
 	collapsed: () => boolean;
@@ -21,7 +23,7 @@ type ShellState = {
 	desktop: () => boolean;
 };
 
-type SlotName = "panel" | "tabs";
+type SlotName = "panel" | "tabs" | "projectChats";
 
 const COLLAPSED_KEY = "grid.shell.collapsed";
 const DESKTOP_QUERY = "(min-width: 64rem)";
@@ -39,6 +41,7 @@ function rememberedCollapsed(): boolean {
 export function ShellProvider(props: { children: JSX.Element }): JSX.Element {
 	const [panel, setPanel] = createSignal<Slot | null>(null);
 	const [tabs, setTabs] = createSignal<Slot | null>(null);
+	const [projectChats, setProjectChats] = createSignal<Slot | null>(null);
 	const [collapsed, setCollapsed] = createSignal(rememberedCollapsed());
 	const [drawerOpen, setDrawerOpen] = createSignal(false);
 	const [paletteOpen, setPaletteOpen] = createSignal(false);
@@ -54,8 +57,12 @@ export function ShellProvider(props: { children: JSX.Element }): JSX.Element {
 	const state: ShellState = {
 		panel,
 		tabs,
+		projectChats,
 		// Setters take the slot through a function so Solid does not call it as an updater.
-		setSlot: (name, slot) => (name === "panel" ? setPanel(() => slot) : setTabs(() => slot)),
+		setSlot: (name, slot) => {
+			const set = { panel: setPanel, tabs: setTabs, projectChats: setProjectChats }[name];
+			set(() => slot);
+		},
 		collapsed,
 		toggleCollapsed: () => {
 			const next = !collapsed();

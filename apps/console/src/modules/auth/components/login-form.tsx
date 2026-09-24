@@ -18,14 +18,14 @@ export function LoginForm(): JSX.Element {
 		() => (auth.ready() && auth.token() ? location.search : null),
 		(search) => {
 			if (search === null) return;
-			const next = new URLSearchParams(search).get("next") ?? "/board";
+			const next = new URLSearchParams(search).get("next") ?? "/";
 			const safe =
 				next.startsWith("/") &&
 				!next.startsWith("//") &&
 				!next.includes("\\") &&
 				!/\s/.test(next) &&
 				new URL(next, window.location.origin).origin === window.location.origin;
-			navigate(safe ? next : "/board", { replace: true });
+			navigate(safe ? next : "/", { replace: true });
 		},
 	);
 	const [email, setEmail] = createSignal("");
