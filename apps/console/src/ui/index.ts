@@ -8,3 +8,4 @@ export { Menu } from "./menu";
 export { SegmentedControl } from "./segmented-control";
 export { Select } from "./select";
 export { Sheet } from "./sheet";
+export { Slider } from "./slider";

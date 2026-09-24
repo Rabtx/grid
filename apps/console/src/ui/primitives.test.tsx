@@ -9,6 +9,7 @@ import { Field, Input, Textarea } from "./field";
 import { Menu } from "./menu";
 import { SegmentedControl } from "./segmented-control";
 import { Select } from "./select";
+import { Slider } from "./slider";
 
 let dispose: (() => void) | undefined;
 let container: HTMLElement;
@@ -194,6 +195,32 @@ describe("Select", () => {
 			select.dispatchEvent(new Event("change", { bubbles: true }));
 		}
 		expect(onChange).toHaveBeenCalledWith("b");
+	});
+});
+
+describe("Slider", () => {
+	it("names the range, reports input values and formats the readout", () => {
+		const onInput = vi.fn();
+		const root = mount(() => (
+			<Slider
+				label="Hue"
+				min={0}
+				max={360}
+				step={1}
+				value={120}
+				onInput={onInput}
+				format={(value) => `${value}°`}
+			/>
+		));
+		const input = root.querySelector<HTMLInputElement>('input[type="range"]');
+		expect(input).not.toBeNull();
+		expect(input?.getAttribute("aria-label")).toBe("Hue");
+		expect(root.textContent).toContain("120°");
+		if (input) {
+			input.value = "200";
+			input.dispatchEvent(new Event("input", { bubbles: true }));
+		}
+		expect(onInput).toHaveBeenCalledWith(200);
 	});
 });
 
