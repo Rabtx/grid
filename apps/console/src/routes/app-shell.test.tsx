@@ -102,3 +102,63 @@ describe("AppShell", () => {
 		expect(container.querySelector("header p")?.textContent).toBe("Beta");
 	});
 });
+
+describe("AppShell top bar", () => {
+	afterEach(() => {
+		document.body.replaceChildren();
+		vi.unstubAllGlobals();
+	});
+
+	async function mountAt(path: string): Promise<{ header: HTMLElement; dispose: () => void }> {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async (input: string | URL | Request) => {
+				const url = input.toString();
+				if (url.endsWith("/auth/refresh")) {
+					return json({
+						accessToken: "token",
+						accessTokenExpiresAt: "2026-09-23T01:00:00.000Z",
+						user: { id: "u1", email: "person@example.com", username: "person" },
+					});
+				}
+				if (url.endsWith("/projects")) return json(projects);
+				if (url.includes("/tasks")) return json([]);
+				return json(null, 404);
+			}),
+		);
+		const Router = createRouter({
+			routes: [
+				{ path: "/board/:slug", component: () => <p>board</p> },
+				{ path: "/terminal", component: () => <p>terminal</p> },
+			],
+			history: memoryHistory(path),
+		});
+		const container = document.createElement("div");
+		document.body.append(container);
+		const dispose = render(
+			() => (
+				<AuthProvider>
+					<Router>{(route) => <AppShell>{route.children}</AppShell>}</Router>
+				</AuthProvider>
+			),
+			container,
+		);
+		await settle();
+		const header = container.querySelector("header.glass") as HTMLElement;
+		return { header, dispose };
+	}
+
+	it("names the board after its project and offers New task there", async () => {
+		const { header, dispose } = await mountAt("/board/beta");
+		expect(header.textContent).toContain("Beta");
+		expect(header.querySelector('button[aria-label="New task"]')).not.toBeNull();
+		dispose();
+	});
+
+	it("names other screens after themselves and drops the board's action", async () => {
+		const { header, dispose } = await mountAt("/terminal");
+		expect(header.textContent).toContain("Terminal");
+		expect(header.querySelector('button[aria-label="New task"]')).toBeNull();
+		dispose();
+	});
+});
