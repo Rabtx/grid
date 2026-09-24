@@ -4,16 +4,25 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { createEffect, onSettled, untrack } from "solid-js";
+import { createEffect, createSignal, onSettled, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import { registerDictationTarget } from "@/modules/voice";
+import { ChevronDownIcon, CopyIcon } from "@/ui";
 
-import { type Arrow, arrowSequence, applyModifiers, type Modifiers } from "../lib/keys";
+import { applyModifiers, type Arrow, arrowSequence, type Modifiers } from "../lib/keys";
 import { lineForThumb, type ScrollState, thumbGeometry } from "../lib/scrollbar";
-import { type ConnectionState, connectTerminal } from "../lib/terminal-socket";
+import { connectTerminal, type ConnectionState } from "../lib/terminal-socket";
 import { monoFontFamily, terminalTheme } from "../lib/terminal-theme";
+import { attachTouchScroll, getCellCoords, getCellDimensions } from "../lib/touch-scroll";
+import {
+	computeSelectionRange,
+	findWordBounds,
+	getSelectionGeometry,
+	type SelectionPosition,
+} from "../lib/touch-selection";
 import { terminalSocketUrl } from "../services/terminals.service";
+import { hapticTick } from "./key-bar";
 
 /** What the key bar and toolbar can do to the terminal that is showing. */
 export type TerminalHandle = {
@@ -33,6 +42,7 @@ export function TerminalView(props: {
 	fontSize: number;
 	/** The key bar's armed modifiers; reading them releases them. */
 	takeModifiers: () => Modifiers;
+	onFontSizeChange?: (delta: number) => void;
 	onHandle: (handle: TerminalHandle) => void;
 	onState: (state: ConnectionState) => void;
 	onTitle: (title: string) => void;
@@ -44,6 +54,108 @@ export function TerminalView(props: {
 	let term: Terminal | undefined;
 	let fit: FitAddon | undefined;
 	let frame = 0;
+
+	const [selectionGeometry, setSelectionGeometry] = createSignal<SelectionPosition | null>(null);
+	const [scrolledUp, setScrolledUp] = createSignal(false);
+	const [hasUnreadOutput, setHasUnreadOutput] = createSignal(false);
+
+	let dragHandle: "start" | "end" | null = null;
+	let dragInitialStart: [number, number] | null = null;
+	let dragInitialEnd: [number, number] | null = null;
+
+	const updateSelection = () => {
+		if (!term || !host || !term.hasSelection()) {
+			setSelectionGeometry(null);
+			return;
+		}
+		setSelectionGeometry(getSelectionGeometry(term, host));
+	};
+
+	const onHandlePointerDown = (type: "start" | "end", event: PointerEvent) => {
+		if (!term) return;
+		event.preventDefault();
+		event.stopPropagation();
+		dragHandle = type;
+		const pos = term.getSelectionPosition();
+		if (pos) {
+			dragInitialStart = [pos.start.x, pos.start.y];
+			dragInitialEnd = [pos.end.x, pos.end.y];
+		}
+		hapticTick(14);
+		window.addEventListener("pointermove", onHandlePointerMove);
+		window.addEventListener("pointerup", onHandlePointerUp);
+		window.addEventListener("pointercancel", onHandlePointerUp);
+	};
+
+	const onHandlePointerMove = (event: PointerEvent) => {
+		if (!dragHandle || !host || !term) return;
+		const { col, row } = getCellCoords(term, host, event.clientX, event.clientY);
+		const bufferRow = term.buffer.active.viewportY + row - 1;
+		const colIndex = col - 1;
+
+		if (dragHandle === "start" && dragInitialEnd) {
+			const range = computeSelectionRange(
+				colIndex,
+				bufferRow,
+				dragInitialEnd[0],
+				dragInitialEnd[1],
+				term.cols,
+			);
+			term.select(range.col, range.row, range.length);
+		} else if (dragHandle === "end" && dragInitialStart) {
+			const range = computeSelectionRange(
+				dragInitialStart[0],
+				dragInitialStart[1],
+				colIndex,
+				bufferRow,
+				term.cols,
+			);
+			term.select(range.col, range.row, range.length);
+		}
+		updateSelection();
+	};
+
+	const onHandlePointerUp = () => {
+		dragHandle = null;
+		dragInitialStart = null;
+		dragInitialEnd = null;
+		window.removeEventListener("pointermove", onHandlePointerMove);
+		window.removeEventListener("pointerup", onHandlePointerUp);
+		window.removeEventListener("pointercancel", onHandlePointerUp);
+	};
+
+	const copySelection = async () => {
+		const text = term?.getSelection();
+		if (!text) return;
+		try {
+			await navigator.clipboard.writeText(text);
+			hapticTick(14);
+		} catch {
+			// Clipboard write refused
+		}
+		term?.clearSelection();
+		updateSelection();
+	};
+
+	const pasteFromClipboard = async () => {
+		try {
+			const text = await navigator.clipboard.readText();
+			if (text && term) {
+				hapticTick(14);
+				term.paste(text);
+			}
+		} catch {
+			// Clipboard read refused
+		}
+		term?.clearSelection();
+		updateSelection();
+	};
+
+	const selectAllText = () => {
+		term?.selectAll();
+		hapticTick(14);
+		updateSelection();
+	};
 
 	// Coalesce resizes to one fit per frame: dragging a window or opening a keyboard fires many.
 	function scheduleFit(): void {
@@ -100,7 +212,12 @@ export function TerminalView(props: {
 			renew: auth.renew,
 			size: () => ({ cols: terminal.cols, rows: terminal.rows }),
 			onReset: () => terminal.reset(),
-			onOutput: (bytes) => terminal.write(bytes),
+			onOutput: (bytes) => {
+				terminal.write(bytes);
+				if (terminal.buffer.active.viewportY < terminal.buffer.active.baseY) {
+					setHasUnreadOutput(true);
+				}
+			},
 			onState: (state) => props.onState(state),
 			onTitle: (title) => props.onTitle(title),
 			onExit: (code) => {
@@ -111,7 +228,18 @@ export function TerminalView(props: {
 		const subscriptions = [
 			terminal.onData((data) => live.send(applyModifiers(data, props.takeModifiers()))),
 			terminal.onBinary((data) => live.send(data)),
-			terminal.onResize(({ cols, rows }) => live.resize(cols, rows)),
+			terminal.onResize(({ cols, rows }) => {
+				live.resize(cols, rows);
+				updateSelection();
+			}),
+			terminal.onScroll(() => {
+				const isUp = terminal.buffer.active.viewportY < terminal.buffer.active.baseY;
+				setScrolledUp(isUp);
+				if (!isUp) setHasUnreadOutput(false);
+				updateSelection();
+			}),
+			terminal.onSelectionChange(updateSelection),
+			terminal.buffer.onBufferChange(updateSelection),
 		];
 
 		// Copy and paste go through the browser's own clipboard events, so the shortcuts people
@@ -163,6 +291,92 @@ export function TerminalView(props: {
 
 		const detachScrollbar = track && thumb ? attachScrollbar(terminal, track, thumb) : () => {};
 
+		// Native touch scrolling with momentum, SGR wheel tracking, and pinch zoom.
+		const detachTouchScroll = attachTouchScroll({
+			terminal,
+			container: host,
+			send: (data) => live.send(data),
+			onFontSizeChange: props.onFontSizeChange,
+		});
+
+		// Long-press to select text (word boundary), tap elsewhere clears.
+		let longPressTimer: number | null = null;
+		let touchStartX = 0;
+		let touchStartY = 0;
+
+		const cancelLongPress = () => {
+			if (longPressTimer !== null) {
+				clearTimeout(longPressTimer);
+				longPressTimer = null;
+			}
+		};
+
+		const onTouchStartSelect = (event: TouchEvent) => {
+			cancelLongPress();
+			if (event.touches.length !== 1) return;
+			const touch = event.touches[0];
+			touchStartX = touch.clientX;
+			touchStartY = touch.clientY;
+
+			longPressTimer = window.setTimeout(() => {
+				if (!terminal || !host) return;
+				const rect = host.getBoundingClientRect();
+				const dims = getCellDimensions(terminal, host);
+				const relX = Math.max(0, touch.clientX - rect.left);
+				const relY = Math.max(0, touch.clientY - rect.top);
+				const col = Math.floor(relX / dims.width);
+				const row = Math.floor(relY / dims.height);
+				const bufferRow = terminal.buffer.active.viewportY + row;
+				const line = terminal.buffer.active.getLine(bufferRow);
+				if (line) {
+					const text = line.translateToString(false);
+					const { start, length } = findWordBounds(text, col);
+					terminal.select(start, bufferRow, length);
+					hapticTick(24);
+					updateSelection();
+				}
+			}, 450);
+		};
+
+		const onTouchMoveSelect = (event: TouchEvent) => {
+			if (longPressTimer === null || event.touches.length !== 1) return;
+			const touch = event.touches[0];
+			if (Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY) > 8) {
+				cancelLongPress();
+			}
+		};
+
+		const onTouchEndSelect = (event: TouchEvent) => {
+			cancelLongPress();
+			// Tap elsewhere clears selection
+			if (terminal.hasSelection() && event.changedTouches.length === 1) {
+				const touch = event.changedTouches[0];
+				if (Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY) <= 6) {
+					terminal.clearSelection();
+					updateSelection();
+				}
+			}
+		};
+
+		host.addEventListener("touchstart", onTouchStartSelect, { passive: true });
+		host.addEventListener("touchmove", onTouchMoveSelect, { passive: true });
+		host.addEventListener("touchend", onTouchEndSelect, { passive: true });
+
+		// Tap to focus without scrolling the page.
+		const onPointerDownFocus = (event: PointerEvent) => {
+			if (event.pointerType === "touch") {
+				terminal.textarea?.focus({ preventScroll: true });
+			}
+		};
+		host.addEventListener("pointerdown", onPointerDownFocus);
+
+		const preventPageScroll = () => {
+			if (window.scrollX !== 0 || window.scrollY !== 0) {
+				window.scrollTo(0, 0);
+			}
+		};
+		window.addEventListener("scroll", preventPageScroll, { passive: true });
+
 		// Voice input typed into the shell, as if pasted: never with Enter, so nothing runs unseen.
 		const unregisterDictation = registerDictationTarget(host, {
 			insert: (text) => terminal.paste(text),
@@ -184,15 +398,23 @@ export function TerminalView(props: {
 
 		return () => {
 			cancelAnimationFrame(frame);
+			cancelLongPress();
+			onHandlePointerUp();
 			document.removeEventListener("visibilitychange", resume);
 			window.removeEventListener("online", resume);
+			window.removeEventListener("scroll", preventPageScroll);
 			scheme.removeEventListener("change", retheme);
 			appearance.disconnect();
 			resize.disconnect();
 			host?.removeEventListener("copy", onCopy);
 			host?.removeEventListener("paste", onPaste);
+			host?.removeEventListener("touchstart", onTouchStartSelect);
+			host?.removeEventListener("touchmove", onTouchMoveSelect);
+			host?.removeEventListener("touchend", onTouchEndSelect);
+			host?.removeEventListener("pointerdown", onPointerDownFocus);
 			for (const subscription of subscriptions) subscription.dispose();
 			detachScrollbar();
+			detachTouchScroll();
 			unregisterDictation();
 			live.close();
 			terminal.dispose();
@@ -231,6 +453,93 @@ export function TerminalView(props: {
 				class="size-full overflow-hidden px-2 py-1.5 pointer-coarse:pr-5 pointer-coarse:[&_.xterm-scrollable-element>.scrollbar]:hidden!"
 				data-terminal={props.id}
 			/>
+
+			{/* Floating selection action bar */}
+			<Show when={selectionGeometry()?.actionBar.visible}>
+				<div
+					style={{
+						left: `${selectionGeometry()?.actionBar.x ?? 0}px`,
+						top: `${selectionGeometry()?.actionBar.y ?? 0}px`,
+					}}
+					role="toolbar"
+					aria-label="Selection actions"
+					class="pointer-events-auto absolute z-30 flex items-center gap-1 rounded-md border border-stroke bg-canvas/95 px-1 py-0.5 shadow-lg backdrop-blur-sm"
+				>
+					<button
+						type="button"
+						onClick={() => void copySelection()}
+						class="focus-ring flex h-8 items-center gap-1 rounded px-2 text-ink text-ui-xs hover:bg-ink/10 active:bg-ink/15"
+					>
+						<CopyIcon class="size-3.5" />
+						<span>Copy</span>
+					</button>
+					<button
+						type="button"
+						onClick={() => void pasteFromClipboard()}
+						class="focus-ring flex h-8 items-center gap-1 rounded px-2 text-ink text-ui-xs hover:bg-ink/10 active:bg-ink/15"
+					>
+						<span>Paste</span>
+					</button>
+					<button
+						type="button"
+						onClick={selectAllText}
+						class="focus-ring flex h-8 items-center gap-1 rounded px-2 text-ink text-ui-xs hover:bg-ink/10 active:bg-ink/15"
+					>
+						<span>Select all</span>
+					</button>
+				</div>
+			</Show>
+
+			{/* Selection drag handles for touch devices */}
+			<Show when={selectionGeometry()?.startHandle.visible}>
+				<div
+					style={{
+						left: `${selectionGeometry()?.startHandle.x ?? 0}px`,
+						top: `${selectionGeometry()?.startHandle.y ?? 0}px`,
+					}}
+					aria-label="Selection start handle"
+					class="pointer-events-auto absolute z-30 -translate-x-1/2 -translate-y-full touch-none select-none"
+					onPointerDown={(e) => onHandlePointerDown("start", e)}
+				>
+					<div class="grid size-11 place-items-center">
+						<div class="size-3 rounded-full bg-primary shadow ring-2 ring-canvas" />
+					</div>
+				</div>
+			</Show>
+
+			<Show when={selectionGeometry()?.endHandle.visible}>
+				<div
+					style={{
+						left: `${selectionGeometry()?.endHandle.x ?? 0}px`,
+						top: `${selectionGeometry()?.endHandle.y ?? 0}px`,
+					}}
+					aria-label="Selection end handle"
+					class="pointer-events-auto absolute z-30 -translate-x-1/2 touch-none select-none"
+					onPointerDown={(e) => onHandlePointerDown("end", e)}
+				>
+					<div class="grid size-11 place-items-center">
+						<div class="size-3 rounded-full bg-primary shadow ring-2 ring-canvas" />
+					</div>
+				</div>
+			</Show>
+
+			{/* Floating "jump to bottom" pill when scrolled up while output arrives */}
+			<Show when={scrolledUp() && hasUnreadOutput()}>
+				<button
+					type="button"
+					aria-label="Jump to latest output"
+					onClick={() => {
+						hapticTick(14);
+						term?.scrollToBottom();
+						setHasUnreadOutput(false);
+					}}
+					class="focus-ring absolute right-6 bottom-4 z-20 flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 font-sans text-canvas text-ui-xs shadow-lg transition-transform duration-fast ease-out-grid active:scale-95"
+				>
+					<ChevronDownIcon class="size-3.5" />
+					<span>Latest output</span>
+				</button>
+			</Show>
+
 			{/* A wide, invisible grab strip; the visible thumb inside it is thin, like a native one. */}
 			<div
 				ref={(el) => {
