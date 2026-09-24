@@ -41,6 +41,16 @@ const apiPrefix = "/api/v1";
 
 export type ApiRequestOptions = RequestInit & { accessToken?: string };
 
+let renewAccessToken: ((failedToken: string) => Promise<string | null>) | undefined;
+
+/** Register the mounted auth provider; removal belongs to its lifecycle. */
+export function registerTokenRenewal(renew: NonNullable<typeof renewAccessToken>): () => void {
+	renewAccessToken = renew;
+	return () => {
+		if (renewAccessToken === renew) renewAccessToken = undefined;
+	};
+}
+
 export const apiClient = {
 	get<T>(path: string, options?: ApiRequestOptions): Promise<T> {
 		return request<T>(path, { ...options, method: "GET" });
@@ -64,7 +74,7 @@ export function getApiOrigin(): string {
 	return apiOrigin;
 }
 
-async function request<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+async function request<T>(path: string, options: ApiRequestOptions = {}, retry = true): Promise<T> {
 	const { accessToken, ...init } = options;
 	const headers = new Headers(init.headers);
 	if (init.body) headers.set("Content-Type", "application/json");
@@ -83,7 +93,7 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
 	const payload: unknown = await response.json().catch(() => ({}));
 	if (!response.ok) {
 		const failure = payload as ApiFailure;
-		throw new ApiError(
+		const error = new ApiError(
 			typeof failure.message === "string"
 				? failure.message
 				: response.statusText || "Request failed",
@@ -91,6 +101,11 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
 			failure.code,
 			failure.errors,
 		);
+		if (response.status === 401 && accessToken && retry && renewAccessToken) {
+			const freshToken = await renewAccessToken(accessToken);
+			if (freshToken) return request<T>(path, { ...options, accessToken: freshToken }, false);
+		}
+		throw error;
 	}
 	return isSuccess<T>(payload) ? payload.data : (payload as T);
 }
