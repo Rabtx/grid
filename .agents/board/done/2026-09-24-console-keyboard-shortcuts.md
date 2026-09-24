@@ -5,8 +5,8 @@ type: feature
 from: ui-ux
 to: web
 priority: normal
-status: open
-assignee: none
+status: done
+assignee: web agent (claimed outside its worktree); finished by claude
 reviewer: claude
 parent: .agents/plans/console-design-migration.md (UX polish round)
 depends_on: []
@@ -56,4 +56,16 @@ Run from the worktree root and paste the real output tails into Resolution:
 
 ## Resolution
 
-<Filled by the resolver.>
+`lib/shortcuts.ts` (one `keydown` listener; ignores inputs, textareas, selects, contenteditable,
+the terminal, modified keys and touch-only devices; two-key sequences within 1 s) and
+`ShortcutsHelp` (`?` opens the list), mounted once in the signed-in shell.
+
+Shortcuts: `n` new task (board only), `/` focus the board filter, `g b` board, `g c` chat,
+`g t` terminal, `g s` settings, `?` this list.
+
+Reviewer (claude): added `g c` for the chat that shipped meanwhile, used the shared close icon,
+merged main, and moved this card on the branch (the agent had moved it in the main checkout).
+
+```text
+$ bunx vitest run   # apps/console — see PR checks for the merged result
+```
