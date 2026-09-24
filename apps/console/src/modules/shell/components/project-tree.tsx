@@ -7,6 +7,7 @@ import { threadsStore } from "@/modules/chat/stores/threads";
 import type { ChatSession } from "@/modules/chat/types/chat.types";
 import { type Project, useWorkspace } from "@/modules/projects";
 import {
+	BoardIcon,
 	ChevronDownIcon,
 	ConfirmDialog,
 	FolderIcon,
@@ -158,6 +159,7 @@ function ProjectNode(props: {
 	const slug = () => props.project.slug;
 	const current = () => slug() === workspace.currentSlug();
 	const folder = () => workspace.folders()[slug()];
+	const onBoard = () => workspace.activeSlug() === slug();
 
 	// A project's threads are read the first time it is opened.
 	createEffect(
@@ -225,6 +227,14 @@ function ProjectNode(props: {
 			</div>
 			<Show when={props.open}>
 				<div class="mb-1 ml-3 flex flex-col gap-px border-ink/10 border-l pl-1.5">
+					<a
+						href={`/board/${slug()}`}
+						aria-current={onBoard() ? "page" : undefined}
+						class={`${ROW} h-7 px-2 text-ink/60 text-ui-sm pointer-coarse:h-10`}
+					>
+						<BoardIcon class="size-3.5 shrink-0 text-ink/45" />
+						Board
+					</a>
 					<Show when={!folder()}>
 						<button
 							type="button"
@@ -263,7 +273,6 @@ function ThreadRow(props: {
 	onDelete: (session: ChatSession) => void;
 }): JSX.Element {
 	const auth = useAuth();
-	const shell = useShell();
 	const inThread = useMatch(() => "/chat/:project/:id");
 	const [renaming, setRenaming] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);

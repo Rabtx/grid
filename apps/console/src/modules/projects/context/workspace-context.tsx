@@ -14,7 +14,7 @@ import { useAuth } from "@/modules/auth";
 
 import { foldersService } from "../services/folders.service";
 import { projectsService } from "../services/projects.service";
-import type { Project, Task } from "../types/project.types";
+import type { Project, Task, TaskOwnerKind, TaskStatus } from "../types/project.types";
 
 type WorkspaceState = {
 	projects: () => Project[];
@@ -35,6 +35,10 @@ type WorkspaceState = {
 	closeTask: () => void;
 	newTaskOpen: () => boolean;
 	setNewTaskOpen: (open: boolean) => void;
+	/** What a new task starts with: the lane it was added from, say. */
+	newTaskDefaults: () => NewTaskDefaults;
+	/** Open the new-task sheet, optionally starting in a status or with an owner. */
+	openNewTask: (defaults?: NewTaskDefaults) => void;
 	/**
 	 * The project everything else is about: the one the URL names (board or chat), else the last
 	 * one used, else the first. Board, Chat and a new terminal all follow it.
@@ -69,6 +73,12 @@ type WorkspaceState = {
 
 export type ProjectAction = { kind: "rename" | "remove"; slug: string };
 
+export type NewTaskDefaults = {
+	status?: TaskStatus;
+	ownerKind?: TaskOwnerKind | null;
+	ownerName?: string | null;
+};
+
 const lastChatKey = (slug: string) => `grid.chat.last.${slug}`;
 
 const CURRENT_KEY = "grid.project";
@@ -100,6 +110,7 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 	// Bumped after every write so the task read re-runs; the dependency stays visible in the memo.
 	const [revision, setRevision] = createSignal(0);
 	const [newTaskOpen, setNewTaskOpen] = createSignal(false);
+	const [newTaskDefaults, setNewTaskDefaults] = createSignal<NewTaskDefaults>({});
 	// Chat pages are per project too: `/chat/:slug` and `/chat/:slug/:id`.
 	const chatMatch = useMatch(() => "/chat/:slug/*");
 	const [projectsRevision, setProjectsRevision] = createSignal(0);
@@ -264,7 +275,15 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		openTask,
 		closeTask,
 		newTaskOpen,
-		setNewTaskOpen,
+		setNewTaskOpen: (open) => {
+			if (open) setNewTaskDefaults({});
+			setNewTaskOpen(open);
+		},
+		newTaskDefaults,
+		openNewTask: (defaults = {}) => {
+			setNewTaskDefaults(defaults);
+			setNewTaskOpen(true);
+		},
 		currentSlug,
 		currentProject,
 		refreshProjects: () => setProjectsRevision((n) => n + 1),

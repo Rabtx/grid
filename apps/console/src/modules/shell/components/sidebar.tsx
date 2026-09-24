@@ -5,9 +5,7 @@ import { Loading, Show } from "solid-js";
 import { useWorkspace } from "@/modules/projects";
 import {
 	BackIcon,
-	BoardIcon,
 	BrandMark,
-	ChatIcon,
 	CloseIcon,
 	ForwardIcon,
 	PlusIcon,
@@ -92,15 +90,6 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 					<span class="min-w-0 flex-1 truncate">Search</span>
 					<Hint>Ctrl+K</Hint>
 				</button>
-				{/* `/board` and `/chat` open the current project, so these links never wait on data. */}
-				<a href="/board" aria-current={current("/board")} class={NAV_ROW}>
-					<BoardIcon class="size-4 shrink-0" />
-					Board
-				</a>
-				<a href="/chat" aria-current={current("/chat")} class={NAV_ROW}>
-					<ChatIcon class="size-4 shrink-0" />
-					Chat
-				</a>
 				<a href="/terminal" aria-current={current("/terminal")} class={NAV_ROW}>
 					<TerminalIcon class="size-4 shrink-0" />
 					Terminal

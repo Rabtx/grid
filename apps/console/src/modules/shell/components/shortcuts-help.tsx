@@ -8,7 +8,7 @@ import { CloseIcon, IconButton, Sheet } from "@/ui";
 import { installShortcuts, type Shortcut } from "@/lib/shortcuts";
 
 const SHORTCUTS: readonly Omit<Shortcut, "run">[] = [
-	{ keys: "n", label: "New task" },
+	{ keys: "c", label: "New task" },
 	{ keys: "/", label: "Filter tasks" },
 	{ keys: "g b", label: "Go to board" },
 	{ keys: "g c", label: "Go to chat" },
@@ -28,13 +28,13 @@ export function ShortcutsHelp(): JSX.Element {
 			document.querySelector<HTMLInputElement>('input[aria-label="Filter tasks"]')?.focus();
 		};
 		const shortcuts: Shortcut[] = [
-			{
-				keys: "n",
+			...["c", "n"].map((keys) => ({
+				keys,
 				label: "New task",
 				run: () => {
 					if (location.pathname.startsWith("/board/")) workspace.setNewTaskOpen(true);
 				},
-			},
+			})),
 			{ keys: "/", label: "Filter tasks", run: focusFilter },
 			{ keys: "g b", label: "Go to board", run: () => navigate("/board") },
 			{ keys: "g c", label: "Go to chat", run: () => navigate("/chat") },

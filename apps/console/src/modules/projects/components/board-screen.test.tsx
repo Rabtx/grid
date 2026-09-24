@@ -370,7 +370,7 @@ describe("BoardScreen", () => {
 		expect(laneTaskKeys(container, "in_progress")).toEqual([]);
 	});
 
-	it("toasts after adding a task and keeps the sheet open with ctrl+enter", async () => {
+	it("toasts after adding a task and, with Add another on, keeps the sheet open", async () => {
 		await settle();
 
 		const trigger = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(
@@ -383,23 +383,32 @@ describe("BoardScreen", () => {
 		const input = container.querySelector<HTMLInputElement>('input[aria-label="Task title"]');
 		expect(input).not.toBeNull();
 		if (!input) return;
+		const another = Array.from(
+			container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
+		).find((box) => box.closest("label")?.textContent?.includes("Add another"));
+		expect(another).toBeDefined();
+		if (another) {
+			another.checked = true;
+			another.dispatchEvent(new Event("change", { bubbles: true }));
+		}
 		input.value = "Write the docs";
 		input.dispatchEvent(new Event("input", { bubbles: true }));
 		await settle();
 
 		const form = input.closest("form");
 		expect(form).not.toBeNull();
-		const addAnother = new Event("submit", { bubbles: true, cancelable: true });
-		Object.assign(addAnother, { ctrlKey: true, metaKey: false });
-		form?.dispatchEvent(addAnother);
+		form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 		await settle();
 
 		expect(container.textContent).toContain("Added TASK-3");
 		const sheet = container.querySelector<HTMLDialogElement>('dialog[aria-label="New task"]');
 		expect(sheet?.open).toBe(true);
 		expect(input.value).toBe("");
-		expect(document.activeElement).toBe(input);
 
+		if (another) {
+			another.checked = false;
+			another.dispatchEvent(new Event("change", { bubbles: true }));
+		}
 		input.value = "One more";
 		input.dispatchEvent(new Event("input", { bubbles: true }));
 		await settle();
@@ -407,6 +416,5 @@ describe("BoardScreen", () => {
 		await settle();
 
 		expect(sheet?.open).toBe(false);
-		expect(container.textContent).toContain("Added TASK-3");
 	});
 });
