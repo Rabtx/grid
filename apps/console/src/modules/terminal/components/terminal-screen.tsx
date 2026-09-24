@@ -1,8 +1,9 @@
 import { useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
+import { useWorkspace } from "@/modules/projects";
 import { Button, CloseIcon, ErrorNotice, IconButton, PlusIcon, Skeleton, TerminalIcon } from "@/ui";
 
 import { type Modifiers, NO_MODIFIERS } from "../lib/keys";
@@ -38,6 +39,7 @@ type Load = { status: "loading" } | { status: "ready" } | { status: "error"; mes
  */
 export function TerminalScreen(): JSX.Element {
 	const auth = useAuth();
+	const workspace = useWorkspace();
 	const navigate = useNavigate();
 	const match = useMatch(() => "/terminal/:id");
 	const routeId = createMemo(() => match()?.params.id ?? null);
@@ -92,7 +94,10 @@ export function TerminalScreen(): JSX.Element {
 		if (!token || busy()) return;
 		setBusy(true);
 		try {
-			const info = await terminalsService.open(token, DEFAULT_SIZE);
+			// A new shell starts in the current project's folder, where the work is.
+			const slug = untrack(workspace.currentSlug);
+			const cwd = slug ? untrack(workspace.folders)[slug] : undefined;
+			const info = await terminalsService.open(token, DEFAULT_SIZE, cwd);
 			setTerminals((list) => [...list, info]);
 			navigate(`/terminal/${info.id}`);
 		} catch (cause) {

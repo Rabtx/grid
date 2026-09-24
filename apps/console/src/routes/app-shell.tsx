@@ -2,7 +2,12 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, Show } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
-import { NewTaskDialog, WorkspaceProvider } from "@/modules/projects";
+import {
+	AddProjectSheet,
+	ChooseFolderSheet,
+	NewTaskDialog,
+	WorkspaceProvider,
+} from "@/modules/projects";
 import {
 	NavDrawer,
 	OfflineBanner,
@@ -63,6 +68,8 @@ function SignedInShell(props: { children: JSX.Element }): JSX.Element {
 			</div>
 			<NavDrawer open={drawerOpen()} onClose={() => setDrawerOpen(false)} />
 			<NewTaskDialog />
+			<AddProjectSheet />
+			<ChooseFolderSheet />
 			<VoiceControls />
 			<ShortcutsHelp />
 		</div>

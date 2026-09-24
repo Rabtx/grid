@@ -87,6 +87,16 @@ export class ChatStore {
 			);
 		`);
 		this.db.exec("PRAGMA foreign_keys = ON");
+		// Which folder on this machine holds each project's code. Per machine by design: another
+		// machine running Grid links its own checkout of the same project.
+		this.db.exec(`
+			CREATE TABLE IF NOT EXISTS project_folders (
+				owner_id TEXT NOT NULL,
+				project TEXT NOT NULL,
+				path TEXT NOT NULL,
+				PRIMARY KEY (owner_id, project)
+			);
+		`);
 		// Added after the first release: older databases gain the column in place.
 		const columns = this.db.query<{ name: string }, []>("PRAGMA table_info(sessions)").all();
 		if (!columns.some((column) => column.name === "effort")) {
@@ -181,6 +191,25 @@ export class ChatStore {
 			)
 			.all(sessionId)
 			.map((row) => JSON.parse(row.data) as ChatEvent);
+	}
+
+	/** Every project folder this person has linked on this machine, by project slug. */
+	projectFolders(ownerId: string): Record<string, string> {
+		const rows = this.db
+			.query<{ project: string; path: string }, [string]>(
+				"SELECT project, path FROM project_folders WHERE owner_id = ?",
+			)
+			.all(ownerId);
+		return Object.fromEntries(rows.map((row) => [row.project, row.path]));
+	}
+
+	setProjectFolder(ownerId: string, project: string, path: string): void {
+		this.db
+			.query(
+				`INSERT INTO project_folders (owner_id, project, path) VALUES (?, ?, ?)
+				 ON CONFLICT (owner_id, project) DO UPDATE SET path = excluded.path`,
+			)
+			.run(ownerId, project, path);
 	}
 
 	close(): void {

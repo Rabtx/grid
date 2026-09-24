@@ -9,6 +9,8 @@ import {
 	BrandLogo,
 	ChatIcon,
 	Caption,
+	IconButton,
+	PlusIcon,
 	SettingsIcon,
 	SignOutIcon,
 	Skeleton,
@@ -35,11 +37,8 @@ export function ProjectNav(): JSX.Element {
 			</a>
 
 			<nav aria-label="Workspace" class="flex flex-col gap-0.5">
-				<a
-					href={workspace.activeSlug() ? `/board/${workspace.activeSlug()}` : "/board"}
-					aria-current={workspace.activeSlug() ? "page" : undefined}
-					class={NAV_ROW}
-				>
+				{/* `/board` and `/chat` open the current project, so these links never wait on data. */}
+				<a href="/board" aria-current={workspace.activeSlug() ? "page" : undefined} class={NAV_ROW}>
 					<BoardIcon class="size-4 shrink-0" />
 					Board
 				</a>
@@ -62,7 +61,16 @@ export function ProjectNav(): JSX.Element {
 			</nav>
 
 			<nav aria-label="Projects" class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
-				<Caption class="px-2 pt-2 pb-1">Projects</Caption>
+				<div class="flex items-center justify-between pr-0.5 pl-2 pt-2 pb-1">
+					<Caption>Projects</Caption>
+					<IconButton
+						size="sm"
+						label="Add project"
+						onClick={() => workspace.setAddProjectOpen(true)}
+					>
+						<PlusIcon class="size-3.5" />
+					</IconButton>
+				</div>
 				<Loading fallback={<ProjectListSkeleton />}>
 					<ProjectList />
 				</Loading>
@@ -95,19 +103,28 @@ export function ProjectNav(): JSX.Element {
 
 function ProjectList(): JSX.Element {
 	const workspace = useWorkspace();
+	const location = useLocation();
+	// Switching project keeps you where you are: in Chat, you land in that project's chats.
+	const hrefFor = (slug: string) =>
+		location.pathname.startsWith("/chat") ? `/chat/${slug}` : `/board/${slug}`;
 
 	return (
 		<Show
 			when={workspace.projects().length > 0}
-			fallback={<p class="px-2 text-ink/45 text-ui-sm">No projects yet.</p>}
+			fallback={
+				<button type="button" class={NAV_ROW} onClick={() => workspace.setAddProjectOpen(true)}>
+					<PlusIcon class="size-4 shrink-0" />
+					Add your first project
+				</button>
+			}
 		>
 			<ul class="flex flex-col gap-0.5">
 				<For each={workspace.projects()}>
 					{(project) => (
 						<li>
 							<a
-								href={`/board/${project.slug}`}
-								aria-current={project.slug === workspace.activeSlug() ? "page" : undefined}
+								href={hrefFor(project.slug)}
+								aria-current={project.slug === workspace.currentSlug() ? "page" : undefined}
 								class={NAV_ROW}
 							>
 								<span
@@ -116,7 +133,15 @@ function ProjectList(): JSX.Element {
 								>
 									{project.name.slice(0, 1)}
 								</span>
-								<span class="truncate">{project.name}</span>
+								<span class="min-w-0 flex-1 truncate">{project.name}</span>
+								<Show when={!workspace.folders()[project.slug]}>
+									<span
+										class="shrink-0 text-ink/35 text-ui-caption"
+										title="No folder on this machine yet"
+									>
+										no folder
+									</span>
+								</Show>
 							</a>
 						</li>
 					)}

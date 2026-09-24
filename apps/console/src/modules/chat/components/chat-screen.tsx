@@ -1,4 +1,4 @@
-import { useMatch, useNavigate, useSearchParams } from "@solidjs/router";
+import { useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import {
 	createEffect,
@@ -13,16 +13,7 @@ import {
 
 import { useAuth } from "@/modules/auth";
 import { useWorkspace } from "@/modules/projects";
-import {
-	BackIcon,
-	ChatIcon,
-	ErrorNotice,
-	FolderIcon,
-	IconButton,
-	PlusIcon,
-	Select,
-	Skeleton,
-} from "@/ui";
+import { BackIcon, ChatIcon, ErrorNotice, FolderIcon, IconButton, PlusIcon, Skeleton } from "@/ui";
 
 import { chatService } from "../services/chat.service";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
@@ -71,17 +62,27 @@ export function ChatScreen(): JSX.Element {
 	const auth = useAuth();
 	const workspace = useWorkspace();
 	const navigate = useNavigate();
-	const [params] = useSearchParams();
-	const match = useMatch(() => "/chat/:id");
-	const routeId = createMemo(() => match()?.params.id ?? null);
-	// `/chat/new` is the new-chat composer; any other id is a conversation.
+	const inChat = useMatch(() => "/chat/:project/:id");
+	const inProject = useMatch(() => "/chat/:project");
+	const routeId = createMemo(() => inChat()?.params.id ?? null);
+	// `new` is the new-chat composer; any other id is a conversation.
 	const activeId = createMemo(() => (routeId() === "new" ? null : routeId()));
 
+	// Chats live inside their project; the URL names it, and `/chat` alone opens the current one.
 	const project = createMemo(() => {
-		const wanted = typeof params.project === "string" ? params.project : null;
+		const wanted = inChat()?.params.project ?? inProject()?.params.project ?? null;
 		const list = workspace.projects();
-		return list.find((item) => item.slug === wanted)?.slug ?? list[0]?.slug ?? null;
+		return list.find((item) => item.slug === wanted)?.slug ?? workspace.currentSlug();
 	});
+	createEffect(
+		() => [project(), inChat() ?? inProject()] as const,
+		([slug, matched]) => {
+			if (slug && !matched) navigate(`/chat/${slug}`, { replace: true });
+		},
+	);
+	const projectName = () =>
+		workspace.projects().find((item) => item.slug === project())?.name ?? project() ?? "";
+	const folder = () => (project() ? workspace.folders()[project() ?? ""] : undefined);
 
 	const [providers, setProviders] = createSignal<ChatProvider[]>([]);
 	const [sessions, setSessions] = createSignal<ChatSession[]>([]);
@@ -145,10 +146,7 @@ export function ChatScreen(): JSX.Element {
 	// has nothing to offer, so the new-chat composer shows straight away.
 	const showList = () => !routeId() && (!loaded() || sessions().length > 0);
 
-	const chatUrl = (id?: string) => {
-		const query = project() ? `?project=${encodeURIComponent(project() ?? "")}` : "";
-		return id ? `/chat/${id}${query}` : `/chat${query}`;
-	};
+	const chatUrl = (id?: string) => (id ? `/chat/${project()}/${id}` : `/chat/${project()}`);
 
 	function updateSession(session: ChatSession): void {
 		setSessions((list) => {
@@ -168,16 +166,14 @@ export function ChatScreen(): JSX.Element {
 			<aside
 				class={`min-h-0 w-full flex-col border-stroke lg:flex lg:border-r ${showList() ? "flex" : "hidden"}`}
 			>
-				<div class="flex shrink-0 items-center gap-2 px-3 pt-3 pb-2">
-					<Loading fallback={<Skeleton class="h-8 flex-1" />}>
-						<Select
-							aria-label="Project"
-							class="min-w-0 flex-1"
-							value={project() ?? ""}
-							options={workspace.projects().map((item) => ({ value: item.slug, label: item.name }))}
-							onChange={(slug) => navigate(`/chat?project=${encodeURIComponent(slug)}`)}
-						/>
-					</Loading>
+				{/* The project these chats belong to; switch projects from the navigation. */}
+				<div class="flex shrink-0 items-start gap-2 px-3 pt-3 pb-2">
+					<div class="min-w-0 flex-1">
+						<Loading fallback={<Skeleton class="h-5 w-32" />}>
+							<h2 class="truncate font-semibold text-ui">{projectName()}</h2>
+							<FolderLine folder={folder()} onChoose={() => workspace.chooseFolderFor(project())} />
+						</Loading>
+					</div>
 					<IconButton label="New chat" onClick={() => navigate(chatUrl("new"))}>
 						<PlusIcon class="size-4" />
 					</IconButton>
@@ -258,6 +254,8 @@ export function ChatScreen(): JSX.Element {
 									""
 								}
 								providers={providers()}
+								folder={folder()}
+								onChooseFolder={() => workspace.chooseFolderFor(project())}
 								onCreated={(session) => {
 									updateSession(session);
 									navigate(chatUrl(session.id));
@@ -290,12 +288,14 @@ function NewChat(props: {
 	project: string | null;
 	projectName: string;
 	providers: ChatProvider[];
+	/** The project's folder on this machine: where the agent works. */
+	folder: string | undefined;
+	onChooseFolder: () => void;
 	onCreated: (session: ChatSession) => void;
 }): JSX.Element {
 	const auth = useAuth();
 	const available = () => props.providers.filter((provider) => provider.available);
 	const [agent, setAgent] = createSignal<string | null>(null);
-	const [cwd, setCwd] = createSignal("");
 	const [error, setError] = createSignal<string | null>(null);
 
 	const chosen = () => {
@@ -332,7 +332,6 @@ function NewChat(props: {
 			const session = await chatService.create(token, {
 				project: props.project,
 				provider: provider.id,
-				cwd: cwd().trim() || undefined,
 				model: model() ?? undefined,
 				effort: effort() ?? undefined,
 				mode: mode() ?? undefined,
@@ -370,18 +369,7 @@ function NewChat(props: {
 						running={false}
 						disabled={!chosen() || !props.project}
 						onSend={start}
-						header={
-							<label class="flex min-w-0 flex-1 items-center gap-1.5">
-								<FolderIcon class="size-3.5 shrink-0" />
-								<input
-									value={cwd()}
-									onInput={(event) => setCwd(event.currentTarget.value)}
-									placeholder={props.project ? `~/Projects/${props.project}` : "Folder"}
-									aria-label="Folder the agent works in"
-									class="min-w-0 flex-1 bg-transparent text-ink/70 text-ui-xs outline-none placeholder:text-ink/40"
-								/>
-							</label>
-						}
+						header={<FolderLine folder={props.folder} onChoose={props.onChooseFolder} />}
 						controls={
 							<Show when={chosen()}>
 								{(provider) => (
@@ -423,5 +411,36 @@ function NewChat(props: {
 				</Show>
 			</div>
 		</div>
+	);
+}
+
+/** Where the agent will work: the project's folder, or a prompt to choose one. */
+function FolderLine(props: { folder: string | undefined; onChoose: () => void }): JSX.Element {
+	return (
+		<Show
+			when={props.folder}
+			fallback={
+				<button
+					type="button"
+					onClick={() => props.onChoose()}
+					class="focus-ring mt-0.5 flex items-center gap-1 rounded-sm text-link text-ui-xs underline-offset-2 hover:underline"
+				>
+					<FolderIcon class="size-3.5 shrink-0" />
+					Choose this project's folder
+				</button>
+			}
+		>
+			{(path) => (
+				<button
+					type="button"
+					title={`${path()} — change`}
+					onClick={() => props.onChoose()}
+					class="focus-ring mt-0.5 flex min-w-0 max-w-full items-center gap-1 rounded-sm text-ink/45 text-ui-xs hover:text-ink/70"
+				>
+					<FolderIcon class="size-3.5 shrink-0" />
+					<span class="truncate">{path().replace(/^\/home\/[^/]+/, "~")}</span>
+				</button>
+			)}
+		</Show>
 	);
 }

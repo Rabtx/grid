@@ -3,6 +3,7 @@ import type { Server, ServerWebSocket } from "bun";
 import { ChatError, type ChatHub } from "./chat/hub";
 import { type ChatCommand, chatCommand, chatRequest } from "./chat/routes";
 import type { RunnerConfig } from "./config";
+import { folderRequest } from "./folders/routes";
 import type { TerminalStore } from "./terminals";
 import { transcribe, TranscribeError } from "./transcribe";
 
@@ -42,6 +43,9 @@ export function startServer(
 		return token ? verify(token) : null;
 	}
 
+	// The hello deadline per socket, cleared when the socket closes so it never fires late.
+	const helloTimers = new Map<ServerWebSocket<SocketData>, ReturnType<typeof setTimeout>>();
+
 	return Bun.serve<SocketData>({
 		hostname: config.host,
 		port: config.port,
@@ -71,6 +75,13 @@ export function startServer(
 					data: { kind, userId: null, targetId: null, detach: null },
 				});
 				return upgraded ? undefined : new Response("Expected a WebSocket", { status: 426 });
+			}
+
+			if (url.pathname.startsWith("/fs/") || url.pathname.startsWith("/projects/")) {
+				const userId = await userFrom(request);
+				if (!userId) return error(401, "Sign in to browse folders");
+				const handled = await folderRequest(request, url, userId, chat);
+				if (handled) return handled;
 			}
 
 			if (url.pathname.startsWith("/chat/")) {
@@ -116,9 +127,10 @@ export function startServer(
 			sendPings: true,
 			maxPayloadLength: 1024 * 1024,
 			open(ws) {
-				setTimeout(() => {
+				const timer = setTimeout(() => {
 					if (!ws.data.userId) ws.close(CLOSE_UNAUTHORIZED, "No hello");
 				}, HELLO_TIMEOUT_MS);
+				helloTimers.set(ws, timer);
 			},
 			async message(ws, message) {
 				if (!ws.data.userId) {
@@ -148,6 +160,8 @@ export function startServer(
 				}
 			},
 			close(ws) {
+				clearTimeout(helloTimers.get(ws));
+				helloTimers.delete(ws);
 				ws.data.detach?.();
 				ws.data.detach = null;
 			},

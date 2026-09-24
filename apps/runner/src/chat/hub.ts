@@ -88,10 +88,21 @@ export class ChatHub {
 		return this.store.list(ownerId, project);
 	}
 
-	/** Where a project's code lives on this machine, if it follows the usual layout. */
-	defaultCwd(project: string): string {
+	/** Where a project's code lives on this machine: its linked folder, else the usual layout. */
+	defaultCwd(ownerId: string, project: string): string {
+		const linked = this.store.projectFolders(ownerId)[project];
+		if (linked && isDirectory(linked)) return linked;
 		const guess = join(this.projectsDir, project);
 		return isDirectory(guess) ? guess : homedir();
+	}
+
+	projectFolders(ownerId: string): Record<string, string> {
+		return this.store.projectFolders(ownerId);
+	}
+
+	linkProjectFolder(ownerId: string, project: string, path: string): void {
+		if (!isDirectory(path)) throw new ChatError(`${path} is not a folder on this machine`, 400);
+		this.store.setProjectFolder(ownerId, project, path);
 	}
 
 	create(
@@ -108,7 +119,7 @@ export class ChatHub {
 		const provider = this.providers.get(input.provider);
 		if (!provider?.info().available)
 			throw new ChatError("That agent is not installed on this machine", 400);
-		const cwd = input.cwd?.trim() || this.defaultCwd(input.project);
+		const cwd = input.cwd?.trim() || this.defaultCwd(ownerId, input.project);
 		if (!existsSync(cwd) || !isDirectory(cwd))
 			throw new ChatError(`${cwd} is not a folder on this machine`, 400);
 		return this.store.create({
