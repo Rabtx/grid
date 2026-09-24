@@ -29,9 +29,10 @@ const EFFORT_NAMES: Record<string, string> = {
 	high: "High",
 	xhigh: "Extra high",
 	max: "Max",
+	ultra: "Ultra",
 };
 
-const EFFORT_ORDER = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
+const EFFORT_ORDER = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"];
 
 /** Effort levels as choices, in their natural order, with readable names. */
 export function effortChoices(levels: string[]): Choice[] {
