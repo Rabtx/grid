@@ -15,7 +15,8 @@ import { TaskCard } from "./task-card";
 export type BoardLane = {
 	id: string;
 	title: string;
-	icon: JSX.Element;
+	/** Drawn fresh for each place that shows it: one DOM node can only sit in one place. */
+	icon: () => JSX.Element;
 	tasks: Task[];
 };
 
@@ -25,7 +26,8 @@ const MOVE_ERROR_MS = 6000;
 /** One shared empty list, so an empty lane keeps the same value between reads. */
 const NO_TASKS: Task[] = [];
 
-type PendingMove = { number: number; status: TaskStatus };
+/** A move on its way to the API; `landed` once the write succeeded and the board is re-reading. */
+type PendingMove = { number: number; status: TaskStatus; landed?: boolean };
 
 export function boardLaneId(id: string): string {
 	return `lane-${id}`;
@@ -111,7 +113,11 @@ export function BoardLanes(props: {
 		clearMoveError();
 		try {
 			await projectsService.updateTask(token, slug, task.number, { status, position });
-			setPending((moves) => moves.filter((move) => move.number !== task.number));
+			// Keep the card where it was dropped until the re-read tasks arrive, so it never
+			// jumps back to its old lane in between.
+			setPending((moves) =>
+				moves.map((move) => (move.number === task.number ? { ...move, landed: true } : move)),
+			);
 			workspace.refreshTasks();
 		} catch (cause) {
 			setPending((moves) => moves.filter((move) => move.number !== task.number));
@@ -157,6 +163,13 @@ export function BoardLanes(props: {
 
 	createEffect(() => props.lanes.map((lane) => lane.id).join("|"), observeCurrentLanes);
 
+	// Fresh tasks from the API already carry every landed move, so those overlays can go.
+	createEffect(workspace.tasks, () => {
+		setPending((moves) =>
+			moves.some((move) => move.landed) ? moves.filter((move) => !move.landed) : moves,
+		);
+	});
+
 	return (
 		<>
 			<Show when={moveError()}>
@@ -184,71 +197,78 @@ export function BoardLanes(props: {
 						// This lane's tasks, with the moves that are still in flight laid over them.
 						const laneTasks = () => overlaidByLane().get(lane().id) ?? NO_TASKS;
 						return (
-						<section
-							id={boardLaneId(lane().id)}
-							data-lane={lane().id}
-							aria-labelledby={`${boardLaneId(lane().id)}-title`}
-							class={`flex w-full shrink-0 snap-start flex-col rounded-lg transition-colors duration-fast ease-out-grid md:w-[17.75rem] ${
-								dropTarget() === lane().id ? "bg-selection-subtle" : ""
-							}`}
-							onDragOver={(event) => {
-								// Only a stage lane can receive the task, and only mid-drag.
-								const status = laneStatus(lane().id);
-								if (!canDrag || status === null || dragging() === null) return;
-								event.preventDefault();
-								if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-								setDropTarget(lane().id);
-							}}
-							onDragLeave={(event) => {
-								const next = event.relatedTarget as Node | null;
-								if (next && event.currentTarget.contains(next)) return;
-								if (dropTarget() === lane().id) setDropTarget(null);
-							}}
-							onDrop={(event) => {
-								const status = laneStatus(lane().id);
-								event.preventDefault();
-								const number = dragging();
-								const task = movedTasks().find((item) => item.number === number);
-								endDrag();
-								if (status === null || !task) return;
-								void move(task, status);
-							}}
-						>
-							<header class="flex h-9 items-center gap-2 px-1">
-								<h2
-									id={`${boardLaneId(lane().id)}-title`}
-									class="font-medium text-ink/80 text-ui-sm"
+							<section
+								id={boardLaneId(lane().id)}
+								data-lane={lane().id}
+								aria-labelledby={`${boardLaneId(lane().id)}-title`}
+								class="flex w-full shrink-0 snap-start flex-col md:w-[17.75rem]"
+							>
+								{/* The drop target: a plain wrapper, so the lane landmark itself stays non-interactive. */}
+								<div
+									class={`flex flex-1 flex-col rounded-lg transition-colors duration-fast ease-out-grid ${
+										dropTarget() === lane().id ? "bg-selection-subtle" : ""
+									}`}
+									onDragOver={(event) => {
+										// Only a stage lane can receive the task, and only mid-drag.
+										const status = laneStatus(lane().id);
+										if (!canDrag || status === null || dragging() === null) return;
+										event.preventDefault();
+										if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+										setDropTarget(lane().id);
+									}}
+									onDragLeave={(event) => {
+										const next = event.relatedTarget as Node | null;
+										if (next && event.currentTarget.contains(next)) return;
+										if (dropTarget() === lane().id) setDropTarget(null);
+									}}
+									onDrop={(event) => {
+										const status = laneStatus(lane().id);
+										event.preventDefault();
+										const number = dragging();
+										const task = movedTasks().find((item) => item.number === number);
+										endDrag();
+										if (status === null || !task) return;
+										void move(task, status);
+									}}
 								>
-									{lane().title}
-								</h2>
-								<span data-count class="text-ink/40 text-ui-xs tabular-nums">
-									{String(laneTasks().length)}
-								</span>
-							</header>
-							<div class="flex flex-col gap-2 p-0.5">
-								<Show
-									when={laneTasks().length > 0}
-									fallback={
-										<p class="grid h-20 place-items-center rounded-lg border border-ink/10 border-dashed text-ink/35 text-ui-sm">
-											No tasks
-										</p>
-									}
-								>
-									<For each={laneTasks()}>
-										{(task) => (
-											<TaskCard
-												task={task}
-												canDrag={canDrag}
-												dragging={dragging() === task.number}
-												onDragStart={() => setDragging(task.number)}
-												onDragEnd={endDrag}
-												onMove={(status) => void move(task, status)}
-											/>
-										)}
-									</For>
-								</Show>
-							</div>
-						</section>
+									<header class="flex h-9 items-center gap-2 px-1">
+										{lane().icon()}
+										<h2
+											id={`${boardLaneId(lane().id)}-title`}
+											class="font-medium text-ink/80 text-ui-sm"
+										>
+											{lane().title}
+										</h2>
+										{/* A string, not a number: the test DOM drops a `0` text node and can't update it. */}
+										<span data-count class="text-ink/40 text-ui-xs tabular-nums">
+											{String(laneTasks().length)}
+										</span>
+									</header>
+									<div class="flex flex-col gap-2 p-0.5">
+										<Show
+											when={laneTasks().length > 0}
+											fallback={
+												<p class="grid h-20 place-items-center rounded-lg border border-ink/10 border-dashed text-ink/35 text-ui-sm">
+													No tasks
+												</p>
+											}
+										>
+											<For each={laneTasks()}>
+												{(task) => (
+													<TaskCard
+														task={task}
+														canDrag={canDrag}
+														dragging={dragging() === task.number}
+														onDragStart={() => setDragging(task.number)}
+														onDragEnd={endDrag}
+														onMove={(status) => void move(task, status)}
+													/>
+												)}
+											</For>
+										</Show>
+									</div>
+								</div>
+							</section>
 						);
 					}}
 				</For>

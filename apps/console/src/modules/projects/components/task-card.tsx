@@ -2,7 +2,7 @@ import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { Show } from "solid-js";
 
-import { Menu } from "@/ui";
+import { Menu, MoreIcon } from "@/ui";
 
 import { useWorkspace } from "../context/workspace-context";
 import {
@@ -119,19 +119,5 @@ export function TaskCard(props: {
 				/>
 			</div>
 		</div>
-	);
-}
-
-/**
- * The "more" glyph, drawn to the same 24px grid as the `@/ui` set, which has no ellipsis icon.
- * It belongs there once that package owns one; kept local for now rather than widening this card.
- */
-function MoreIcon(): JSX.Element {
-	return (
-		<svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
-			<circle cx="12" cy="5.5" r="1.5" />
-			<circle cx="12" cy="12" r="1.5" />
-			<circle cx="12" cy="18.5" r="1.5" />
-		</svg>
 	);
 }

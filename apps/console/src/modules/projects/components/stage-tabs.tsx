@@ -35,10 +35,10 @@ export function StageTabs(props: {
 							onClick={() => props.onSelect(lane().id)}
 							class="focus-ring flex h-row shrink-0 items-center gap-1.5 rounded-md px-2.5 text-ink/55 text-ui-sm transition-colors duration-fast ease-out-grid aria-[current=true]:bg-selection aria-[current=true]:font-medium aria-[current=true]:text-ink"
 						>
-							{lane().icon}
+							{lane().icon()}
 							{lane().title}
 							<span data-count class="text-ink/40 text-ui-xs tabular-nums">
-								{lane().tasks.length}
+								{String(lane().tasks.length)}
 							</span>
 						</button>
 					)}

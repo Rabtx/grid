@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: normal
-status: doing
+status: done
 assignee: buffy (deepseek-v4-flash)
 reviewer: claude
 parent: .agents/plans/console-design-migration.md (step 2.3)
@@ -14,6 +14,8 @@ branch: agent/web/console-move-tasks
 worktree: ../grid-worktrees/agent/web/console-move-tasks
 scope:
   - apps/console/src/modules/projects/components/task-card.tsx
+  - apps/console/src/modules/projects/components/board-screen.tsx
+  - apps/console/src/modules/projects/components/stage-tabs.tsx
   - apps/console/src/modules/projects/components/board-lanes.tsx
   - apps/console/src/modules/projects/components/board-screen.test.tsx
   - apps/console/src/modules/projects/lib/move-task.ts
@@ -86,4 +88,49 @@ Run from the worktree root and paste the real output tails into Resolution:
 
 ## Resolution
 
-<Filled by the resolver.>
+Started by buffy (deepseek-v4-flash), which stalled with the work uncommitted; finished by the
+reviewer (claude) after merging main.
+
+### What changed
+
+- `lib/move-task.ts` (+ tests): `nextPosition` and `applyMove`, as proposed.
+- `board-lanes.tsx`: pending moves are laid over the lane tasks, so a card changes lane at once.
+  A move that lands stays in the overlay until the re-read tasks arrive, so the card never jumps
+  back in between; a rejected move is dropped and "Couldn't move TASK-n: <reason>" shows above
+  the lanes for 6 s or until dismissed. Stage lanes are drop targets when `(pointer: fine)`
+  matches (read once); the handlers sit on a plain wrapper, not the lane landmark.
+- `task-card.tsx`: a "Move TASK-n" `Menu` with the other six stages, a sibling of the card link
+  (never navigates), always visible on touch and revealed on hover/focus where hovering exists.
+  Uses `MoreIcon` from `@/ui`; the agent's inline copy was removed.
+- Reviewer fixes outside the original scope, needed for the feature to work:
+  - `board-screen.tsx`, `stage-tabs.tsx`: `BoardLane.icon` is now `() => JSX.Element`. It was one
+    DOM node inserted by both the stage tabs and the lane header, so one of them always lost it
+    (the agent had deleted the header icon to dodge this).
+  - Counts render as strings: happy-dom drops a `0` text node, and the next count update then
+    crashed the board ("Cannot set properties of null (setting 'data')").
+- `board-screen.test.tsx`: fixed the agent's test (undefined `body`, a missing newline) and added
+  menu, optimistic move and rejected move tests.
+
+### Validation output
+
+```text
+$ bunx vitest run
+ Test Files  10 passed (10)
+      Tests  61 passed (61)
+$ bun run typecheck            # tsc --noEmit, clean
+$ bun run build
+✓ built in 601ms
+$ bunx oxlint apps/console     # exit 0, no warnings
+$ bun run lint                 # all workspaces exit 0
+$ bun run architecture:check
+[naming] OK (476 path(s) checked)
+```
+
+### Browser check
+
+Not done by the reviewer: the browser was signed out and agents may not enter passwords. The
+human tests the menu at 375 px (touch) and drag at 1280 px.
+
+### Contract impact
+
+- none: uses the existing `PATCH /projects/:slug/tasks/:number`.

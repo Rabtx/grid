@@ -89,7 +89,9 @@ function clickMenuItem(container: HTMLElement, menu: string, item: string): void
 		: undefined;
 	expect(button, `no "${item}" entry in the ${menu} menu`).toBeDefined();
 	button?.click();
-}describe("BoardScreen", () => {
+}
+
+describe("BoardScreen", () => {
 	let container: HTMLElement;
 	let dispose: () => void;
 	let calls: Call[];
@@ -111,11 +113,9 @@ function clickMenuItem(container: HTMLElement, menu: string, item: string): void
 			vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
 				const url = input.toString();
 				const method = init?.method ?? "GET";
-				calls.push({
-					method,
-					url,
-					body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
-				});
+				const body: Record<string, unknown> | undefined =
+					typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
+				calls.push({ method, url, body });
 				if (url.endsWith("/auth/refresh")) {
 					return json({
 						accessToken: "token",

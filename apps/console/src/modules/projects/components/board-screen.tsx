@@ -40,7 +40,7 @@ function Board(): JSX.Element {
 		return TASK_STATUSES.map((status) => ({
 			id: status,
 			title: TASK_STATUS_LABELS[status],
-			icon: <StatusIcon status={status} />,
+			icon: () => <StatusIcon status={status} />,
 			tasks: columns[status],
 		}));
 	});
@@ -48,7 +48,7 @@ function Board(): JSX.Element {
 		groupByOwner(filteredTasks()).map((lane) => ({
 			id: lane.id,
 			title: lane.title,
-			icon: (
+			icon: () => (
 				<span
 					class={`size-3.5 shrink-0 rounded-full ${lane.id === "unassigned" ? "border border-ink/30 border-dashed" : "bg-ink/20"}`}
 					aria-hidden="true"
