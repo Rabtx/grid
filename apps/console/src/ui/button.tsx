@@ -18,8 +18,8 @@ const VARIANT: Record<ButtonVariant, string> = {
 };
 
 const SIZE: Record<ButtonSize, string> = {
-	sm: "h-6 px-2 text-ui-xs",
-	md: "h-control px-2.5 text-ui-sm",
+	sm: "h-6 px-2 text-ui-xs pointer-coarse:min-h-10 pointer-coarse:min-w-10",
+	md: "h-control px-2.5 text-ui-sm pointer-coarse:min-h-10 pointer-coarse:min-w-10",
 	lg: "h-field px-3 text-ui",
 };
 
@@ -55,7 +55,7 @@ export function IconButton(props: IconButtonProps): JSX.Element {
 			type={props.type ?? "button"}
 			aria-label={props.label}
 			title={props.label}
-			class={`focus-ring grid shrink-0 place-items-center rounded-md text-ink/50 transition-[background-color,color,transform] duration-fast ease-out-grid hover:bg-ink/8 hover:text-ink active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 ${size()} ${props.class ?? ""}`}
+			class={`focus-ring grid shrink-0 place-items-center rounded-md text-ink/50 transition-[background-color,color,transform] duration-fast ease-out-grid hover:bg-ink/8 hover:text-ink active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 ${size()} pointer-coarse:min-h-10 pointer-coarse:min-w-10 ${props.class ?? ""}`}
 			{...rest}
 		/>
 	);

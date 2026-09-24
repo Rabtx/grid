@@ -2,7 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { omit, Show } from "solid-js";
 
 const INPUT =
-	"h-field w-full min-w-0 rounded-md border border-ink/12 bg-canvas/40 px-2.5 text-ink text-ui-input outline-none transition-colors duration-fast ease-out-grid placeholder:text-ink/35 hover:border-ink/20 focus:border-ink/30 disabled:opacity-50 aria-[invalid=true]:border-danger/60";
+	"h-field w-full min-w-0 rounded-md border border-ink/12 bg-canvas/40 px-2.5 text-ink text-ui-input outline-none transition-colors duration-fast ease-out-grid placeholder:text-ink/35 hover:border-ink/20 focus:border-ink/30 disabled:opacity-50 aria-[invalid=true]:border-danger/60 pointer-coarse:min-h-10";
 
 type InputProps = JSX.InputHTMLAttributes<HTMLInputElement>;
 
