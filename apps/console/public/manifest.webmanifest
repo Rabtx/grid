@@ -1,10 +1,13 @@
 {
+	"id": "/",
 	"name": "Grid",
 	"short_name": "Grid",
 	"description": "Build, ship and operate products with humans and AI agents.",
 	"start_url": "/",
 	"scope": "/",
 	"display": "standalone",
+	"orientation": "any",
+	"categories": ["productivity", "developer tools"],
 	"background_color": "#171717",
 	"theme_color": "#171717",
 	"icons": [
