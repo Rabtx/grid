@@ -1,6 +1,6 @@
 import { useLocation, useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createContext, createMemo, createSignal, untrack, useContext } from "solid-js";
+import { createContext, createMemo, createSignal, onSettled, untrack, useContext } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 
@@ -47,6 +47,27 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 	// Bumped after every write so the task read re-runs; the dependency stays visible in the memo.
 	const [revision, setRevision] = createSignal(0);
 	const [newTaskOpen, setNewTaskOpen] = createSignal(false);
+
+	// Coming back to the app (switching back to it, unlocking the phone, the network returning)
+	// re-reads the board, so what shows is current without a manual reload. A quick glance away
+	// does not: the board was just read.
+	onSettled(() => {
+		let hiddenAt = 0;
+		const onVisibility = () => {
+			if (document.visibilityState === "hidden") {
+				hiddenAt = Date.now();
+			} else if (hiddenAt && Date.now() - hiddenAt > 30_000) {
+				setRevision((n) => n + 1);
+			}
+		};
+		const onOnline = () => setRevision((n) => n + 1);
+		document.addEventListener("visibilitychange", onVisibility);
+		window.addEventListener("online", onOnline);
+		return () => {
+			document.removeEventListener("visibilitychange", onVisibility);
+			window.removeEventListener("online", onOnline);
+		};
+	});
 
 	const projects = createMemo(async () => {
 		const token = auth.token();
