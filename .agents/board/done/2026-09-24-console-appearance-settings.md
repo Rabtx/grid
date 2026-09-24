@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: buffy (deepseek-v4-flash)
 reviewer: claude
 parent: .agents/plans/console-design-migration.md (phase 6: settings, appearance)
@@ -125,4 +125,63 @@ Run from the worktree root and paste the real output tails into Resolution:
 
 ## Resolution
 
-<Filled by the resolver.>
+**Changed**
+
+- `apps/console/src/ui/icons.tsx` — `SettingsIcon` (`Settings01Icon`) and `RestoreIcon` (`RotateCcwIcon`), same recipe as the existing glyphs.
+- `apps/console/src/ui/slider.tsx` (new) — native `<input type="range">`: `h-1 rounded-full bg-ink/15` track, 14px solid `bg-ink` thumb, `bg-ink/60` gradient filled to the value, `w-full md:w-44`, keyboard-only `focus-ring`, and the formatted value right-aligned in `w-12 text-ui-sm tabular-nums text-ink/70`.
+- `apps/console/src/ui/index.ts` — exports `Slider`.
+- `apps/console/src/modules/settings/components/appearance-screen.tsx` (new) — `AppearanceScreen` with the four `Group`s (Theme, Colour, Translucency, Layout), the container-query `Row` (`@container` card, `@[35rem]:flex-row`), the header with **Restore defaults**, and the accent swatches (split canvas/ink default, `ACCENT_PRESETS`, a custom `<input type="color">`). Every change calls `updateAppearance`; every slider takes its min/max/step from `APPEARANCE_LIMITS`.
+- `apps/console/src/modules/settings/index.ts` (new) — exports `AppearanceScreen`.
+- `apps/console/src/app.tsx` — `/settings` redirects (replace) to `/settings/appearance`; `/settings/appearance` renders the screen inside `RequireAuth`.
+- `apps/console/src/modules/shell/components/project-nav.tsx` — a **Settings** row above the account block, `aria-current="page"` when the path starts with `/settings`.
+- `apps/console/src/routes/dev-ui.tsx` — a Slider row in the primitives gallery.
+- `apps/console/src/ui/primitives.test.tsx` — a Slider case.
+- `apps/console/src/modules/settings/components/appearance-screen.test.tsx` (new) — 5 happy-dom tests: the four groups render, the Hue slider sets `--hue`, a preset swatch sets `--user-accent`, Dark adds the `dark` class, Restore defaults puts `--hue` back to `240`.
+
+**Validation** (worktree root, real tails)
+
+```text
+$ bun --cwd=apps/console run test
+ ✓  dom  src/modules/settings/components/appearance-screen.test.tsx (5 tests)
+ ✓  dom  src/ui/primitives.test.tsx (11 tests)
+ Test Files  10 passed (10)
+      Tests  55 passed (55)
+
+$ bun --cwd=apps/console run typecheck
+$ tsc --noEmit                       # exit 0, no diagnostics
+
+$ bun --cwd=apps/console run build
+✓ 129 modules transformed.
+dist/assets/index-9qlRB_Fw.css        46.77 kB │ gzip:  9.04 kB
+dist/assets/index-Dg13COpp.js        150.87 kB │ gzip: 51.04 kB
+✓ built in 2.32s
+
+$ bun run lint
+console lint: Found 0 warnings and 0 errors.
+console lint: Exited with code 0
+web lint: Found 9 warnings and 0 errors.   # pre-existing, all in apps/web
+web lint: Exited with code 0
+
+$ bun run format
+Finished in 187ms on 372 files               # no changes outside this card's scope
+
+$ bun run architecture:check
+Architecture checks passed.
+[naming] OK (476 path(s) checked)
+```
+
+No dev server was started: ports 3000, 3001, 3002 and 4000 were not touched. The `dist` CSS was inspected to confirm the classes the prototype needs actually compile (`@container (width>=35rem)`, `bg-ink/3`, `divide-ink/5`, the `::-webkit-slider-thumb` rules).
+
+**Notes / deliberate decisions**
+
+1. `focus-ring` sits on the range `<input>` (the element that receives keyboard focus), not the thumb pseudo-element, which cannot match `:focus-visible`. Same keyboard-only accent outline; a screen reader still gets the value.
+2. `SettingsRedirectRoute` uses the same `createEffect` + `navigate(..., { replace: true })` pattern as `ProjectRedirect` and `LoginRoute`; Solid 2's `createEffect` takes compute and apply, so a bare one-argument call is not available.
+3. The swatch buttons keep the prototype's `size-5` glyph rather than a 44px hit area, per the measured brief; the row is `flex-wrap` so it never overflows a phone.
+
+**Not done / deferred:** the 375/1280 px dark and light browser pass against the prototype is the reviewer's step, as the card states. `app-shell.test.tsx` was left unchanged — the new Settings row did not break its selectors.
+
+**Contract impact:** none — `apps/console/src/lib/appearance.ts` and `packages/tokens` are untouched; no API change.
+
+**Review:** reviewer `claude` owns the browser pass and the merge; the branch is pushed and a PR is open against `main`, not merged.
+
+**Commit:** `6eebd18` (feature); the claim and this resolution are separate `chore`/`docs` commits.
