@@ -2,7 +2,14 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, onSettled, Show } from "solid-js";
 
 import { insertIntoField, MicButton, registerDictationTarget } from "@/modules/voice";
-import { SendIcon, StopSquareIcon } from "@/ui";
+import { BranchIcon, PlusIcon, SendIcon, StopSquareIcon } from "@/ui";
+
+/** A 24px chip on the context row — 44px for a thumb. */
+const CONTEXT_CHIP =
+	"flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-sm px-1 text-ink/55 transition-colors duration-fast ease-out-grid hover:bg-ink/8 pointer-coarse:h-8";
+
+/** What the field asks for until the caller says otherwise. */
+const PLACEHOLDER = "Ask, build, / for commands, @ for references…";
 
 /**
  * Where a message is written. Enter sends on a physical keyboard (Shift+Enter for a new line);
@@ -10,16 +17,18 @@ import { SendIcon, StopSquareIcon } from "@/ui";
  * stops it. A text field, so voice input lands here with no extra wiring.
  */
 export function Composer(props: {
-	placeholder: string;
+	placeholder?: string;
 	running: boolean;
 	disabled?: boolean;
 	/** Send the text; return false to keep the draft (e.g. the link is down). */
 	onSend: (text: string) => boolean | Promise<boolean>;
 	onStop?: () => void;
-	/** The footer's pickers: agent, model, mode. */
+	/** The toolbar's pickers: model and mode. */
 	controls?: JSX.Element;
-	/** Above the text box: e.g. the folder the agent works in. */
+	/** The context row: e.g. the folder the agent works in. */
 	header?: JSX.Element;
+	/** The branch that folder is on, when it is known. */
+	branch?: string;
 }): JSX.Element {
 	const [draft, setDraft] = createSignal("");
 	const [sending, setSending] = createSignal(false);
@@ -42,7 +51,7 @@ export function Composer(props: {
 	function grow(): void {
 		if (!textarea) return;
 		textarea.style.height = "auto";
-		textarea.style.height = `${Math.min(textarea.scrollHeight, 240)}px`;
+		textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
 	}
 
 	async function send(): Promise<void> {
@@ -65,15 +74,25 @@ export function Composer(props: {
 			ref={(el) => {
 				form = el;
 			}}
-			class="rounded-xl border border-ink/12 bg-canvas shadow-sm transition-colors duration-fast ease-out-grid focus-within:border-ink/25"
+			class="rounded-lg border border-ink/10 bg-ink/3 backdrop-blur-sm transition-colors duration-fast ease-out-grid focus-within:border-ink/20"
 			onSubmit={(event) => {
 				event.preventDefault();
 				void send();
 			}}
 		>
-			<Show when={props.header}>
-				<div class="flex min-w-0 items-center gap-2 px-3 pt-2 text-ink/50 text-ui-xs">
-					{props.header}
+			<Show when={props.header || props.branch}>
+				<div class="flex flex-wrap items-center gap-2.5 px-3 pt-2.5 text-ui-xs">
+					<Show when={props.header}>
+						<span class={CONTEXT_CHIP}>{props.header}</span>
+					</Show>
+					<Show when={props.branch}>
+						{(branch) => (
+							<span class={CONTEXT_CHIP}>
+								<BranchIcon class="size-3.5 shrink-0" />
+								<span class="truncate font-mono">{branch()}</span>
+							</span>
+						)}
+					</Show>
 				</div>
 			</Show>
 			<textarea
@@ -82,7 +101,7 @@ export function Composer(props: {
 				}}
 				rows={1}
 				value={draft()}
-				placeholder={props.placeholder}
+				placeholder={props.placeholder ?? PLACEHOLDER}
 				aria-label="Message"
 				enterkeyhint="send"
 				disabled={props.disabled}
@@ -102,10 +121,19 @@ export function Composer(props: {
 						void send();
 					}
 				}}
-				class="block max-h-60 w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-ink text-ui-input outline-none placeholder:text-ink/35"
+				class="block max-h-40 w-full resize-none bg-transparent px-3 py-3 text-ink text-ui-input outline-none placeholder:text-ink/35"
 			/>
-			<div class="flex items-center gap-1.5 px-2 pb-2">
-				<div class="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
+			<div class="flex items-center gap-1 px-2 pb-2">
+				<button
+					type="button"
+					disabled
+					title="Attachments are not available yet"
+					aria-label="Attach"
+					class="focus-ring grid size-[26px] shrink-0 place-items-center rounded-md bg-selection text-ink/55 transition-colors duration-fast ease-out-grid hover:bg-selection-hover disabled:opacity-40 pointer-coarse:size-11"
+				>
+					<PlusIcon class="size-4" />
+				</button>
+				<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
 					{props.controls}
 				</div>
 				<MicButton
@@ -128,7 +156,7 @@ export function Composer(props: {
 							type="submit"
 							aria-label="Send"
 							disabled={!draft().trim() || props.disabled || sending()}
-							class="focus-ring grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground transition-[opacity,transform] duration-fast ease-out-grid active:scale-95 disabled:opacity-30 pointer-coarse:size-10"
+							class="focus-ring grid size-[26px] shrink-0 place-items-center rounded-md bg-primary text-primary-foreground transition-[opacity,transform] duration-fast ease-out-grid active:scale-95 disabled:opacity-30 pointer-coarse:size-11"
 						>
 							<SendIcon class="size-4" />
 						</button>
@@ -138,7 +166,7 @@ export function Composer(props: {
 						type="button"
 						aria-label="Stop"
 						onClick={() => props.onStop?.()}
-						class="focus-ring grid size-8 shrink-0 place-items-center rounded-lg bg-ink/10 text-ink transition-transform duration-fast ease-out-grid active:scale-95 pointer-coarse:size-10"
+						class="focus-ring grid size-[26px] shrink-0 place-items-center rounded-md bg-ink/10 text-ink transition-transform duration-fast ease-out-grid active:scale-95 pointer-coarse:size-11"
 					>
 						<StopSquareIcon class="size-4" />
 					</button>

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { filterChoices, groupChoices, mergeModels } from "./choices";
+import {
+	filterChoices,
+	findChoice,
+	groupChoices,
+	mergeModels,
+	modeDescription,
+	modeGlyph,
+} from "./choices";
 
 const models = [
 	{ id: "opus[1m]", name: "Opus 5.5 (1M context)", description: "claude-opus-5-5" },
@@ -58,5 +65,44 @@ describe("mergeModels", () => {
 			"opencode/big-pickle",
 			"new/model",
 		]);
+	});
+});
+
+describe("findChoice", () => {
+	it("finds by id and is null for an id the list does not carry", () => {
+		expect(findChoice(models, "opencode/big-pickle")?.name).toBe("Big Pickle");
+		expect(findChoice(models, "missing")).toBeNull();
+		expect(findChoice(models, "")).toBeNull();
+		expect(findChoice(models, null)).toBeNull();
+		expect(findChoice([], "opus[1m]")).toBeNull();
+	});
+});
+
+describe("modeGlyph", () => {
+	it("draws each permission mode with its own glyph and keeps the lock for the rest", () => {
+		expect(modeGlyph({ id: "default", name: "Ask" })).toBe("lock");
+		expect(modeGlyph({ id: "supervised", name: "Supervised" })).toBe("lock");
+		expect(modeGlyph({ id: "acceptEdits", name: "Accept edits" })).toBe("edit");
+		expect(modeGlyph({ id: "accept-edits", name: "Accept edits" })).toBe("edit");
+		expect(modeGlyph({ id: "plan", name: "Plan" })).toBe("plan");
+		expect(modeGlyph({ id: "bypassPermissions", name: "Full access" })).toBe("open");
+		expect(modeGlyph({ id: "full-access", name: "Full access" })).toBe("open");
+		expect(modeGlyph({ id: "unheard-of", name: "Unheard of" })).toBe("lock");
+		expect(modeGlyph(null)).toBe("lock");
+	});
+});
+
+describe("modeDescription", () => {
+	it("takes the agent's own line, else a line for the modes we know, else none", () => {
+		expect(modeDescription({ id: "plan", name: "Plan", description: "The agent's words" })).toBe(
+			"The agent's words",
+		);
+		expect(modeDescription({ id: "default", name: "Ask" })).toBe(
+			"Ask before commands and file changes",
+		);
+		expect(modeDescription({ id: "full-access", name: "Full access" })).toBe(
+			"Allow commands and edits without asking",
+		);
+		expect(modeDescription({ id: "custom", name: "Custom" })).toBeNull();
 	});
 });

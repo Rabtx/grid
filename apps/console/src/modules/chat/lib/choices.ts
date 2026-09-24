@@ -1,5 +1,55 @@
 import type { Choice } from "../types/chat.types";
 
+/** The choice with this id, or null when the list no longer carries it. */
+export function findChoice(
+	choices: readonly Choice[],
+	id: string | null | undefined,
+): Choice | null {
+	if (!id) return null;
+	return choices.find((choice) => choice.id === id) ?? null;
+}
+
+/**
+ * How a mode is drawn beside its name: a guarded mode locks, an editing one carries a pencil,
+ * a planning one a compass, an unrestricted one an open lock. Modes the agents report that we
+ * have no glyph for are still permission modes, so they keep the lock.
+ */
+export type ModeGlyph = "lock" | "edit" | "plan" | "open";
+
+const MODE_GLYPHS: Record<string, ModeGlyph> = {
+	default: "lock",
+	ask: "lock",
+	supervised: "lock",
+	acceptEdits: "edit",
+	"accept-edits": "edit",
+	plan: "plan",
+	bypassPermissions: "open",
+	"full-access": "open",
+};
+
+export function modeGlyph(mode: Choice | null | undefined): ModeGlyph {
+	return (mode && MODE_GLYPHS[mode.id]) || "lock";
+}
+
+/**
+ * The one line under a mode's name: the agent's own words when it sent any, else a short line
+ * for the modes the agents we drive expose, else none.
+ */
+const MODE_LINES: Record<string, string> = {
+	default: "Ask before commands and file changes",
+	ask: "Ask before commands and file changes",
+	supervised: "Ask before commands and file changes",
+	acceptEdits: "Auto-approve edits; ask before other actions",
+	"accept-edits": "Auto-approve edits; ask before other actions",
+	plan: "Read and plan; change nothing",
+	bypassPermissions: "Allow commands and edits without asking",
+	"full-access": "Allow commands and edits without asking",
+};
+
+export function modeDescription(mode: Choice): string | null {
+	return mode.description || MODE_LINES[mode.id] || null;
+}
+
 /**
  * Choices matching a search: every word typed must appear in the name, id, group or description,
  * in any order and case — "opus 1m", "free flash", "openrouter claude" all work.
