@@ -59,4 +59,24 @@ describe("Toaster", () => {
 		);
 		container.remove();
 	});
+
+	it("holds toasts while hovered and dismisses them after the pointer leaves", () => {
+		const container = document.createElement("div");
+		document.body.append(container);
+		render(() => <Toaster />, container);
+
+		toast({ message: "Moved TASK-2" });
+		flush();
+		const region = container.firstElementChild as HTMLElement;
+		region.dispatchEvent(new MouseEvent("mouseenter"));
+		vi.advanceTimersByTime(10_000);
+		flush();
+		expect(container.textContent).toContain("Moved TASK-2");
+
+		region.dispatchEvent(new MouseEvent("mouseleave"));
+		vi.advanceTimersByTime(4_000);
+		flush();
+		expect(container.textContent).not.toContain("Moved TASK-2");
+		container.remove();
+	});
 });

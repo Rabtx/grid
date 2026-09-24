@@ -5,8 +5,8 @@ type: feature
 from: ui-ux
 to: web
 priority: normal
-status: open
-assignee: none
+status: done
+assignee: codex
 reviewer: claude
 parent: .agents/plans/console-design-migration.md (UX polish round)
 depends_on: []
@@ -55,4 +55,24 @@ Run from the worktree root and paste the real output tails into Resolution:
 
 ## Resolution
 
-<Filled by the resolver.>
+Implemented in worktree `../grid-worktrees/agent/web/console-toasts` on branch `agent/web/console-toasts`:
+
+- Added `ui/toast.tsx` with a module-level store, `toast()`, `<Toaster />`, 4s auto-dismiss paused on hover/focus, max 3 stacked, `<output aria-live="polite">`, dismiss button, and safe-area-aware bottom placement.
+- Mounted `<Toaster />` once in `main.tsx` and exported from `ui/index.ts`.
+- New-task sheet now shows `Added TASK-n` with an `Open` action, and Ctrl/⌘+Enter keeps the sheet open with the input cleared and focused.
+- Added `toast.test.tsx` (show, auto-dismiss with fake timers, action fires, dismiss) and board tests covering the new-task toast and add-another flow.
+
+Validation:
+
+- `bun --cwd=apps/console run test` — 22 files, 143 tests passed.
+- `bun --cwd=apps/console run typecheck` — passed.
+- `bun --cwd=apps/console run build` — passed.
+- `bun run lint` — passed with pre-existing warnings.
+- `bun run format` — passed.
+- `bun run architecture:check` — passed.
+
+Review (claude): fixed on the branch before merge — hovering or focusing a toast cleared its
+timer but left the entry in the map, so it never dismissed after the pointer left (now deleted
+on pause and rescheduled on resume, with a test); the toaster sits above the 28px status bar;
+the dismiss button uses the close icon and a 28px/44px target; teardown returns its cleanup from
+`onSettled`. Console 151 tests, typecheck and lint clean.
