@@ -2,7 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, Show } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
-import { Button, ErrorNotice, Input, Sheet } from "@/ui";
+import { Button, ErrorNotice, Input, Sheet, toast } from "@/ui";
 
 import { useWorkspace } from "../context/workspace-context";
 import { projectsService } from "../services/projects.service";
@@ -30,6 +30,9 @@ export function NewTaskDialog(): JSX.Element {
 
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
+		const addAnother =
+			(event as SubmitEvent & { ctrlKey: boolean; metaKey: boolean }).ctrlKey ||
+			(event as SubmitEvent & { ctrlKey: boolean; metaKey: boolean }).metaKey;
 		const trimmed = title().trim();
 		const token = auth.token();
 		const slug = workspace.activeSlug();
@@ -38,10 +41,15 @@ export function NewTaskDialog(): JSX.Element {
 		setError(null);
 		setPending(true);
 		try {
-			await projectsService.createTask(token, slug, { title: trimmed });
+			const task = await projectsService.createTask(token, slug, { title: trimmed });
 			setTitle("");
 			workspace.refreshTasks();
-			workspace.setNewTaskOpen(false);
+			toast({
+				message: `Added ${task.key}`,
+				action: { label: "Open", onClick: () => workspace.openTask(task.number) },
+			});
+			if (addAnother) input?.focus();
+			else workspace.setNewTaskOpen(false);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : "Could not add the task");
 		} finally {

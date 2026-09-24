@@ -1,5 +1,7 @@
 import { render } from "@solidjs/web";
 
+import { Toaster } from "./ui";
+
 import { App } from "./app";
 import { installScaleShortcuts, restoreAppearance } from "./lib/appearance";
 import { registerServiceWorker } from "./pwa/register";
@@ -12,4 +14,12 @@ restoreAppearance();
 installScaleShortcuts();
 registerServiceWorker();
 
-render(() => <App />, root);
+render(
+	() => (
+		<>
+			<App />
+			<Toaster />
+		</>
+	),
+	root,
+);
