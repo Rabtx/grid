@@ -9,12 +9,14 @@
  *   Chromium builds without one.
  */
 
+import { mergeTranscript } from "./transcript";
+
 export type EngineKind = "device" | "runner";
 
 export type EngineHandlers = {
 	/** Words so far for the phrase in progress; replaced as the recogniser revises them. */
 	onInterim: (text: string) => void;
-	/** A finished phrase, ready to insert. */
+	/** Everything that was said, once, when listening ends — ready to insert. */
 	onFinal: (text: string) => void;
 	/** Busy turning a recording into text (runner engine only). */
 	onTranscribing: () => void;
@@ -74,20 +76,21 @@ export function startDeviceEngine(lang: string, handlers: EngineHandlers): Engin
 	recognition.continuous = true;
 	recognition.interimResults = true;
 	let failed = false;
+	let cancelled = false;
+	// The whole utterance so far. Inserted once, when listening ends: some recognisers (Android)
+	// revise and re-send earlier words, so inserting phrase by phrase would repeat them.
+	let heard = "";
 
 	recognition.onresult = (event) => {
 		let interim = "";
 		for (let i = event.resultIndex; i < event.results.length; i++) {
 			const result = event.results[i];
 			const text = result[0]?.transcript ?? "";
-			if (result.isFinal) {
-				const phrase = text.trim();
-				if (phrase) handlers.onFinal(phrase);
-			} else {
-				interim += text;
-			}
+			if (result.isFinal) heard = mergeTranscript(heard, text);
+			else interim += text;
 		}
-		handlers.onInterim(interim.trim());
+		// Show the words live, including the phrase still being recognised.
+		handlers.onInterim(interim.trim() ? mergeTranscript(heard, interim) : heard);
 	};
 	recognition.onerror = (event) => {
 		// "no-speech" and "aborted" are normal endings, not failures.
@@ -106,7 +109,9 @@ export function startDeviceEngine(lang: string, handlers: EngineHandlers): Engin
 	};
 	recognition.onend = () => {
 		handlers.onInterim("");
-		if (!failed) handlers.onEnd();
+		if (failed) return;
+		if (!cancelled && heard) handlers.onFinal(heard);
+		handlers.onEnd();
 	};
 	recognition.start();
 
@@ -114,7 +119,7 @@ export function startDeviceEngine(lang: string, handlers: EngineHandlers): Engin
 		kind: "device",
 		stop: () => recognition.stop(),
 		cancel: () => {
-			failed = true;
+			cancelled = true;
 			recognition.abort();
 		},
 	};
