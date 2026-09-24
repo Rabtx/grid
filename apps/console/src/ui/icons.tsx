@@ -7,6 +7,7 @@ import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon";
 import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
 import Logout01Icon from "@hugeicons/core-free-icons/Logout01Icon";
 import Menu01Icon from "@hugeicons/core-free-icons/Menu01Icon";
+import Mic01Icon from "@hugeicons/core-free-icons/Mic01Icon";
 import MoreHorizontalIcon from "@hugeicons/core-free-icons/MoreHorizontalIcon";
 import RotateCcwIcon from "@hugeicons/core-free-icons/RotateCcwIcon";
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon";
@@ -120,4 +121,8 @@ export function RestoreIcon(props: IconProps): JSX.Element {
 
 export function TerminalIcon(props: IconProps): JSX.Element {
 	return <Icon icon={ComputerTerminal01Icon} class={props.class} />;
+}
+
+export function MicIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Mic01Icon} class={props.class} />;
 }
