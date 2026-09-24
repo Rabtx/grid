@@ -7,6 +7,7 @@ import { IconButton, MenuIcon, PlusIcon } from "@/ui";
 
 // Screens outside the board name themselves; the board is named after its project.
 const SECTION_TITLES: [prefix: string, title: string][] = [
+	["/chat", "Chat"],
 	["/terminal", "Terminal"],
 	["/settings", "Settings"],
 ];

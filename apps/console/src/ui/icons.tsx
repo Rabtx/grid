@@ -1,18 +1,29 @@
 import Add01Icon from "@hugeicons/core-free-icons/Add01Icon";
 import AlertCircleIcon from "@hugeicons/core-free-icons/AlertCircleIcon";
 import ArrowDown01Icon from "@hugeicons/core-free-icons/ArrowDown01Icon";
+import ArrowLeft01Icon from "@hugeicons/core-free-icons/ArrowLeft01Icon";
+import ArrowUp02Icon from "@hugeicons/core-free-icons/ArrowUp02Icon";
+import BubbleChatIcon from "@hugeicons/core-free-icons/BubbleChatIcon";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import ComputerTerminal01Icon from "@hugeicons/core-free-icons/ComputerTerminal01Icon";
 import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon";
+import File01Icon from "@hugeicons/core-free-icons/File01Icon";
 import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
+import Folder01Icon from "@hugeicons/core-free-icons/Folder01Icon";
+import Globe02Icon from "@hugeicons/core-free-icons/Globe02Icon";
+import Idea01Icon from "@hugeicons/core-free-icons/Idea01Icon";
+import Loading03Icon from "@hugeicons/core-free-icons/Loading03Icon";
 import Logout01Icon from "@hugeicons/core-free-icons/Logout01Icon";
 import Menu01Icon from "@hugeicons/core-free-icons/Menu01Icon";
 import Mic01Icon from "@hugeicons/core-free-icons/Mic01Icon";
 import MoreHorizontalIcon from "@hugeicons/core-free-icons/MoreHorizontalIcon";
+import PencilEdit01Icon from "@hugeicons/core-free-icons/PencilEdit01Icon";
 import RotateCcwIcon from "@hugeicons/core-free-icons/RotateCcwIcon";
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon";
 import Settings01Icon from "@hugeicons/core-free-icons/Settings01Icon";
+import StopIcon from "@hugeicons/core-free-icons/StopIcon";
 import Tick02Icon from "@hugeicons/core-free-icons/Tick02Icon";
+import Wrench01Icon from "@hugeicons/core-free-icons/Wrench01Icon";
 import type { JSX } from "@solidjs/web";
 
 /** An icon from `@hugeicons/core-free-icons`: a list of `[tag, attributes]` SVG children. */
@@ -125,4 +136,51 @@ export function TerminalIcon(props: IconProps): JSX.Element {
 
 export function MicIcon(props: IconProps): JSX.Element {
 	return <Icon icon={Mic01Icon} class={props.class} />;
+}
+
+export function ChatIcon(props: IconProps): JSX.Element {
+	return <Icon icon={BubbleChatIcon} class={props.class} />;
+}
+
+export function SendIcon(props: IconProps): JSX.Element {
+	return <Icon icon={ArrowUp02Icon} class={props.class} />;
+}
+
+export function BackIcon(props: IconProps): JSX.Element {
+	return <Icon icon={ArrowLeft01Icon} class={props.class} />;
+}
+
+export function StopSquareIcon(props: IconProps): JSX.Element {
+	return <Icon icon={StopIcon} class={props.class} />;
+}
+
+export function FileIcon(props: IconProps): JSX.Element {
+	return <Icon icon={File01Icon} class={props.class} />;
+}
+
+export function EditIcon(props: IconProps): JSX.Element {
+	return <Icon icon={PencilEdit01Icon} class={props.class} />;
+}
+
+export function GlobeIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Globe02Icon} class={props.class} />;
+}
+
+export function IdeaIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Idea01Icon} class={props.class} />;
+}
+
+export function ToolIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Wrench01Icon} class={props.class} />;
+}
+
+export function FolderIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Folder01Icon} class={props.class} />;
+}
+
+/** A spinning ring for work in progress; still under reduced motion. */
+export function SpinnerIcon(props: IconProps): JSX.Element {
+	return (
+		<Icon icon={Loading03Icon} class={`motion-safe:animate-spin ${props.class ?? "size-4"}`} />
+	);
 }
