@@ -182,6 +182,6 @@ No dev server was started: ports 3000, 3001, 3002 and 4000 were not touched. The
 
 **Contract impact:** none — `apps/console/src/lib/appearance.ts` and `packages/tokens` are untouched; no API change.
 
-**Review:** reviewer `claude` owns the browser pass and the merge; the branch is pushed and a PR is open against `main`, not merged.
+**Review:** [PR #35](https://github.com/shabirkhan-dev/grid/pull/35) — open against `main` and not merged; reviewer `claude` owns the 375/1280 px browser pass and the merge.
 
 **Commit:** `6eebd18` (feature); the claim and this resolution are separate `chore`/`docs` commits.
