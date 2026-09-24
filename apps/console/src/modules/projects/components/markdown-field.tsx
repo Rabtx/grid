@@ -5,10 +5,16 @@ import { SegmentedControl, Textarea } from "@/ui";
 
 type Mode = "write" | "preview";
 
-// The renderer lives with chat and brings a Markdown parser, so it loads on first preview.
-let renderer: Promise<(text: string) => string> | null = null;
-function loadRenderer(): Promise<(text: string) => string> {
-	renderer ??= import("@/modules/chat/lib/markdown").then((module) => module.renderMarkdown);
+type Renderer = {
+	renderMarkdown: (text: string) => string;
+	copyCodeFrom: (event: MouseEvent) => void;
+};
+
+// The renderer lives with chat and brings a Markdown parser and highlighter, so it loads on the
+// first preview.
+let renderer: Promise<Renderer> | null = null;
+function loadRenderer(): Promise<Renderer> {
+	renderer ??= import("@/modules/chat/lib/markdown");
 	return renderer;
 }
 
@@ -27,10 +33,15 @@ export function MarkdownField(props: {
 }): JSX.Element {
 	const [mode, setMode] = createSignal<Mode>("write");
 	const [html, setHtml] = createSignal("");
+	let copy: ((event: MouseEvent) => void) | undefined;
 
 	function show(next: Mode): void {
 		setMode(next);
-		if (next === "preview") void loadRenderer().then((render) => setHtml(render(props.value)));
+		if (next === "preview")
+			void loadRenderer().then((markdown) => {
+				copy = markdown.copyCodeFrom;
+				setHtml(markdown.renderMarkdown(props.value));
+			});
 	}
 
 	return (
@@ -54,9 +65,11 @@ export function MarkdownField(props: {
 						when={props.value.trim()}
 						fallback={<p class="min-h-24 px-1 py-2 text-ink/40 text-ui-sm">Nothing to preview.</p>}
 					>
+						{/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- delegates clicks from the code cards' own buttons */}
 						<div
 							class="chat-prose min-h-24 overflow-x-auto rounded-md border border-ink/10 px-3 py-2 text-ink text-ui"
 							innerHTML={html()}
+							onClick={(event) => copy?.(event)}
 						/>
 					</Show>
 				}
