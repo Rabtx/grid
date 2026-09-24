@@ -1,34 +1,44 @@
 import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect } from "solid-js";
+import { createEffect, Show } from "solid-js";
 
-import { CloseIcon, IconButton, Sheet } from "@/ui";
+import { Sheet } from "@/ui";
 
-import { ProjectNav } from "./project-nav";
+import { useShell } from "../context/shell-context";
 
-/** Phone navigation: the shared nav in a drawer that closes itself after navigating. */
-export function NavDrawer(props: { open: boolean; onClose: () => void }): JSX.Element {
+import { Sidebar } from "./sidebar";
+
+/**
+ * Phone navigation: the sidebar, and under it the screen's workspace panel (its chats), in one
+ * drawer that closes itself after navigating.
+ */
+export function NavDrawer(): JSX.Element {
+	const shell = useShell();
 	const location = useLocation();
+	const close = () => shell.setDrawerOpen(false);
 
 	createEffect(
 		() => location.pathname,
 		() => {
-			props.onClose();
+			close();
 		},
 	);
 
 	return (
-		<Sheet open={props.open} onClose={props.onClose} label="Navigation" placement="side">
-			<div class="relative h-full">
-				<IconButton
-					label="Close navigation"
-					onClick={() => props.onClose()}
-					class="absolute top-2 right-2"
-				>
-					<CloseIcon />
-				</IconButton>
-				<ProjectNav />
-			</div>
+		<Sheet open={shell.drawerOpen()} onClose={close} label="Navigation" placement="side">
+			{/* Phones only (the sheet is hidden from lg), so the sidebar and panel never draw twice. */}
+			<Show when={!shell.desktop()}>
+				<div class="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain">
+					<Show when={shell.drawerOpen() && shell.panel()} fallback={<Sidebar onClose={close} />}>
+						{(panel) => (
+							<>
+								<Sidebar onClose={close} stacked />
+								<div class="flex min-h-[60dvh] flex-col border-stroke border-t">{panel()()}</div>
+							</>
+						)}
+					</Show>
+				</div>
+			</Show>
 		</Sheet>
 	);
 }
