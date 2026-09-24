@@ -3,7 +3,7 @@ import { createSignal, Show } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import { NewTaskDialog, WorkspaceProvider } from "@/modules/projects";
-import { NavDrawer, ProjectNav, TopBar, WorkspaceHeader } from "@/modules/shell";
+import { NavDrawer, ProjectNav, TopBar, UpdateBanner, WorkspaceHeader } from "@/modules/shell";
 import { BrandLogo } from "@/ui";
 
 /**
@@ -20,6 +20,7 @@ export function AppShell(props: { children: JSX.Element }): JSX.Element {
 					<SignedInShell>{props.children}</SignedInShell>
 				</WorkspaceProvider>
 			</Show>
+			<UpdateBanner />
 		</div>
 	);
 }
