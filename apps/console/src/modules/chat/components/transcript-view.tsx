@@ -23,6 +23,7 @@ import {
 } from "@/ui";
 
 import { copyCodeFrom, renderMarkdown } from "../lib/markdown";
+import { DiffView } from "./diff-view";
 import { type Block, groupRows, type Row, summariseTools, toolFile } from "../lib/transcript";
 import type { ToolKind } from "../types/chat.types";
 
@@ -457,6 +458,15 @@ function WorkGroup(props: { tools: ToolBlock[] }): JSX.Element {
 function ToolRow(props: { tool: ToolBlock }): JSX.Element {
 	const Icon = () => TOOL_ICONS[props.tool.tool] ?? ToolIcon;
 	const parts = () => toolParts(props.tool);
+	// Lines an edit added and removed, across its files.
+	const changed = () => {
+		const diffs = props.tool.diffs;
+		if (!diffs?.length) return null;
+		return diffs.reduce(
+			(sum, diff) => ({ added: sum.added + diff.added, removed: sum.removed + diff.removed }),
+			{ added: 0, removed: 0 },
+		);
+	};
 	return (
 		<li>
 			<details class="group/tool">
@@ -466,6 +476,14 @@ function ToolRow(props: { tool: ToolBlock }): JSX.Element {
 					<span class="min-w-0 flex-1 truncate pl-1 font-mono text-ink/70 text-ui-sm">
 						{parts()[1]}
 					</span>
+					<Show when={changed()}>
+						{(count) => (
+							<span class="shrink-0 font-mono text-ui-xs tabular-nums">
+								<span class="text-success">+{count().added}</span>{" "}
+								<span class="text-danger">−{count().removed}</span>
+							</span>
+						)}
+					</Show>
 					<Show when={props.tool.status === "failed"}>
 						<CloseIcon class="size-3.5 shrink-0 text-danger" />
 					</Show>
@@ -473,12 +491,17 @@ function ToolRow(props: { tool: ToolBlock }): JSX.Element {
 						<SpinnerIcon class="size-3 shrink-0" />
 					</Show>
 				</summary>
-				<Show when={props.tool.input || props.tool.output}>
+				<Show when={props.tool.input || props.tool.output || props.tool.diffs?.length}>
 					<div class="mt-1 mb-1.5 flex flex-col gap-1.5">
-						<Show when={props.tool.input}>
-							<pre class="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-ink/6 px-2.5 py-1.5 font-mono text-ink/80 text-ui-xs">
-								{props.tool.input}
-							</pre>
+						<Show
+							when={!props.tool.diffs?.length}
+							fallback={<For each={props.tool.diffs}>{(diff) => <DiffView diff={diff} />}</For>}
+						>
+							<Show when={props.tool.input}>
+								<pre class="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-ink/6 px-2.5 py-1.5 font-mono text-ink/80 text-ui-xs">
+									{props.tool.input}
+								</pre>
+							</Show>
 						</Show>
 						<Show when={props.tool.output}>
 							<pre class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-ink/4 px-2.5 py-1.5 font-mono text-ink/60 text-ui-xs">

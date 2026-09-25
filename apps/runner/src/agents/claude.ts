@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 
 import { cached, effortChoices } from "./catalog";
 import { type Choice, clip, type PlanEntry, type ToolKind } from "./events";
+import { diffTexts, type FileDiff } from "./diff";
 import type { AgentContext, AgentSession, Provider, ProviderInfo, TurnResult } from "./provider";
 import { type JsonProcess, type Spawn, spawnJsonProcess } from "./stdio";
 
@@ -198,6 +199,22 @@ export function toolTitle(
 	}
 }
 
+/** What an edit tool is changing, from its input: Edit and MultiEdit replace text, Write writes it. */
+export function editDiffs(name: string, input: Record<string, unknown>): FileDiff[] {
+	const path = (input.file_path ?? input.path) as string | undefined;
+	if (!path) return [];
+	const text = (value: unknown) => (typeof value === "string" ? value : "");
+	if (name === "Edit")
+		return [{ ...diffTexts(path, text(input.old_string), text(input.new_string)), snippet: true }];
+	if (name === "MultiEdit" && Array.isArray(input.edits))
+		return (input.edits as Record<string, unknown>[]).map((edit) => ({
+			...diffTexts(path, text(edit.old_string), text(edit.new_string)),
+			snippet: true,
+		}));
+	if (name === "Write") return [diffTexts(path, null, text(input.content))];
+	return [];
+}
+
 function resultText(content: unknown): string {
 	if (typeof content === "string") return content;
 	if (Array.isArray(content)) {
@@ -283,6 +300,7 @@ async function startClaudeSession(
 					continue;
 				}
 				const { title, detail } = toolTitle(name, input);
+				const diffs = editDiffs(name, input);
 				context.emit({
 					type: "tool",
 					id: String(block.id),
@@ -290,6 +308,7 @@ async function startClaudeSession(
 					kind: toolKind(name),
 					status: "running",
 					input: detail,
+					...(diffs.length ? { diffs } : {}),
 				});
 			}
 			return;

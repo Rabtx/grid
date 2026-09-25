@@ -32,6 +32,7 @@ export type ChatEvent =
 			status?: ToolStatus;
 			input?: string;
 			output?: string;
+			diffs?: FileDiff[];
 	  }
 	| { type: "approval"; id: string; title: string; detail?: string; options: ApprovalOption[] }
 	| { type: "approval_resolved"; id: string; optionId: string | null }
@@ -56,6 +57,16 @@ export type ChatEvent =
 			effort?: string;
 	  }
 	| { type: "error"; message: string };
+
+/** A file an edit changed, as the runner sends it: unified hunks and line counts. */
+export type FileDiff = {
+	path: string;
+	patch: string;
+	added: number;
+	removed: number;
+	/** Cut from the middle of a file, so its line numbers are not the file's. */
+	snippet?: boolean;
+};
 
 /** A chat session as the runner lists it. */
 export type ChatSession = {

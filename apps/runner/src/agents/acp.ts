@@ -6,6 +6,7 @@ import {
 	type ToolKind,
 	type ToolStatus,
 } from "./events";
+import { diffTexts, type FileDiff } from "./diff";
 import type { AgentContext, AgentSession, Provider, ProviderInfo } from "./provider";
 import { JsonRpc, type Spawn, spawnJsonProcess } from "./stdio";
 
@@ -112,6 +113,14 @@ function describeInput(call: AcpToolCall): string | undefined {
 		}
 	}
 	return call.locations?.map((location) => location.path).join(", ") || undefined;
+}
+
+/** The files a call changed, from its `diff` content (whole old and new text). */
+export function diffsOf(call: AcpToolCall): { diffs?: FileDiff[] } {
+	const diffs = (call.content ?? [])
+		.filter((item) => item.type === "diff" && item.path)
+		.map((item) => diffTexts(item.path as string, item.oldText ?? null, item.newText ?? ""));
+	return diffs.length ? { diffs } : {};
 }
 
 function describeOutput(call: AcpToolCall): string | undefined {
@@ -223,6 +232,7 @@ async function startAcpSession(
 				status: toolStatus(call.status) ?? (kind === "tool_call" ? "running" : undefined),
 				input: describeInput(call),
 				output: describeOutput(call),
+				...diffsOf(call),
 			});
 		} else if (kind === "plan") {
 			const entries = (update.entries as { content: string; status: string }[]) ?? [];
