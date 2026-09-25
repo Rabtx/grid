@@ -1,6 +1,8 @@
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, onSettled, Show, untrack } from "solid-js";
 
+import { onAppResume } from "@/lib/app-resume";
+import { quietReconnects } from "@/lib/quiet-reconnects";
 import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
 import { ErrorNotice, FolderIcon } from "@/ui";
@@ -91,6 +93,8 @@ export function Conversation(props: {
 	}
 
 	onSettled(() => {
+		const link = quietReconnects<ChatConnection>(setConnection);
+		let attachedBefore = false;
 		const live = connectChat({
 			url: chatSocketUrl(),
 			id: props.id,
@@ -114,7 +118,9 @@ export function Conversation(props: {
 					setRunning(ready.running);
 				}
 				lastStartedAt = currentStartedAt;
-				pinned = true;
+				// Opening a chat lands on its latest message; coming back to it keeps your place.
+				if (!attachedBefore) pinned = true;
+				attachedBefore = true;
 				scrollToEnd();
 				const first = firstMessages.get(props.id);
 				if (first && ready.history.length === 0) {
@@ -139,18 +145,14 @@ export function Conversation(props: {
 				scrollToEnd();
 			},
 			onRunning: setRunning,
-			onConnection: setConnection,
+			onConnection: link.set,
 			onError: setError,
 		});
 		socket = live;
-		const resume = () => {
-			if (document.visibilityState === "visible") live.reconnectNow();
-		};
-		document.addEventListener("visibilitychange", resume);
-		window.addEventListener("online", resume);
+		const stopResume = onAppResume(live.reconnectNow);
 		return () => {
-			document.removeEventListener("visibilitychange", resume);
-			window.removeEventListener("online", resume);
+			stopResume();
+			link.cancel();
 			live.close();
 		};
 	});

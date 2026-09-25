@@ -193,6 +193,43 @@ describe("connectChat", () => {
 		sockets[0].receive(JSON.stringify({ t: "pong" }));
 	});
 
+	it("keeps a live socket when the app comes back and it still answers", () => {
+		const { live, sockets } = setup();
+		sockets[0].accept();
+		sockets[0].receive(
+			JSON.stringify({ t: "ready", session: mockSession, history: [], running: false }),
+		);
+
+		vi.advanceTimersByTime(1);
+		live.reconnectNow();
+		expect(sockets[0].sent.at(-1)).toBe(JSON.stringify({ t: "ping" }));
+		vi.advanceTimersByTime(100);
+		sockets[0].receive(JSON.stringify({ t: "pong" }));
+		vi.advanceTimersByTime(5_000);
+		expect(sockets).toHaveLength(1);
+	});
+
+	it("replaces a socket that looks open but stays silent after the app slept", () => {
+		const { live, sockets, readyPayloads } = setup();
+		sockets[0].accept();
+		sockets[0].receive(
+			JSON.stringify({ t: "ready", session: mockSession, history: [], running: false }),
+		);
+
+		vi.advanceTimersByTime(1);
+		live.reconnectNow();
+		vi.advanceTimersByTime(3_000);
+		expect(sockets).toHaveLength(2);
+		sockets[1].accept();
+		sockets[1].receive(
+			JSON.stringify({ t: "ready", session: mockSession, history: [], running: false }),
+		);
+		expect(readyPayloads).toHaveLength(2);
+		// The dead socket closing late changes nothing.
+		sockets[0].drop();
+		expect(sockets).toHaveLength(2);
+	});
+
 	it("marks connection gone on 4404 (session not found)", () => {
 		const { sockets, states } = setup();
 		sockets[0].accept();

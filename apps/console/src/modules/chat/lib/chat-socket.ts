@@ -29,6 +29,8 @@ const CLOSE_UNAUTHORIZED = 4401;
 const CLOSE_NOT_FOUND = 4404;
 const OPEN = 1;
 const HEARTBEAT_INTERVAL_MS = 20_000;
+// How long a ping may go unanswered before the link counts as dead.
+const PROBE_TIMEOUT_MS = 2_500;
 
 /**
  * A chat session's live link to the runner. Like the terminal's: reconnects with backoff,
@@ -46,26 +48,55 @@ export function connectChat(options: ChatSocketOptions) {
 	let renewedOnce = false;
 	let retryTimer: ReturnType<typeof setTimeout> | undefined;
 	let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+	let probeTimer: ReturnType<typeof setTimeout> | undefined;
 	let lastActivityAt = Date.now();
 
 	function startHeartbeat(): void {
 		stopHeartbeat();
-		heartbeatTimer = setInterval(() => {
-			if (socket && attached && socket.readyState === OPEN) {
-				try {
-					socket.send(JSON.stringify({ t: "ping" }));
-				} catch {
-					// Socket write failed, will reconnect
-				}
-			}
-		}, HEARTBEAT_INTERVAL_MS);
+		heartbeatTimer = setInterval(probe, HEARTBEAT_INTERVAL_MS);
+	}
+
+	/**
+	 * Ask the runner for a pong and drop the link if nothing at all comes back in time. A phone
+	 * that slept can hand back a socket that still says it is open but is dead underneath; this
+	 * finds out in a couple of seconds instead of waiting for the network to give up.
+	 */
+	function probe(): void {
+		const ws = socket;
+		if (!ws || !attached || ws.readyState !== OPEN || probeTimer) return;
+		const sentAt = Date.now();
+		try {
+			ws.send(JSON.stringify({ t: "ping" }));
+		} catch {
+			replace(ws);
+			return;
+		}
+		probeTimer = setTimeout(() => {
+			probeTimer = undefined;
+			if (socket === ws && lastActivityAt < sentAt) replace(ws);
+		}, PROBE_TIMEOUT_MS);
+	}
+
+	/** Give up on a silent socket and attach again at once, keeping the screen as it is. */
+	function replace(ws: WebSocket): void {
+		if (socket !== ws) return;
+		stopHeartbeat();
+		socket = null;
+		attached = false;
+		try {
+			ws.close();
+		} catch {
+			// Already closing; its close event is ignored because it is no longer the socket.
+		}
+		attempt = Math.max(attempt, 1);
+		open();
 	}
 
 	function stopHeartbeat(): void {
-		if (heartbeatTimer) {
-			clearInterval(heartbeatTimer);
-			heartbeatTimer = undefined;
-		}
+		clearInterval(heartbeatTimer);
+		heartbeatTimer = undefined;
+		clearTimeout(probeTimer);
+		probeTimer = undefined;
 	}
 
 	function open(): void {
@@ -148,23 +179,25 @@ export function connectChat(options: ChatSocketOptions) {
 
 	open();
 
+	/**
+	 * The app came back or the network did: retry now instead of waiting out the backoff, and
+	 * check that a socket which looks open still answers. A live one is kept as it is.
+	 */
 	function reconnectNow(): void {
 		if (closed || finished) return;
+		if (socket?.readyState === OPEN && attached) {
+			probe();
+			return;
+		}
+		if (socket) {
+			// Caught halfway through attaching, maybe from before the app slept: start that over.
+			replace(socket);
+			return;
+		}
 		clearTimeout(retryTimer);
 		retryTimer = undefined;
-		const isStale = Date.now() - lastActivityAt > 35_000;
-		if (socket && (socket.readyState !== OPEN || isStale)) {
-			try {
-				socket.close();
-			} catch {
-				// Ignore close errors
-			}
-			socket = null;
-		}
-		if (!socket) {
-			attempt = Math.max(attempt, 1);
-			open();
-		}
+		attempt = Math.max(attempt, 1);
+		open();
 	}
 
 	return {
