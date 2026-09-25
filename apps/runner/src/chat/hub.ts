@@ -127,6 +127,15 @@ export class ChatHub {
 		}
 	}
 
+	/** This person's threads with an agent working right now, for the "running" indicators. */
+	running(ownerId: string): { id: string; project: string }[] {
+		return [...this.live]
+			.filter(([, live]) => live.running)
+			.map(([id]) => this.store.get(id))
+			.filter((row): row is ChatSessionRow => row?.ownerId === ownerId)
+			.map((row) => ({ id: row.id, project: row.project }));
+	}
+
 	list(ownerId: string, project: string): ChatSessionRow[] {
 		return this.store.list(ownerId, project);
 	}

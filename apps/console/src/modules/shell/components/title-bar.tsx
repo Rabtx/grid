@@ -156,6 +156,7 @@ export function TitleBar(): JSX.Element {
 /** Phone title bar: the menu, the screen's tabs (or its name), and its action in thumb reach. */
 export function TopBar(): JSX.Element {
 	const shell = useShell();
+	const location = useLocation();
 
 	return (
 		<header class="glass z-30 shrink-0 border-stroke border-b pt-[env(safe-area-inset-top)]">
@@ -172,7 +173,10 @@ export function TopBar(): JSX.Element {
 						{(tabs) => <>{tabs()()}</>}
 					</Show>
 				</div>
-				<ProjectViews compact />
+				{/* In a chat the phone header is the title alone; the drawer reaches the board. */}
+				<Show when={!location.pathname.startsWith("/chat")}>
+					<ProjectViews compact />
+				</Show>
 				<Action compact />
 			</div>
 		</header>

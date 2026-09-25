@@ -5,7 +5,7 @@ import { createEffect, createSignal, For, onSettled, Show, untrack } from "solid
 import { useAuth } from "@/modules/auth";
 import { threadsStore } from "@/modules/chat/stores/threads";
 import type { ChatSession } from "@/modules/chat/types/chat.types";
-import { type Project, useWorkspace } from "@/modules/projects";
+import { type Project, ProjectIcon, useWorkspace } from "@/modules/projects";
 import {
 	BoardIcon,
 	attachContextMenu,
@@ -27,6 +27,7 @@ const OPEN_KEY = "grid.sidebar.open";
 const PROJECT_MENU: MenuItem[] = [
 	{ id: "new", label: "New thread" },
 	{ id: "rename", label: "Rename" },
+	{ id: "customize", label: "Customize…" },
 	{ id: "folder", label: "Change folder" },
 	{ id: "board", label: "Open board" },
 	{ id: "remove", label: "Remove from Grid", danger: true },
@@ -92,6 +93,9 @@ export function ProjectTree(): JSX.Element {
 			// Not remembered; the tree opens on the current project next time.
 		}
 	}
+
+	// Which threads are working, for the shimmer and the moving project icons.
+	onSettled(() => threadsStore.watchRunning(() => auth.token()));
 
 	// The project you are in is always open.
 	createEffect(
@@ -185,7 +189,7 @@ function ProjectNode(props: {
 		// The dialogs open over the page, so the phone drawer steps aside first.
 		if (id !== "new" && id !== "board") shell.setDrawerOpen(false);
 		if (id === "new") navigate(`/chat/${slug()}`);
-		else if (id === "rename" || id === "remove")
+		else if (id === "rename" || id === "remove" || id === "customize")
 			workspace.setProjectAction({ kind: id, slug: slug() });
 		else if (id === "folder") workspace.chooseFolderFor(slug());
 		else if (id === "board") navigate(`/board/${slug()}`);
@@ -222,7 +226,7 @@ function ProjectNode(props: {
 						navigate(workspace.projectHref(slug()));
 					}}
 				>
-					<FolderIcon class="size-4 shrink-0 text-ink/45" />
+					<ProjectIcon project={props.project} running={threadsStore.runningIn(slug()) > 0} />
 					<span class="min-w-0 flex-1 truncate">{props.project.name}</span>
 				</a>
 				<div class={ACTIONS}>
@@ -339,10 +343,25 @@ function ThreadRow(props: {
 							setRenaming(true);
 						}}
 					>
-						<span class="min-w-0 flex-1 truncate">{props.session.title}</span>
-						<span class="shrink-0 text-ink/35 text-ui-caption tabular-nums group-hover/row:invisible pointer-coarse:group-hover/row:visible">
-							{relative(props.session.updatedAt)}
+						<span
+							class={`min-w-0 flex-1 truncate ${threadsStore.isRunning(props.session.id) ? "thread-running" : ""}`}
+						>
+							{props.session.title}
 						</span>
+						<Show
+							when={threadsStore.isRunning(props.session.id)}
+							fallback={
+								<span class="shrink-0 text-ink/35 text-ui-caption tabular-nums group-hover/row:invisible pointer-coarse:group-hover/row:visible">
+									{relative(props.session.updatedAt)}
+								</span>
+							}
+						>
+							<span class="working-dots shrink-0" title="Working">
+								<i />
+								<i />
+								<i />
+							</span>
+						</Show>
 					</a>
 				}
 			>

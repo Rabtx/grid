@@ -36,6 +36,9 @@ export async function chatRequest(
 		}
 		return failure(405, "Method not allowed");
 	}
+	if (url.pathname === "/chat/running" && request.method === "GET") {
+		return Response.json({ data: hub.running(userId) });
+	}
 	if (url.pathname === "/chat/sessions" && request.method === "GET") {
 		const project = url.searchParams.get("project");
 		if (!project) return failure(400, "Say which project");

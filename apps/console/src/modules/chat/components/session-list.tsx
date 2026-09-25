@@ -3,6 +3,7 @@ import { For, Show } from "solid-js";
 
 import { CloseIcon, PlusIcon } from "@/ui";
 
+import { threadsStore } from "../stores/threads";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
 
 /** The agent's initial in a small tile, so chats from different agents read apart. */
@@ -37,27 +38,38 @@ export function SessionTabs(props: {
 	hrefFor: (id: string) => string;
 	onClose: (id: string) => void;
 }): JSX.Element {
-	const visible = () =>
-		props.compact ? props.tabs.filter((tab) => tab.id === props.activeId) : props.tabs;
+	const active = () => props.tabs.find((tab) => tab.id === props.activeId);
 
 	return (
-		<div role="tablist" aria-label="Open chats" class="flex min-w-0 items-center gap-0.5">
-			<For each={visible()}>
-				{(tab) => (
-					<div
-						class="group flex h-7 min-w-20 max-w-56 shrink items-center gap-1 rounded-md pr-0.5 pl-2 text-ink/55 hover:bg-ink/6 hover:text-ink aria-selected:bg-selection aria-selected:text-ink pointer-coarse:h-9"
-						aria-selected={props.activeId === tab.id ? "true" : "false"}
-					>
-						<a
-							role="tab"
-							href={props.hrefFor(tab.id)}
+		<Show
+			when={!props.compact}
+			fallback={
+				// Phones: just the thread's title in the header — no tab, no chrome — shimmering while it runs.
+				<h1
+					class={`min-w-0 truncate px-1 font-medium text-ink text-ui ${active() && threadsStore.isRunning(active()?.id ?? "") ? "thread-running" : ""}`}
+				>
+					{active()?.title ?? "New chat"}
+				</h1>
+			}
+		>
+			<div role="tablist" aria-label="Open chats" class="flex min-w-0 items-center gap-0.5">
+				<For each={props.tabs}>
+					{(tab) => (
+						<div
+							class="group flex h-7 min-w-20 max-w-56 shrink items-center gap-1 rounded-md pr-0.5 pl-2 text-ink/55 hover:bg-ink/6 hover:text-ink aria-selected:bg-selection aria-selected:text-ink pointer-coarse:h-9"
 							aria-selected={props.activeId === tab.id ? "true" : "false"}
-							class="focus-ring flex min-w-0 items-center gap-1.5 rounded-sm text-ui-sm"
 						>
-							<ProviderMark provider={tab.provider} />
-							<span class="truncate">{tab.title}</span>
-						</a>
-						<Show when={!props.compact}>
+							<a
+								role="tab"
+								href={props.hrefFor(tab.id)}
+								aria-selected={props.activeId === tab.id ? "true" : "false"}
+								class="focus-ring flex min-w-0 items-center gap-1.5 rounded-sm text-ui-sm"
+							>
+								<ProviderMark provider={tab.provider} />
+								<span class={`truncate ${threadsStore.isRunning(tab.id) ? "thread-running" : ""}`}>
+									{tab.title}
+								</span>
+							</a>
 							<button
 								type="button"
 								aria-label={`Close ${tab.title}`}
@@ -67,20 +79,20 @@ export function SessionTabs(props: {
 							>
 								<CloseIcon class="size-3" />
 							</button>
-						</Show>
+						</div>
+					)}
+				</For>
+				<Show when={!props.activeId}>
+					<div
+						role="tab"
+						aria-selected="true"
+						class="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-selection px-2 text-ink text-ui-sm pointer-coarse:h-9"
+					>
+						<PlusIcon class="size-3.5 text-ink/55" />
+						New chat
 					</div>
-				)}
-			</For>
-			<Show when={!props.activeId}>
-				<div
-					role="tab"
-					aria-selected="true"
-					class="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-selection px-2 text-ink text-ui-sm pointer-coarse:h-9"
-				>
-					<PlusIcon class="size-3.5 text-ink/55" />
-					New chat
-				</div>
-			</Show>
-		</div>
+				</Show>
+			</div>
+		</Show>
 	);
 }
