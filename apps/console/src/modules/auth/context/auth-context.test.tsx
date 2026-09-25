@@ -168,3 +168,47 @@ describe("session keepalive", () => {
 		expect(vi.getTimerCount()).toBe(0);
 	});
 });
+
+describe("opening straight into a known account", () => {
+	const known = { id: "1", email: "test@example.com", username: "test" };
+	beforeEach(() => localStorage.setItem("grid.session.user", JSON.stringify(known)));
+	afterEach(() => localStorage.clear());
+
+	it("shows the account at once while the session is confirmed, then carries on", async () => {
+		let answer: (value: AuthSession) => void = () => {};
+		vi.spyOn(authService, "refresh").mockImplementation(
+			() => new Promise((resolve) => (answer = resolve)),
+		);
+		await mount();
+		expect(auth.restoring()).toBe(true);
+		expect(auth.user()?.id).toBe("1");
+		const waiting = auth.waitForToken();
+		answer(session("fresh"));
+		expect(await waiting).toBe("fresh");
+		expect(auth.restoring()).toBe(false);
+	});
+
+	it("drops the account from the device when the session is over", async () => {
+		vi.spyOn(authService, "refresh").mockRejectedValue(new ApiError("No session", 401));
+		await mount();
+		expect(auth.restoring()).toBe(false);
+		expect(auth.user()).toBeNull();
+		expect(await auth.waitForToken()).toBeNull();
+		expect(localStorage.getItem("grid.session.user")).toBeNull();
+	});
+
+	it("stays in the kept Grid while offline, and connects once the API is back", async () => {
+		const refresh = vi
+			.spyOn(authService, "refresh")
+			.mockRejectedValueOnce(new TypeError("Failed to fetch"))
+			.mockResolvedValue(session("back"));
+		await mount();
+		expect(auth.ready()).toBe(true);
+		expect(auth.restoring()).toBe(true);
+		const waiting = auth.waitForToken();
+		await vi.advanceTimersByTimeAsync(10_000);
+		expect(refresh).toHaveBeenCalledTimes(2);
+		expect(await waiting).toBe("back");
+		expect(auth.restoring()).toBe(false);
+	});
+});

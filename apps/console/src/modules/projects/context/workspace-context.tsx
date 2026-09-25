@@ -10,6 +10,7 @@ import {
 	useContext,
 } from "solid-js";
 
+import { localStore } from "@/lib/local-store";
 import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
 
@@ -147,12 +148,18 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		};
 	});
 
+	// Projects, their folders and the open project's tasks are kept on the device too: while the
+	// session is confirmed on opening, the app shows the last known ones rather than nothing.
 	const projects = createMemo(async () => {
 		projectsRevision();
 		const token = auth.token();
-		if (!token) return [];
+		if (!token) return (await localStore.get<Project[]>("projects")) ?? [];
 		// Archived projects have been removed from the console.
-		return (await projectsService.list(token)).filter((project) => project.status !== "archived");
+		const list = (await projectsService.list(token)).filter(
+			(project) => project.status !== "archived",
+		);
+		void localStore.set("projects", list);
+		return list;
 	});
 
 	// The task URL is the board URL plus a panel, so both spell the same project.
@@ -193,7 +200,7 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 	const folders = createMemo(async () => {
 		foldersRevision();
 		const token = auth.token();
-		if (!token) return {};
+		if (!token) return (await localStore.get<Record<string, string>>("folders")) ?? {};
 		await placementsStore.reload(token);
 		const placed = untrack(placementsStore.placements);
 		const here = await foldersService.projectFolders(token).catch(() => ({}));
@@ -211,6 +218,7 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 				}
 			}),
 		);
+		void localStore.set("folders", merged);
 		return merged;
 	});
 
@@ -218,8 +226,11 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		revision();
 		const token = auth.token();
 		const project = activeProject();
-		if (!token || !project) return [];
-		return projectsService.listTasks(token, project.slug);
+		if (!project) return [];
+		if (!token) return (await localStore.get<Task[]>(`tasks:${project.slug}`)) ?? [];
+		const list = await projectsService.listTasks(token, project.slug);
+		void localStore.set(`tasks:${project.slug}`, list);
+		return list;
 	});
 
 	const activeTaskNumber = createMemo(() => {

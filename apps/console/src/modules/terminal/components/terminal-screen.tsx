@@ -226,9 +226,13 @@ export function TerminalScreen(): JSX.Element {
 
 	// First visit with nothing open: start a shell right away.
 	onSettled(() => {
-		void refresh().then((list) => {
-			if (list && list.length === 0) void openTerminal();
-		});
+		// Opening the app, the session may still be being confirmed: wait for it.
+		void auth
+			.waitForToken()
+			.then(() => refresh())
+			.then((list) => {
+				if (list && list.length === 0) void openTerminal();
+			});
 	});
 
 	// Keep the URL on a terminal that exists, so reloads and shared links land somewhere real.

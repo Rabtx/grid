@@ -10,7 +10,8 @@ import { BrandMark } from "@/ui";
  *
  * The redirect waits for `ready()` because the provider spends its first moments
  * trying to trade the refresh cookie for a token; redirecting before that settles
- * would bounce a signed-in user to the login page on every reload.
+ * would bounce a signed-in user to the login page on every reload. Someone who was signed in on
+ * this device last time (`restoring()`) sees their Grid meanwhile, from what the device kept.
  */
 export function RequireAuth(props: { children: JSX.Element }): JSX.Element {
 	const auth = useAuth();
@@ -18,7 +19,10 @@ export function RequireAuth(props: { children: JSX.Element }): JSX.Element {
 	const location = useLocation();
 
 	createEffect(
-		() => (auth.ready() && !auth.token() ? location.pathname + location.search : null),
+		() =>
+			auth.ready() && !auth.token() && !auth.restoring()
+				? location.pathname + location.search
+				: null,
 		(next) => {
 			if (next !== null)
 				navigate(`/login?next=${encodeURIComponent(next)}`, {
@@ -28,7 +32,7 @@ export function RequireAuth(props: { children: JSX.Element }): JSX.Element {
 	);
 
 	return (
-		<Show when={auth.ready() && auth.token()} fallback={<AuthPending />}>
+		<Show when={(auth.ready() && auth.token()) || auth.restoring()} fallback={<AuthPending />}>
 			{props.children}
 		</Show>
 	);
