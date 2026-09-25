@@ -1,6 +1,6 @@
 import { useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Show, untrack } from "solid-js";
+import { createEffect, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import { threadsStore } from "@/modules/chat/stores/threads";
@@ -8,10 +8,12 @@ import type { ChatSession } from "@/modules/chat/types/chat.types";
 import { type Project, useWorkspace } from "@/modules/projects";
 import {
 	BoardIcon,
+	attachContextMenu,
 	ChevronDownIcon,
 	ConfirmDialog,
 	FolderIcon,
 	Menu,
+	type MenuControl,
 	type MenuItem,
 	MoreIcon,
 	PlusIcon,
@@ -38,9 +40,15 @@ const THREAD_MENU: MenuItem[] = [
 const ROW =
 	"focus-ring flex w-full min-w-0 items-center gap-2 rounded-md text-left text-ui transition-colors duration-fast ease-out-grid hover:bg-ink/10 hover:text-ink aria-[current=page]:bg-selection-strong aria-[current=page]:text-ink";
 
-// Hover-revealed row actions; always shown on touch screens, which cannot hover.
+// Row actions for pointers: revealed on hover or keyboard focus. Touch screens get none — a long
+// press on the row opens the same menu, as native lists do.
 const ACTIONS =
 	"absolute inset-y-0 right-0.5 flex items-center opacity-0 transition-opacity duration-fast focus-within:opacity-100 group-hover/row:opacity-100 pointer-coarse:opacity-100";
+// (On touch the wrapper stays rendered — a hidden ancestor would hide the menu it holds — and
+// its buttons hide themselves.)
+
+// A row that long-presses into a menu: no iOS link callout or text selection competing with it.
+const PRESSABLE = "select-none [-webkit-touch-callout:none]";
 
 function rememberedOpen(): string[] {
 	try {
@@ -160,6 +168,10 @@ function ProjectNode(props: {
 	const current = () => slug() === workspace.currentSlug();
 	const folder = () => workspace.folders()[slug()];
 	const onBoard = () => workspace.activeSlug() === slug();
+	let menu: MenuControl | undefined;
+	let row: HTMLDivElement | undefined;
+	// Right-click and long press open the row's menu.
+	onSettled(() => (row ? attachContextMenu(row, (point) => menu?.open(point)) : undefined));
 
 	// A project's threads are read the first time it is opened.
 	createEffect(
@@ -181,7 +193,12 @@ function ProjectNode(props: {
 
 	return (
 		<li>
-			<div class="group/row relative flex items-center">
+			<div
+				class={`group/row relative flex items-center ${PRESSABLE}`}
+				ref={(el) => {
+					row = el;
+				}}
+			>
 				<button
 					type="button"
 					aria-label={props.open ? `Close ${props.project.name}` : `Open ${props.project.name}`}
@@ -196,7 +213,7 @@ function ProjectNode(props: {
 				<a
 					href={`/chat/${slug()}`}
 					aria-current={current() ? "page" : undefined}
-					class={`${ROW} h-8 flex-1 pr-15 pl-1 font-medium text-ink/60 pointer-coarse:h-11`}
+					class={`${ROW} h-8 flex-1 pr-15 pl-1 font-medium text-ink/60 pointer-coarse:h-11 pointer-coarse:pr-2`}
 					onClick={(event) => {
 						if (event.metaKey || event.ctrlKey || event.shiftKey) return;
 						event.preventDefault();
@@ -213,7 +230,7 @@ function ProjectNode(props: {
 						href={`/chat/${slug()}`}
 						title="New thread"
 						aria-label={`New thread in ${props.project.name}`}
-						class="focus-ring grid size-6 place-items-center rounded-md text-ink/50 hover:bg-ink/10 hover:text-ink pointer-coarse:size-10"
+						class="focus-ring grid size-6 place-items-center rounded-md text-ink/50 hover:bg-ink/10 hover:text-ink pointer-coarse:hidden"
 					>
 						<PlusIcon class="size-3.5" />
 					</a>
@@ -222,6 +239,10 @@ function ProjectNode(props: {
 						trigger={<MoreIcon class="size-4" />}
 						items={PROJECT_MENU}
 						onSelect={onMenu}
+						pointerOnly
+						control={(control) => {
+							menu = control;
+						}}
 					/>
 				</div>
 			</div>
@@ -277,6 +298,9 @@ function ThreadRow(props: {
 	const [renaming, setRenaming] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
 	const active = () => inThread()?.params.id === props.session.id;
+	let menu: MenuControl | undefined;
+	let row: HTMLDivElement | undefined;
+	onSettled(() => (row ? attachContextMenu(row, (point) => menu?.open(point)) : undefined));
 
 	async function save(title: string): Promise<void> {
 		const token = untrack(auth.token);
@@ -296,7 +320,12 @@ function ThreadRow(props: {
 	}
 
 	return (
-		<div class="group/row relative">
+		<div
+			class={`group/row relative ${PRESSABLE}`}
+			ref={(el) => {
+				row = el;
+			}}
+		>
 			<Show
 				when={renaming()}
 				fallback={
@@ -304,14 +333,14 @@ function ThreadRow(props: {
 						href={`/chat/${props.session.project}/${props.session.id}`}
 						aria-current={active() ? "page" : undefined}
 						title={error() ?? props.session.title}
-						class={`${ROW} h-7 pr-8 pl-2 text-ink/60 text-ui-sm pointer-coarse:h-10 ${error() ? "text-danger" : ""}`}
+						class={`${ROW} h-7 pr-8 pl-2 text-ink/60 text-ui-sm pointer-coarse:h-10 pointer-coarse:pr-2 ${error() ? "text-danger" : ""}`}
 						onDblClick={(event) => {
 							event.preventDefault();
 							setRenaming(true);
 						}}
 					>
 						<span class="min-w-0 flex-1 truncate">{props.session.title}</span>
-						<span class="shrink-0 text-ink/35 text-ui-caption tabular-nums group-hover/row:invisible pointer-coarse:invisible">
+						<span class="shrink-0 text-ink/35 text-ui-caption tabular-nums group-hover/row:invisible pointer-coarse:group-hover/row:visible">
 							{relative(props.session.updatedAt)}
 						</span>
 					</a>
@@ -335,6 +364,10 @@ function ThreadRow(props: {
 						label={`${props.session.title} options`}
 						trigger={<MoreIcon class="size-4" />}
 						items={THREAD_MENU}
+						pointerOnly
+						control={(control) => {
+							menu = control;
+						}}
 						onSelect={(id) => {
 							if (id === "rename") setRenaming(true);
 							// The confirmation is a modal of its own, above the drawer.
