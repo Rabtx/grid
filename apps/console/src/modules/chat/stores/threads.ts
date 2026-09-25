@@ -46,6 +46,11 @@ export const threadsStore = {
 		pending.set(project, work);
 		return work;
 	},
+	/** Re-read a project's threads after a drop or runner restart. */
+	reload(token: string, project: string): Promise<void> {
+		pending.delete(project);
+		return threadsStore.load(token, project);
+	},
 	/** A thread was created or changed (a new title, a new message). */
 	upsert(session: ChatSession): void {
 		const rest = (untrack(byProject)[session.project] ?? []).filter(

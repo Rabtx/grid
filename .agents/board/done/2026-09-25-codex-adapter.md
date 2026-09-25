@@ -5,7 +5,7 @@ type: feature
 from: human
 to: ui-ux
 priority: high
-status: open
+status: done
 assignee: claude
 reviewer: human
 parent: .agents/plans/next-foundations.md
@@ -40,3 +40,17 @@ edits, Full access. Catalog from `model/list`.
 Runner tests with a fake app-server; a real turn in a temp folder.
 
 ## Resolution
+
+Landed in #56. `apps/runner/src/agents/codex.ts`, registered as `codex` (found on PATH):
+handshake; `thread/start` or `thread/resume` (stored thread id) with the project folder as `cwd`;
+`turn/start` with model, effort, approval policy and a sandbox rooted in the folder; streamed
+replies and reasoning; commands (read/search/execute from Codex's command actions), file changes,
+MCP calls and web searches as tool calls; plan and token usage; command and file-change approvals
+(Allow, Allow for this chat, Deny); `turn/interrupt` to stop; only the final error (Codex's own
+retries are skipped). Modes: Supervised, Auto-accept edits, Full access. Models from `model/list`
+with effort levels (`ultra` added to the effort names).
+
+Validation: `codex.test.ts` (5 tests, fake app-server), runner suite 48 pass; a real smoke run
+created and, after a simulated restart, edited a file in the project folder. From a
+network-sandboxed session `chatgpt.com` is unreachable, so the runner must run outside one.
+

@@ -31,6 +31,8 @@ const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 // A socket must say hello this soon, or it is dropped.
 const HELLO_TIMEOUT_MS = 10_000;
 
+export const RUNNER_STARTED_AT = Date.now();
+
 export function startServer(
 	config: RunnerConfig,
 	store: TerminalStore,
@@ -52,7 +54,8 @@ export function startServer(
 		async fetch(request, server) {
 			const url = new URL(request.url);
 
-			if (url.pathname === "/health") return Response.json({ ok: true });
+			if (url.pathname === "/health")
+				return Response.json({ ok: true, startedAt: RUNNER_STARTED_AT });
 
 			if (url.pathname === "/transcribe" && request.method === "POST") {
 				const userId = await userFrom(request);
@@ -139,6 +142,13 @@ export function startServer(
 				}
 				const { userId, targetId: terminalId } = ws.data;
 				if (!terminalId) return;
+				if (typeof message === "string") {
+					const ping = parse<{ t?: string }>(message);
+					if (ping?.t === "ping") {
+						ws.send(JSON.stringify({ t: "pong" }));
+						return;
+					}
+				}
 				if (ws.data.kind === "chat") {
 					const command = typeof message === "string" ? parse<ChatCommand>(message) : null;
 					if (command) {

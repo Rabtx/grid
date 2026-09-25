@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { Loading, Show } from "solid-js";
 
+import { runnerUp } from "@/lib/runner-health";
 import { useWorkspace } from "@/modules/projects";
 import { FolderIcon, TerminalIcon } from "@/ui";
 
@@ -20,6 +21,12 @@ export function StatusBar(): JSX.Element {
 
 	return (
 		<footer class="flex h-7 shrink-0 items-center gap-1.5 overflow-x-auto border-stroke border-t px-1.5 text-ui-caption [scrollbar-width:none] pointer-coarse:h-auto pointer-coarse:min-h-9 pointer-coarse:pb-[env(safe-area-inset-bottom)]">
+			<Show when={!runnerUp()}>
+				<span class="inline-flex items-center gap-1.5 px-1.5 text-warning text-ui-caption">
+					<span class="size-1.5 shrink-0 rounded-full bg-warning motion-safe:animate-pulse" />
+					<span>Runner offline — reconnecting…</span>
+				</span>
+			</Show>
 			<Loading fallback={<span />}>
 				<Show when={workspace.currentSlug()}>
 					{(slug) => (

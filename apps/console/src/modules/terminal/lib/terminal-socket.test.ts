@@ -155,4 +155,40 @@ describe("connectTerminal", () => {
 		expect(exited.events).toContain("exit:0");
 		expect(exited.sockets).toHaveLength(1);
 	});
+
+	it("sends ping heartbeat every 20s while attached", () => {
+		const { sockets } = setup();
+		sockets[0].accept();
+		sockets[0].receive(ready);
+
+		vi.advanceTimersByTime(20_000);
+		expect(sockets[0].text()).toContain(JSON.stringify({ t: "ping" }));
+
+		// Pong message handled without error
+		sockets[0].receive(JSON.stringify({ t: "pong" }));
+	});
+
+	it("handles runner restart: disconnects (1006), reconnects, then transitions to gone on 4404 while preserving output", () => {
+		const { sockets, states, output } = setup();
+		sockets[0].accept();
+		sockets[0].receive(ready);
+		sockets[0].receive(new TextEncoder().encode("user output before restart\r\n").buffer);
+		expect(output).toContain("user output before restart\r\n");
+
+		// Runner restarts: socket drops with 1006
+		sockets[0].drop(1006);
+		expect(states.at(-1)).toBe("reconnecting");
+
+		// Reconnects to runner
+		vi.advanceTimersByTime(100);
+		expect(sockets).toHaveLength(2);
+		sockets[1].accept();
+
+		// Since runner restarted, the old terminal id does not exist -> runner responds with 4404
+		sockets[1].drop(4404);
+		expect(states.at(-1)).toBe("gone");
+
+		// Output remains intact (no reset called after 4404)
+		expect(output).toContain("user output before restart\r\n");
+	});
 });

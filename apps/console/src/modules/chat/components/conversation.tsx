@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, onSettled, Show } from "solid-js";
 
+import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
 import { ErrorNotice, FolderIcon } from "@/ui";
 
@@ -38,6 +39,8 @@ export function Conversation(props: {
 	const [running, setRunning] = createSignal(false);
 	const [connection, setConnection] = createSignal<ChatConnection>("connecting");
 	const [error, setError] = createSignal<string | null>(null);
+	const [restartNotice, setRestartNotice] = createSignal<string | null>(null);
+	let lastStartedAt = runnerStartedAt();
 	let socket: ChatSocket | undefined;
 	let scroller: HTMLDivElement | undefined;
 	// Follow new output only while the reader is at the bottom; scrolling up to read stops it.
@@ -79,7 +82,20 @@ export function Conversation(props: {
 				setSession(ready.session);
 				props.onSession(ready.session);
 				setTranscript(replay(ready.history));
-				setRunning(ready.running);
+				const currentStartedAt = runnerStartedAt();
+				const restarted =
+					runnerRestarted() ||
+					(lastStartedAt !== null &&
+						currentStartedAt !== null &&
+						currentStartedAt !== lastStartedAt);
+
+				if (running() && (restarted || !ready.running)) {
+					setRestartNotice("The runner restarted; send again to continue");
+					setRunning(false);
+				} else {
+					setRunning(ready.running);
+				}
+				lastStartedAt = currentStartedAt;
 				pinned = true;
 				scrollToEnd();
 				const first = firstMessages.get(props.id);
@@ -97,7 +113,10 @@ export function Conversation(props: {
 					setSession(titled);
 					props.onSession(titled);
 				}
-				if (event.type === "turn_start") setRunning(true);
+				if (event.type === "turn_start") {
+					setRestartNotice(null);
+					setRunning(true);
+				}
 				if (event.type === "turn_end") setRunning(false);
 				scrollToEnd();
 			},
@@ -129,6 +148,7 @@ export function Conversation(props: {
 
 	function send(text: string): boolean {
 		setError(null);
+		setRestartNotice(null);
 		if (!socket?.send({ t: "prompt", text })) {
 			setError("Not connected to the runner right now — your message is still in the box.");
 			return false;
@@ -180,6 +200,13 @@ export function Conversation(props: {
 						{(message) => (
 							<div class="mb-2">
 								<ErrorNotice message={message()} />
+							</div>
+						)}
+					</Show>
+					<Show when={restartNotice()}>
+						{(notice) => (
+							<div class="mb-2 rounded-md bg-ink/5 px-3 py-2 text-ink/70 text-ui-xs">
+								{notice()}
 							</div>
 						)}
 					</Show>
