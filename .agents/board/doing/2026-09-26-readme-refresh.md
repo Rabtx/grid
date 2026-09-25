@@ -60,7 +60,8 @@ with current source and board cards, and ran `git diff --check`, `bun run format
 architecture and typecheck. No API, schema, or runtime contract changed.
 
 Implementation commit: `29518d2` (`docs: explain grid product and current architecture`).
-Review: human reviewer pending through the PR. Keep this card in `doing/` until reviewed.
+Review: human reviewer pending through [PR #85](https://github.com/shabirkhan-dev/grid/pull/85).
+Keep this card in `doing/` until reviewed.
 
 Follow-up outside this card: `AGENTS.md` still describes the product as an unbuilt engineering
 spine, and the portable guide still instructs people to install agents manually in a Codespace.
