@@ -10,8 +10,10 @@ Reproducible environment for Grid: **Bun**, **Rust**, and the Bash lint/format h
 It is one container, with Postgres installed inside it: Codespaces runs every feature (Tailscale,
 SSH) and forwards every port only for a single container, which is why this is not a Compose
 setup. `postCreateCommand` runs `bun install` and `bun run prepare` (git hooks). Each start,
-`start.sh` joins the tailnet when there is a key, starts Postgres, and starts Grid in the
-background (`bun run grid`, port 8080, log in `.grid/grid.log`). The same setup opens in GitHub
+`start.sh` joins the tailnet when there is a key, starts Postgres, and marks the workspace
+ready; the `grid-service` feature then keeps Grid running (`bun run grid`, port 8080, log in
+`.grid/grid.log`) for as long as the container runs, restarting it if it stops. Grid is not
+started from `start.sh` itself: Codespaces kills whatever a lifecycle command leaves running. The same setup opens in GitHub
 Codespaces, and `gh codespace ssh` works. Use `bun run dev`, `bun run lint`, etc. as on the host.
 See `/docs/portable`.
 
