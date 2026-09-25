@@ -14,6 +14,8 @@ export type ProjectView = {
 	name: string;
 	summary: string | null;
 	repoUrl: string | null;
+	icon: string | null;
+	color: string | null;
 	status: ProjectRecord['status'];
 	createdAt: string;
 	updatedAt: string;
@@ -52,6 +54,8 @@ export class ProjectsService {
 			name: input.name,
 			summary: input.summary ?? null,
 			repoUrl: input.repoUrl ?? null,
+			icon: input.icon ?? null,
+			color: input.color ?? null,
 		});
 		return toProjectView(project);
 	}
@@ -133,6 +137,8 @@ function toProjectView(record: ProjectRecord): ProjectView {
 		name: record.name,
 		summary: record.summary,
 		repoUrl: record.repoUrl,
+		icon: record.icon,
+		color: record.color,
 		status: record.status,
 		createdAt: record.createdAt.toISOString(),
 		updatedAt: record.updatedAt.toISOString(),

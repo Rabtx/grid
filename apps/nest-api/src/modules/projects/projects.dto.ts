@@ -25,12 +25,30 @@ const slug = z
 
 const optionalText = (maximum: number) => z.string().trim().max(maximum).nullable().optional();
 
+// A project's look: an icon id and a colour (a palette name or #rrggbb).
+const icon = z
+	.string()
+	.trim()
+	.max(64)
+	.regex(/^[a-z0-9:-]+$/, 'Use an icon id')
+	.nullable()
+	.optional();
+const color = z
+	.string()
+	.trim()
+	.max(32)
+	.regex(/^(#[0-9a-fA-F]{6}|[a-z]+)$/, 'Use a palette colour or #rrggbb')
+	.nullable()
+	.optional();
+
 export const createProjectSchema = z
 	.object({
 		slug,
 		name: z.string().trim().min(1).max(120),
 		summary: optionalText(280),
 		repoUrl: z.url().max(2048).nullable().optional(),
+		icon,
+		color,
 	})
 	.strict();
 
@@ -40,6 +58,8 @@ export class CreateProjectDto {
 	name!: string;
 	summary?: string | null;
 	repoUrl?: string | null;
+	icon?: string | null;
+	color?: string | null;
 }
 
 export const updateProjectSchema = z
@@ -48,6 +68,8 @@ export const updateProjectSchema = z
 		summary: optionalText(280),
 		repoUrl: z.url().max(2048).nullable().optional(),
 		status: z.enum(['active', 'archived']).optional(),
+		icon,
+		color,
 	})
 	.strict()
 	.refine((input) => Object.keys(input).length > 0, 'At least one project field is required');
@@ -58,6 +80,8 @@ export class UpdateProjectDto {
 	summary?: string | null;
 	repoUrl?: string | null;
 	status?: 'active' | 'archived';
+	icon?: string | null;
+	color?: string | null;
 }
 
 const owner = z

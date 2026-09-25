@@ -67,11 +67,16 @@ type WorkspaceState = {
 	projectAction: () => ProjectAction | null;
 	setProjectAction: (action: ProjectAction | null) => void;
 	renameProject: (slug: string, name: string) => Promise<void>;
+	/** Save how a project is drawn: its icon and colour (null for the defaults). */
+	styleProject: (
+		slug: string,
+		look: { icon: string | null; color: string | null },
+	) => Promise<void>;
 	/** Archive the project: it leaves the console; its folder and chats are untouched. */
 	removeProject: (slug: string) => Promise<void>;
 };
 
-export type ProjectAction = { kind: "rename" | "remove"; slug: string };
+export type ProjectAction = { kind: "rename" | "remove" | "customize"; slug: string };
 
 export type NewTaskDefaults = {
 	status?: TaskStatus;
@@ -107,6 +112,7 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 	// The board, and the same board with one task open over it.
 	const boardMatch = useMatch(() => "/board/:slug");
 	const taskMatch = useMatch(() => "/board/:slug/tasks/:number");
+	const filesMatch = useMatch(() => "/files/:slug");
 	// Bumped after every write so the task read re-runs; the dependency stays visible in the memo.
 	const [revision, setRevision] = createSignal(0);
 	const [newTaskOpen, setNewTaskOpen] = createSignal(false);
@@ -160,6 +166,7 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 			slug && list.some((project) => project.slug === slug) ? slug : null;
 		return (
 			known(activeSlug()) ??
+			known(filesMatch()?.params.slug) ??
 			known(chatMatch()?.params.slug) ??
 			known(remembered()) ??
 			list[0]?.slug ??
@@ -253,6 +260,16 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		setProjectsRevision((n) => n + 1);
 	}
 
+	async function styleProject(
+		slug: string,
+		look: { icon: string | null; color: string | null },
+	): Promise<void> {
+		const token = untrack(auth.token);
+		if (!token) return;
+		await projectsService.update(token, slug, look);
+		setProjectsRevision((n) => n + 1);
+	}
+
 	async function removeProject(slug: string): Promise<void> {
 		const token = untrack(auth.token);
 		if (!token) return;
@@ -298,6 +315,7 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		projectAction,
 		setProjectAction,
 		renameProject,
+		styleProject,
 		removeProject,
 	};
 

@@ -3,7 +3,16 @@ import type { JSX } from "@solidjs/web";
 import { Loading, Show } from "solid-js";
 
 import { useWorkspace } from "@/modules/projects";
-import { BoardIcon, Button, ChatIcon, IconButton, MenuIcon, PlusIcon, SidebarIcon } from "@/ui";
+import {
+	BoardIcon,
+	Button,
+	ChatIcon,
+	FileIcon,
+	IconButton,
+	MenuIcon,
+	PlusIcon,
+	SidebarIcon,
+} from "@/ui";
 
 import { useShell } from "../context/shell-context";
 
@@ -53,10 +62,13 @@ function ProjectViews(props: { compact?: boolean }): JSX.Element {
 	const workspace = useWorkspace();
 	const location = useLocation();
 	const slug = () =>
-		location.pathname.startsWith("/chat/") || location.pathname.startsWith("/board/")
+		location.pathname.startsWith("/chat/") ||
+		location.pathname.startsWith("/board/") ||
+		location.pathname.startsWith("/files/")
 			? workspace.currentSlug()
 			: null;
 	const onBoard = () => location.pathname.startsWith("/board/");
+	const onFiles = () => location.pathname.startsWith("/files/");
 
 	return (
 		<Show when={slug()}>
@@ -64,12 +76,21 @@ function ProjectViews(props: { compact?: boolean }): JSX.Element {
 				<nav aria-label="Project views" class="flex items-center gap-0.5 rounded-lg bg-ink/5 p-0.5">
 					<a
 						href={workspace.projectHref(project())}
-						aria-current={onBoard() ? undefined : "page"}
+						aria-current={onBoard() || onFiles() ? undefined : "page"}
 						class={VIEW}
 						title="Threads"
 					>
 						<ChatIcon class="size-3.5" />
 						<span class={props.compact ? "sr-only" : ""}>Threads</span>
+					</a>
+					<a
+						href={`/files/${project()}`}
+						aria-current={onFiles() ? "page" : undefined}
+						class={VIEW}
+						title="Files"
+					>
+						<FileIcon class="size-3.5" />
+						<span class={props.compact ? "sr-only" : ""}>Files</span>
 					</a>
 					<a
 						href={`/board/${project()}`}
@@ -156,6 +177,7 @@ export function TitleBar(): JSX.Element {
 /** Phone title bar: the menu, the screen's tabs (or its name), and its action in thumb reach. */
 export function TopBar(): JSX.Element {
 	const shell = useShell();
+	const location = useLocation();
 
 	return (
 		<header class="glass z-30 shrink-0 border-stroke border-b pt-[env(safe-area-inset-top)]">
@@ -172,7 +194,10 @@ export function TopBar(): JSX.Element {
 						{(tabs) => <>{tabs()()}</>}
 					</Show>
 				</div>
-				<ProjectViews compact />
+				{/* In a chat the phone header is the title alone; the drawer reaches the board. */}
+				<Show when={!location.pathname.startsWith("/chat")}>
+					<ProjectViews compact />
+				</Show>
 				<Action compact />
 			</div>
 		</header>

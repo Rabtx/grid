@@ -8,6 +8,7 @@ import { ErrorNotice, FolderIcon } from "@/ui";
 import { type ChatConnection, connectChat, type ChatSocket } from "../lib/chat-socket";
 import { applyEvent, emptyTranscript, replay, type Transcript } from "../lib/transcript";
 import { chatSocketUrl } from "../services/chat.service";
+import { threadsStore } from "../stores/threads";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
 
 import { mergeModels } from "../lib/choices";
@@ -37,6 +38,13 @@ export function Conversation(props: {
 	const [transcript, setTranscript] = createSignal<Transcript>(emptyTranscript());
 	const [session, setSession] = createSignal<ChatSession | null>(null);
 	const [running, setRunning] = createSignal(false);
+	// The sidebar and tabs show this thread working the moment its turn starts, not at the next poll.
+	createEffect(
+		() => [running(), session()?.project] as const,
+		([value, project]) => {
+			if (project) threadsStore.markRunning(props.id, project, value);
+		},
+	);
 	const [connection, setConnection] = createSignal<ChatConnection>("connecting");
 	const [error, setError] = createSignal<string | null>(null);
 	const [restartNotice, setRestartNotice] = createSignal<string | null>(null);
@@ -63,7 +71,17 @@ export function Conversation(props: {
 		const keep = levels.some((level) => level.id === effort());
 		const nextEffort =
 			levels.length && !keep ? models().find((item) => item.id === next)?.defaultEffort : undefined;
+		setTranscript((curr) => ({
+			...curr,
+			model: next,
+			...(nextEffort !== undefined ? { effort: nextEffort } : {}),
+		}));
 		socket?.send({ t: "configure", model: next, ...(nextEffort ? { effort: nextEffort } : {}) });
+	}
+
+	function handleRegenerate(prompt: string): void {
+		if (running()) return;
+		send(prompt);
 	}
 
 	function scrollToEnd(): void {
@@ -190,6 +208,7 @@ export function Conversation(props: {
 					<TranscriptView
 						blocks={transcript().blocks}
 						running={running()}
+						onRegenerate={handleRegenerate}
 						onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
 					/>
 				</div>

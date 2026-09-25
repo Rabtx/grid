@@ -15,7 +15,7 @@ export type MenuItem = {
 };
 
 const TRIGGER_CLASS =
-	"focus-ring inline-flex size-control shrink-0 select-none items-center justify-center rounded-md text-ink/50 transition-[background-color,color,transform] duration-fast ease-out-grid hover:bg-ink/8 hover:text-ink active:scale-[0.96] pointer-coarse:min-h-10 pointer-coarse:min-w-10";
+	"focus-ring inline-flex size-control shrink-0 select-none items-center justify-center rounded-md text-ink/50 transition-[background-color,color,transform] duration-fast ease-out-grid hover:bg-ink/8 hover:text-ink active:scale-[0.96] pointer-coarse:min-h-11 pointer-coarse:min-w-11";
 
 // Phones: bottom sheet, full width, safe-area padded. From md: clears the sheet insets so CSS
 // anchor positioning (`position-area`) or the JS fallback can place it under the trigger.
@@ -42,6 +42,8 @@ function supportsAnchorPositioning(): boolean {
 export function Menu(props: {
 	label: string;
 	trigger: JSX.Element;
+	triggerClass?: string;
+	disabled?: boolean;
 	items: readonly MenuItem[];
 	onSelect: (id: string) => void;
 	/**
@@ -182,9 +184,10 @@ export function Menu(props: {
 				}}
 				aria-label={props.label}
 				title={props.label}
+				disabled={props.disabled}
 				popovertarget={listId}
 				style={anchorOk ? `anchor-name: ${anchorName}` : undefined}
-				class={`${TRIGGER_CLASS} ${props.pointerOnly ? "pointer-coarse:hidden" : ""}`}
+				class={`${props.triggerClass ?? TRIGGER_CLASS} ${props.pointerOnly ? "pointer-coarse:hidden" : ""}`}
 			>
 				{props.trigger}
 			</button>
@@ -209,7 +212,7 @@ export function Menu(props: {
 							role="menuitem"
 							disabled={item.disabled}
 							onClick={() => selectItem(item)}
-							class={`${ITEM_CLASS} ${item.danger ? "text-danger hover:bg-danger/10" : "text-ink/80 hover:bg-ink/10"}`}
+							class={`${ITEM_CLASS} ${item.danger ? "text-danger hover:bg-danger/10" : "text-ink/80 hover:bg-ink/10"} ${item.disabled ? "pointer-events-none opacity-40" : ""}`}
 						>
 							<Show when={item.icon}>{item.icon}</Show>
 							<span class="truncate">{item.label}</span>

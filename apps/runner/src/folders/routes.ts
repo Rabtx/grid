@@ -1,6 +1,7 @@
 import type { ChatHub } from "../chat/hub";
 import { ChatError } from "../chat/hub";
 import { expandPath, FolderError, inspectFolder, listFolders } from "./folders";
+import { createProjectFile, listProjectFiles } from "./project-files";
 
 /**
  * Folders on this machine, for linking projects to their code from any device: browse, look
@@ -13,6 +14,24 @@ export async function folderRequest(
 	hub: ChatHub,
 ): Promise<Response | null> {
 	try {
+		const files = url.pathname.match(/^\/projects\/files\/([a-z0-9-]+)$/);
+		if (files && (request.method === "GET" || request.method === "POST")) {
+			const root = hub.projectFolders(userId)[files[1]];
+			if (!root) return failure(409, "Choose this project's folder first");
+			if (request.method === "GET")
+				return Response.json({ data: listProjectFiles(root, url.searchParams.get("path") ?? "") });
+			const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+			if (
+				typeof body.path !== "string" ||
+				typeof body.name !== "string" ||
+				(body.kind !== "file" && body.kind !== "folder")
+			)
+				return failure(400, "Say which file or folder to create");
+			return Response.json(
+				{ data: createProjectFile(root, body.path, body.name, body.kind) },
+				{ status: 201 },
+			);
+		}
 		if (url.pathname === "/fs/folders" && request.method === "GET") {
 			return Response.json({
 				data: listFolders(url.searchParams.get("path"), {
