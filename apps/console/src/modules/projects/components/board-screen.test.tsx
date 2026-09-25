@@ -330,7 +330,15 @@ describe("BoardScreen", () => {
 		const items = [
 			...(container.querySelectorAll('[role="menu"][aria-label="Move TASK-1"] button') ?? []),
 		].map((item) => item.textContent?.trim());
-		expect(items).toEqual(["Ready", "In progress", "Review", "QA", "Blocked", "Done"]);
+		expect(items).toEqual([
+			"Run with agent",
+			"Ready",
+			"In progress",
+			"Review",
+			"QA",
+			"Blocked",
+			"Done",
+		]);
 	});
 
 	it("moves a card into the target lane as soon as the move is chosen", async () => {

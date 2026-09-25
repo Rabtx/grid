@@ -1,8 +1,9 @@
-import { useLocation } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { onSettled, Show } from "solid-js";
 
-import { attachContextMenu, Menu, type MenuControl, MoreIcon } from "@/ui";
+import { draftsStore, taskDraft } from "@/modules/chat/stores/drafts";
+import { attachContextMenu, ChatIcon, Menu, type MenuControl, MoreIcon } from "@/ui";
 
 import { useWorkspace } from "../context/workspace-context";
 import {
@@ -39,24 +40,39 @@ export function TaskCard(props: {
 	onDragEnd?: () => void;
 }): JSX.Element {
 	const workspace = useWorkspace();
+	const navigate = useNavigate();
 	// Carry the board's filters into the task URL, so closing the panel returns to the same view.
 	const location = useLocation();
 
-	// Moving to the stage the card is already in is not a move, so it is not offered.
-	function moveItems(): { id: string; label: string; icon: JSX.Element }[] {
-		return TASK_STATUSES.filter((status) => status !== props.task.status).map((status) => ({
-			id: status,
-			label: TASK_STATUS_LABELS[status],
-			icon: <StatusIcon status={status} />,
-		}));
+	// Run with agent opens a new chat thread; moving to the current stage is not offered.
+	function actionItems(): { id: string; label: string; icon: JSX.Element }[] {
+		return [
+			{
+				id: "run-with-agent",
+				label: "Run with agent",
+				icon: <ChatIcon class="size-3.5 shrink-0" />,
+			},
+			...TASK_STATUSES.filter((status) => status !== props.task.status).map((status) => ({
+				id: status,
+				label: TASK_STATUS_LABELS[status],
+				icon: <StatusIcon status={status} />,
+			})),
+		];
 	}
 
 	let menu: MenuControl | undefined;
 	let card: HTMLDivElement | undefined;
-	// Right-click and long press open the card's "Move to…" menu.
+	// Right-click and long press open the card's action menu.
 	onSettled(() => (card ? attachContextMenu(card, (point) => menu?.open(point)) : undefined));
 
-	function move(id: string): void {
+	function handleSelect(id: string): void {
+		if (id === "run-with-agent") {
+			const slug = workspace.activeSlug();
+			if (!slug) return;
+			draftsStore.set(slug, taskDraft(props.task));
+			navigate(`/chat/${slug}`);
+			return;
+		}
 		const status = TASK_STATUSES.find((candidate) => candidate === id);
 		if (status) props.onMove(status);
 	}
@@ -123,8 +139,8 @@ export function TaskCard(props: {
 				<Menu
 					label={`Move ${props.task.key}`}
 					trigger={<MoreIcon />}
-					items={moveItems()}
-					onSelect={move}
+					items={actionItems()}
+					onSelect={handleSelect}
 					pointerOnly
 					control={(control) => {
 						menu = control;

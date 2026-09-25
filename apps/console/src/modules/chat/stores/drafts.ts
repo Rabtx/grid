@@ -16,10 +16,15 @@ export const draftsStore = {
 
 /** What a thread started from a task opens with. */
 export function taskDraft(task: {
-	key: string;
 	title: string;
 	description?: string | null;
+	branch?: string | null;
+	key?: string;
 }): string {
-	const details = task.description?.trim();
-	return `Work on ${task.key}: ${task.title}${details ? `\n\n${details}` : ""}`;
+	const parts: string[] = [task.title.trim()];
+	const description = task.description?.trim();
+	if (description) parts.push(description);
+	const branch = task.branch?.trim();
+	if (branch) parts.push(`Work on branch ${branch}`);
+	return parts.join("\n\n");
 }

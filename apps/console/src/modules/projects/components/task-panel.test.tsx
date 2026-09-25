@@ -3,6 +3,7 @@ import { render } from "@solidjs/web";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/modules/auth";
+import { draftsStore } from "@/modules/chat/stores/drafts";
 import { WorkspaceProvider } from "../context/workspace-context";
 
 import { BoardScreen } from "./board-screen";
@@ -116,6 +117,7 @@ describe("TaskPanel", () => {
 	afterEach(() => {
 		dispose?.();
 		container?.remove();
+		draftsStore.take("alpha");
 		vi.unstubAllGlobals();
 	});
 
@@ -125,6 +127,7 @@ describe("TaskPanel", () => {
 			routes: [
 				{ path: "/board/:slug", component: () => <BoardScreen /> },
 				{ path: "/board/:slug/tasks/:number", component: () => <BoardScreen /> },
+				{ path: "/chat/:project", component: () => <div data-testid="chat-screen">Chat</div> },
 			],
 			history: memoryHistory(path),
 		});
@@ -226,5 +229,44 @@ describe("TaskPanel", () => {
 			(button) => button.textContent === "Back to the board",
 		);
 		expect(back).toBeDefined();
+	});
+
+	it("offers 'Run with agent', seeds the draft with description and branch, and navigates to the chat thread", async () => {
+		mount("/board/alpha/tasks/1");
+		await settle();
+
+		const panel = dialogs(container)[0];
+		const runButton = [...panel.querySelectorAll<HTMLButtonElement>("header button")].find(
+			(button) => button.textContent?.trim() === "Run with agent",
+		);
+		expect(runButton).toBeDefined();
+		expect(runButton?.getAttribute("title")).toBe("Run with agent");
+
+		runButton?.click();
+		await settle();
+
+		expect(draftsStore.take("alpha")).toBe(
+			"First task in backlog\n\nDraft the empty state.\n\nWork on branch feature/first-task",
+		);
+		expect(container.querySelector('[data-testid="chat-screen"]')).not.toBeNull();
+	});
+
+	it("seeds the draft for a task without description when running with agent", async () => {
+		mount("/board/alpha/tasks/2");
+		await settle();
+
+		const panel = dialogs(container)[0];
+		const runButton = [...panel.querySelectorAll<HTMLButtonElement>("header button")].find(
+			(button) => button.textContent?.trim() === "Run with agent",
+		);
+		expect(runButton).toBeDefined();
+
+		runButton?.click();
+		await settle();
+
+		expect(draftsStore.take("alpha")).toBe(
+			"Second task ready for work\n\nWork on branch feature/second-task",
+		);
+		expect(container.querySelector('[data-testid="chat-screen"]')).not.toBeNull();
 	});
 });
