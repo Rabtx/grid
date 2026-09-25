@@ -7,6 +7,8 @@ import type { PairingStore } from "./environments/pairing";
 import { RELAYED_SOCKETS, relayHttp, SocketRelay } from "./environments/relay";
 import { type EnvironmentDeps, environmentRequest, pairRequest } from "./environments/routes";
 import { folderRequest } from "./folders/routes";
+import type { CodespacesLink } from "./github/codespaces";
+import { githubRequest } from "./github/routes";
 import type { PushNotifier } from "./push/notifier";
 import { pushRequest } from "./push/routes";
 import type { TerminalStore } from "./terminals";
@@ -67,9 +69,11 @@ export function startServer(
 		environments?: EnvironmentDeps;
 		/** Other Grids may pair with this runner and drive it (the environment side). */
 		pairing?: PairingStore;
+		/** GitHub sign-in and Codespaces, through `gh` on this machine. */
+		github?: CodespacesLink;
 	} = {},
 ): Server<SocketData> {
-	const { push, environments, pairing } = extras;
+	const { push, environments, pairing, github } = extras;
 	async function userFrom(request: Request): Promise<string | null> {
 		const header = request.headers.get("authorization") ?? "";
 		const token = header.startsWith("Bearer ") ? header.slice(7) : "";
@@ -138,6 +142,13 @@ export function startServer(
 				const target = environments.store.target(userId, environmentId);
 				if (!target) return error(404, "That environment does not exist");
 				return relayHttp(request, path, url.search, target, environments.fetcher);
+			}
+
+			if (github && (url.pathname === "/github" || url.pathname.startsWith("/github/"))) {
+				const userId = await userFrom(request);
+				if (!userId) return error(401, "Sign in to connect GitHub");
+				const handled = await githubRequest(request, url, userId, github);
+				if (handled) return handled;
 			}
 
 			if (environments && url.pathname.startsWith("/environments")) {

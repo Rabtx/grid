@@ -15,6 +15,8 @@ import {
 } from "@/ui";
 
 import { type Environment, environmentsService } from "../services/environments.service";
+
+import { CodespacesPanel } from "./codespaces-panel";
 import { environmentsStore } from "../stores/environments";
 
 /**
@@ -69,6 +71,7 @@ export function EnvironmentsScreen(): JSX.Element {
 					</div>
 				)}
 			</Show>
+			<CodespacesPanel />
 			<Show when={environmentsStore.environments().length > 0}>
 				<ul class="mt-6 flex flex-col divide-y divide-ink/5 rounded-xl border border-ink/10 bg-ink/3">
 					<For each={environmentsStore.environments()}>
@@ -162,13 +165,14 @@ function AddEnvironment(): JSX.Element {
 	return (
 		<section aria-labelledby="add-environment" class="mt-8">
 			<h2 id="add-environment" class="font-semibold text-ui">
-				Add an environment
+				Add a machine by address
 			</h2>
 			<p class="mt-1 text-ink/50 text-ui-sm">
-				On the environment, run <code class="font-mono text-ui-xs">bun run grid:pair</code>. It
-				prints the address and a code that works once, for ten minutes. A Codespace joins your
-				tailnet when it has a <code class="font-mono text-ui-xs">TS_AUTH_KEY</code> secret; see the
-				dev container's README.
+				For a VPS or another laptop, or a Codespace without GitHub here: on it, run{" "}
+				<code class="font-mono text-ui-xs">bun run grid:pair</code>. It prints the address and a
+				code that works once, for ten minutes. A Codespace joins your tailnet when it has a{" "}
+				<code class="font-mono text-ui-xs">TS_AUTH_KEY</code> secret; see the dev container's
+				README.
 			</p>
 			<form class="mt-4 flex flex-col gap-4 md:max-w-md" onSubmit={(event) => void submit(event)}>
 				<Field label="Address" hint="Like http://codespace-name.your-tailnet.ts.net:4100">
