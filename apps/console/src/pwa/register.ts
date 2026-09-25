@@ -1,5 +1,7 @@
 import { createSignal } from "solid-js";
 
+import { initPwaKeepalive } from "./pwa-keepalive";
+
 /**
  * Registers the service worker (production builds only — in dev it would fight hot reload) and
  * exposes whether a new version is waiting. The new worker never takes over mid-session on its
@@ -12,9 +14,10 @@ let waiting: ServiceWorker | null = null;
 let reloadRequested = false;
 
 /** True once a newer build is installed and waiting for a reload. */
-export { updateReady };
+export { updateReady, initPwaKeepalive };
 
 export function registerServiceWorker(): void {
+	initPwaKeepalive();
 	if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
 
 	window.addEventListener("load", () => {

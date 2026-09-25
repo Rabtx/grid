@@ -5,9 +5,9 @@ type: feature
 from: human
 to: web
 priority: high
-status: open
-assignee: none
-reviewer: claude
+status: done
+assignee: antigravity
+reviewer: human
 parent: .agents/plans/next-foundations.md
 depends_on: []
 branch: agent/web/runner-restart-recovery
@@ -20,6 +20,9 @@ scope:
   - apps/console/src/modules/terminal/**
   - apps/console/src/modules/shell/components/status-bar.tsx
   - apps/console/src/lib/runner-client.ts
+  - apps/console/src/lib/runner-health.ts
+  - apps/console/src/lib/runner-health.test.ts
+  - apps/console/src/pwa/**
   - apps/runner/src/server.ts
   - apps/runner/src/server.test.ts
 allowed_shared: []
@@ -88,3 +91,31 @@ transcript design, the shell layout.
 - The restart scenario above, run for real, with notes on the card.
 
 ## Resolution
+
+Implemented seamless auto-recovery for chat, terminals, HTTP reads, and background PWA resilience across runner restarts:
+
+1. **Runner Health & Heartbeat**:
+   - `apps/runner/src/server.ts`: Exported `RUNNER_STARTED_AT = Date.now()`, exposed unauthenticated `GET /health` returning `{ ok: true, startedAt }`, and added WebSocket `{ t: "ping" }` -> `{ t: "pong" }` heartbeats. Tested in `apps/runner/src/server.test.ts`.
+2. **Console Health Monitoring**:
+   - `apps/console/src/lib/runner-health.ts`: Reactive signals (`runnerUp`, `runnerRestarted`, `runnerStartedAt`), exponential backoff polling (`1s, 2s, 4s, 5s`) on failure, instant triggers on `online` and `visibilitychange`, and `onRunnerRecovered` subscriber callbacks. Tested in `apps/console/src/lib/runner-health.test.ts`.
+   - `apps/console/src/lib/runner-client.ts`: Wired HTTP calls to report runner failure and success.
+3. **Status Bar Indicator**:
+   - `apps/console/src/modules/shell/components/status-bar.tsx`: Displays pulsing warning dot and `"Runner offline — reconnecting…"` when runner is offline.
+4. **Chat Auto-Recovery & Replay**:
+   - `apps/console/src/modules/chat/lib/chat-socket.ts`: 20s heartbeat pings, instant wake-up reconnect (dropping stale sockets older than 35s), and immediate recovery on `onRunnerRecovered`. Tested in `apps/console/src/modules/chat/lib/chat-socket.test.ts` (reconnect with backoff, instant recovery, token renewal, replay handling).
+   - `apps/console/src/modules/chat/components/conversation.tsx`: When turn was in-flight during a restart, clears running state and renders muted notice `"The runner restarted; send again to continue"`.
+   - `apps/console/src/modules/chat/stores/providers.ts` & `threads.ts`: Added `reload()` methods; reloads providers and project threads on runner recovery in `chat-screen.tsx`.
+5. **Terminal Restart Prompt & Tab State**:
+   - `apps/console/src/modules/terminal/lib/terminal-socket.ts`: Heartbeat pings, runner health reporting, and recovery triggers. Tested in `apps/console/src/modules/terminal/lib/terminal-socket.test.ts`.
+   - `apps/console/src/modules/terminal/components/terminal-screen.tsx`: On 4404 close after restart, preserves scrollback, marks tab with `"ended"`, and renders action bar `"The runner restarted and this terminal ended"` with **Start again** (spawns new terminal in exact same `cwd` replacing tab) and **Close**.
+6. **PWA Background Keepalive & Wake Resilience**:
+   - `apps/console/src/pwa/pwa-keepalive.ts`: Requests shared Web Lock (`navigator.locks.request("grid_keepalive", ...)`) to maintain browser priority in background, watches visibility/pageshow/online to instantly re-verify runner health and reconnect without waiting on stale TCP timeout. Initialized in `apps/console/src/pwa/register.ts`.
+
+### Validation Output
+- `bun --cwd=apps/runner test`: 50 passed across 9 files (including `/health` and WebSocket ping/pong).
+- `bun --cwd=apps/console run test`: 169 passed across 27 files (including `runner-health.test.ts`, `chat-socket.test.ts`, `terminal-socket.test.ts`).
+- `bun run typecheck`: Exited with code 0 across all workspaces.
+- `bun run lint`: Exited with code 0.
+- `bun run format`: All files clean.
+- `bun run architecture:check`: Boundaries and kebab-case naming verified.
+- `bun run build`: All apps built cleanly.
