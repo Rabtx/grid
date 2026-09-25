@@ -148,6 +148,16 @@ describe("folders and project links", () => {
 			};
 			expect(listing.data.entries.map((entry) => entry.name)).toContain("notes.md");
 			expect((await fetch(`${url}?path=..`, { headers: auth })).status).toBe(400);
+
+			const searchUrl = `${url}/search?q=notes`;
+			expect((await fetch(searchUrl)).status).toBe(401);
+			expect(
+				(await fetch(`${base}/projects/files/unlinked/search`, { headers: auth })).status,
+			).toBe(409);
+			const searchRes = await fetch(searchUrl, { headers: auth });
+			expect(searchRes.status).toBe(200);
+			const searchBody = (await searchRes.json()) as { data: string[] };
+			expect(searchBody.data).toContain("notes.md");
 		} finally {
 			rmSync(root, { recursive: true, force: true });
 		}

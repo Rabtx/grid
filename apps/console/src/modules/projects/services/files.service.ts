@@ -20,4 +20,9 @@ export const filesService = {
 				body: JSON.stringify({ path, name, kind }),
 			},
 		),
+	search: (token: string, project: string, query = "") =>
+		runnerCall<string[]>(
+			`${placementsStore.scopeOf(project)}/projects/files/${project}/search?q=${encodeURIComponent(query)}`,
+			token,
+		),
 };

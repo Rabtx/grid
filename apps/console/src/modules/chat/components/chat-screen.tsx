@@ -331,6 +331,7 @@ function NewChat(props: {
 					}
 				>
 					<Composer
+						project={props.project}
 						initial={initial}
 						running={false}
 						disabled={!chosen() || !props.project || !props.folder}

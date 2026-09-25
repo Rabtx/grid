@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { FolderError } from "./folders";
-import { createProjectFile, listProjectFiles } from "./project-files";
+import { createProjectFile, listProjectFiles, searchProjectFiles } from "./project-files";
 
 const root = mkdtempSync(join(tmpdir(), "grid-project-files-"));
 const outside = mkdtempSync(join(tmpdir(), "grid-other-files-"));
@@ -42,5 +42,24 @@ describe("project files", () => {
 			expect(() => listProjectFiles(root, path)).toThrow(FolderError);
 		for (const name of ["", ".", "..", "../bad", "a/b", "bad\nname", " trailing ", "node_modules"])
 			expect(() => createProjectFile(root, "src", name, "file")).toThrow(FolderError);
+	});
+
+	it("searches files recursively, matches queries with subsequence/substring, and skips ignored folders", () => {
+		createProjectFile(root, "src", "app.ts", "file");
+		createProjectFile(root, "src", "app.test.ts", "file");
+		mkdirSync(join(root, "node_modules", "pkg"), { recursive: true });
+		writeFileSync(join(root, "node_modules", "pkg", "index.js"), "module");
+
+		const all = searchProjectFiles(root);
+		expect(all).toContain("readme.md");
+		expect(all).toContain("src/app.ts");
+		expect(all).toContain("src/app.test.ts");
+		expect(all.some((f) => f.includes("node_modules"))).toBe(false);
+
+		const filtered = searchProjectFiles(root, "test");
+		expect(filtered).toEqual(["src/app.test.ts"]);
+
+		const fuzzy = searchProjectFiles(root, "sat");
+		expect(fuzzy).toContain("src/app.test.ts");
 	});
 });

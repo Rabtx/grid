@@ -12,6 +12,7 @@ export { TaskPanel } from "./components/task-panel";
 export { useWorkspace, WorkspaceProvider } from "./context/workspace-context";
 export { groupByStatus } from "./lib/board";
 export { projectsService } from "./services/projects.service";
+export { filesService } from "./services/files.service";
 export { TASK_STATUS_LABELS, TASK_STATUSES } from "./types/project.types";
 export type { Project, Task, TaskStatus } from "./types/project.types";
 export { Mascot, ProjectIcon, SYMBOL_ICONS } from "./components/project-icon";

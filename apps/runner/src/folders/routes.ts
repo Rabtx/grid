@@ -1,7 +1,7 @@
 import type { ChatHub } from "../chat/hub";
 import { ChatError } from "../chat/hub";
 import { expandPath, FolderError, inspectFolder, listFolders } from "./folders";
-import { createProjectFile, listProjectFiles } from "./project-files";
+import { createProjectFile, listProjectFiles, searchProjectFiles } from "./project-files";
 
 /**
  * Folders on this machine, for linking projects to their code from any device: browse, look
@@ -14,6 +14,12 @@ export async function folderRequest(
 	hub: ChatHub,
 ): Promise<Response | null> {
 	try {
+		const search = url.pathname.match(/^\/projects\/files\/([a-z0-9-]+)\/search$/);
+		if (search && request.method === "GET") {
+			const root = hub.projectFolders(userId)[search[1]];
+			if (!root) return failure(409, "Choose this project's folder first");
+			return Response.json({ data: searchProjectFiles(root, url.searchParams.get("q") ?? "") });
+		}
 		const files = url.pathname.match(/^\/projects\/files\/([a-z0-9-]+)$/);
 		if (files && (request.method === "GET" || request.method === "POST")) {
 			const root = hub.projectFolders(userId)[files[1]];
