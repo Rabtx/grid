@@ -105,7 +105,13 @@ export function Conversation(props: {
 			onReady: (ready) => {
 				setSession(ready.session);
 				props.onSession(ready.session);
-				setTranscript(replay(ready.history));
+				// Caught up: add what was missed to the transcript as it is, so nothing redraws.
+				if (ready.missed) {
+					const missed = ready.missed;
+					setTranscript((current) => missed.reduce(applyEvent, current));
+				} else {
+					setTranscript(replay(ready.history));
+				}
 				const currentStartedAt = runnerStartedAt();
 				const restarted =
 					runnerRestarted() ||
@@ -125,7 +131,7 @@ export function Conversation(props: {
 				attachedBefore = true;
 				scrollToEnd();
 				const first = firstMessages.get(props.id);
-				if (first && ready.history.length === 0) {
+				if (first && !ready.missed && ready.history.length === 0) {
 					firstMessages.delete(props.id);
 					live.send({ t: "prompt", text: first });
 				}

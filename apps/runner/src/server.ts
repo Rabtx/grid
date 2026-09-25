@@ -1,8 +1,9 @@
 import type { Server, ServerWebSocket } from "bun";
 
 import { setupCommand } from "./agents/setup";
-import { ChatError, type ChatHub } from "./chat/hub";
-import { type ChatCommand, chatCommand, chatRequest } from "./chat/routes";
+import { type Channel, type ChannelSink, openChat, openTerminal } from "./channels";
+import { type ChatHub } from "./chat/hub";
+import { chatRequest } from "./chat/routes";
 import type { RunnerConfig } from "./config";
 import type { PairingStore } from "./environments/pairing";
 import { RELAYED_SOCKETS, relayHttp, SocketRelay } from "./environments/relay";
@@ -24,9 +25,11 @@ type Hello = {
 	rows?: number;
 	/** A chat sent from a page in the background (it reconnected while hidden). */
 	visible?: boolean;
+	/** A terminal: how many bytes of its output the device already has, to get only the rest. */
+	offset?: number;
+	/** A chat: where the device got to (the cursor it was given), to get only what it missed. */
+	resume?: unknown;
 };
-
-type Control = { t: "resize"; cols: number; rows: number } | { t: "input"; d: string };
 
 type SocketData = {
 	/** A terminal's byte stream, or a chat session's event stream. */
@@ -40,11 +43,8 @@ type SocketData = {
 		early: (string | Buffer)[] | null;
 	} | null;
 	userId: string | null;
-	/** The terminal or chat session this socket is attached to. */
-	targetId: string | null;
-	detach: (() => void) | null;
-	/** Whether the device has the app in front of it; a chat it is not looking at may notify. */
-	visible: boolean;
+	/** The terminal or chat session this socket carries, once attached. */
+	channel: Channel | null;
 };
 
 /** Close codes the console acts on: sign in again, or drop the tab. */
@@ -111,7 +111,7 @@ export function startServer(
 			if (url.pathname === "/terminal" || url.pathname === "/chat") {
 				const kind = url.pathname === "/chat" ? "chat" : "terminal";
 				const upgraded = server.upgrade(request, {
-					data: { kind, relay: null, userId: null, targetId: null, detach: null, visible: true },
+					data: { kind, relay: null, userId: null, channel: null },
 				});
 				return upgraded ? undefined : new Response("Expected a WebSocket", { status: 426 });
 			}
@@ -131,9 +131,7 @@ export function startServer(
 							kind: path === "/chat" ? "chat" : "terminal",
 							relay: { environmentId, path, link: null, early: null },
 							userId: null,
-							targetId: null,
-							detach: null,
-							visible: true,
+							channel: null,
 						},
 					});
 					return upgraded ? undefined : new Response("Expected a WebSocket", { status: 426 });
@@ -251,8 +249,8 @@ export function startServer(
 					await hello(ws, message);
 					return;
 				}
-				const { userId, targetId: terminalId } = ws.data;
-				if (!terminalId) return;
+				const channel = ws.data.channel;
+				if (!channel) return;
 				if (typeof message === "string") {
 					const control = parse<{ t?: string; visible?: unknown }>(message);
 					if (control?.t === "ping") {
@@ -260,36 +258,20 @@ export function startServer(
 						return;
 					}
 					if (control?.t === "visibility") {
-						ws.data.visible = control.visible !== false;
+						channel.visible(control.visible !== false);
 						return;
 					}
-				}
-				if (ws.data.kind === "chat") {
-					const command = typeof message === "string" ? parse<ChatCommand>(message) : null;
-					if (command) {
-						chatCommand(chat, userId, terminalId, command, (reason) =>
-							ws.send(JSON.stringify({ t: "error", message: reason })),
-						);
-					}
+					channel.input(message);
 					return;
 				}
-				if (typeof message !== "string") {
-					store.write(userId, terminalId, message);
-					return;
-				}
-				const control = parse<Control>(message);
-				if (control?.t === "input" && typeof control.d === "string") {
-					store.write(userId, terminalId, control.d);
-				} else if (control?.t === "resize") {
-					store.resize(userId, terminalId, control.cols, control.rows);
-				}
+				channel.input(message);
 			},
 			close(ws) {
 				clearTimeout(helloTimers.get(ws));
 				helloTimers.delete(ws);
 				ws.data.relay?.link?.close();
-				ws.data.detach?.();
-				ws.data.detach = null;
+				ws.data.channel?.detach();
+				ws.data.channel = null;
 			},
 		},
 	});
@@ -344,52 +326,17 @@ export function startServer(
 			ws.close(CLOSE_UNAUTHORIZED, "Sign in again");
 			return;
 		}
-		ws.data.visible = first.visible !== false;
-		if (ws.data.kind === "chat") {
-			chatHello(ws, userId, first.id);
-			return;
-		}
-		const attached = store.attach(userId, first.id, {
-			output: (bytes) => ws.sendBinary(bytes),
-			exited: (code) => ws.send(JSON.stringify({ t: "exit", code })),
-			titled: (title) => ws.send(JSON.stringify({ t: "title", title })),
-		});
-		if (!attached) {
-			ws.close(CLOSE_NOT_FOUND, "That terminal does not exist");
-			return;
-		}
-		ws.data = { ...ws.data, kind: "terminal", userId, targetId: first.id, detach: attached.detach };
-		ws.send(JSON.stringify({ t: "ready", terminal: attached.info }));
-		for (const bytes of attached.history) ws.sendBinary(bytes);
-		if (attached.info.exitCode !== null) {
-			ws.send(JSON.stringify({ t: "exit", code: attached.info.exitCode }));
-		} else if (first.cols && first.rows) {
-			store.resize(userId, first.id, first.cols, first.rows);
-		}
-	}
-
-	/** A chat socket: the session's whole log, then its live events and running state. */
-	function chatHello(ws: ServerWebSocket<SocketData>, userId: string, id: string): void {
-		try {
-			const attached = chat.attach(userId, id, {
-				event: (event) => ws.send(JSON.stringify({ t: "event", event })),
-				state: (state) => ws.send(JSON.stringify({ t: "state", ...state })),
-				watching: () => ws.data.visible,
-			});
-			ws.data = { ...ws.data, kind: "chat", userId, targetId: id, detach: attached.detach };
-			ws.send(
-				JSON.stringify({
-					t: "ready",
-					session: attached.session,
-					history: attached.history,
-					running: attached.running,
-				}),
-			);
-		} catch (cause) {
-			if (cause instanceof ChatError && cause.status === 404)
-				ws.close(CLOSE_NOT_FOUND, cause.message);
-			else ws.close(1011, cause instanceof Error ? cause.message : "Chat failed");
-		}
+		ws.data.userId = userId;
+		clearTimeout(helloTimers.get(ws));
+		const sink: ChannelSink = {
+			text: (payload) => ws.send(JSON.stringify(payload)),
+			bytes: (bytes) => ws.sendBinary(bytes),
+			close: (code, reason) => ws.close(code, reason),
+		};
+		ws.data.channel =
+			ws.data.kind === "chat"
+				? openChat(chat, userId, first, sink)
+				: openTerminal(store, userId, first, sink);
 	}
 }
 

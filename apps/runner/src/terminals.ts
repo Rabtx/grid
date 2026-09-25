@@ -46,6 +46,8 @@ class Terminal {
 	readonly clients = new Set<TerminalClient>();
 	private readonly replay: Uint8Array[] = [];
 	private replaySize = 0;
+	/** Every byte the shell has printed, counted: a client says how far it got, to catch up. */
+	private written = 0;
 	info: TerminalInfo;
 	pty: Pty | null = null;
 
@@ -60,6 +62,7 @@ class Terminal {
 	record(bytes: Uint8Array): void {
 		this.replay.push(bytes);
 		this.replaySize += bytes.byteLength;
+		this.written += bytes.byteLength;
 		while (this.replaySize > this.replayLimit && this.replay.length > 1) {
 			this.replaySize -= this.replay.shift()?.byteLength ?? 0;
 		}
@@ -75,6 +78,31 @@ class Terminal {
 
 	history(): Uint8Array[] {
 		return [...this.replay];
+	}
+
+	/**
+	 * What a client that already has everything up to `offset` is missing: just the bytes after
+	 * it, when they are still kept; otherwise null, and the client starts over from what is kept.
+	 */
+	since(offset: number): { at: number; bytes: Uint8Array[] } | null {
+		const start = this.written - this.replaySize;
+		if (!Number.isInteger(offset) || offset < start || offset > this.written) return null;
+		let skip = offset - start;
+		const bytes: Uint8Array[] = [];
+		for (const chunk of this.replay) {
+			if (skip >= chunk.byteLength) {
+				skip -= chunk.byteLength;
+				continue;
+			}
+			bytes.push(skip > 0 ? chunk.subarray(skip) : chunk);
+			skip = 0;
+		}
+		return { at: offset, bytes };
+	}
+
+	/** Everything kept, and the byte offset it starts at. */
+	kept(): { at: number; bytes: Uint8Array[] } {
+		return { at: this.written - this.replaySize, bytes: [...this.replay] };
 	}
 }
 
@@ -147,13 +175,26 @@ export class TerminalStore {
 		ownerId: string,
 		id: string,
 		client: TerminalClient,
-	): { info: TerminalInfo; history: Uint8Array[]; detach: () => void } | null {
+		offset?: number,
+	): {
+		info: TerminalInfo;
+		history: Uint8Array[];
+		/** True when `history` only continues from `offset` (the client keeps its screen). */
+		resumed: boolean;
+		/** The byte offset `history` starts at. */
+		at: number;
+		detach: () => void;
+	} | null {
 		const terminal = this.owned(ownerId, id);
 		if (!terminal) return null;
 		terminal.clients.add(client);
+		const tail = offset === undefined ? null : terminal.since(offset);
+		const replay = tail ?? terminal.kept();
 		return {
 			info: terminal.info,
-			history: terminal.history(),
+			history: replay.bytes,
+			resumed: tail !== null,
+			at: replay.at,
 			detach: () => terminal.clients.delete(client),
 		};
 	}

@@ -125,3 +125,40 @@ describe("TerminalStore", () => {
 		expect(spawned[0].killed).toBe(true);
 	});
 });
+
+describe("catching a terminal up", () => {
+	it("sends only the bytes a device is missing, and starts over when they are no longer kept", () => {
+		const { spawned, spawn } = fakePty();
+		const store = new TerminalStore({ ...readConfig({}), replayBytes: 8 }, spawn);
+		const info = store.open("me", { cols: 80, rows: 24 });
+		if (!info) throw new Error("no terminal");
+		const pty = spawned[0];
+		pty.onData(bytes("abc"));
+		pty.onData(bytes("def"));
+		const text = (chunks: Uint8Array[]) =>
+			chunks.map((chunk) => new TextDecoder().decode(chunk)).join("");
+
+		const caught = store.attach("me", info.id, client().handle, 3);
+		expect(caught?.resumed).toBe(true);
+		expect(caught?.at).toBe(3);
+		expect(text(caught?.history ?? [])).toBe("def");
+
+		const midChunk = store.attach("me", info.id, client().handle, 4);
+		expect(text(midChunk?.history ?? [])).toBe("ef");
+
+		const upToDate = store.attach("me", info.id, client().handle, 6);
+		expect(upToDate?.resumed).toBe(true);
+		expect(upToDate?.history).toEqual([]);
+
+		// Past what is kept (8 bytes): a device that saw only the first byte starts over.
+		pty.onData(bytes("ghi"));
+		const stale = store.attach("me", info.id, client().handle, 1);
+		expect(stale?.resumed).toBe(false);
+		expect(stale?.at).toBe(3);
+		expect(text(stale?.history ?? [])).toBe("defghi");
+
+		// Nonsense offsets, or none, get everything kept.
+		expect(store.attach("me", info.id, client().handle, 99)?.resumed).toBe(false);
+		expect(store.attach("me", info.id, client().handle)?.resumed).toBe(false);
+	});
+});

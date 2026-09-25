@@ -319,6 +319,55 @@ describe("ChatHub", () => {
 		expect(heard).toHaveLength(2);
 	});
 
+	it("catches a returning device up with only the events it missed", async () => {
+		const chat = hub();
+		const session = chat.create("me", { project: "alpha", provider: "echo", cwd: "/tmp" });
+		const first = chat.attach("me", session.id, { event: () => {}, state: () => {} });
+		expect(first.missed).toBeNull();
+		first.detach();
+
+		// Away: a whole turn happens.
+		await chat.prompt("me", session.id, "while you were gone");
+
+		const back = chat.attach("me", session.id, { event: () => {}, state: () => {} }, first.cursor);
+		expect(back.history).toEqual([]);
+		expect(back.missed?.map((event) => event.type)).toEqual([
+			"user",
+			"turn_start",
+			"message",
+			"message",
+			"turn_end",
+		]);
+		expect(back.cursor.next).toBe(first.cursor.next + 5);
+
+		// Up to date: nothing missed. Another run of the runner (or a made-up cursor): the full log.
+		const again = chat.attach("me", session.id, { event: () => {}, state: () => {} }, back.cursor);
+		expect(again.missed).toEqual([]);
+		const stranger = chat.attach(
+			"me",
+			session.id,
+			{ event: () => {}, state: () => {} },
+			{
+				epoch: "another-run",
+				next: 0,
+			},
+		);
+		expect(stranger.missed).toBeNull();
+		expect(stranger.history.length).toBeGreaterThan(0);
+	});
+
+	it("numbers live events for the devices watching", async () => {
+		const chat = hub();
+		const session = chat.create("me", { project: "alpha", provider: "echo", cwd: "/tmp" });
+		const numbers: number[] = [];
+		const watching = chat.attach("me", session.id, {
+			event: (_event, n) => numbers.push(n),
+			state: () => {},
+		});
+		await chat.prompt("me", session.id, "count");
+		expect(numbers).toEqual([0, 1, 2, 3, 4].map((step) => watching.cursor.next + step));
+	});
+
 	it("keeps each person's chats to themselves", () => {
 		const chat = hub();
 		const mine = chat.create("me", { project: "alpha", provider: "echo", cwd: "/tmp" });

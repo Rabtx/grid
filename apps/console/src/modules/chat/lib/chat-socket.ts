@@ -15,8 +15,17 @@ export type ChatSocketOptions = {
 	id: string;
 	token: () => string | null;
 	renew: () => Promise<string | null>;
-	/** The whole log, on every (re)attach: the transcript is rebuilt from it. */
-	onReady: (ready: { session: ChatSession; history: ChatEvent[]; running: boolean }) => void;
+	/**
+	 * On every (re)attach: the whole log (`history`), from which the transcript is rebuilt, or,
+	 * when the runner could catch this device up, only the events it missed (`missed`, applied to
+	 * the transcript as it is).
+	 */
+	onReady: (ready: {
+		session: ChatSession;
+		history: ChatEvent[];
+		missed: ChatEvent[] | null;
+		running: boolean;
+	}) => void;
 	onEvent: (event: ChatEvent) => void;
 	onRunning: (running: boolean) => void;
 	onConnection: (state: ChatConnection) => void;
@@ -52,6 +61,8 @@ export function connectChat(options: ChatSocketOptions) {
 	let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 	let probeTimer: ReturnType<typeof setTimeout> | undefined;
 	let lastActivityAt = Date.now();
+	// Where this device got to in the session's live events, so a reattach gets only the rest.
+	let cursor: { epoch: string; next: number } | null = null;
 
 	function startHeartbeat(): void {
 		stopHeartbeat();
@@ -116,6 +127,7 @@ export function connectChat(options: ChatSocketOptions) {
 					token: options.token() ?? "",
 					id: options.id,
 					visible: options.visible?.() ?? true,
+					...(cursor ? { resume: cursor } : {}),
 				}),
 			);
 		});
@@ -138,10 +150,22 @@ export function connectChat(options: ChatSocketOptions) {
 				reportRunnerSuccess();
 				startHeartbeat();
 				options.onConnection("open");
-				options.onReady(
-					message as unknown as { session: ChatSession; history: ChatEvent[]; running: boolean },
-				);
+				const ready = message as unknown as {
+					session: ChatSession;
+					history?: ChatEvent[];
+					missed?: ChatEvent[] | null;
+					running: boolean;
+					cursor?: { epoch: string; next: number };
+				};
+				cursor = ready.cursor ?? null;
+				options.onReady({
+					session: ready.session,
+					history: ready.history ?? [],
+					missed: ready.missed ?? null,
+					running: ready.running,
+				});
 			} else if (message.t === "event") {
+				if (cursor && typeof message.n === "number") cursor = { ...cursor, next: message.n + 1 };
 				options.onEvent(message.event as ChatEvent);
 			} else if (message.t === "state") {
 				options.onRunning(message.running === true);
