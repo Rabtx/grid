@@ -1,5 +1,7 @@
 import { createSignal } from "solid-js";
 
+import { localStore } from "@/lib/local-store";
+
 import { type Environment, environmentsService } from "../services/environments.service";
 
 // One list for the whole console: settings and the terminal's "open on…" read the same copy.
@@ -9,9 +11,16 @@ const [environmentsError, setEnvironmentsError] = createSignal<string | null>(nu
 export const environmentsStore = {
 	environments,
 	error: environmentsError,
+	/** What this device kept shows first; the runner's answer replaces it. */
 	async load(token: string): Promise<void> {
+		if (environments().length === 0) {
+			const kept = await localStore.get<Environment[]>("environments");
+			if (kept?.length && environments().length === 0) setEnvironments(kept);
+		}
 		try {
-			setEnvironments(await environmentsService.list(token));
+			const list = await environmentsService.list(token);
+			setEnvironments(list);
+			void localStore.set("environments", list);
 			setEnvironmentsError(null);
 		} catch (cause) {
 			setEnvironmentsError(cause instanceof Error ? cause.message : "Could not reach the runner");

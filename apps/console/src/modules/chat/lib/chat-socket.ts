@@ -32,6 +32,8 @@ export type ChatSocketOptions = {
 	onError: (message: string) => void;
 	/** Whether the person can see the chat; the runner notifies their devices only when not. */
 	visible?: () => boolean;
+	/** Where this device got to last time (kept on the device), to be caught up from there. */
+	cursor?: { epoch: string; next: number } | null;
 	createSocket?: (url: string) => WebSocket;
 	retryDelaysMs?: number[];
 };
@@ -62,7 +64,7 @@ export function connectChat(options: ChatSocketOptions) {
 	let probeTimer: ReturnType<typeof setTimeout> | undefined;
 	let lastActivityAt = Date.now();
 	// Where this device got to in the session's live events, so a reattach gets only the rest.
-	let cursor: { epoch: string; next: number } | null = null;
+	let cursor: { epoch: string; next: number } | null = options.cursor ?? null;
 
 	function startHeartbeat(): void {
 		stopHeartbeat();
@@ -241,6 +243,8 @@ export function connectChat(options: ChatSocketOptions) {
 			return true;
 		},
 		reconnectNow,
+		/** Where this device has got to, to keep on the device and resume from next time. */
+		cursor: () => cursor,
 		/** Tell the runner the chat went out of sight or came back. */
 		setVisible(visible: boolean): void {
 			if (socket && attached && socket.readyState === OPEN) {

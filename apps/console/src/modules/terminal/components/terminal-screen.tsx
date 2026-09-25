@@ -19,6 +19,7 @@ import {
 
 import { type Modifiers, NO_MODIFIERS } from "../lib/keys";
 import type { ConnectionState } from "../lib/terminal-socket";
+import { forgetScreen, preloadScreens } from "../lib/screen-cache";
 import { RunnerError, terminalsService } from "../services/terminals.service";
 import type { TerminalInfo } from "../types/terminal.types";
 
@@ -104,6 +105,8 @@ export function TerminalScreen(): JSX.Element {
 					),
 			);
 			const list = [...here, ...away.flat()];
+			// Each terminal's screen as this device last saw it, ready before its view opens.
+			await preloadScreens(list.map((terminal) => terminal.id));
 			setTerminals(list);
 			setLoad({ status: "ready" });
 			return list;
@@ -148,6 +151,7 @@ export function TerminalScreen(): JSX.Element {
 		const next = list[index + 1] ?? list[index - 1] ?? null;
 		setTerminals(list.filter((terminal) => terminal.id !== id));
 		handles.delete(id);
+		forgetScreen(id);
 		if (activeId() === id) navigate(next ? `/terminal/${next.id}` : "/terminal", { replace: true });
 		await terminalsService.close(token, id, environment).catch((cause: unknown) => {
 			// Already gone on the runner is the outcome we wanted.
@@ -181,6 +185,7 @@ export function TerminalScreen(): JSX.Element {
 			});
 			navigate(`/terminal/${info.id}`, { replace: true });
 			void terminalsService.close(token, currentId, environment).catch(() => {});
+			forgetScreen(currentId);
 		} catch (cause) {
 			setLoad({ status: "error", message: describe(cause) });
 		} finally {
