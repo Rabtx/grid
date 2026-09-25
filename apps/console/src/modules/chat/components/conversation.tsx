@@ -71,7 +71,17 @@ export function Conversation(props: {
 		const keep = levels.some((level) => level.id === effort());
 		const nextEffort =
 			levels.length && !keep ? models().find((item) => item.id === next)?.defaultEffort : undefined;
+		setTranscript((curr) => ({
+			...curr,
+			model: next,
+			...(nextEffort !== undefined ? { effort: nextEffort } : {}),
+		}));
 		socket?.send({ t: "configure", model: next, ...(nextEffort ? { effort: nextEffort } : {}) });
+	}
+
+	function handleRegenerate(prompt: string): void {
+		if (running()) return;
+		send(prompt);
 	}
 
 	function scrollToEnd(): void {
@@ -198,6 +208,7 @@ export function Conversation(props: {
 					<TranscriptView
 						blocks={transcript().blocks}
 						running={running()}
+						onRegenerate={handleRegenerate}
 						onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
 					/>
 				</div>

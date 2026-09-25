@@ -42,6 +42,8 @@ function supportsAnchorPositioning(): boolean {
 export function Menu(props: {
 	label: string;
 	trigger: JSX.Element;
+	triggerClass?: string;
+	disabled?: boolean;
 	items: readonly MenuItem[];
 	onSelect: (id: string) => void;
 	/**
@@ -182,9 +184,10 @@ export function Menu(props: {
 				}}
 				aria-label={props.label}
 				title={props.label}
+				disabled={props.disabled}
 				popovertarget={listId}
 				style={anchorOk ? `anchor-name: ${anchorName}` : undefined}
-				class={`${TRIGGER_CLASS} ${props.pointerOnly ? "pointer-coarse:hidden" : ""}`}
+				class={`${props.triggerClass ?? TRIGGER_CLASS} ${props.pointerOnly ? "pointer-coarse:hidden" : ""}`}
 			>
 				{props.trigger}
 			</button>
@@ -209,7 +212,7 @@ export function Menu(props: {
 							role="menuitem"
 							disabled={item.disabled}
 							onClick={() => selectItem(item)}
-							class={`${ITEM_CLASS} ${item.danger ? "text-danger hover:bg-danger/10" : "text-ink/80 hover:bg-ink/10"}`}
+							class={`${ITEM_CLASS} ${item.danger ? "text-danger hover:bg-danger/10" : "text-ink/80 hover:bg-ink/10"} ${item.disabled ? "pointer-events-none opacity-40" : ""}`}
 						>
 							<Show when={item.icon}>{item.icon}</Show>
 							<span class="truncate">{item.label}</span>

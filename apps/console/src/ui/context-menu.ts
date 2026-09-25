@@ -15,6 +15,10 @@ const MOVE_SLOP_PX = 10;
 export function attachContextMenu(
 	element: HTMLElement,
 	open: (point: MenuPoint) => void,
+	options: {
+		/** Long press only: a mouse right-click keeps the browser's own menu (e.g. to copy text). */
+		touchOnly?: boolean;
+	} = {},
 ): () => void {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let start: MenuPoint | null = null;
@@ -69,6 +73,8 @@ export function attachContextMenu(
 
 	// Android also reports a long press as `contextmenu`; the timer may already have fired.
 	const onContextMenu = (event: MouseEvent) => {
+		if (options.touchOnly && (event as PointerEvent).pointerType !== "touch" && !start && !fired)
+			return;
 		event.preventDefault();
 		if (fired) return;
 		cancel();
