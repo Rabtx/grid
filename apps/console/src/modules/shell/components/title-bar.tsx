@@ -119,12 +119,11 @@ function Action(props: { compact?: boolean }): JSX.Element {
 }
 
 /**
- * Desktop title bar, 40px: the screen's tabs (or its name) on the left, the project centred and
- * quiet, the screen's action on the right.
+ * Desktop title bar, 40px: the screen's tabs (or its name) on the left, the project's views and
+ * the screen's action on the right.
  */
 export function TitleBar(): JSX.Element {
 	const shell = useShell();
-	const workspace = useWorkspace();
 
 	return (
 		<header class="flex h-10 shrink-0 select-none items-stretch border-stroke border-b">
@@ -145,13 +144,7 @@ export function TitleBar(): JSX.Element {
 					{(tabs) => <>{tabs()()}</>}
 				</Show>
 			</div>
-			<div class="hidden min-w-0 flex-1 items-center justify-center px-4 xl:flex">
-				<span class="pointer-events-none truncate font-medium text-ink/40 text-ui-caption">
-					<Loading fallback="Grid">
-						{workspace.currentProject() ? `${workspace.currentProject()?.name} — Grid` : "Grid"}
-					</Loading>
-				</span>
-			</div>
+			<div class="min-w-0 flex-1" />
 			<div class="flex shrink-0 items-center gap-2 pr-2">
 				<ProjectViews />
 				<Action />

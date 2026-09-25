@@ -1,8 +1,8 @@
 import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { Show } from "solid-js";
+import { onSettled, Show } from "solid-js";
 
-import { Menu, MoreIcon } from "@/ui";
+import { attachContextMenu, Menu, type MenuControl, MoreIcon } from "@/ui";
 
 import { useWorkspace } from "../context/workspace-context";
 import {
@@ -15,12 +15,11 @@ import {
 import { StatusIcon } from "./status-icon";
 
 /**
- * The card's actions are always visible on touch, and revealed on hover or keyboard focus where
- * a pointer can hover (Tailwind scopes `hover:` to `(hover: hover)` itself; the arbitrary variant
- * is the matching "hide only where hovering exists" half of it).
+ * The card's "Move to…" button is for pointers: revealed on hover or keyboard focus. Touch
+ * screens draw no button — a long press on the card opens the same menu, as native apps do.
  */
 const ACTIONS_CLASS =
-	"absolute top-1 right-1 transition-opacity duration-fast ease-out-grid opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 group-focus-within:opacity-100";
+	"absolute top-1 right-1 opacity-0 transition-opacity duration-fast ease-out-grid group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100";
 
 /**
  * A task on the board: key, title, then who owns it and where the work lives.
@@ -52,13 +51,23 @@ export function TaskCard(props: {
 		}));
 	}
 
+	let menu: MenuControl | undefined;
+	let card: HTMLDivElement | undefined;
+	// Right-click and long press open the card's "Move to…" menu.
+	onSettled(() => (card ? attachContextMenu(card, (point) => menu?.open(point)) : undefined));
+
 	function move(id: string): void {
 		const status = TASK_STATUSES.find((candidate) => candidate === id);
 		if (status) props.onMove(status);
 	}
 
 	return (
-		<div class={`group relative ${props.dragging ? "opacity-50" : ""}`}>
+		<div
+			class={`group relative select-none [-webkit-touch-callout:none] ${props.dragging ? "opacity-50" : ""}`}
+			ref={(el) => {
+				card = el;
+			}}
+		>
 			{/* The link wraps a whole card, so it is named explicitly: the label repeats what is visible. */}
 			<a
 				href={`/board/${workspace.activeSlug()}/tasks/${props.task.number}${location.search}`}
@@ -75,7 +84,7 @@ export function TaskCard(props: {
 					props.canDrag ? "cursor-grab active:cursor-grabbing" : ""
 				}`}
 			>
-				<article class="flex flex-col gap-1.5 p-2.5 pr-9 pointer-coarse:pr-13">
+				<article class="flex flex-col gap-1.5 p-2.5 pr-9 pointer-coarse:pr-2.5">
 					<span class="font-mono text-ink/40 text-ui-caption">{props.task.key}</span>
 					<p class="line-clamp-3 break-words font-medium text-ink/90 text-ui leading-snug">
 						{props.task.title}
@@ -116,6 +125,10 @@ export function TaskCard(props: {
 					trigger={<MoreIcon />}
 					items={moveItems()}
 					onSelect={move}
+					pointerOnly
+					control={(control) => {
+						menu = control;
+					}}
 				/>
 			</div>
 		</div>

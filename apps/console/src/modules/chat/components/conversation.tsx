@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, onSettled, Show } from "solid-js";
+import { createEffect, createSignal, onSettled, Show, untrack } from "solid-js";
 
 import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
@@ -40,7 +40,7 @@ export function Conversation(props: {
 	const [connection, setConnection] = createSignal<ChatConnection>("connecting");
 	const [error, setError] = createSignal<string | null>(null);
 	const [restartNotice, setRestartNotice] = createSignal<string | null>(null);
-	let lastStartedAt = runnerStartedAt();
+	let lastStartedAt = untrack(runnerStartedAt);
 	let socket: ChatSocket | undefined;
 	let scroller: HTMLDivElement | undefined;
 	// Follow new output only while the reader is at the bottom; scrolling up to read stops it.
