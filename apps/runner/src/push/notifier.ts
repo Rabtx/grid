@@ -20,8 +20,9 @@ export type PushMessage = { title: string; body: string; url: string; tag: strin
  * subscription cannot turn it into a way to reach arbitrary hosts.
  */
 const PUSH_HOSTS = [
-	/^fcm\.googleapis\.com$/,
-	/^android\.googleapis\.com$/,
+	// Chrome and Chromium: FCM, on googleapis.com or (some builds) other Google hosts.
+	/(^|\.)googleapis\.com$/,
+	/(^|\.)google\.com$/,
 	/(^|\.)push\.apple\.com$/,
 	/(^|\.)push\.services\.mozilla\.com$/,
 	/(^|\.)notify\.windows\.com$/,

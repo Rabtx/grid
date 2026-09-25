@@ -31,6 +31,8 @@ function recorder(status: number) {
 describe("isPushEndpoint", () => {
 	it("only accepts the browsers' push services over https", () => {
 		expect(isPushEndpoint("https://fcm.googleapis.com/fcm/send/x")).toBe(true);
+		expect(isPushEndpoint("https://jmt17.google.com/fcm/send/x")).toBe(true);
+		expect(isPushEndpoint("https://google.com.evil.example/x")).toBe(false);
 		expect(isPushEndpoint("https://web.push.apple.com/abc")).toBe(true);
 		expect(isPushEndpoint("https://updates.push.services.mozilla.com/wpush/v2/x")).toBe(true);
 		expect(isPushEndpoint("http://fcm.googleapis.com/fcm/send/x")).toBe(false);

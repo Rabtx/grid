@@ -255,7 +255,19 @@ function SetupRow(props: {
 	};
 
 	return (
-		<Show when={setup()}>
+		<Show
+			when={setup()}
+			fallback={
+				// A machine whose Grid predates installing from here sends no setup details.
+				<Show when={!props.provider.available}>
+					<p class="border-ink/5 border-t px-4 py-3 text-ink/55 text-ui-sm">
+						Grid on {props.machineLabel} is too old to install agents from here. Update it (in a
+						terminal there: <code class="font-mono text-ui-xs">git pull</code> in its Grid folder,
+						then restart Grid, or rebuild the Codespace), and Install appears.
+					</p>
+				</Show>
+			}
+		>
 			{(current) => (
 				<Show
 					when={props.provider.available}

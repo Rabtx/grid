@@ -40,7 +40,14 @@ export async function pushRequest(
 		keys?: { p256dh?: unknown; auth?: unknown };
 	} | null;
 	const endpoint = typeof body?.endpoint === "string" ? body.endpoint : "";
-	if (!isPushEndpoint(endpoint)) return failure(400, "That is not a browser push address");
+	if (!isPushEndpoint(endpoint)) {
+		const host = hostOf(endpoint);
+		console.warn(`[runner] refused a push subscription for ${host}`);
+		return failure(
+			400,
+			`Your browser's push service (${host}) is not one Grid knows yet. Tell us the name so it can be added.`,
+		);
+	}
 
 	if (request.method === "DELETE") {
 		push.unsubscribe(userId, endpoint);
@@ -60,6 +67,14 @@ export async function pushRequest(
 		origin.startsWith("https://") ? origin : FALLBACK_SUBJECT,
 	);
 	return new Response(null, { status: 204 });
+}
+
+function hostOf(endpoint: string): string {
+	try {
+		return new URL(endpoint).host || "no address";
+	} catch {
+		return "no address";
+	}
 }
 
 function failure(status: number, message: string): Response {
