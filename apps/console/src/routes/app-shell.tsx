@@ -36,7 +36,12 @@ export function AppShell(props: { children: JSX.Element }): JSX.Element {
 
 	return (
 		<div class="min-h-dvh bg-canvas text-ink">
-			<Show when={auth.token()} fallback={<SignedOutShell>{props.children}</SignedOutShell>}>
+			{/* Restoring (opening for someone signed in last time) is signed in: their screens need
+			    the workspace from the first render, or they have nothing to read. */}
+			<Show
+				when={auth.token() || auth.restoring()}
+				fallback={<SignedOutShell>{props.children}</SignedOutShell>}
+			>
 				<WorkspaceProvider>
 					<SignedInShell>{props.children}</SignedInShell>
 				</WorkspaceProvider>

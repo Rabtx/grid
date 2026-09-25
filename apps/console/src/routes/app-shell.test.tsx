@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flush } from "solid-js";
 
 import { AuthProvider, LoginForm } from "@/modules/auth";
+import { useWorkspace } from "@/modules/projects";
 
 import { AppShell } from "./app-shell";
 import { RequireAuth } from "./require-auth";
@@ -320,5 +321,63 @@ describe("login polish", () => {
 		flush();
 		expect(container.querySelector('output[aria-label="Checking your session"]')).toBeNull();
 		expect(container.textContent).toContain("Protected content");
+	});
+});
+
+describe("AppShell opening for someone signed in last time", () => {
+	afterEach(() => {
+		document.body.replaceChildren();
+		localStorage.clear();
+		vi.unstubAllGlobals();
+	});
+
+	it("draws the signed-in shell, workspace and all, while the session is still being confirmed", async () => {
+		localStorage.setItem(
+			"grid.session.user",
+			JSON.stringify({ id: "u1", email: "person@example.com", username: "person" }),
+		);
+		// The session check never answers here: this is the moment before it does.
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(() => new Promise<Response>(() => {})),
+		);
+		function NeedsWorkspace() {
+			const workspace = useWorkspace();
+			return <p>workspace {workspace.projects().length}</p>;
+		}
+		const Router = createRouter({
+			routes: [
+				{
+					path: "/board/:slug",
+					component: () => (
+						<RequireAuth>
+							<NeedsWorkspace />
+						</RequireAuth>
+					),
+				},
+			],
+			history: memoryHistory("/board/alpha"),
+		});
+		const container = document.createElement("div");
+		document.body.append(container);
+		const errors: unknown[] = [];
+		const onError = (event: ErrorEvent) => errors.push(event.error);
+		window.addEventListener("error", onError);
+		const dispose = render(
+			() => (
+				<AuthProvider>
+					<Router>{(route) => <AppShell>{route.children}</AppShell>}</Router>
+				</AuthProvider>
+			),
+			container,
+		);
+		await settle();
+		flush();
+		window.removeEventListener("error", onError);
+
+		expect(errors).toEqual([]);
+		expect(container.querySelector('nav[aria-label="Navigation"]')).not.toBeNull();
+		expect(container.textContent).toContain("workspace");
+		dispose();
 	});
 });
