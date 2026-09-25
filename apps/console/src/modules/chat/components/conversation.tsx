@@ -197,7 +197,10 @@ export function Conversation(props: {
 					pinned = true;
 					scrollToEnd();
 				}
-				connect(kept?.cursor ?? null);
+				// Opening the app: connect once the session is confirmed (signed out, not at all).
+				void auth.waitForToken().then((token) => {
+					if (token && !disposed) connect(kept?.cursor ?? null);
+				});
 			});
 
 		// Out of sight, a finished turn or a waiting approval becomes a notification instead; and

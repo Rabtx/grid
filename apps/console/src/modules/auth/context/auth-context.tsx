@@ -18,6 +18,14 @@ type AuthState = {
 	/** False only until the first refresh attempt settles, so guards can wait it out. */
 	ready: () => boolean;
 	/**
+	 * True while the app opens for someone who was signed in on this device last time: it shows
+	 * their Grid from what the device kept straight away, while the session is confirmed. Ends
+	 * (false) once confirmed, or when it turns out to be over (then it is the login page).
+	 */
+	restoring: () => boolean;
+	/** The access token once the session is confirmed; null when there is none. */
+	waitForToken: () => Promise<string | null>;
+	/**
 	 * Swap the access token for a fresh one using the refresh cookie. Long-lived connections (a
 	 * terminal socket) call it when the runner turns their token away. Resolves to the new
 	 * token, or null when it could not: signed out if the API refused the session, left as is
@@ -30,6 +38,28 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState>();
 
+// Who was signed in on this device last time: only who they are (never a token), so the app can
+// open straight into their Grid while it confirms the session.
+const LAST_USER_KEY = "grid.session.user";
+
+function lastUser(): AuthUser | null {
+	try {
+		const kept = JSON.parse(localStorage.getItem(LAST_USER_KEY) ?? "null") as AuthUser | null;
+		return kept && typeof kept.id === "string" ? kept : null;
+	} catch {
+		return null;
+	}
+}
+
+function rememberUser(user: AuthUser | null): void {
+	try {
+		if (user) localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
+		else localStorage.removeItem(LAST_USER_KEY);
+	} catch {
+		// Not remembered: the next open waits for the session, as before.
+	}
+}
+
 /**
  * Holds the access token in memory only.
  *
@@ -39,9 +69,20 @@ const AuthContext = createContext<AuthState>();
  * nothing readable left lying around.
  */
 export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
+	const known = lastUser();
+	// Read what this device kept for them from the first render.
+	if (known) localStore.setUser(known.id);
 	const [token, setToken] = createSignal<string | null>(null);
-	const [user, setUser] = createSignal<AuthUser | null>(null);
+	const [user, setUser] = createSignal<AuthUser | null>(known);
 	const [ready, setReady] = createSignal(false);
+	const [restoring, setRestoring] = createSignal(known !== null);
+	// Callers of `waitForToken` waiting for the session to be confirmed, or found to be over.
+	let waiters: (() => void)[] = [];
+	const settle = () => {
+		const waiting = waiters;
+		waiters = [];
+		for (const resolve of waiting) resolve();
+	};
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let expiresAt = 0;
@@ -54,14 +95,20 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 		expiresAt = 0;
 		setToken(null);
 		setUser(null);
+		setRestoring(false);
 		localStore.setUser(null);
+		rememberUser(null);
+		settle();
 	}
 
 	function acceptSession(session: AuthSession): void {
 		// What this device keeps is per account: set whose it is before anything reads it.
 		localStore.setUser(session.user.id);
+		rememberUser(session.user);
 		setToken(session.accessToken);
 		setUser(session.user);
+		setRestoring(false);
+		settle();
 		expiresAt = Date.parse(session.accessTokenExpiresAt);
 		clearTimeout(timer);
 		if (Number.isFinite(expiresAt)) {
@@ -73,6 +120,12 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 		token,
 		user,
 		ready,
+		restoring,
+		waitForToken: async () => {
+			if (token() || (ready() && !restoring())) return token();
+			await new Promise<void>((resolve) => waiters.push(resolve));
+			return token();
+		},
 		renew: () => {
 			if (disposed) return Promise.resolve(null);
 			const started = generation;
@@ -88,9 +141,11 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 					// Only a refused refresh ends the session; retry transient failures later.
 					if (cause instanceof ApiError && cause.statusCode === 401) {
 						clearSession();
-					} else if (token()) {
+					} else if (token() || restoring()) {
+						// Unreachable (offline, say): keep the session, or the Grid shown from what this
+						// device kept, and try again soon.
 						clearTimeout(timer);
-						timer = setTimeout(() => void state.renew(), 30_000);
+						timer = setTimeout(() => void state.renew(), token() ? 30_000 : 10_000);
 					}
 					return null;
 				})
@@ -133,7 +188,10 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 		};
 		document.addEventListener("visibilitychange", onVisible);
 		void state.renew().finally(() => {
-			if (!disposed) setReady(true);
+			if (disposed) return;
+			setReady(true);
+			// Still restoring means the API was unreachable: the kept Grid stays up while it retries.
+			if (!restoring()) settle();
 		});
 		return () => {
 			disposed = true;
