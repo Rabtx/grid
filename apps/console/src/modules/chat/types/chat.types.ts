@@ -82,6 +82,14 @@ export type ChatProvider = {
 	/** When the model list was last asked of the agent; null when it never answered. */
 	refreshedAt?: string | null;
 	settings?: ProviderSettings;
+	/** Whether Grid can install or sign it in on its machine, and whether it is signed in. */
+	setup?: {
+		canInstall: boolean;
+		canSignIn: boolean;
+		signInOptional: boolean;
+		signedIn: boolean | null;
+		docs: string | null;
+	};
 };
 
 /** Your choices for one agent, kept by the runner. Unset means the agent's own default. */

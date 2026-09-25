@@ -327,7 +327,7 @@ function NewChat(props: {
 				<Show
 					when={available().length > 0 || props.providers.length === 0}
 					fallback={
-						<ErrorNotice message="No agent is available: install one (Claude Code, opencode, Antigravity or an ACP agent), or turn one on in Settings → Agents." />
+						<ErrorNotice message="No agent is available on this project's machine. Install and sign in one in Settings → Agents, or turn one on there." />
 					}
 				>
 					<Composer

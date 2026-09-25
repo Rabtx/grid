@@ -1,5 +1,6 @@
 import type { Server, ServerWebSocket } from "bun";
 
+import { setupCommand } from "./agents/setup";
 import { ChatError, type ChatHub } from "./chat/hub";
 import { type ChatCommand, chatCommand, chatRequest } from "./chat/routes";
 import type { RunnerConfig } from "./config";
@@ -170,6 +171,23 @@ export function startServer(
 				if (!userId) return error(401, "Sign in to get notifications");
 				const handled = await pushRequest(request, url, userId, push);
 				if (handled) return handled;
+			}
+
+			// Install or sign in an agent: a terminal here, running the agent's own command.
+			const setup = url.pathname.match(/^\/chat\/providers\/([\w-]+)\/setup$/);
+			if (setup && request.method === "POST") {
+				const userId = await userFrom(request);
+				if (!userId) return error(401, "Sign in to set up agents");
+				const body = (await request.json().catch(() => ({}))) as { step?: unknown };
+				const step = body.step === "install" || body.step === "sign-in" ? body.step : null;
+				const command = step ? setupCommand(setup[1], step) : null;
+				if (!step || !command) return error(404, "Grid cannot do that for this agent");
+				const info = store.open(userId, { cols: 100, rows: 30 }, undefined, {
+					command,
+					title: `${step === "install" ? "Install" : "Sign in"} ${setup[1]}`,
+				});
+				if (!info) return error(429, "Close a terminal before opening another");
+				return Response.json({ data: info }, { status: 201 });
 			}
 
 			if (url.pathname.startsWith("/chat/")) {

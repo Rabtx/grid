@@ -94,8 +94,16 @@ export class TerminalStore {
 			.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 	}
 
-	/** Open a new shell. Returns null once the person already holds the maximum. */
-	open(ownerId: string, size: { cols: number; rows: number }, cwd?: string): TerminalInfo | null {
+	/**
+	 * Open a new shell, optionally typing a first command into it (an agent's installer or
+	 * sign-in, say). Returns null once the person already holds the maximum.
+	 */
+	open(
+		ownerId: string,
+		size: { cols: number; rows: number },
+		cwd?: string,
+		run?: { command: string; title: string },
+	): TerminalInfo | null {
 		if (this.list(ownerId).length >= this.config.maxTerminalsPerUser) return null;
 		const start = cwd && isDirectory(cwd) ? cwd : this.config.defaultCwd;
 		const cols = clampSize(size.cols, 80);
@@ -104,7 +112,7 @@ export class TerminalStore {
 			ownerId,
 			{
 				id: crypto.randomUUID(),
-				title: basename(this.config.shell),
+				title: run?.title ?? basename(this.config.shell),
 				cwd: start,
 				cols,
 				rows,
@@ -126,6 +134,8 @@ export class TerminalStore {
 				for (const client of terminal.clients) client.exited(code);
 			},
 		});
+		// The shell reads it once it is up, like anything typed ahead.
+		if (run) terminal.pty?.write(`${run.command}\r`);
 		return terminal.info;
 	}
 
