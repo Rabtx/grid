@@ -51,7 +51,12 @@ const mockSession: ChatSession = {
 function setup(renew: () => Promise<string | null> = async () => null) {
 	const sockets: FakeSocket[] = [];
 	const states: ChatConnection[] = [];
-	const readyPayloads: { session: ChatSession; history: ChatEvent[]; running: boolean }[] = [];
+	const readyPayloads: {
+		session: ChatSession;
+		history: ChatEvent[];
+		missed: ChatEvent[] | null;
+		running: boolean;
+	}[] = [];
 	const events: ChatEvent[] = [];
 	const runningStates: boolean[] = [];
 	const errors: string[] = [];
@@ -230,6 +235,38 @@ describe("connectChat", () => {
 		// The dead socket closing late changes nothing.
 		sockets[0].drop();
 		expect(sockets).toHaveLength(2);
+	});
+
+	it("resumes from the cursor it was given, and passes on only the missed events", () => {
+		const { sockets, readyPayloads } = setup();
+		sockets[0].accept();
+		sockets[0].receive(
+			JSON.stringify({
+				t: "ready",
+				session: mockSession,
+				history: [{ type: "user", text: "hi" }],
+				missed: null,
+				running: false,
+				cursor: { epoch: "run-1", next: 3 },
+			}),
+		);
+		sockets[0].receive(JSON.stringify({ t: "event", event: { type: "turn_start" }, n: 3 }));
+		sockets[0].drop();
+		vi.advanceTimersByTime(100);
+
+		sockets[1].accept();
+		expect(JSON.parse(sockets[1].sent[0]).resume).toEqual({ epoch: "run-1", next: 4 });
+		sockets[1].receive(
+			JSON.stringify({
+				t: "ready",
+				session: mockSession,
+				history: [],
+				missed: [{ type: "turn_end", reason: "done" }],
+				running: false,
+				cursor: { epoch: "run-1", next: 5 },
+			}),
+		);
+		expect(readyPayloads[1].missed).toEqual([{ type: "turn_end", reason: "done" }]);
 	});
 
 	it("marks connection gone on 4404 (session not found)", () => {

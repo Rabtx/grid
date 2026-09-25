@@ -7,9 +7,9 @@ import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
 import type { ChatSessionRow, ChatStore, ProviderCatalog, ProviderSettings } from "./store";
 
-/** One device watching a session. */
+/** One device watching a session. `n` numbers each event, for catching up after a drop. */
 export type ChatClient = {
-	event: (event: ChatEvent) => void;
+	event: (event: ChatEvent, n: number) => void;
 	state: (state: { running: boolean }) => void;
 	/** False while the device has the app in the background; unset means it is looking. */
 	watching?: () => boolean;
@@ -18,9 +18,23 @@ export type ChatClient = {
 /** Called when a turn ends or an agent waits for approval and no device is looking at the chat. */
 export type AttentionListener = (session: ChatSessionRow, event: ChatEvent) => void;
 
+/**
+ * Where a device got to in a session's live events: which run of the runner (`epoch`, new each
+ * time a session is loaded) and the number of the next event it has not seen.
+ */
+export type ChatCursor = { epoch: string; next: number };
+
+// Recent live events kept per session, so a device back from the background gets only what it
+// missed. Streamed text arrives in many small pieces, hence the generous count.
+const JOURNAL_LIMIT = 20_000;
+
 type Live = {
 	agent: Promise<AgentSession> | null;
 	clients: Set<ChatClient>;
+	epoch: string;
+	/** The last events sent to devices, numbered from `journalStart`. */
+	journal: ChatEvent[];
+	journalStart: number;
 	running: boolean;
 	/** Streamed text not yet written: consecutive deltas become one log entry. */
 	buffered: Extract<ChatEvent, { type: "message" | "reasoning" }> | null;
@@ -239,21 +253,39 @@ export class ChatHub {
 		this.store.update(id, { title: title.trim().slice(0, 120) || "Chat" });
 	}
 
-	/** Watch a session: its whole log first, then live events. Returns the detach function. */
+	/**
+	 * Watch a session: its whole log first, then live events. A device that was watching before
+	 * (`resume`, from this same run) gets only the events it missed instead, when they are still
+	 * kept. Returns the detach function.
+	 */
 	attach(
 		ownerId: string,
 		id: string,
 		client: ChatClient,
-	): { session: ChatSessionRow; history: ChatEvent[]; running: boolean; detach: () => void } {
+		resume?: ChatCursor,
+	): {
+		session: ChatSessionRow;
+		history: ChatEvent[];
+		/** Set when catching up: the missed events, in place of `history`. */
+		missed: ChatEvent[] | null;
+		running: boolean;
+		cursor: ChatCursor;
+		detach: () => void;
+	} {
 		const session = this.owned(ownerId, id);
 		const live = this.liveFor(id);
 		this.flush(id, live);
-		if (!live.running && !live.agent) this.closeStaleTurn(id);
+		if (!live.running && !live.agent) this.closeStaleTurn(id, live);
+		const end = live.journalStart + live.journal.length;
+		const canResume =
+			resume?.epoch === live.epoch && resume.next >= live.journalStart && resume.next <= end;
 		live.clients.add(client);
 		return {
 			session,
-			history: this.store.events(id),
+			history: canResume ? [] : this.store.events(id),
+			missed: canResume ? live.journal.slice(resume.next - live.journalStart) : null,
 			running: live.running,
+			cursor: { epoch: live.epoch, next: end },
 			detach: () => {
 				live.clients.delete(client);
 			},
@@ -340,6 +372,9 @@ export class ChatHub {
 			live = {
 				agent: null,
 				clients: new Set(),
+				epoch: crypto.randomUUID(),
+				journal: [],
+				journalStart: 0,
 				running: false,
 				buffered: null,
 				flushTimer: undefined,
@@ -381,7 +416,8 @@ export class ChatHub {
 			if (event.effort) change.effort = event.effort;
 			if (change.model || change.mode || change.effort) this.store.update(id, change);
 		}
-		for (const client of live.clients) client.event(event);
+		const n = this.journalPush(live, event);
+		for (const client of live.clients) client.event(event, n);
 		if (
 			(event.type === "turn_end" || event.type === "approval") &&
 			![...live.clients].some((client) => client.watching?.() ?? true)
@@ -405,6 +441,18 @@ export class ChatHub {
 		this.store.append(id, [event]);
 	}
 
+	/** Number an event and keep it for devices catching up. */
+	private journalPush(live: Live, event: ChatEvent): number {
+		const n = live.journalStart + live.journal.length;
+		live.journal.push(event);
+		if (live.journal.length > JOURNAL_LIMIT) {
+			const drop = live.journal.length - JOURNAL_LIMIT;
+			live.journal.splice(0, drop);
+			live.journalStart += drop;
+		}
+		return n;
+	}
+
 	private flush(id: string, live: Live): void {
 		clearTimeout(live.flushTimer);
 		if (!live.buffered) return;
@@ -422,7 +470,7 @@ export class ChatHub {
 	 * A turn left open in the log with no agent behind it (the runner restarted mid-turn): close
 	 * it, and void its pending approvals, so the transcript does not show work that never ends.
 	 */
-	private closeStaleTurn(id: string): void {
+	private closeStaleTurn(id: string, live: Live): void {
 		const events = this.store.events(id);
 		const openApprovals = new Set<string>();
 		let open = false;
@@ -444,6 +492,8 @@ export class ChatHub {
 				error: "Interrupted: the runner restarted.",
 			});
 		this.store.append(id, fixes);
+		// Devices catching up see them too.
+		for (const fix of fixes) this.journalPush(live, fix);
 	}
 
 	private scheduleIdle(id: string, live: Live): void {

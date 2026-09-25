@@ -118,6 +118,43 @@ describe("connectTerminal", () => {
 		expect(events).toEqual(["reset", "reset"]);
 	});
 
+	it("asks only for what the screen is missing after a drop, and keeps the screen", () => {
+		const { sockets, events, output } = setup();
+		sockets[0].accept();
+		sockets[0].receive(
+			JSON.stringify({ t: "ready", terminal: { id: "term-1" }, resumed: false, at: 100 }),
+		);
+		sockets[0].receive(new TextEncoder().encode("hello").buffer);
+		expect(events).toEqual(["reset"]);
+		sockets[0].drop();
+		vi.advanceTimersByTime(100);
+
+		sockets[1].accept();
+		expect(JSON.parse(sockets[1].text()[0]).offset).toBe(105);
+		sockets[1].receive(
+			JSON.stringify({ t: "ready", terminal: { id: "term-1" }, resumed: true, at: 105 }),
+		);
+		sockets[1].receive(new TextEncoder().encode("!").buffer);
+		// No second reset: the screen stayed, and only the new byte arrived.
+		expect(events).toEqual(["reset"]);
+		expect(output).toEqual(["hello", "!"]);
+	});
+
+	it("starts the screen over when the runner cannot catch it up", () => {
+		const { sockets, events } = setup();
+		sockets[0].accept();
+		sockets[0].receive(
+			JSON.stringify({ t: "ready", terminal: { id: "term-1" }, resumed: false, at: 0 }),
+		);
+		sockets[0].drop();
+		vi.advanceTimersByTime(100);
+		sockets[1].accept();
+		sockets[1].receive(
+			JSON.stringify({ t: "ready", terminal: { id: "term-1" }, resumed: false, at: 4000 }),
+		);
+		expect(events).toEqual(["reset", "reset"]);
+	});
+
 	it("reconnects at once when asked, without waiting out the backoff", () => {
 		const { terminal, sockets } = setup();
 		sockets[0].accept();

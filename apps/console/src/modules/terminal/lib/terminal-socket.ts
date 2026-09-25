@@ -19,7 +19,10 @@ export type TerminalSocketOptions = {
 	/** Get a fresh token after the runner refused the current one; null when there is none. */
 	renew: () => Promise<string | null>;
 	size: () => { cols: number; rows: number };
-	/** Called before each (re)attach replays the terminal's recent output. */
+	/**
+	 * Called when a (re)attach replays the terminal's recent output from the start. Not called when
+	 * the runner could send only what this screen is missing: the screen stays as it is.
+	 */
 	onReset: () => void;
 	onOutput: (bytes: Uint8Array) => void;
 	onState: (state: ConnectionState) => void;
@@ -72,6 +75,8 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 	let renewedOnce = false;
 	let pending = "";
 	let lastActivityAt = Date.now();
+	// How many bytes of the terminal's output this screen holds, to get only the rest on reattach.
+	let received: number | null = null;
 
 	function startHeartbeat(): void {
 		stopHeartbeat();
@@ -139,7 +144,14 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 		ws.addEventListener("open", () => {
 			const { cols, rows } = options.size();
 			ws.send(
-				JSON.stringify({ t: "hello", token: options.token() ?? "", id: options.id, cols, rows }),
+				JSON.stringify({
+					t: "hello",
+					token: options.token() ?? "",
+					id: options.id,
+					cols,
+					rows,
+					...(received !== null ? { offset: received } : {}),
+				}),
 			);
 		});
 
@@ -147,7 +159,9 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 			if (socket !== ws) return;
 			lastActivityAt = Date.now();
 			if (typeof event.data !== "string") {
-				options.onOutput(new Uint8Array(event.data as ArrayBuffer));
+				const bytes = new Uint8Array(event.data as ArrayBuffer);
+				if (received !== null) received += bytes.byteLength;
+				options.onOutput(bytes);
 				return;
 			}
 			const message = parse(event.data);
@@ -160,7 +174,11 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 				renewedOnce = false;
 				reportRunnerSuccess();
 				startHeartbeat();
-				options.onReset();
+				// An older runner says neither: treat it as a fresh start, as before.
+				const resumed = (message as { resumed?: unknown }).resumed === true;
+				const at = (message as { at?: unknown }).at;
+				received = typeof at === "number" ? at : null;
+				if (!resumed) options.onReset();
 				setState("open");
 				if (pending) {
 					ws.send(encoder.encode(pending));
