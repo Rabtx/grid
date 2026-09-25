@@ -240,6 +240,35 @@ describe("environments through the home runner", () => {
 		expect((await placements("alice")).shop).toBeUndefined();
 	});
 
+	it("carries a link through to the environment, channels and all", async () => {
+		const id = await pairAway("alice");
+		expect((await fetch(`${homeUrl}/env/${id}/link`, as("alice"))).status).toBe(426);
+		const opened = await fetch(
+			`${homeUrl}/env/${id}/terminals`,
+			as("alice", { method: "POST", body: JSON.stringify({ cols: 80, rows: 24 }) }),
+		);
+		const terminal = ((await opened.json()) as { data: { id: string } }).data.id;
+
+		const ws = new WebSocket(`ws://127.0.0.1:${home.port}/env/${id}/link`);
+		ws.binaryType = "arraybuffer";
+		const texts: Record<string, unknown>[] = [];
+		let output = "";
+		ws.addEventListener("message", (event) => {
+			if (typeof event.data === "string") texts.push(JSON.parse(event.data));
+			else output += new TextDecoder().decode(new Uint8Array(event.data as ArrayBuffer, 2));
+		});
+		await new Promise((resolve) => ws.addEventListener("open", resolve));
+		ws.send(JSON.stringify({ t: "hello", token: "alice" }));
+		ws.send(JSON.stringify({ t: "open", ch: 5, kind: "terminal", id: terminal }));
+		ws.send(JSON.stringify({ t: "msg", ch: 5, m: { t: "input", d: "echo via-$((2+3))-link\r" } }));
+		const deadline = Date.now() + 5000;
+		while (!output.includes("via-5-link") && Date.now() < deadline) await Bun.sleep(20);
+		expect(texts.some((message) => message.t === "welcome")).toBe(true);
+		expect(texts.find((message) => message.t === "ready")).toMatchObject({ ch: 5 });
+		expect(output).toContain("via-5-link");
+		ws.close();
+	});
+
 	it("never lets the environment's own routes be reached without a pairing", async () => {
 		expect((await fetch(`${awayUrl}/terminals`, as("alice"))).status).toBe(401);
 		expect((await fetch(`${awayUrl}/terminals`, as("grid-env.x.y"))).status).toBe(401);

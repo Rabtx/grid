@@ -11,6 +11,7 @@ import { type EnvironmentDeps, environmentRequest, pairRequest } from "./environ
 import { folderRequest } from "./folders/routes";
 import type { CodespacesLink } from "./github/codespaces";
 import { githubRequest } from "./github/routes";
+import { closeLink, createLink, type LinkState, linkMessage } from "./link";
 import type { PushNotifier } from "./push/notifier";
 import { pushRequest } from "./push/routes";
 import type { TerminalStore } from "./terminals";
@@ -32,8 +33,8 @@ type Hello = {
 };
 
 type SocketData = {
-	/** A terminal's byte stream, or a chat session's event stream. */
-	kind: "terminal" | "chat";
+	/** A terminal's byte stream, a chat session's event stream, or the link carrying many. */
+	kind: "terminal" | "chat" | "link";
 	/** Set when the socket belongs to an environment: carried there rather than served here. */
 	relay: {
 		environmentId: string;
@@ -45,6 +46,8 @@ type SocketData = {
 	userId: string | null;
 	/** The terminal or chat session this socket carries, once attached. */
 	channel: Channel | null;
+	/** The link's channels, once signed in (kind "link"). */
+	link: LinkState | null;
 };
 
 /** Close codes the console acts on: sign in again, or drop the tab. */
@@ -108,10 +111,11 @@ export function startServer(
 				}
 			}
 
-			if (url.pathname === "/terminal" || url.pathname === "/chat") {
-				const kind = url.pathname === "/chat" ? "chat" : "terminal";
+			if (url.pathname === "/terminal" || url.pathname === "/chat" || url.pathname === "/link") {
+				const kind =
+					url.pathname === "/chat" ? "chat" : url.pathname === "/link" ? "link" : "terminal";
 				const upgraded = server.upgrade(request, {
-					data: { kind, relay: null, userId: null, channel: null },
+					data: { kind, relay: null, userId: null, channel: null, link: null },
 				});
 				return upgraded ? undefined : new Response("Expected a WebSocket", { status: 426 });
 			}
@@ -128,10 +132,11 @@ export function startServer(
 				if (RELAYED_SOCKETS.has(path)) {
 					const upgraded = server.upgrade(request, {
 						data: {
-							kind: path === "/chat" ? "chat" : "terminal",
+							kind: path === "/chat" ? "chat" : path === "/link" ? "link" : "terminal",
 							relay: { environmentId, path, link: null, early: null },
 							userId: null,
 							channel: null,
+							link: null,
 						},
 					});
 					return upgraded ? undefined : new Response("Expected a WebSocket", { status: 426 });
@@ -249,6 +254,16 @@ export function startServer(
 					await hello(ws, message);
 					return;
 				}
+				if (ws.data.link) {
+					linkMessage(
+						ws.data.link,
+						{ send: (text) => ws.send(text), sendBinary: (bytes) => ws.sendBinary(bytes) },
+						ws.data.userId,
+						typeof message === "string" ? message : new Uint8Array(message),
+						{ store, chat },
+					);
+					return;
+				}
 				const channel = ws.data.channel;
 				if (!channel) return;
 				if (typeof message === "string") {
@@ -272,6 +287,7 @@ export function startServer(
 				ws.data.relay?.link?.close();
 				ws.data.channel?.detach();
 				ws.data.channel = null;
+				if (ws.data.link) closeLink(ws.data.link);
 			},
 		},
 	});
@@ -317,7 +333,12 @@ export function startServer(
 
 	async function hello(ws: ServerWebSocket<SocketData>, message: string | Buffer): Promise<void> {
 		const first = typeof message === "string" ? parse<Hello>(message) : null;
-		if (first?.t !== "hello" || typeof first.token !== "string" || typeof first.id !== "string") {
+		const needsId = ws.data.kind !== "link";
+		if (
+			first?.t !== "hello" ||
+			typeof first.token !== "string" ||
+			(needsId && typeof first.id !== "string")
+		) {
 			ws.close(CLOSE_UNAUTHORIZED, "Expected hello");
 			return;
 		}
@@ -328,6 +349,11 @@ export function startServer(
 		}
 		ws.data.userId = userId;
 		clearTimeout(helloTimers.get(ws));
+		if (ws.data.kind === "link") {
+			ws.data.link = createLink();
+			ws.send(JSON.stringify({ t: "welcome" }));
+			return;
+		}
 		const sink: ChannelSink = {
 			text: (payload) => ws.send(JSON.stringify(payload)),
 			bytes: (bytes) => ws.sendBinary(bytes),
