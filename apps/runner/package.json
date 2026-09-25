@@ -9,7 +9,8 @@
 		"lint": "oxlint .",
 		"typecheck": "tsc --noEmit",
 		"test": "bun test",
-		"smoke": "bun run scripts/smoke.ts"
+		"smoke": "bun run scripts/smoke.ts",
+		"pair": "bun run src/pair.ts"
 	},
 	"devDependencies": {
 		"@types/bun": "1.4.2",

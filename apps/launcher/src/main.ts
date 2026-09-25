@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join, resolve } from "node:path";
 
 import { gatewayUrl, readLaunchConfig, type LaunchConfig } from "./config";
+import { waitForTailnet } from "./tailnet";
 
 const root = resolve(import.meta.dir, "../../..");
 const app = (name: string): string => join(root, "apps", name);
@@ -135,6 +136,20 @@ async function start(config: LaunchConfig): Promise<void> {
 	await ensureOwner(config, database);
 	await buildConsole(config);
 
+	// Paired, the runner listens on this machine's tailnet address only: the home Grid reaches
+	// it over WireGuard, and nothing else can. Without a tailnet it stays on loopback.
+	let runnerHost = "127.0.0.1";
+	if (config.pairing) {
+		const self = await waitForTailnet();
+		if (self) {
+			runnerHost = self.ip;
+			log(`pairing on: add http://${self.dnsName}:${config.runnerPort} to your home Grid`);
+			log("get a pairing code with: bun run grid:pair");
+		} else {
+			log("pairing is on but this machine is not on a tailnet; the runner stays on loopback");
+		}
+	}
+
 	const services: { name: string; cmd: string[]; cwd: string; env: Record<string, string> }[] = [
 		{
 			name: "api",
@@ -155,6 +170,8 @@ async function start(config: LaunchConfig): Promise<void> {
 			cwd: app("runner"),
 			env: {
 				RUNNER_PORT: String(config.runnerPort),
+				RUNNER_HOST: runnerHost,
+				RUNNER_PAIRING: runnerHost === "127.0.0.1" ? "0" : "1",
 				GRID_API_URL: `http://127.0.0.1:${config.apiPort}`,
 				RUNNER_CHAT_DB: join(config.dataDir, "chat.db"),
 				RUNNER_PROJECTS_DIR: config.projectsDir,
@@ -177,7 +194,7 @@ async function start(config: LaunchConfig): Promise<void> {
 			cwd: app("console"),
 			env: {
 				GRID_API_PROXY: `http://127.0.0.1:${config.apiPort}`,
-				GRID_RUNNER_PROXY: `http://127.0.0.1:${config.runnerPort}`,
+				GRID_RUNNER_PROXY: `http://${runnerHost}:${config.runnerPort}`,
 			},
 		},
 	];

@@ -5,6 +5,7 @@ import { For } from "solid-js";
 const PAGES = [
 	{ href: "/settings/appearance", label: "Appearance" },
 	{ href: "/settings/agents", label: "Agents" },
+	{ href: "/settings/environments", label: "Environments" },
 ];
 
 /** The settings pages, as tabs above each one. */

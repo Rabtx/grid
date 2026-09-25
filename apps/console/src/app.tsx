@@ -4,6 +4,7 @@ import { createEffect, lazy, Loading } from "solid-js";
 
 import { AuthProvider, LoginForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
+import { EnvironmentsScreen } from "@/modules/environments";
 import { AgentsScreen, AppearanceScreen } from "@/modules/settings";
 import { EmptyState } from "@/ui";
 
@@ -34,6 +35,7 @@ const Router = createRouter({
 		{ path: "/settings", component: SettingsRedirectRoute },
 		{ path: "/settings/appearance", component: SettingsRoute },
 		{ path: "/settings/agents", component: AgentsRoute },
+		{ path: "/settings/environments", component: EnvironmentsRoute },
 		// Development-only primitives gallery; tree-shaken out of production builds.
 		...(import.meta.env.DEV ? [{ path: "/dev/ui", component: DevUiRoute }] : []),
 		{ path: "*", component: NotFoundRoute },
@@ -133,6 +135,14 @@ function AgentsRoute(): JSX.Element {
 	return (
 		<RequireAuth>
 			<AgentsScreen />
+		</RequireAuth>
+	);
+}
+
+function EnvironmentsRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<EnvironmentsScreen />
 		</RequireAuth>
 	);
 }

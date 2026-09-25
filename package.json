@@ -9,6 +9,7 @@
 	],
 	"scripts": {
 		"grid": "bun --cwd=apps/launcher run start",
+		"grid:pair": "bun --cwd=apps/launcher run pair",
 		"dev": "bun run --parallel --no-exit-on-error --filter '*' dev",
 		"build": "bun run --filter '*' build",
 		"start": "bun run --parallel --filter '*' start",

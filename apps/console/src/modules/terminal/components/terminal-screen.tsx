@@ -3,8 +3,19 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
+import { environmentsStore } from "@/modules/environments";
 import { useWorkspace } from "@/modules/projects";
-import { Button, CloseIcon, ErrorNotice, IconButton, PlusIcon, Skeleton, TerminalIcon } from "@/ui";
+import {
+	Button,
+	CloseIcon,
+	ErrorNotice,
+	GlobeIcon,
+	IconButton,
+	Menu,
+	PlusIcon,
+	Skeleton,
+	TerminalIcon,
+} from "@/ui";
 
 import { type Modifiers, NO_MODIFIERS } from "../lib/keys";
 import type { ConnectionState } from "../lib/terminal-socket";
@@ -26,6 +37,9 @@ function initialFontSize(): number {
 	}
 	return matchMedia("(pointer: coarse)").matches ? 12 : 13;
 }
+
+// The "new terminal" menu's entry for this machine, beside each environment's id.
+const THIS_MACHINE = "this-machine";
 
 // A first guess at the size of a new terminal; the view corrects it as soon as it measures.
 const DEFAULT_SIZE = { cols: 80, rows: 24 };
@@ -78,7 +92,18 @@ export function TerminalScreen(): JSX.Element {
 		const token = auth.token();
 		if (!token) return null;
 		try {
-			const list = await terminalsService.list(token);
+			const here = await terminalsService.list(token);
+			// Each environment's shells too. One that cannot be reached right now just shows none;
+			// its tabs come back on the next refresh.
+			await environmentsStore.load(token);
+			const away = await Promise.all(
+				environmentsStore
+					.environments()
+					.map((environment) =>
+						terminalsService.list(token, environment.id).catch(() => [] as TerminalInfo[]),
+					),
+			);
+			const list = [...here, ...away.flat()];
 			setTerminals(list);
 			setLoad({ status: "ready" });
 			return list;
@@ -88,15 +113,16 @@ export function TerminalScreen(): JSX.Element {
 		}
 	}
 
-	async function openTerminal(): Promise<void> {
+	async function openTerminal(environment?: string): Promise<void> {
 		const token = auth.token();
 		if (!token || busy()) return;
 		setBusy(true);
 		try {
-			// A new shell starts in the current project's folder, where the work is.
+			// A new shell here starts in the current project's folder, where the work is. The
+			// folder is this machine's path, so an environment starts in its own default instead.
 			const slug = untrack(workspace.currentSlug);
-			const cwd = slug ? untrack(workspace.folders)[slug] : undefined;
-			const info = await terminalsService.open(token, DEFAULT_SIZE, cwd);
+			const cwd = slug && !environment ? untrack(workspace.folders)[slug] : undefined;
+			const info = await terminalsService.open(token, DEFAULT_SIZE, cwd, environment);
 			setTerminals((list) => [...list, info]);
 			navigate(`/terminal/${info.id}`);
 		} catch (cause) {
@@ -111,11 +137,12 @@ export function TerminalScreen(): JSX.Element {
 		if (!token) return;
 		const list = terminals();
 		const index = list.findIndex((terminal) => terminal.id === id);
+		const environment = list[index]?.environment;
 		const next = list[index + 1] ?? list[index - 1] ?? null;
 		setTerminals(list.filter((terminal) => terminal.id !== id));
 		handles.delete(id);
 		if (activeId() === id) navigate(next ? `/terminal/${next.id}` : "/terminal", { replace: true });
-		await terminalsService.close(token, id).catch((cause: unknown) => {
+		await terminalsService.close(token, id, environment).catch((cause: unknown) => {
 			// Already gone on the runner is the outcome we wanted.
 			if (!(cause instanceof RunnerError && cause.status === 404)) {
 				setLoad({ status: "error", message: describe(cause) });
@@ -131,7 +158,8 @@ export function TerminalScreen(): JSX.Element {
 		const cwd = currentTerminal?.cwd;
 		setBusy(true);
 		try {
-			const info = await terminalsService.open(token, DEFAULT_SIZE, cwd);
+			const environment = currentTerminal?.environment;
+			const info = await terminalsService.open(token, DEFAULT_SIZE, cwd, environment);
 			setTerminals((list) => list.map((terminal) => (terminal.id === currentId ? info : terminal)));
 			handles.delete(currentId);
 			setStates((all) => {
@@ -145,7 +173,7 @@ export function TerminalScreen(): JSX.Element {
 				return next;
 			});
 			navigate(`/terminal/${info.id}`, { replace: true });
-			void terminalsService.close(token, currentId).catch(() => {});
+			void terminalsService.close(token, currentId, environment).catch(() => {});
 		} catch (cause) {
 			setLoad({ status: "error", message: describe(cause) });
 		} finally {
@@ -223,6 +251,13 @@ export function TerminalScreen(): JSX.Element {
 								>
 									<StatusDot state={states()[terminal.id]} exited={terminal.exitCode !== null} />
 									<span class="truncate">{titleOf(terminal)}</span>
+									<Show when={environmentsStore.labelOf(terminal.environment)}>
+										{(label) => (
+											<span class="max-w-24 truncate rounded bg-ink/10 px-1 py-0.5 text-ink/55 text-ui-caption">
+												{label()}
+											</span>
+										)}
+									</Show>
 									<Show when={states()[terminal.id] === "gone"}>
 										<span class="rounded bg-ink/10 px-1 py-0.5 text-ink/50 text-ui-caption">
 											ended
@@ -240,9 +275,29 @@ export function TerminalScreen(): JSX.Element {
 						)}
 					</For>
 				</div>
-				<IconButton label="New terminal" disabled={busy()} onClick={() => void openTerminal()}>
-					<PlusIcon class="size-4" />
-				</IconButton>
+				<Show
+					when={environmentsStore.environments().length > 0}
+					fallback={
+						<IconButton label="New terminal" disabled={busy()} onClick={() => void openTerminal()}>
+							<PlusIcon class="size-4" />
+						</IconButton>
+					}
+				>
+					<Menu
+						label="New terminal on…"
+						trigger={<PlusIcon class="size-4" />}
+						disabled={busy()}
+						items={[
+							{ id: THIS_MACHINE, label: "This machine", icon: <TerminalIcon class="size-4" /> },
+							...environmentsStore.environments().map((environment) => ({
+								id: environment.id,
+								label: environment.label,
+								icon: <GlobeIcon class="size-4" />,
+							})),
+						]}
+						onSelect={(id) => void openTerminal(id === THIS_MACHINE ? undefined : id)}
+					/>
+				</Show>
 				<div class="hidden items-center pointer-fine:flex">
 					<IconButton label="Smaller text" size="sm" onClick={() => changeFontSize(-1)}>
 						<span class="font-mono text-ui-xs">A−</span>
@@ -324,6 +379,7 @@ export function TerminalScreen(): JSX.Element {
 						<div class="absolute inset-0" hidden={activeId() !== terminal.id}>
 							<TerminalView
 								id={terminal.id}
+								environment={terminal.environment}
 								active={activeId() === terminal.id}
 								fontSize={fontSize()}
 								takeModifiers={takeModifiers}

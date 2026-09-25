@@ -3,6 +3,9 @@ import type { Server, ServerWebSocket } from "bun";
 import { ChatError, type ChatHub } from "./chat/hub";
 import { type ChatCommand, chatCommand, chatRequest } from "./chat/routes";
 import type { RunnerConfig } from "./config";
+import type { PairingStore } from "./environments/pairing";
+import { RELAYED_SOCKETS, relayHttp, SocketRelay } from "./environments/relay";
+import { type EnvironmentDeps, environmentRequest, pairRequest } from "./environments/routes";
 import { folderRequest } from "./folders/routes";
 import type { PushNotifier } from "./push/notifier";
 import { pushRequest } from "./push/routes";
@@ -25,6 +28,14 @@ type Control = { t: "resize"; cols: number; rows: number } | { t: "input"; d: st
 type SocketData = {
 	/** A terminal's byte stream, or a chat session's event stream. */
 	kind: "terminal" | "chat";
+	/** Set when the socket belongs to an environment: carried there rather than served here. */
+	relay: {
+		environmentId: string;
+		path: string;
+		link: SocketRelay | null;
+		/** Frames that arrived while the hello was still being checked; sent once linked. */
+		early: (string | Buffer)[] | null;
+	} | null;
 	userId: string | null;
 	/** The terminal or chat session this socket is attached to. */
 	targetId: string | null;
@@ -50,8 +61,15 @@ export function startServer(
 	store: TerminalStore,
 	verify: (token: string) => Promise<string | null>,
 	chat: ChatHub,
-	push?: PushNotifier,
+	extras: {
+		push?: PushNotifier;
+		/** This Grid's environments (the home side). */
+		environments?: EnvironmentDeps;
+		/** Other Grids may pair with this runner and drive it (the environment side). */
+		pairing?: PairingStore;
+	} = {},
 ): Server<SocketData> {
+	const { push, environments, pairing } = extras;
 	async function userFrom(request: Request): Promise<string | null> {
 		const header = request.headers.get("authorization") ?? "";
 		const token = header.startsWith("Bearer ") ? header.slice(7) : "";
@@ -88,9 +106,45 @@ export function startServer(
 			if (url.pathname === "/terminal" || url.pathname === "/chat") {
 				const kind = url.pathname === "/chat" ? "chat" : "terminal";
 				const upgraded = server.upgrade(request, {
-					data: { kind, userId: null, targetId: null, detach: null, visible: true },
+					data: { kind, relay: null, userId: null, targetId: null, detach: null, visible: true },
 				});
 				return upgraded ? undefined : new Response("Expected a WebSocket", { status: 426 });
+			}
+
+			if (pairing) {
+				const handled = await pairRequest(request, url, pairing);
+				if (handled) return handled;
+			}
+
+			// `/env/<id>/…`: the same routes, on one of this person's environments.
+			const relayed = environments ? url.pathname.match(/^\/env\/([\w-]+)(\/.*)$/) : null;
+			if (environments && relayed) {
+				const [, environmentId, path] = relayed;
+				if (RELAYED_SOCKETS.has(path)) {
+					const upgraded = server.upgrade(request, {
+						data: {
+							kind: path === "/chat" ? "chat" : "terminal",
+							relay: { environmentId, path, link: null, early: null },
+							userId: null,
+							targetId: null,
+							detach: null,
+							visible: true,
+						},
+					});
+					return upgraded ? undefined : new Response("Expected a WebSocket", { status: 426 });
+				}
+				const userId = await userFrom(request);
+				if (!userId) return error(401, "Sign in to use your environments");
+				const target = environments.store.target(userId, environmentId);
+				if (!target) return error(404, "That environment does not exist");
+				return relayHttp(request, path, url.search, target, environments.fetcher);
+			}
+
+			if (environments && url.pathname.startsWith("/environments")) {
+				const userId = await userFrom(request);
+				if (!userId) return error(401, "Sign in to manage environments");
+				const handled = await environmentRequest(request, url, userId, environments);
+				if (handled) return handled;
 			}
 
 			if (url.pathname.startsWith("/fs/") || url.pathname.startsWith("/projects/")) {
@@ -156,6 +210,14 @@ export function startServer(
 				helloTimers.set(ws, timer);
 			},
 			async message(ws, message) {
+				const relay = ws.data.relay;
+				if (relay) {
+					if (relay.link) relay.link.forward(message);
+					else if (relay.early) {
+						if (relay.early.length < 256) relay.early.push(message);
+					} else await relayHello(ws, message);
+					return;
+				}
 				if (!ws.data.userId) {
 					await hello(ws, message);
 					return;
@@ -196,11 +258,51 @@ export function startServer(
 			close(ws) {
 				clearTimeout(helloTimers.get(ws));
 				helloTimers.delete(ws);
+				ws.data.relay?.link?.close();
 				ws.data.detach?.();
 				ws.data.detach = null;
 			},
 		},
 	});
+
+	/**
+	 * The console's hello on an environment socket: check the person here, then carry the socket
+	 * through with the environment's own token in place of theirs.
+	 */
+	async function relayHello(
+		ws: ServerWebSocket<SocketData>,
+		message: string | Buffer,
+	): Promise<void> {
+		const relay = ws.data.relay;
+		const first = typeof message === "string" ? parse<Hello>(message) : null;
+		if (!relay || first?.t !== "hello" || typeof first.token !== "string") {
+			ws.close(CLOSE_UNAUTHORIZED, "Expected hello");
+			return;
+		}
+		relay.early = [];
+		const userId = await verify(first.token);
+		if (!userId) {
+			ws.close(CLOSE_UNAUTHORIZED, "Sign in again");
+			return;
+		}
+		const target = environments?.store.target(userId, relay.environmentId);
+		if (!target) {
+			ws.close(CLOSE_NOT_FOUND, "That environment does not exist");
+			return;
+		}
+		ws.data.userId = userId;
+		clearTimeout(helloTimers.get(ws));
+		relay.link = new SocketRelay({
+			send: (data) => {
+				if (typeof data === "string") ws.send(data);
+				else ws.sendBinary(data);
+			},
+			close: (code, reason) => ws.close(code, reason),
+		});
+		relay.link.open(target, relay.path, first);
+		for (const frame of relay.early) relay.link.forward(frame);
+		relay.early = null;
+	}
 
 	async function hello(ws: ServerWebSocket<SocketData>, message: string | Buffer): Promise<void> {
 		const first = typeof message === "string" ? parse<Hello>(message) : null;
