@@ -1,7 +1,8 @@
 # Grid API
 
-Production-oriented NestJS authentication and user foundation backed by PostgreSQL, Drizzle ORM,
-Zod validation, secure cookies, and explicit SQL migrations.
+Grid's account, project, task, profile, and billing API. It uses NestJS, PostgreSQL, Drizzle,
+Zod validation, secure cookies, and explicit SQL migrations. The console reaches it under
+`/api/v1`; the [runner](../runner/README.md) handles agents, terminals, and project files.
 
 ## Included
 
@@ -20,9 +21,12 @@ Zod validation, secure cookies, and explicit SQL migrations.
 - Generic account responses that avoid user enumeration
 - CSRF origin/header checks, CORS allowlist, Helmet, and rate limiting
 - OpenAPI docs at `http://localhost:4000/api/docs`
+- Project and task endpoints for each project's board
+- Profile and billing foundations
 
-Roles, permissions, additional social providers, and product-specific domain models are
-intentionally not part of this foundation.
+Roles, permissions, additional social providers, and the later ship/operate product domains are
+not part of this API yet. See [Grid's project reference](../../PROJECT.md) for the current
+runtime boundaries and the [API contract](../docs/content/docs/backend-api.mdx) for route details.
 
 ## Setup
 
@@ -69,6 +73,13 @@ All routes are under `/api/v1/auth`.
 Additional authentication methods live under `/api/v1/auth/methods` and authenticated factor
 management lives under `/api/v1/auth/security`. User profile reads and writes use
 `/api/v1/users/me` and `/api/v1/users/me/profile`.
+
+## Projects and tasks
+
+Authenticated routes under `/api/v1/projects` list, create, read, and update projects. A
+project's `/api/v1/projects/:slug/tasks` routes list and create board tasks; the
+`/:number` route updates or deletes one task. The [API contract](../docs/content/docs/backend-api.mdx)
+records request and response shapes.
 
 ## Billing endpoints
 

@@ -1,172 +1,97 @@
-# Grid — project overview
+# Grid project reference
 
-This document is the deeper technical reference for the Grid monorepo.
-For quick setup/use, start with `README.md`.
+[README.md](README.md) explains the product and the fastest way to run it. This file describes
+how the current implementation is divided, where state lives, and which commands developers use.
+The planned product extends beyond the features in this repository today.
 
-## What this repository includes
+## Runtime boundaries
 
-Monorepo managed by **Bun workspaces**, with:
+| Component | Responsibility | Current stack |
+| --- | --- | --- |
+| `apps/console` | Project workspace: boards, agent threads, files, terminals, settings, and environments | Vite, Solid 2, installable PWA |
+| `apps/runner` | Execute coding agents and terminals beside the project folder; serve file operations, chat events, and environment connections | Bun, WebSockets, SQLite for chat logs |
+| `apps/nest-api` | Accounts, sessions, projects, tasks, profiles, and billing foundations | NestJS, Drizzle, PostgreSQL |
+| `apps/launcher` | Prepare a Grid instance and put console, API, and runner behind one port | Bun |
+| `apps/web` | Existing Next.js web app, separate from the active Solid product console | Next.js |
+| `apps/docs` | Human-readable setup, API, architecture, and deployment documentation | Fumadocs |
 
-- Applications (web, mobile, API, docs)
-- Shared workspace packages (`@grid/*`)
-- Polyglot scripts and quality tooling
-- Architecture boundary checks
-- Git hooks and CI/CD/security pipelines
-- Optional Docker and Dev Container workflows
+In the integrated setup, the browser talks to one Grid origin. The launcher serves the console
+and forwards `/api` to the API and `/runner` to the runner, including WebSockets. The API owns
+account and task data;
+the runner executes agents and terminals where project files live. Agent adapters translate
+provider-specific protocols into the chat events the console displays. See the
+[agent chat plan](.agents/plans/agent-chat.md) for that boundary and the
+[architecture docs](apps/docs/content/docs/architecture/index.mdx) for import rules.
 
-## Repository layout
+A home Grid can pair with another Grid as an **environment**. A project's folder placement
+selects the machine for its agents, files, and terminals. The home instance keeps account and
+project metadata; execution and its session log live on the selected runner. See the
+[portable Grid guide](apps/docs/content/docs/portable.mdx) for pairing and security details.
 
-```text
-grid/
-├── apps/                     # Runnable applications
-│   ├── web/                  # Next.js app
-│   ├── nest-api/             # NestJS production API
-│   ├── docs/                 # Documentation app (Next.js + Fumadocs)
-├── packages/
-│   ├── logger/               # Shared logger (TypeScript + Rust)
-│   ├── typescript-config/    # Shared TS config bases
-│   └── ui/                   # Shared web UI primitives + design tokens
-├── scripts/                  # Shell utilities, git hooks and repo checks
-├── docker/                   # Docker Compose fragments
-├── .github/workflows/        # CI/CD/security workflows
-├── .devcontainer/            # Reproducible development environment
-├── .oxlintrc.json            # Linter config (TS/JS)
-├── .oxfmtrc.json             # Formatter config (TS/JS)
-├── lefthook.yml              # Git hooks
-├── package.json              # Root scripts + workspaces
-├── CHANGELOG.md              # Keep a Changelog history
-└── AGENTS.md                 # Universal AI agent guidance
+## State and portability
+
+| State | Where it lives |
+| --- | --- |
+| Accounts, projects, tasks, and billing records | PostgreSQL through `apps/nest-api` |
+| Project source files | Linked folder on the selected machine |
+| Agent session event logs | SQLite on the runner that executes the session |
+| Recent chats, terminal screens, and workspace snapshots | IndexedDB on this browser, scoped to the signed-in account; refreshed from the runner |
+| Appearance preferences | Browser local storage |
+| Generated secrets and first owner credentials | The launcher's data directory (`.grid/` by default) |
+
+A cached screen helps Grid open quickly, but it does not replace the runner or make agent
+execution offline. Treat the project repository and runner data as durable state when choosing
+where to host an environment. The [portable guide](apps/docs/content/docs/portable.mdx) covers
+data paths and deployment options.
+
+## Run the product
+
+Install dependencies and start the integrated instance from the repository root:
+
+```bash
+bun install
+bun run grid
 ```
 
-Documentation is served by `apps/docs` (`bun --cwd=apps/docs run dev` → http://localhost:3002/docs).
-There is no root `docs/` directory.
-## Apps and stacks
+Bun is pinned to **1.4.2** in `package.json`. Set `DATABASE_URL` to an existing PostgreSQL
+instance or have Docker with Compose available so the launcher can start Postgres. The gateway
+uses port `8080` by default (`GRID_PORT` changes it). The first owner's credentials are written
+to `.grid/owner.txt`. See [portable Grid](apps/docs/content/docs/portable.mdx) for Codespaces,
+VPS, pairing, and configuration.
 
-| App | Stack | Notes |
-| --- | --- | --- |
-| `apps/web` | Next.js 16, React 19, Tailwind 4 | Includes unit/integration and Playwright e2e flow |
-| `apps/nest-api` | NestJS 11, Zod, Jest | Production API spine |
-| `apps/docs` | Next.js + Fumadocs + MDX | Project docs site |
+## Development commands
 
-## Shared packages
-
-| Package | Workspace import | Purpose |
-| --- | --- | --- |
-| `packages/ui` | `@grid/ui` | Shared web UI primitives + design tokens |
-| `packages/logger` | `@grid/logger` | Shared structured logger for TypeScript and Rust |
-| `packages/typescript-config` | `@grid/typescript-config` | Reusable TypeScript config presets |
-
-## Root command surface
-
-Run commands from repo root:
+`bun run grid` is the integrated product path. `bun run dev` starts workspace development
+servers separately; the usual local ports are console `3001`, web `3000`, API `4000`, runner
+`4100`, and docs `3002`.
 
 | Command | Purpose |
 | --- | --- |
-| `bun run dev` | Start every workspace's `dev` task in parallel |
-| `bun run build` | Build workspace targets |
-| `bun run start` | Start runtime targets |
-| `bun run lint` | Lint workspace + scripts |
-| `bun run lint:fix` | Apply lint autofixes |
-| `bun run format` | Format TS/JS + shell + the Rust logger |
-| `bun run typecheck` | TypeScript type checking |
-| `bun run test` | Run tests in workspace + scripts |
-| `bun run test:coverage` | Run full coverage-oriented pass |
-| `bun run test:e2e:web` | Web Playwright e2e |
-| `bun run architecture:check` | Enforce architecture boundaries + kebab-case naming |
-| `bun run preflight` | Lint + typecheck + test |
-| `bun run prepare` | Install git hooks (Lefthook) |
+| `bun run dev` | Start workspaces with development scripts |
+| `bun --cwd=apps/console run dev` | Work on the Solid console |
+| `bun --cwd=apps/runner run dev` | Work on the local execution runner |
+| `bun --cwd=apps/nest-api run dev` | Work on the API |
+| `bun --cwd=apps/docs run dev` | Browse docs at `http://localhost:3002/docs` |
+| `bun run build` | Build workspaces |
+| `bun run lint` / `bun run format` | Check code style / format source |
+| `bun run typecheck` / `bun run test` | Type-check / run unit tests |
+| `bun run architecture:check` | Check import boundaries and path naming |
+| `bun run preflight` | Run lint, typecheck, and tests |
 
-### Running one app directly
+Use `bun run prepare` to install Lefthook Git hooks. The root uses oxlint and oxfmt for
+TypeScript and JavaScript; ShellCheck and shfmt cover scripts. CI configuration lives in
+`.github/workflows/`. See [quick start](apps/docs/content/docs/quick-start.mdx) and
+[development workflow](apps/docs/content/docs/development-workflow.mdx) for setup details.
 
-Use:
+## Current work and design direction
 
-```bash
-bun --cwd <app-path> run <script>
-```
+The [open board](.agents/board/open/) lists the next scoped changes. The
+[agent chat plan](.agents/plans/agent-chat.md),
+[console plan](.agents/plans/console-design-migration.md), and
+[portable Grid plan](.agents/plans/portable-next.md) contain longer-term ideas, some of which
+have already shipped. Check board cards and source before treating a plan's phase label as
+current status. There are no release dates attached to these plans.
 
-Examples:
-
-- `bun --cwd=apps/web run dev`
-- `bun --cwd=apps/nest-api run dev`
-- `bun --cwd=apps/docs run dev`
-
-## Tooling and quality system
-
-### Monorepo and package management
-
-- **Bun** is the only package manager (`bun@1.3.11`)
-- Workspaces: `apps/*` and `packages/*`
-- **Bun** orchestrates shared tasks (`bun run --filter '*' <task>`)
-
-### Linting and formatting
-
-- **oxlint** + **oxfmt** are the TS/JS linter+formatter (`.oxlintrc.json`, `.oxfmtrc.json`)
-- Formatting style: tabs, line width 100
-- Root `format` and `lint` scripts also run language-specific tools
-
-### Language-specific tools
-
-- **Bash:** `shellcheck`, `shfmt`
-- **Rust:** `cargo fmt`, `cargo clippy`, `cargo test`
-
-### Git hooks
-
-Configured in `lefthook.yml`:
-
-- Pre-commit: trailing whitespace fix, format, lint:fix, typecheck, architecture check
-- Safety checks: large file guard, secret scan
-- Commit-msg hook: message quality rules
-
-Install hooks with:
-
-```bash
-bun run prepare
-```
-
-### Architecture enforcement
-
-- Rule checks run via `bun run architecture:check`
-- Script location: `scripts/architecture/check-boundaries.sh`
-- See docs app `/docs/architecture` for boundaries and allowed dependency flow
-
-## CI/CD and security
-
-- **CI:** `.github/workflows/ci.yml` runs lint/typecheck/test/e2e jobs
-- **CD:** `.github/workflows/cd.yml` is a staged deploy template (`main` and version tags)
-- **Security:** `.github/workflows/security.yml` + Dependabot + CodeQL
-
-## Docker workflow
-
-Postgres, Nest API, and Next.js are composed through root `docker-compose.yml` with fragment
-files under `docker/compose/` (Compose Spec — no top-level `version` key).
-
-```bash
-cp env.docker.example .env
-docker compose up -d --build
-```
-
-Defaults: web `3000`, Nest `4000`, Postgres host `5433`.
-
-More details: docs app `/docs/docker` and `docker/README.md`.
-
-## Dev Container workflow
-
-`.devcontainer/` provides a reproducible setup with Bun, Rust and the shell tooling.
-
-- Open in VS Code/Cursor and choose **Reopen in Container**
-- See `.devcontainer/README.md` for exact toolchain and post-create steps
-
-## Conventions and development rules
-
-- Primary repository guidance: `AGENTS.md`
-- Cursor-specific rules: `.agents/rules/`
-- Architecture baseline: docs app `/docs/architecture`
-- Override process: docs app `/docs/overrides`
-- Use workspace imports as `@grid/<package>`
-
-## Related docs
-
-- `README.md` - quick start and high-level navigation
-- Docs app (`apps/docs`): `/docs/qol`, `/docs/architecture`
-- `scripts/README.md` - script usage and structure
-- `apps/*/README.md` - per-app setup and workflows
+The [design system](DESIGN.md) guides the interface. [AGENTS.md](AGENTS.md) and
+[.agents/](.agents/README.md) define ownership, worktrees, board cards, review, and validation.
+Project docs live in `apps/docs/content/docs/`; there is no root `docs/` directory.
