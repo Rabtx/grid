@@ -1,4 +1,7 @@
 import { afterAll, describe, expect, it } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { readConfig } from "./config";
 import { ChatHub } from "./chat/hub";
@@ -123,6 +126,32 @@ describe("runner server", () => {
 });
 
 describe("folders and project links", () => {
+	it("scopes project files to the signed-in project's linked folder", async () => {
+		const root = mkdtempSync(join(tmpdir(), "grid-project-route-"));
+		try {
+			const url = `${base}/projects/files/demo`;
+			expect((await fetch(url)).status).toBe(401);
+			expect((await fetch(url, { headers: auth })).status).toBe(409);
+			await fetch(`${base}/projects/folders/demo`, {
+				method: "PUT",
+				headers: { ...auth, "Content-Type": "application/json" },
+				body: JSON.stringify({ path: root }),
+			});
+			const made = await fetch(url, {
+				method: "POST",
+				headers: { ...auth, "Content-Type": "application/json" },
+				body: JSON.stringify({ path: "", name: "notes.md", kind: "file" }),
+			});
+			expect(made.status).toBe(201);
+			const listing = (await (await fetch(url, { headers: auth })).json()) as {
+				data: { entries: { name: string }[] };
+			};
+			expect(listing.data.entries.map((entry) => entry.name)).toContain("notes.md");
+			expect((await fetch(`${url}?path=..`, { headers: auth })).status).toBe(400);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
 	it("browses folders, reads a folder's details and links a project to it", async () => {
 		const listing = (await (
 			await fetch(`${base}/fs/folders?path=/tmp`, { headers: auth })
