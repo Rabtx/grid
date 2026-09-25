@@ -21,6 +21,8 @@ export type ChatSocketOptions = {
 	onRunning: (running: boolean) => void;
 	onConnection: (state: ChatConnection) => void;
 	onError: (message: string) => void;
+	/** Whether the person can see the chat; the runner notifies their devices only when not. */
+	visible?: () => boolean;
 	createSocket?: (url: string) => WebSocket;
 	retryDelaysMs?: number[];
 };
@@ -108,7 +110,14 @@ export function connectChat(options: ChatSocketOptions) {
 		const ws = createSocket(options.url);
 		socket = ws;
 		ws.addEventListener("open", () => {
-			ws.send(JSON.stringify({ t: "hello", token: options.token() ?? "", id: options.id }));
+			ws.send(
+				JSON.stringify({
+					t: "hello",
+					token: options.token() ?? "",
+					id: options.id,
+					visible: options.visible?.() ?? true,
+				}),
+			);
 		});
 		ws.addEventListener("message", (event: MessageEvent) => {
 			if (socket !== ws || typeof event.data !== "string") return;
@@ -208,6 +217,12 @@ export function connectChat(options: ChatSocketOptions) {
 			return true;
 		},
 		reconnectNow,
+		/** Tell the runner the chat went out of sight or came back. */
+		setVisible(visible: boolean): void {
+			if (socket && attached && socket.readyState === OPEN) {
+				socket.send(JSON.stringify({ t: "visibility", visible }));
+			}
+		},
 		close(): void {
 			closed = true;
 			clearTimeout(retryTimer);

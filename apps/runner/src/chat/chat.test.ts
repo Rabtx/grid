@@ -295,6 +295,30 @@ describe("ChatHub", () => {
 		return new ChatHub(new ChatStore(":memory:"), new Map([["echo", echo]]));
 	}
 
+	it("asks for attention when a turn ends only if no device is looking", async () => {
+		const chat = hub();
+		const heard: string[] = [];
+		chat.onUnwatchedAttention((session, event) => heard.push(`${session.id}:${event.type}`));
+		const session = chat.create("me", { project: "alpha", provider: "echo", cwd: "/tmp" });
+
+		let visible = true;
+		const device = chat.attach("me", session.id, {
+			event: () => {},
+			state: () => {},
+			watching: () => visible,
+		});
+		await chat.prompt("me", session.id, "one");
+		expect(heard).toEqual([]);
+
+		visible = false;
+		await chat.prompt("me", session.id, "two");
+		expect(heard).toEqual([`${session.id}:turn_end`]);
+
+		device.detach();
+		await chat.prompt("me", session.id, "three");
+		expect(heard).toHaveLength(2);
+	});
+
 	it("keeps each person's chats to themselves", () => {
 		const chat = hub();
 		const mine = chat.create("me", { project: "alpha", provider: "echo", cwd: "/tmp" });

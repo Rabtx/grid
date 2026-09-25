@@ -10,7 +10,12 @@ import type { ChatSessionRow, ChatStore, ProviderCatalog, ProviderSettings } fro
 export type ChatClient = {
 	event: (event: ChatEvent) => void;
 	state: (state: { running: boolean }) => void;
+	/** False while the device has the app in the background; unset means it is looking. */
+	watching?: () => boolean;
 };
+
+/** Called when a turn ends or an agent waits for approval and no device is looking at the chat. */
+export type AttentionListener = (session: ChatSessionRow, event: ChatEvent) => void;
 
 type Live = {
 	agent: Promise<AgentSession> | null;
@@ -66,6 +71,7 @@ function isDirectory(path: string): boolean {
  */
 export class ChatHub {
 	private readonly live = new Map<string, Live>();
+	private attention: AttentionListener | null = null;
 
 	constructor(
 		private readonly store: ChatStore,
@@ -125,6 +131,11 @@ export class ChatHub {
 				? { ...info, ...merge(info, previous.data), refreshedAt: previous.refreshedAt }
 				: { ...info, refreshedAt: null };
 		}
+	}
+
+	/** Hear about turns that end, and approvals that wait, while nobody is watching the chat. */
+	onUnwatchedAttention(listener: AttentionListener): void {
+		this.attention = listener;
 	}
 
 	/** This person's threads with an agent working right now, for the "running" indicators. */
@@ -346,6 +357,13 @@ export class ChatHub {
 			if (change.model || change.mode || change.effort) this.store.update(id, change);
 		}
 		for (const client of live.clients) client.event(event);
+		if (
+			(event.type === "turn_end" || event.type === "approval") &&
+			![...live.clients].some((client) => client.watching?.() ?? true)
+		) {
+			const session = this.store.get(id);
+			if (session) this.attention?.(session, event);
+		}
 
 		if (event.type === "message" || event.type === "reasoning") {
 			if (live.buffered && live.buffered.type === event.type) {
