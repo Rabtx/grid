@@ -100,6 +100,7 @@ describe("connectChat", () => {
 			t: "hello",
 			token: "token-1",
 			id: "chat-1",
+			visible: true,
 		});
 
 		const readyMsg = {
@@ -144,6 +145,7 @@ describe("connectChat", () => {
 			t: "hello",
 			token: "token-1",
 			id: "chat-1",
+			visible: true,
 		});
 
 		sockets[1].receive(

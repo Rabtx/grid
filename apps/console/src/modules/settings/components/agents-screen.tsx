@@ -7,6 +7,7 @@ import { providersStore } from "@/modules/chat/stores/providers";
 import type { ChatProvider, ProviderSettings } from "@/modules/chat/types/chat.types";
 import { Button, ErrorNotice, RestoreIcon, Skeleton, SpinnerIcon } from "@/ui";
 
+import { NotificationsCard } from "./notifications-card";
 import { SettingsNav } from "./settings-nav";
 
 function ago(iso: string | null | undefined): string {
@@ -66,6 +67,9 @@ export function AgentsScreen(): JSX.Element {
 					</For>
 				</div>
 			</Show>
+			<div class="mt-4">
+				<NotificationsCard />
+			</div>
 		</div>
 	);
 }

@@ -146,12 +146,17 @@ export function Conversation(props: {
 			},
 			onRunning: setRunning,
 			onConnection: link.set,
+			visible: () => document.visibilityState === "visible",
 			onError: setError,
 		});
 		socket = live;
 		const stopResume = onAppResume(live.reconnectNow);
+		// Out of sight, a finished turn or a waiting approval becomes a notification instead.
+		const reportVisibility = () => live.setVisible(document.visibilityState === "visible");
+		document.addEventListener("visibilitychange", reportVisibility);
 		return () => {
 			stopResume();
+			document.removeEventListener("visibilitychange", reportVisibility);
 			link.cancel();
 			live.close();
 		};

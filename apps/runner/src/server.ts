@@ -4,11 +4,21 @@ import { ChatError, type ChatHub } from "./chat/hub";
 import { type ChatCommand, chatCommand, chatRequest } from "./chat/routes";
 import type { RunnerConfig } from "./config";
 import { folderRequest } from "./folders/routes";
+import type { PushNotifier } from "./push/notifier";
+import { pushRequest } from "./push/routes";
 import type { TerminalStore } from "./terminals";
 import { transcribe, TranscribeError } from "./transcribe";
 
 /** What the console sends first on a socket: who it is and which terminal it wants. */
-type Hello = { t: "hello"; token: string; id: string; cols?: number; rows?: number };
+type Hello = {
+	t: "hello";
+	token: string;
+	id: string;
+	cols?: number;
+	rows?: number;
+	/** A chat sent from a page in the background (it reconnected while hidden). */
+	visible?: boolean;
+};
 
 type Control = { t: "resize"; cols: number; rows: number } | { t: "input"; d: string };
 
@@ -19,6 +29,8 @@ type SocketData = {
 	/** The terminal or chat session this socket is attached to. */
 	targetId: string | null;
 	detach: (() => void) | null;
+	/** Whether the device has the app in front of it; a chat it is not looking at may notify. */
+	visible: boolean;
 };
 
 /** Close codes the console acts on: sign in again, or drop the tab. */
@@ -38,6 +50,7 @@ export function startServer(
 	store: TerminalStore,
 	verify: (token: string) => Promise<string | null>,
 	chat: ChatHub,
+	push?: PushNotifier,
 ): Server<SocketData> {
 	async function userFrom(request: Request): Promise<string | null> {
 		const header = request.headers.get("authorization") ?? "";
@@ -75,7 +88,7 @@ export function startServer(
 			if (url.pathname === "/terminal" || url.pathname === "/chat") {
 				const kind = url.pathname === "/chat" ? "chat" : "terminal";
 				const upgraded = server.upgrade(request, {
-					data: { kind, userId: null, targetId: null, detach: null },
+					data: { kind, userId: null, targetId: null, detach: null, visible: true },
 				});
 				return upgraded ? undefined : new Response("Expected a WebSocket", { status: 426 });
 			}
@@ -84,6 +97,13 @@ export function startServer(
 				const userId = await userFrom(request);
 				if (!userId) return error(401, "Sign in to browse folders");
 				const handled = await folderRequest(request, url, userId, chat);
+				if (handled) return handled;
+			}
+
+			if (push && url.pathname.startsWith("/push/")) {
+				const userId = await userFrom(request);
+				if (!userId) return error(401, "Sign in to get notifications");
+				const handled = await pushRequest(request, url, userId, push);
 				if (handled) return handled;
 			}
 
@@ -143,9 +163,13 @@ export function startServer(
 				const { userId, targetId: terminalId } = ws.data;
 				if (!terminalId) return;
 				if (typeof message === "string") {
-					const ping = parse<{ t?: string }>(message);
-					if (ping?.t === "ping") {
+					const control = parse<{ t?: string; visible?: unknown }>(message);
+					if (control?.t === "ping") {
 						ws.send(JSON.stringify({ t: "pong" }));
+						return;
+					}
+					if (control?.t === "visibility") {
+						ws.data.visible = control.visible !== false;
 						return;
 					}
 				}
@@ -189,6 +213,7 @@ export function startServer(
 			ws.close(CLOSE_UNAUTHORIZED, "Sign in again");
 			return;
 		}
+		ws.data.visible = first.visible !== false;
 		if (ws.data.kind === "chat") {
 			chatHello(ws, userId, first.id);
 			return;
@@ -202,7 +227,7 @@ export function startServer(
 			ws.close(CLOSE_NOT_FOUND, "That terminal does not exist");
 			return;
 		}
-		ws.data = { kind: "terminal", userId, targetId: first.id, detach: attached.detach };
+		ws.data = { ...ws.data, kind: "terminal", userId, targetId: first.id, detach: attached.detach };
 		ws.send(JSON.stringify({ t: "ready", terminal: attached.info }));
 		for (const bytes of attached.history) ws.sendBinary(bytes);
 		if (attached.info.exitCode !== null) {
@@ -218,8 +243,9 @@ export function startServer(
 			const attached = chat.attach(userId, id, {
 				event: (event) => ws.send(JSON.stringify({ t: "event", event })),
 				state: (state) => ws.send(JSON.stringify({ t: "state", ...state })),
+				watching: () => ws.data.visible,
 			});
-			ws.data = { kind: "chat", userId, targetId: id, detach: attached.detach };
+			ws.data = { ...ws.data, kind: "chat", userId, targetId: id, detach: attached.detach };
 			ws.send(
 				JSON.stringify({
 					t: "ready",

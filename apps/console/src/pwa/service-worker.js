@@ -8,6 +8,8 @@
  *   router then renders the right screen from the URL.
  * - Hashed assets are served from the cache first — their names change whenever they change.
  * - API and terminal calls (/api/…, /uploads/…, /runner/…) are never cached: they must be live.
+ * - Pushes from the runner (an agent finished or needs approval while nobody was looking) show as
+ *   notifications; tapping one opens that chat, in the open window when there is one.
  */
 const BUILD_ID = "__BUILD_ID__";
 const CACHE = `grid-shell-${BUILD_ID}`;
@@ -65,5 +67,38 @@ self.addEventListener("fetch", (event) => {
 					return response;
 				}),
 		),
+	);
+});
+
+self.addEventListener("push", (event) => {
+	let message = {};
+	try {
+		message = event.data?.json() ?? {};
+	} catch {
+		// Not ours, or not JSON: still show something rather than drop it silently.
+	}
+	event.waitUntil(
+		self.registration.showNotification(message.title || "Grid", {
+			body: message.body || "",
+			// One notification per chat: a newer one replaces the last, and still alerts.
+			tag: message.tag,
+			renotify: Boolean(message.tag),
+			icon: "/brand/app-icon-192.png",
+			badge: "/brand/grid-mark-96.png",
+			data: { url: message.url || "/" },
+		}),
+	);
+});
+
+self.addEventListener("notificationclick", (event) => {
+	event.notification.close();
+	const url = new URL(event.notification.data?.url || "/", self.location.origin).href;
+	event.waitUntil(
+		self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (windows) => {
+			const open = windows.find((client) => new URL(client.url).origin === self.location.origin);
+			if (!open) return self.clients.openWindow(url);
+			const focused = await open.focus();
+			return focused.navigate(url).catch(() => focused);
+		}),
 	);
 });
