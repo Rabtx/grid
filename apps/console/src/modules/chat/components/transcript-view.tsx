@@ -10,16 +10,22 @@ import {
 	EditIcon,
 	FileIcon,
 	GlobeIcon,
+	HandoverIcon,
 	IdeaIcon,
+	Menu,
+	type MenuItem,
+	NoteIcon,
+	RestoreIcon,
 	SearchIcon,
 	SpinnerIcon,
 	TerminalIcon,
+	toast,
 	ToolIcon,
 } from "@/ui";
 
 import { copyCodeFrom, renderMarkdown } from "../lib/markdown";
 import { type Block, groupRows, type Row, summariseTools, toolFile } from "../lib/transcript";
-import type { ToolKind } from "../types/chat.types";
+import type { Choice, ToolKind } from "../types/chat.types";
 
 type ToolBlock = Extract<Block, { kind: "tool" }>;
 
@@ -52,10 +58,33 @@ function toolParts(tool: ToolBlock): [verb: string, target: string] {
 	}
 }
 
+function findPrecedingUserPrompt(blocks: Block[], target: Block): string | null {
+	const index = blocks.indexOf(target);
+	if (index === -1) {
+		const keyIndex = blocks.findIndex((b) => b.key === target.key);
+		if (keyIndex !== -1) {
+			for (let i = keyIndex - 1; i >= 0; i--) {
+				const b = blocks[i];
+				if (b && b.kind === "user") return b.text;
+			}
+		}
+		return null;
+	}
+	for (let i = index - 1; i >= 0; i--) {
+		const b = blocks[i];
+		if (b && b.kind === "user") return b.text;
+	}
+	return null;
+}
+
 export function TranscriptView(props: {
 	blocks: Block[];
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
+	models?: Choice[];
+	currentModel?: string;
+	onHandover?: (model: string) => void;
+	onRegenerate?: (prompt: string) => void;
 }): JSX.Element {
 	const grouped = createMemo(() => groupRows(props.blocks));
 
@@ -72,7 +101,18 @@ export function TranscriptView(props: {
 						<Match
 							when={row().kind === "block" && (row() as Extract<Row, { kind: "block" }>).block}
 						>
-							{(block) => <BlockView block={block()} onApprove={props.onApprove} />}
+							{(block) => (
+								<BlockView
+									block={block()}
+									blocks={props.blocks}
+									running={props.running}
+									models={props.models}
+									currentModel={props.currentModel}
+									onApprove={props.onApprove}
+									onHandover={props.onHandover}
+									onRegenerate={props.onRegenerate}
+								/>
+							)}
 						</Match>
 					</Switch>
 				)}
@@ -89,8 +129,19 @@ export function TranscriptView(props: {
 
 function BlockView(props: {
 	block: Block;
+	blocks: Block[];
+	running: boolean;
+	models?: Choice[];
+	currentModel?: string;
 	onApprove: (id: string, optionId: string | null) => void;
+	onHandover?: (model: string) => void;
+	onRegenerate?: (prompt: string) => void;
 }): JSX.Element {
+	const userPrompt = createMemo(() => {
+		if (props.block.kind !== "assistant") return null;
+		return findPrecedingUserPrompt(props.blocks, props.block);
+	});
+
 	return (
 		<Switch>
 			<Match when={props.block.kind === "user" && props.block}>
@@ -98,9 +149,17 @@ function BlockView(props: {
 			</Match>
 			<Match when={props.block.kind === "assistant" && props.block}>
 				{(block) => (
-					<div
-						class="chat-prose min-w-0 break-words px-1 text-ink text-ui"
-						innerHTML={renderMarkdown((block() as Extract<Block, { kind: "assistant" }>).text)}
+					<AssistantMessage
+						text={(block() as Extract<Block, { kind: "assistant" }>).text}
+						running={props.running}
+						models={props.models}
+						currentModel={props.currentModel}
+						canRegenerate={Boolean(userPrompt())}
+						onHandover={props.onHandover}
+						onRegenerate={() => {
+							const prompt = userPrompt();
+							if (prompt) props.onRegenerate?.(prompt);
+						}}
 					/>
 				)}
 			</Match>
@@ -171,27 +230,50 @@ function BlockView(props: {
 	);
 }
 
-/** What you sent: a full-width bubble, clamped to four lines until opened, with a copy button. */
+const ACTION_BTN =
+	"focus-ring grid size-6 place-items-center rounded-md text-ink/40 transition-[background-color,color,transform] duration-fast ease-out-grid hover:bg-ink/8 hover:text-ink/70 active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30 pointer-coarse:size-9";
+
+/** What you sent: a right-aligned bubble, clamped to four lines until opened, with copy & note actions. */
 function UserMessage(props: { text: string }): JSX.Element {
 	const [open, setOpen] = createSignal(false);
 	const [copied, setCopied] = createSignal(false);
 	const long = () => props.text.split("\n").length > 4 || props.text.length > 400;
 
 	return (
-		<div class="group/user">
-			<div class="rounded-lg border border-ink/10 bg-ink/10 px-3 py-2">
+		<div class="group/user flex flex-col items-end">
+			<div class="max-w-[85%] rounded-2xl rounded-br-sm border border-ink/10 bg-ink/8 px-3.5 py-2.5 shadow-xs sm:max-w-[75%]">
 				<p
 					class={`whitespace-pre-wrap break-words text-ink text-ui ${open() ? "" : "line-clamp-4"}`}
 				>
 					{props.text}
 				</p>
 			</div>
-			<div class="flex h-6 items-center gap-1 px-1 pt-1 opacity-0 transition-opacity duration-fast group-hover/user:opacity-100 group-focus-within/user:opacity-100 pointer-coarse:opacity-100">
+			<div class="flex h-6 items-center justify-end gap-1 px-1 pt-1 opacity-0 transition-opacity duration-fast group-hover/user:opacity-100 group-focus-within/user:opacity-100 pointer-coarse:opacity-100">
+				<Show when={long()}>
+					<button
+						type="button"
+						class="focus-ring rounded-md px-1.5 text-ink/45 text-ui-xs hover:bg-ink/8 hover:text-ink/70 pointer-coarse:min-h-9"
+						onClick={() => setOpen(!open())}
+					>
+						{open() ? "Show less" : "Show more"}
+					</button>
+				</Show>
+				<button
+					type="button"
+					aria-label="Add as note"
+					title="Add as note"
+					class={ACTION_BTN}
+					onClick={() => {
+						toast({ message: "Saved to notes (feature coming soon)" });
+					}}
+				>
+					<NoteIcon class="size-3.5" />
+				</button>
 				<button
 					type="button"
 					aria-label="Copy message"
 					title={copied() ? "Copied" : "Copy"}
-					class="focus-ring grid size-6 place-items-center rounded-md text-ink/40 hover:bg-ink/8 hover:text-ink/70 pointer-coarse:size-9"
+					class={ACTION_BTN}
 					onClick={() =>
 						void navigator.clipboard?.writeText(props.text).then(() => {
 							setCopied(true);
@@ -200,16 +282,87 @@ function UserMessage(props: { text: string }): JSX.Element {
 					}
 				>
 					<Show when={copied()} fallback={<CopyIcon class="size-3.5" />}>
-						<CheckIcon class="size-3.5" />
+						<CheckIcon class="size-3.5 text-success" />
 					</Show>
 				</button>
-				<Show when={long()}>
+			</div>
+		</div>
+	);
+}
+
+/** The agent's response: markdown text with dedicated actions (copy, handover, add note, regenerate). */
+function AssistantMessage(props: {
+	text: string;
+	running?: boolean;
+	models?: Choice[];
+	currentModel?: string;
+	canRegenerate?: boolean;
+	onHandover?: (model: string) => void;
+	onRegenerate?: () => void;
+}): JSX.Element {
+	const [copied, setCopied] = createSignal(false);
+
+	const handoverItems = createMemo<MenuItem[]>(() =>
+		(props.models ?? []).map((m) => ({
+			id: m.id,
+			label: m.id === props.currentModel ? `${m.name} (current)` : m.name,
+			disabled: m.id === props.currentModel,
+		})),
+	);
+
+	return (
+		<div class="group/assistant flex flex-col items-start">
+			<div
+				class="chat-prose min-w-0 max-w-full break-words px-1 text-ink text-ui"
+				innerHTML={renderMarkdown(props.text)}
+			/>
+			<div class="flex h-6 items-center gap-1 px-1 pt-1 opacity-0 transition-opacity duration-fast group-hover/assistant:opacity-100 group-focus-within/assistant:opacity-100 pointer-coarse:opacity-100">
+				<button
+					type="button"
+					aria-label="Copy response"
+					title={copied() ? "Copied" : "Copy"}
+					class={ACTION_BTN}
+					onClick={() =>
+						void navigator.clipboard?.writeText(props.text).then(() => {
+							setCopied(true);
+							setTimeout(() => setCopied(false), 1500);
+						})
+					}
+				>
+					<Show when={copied()} fallback={<CopyIcon class="size-3.5" />}>
+						<CheckIcon class="size-3.5 text-success" />
+					</Show>
+				</button>
+				<Show when={handoverItems().length > 0}>
+					<Menu
+						label="Handover to model"
+						triggerClass={ACTION_BTN}
+						trigger={<HandoverIcon class="size-3.5" />}
+						items={handoverItems()}
+						onSelect={(id) => props.onHandover?.(id)}
+					/>
+				</Show>
+				<button
+					type="button"
+					aria-label="Add as note"
+					title="Add as note"
+					class={ACTION_BTN}
+					onClick={() => {
+						toast({ message: "Saved to notes (feature coming soon)" });
+					}}
+				>
+					<NoteIcon class="size-3.5" />
+				</button>
+				<Show when={props.canRegenerate}>
 					<button
 						type="button"
-						class="focus-ring rounded-md px-1.5 text-ink/45 text-ui-xs hover:bg-ink/8 hover:text-ink/70 pointer-coarse:min-h-9"
-						onClick={() => setOpen(!open())}
+						aria-label="Regenerate response"
+						title={props.running ? "Cannot regenerate while running" : "Regenerate response"}
+						disabled={props.running}
+						class={ACTION_BTN}
+						onClick={() => props.onRegenerate?.()}
 					>
-						{open() ? "Show less" : "Show more"}
+						<RestoreIcon class="size-3.5" />
 					</button>
 				</Show>
 			</div>
