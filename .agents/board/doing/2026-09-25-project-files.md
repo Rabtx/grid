@@ -78,4 +78,5 @@ Folders are read one level at a time; common generated directories are omitted t
 responsive. Files is route-loaded as a 7.44 kB build chunk. The linked folder remains the sole
 filesystem authority. Contract impact: new authenticated runner endpoints
 `GET/POST /projects/files/:slug`; no Nest API or database schema change. Browser checks used
-a disposable folder and isolated runner database. Review: human pending. Commit: pending.
+a disposable folder and isolated runner database. Review: human pending. Implementation commit:
+`06f3b98872762d8049eb62c0c8e922d5c817a4bf`.
