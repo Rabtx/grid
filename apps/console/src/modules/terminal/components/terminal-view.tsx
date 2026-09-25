@@ -6,6 +6,8 @@ import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { createEffect, createSignal, onSettled, Show, untrack } from "solid-js";
 
+import { onAppResume } from "@/lib/app-resume";
+import { quietReconnects } from "@/lib/quiet-reconnects";
 import { useAuth } from "@/modules/auth";
 import { registerDictationTarget } from "@/modules/voice";
 import { ChevronDownIcon, CopyIcon } from "@/ui";
@@ -205,6 +207,7 @@ export function TerminalView(props: {
 
 		fitAddon.fit();
 
+		const link = quietReconnects<ConnectionState>((state) => props.onState(state));
 		const live = connectTerminal({
 			url: terminalSocketUrl(),
 			id: props.id,
@@ -218,7 +221,7 @@ export function TerminalView(props: {
 					setHasUnreadOutput(true);
 				}
 			},
-			onState: (state) => props.onState(state),
+			onState: link.set,
 			onTitle: (title) => props.onTitle(title),
 			onExit: (code) => {
 				terminal.write(`\r\n\x1b[2m[process exited with code ${code}]\x1b[0m\r\n`);
@@ -283,11 +286,7 @@ export function TerminalView(props: {
 		scheme.addEventListener("change", retheme);
 
 		// Phones suspend background tabs and drop sockets; come back without waiting on backoff.
-		const resume = () => {
-			if (document.visibilityState === "visible") live.reconnectNow();
-		};
-		document.addEventListener("visibilitychange", resume);
-		window.addEventListener("online", resume);
+		const stopResume = onAppResume(live.reconnectNow);
 
 		const detachScrollbar = track && thumb ? attachScrollbar(terminal, track, thumb) : () => {};
 
@@ -400,8 +399,8 @@ export function TerminalView(props: {
 			cancelAnimationFrame(frame);
 			cancelLongPress();
 			onHandlePointerUp();
-			document.removeEventListener("visibilitychange", resume);
-			window.removeEventListener("online", resume);
+			stopResume();
+			link.cancel();
 			window.removeEventListener("scroll", preventPageScroll);
 			scheme.removeEventListener("change", retheme);
 			appearance.disconnect();
