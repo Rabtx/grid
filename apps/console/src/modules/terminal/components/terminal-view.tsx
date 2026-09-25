@@ -15,6 +15,7 @@ import { ChevronDownIcon, CopyIcon } from "@/ui";
 
 import { applyModifiers, type Arrow, arrowSequence, type Modifiers } from "../lib/keys";
 import { lineForThumb, type ScrollState, thumbGeometry } from "../lib/scrollbar";
+import { keptScreen, screenRecorder } from "../lib/screen-cache";
 import { connectTerminal, type ConnectionState } from "../lib/terminal-socket";
 import { monoFontFamily, terminalTheme } from "../lib/terminal-theme";
 import { attachTouchScroll, getCellCoords, getCellDimensions } from "../lib/touch-scroll";
@@ -211,7 +212,13 @@ export function TerminalView(props: {
 		fitAddon.fit();
 
 		const link = quietReconnects<ConnectionState>((state) => props.onState(state));
+		// The screen as this device last saw it, drawn at once; the runner then sends only what
+		// came after it.
+		const kept = keptScreen(props.id);
+		if (kept) terminal.write(kept.bytes);
+		const recorder = screenRecorder(props.id);
 		const live = connectTerminal({
+			offset: kept ? kept.at + kept.bytes.byteLength : null,
 			url: terminalSocketUrl(untrack(() => props.environment)),
 			// One connection per machine, shared with every other open terminal and chat on it.
 			createSocket: (url) => {
@@ -223,9 +230,13 @@ export function TerminalView(props: {
 			token: auth.token,
 			renew: auth.renew,
 			size: () => ({ cols: terminal.cols, rows: terminal.rows }),
-			onReset: () => terminal.reset(),
+			onReset: () => {
+				terminal.reset();
+				recorder.reset(live.offset() ?? 0);
+			},
 			onOutput: (bytes) => {
 				terminal.write(bytes);
+				recorder.add(bytes);
 				if (terminal.buffer.active.viewportY < terminal.buffer.active.baseY) {
 					setHasUnreadOutput(true);
 				}
@@ -393,6 +404,12 @@ export function TerminalView(props: {
 			floatingMic: false,
 		});
 
+		// Saved now when the app goes into the background, in case the phone closes it there.
+		const saveWhenHidden = () => {
+			if (document.visibilityState === "hidden") recorder.flush();
+		};
+		document.addEventListener("visibilitychange", saveWhenHidden);
+
 		props.onHandle({
 			// Key-bar keys take the armed modifiers too, so Shift then Tab sends back tab.
 			send: (data) => live.send(applyModifiers(data, props.takeModifiers())),
@@ -424,6 +441,8 @@ export function TerminalView(props: {
 			detachScrollbar();
 			detachTouchScroll();
 			unregisterDictation();
+			document.removeEventListener("visibilitychange", saveWhenHidden);
+			recorder.flush();
 			live.close();
 			terminal.dispose();
 			term = undefined;

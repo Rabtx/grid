@@ -29,6 +29,8 @@ export type TerminalSocketOptions = {
 	onTitle: (title: string) => void;
 	onExit: (code: number) => void;
 	createSocket?: (url: string) => WebSocket;
+	/** How many bytes of output the screen already shows (kept on the device), to get only the rest. */
+	offset?: number | null;
 	/** Backoff before each retry; the last value repeats. */
 	retryDelaysMs?: number[];
 };
@@ -38,6 +40,8 @@ export type TerminalSocket = {
 	resize: (cols: number, rows: number) => void;
 	/** Retry right away instead of waiting out the backoff (the page came back, the network did). */
 	reconnectNow: () => void;
+	/** How many bytes of output the screen holds: the next attach continues from here. */
+	offset: () => number | null;
 	close: () => void;
 };
 
@@ -76,7 +80,7 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 	let pending = "";
 	let lastActivityAt = Date.now();
 	// How many bytes of the terminal's output this screen holds, to get only the rest on reattach.
-	let received: number | null = null;
+	let received: number | null = options.offset ?? null;
 
 	function startHeartbeat(): void {
 		stopHeartbeat();
@@ -276,6 +280,7 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 			}
 		},
 		reconnectNow,
+		offset: () => received,
 		close() {
 			closed = true;
 			clearTimeout(retryTimer);

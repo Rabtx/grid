@@ -1,5 +1,6 @@
 import { createSignal, untrack } from "solid-js";
 
+import { localStore } from "@/lib/local-store";
 import { placementsStore } from "@/modules/environments";
 
 import { chatService } from "../services/chat.service";
@@ -21,8 +22,13 @@ const lastRunning = new Map<string, { id: string; project: string }[]>();
 const newestFirst = (list: ChatSession[]) =>
 	[...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
+const cacheKey = (project: string) => `threads:${project}`;
+
 function put(project: string, list: ChatSession[]): void {
-	setByProject({ ...untrack(byProject), [project]: newestFirst(list) });
+	const sorted = newestFirst(list);
+	setByProject({ ...untrack(byProject), [project]: sorted });
+	// Kept on the device: the project's threads show at once next time.
+	void localStore.set(cacheKey(project), sorted);
 }
 
 export const threadsStore = {
@@ -68,10 +74,20 @@ export const threadsStore = {
 	threads: (project: string): ChatSession[] => byProject()[project] ?? [],
 	loaded: (project: string): boolean => loaded()[project] === true,
 	error: (project: string): string | null => errors()[project] ?? null,
-	/** Read a project's threads; calls while one is in flight share it. */
+	/**
+	 * Read a project's threads; calls while one is in flight share it. What this device kept
+	 * shows first, and the runner's answer replaces it.
+	 */
 	load(token: string, project: string): Promise<void> {
 		const running = pending.get(project);
 		if (running) return running;
+		if (!untrack(loaded)[project]) {
+			void localStore.get<ChatSession[]>(cacheKey(project)).then((kept) => {
+				if (kept?.length && !untrack(loaded)[project]) {
+					setByProject({ ...untrack(byProject), [project]: kept });
+				}
+			});
+		}
 		const work = chatService
 			.sessions(token, project, placementsStore.scopeOf(project))
 			.then(

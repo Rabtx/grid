@@ -1,5 +1,6 @@
 import { createSignal, untrack } from "solid-js";
 
+import { localStore } from "@/lib/local-store";
 import { runnerCall } from "@/lib/runner-client";
 
 /**
@@ -26,15 +27,24 @@ export const placementsStore = {
 	scopes: (): string[] => ["", ...new Set(Object.values(placements()).map(scopeFor))],
 	/** Read the placements, once per visit (later calls share the first). */
 	load(token: string): Promise<void> {
-		loading ??= runnerCall<Record<string, string>>("/environments/placements", token).then(
-			(next) => {
-				setPlacements(next ?? {});
-			},
-			() => {
-				// The runner is down: keep what we had; calls go to this machine meanwhile.
-				loading = null;
-			},
-		);
+		loading ??= (async () => {
+			// Kept on the device: which machine each project is on is known before the runner answers.
+			if (Object.keys(untrack(placements)).length === 0) {
+				const kept = await localStore.get<Record<string, string>>("placements");
+				if (kept && Object.keys(untrack(placements)).length === 0) setPlacements(kept);
+			}
+		})()
+			.then(() => runnerCall<Record<string, string>>("/environments/placements", token))
+			.then(
+				(next) => {
+					setPlacements(next ?? {});
+					void localStore.set("placements", next ?? {});
+				},
+				() => {
+					// The runner is down: keep what we had; calls go to this machine meanwhile.
+					loading = null;
+				},
+			);
 		return loading;
 	},
 	/** Re-read after pairing or removing an environment. */
@@ -52,5 +62,6 @@ export const placementsStore = {
 		if (environment) next[project] = environment;
 		else delete next[project];
 		setPlacements(next);
+		void localStore.set("placements", next);
 	},
 };

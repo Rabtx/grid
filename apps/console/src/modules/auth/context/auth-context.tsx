@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createContext, createSignal, onSettled, useContext } from "solid-js";
 
 import { ApiError, registerTokenRenewal } from "@/lib/api-client";
+import { localStore } from "@/lib/local-store";
 
 import { authService } from "../services/auth.service";
 import {
@@ -53,9 +54,12 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 		expiresAt = 0;
 		setToken(null);
 		setUser(null);
+		localStore.setUser(null);
 	}
 
 	function acceptSession(session: AuthSession): void {
+		// What this device keeps is per account: set whose it is before anything reads it.
+		localStore.setUser(session.user.id);
 		setToken(session.accessToken);
 		setUser(session.user);
 		expiresAt = Date.parse(session.accessTokenExpiresAt);
@@ -108,6 +112,8 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 			generation++;
 			renewing = null;
 			clearSession();
+			// Signed out: nothing of this account stays on the device.
+			await localStore.clear();
 			await authService.logout().catch(() => {
 				// Clearing the client is worth doing even if the server call fails.
 			});

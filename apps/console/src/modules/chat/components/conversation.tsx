@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, onSettled, Show, untrack } from "solid-js";
 
 import { onAppResume } from "@/lib/app-resume";
+import { localStore, saveSoon } from "@/lib/local-store";
 import { linkFor } from "@/lib/runner-link";
 import { quietReconnects } from "@/lib/quiet-reconnects";
 import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
@@ -12,7 +13,7 @@ import { type ChatConnection, connectChat, type ChatSocket } from "../lib/chat-s
 import { applyEvent, emptyTranscript, replay, type Transcript } from "../lib/transcript";
 import { chatSocketUrl } from "../services/chat.service";
 import { threadsStore } from "../stores/threads";
-import type { ChatProvider, ChatSession } from "../types/chat.types";
+import type { ChatEvent, ChatProvider, ChatSession } from "../types/chat.types";
 
 import { mergeModels } from "../lib/choices";
 
@@ -98,82 +99,122 @@ export function Conversation(props: {
 	onSettled(() => {
 		const link = quietReconnects<ChatConnection>(setConnection);
 		let attachedBefore = false;
-		const live = connectChat({
-			url: chatSocketUrl(untrack(() => props.scope)),
-			// One connection per machine, shared with every other open chat and terminal on it.
-			createSocket: (url) =>
-				linkFor(
-					untrack(() => props.scope),
-					auth.token,
-				).socket("chat", url) as unknown as WebSocket,
-			id: props.id,
-			token: auth.token,
-			renew: auth.renew,
-			onReady: (ready) => {
-				setSession(ready.session);
-				props.onSession(ready.session);
-				// Caught up: add what was missed to the transcript as it is, so nothing redraws.
-				if (ready.missed) {
-					const missed = ready.missed;
-					setTranscript((current) => missed.reduce(applyEvent, current));
-				} else {
-					setTranscript(replay(ready.history));
-				}
-				const currentStartedAt = runnerStartedAt();
-				const restarted =
-					runnerRestarted() ||
-					(lastStartedAt !== null &&
-						currentStartedAt !== null &&
-						currentStartedAt !== lastStartedAt);
+		let disposed = false;
+		let live: ChatSocket | null = null;
+		let stopResume = () => {};
+		// The events this transcript is built from, kept on the device with where this device got
+		// to: the chat shows at once next time, and the runner sends only what is new.
+		let log: ChatEvent[] = [];
+		const cacheKey = `chat:${props.id}`;
+		const saver = saveSoon(cacheKey, () => ({ events: log, cursor: live?.cursor() ?? null }));
 
-				if (running() && (restarted || !ready.running)) {
-					setRestartNotice("The runner restarted; send again to continue");
-					setRunning(false);
-				} else {
-					setRunning(ready.running);
+		const connect = (cursor: { epoch: string; next: number } | null) => {
+			const chat = connectChat({
+				cursor,
+				url: chatSocketUrl(untrack(() => props.scope)),
+				// One connection per machine, shared with every other open chat and terminal on it.
+				createSocket: (url) =>
+					linkFor(
+						untrack(() => props.scope),
+						auth.token,
+					).socket("chat", url) as unknown as WebSocket,
+				id: props.id,
+				token: auth.token,
+				renew: auth.renew,
+				onReady: (ready) => {
+					setSession(ready.session);
+					props.onSession(ready.session);
+					// Caught up: add what was missed to the transcript as it is, so nothing redraws.
+					if (ready.missed) {
+						const missed = ready.missed;
+						log = [...log, ...missed];
+						setTranscript((current) => missed.reduce(applyEvent, current));
+					} else {
+						log = [...ready.history];
+						setTranscript(replay(ready.history));
+					}
+					saver.schedule();
+					const currentStartedAt = runnerStartedAt();
+					const restarted =
+						runnerRestarted() ||
+						(lastStartedAt !== null &&
+							currentStartedAt !== null &&
+							currentStartedAt !== lastStartedAt);
+
+					if (running() && (restarted || !ready.running)) {
+						setRestartNotice("The runner restarted; send again to continue");
+						setRunning(false);
+					} else {
+						setRunning(ready.running);
+					}
+					lastStartedAt = currentStartedAt;
+					// Opening a chat lands on its latest message; coming back to it keeps your place.
+					if (!attachedBefore) pinned = true;
+					attachedBefore = true;
+					scrollToEnd();
+					const first = firstMessages.get(props.id);
+					if (first && !ready.missed && ready.history.length === 0) {
+						firstMessages.delete(props.id);
+						chat.send({ t: "prompt", text: first });
+					}
+				},
+				onEvent: (event) => {
+					log.push(event);
+					saver.schedule();
+					setTranscript((current) => applyEvent(current, event));
+					// The runner titles a chat from its first message; show that title at once.
+					const current = session();
+					if (event.type === "user" && current?.title === "New chat") {
+						const titled = { ...current, title: event.text.replace(/\s+/g, " ").slice(0, 60) };
+						setSession(titled);
+						props.onSession(titled);
+					}
+					if (event.type === "turn_start") {
+						setRestartNotice(null);
+						setRunning(true);
+					}
+					if (event.type === "turn_end") setRunning(false);
+					scrollToEnd();
+				},
+				onRunning: setRunning,
+				onConnection: link.set,
+				visible: () => document.visibilityState === "visible",
+				onError: setError,
+			});
+			live = chat;
+			socket = chat;
+			stopResume = onAppResume(chat.reconnectNow);
+		};
+
+		// What this device kept first, then the live link from where it got to.
+		void localStore
+			.get<{ events: ChatEvent[]; cursor: { epoch: string; next: number } | null }>(cacheKey)
+			.then((kept) => {
+				if (disposed) return;
+				if (kept?.events?.length) {
+					log = kept.events;
+					setTranscript(replay(log));
+					pinned = true;
+					scrollToEnd();
 				}
-				lastStartedAt = currentStartedAt;
-				// Opening a chat lands on its latest message; coming back to it keeps your place.
-				if (!attachedBefore) pinned = true;
-				attachedBefore = true;
-				scrollToEnd();
-				const first = firstMessages.get(props.id);
-				if (first && !ready.missed && ready.history.length === 0) {
-					firstMessages.delete(props.id);
-					live.send({ t: "prompt", text: first });
-				}
-			},
-			onEvent: (event) => {
-				setTranscript((current) => applyEvent(current, event));
-				// The runner titles a chat from its first message; show that title at once.
-				const current = session();
-				if (event.type === "user" && current?.title === "New chat") {
-					const titled = { ...current, title: event.text.replace(/\s+/g, " ").slice(0, 60) };
-					setSession(titled);
-					props.onSession(titled);
-				}
-				if (event.type === "turn_start") {
-					setRestartNotice(null);
-					setRunning(true);
-				}
-				if (event.type === "turn_end") setRunning(false);
-				scrollToEnd();
-			},
-			onRunning: setRunning,
-			onConnection: link.set,
-			visible: () => document.visibilityState === "visible",
-			onError: setError,
-		});
-		socket = live;
-		const stopResume = onAppResume(live.reconnectNow);
-		// Out of sight, a finished turn or a waiting approval becomes a notification instead.
-		const reportVisibility = () => live.setVisible(document.visibilityState === "visible");
+				connect(kept?.cursor ?? null);
+			});
+
+		// Out of sight, a finished turn or a waiting approval becomes a notification instead; and
+		// the transcript is saved now, in case the phone closes the app while it is hidden.
+		const reportVisibility = () => {
+			const visible = document.visibilityState === "visible";
+			live?.setVisible(visible);
+			if (!visible) saver.flush();
+		};
 		document.addEventListener("visibilitychange", reportVisibility);
 		return () => {
+			disposed = true;
+			saver.flush();
 			stopResume();
 			document.removeEventListener("visibilitychange", reportVisibility);
 			link.cancel();
-			live.close();
+			live?.close();
 		};
 	});
 
