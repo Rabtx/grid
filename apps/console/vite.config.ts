@@ -48,21 +48,47 @@ const apiProxy: Record<string, ProxyOptions> = {
 
 /**
  * Emit `sw.js` from `src/pwa/service-worker.js` at build time, filling in the files to precache
- * and a build id derived from them, so each deploy installs a fresh worker and cache.
+ * and a build id derived from their contents, so changed shell content installs a fresh cache.
  */
 function serviceWorker(): Plugin {
 	const source = fileURLToPath(new URL("./src/pwa/service-worker.js", import.meta.url));
+	const index = fileURLToPath(new URL("./index.html", import.meta.url));
 	const publicDir = fileURLToPath(new URL("./public", import.meta.url));
 	return {
 		name: "grid-service-worker",
 		apply: "build",
 		generateBundle(_options, bundle) {
-			const built = Object.keys(bundle)
-				.filter((file) => /\.(js|css)$/.test(file))
-				.map((file) => `/${file}`);
+			const shell = new Set<string>();
+			const include = (file: string): void => {
+				const item = bundle[file];
+				if (!item || shell.has(file)) return;
+				shell.add(file);
+				if (item.type === "chunk") {
+					item.imports.forEach(include);
+					item.viteMetadata?.importedCss.forEach(include);
+				}
+			};
+			for (const [file, item] of Object.entries(bundle)) {
+				if (item.type === "chunk" && item.isEntry) include(file);
+			}
 			const brand = readdirSync(`${publicDir}/brand`).map((file) => `/brand/${file}`);
-			const precache = ["/index.html", "/manifest.webmanifest", ...brand, ...built].sort();
-			const buildId = createHash("sha256").update(precache.join("\n")).digest("hex").slice(0, 12);
+			const precache = [
+				"/index.html",
+				"/manifest.webmanifest",
+				...brand,
+				...[...shell].map((file) => `/${file}`),
+			].sort();
+			const hash = createHash("sha256").update(precache.join("\n"));
+			hash.update(readFileSync(index));
+			hash.update(readFileSync(source));
+			hash.update(readFileSync(`${publicDir}/manifest.webmanifest`));
+			for (const file of brand) hash.update(readFileSync(`${publicDir}${file}`));
+			for (const file of shell) {
+				const item = bundle[file];
+				if (item?.type === "chunk") hash.update(item.code);
+				else if (item?.type === "asset") hash.update(item.source);
+			}
+			const buildId = hash.digest("hex").slice(0, 12);
 			this.emitFile({
 				type: "asset",
 				fileName: "sw.js",

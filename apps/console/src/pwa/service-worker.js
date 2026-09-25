@@ -2,8 +2,8 @@
  * The console's service worker. The `serviceWorker()` plugin in vite.config.ts fills in the build
  * id and the precache list below, so every deploy is a new worker with its own cache.
  *
- * - The app shell (index.html, the hashed JS/CSS, icons, manifest) is precached at install, so
- *   the console opens offline and instantly on later visits.
+ * - The app shell (index.html, entry JS and static dependencies, CSS, icons, manifest) is
+ *   precached at install. Lazy route assets enter the cache when visited.
  * - Page navigations go to the network first and fall back to the cached shell offline; the
  *   router then renders the right screen from the URL.
  * - Hashed assets are served from the cache first — their names change whenever they change.

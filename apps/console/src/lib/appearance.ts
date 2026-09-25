@@ -110,6 +110,29 @@ export function readableInk(hex: string): "#000000" | "#ffffff" {
 	return luminance > 0.179 ? "#000000" : "#ffffff";
 }
 
+/** The actual canvas colour, for the status/browser bar surrounding the page. */
+export function canvasColor(value: Appearance, prefersDark: boolean): string {
+	const dark = value.theme === "dark" || (value.theme === "system" && prefersDark);
+	const lightness = (dark ? value.darkLightness : 97) / 100;
+	const saturation = value.saturation / 100;
+	const amount = saturation * Math.min(lightness, 1 - lightness);
+	const channel = (offset: number) => {
+		const key = (offset + value.hue / 30) % 12;
+		return Math.round(255 * (lightness - amount * Math.max(-1, Math.min(key - 3, 9 - key, 1))));
+	};
+	return `#${[0, 8, 4].map((offset) => channel(offset).toString(16).padStart(2, "0")).join("")}`;
+}
+
+function syncThemeColor(value: Appearance): void {
+	const color = canvasColor(
+		value,
+		window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false,
+	);
+	document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((meta) => {
+		meta.content = color;
+	});
+}
+
 /** Write an appearance onto the document root as the variables and classes the tokens read. */
 export function applyAppearance(
 	value: Appearance,
@@ -132,6 +155,7 @@ export function applyAppearance(
 	root.classList.toggle("dark", value.theme === "dark");
 	root.classList.toggle("light", value.theme === "light");
 	root.setAttribute("data-density", value.density);
+	if (root === document.documentElement) syncThemeColor(value);
 }
 
 function readStored(): Appearance {
@@ -160,6 +184,7 @@ function writeStored(value: Appearance): void {
 // batches signal writes until the next microtask, so reading the signal right after a write
 // would still see the previous value — two quick zoom presses would compute from a stale scale.
 let state: Appearance = APPEARANCE_DEFAULTS;
+let watchingSystemTheme = false;
 const [current, setCurrent] = createSignal<Appearance>(APPEARANCE_DEFAULTS);
 
 /** The appearance in effect, reactive for the settings screen. */
@@ -185,6 +210,12 @@ export function resetAppearance(): void {
 /** Load the saved appearance and apply it; call once before the first render. */
 export function restoreAppearance(): void {
 	commit(readStored(), false);
+	if (window.matchMedia && !watchingSystemTheme) {
+		window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+			if (state.theme === "system") syncThemeColor(state);
+		});
+		watchingSystemTheme = true;
+	}
 }
 
 /**

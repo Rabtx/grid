@@ -2,13 +2,33 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
+		<style>
+			html { background: var(--canvas, #f7f7f7); }
+			@media (prefers-color-scheme: dark) { html:not(.light) { background: var(--canvas, #171717); } }
+			html.dark { background: var(--canvas, #171717); }
+		</style>
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
 		<meta name="color-scheme" content="light dark" />
 		<!-- The canvas colour of each theme (hsl 240 0% 97% / 9%), so browser chrome blends in. -->
 		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f7f7" />
 		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171717" />
+		<script>
+			try {
+				const saved = JSON.parse(localStorage.getItem("grid.appearance") || "{}");
+				const theme = saved.theme ?? localStorage.getItem("grid.theme");
+				if (theme === "light" || theme === "dark") {
+					document.documentElement.classList.add(theme);
+					document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+						meta.content = theme === "dark" ? "#171717" : "#f7f7f7";
+					});
+				}
+			} catch {
+				// Use the system theme if storage is unavailable or invalid.
+			}
+		</script>
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-title" content="Grid" />
 		<link rel="icon" type="image/png" href="/brand/favicon-64.png" />
 		<link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
 		<link rel="manifest" href="/manifest.webmanifest" />

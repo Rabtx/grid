@@ -5,6 +5,7 @@ import {
 	APPEARANCE_DEFAULTS,
 	appearance,
 	applyAppearance,
+	canvasColor,
 	installScaleShortcuts,
 	normalizeAppearance,
 	readableInk,
@@ -58,6 +59,20 @@ describe("readableInk", () => {
 	});
 });
 
+describe("canvasColor", () => {
+	it("matches the default canvases and a custom tint", () => {
+		expect(canvasColor(APPEARANCE_DEFAULTS, false)).toBe("#f7f7f7");
+		expect(canvasColor(APPEARANCE_DEFAULTS, true)).toBe("#171717");
+		expect(canvasColor({ ...APPEARANCE_DEFAULTS, theme: "light" }, true)).toBe("#f7f7f7");
+		expect(canvasColor({ ...APPEARANCE_DEFAULTS, theme: "dark", darkLightness: 0 }, false)).toBe(
+			"#000000",
+		);
+		expect(
+			canvasColor({ ...APPEARANCE_DEFAULTS, theme: "dark", hue: 0, saturation: 100 }, false),
+		).toBe("#2e0000");
+	});
+});
+
 describe("applyAppearance", () => {
 	it("writes the variables and classes the tokens read", () => {
 		const root = document.createElement("div");
@@ -76,6 +91,17 @@ describe("applyAppearance", () => {
 		expect(root.style.getPropertyValue("--user-accent")).toBe("");
 		expect(root.classList.contains("dark")).toBe(false);
 		expect(root.classList.contains("light")).toBe(false);
+	});
+
+	it("updates the browser bar colour for the document theme", () => {
+		const meta = document.createElement("meta");
+		meta.name = "theme-color";
+		document.head.append(meta);
+		applyAppearance({ ...APPEARANCE_DEFAULTS, theme: "dark", darkLightness: 0 });
+		expect(meta.content).toBe("#000000");
+		applyAppearance({ ...APPEARANCE_DEFAULTS, theme: "light" });
+		expect(meta.content).toBe("#f7f7f7");
+		meta.remove();
 	});
 });
 
