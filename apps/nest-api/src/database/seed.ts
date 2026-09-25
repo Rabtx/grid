@@ -14,7 +14,7 @@ import * as schema from './schema';
  * real tasks loaded from the repository's `.agents/board/` (open, doing, done).
  *
  * Re-running only adds what is missing: an existing demo account keeps its id, password, projects
- * and tasks, so threads and folders tied to that account survive. `--reset` deletes the account
+ * and tasks (new board cards are appended), so threads and folders tied to that account survive. `--reset` deletes the account
  * first (the cascade clears its projects and tasks) for a clean board.
  */
 const DEMO_EMAIL = 'demo@grid.dev';
@@ -223,18 +223,26 @@ async function main(): Promise<void> {
 				.select({ id: schema.projects.id })
 				.from(schema.projects)
 				.where(and(eq(schema.projects.ownerId, user.id), eq(schema.projects.slug, slug)));
-			if (existing) {
-				console.log(`kept project "${slug}"`);
-				continue;
-			}
-			const [project] = await db
-				.insert(schema.projects)
-				.values({ ownerId: user.id, slug, name, summary })
-				.returning();
+			const project =
+				existing ??
+				(
+					await db
+						.insert(schema.projects)
+						.values({ ownerId: user.id, slug, name, summary })
+						.returning({ id: schema.projects.id })
+				)[0];
 			if (!project) throw new Error(`Seed project ${slug} was not created`);
 
-			let index = 0;
-			for (const task of taskList) {
+			// A kept project gets only the cards it doesn't have yet (matched by title), numbered
+			// after its own, so re-seeding never duplicates or rewrites a board someone uses.
+			const current = await db
+				.select({ title: schema.tasks.title, number: schema.tasks.number })
+				.from(schema.tasks)
+				.where(eq(schema.tasks.projectId, project.id));
+			const titles = new Set(current.map((task) => task.title));
+			const missing = taskList.filter((task) => !titles.has(task.title));
+			let index = Math.max(0, ...current.map((task) => task.number));
+			for (const task of missing) {
 				index += 1;
 				await db.insert(schema.tasks).values({
 					projectId: project.id,
@@ -248,7 +256,9 @@ async function main(): Promise<void> {
 					branch: task.branch ?? null,
 				});
 			}
-			console.log(`seeded project "${slug}" with ${taskList.length} tasks`);
+			console.log(
+				`${existing ? 'kept' : 'seeded'} project "${slug}": added ${missing.length} tasks`,
+			);
 		}
 
 		console.log('\nSign in at http://localhost:3000/login');
