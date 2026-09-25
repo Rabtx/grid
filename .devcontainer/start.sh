@@ -31,6 +31,17 @@ if ! as_postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'grid'" | 
 	as_postgres createdb -O grid grid
 fi
 
+# Keep Grid current: on main with nothing changed locally, take the latest before starting, so
+# this environment runs the same Grid as the home one pairing with it. Anything else (a branch,
+# local edits, no network) starts as it is.
+if [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" = main ] && [ -z "$(git status --porcelain 2>/dev/null)" ]; then
+	if git pull --ff-only --quiet 2>/dev/null; then
+		bun install --frozen-lockfile >/dev/null 2>&1 || echo "grid: bun install failed after updating" >&2
+	else
+		echo "grid: could not update from main; starting the Grid already here" >&2
+	fi
+fi
+
 mkdir -p .grid
 : >.grid/grid.log
 touch .grid/ready
