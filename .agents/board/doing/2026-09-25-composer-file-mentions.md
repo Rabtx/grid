@@ -5,19 +5,19 @@ type: feature
 from: human
 to: web
 priority: normal
-status: backlog
+status: doing
 assignee: web
 reviewer: human
 parent: .agents/plans/agent-chat.md
 depends_on: []
-branch: none
-worktree: none
+branch: agent/web/composer-file-mentions
+worktree: ../grid-worktrees/agent/web/composer-file-mentions
 scope:
-  - apps/console/src/modules/chat/components/composer.tsx
   - apps/console/src/modules/chat/**
+  - apps/runner/src/folders/**
 allowed_shared: []
 created: 2026-09-25
-updated: 2026-09-25
+updated: 2026-09-26
 ---
 
 ## What
