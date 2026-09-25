@@ -10,7 +10,7 @@ export type MenuItem = {
 };
 
 const TRIGGER_CLASS =
-	"focus-ring inline-flex size-control shrink-0 select-none items-center justify-center rounded-md text-ink/50 transition-[background-color,color,transform] duration-fast ease-out-grid hover:bg-ink/8 hover:text-ink active:scale-[0.96] pointer-coarse:min-h-10 pointer-coarse:min-w-10";
+	"focus-ring inline-flex size-control shrink-0 select-none items-center justify-center rounded-md text-ink/50 transition-[background-color,color,transform] duration-fast ease-out-grid hover:bg-ink/8 hover:text-ink active:scale-[0.96] pointer-coarse:min-h-11 pointer-coarse:min-w-11";
 
 // Phones: bottom sheet, full width, safe-area padded. From md: clears the sheet insets so CSS
 // anchor positioning (`position-area`) or the JS fallback can place it under the trigger.

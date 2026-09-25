@@ -168,7 +168,10 @@ describe("coarse-pointer touch targets", () => {
 		}
 		expect(root.querySelector("fieldset button")?.className).toContain("pointer-coarse:min-h-10");
 		expect(root.querySelector('button[aria-label="Actions"]')?.className).toContain(
-			"pointer-coarse:min-h-10",
+			"pointer-coarse:min-h-11",
+		);
+		expect(root.querySelector('button[aria-label="Actions"]')?.className).toContain(
+			"pointer-coarse:min-w-11",
 		);
 		expect(root.querySelector('[role="menuitem"]')?.className).toContain("pointer-coarse:min-h-11");
 		expect(root.querySelector("select")?.className).toContain("pointer-coarse:min-h-10");

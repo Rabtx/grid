@@ -1,4 +1,4 @@
-import { useMatch, useNavigate } from "@solidjs/router";
+import { useLocation, useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, Show, untrack } from "solid-js";
 
@@ -8,6 +8,7 @@ import type { ChatSession } from "@/modules/chat/types/chat.types";
 import { type Project, useWorkspace } from "@/modules/projects";
 import {
 	BoardIcon,
+	FileIcon,
 	ChevronDownIcon,
 	ConfirmDialog,
 	FolderIcon,
@@ -27,6 +28,7 @@ const PROJECT_MENU: MenuItem[] = [
 	{ id: "rename", label: "Rename" },
 	{ id: "folder", label: "Change folder" },
 	{ id: "board", label: "Open board" },
+	{ id: "files", label: "Open files" },
 	{ id: "remove", label: "Remove from Grid", danger: true },
 ];
 
@@ -156,6 +158,7 @@ function ProjectNode(props: {
 	const shell = useShell();
 	const workspace = useWorkspace();
 	const navigate = useNavigate();
+	const location = useLocation();
 	const slug = () => props.project.slug;
 	const current = () => slug() === workspace.currentSlug();
 	const folder = () => workspace.folders()[slug()];
@@ -177,6 +180,7 @@ function ProjectNode(props: {
 			workspace.setProjectAction({ kind: id, slug: slug() });
 		else if (id === "folder") workspace.chooseFolderFor(slug());
 		else if (id === "board") navigate(`/board/${slug()}`);
+		else if (id === "files") navigate(`/files/${slug()}`);
 	}
 
 	return (
@@ -234,6 +238,13 @@ function ProjectNode(props: {
 					>
 						<BoardIcon class="size-3.5 shrink-0 text-ink/45" />
 						Board
+					</a>
+					<a
+						href={`/files/${slug()}`}
+						aria-current={location.pathname === `/files/${slug()}` ? "page" : undefined}
+						class={`${ROW} h-7 px-2 text-ink/60 text-ui-sm pointer-coarse:h-11`}
+					>
+						<FileIcon class="size-3.5 shrink-0 text-ink/45" /> Files
 					</a>
 					<Show when={!folder()}>
 						<button

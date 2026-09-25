@@ -19,6 +19,7 @@ const Router = createRouter({
 		{ path: "/login", component: LoginRoute },
 		{ path: "/board", component: RedirectRoute },
 		{ path: "/board/:slug", component: BoardRoute },
+		{ path: "/files/:slug", component: FilesRoute },
 		// The same board with one task open in the panel over it.
 		{ path: "/board/:slug/tasks/:number", component: BoardRoute },
 		// Chats with agents, inside their project; `new` is the new-chat composer, any other id a
@@ -79,6 +80,20 @@ function BoardRoute(): JSX.Element {
 		</RequireAuth>
 	);
 }
+
+function FilesRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<Loading fallback={<p class="p-4 text-ink/45 text-ui-sm">Opening files…</p>}>
+				<FilesScreen />
+			</Loading>
+		</RequireAuth>
+	);
+}
+
+const FilesScreen = lazy(() => import("@/modules/projects/components/files-screen"), {
+	export: "FilesScreen",
+});
 
 // Chat brings a Markdown renderer; like the terminal, it loads when someone opens it.
 const ChatScreen = lazy(() => import("@/modules/chat"), { export: "ChatScreen" });
