@@ -4,12 +4,14 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04
 ARG BUN_VERSION=1.4.2
 ARG RUST_CHANNEL=stable
 
-# Shell tooling used by repo scripts (no C/Lua/Python toolchain).
+# Shell tooling used by repo scripts (no C/Lua/Python toolchain), and Postgres for Grid itself:
+# one container, so Codespaces runs every feature and forwards every port as usual.
 RUN apt-get update && apt-get install -y --no-install-recommends \
 	curl \
 	git \
 	ca-certificates \
 	shellcheck \
+	postgresql \
 	&& rm -rf /var/lib/apt/lists/*
 
 USER vscode
