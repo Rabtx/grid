@@ -7,7 +7,13 @@ Reproducible environment for Grid: **Bun**, **Rust**, and the Bash lint/format h
 1. **VS Code / Cursor**: Install the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension, then **Reopen in Container**.
 2. **CLI**: From repo root, `devcontainer build` then `devcontainer up` (requires [Dev Container CLI](https://github.com/devcontainers/cli)).
 
-The container comes with its own Postgres (`compose.yml`). After start, `postCreateCommand` runs `bun install` and `bun run prepare` (git hooks), and on attach Grid itself starts in the background (`bun run grid`, port 8080, log in `.grid/grid.log`) — the same setup opens in GitHub Codespaces. Use `bun run dev`, `bun run lint`, etc. as on the host. See `/docs/portable`.
+It is one container, with Postgres installed inside it: Codespaces runs every feature (Tailscale,
+SSH) and forwards every port only for a single container, which is why this is not a Compose
+setup. `postCreateCommand` runs `bun install` and `bun run prepare` (git hooks). Each start,
+`start.sh` joins the tailnet when there is a key, starts Postgres, and starts Grid in the
+background (`bun run grid`, port 8080, log in `.grid/grid.log`). The same setup opens in GitHub
+Codespaces, and `gh codespace ssh` works. Use `bun run dev`, `bun run lint`, etc. as on the host.
+See `/docs/portable`.
 
 ## Pair this Codespace with your home Grid
 
@@ -23,12 +29,16 @@ A Grid running elsewhere (your laptop, a VPS) can drive this Codespace's termina
 
 2. Save it as a Codespaces secret named `TS_AUTH_KEY` (GitHub → Settings → Codespaces →
    Secrets), available to this repository, and rebuild the Codespace.
-3. Grid starts with pairing on: its runner listens only on the tailnet address. In a terminal
-   here, run `bun run grid:pair` to get the address and a one-time code (valid ten minutes).
+3. On start, `start.sh` joins the tailnet (without touching DNS or routes), and Grid starts with
+   pairing on: its runner listens only on the tailnet address. In a terminal here, run
+   `bun run grid:pair` to get the address and a one-time code (valid ten minutes).
 4. On the home Grid, open Settings → Environments, add the address and code.
 
 Removing the environment at home revokes its secret on both sides. Set `GRID_PAIRING=0` to keep
 a tailnet-connected Codespace unpaired.
+
+Tailscale's feature cannot log in by itself here: Codespaces hands secrets to lifecycle commands,
+not to the container's entrypoint, so `start.sh` runs `tailscale up` instead.
 
 ## What’s installed
 

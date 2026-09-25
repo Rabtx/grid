@@ -1,20 +1,30 @@
 {
 	"name": "Grid",
-	"dockerComposeFile": "compose.yml",
-	"service": "grid",
-	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-	"shutdownAction": "stopCompose",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": ".."
+	},
 
-	// Tailscale, so a home Grid can pair with this Codespace over your tailnet (see README.md).
-	// It only joins when a TS_AUTH_KEY Codespaces secret exists; otherwise it stays idle.
 	"features": {
-		"ghcr.io/tailscale/codespace/tailscale": {}
+		// Tailscale, so a home Grid can pair with this Codespace over your tailnet (see README.md).
+		// It only joins when a TS_AUTH_KEY Codespaces secret exists; otherwise it stays idle.
+		"ghcr.io/tailscale/codespace/tailscale": {},
+		// An SSH server, so `gh codespace ssh` reaches the container (scripts, debugging).
+		"ghcr.io/devcontainers/features/sshd:1": {}
+	},
+	// Tailscale's kernel networking needs a tun device.
+	"runArgs": ["--device=/dev/net/tun"],
+
+	"containerEnv": {
+		// Grid's own database, started by start.sh inside this container.
+		"DATABASE_URL": "postgresql://grid:grid@localhost:5432/grid",
+		// Pair with a home Grid whenever this Codespace is on a tailnet (it stays on loopback when not).
+		"GRID_PAIRING": "1"
 	},
 
 	"postCreateCommand": "bun install && bun run prepare",
-	// Grid starts in the background on attach (a second start exits: it is already running).
-	// Its log is .grid/grid.log.
-	"postAttachCommand": "mkdir -p .grid && setsid nohup bun run grid > .grid/grid.log 2>&1 &",
+	// Postgres, then Grid in the background (port 8080, log in .grid/grid.log).
+	"postStartCommand": "bash .devcontainer/start.sh",
 	"forwardPorts": [8080, 3000, 3002, 4000],
 	"portsAttributes": {
 		"8080": {
