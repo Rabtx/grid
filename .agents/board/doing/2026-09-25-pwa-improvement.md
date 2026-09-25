@@ -71,5 +71,6 @@ Changed: `index.html`, appearance logic and tests, the service-worker build plug
 cache-policy comment. No API or schema contract changed. Production preview used port 3027.
 
 Implementation commit: `743b4f3` (`feat(console): polish pwa launch and shell caching`).
-Review: human reviewer requested through the PR; outcome pending. Keep this card in `doing/`
+Review: human reviewer requested through [PR #66](https://github.com/shabirkhan-dev/grid/pull/66);
+outcome pending. Keep this card in `doing/`
 until independent review and CI pass.
