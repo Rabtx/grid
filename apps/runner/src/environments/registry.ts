@@ -11,7 +11,14 @@ import { environmentToken } from "./pairing";
  * only ever see the address and the name.
  */
 
-export type Environment = { id: string; label: string; url: string; createdAt: string };
+export type Environment = {
+	id: string;
+	label: string;
+	url: string;
+	/** The GitHub Codespace it is, when Grid connected it from Environments → Codespaces. */
+	codespace: string | null;
+	createdAt: string;
+};
 
 type Row = {
 	id: string;
@@ -20,6 +27,7 @@ type Row = {
 	url: string;
 	peer_id: string;
 	secret: string;
+	codespace: string | null;
 	created_at: string;
 };
 
@@ -93,6 +101,11 @@ export class EnvironmentStore {
 				PRIMARY KEY (owner_id, project)
 			);
 		`);
+		// Added after the first release: which Codespace an environment is.
+		const columns = this.db.query<{ name: string }, []>("PRAGMA table_info(environments)").all();
+		if (!columns.some((column) => column.name === "codespace")) {
+			this.db.exec("ALTER TABLE environments ADD COLUMN codespace TEXT");
+		}
 	}
 
 	/**
@@ -136,7 +149,7 @@ export class EnvironmentStore {
 
 	add(
 		ownerId: string,
-		input: { label: string; url: string; peerId: string; secret: string },
+		input: { label: string; url: string; peerId: string; secret: string; codespace?: string },
 	): Environment {
 		const row: Row = {
 			id: crypto.randomUUID(),
@@ -145,14 +158,24 @@ export class EnvironmentStore {
 			url: input.url.replace(/\/$/, ""),
 			peer_id: input.peerId,
 			secret: input.secret,
+			codespace: input.codespace ?? null,
 			created_at: new Date().toISOString(),
 		};
 		this.db
 			.query(
-				`INSERT INTO environments (id, owner_id, label, url, peer_id, secret, created_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?)`,
+				`INSERT INTO environments (id, owner_id, label, url, peer_id, secret, codespace, created_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			)
-			.run(row.id, row.owner_id, row.label, row.url, row.peer_id, row.secret, row.created_at);
+			.run(
+				row.id,
+				row.owner_id,
+				row.label,
+				row.url,
+				row.peer_id,
+				row.secret,
+				row.codespace,
+				row.created_at,
+			);
 		return toEnvironment(row);
 	}
 
@@ -177,5 +200,11 @@ export class EnvironmentStore {
 }
 
 function toEnvironment(row: Row): Environment {
-	return { id: row.id, label: row.label, url: row.url, createdAt: row.created_at };
+	return {
+		id: row.id,
+		label: row.label,
+		url: row.url,
+		codespace: row.codespace ?? null,
+		createdAt: row.created_at,
+	};
 }

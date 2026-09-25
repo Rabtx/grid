@@ -1,5 +1,5 @@
 import type { PairingStore } from "./pairing";
-import { EnvironmentError, type EnvironmentStore } from "./registry";
+import { type Environment, EnvironmentError, type EnvironmentStore } from "./registry";
 
 // How long the home Grid waits on an environment before calling it unreachable.
 const REMOTE_TIMEOUT_MS = 10_000;
@@ -88,27 +88,11 @@ export async function environmentRequest(
 			return failure(400, "Send the environment's address and its pairing code");
 		}
 		try {
-			const target = deps.checkUrl(body.url);
-			const label = typeof body.label === "string" ? body.label : "";
-			const origin = target.origin;
-			const response = await remote(fetcher, `${origin}/pair`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ code: body.code, label: "Home Grid", ownerId: userId }),
+			const added = await pairEnvironment(deps, userId, {
+				url: body.url,
+				code: body.code,
+				label: typeof body.label === "string" ? body.label : "",
 			});
-			const answer = (await response.json().catch(() => null)) as {
-				data?: { peerId?: unknown; secret?: unknown };
-				message?: string;
-			} | null;
-			const peerId = answer?.data?.peerId;
-			const secret = answer?.data?.secret;
-			if (!response.ok || typeof peerId !== "string" || typeof secret !== "string") {
-				return failure(
-					response.status === 403 ? 403 : 502,
-					answer?.message ?? "The environment did not accept the pairing",
-				);
-			}
-			const added = deps.store.add(userId, { label, url: origin, peerId, secret });
 			return Response.json({ data: added }, { status: 201 });
 		} catch (cause) {
 			return fromError(cause);
@@ -138,6 +122,42 @@ export async function environmentRequest(
 		return new Response(null, { status: 204 });
 	}
 	return failure(405, "Method not allowed");
+}
+
+/**
+ * Pair with an environment: trade its one-time code for a pairing token, and keep it as one of
+ * this person's environments. Throws `EnvironmentError` with a message worth showing.
+ */
+export async function pairEnvironment(
+	deps: EnvironmentDeps,
+	userId: string,
+	input: { url: string; code: string; label: string; codespace?: string },
+): Promise<Environment> {
+	const origin = deps.checkUrl(input.url).origin;
+	const response = await remote(deps.fetcher ?? fetch, `${origin}/pair`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ code: input.code, label: "Home Grid", ownerId: userId }),
+	});
+	const answer = (await response.json().catch(() => null)) as {
+		data?: { peerId?: unknown; secret?: unknown };
+		message?: string;
+	} | null;
+	const peerId = answer?.data?.peerId;
+	const secret = answer?.data?.secret;
+	if (!response.ok || typeof peerId !== "string" || typeof secret !== "string") {
+		throw new EnvironmentError(
+			answer?.message ?? "The environment did not accept the pairing",
+			response.status === 403 ? 403 : 502,
+		);
+	}
+	return deps.store.add(userId, {
+		label: input.label,
+		url: origin,
+		peerId,
+		secret,
+		codespace: input.codespace,
+	});
 }
 
 async function remote(fetcher: typeof fetch, url: string, init: RequestInit): Promise<Response> {
