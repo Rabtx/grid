@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Container start, as root, from the container's own entrypoint (so it lives as long as the
-# container). Lifecycle commands cannot keep anything running: whatever they leave in the
+# Container start, from the container's own entrypoint (so it lives as long as the container);
+# Codespaces runs that as the dev container user, a local build may run it as root. Lifecycle commands cannot keep anything running: whatever they leave in the
 # background is killed when they finish. So start.sh only prepares the tailnet and Postgres and
 # then marks the workspace ready; this keeps Grid running, as the dev container user, and starts
 # it again if it stops. It must return at once, or the container never finishes starting.
@@ -15,8 +15,12 @@ rm -f "${ready}"
 (
 	while :; do
 		if [ -f "${ready}" ]; then
-			runuser -u "${user}" -- bash -lc "cd '${workspace}' && exec bun run grid" \
-				>>"${workspace}/.grid/grid.log" 2>&1 </dev/null
+			command="cd '${workspace}' && exec bun run grid"
+			if [ "$(id -un)" = "${user}" ]; then
+				bash -lc "${command}"
+			else
+				runuser -u "${user}" -- bash -lc "${command}"
+			fi >>"${workspace}/.grid/grid.log" 2>&1 </dev/null
 			sleep 5
 		else
 			sleep 2
