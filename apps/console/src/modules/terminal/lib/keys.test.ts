@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyModifiers, arrowSequence } from "./keys";
+import { applyModifiers, arrowSequence, KEY_SEQUENCES, sgrWheelSequence } from "./keys";
 
 const none = { ctrl: false, alt: false, shift: false };
 const ctrl = { ...none, ctrl: true };
@@ -52,5 +52,23 @@ describe("arrowSequence", () => {
 		expect(arrowSequence("right", true, ctrl)).toBe("\x1b[1;5C");
 		expect(arrowSequence("left", false, alt)).toBe("\x1b[1;3D");
 		expect(arrowSequence("up", true, shift)).toBe("\x1b[1;2A");
+	});
+});
+
+describe("sgrWheelSequence", () => {
+	it("generates SGR wheel up and down sequences at given coordinates", () => {
+		expect(sgrWheelSequence("up", 10, 5)).toBe("\x1b[<64;10;5M");
+		expect(sgrWheelSequence("down", 1, 1)).toBe("\x1b[<65;1;1M");
+	});
+});
+
+describe("KEY_SEQUENCES", () => {
+	it("provides correct sequences for function and navigation keys", () => {
+		expect(KEY_SEQUENCES.home).toBe("\x1b[H");
+		expect(KEY_SEQUENCES.end).toBe("\x1b[F");
+		expect(KEY_SEQUENCES.pageUp).toBe("\x1b[5~");
+		expect(KEY_SEQUENCES.pageDown).toBe("\x1b[6~");
+		expect(KEY_SEQUENCES.f1).toBe("\x1bOP");
+		expect(KEY_SEQUENCES.f5).toBe("\x1b[15~");
 	});
 });

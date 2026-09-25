@@ -57,3 +57,31 @@ export function applyModifiers(data: string, modifiers: Modifiers): string {
 	}
 	return modifiers.alt ? `\x1b${out}` : out;
 }
+
+/** SGR mouse wheel reporting sequence for alternate buffer scrolling. */
+export function sgrWheelSequence(direction: "up" | "down", col: number, row: number): string {
+	const code = direction === "up" ? 64 : 65;
+	return `\x1b[<${code};${col};${row}M`;
+}
+
+/** Function and navigation keys for the secondary touch key bar. */
+export const KEY_SEQUENCES = {
+	home: "\x1b[H",
+	end: "\x1b[F",
+	pageUp: "\x1b[5~",
+	pageDown: "\x1b[6~",
+	insert: "\x1b[2~",
+	delete: "\x1b[3~",
+	f1: "\x1bOP",
+	f2: "\x1bOQ",
+	f3: "\x1bOR",
+	f4: "\x1bOS",
+	f5: "\x1b[15~",
+	f6: "\x1b[17~",
+	f7: "\x1b[18~",
+	f8: "\x1b[19~",
+	f9: "\x1b[20~",
+	f10: "\x1b[21~",
+	f11: "\x1b[23~",
+	f12: "\x1b[24~",
+} as const;

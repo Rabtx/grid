@@ -243,7 +243,7 @@ export function TerminalScreen(): JSX.Element {
 				<IconButton label="New terminal" disabled={busy()} onClick={() => void openTerminal()}>
 					<PlusIcon class="size-4" />
 				</IconButton>
-				<div class="flex items-center">
+				<div class="hidden items-center pointer-fine:flex">
 					<IconButton label="Smaller text" size="sm" onClick={() => changeFontSize(-1)}>
 						<span class="font-mono text-ui-xs">A−</span>
 					</IconButton>
@@ -327,6 +327,7 @@ export function TerminalScreen(): JSX.Element {
 								active={activeId() === terminal.id}
 								fontSize={fontSize()}
 								takeModifiers={takeModifiers}
+								onFontSizeChange={changeFontSize}
 								onHandle={(handle) => handles.set(terminal.id, handle)}
 								onState={(state) => setStates((all) => ({ ...all, [terminal.id]: state }))}
 								onTitle={(title) => setTitles((all) => ({ ...all, [terminal.id]: title }))}
