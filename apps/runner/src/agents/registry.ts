@@ -5,9 +5,12 @@ import { codexProvider } from "./codex";
 import { opencodeCatalog } from "./opencode";
 import type { Provider } from "./provider";
 
-/** Found on PATH now; checked each time so installing an agent needs no runner restart. */
+/**
+ * Found on PATH now; checked each time so installing an agent needs no runner restart. PATH is
+ * passed explicitly: `Bun.which` otherwise keeps the one the process started with.
+ */
 function installed(binary: string): () => boolean {
-	return () => Bun.which(binary) !== null;
+	return () => Bun.which(binary, { PATH: process.env.PATH ?? "" }) !== null;
 }
 
 type ExtraAcpAgent = { id: string; name: string; command: string[] };

@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import type { ChatEvent } from "../agents/events";
 import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
+import { AGENT_SETUP } from "../agents/setup";
 import type { ChatSessionRow, ChatStore, ProviderCatalog, ProviderSettings } from "./store";
 
 /** One device watching a session. */
@@ -27,10 +28,21 @@ type Live = {
 	idleTimer: ReturnType<typeof setTimeout> | undefined;
 };
 
+/** Whether Grid can install and sign in an agent here, and whether it is signed in. */
+export type ProviderSetup = {
+	canInstall: boolean;
+	canSignIn: boolean;
+	signInOptional: boolean;
+	/** Null when not installed, or when the agent gives no way to tell. */
+	signedIn: boolean | null;
+	docs: string | null;
+};
+
 /** An agent as the console lists it: what it offers, when that was asked, and your settings. */
 export type ProviderListing = ProviderInfo & {
 	refreshedAt: string | null;
 	settings: ProviderSettings;
+	setup: ProviderSetup;
 };
 
 function merge(
@@ -51,6 +63,17 @@ export class ChatError extends Error {
 		super(message);
 		this.name = "ChatError";
 	}
+}
+
+async function setupOf(id: string, available: boolean): Promise<ProviderSetup> {
+	const setup = AGENT_SETUP[id];
+	return {
+		canInstall: !available && Boolean(setup?.install),
+		canSignIn: available && Boolean(setup?.signIn),
+		signInOptional: setup?.signInOptional === true,
+		signedIn: available && setup?.signedIn ? await setup.signedIn().catch(() => null) : null,
+		docs: setup?.docs ?? null,
+	};
 }
 
 // An agent nobody has used for this long is stopped; the next message resumes it.
@@ -87,19 +110,21 @@ export class ChatHub {
 	async providerList(ownerId: string): Promise<ProviderListing[]> {
 		const settings = this.store.providerSettings(ownerId);
 		return Promise.all(
-			[...this.providers.keys()].map(async (id) => ({
-				...(await this.providerInfo(id, false)),
-				settings: settings[id] ?? {},
-			})),
+			[...this.providers.keys()].map(async (id) => {
+				const info = await this.providerInfo(id, false);
+				return { ...info, settings: settings[id] ?? {}, setup: await setupOf(id, info.available) };
+			}),
 		);
 	}
 
 	/** Ask one agent for its models again, keep the answer, and return the fresh listing. */
 	async refreshProvider(ownerId: string, id: string): Promise<ProviderListing> {
 		if (!this.providers.has(id)) throw new ChatError(`No agent called ${id}`, 404);
+		const info = await this.providerInfo(id, true);
 		return {
-			...(await this.providerInfo(id, true)),
+			...info,
 			settings: this.store.providerSettings(ownerId)[id] ?? {},
+			setup: await setupOf(id, info.available),
 		};
 	}
 

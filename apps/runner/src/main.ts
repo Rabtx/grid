@@ -1,4 +1,5 @@
 import { providerRegistry } from "./agents/registry";
+import { withAgentBins } from "./agents/setup";
 import { createTokenVerifier } from "./auth";
 import { ChatHub } from "./chat/hub";
 import { ChatStore } from "./chat/store";
@@ -12,6 +13,9 @@ import { attentionMessage, PushNotifier } from "./push/notifier";
 import { spawnPty } from "./pty";
 import { startServer } from "./server";
 import { TerminalStore } from "./terminals";
+
+// Agents installed from Grid land in these folders: found at once, and on terminals' PATH too.
+process.env.PATH = withAgentBins(process.env.PATH);
 
 const config = readConfig();
 const store = new TerminalStore(config, spawnPty);

@@ -1,3 +1,5 @@
+import type { TerminalInfo } from "@/modules/terminal/types/terminal.types";
+
 import type { ChatProvider, ChatSession, ProviderSettings } from "../types/chat.types";
 
 /**
@@ -54,6 +56,17 @@ export const chatService = {
 			`/chat/providers/${id}/settings`,
 			token,
 			{ method: "PUT", body: JSON.stringify(settings) },
+			scope,
+		),
+	/**
+	 * Install or sign in an agent on its machine: opens a terminal there running the agent's own
+	 * command, to watch and answer.
+	 */
+	setupProvider: (token: string, id: string, step: "install" | "sign-in", scope = "") =>
+		call<TerminalInfo>(
+			`/chat/providers/${id}/setup`,
+			token,
+			{ method: "POST", body: JSON.stringify({ step }) },
 			scope,
 		),
 	/** Threads with an agent working right now, across projects. */

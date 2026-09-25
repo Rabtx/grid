@@ -1,10 +1,12 @@
+import { useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, Show } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import { ModelPicker, ModePicker } from "@/modules/chat/components/pickers";
+import { chatService } from "@/modules/chat/services/chat.service";
 import { providersStore } from "@/modules/chat/stores/providers";
-import { MachinePicker, scopeFor } from "@/modules/environments";
+import { environmentsStore, MachinePicker, scopeFor } from "@/modules/environments";
 import type { ChatProvider, ProviderSettings } from "@/modules/chat/types/chat.types";
 import { Button, ErrorNotice, RestoreIcon, Skeleton, SpinnerIcon } from "@/ui";
 
@@ -31,12 +33,15 @@ export function AgentsScreen(): JSX.Element {
 	const [machine, setMachine] = createSignal<string | null>(null);
 	const scope = () => scopeFor(machine());
 
+	// Read afresh on every visit: coming back from an install or sign-in shows where it stands.
 	createEffect(
 		() => [auth.token(), scope()] as const,
 		([token, where]) => {
-			if (token) void providersStore.load(token, where);
+			if (token) void providersStore.reload(token, where);
 		},
 	);
+	const machineLabel = () =>
+		machine() ? (environmentsStore.labelOf(machine()) ?? "that machine") : "this machine";
 
 	return (
 		<div class="mx-auto flex w-full max-w-[60rem] flex-col py-6 md:py-10">
@@ -70,7 +75,9 @@ export function AgentsScreen(): JSX.Element {
 			>
 				<div class="mt-6 flex flex-col gap-4">
 					<For each={providersStore.providers(scope())}>
-						{(provider) => <AgentCard provider={provider} scope={scope()} />}
+						{(provider) => (
+							<AgentCard provider={provider} scope={scope()} machineLabel={machineLabel()} />
+						)}
 					</For>
 				</div>
 			</Show>
@@ -81,8 +88,33 @@ export function AgentsScreen(): JSX.Element {
 	);
 }
 
-function AgentCard(props: { provider: ChatProvider; scope: string }): JSX.Element {
+function AgentCard(props: {
+	provider: ChatProvider;
+	scope: string;
+	machineLabel: string;
+}): JSX.Element {
 	const auth = useAuth();
+	const navigate = useNavigate();
+	const [settingUp, setSettingUp] = createSignal(false);
+
+	/**
+	 * Install or sign in: a terminal on the agent's machine runs its vendor's own command, so
+	 * every sign-in (a link, a device code, a code to paste back) works as the vendor intends.
+	 */
+	async function runSetup(step: "install" | "sign-in"): Promise<void> {
+		const token = auth.token();
+		if (!token || settingUp()) return;
+		setSettingUp(true);
+		setError(null);
+		try {
+			const terminal = await chatService.setupProvider(token, props.provider.id, step, props.scope);
+			navigate(`/terminal/${terminal.id}`);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : "Could not open a terminal for that");
+		} finally {
+			setSettingUp(false);
+		}
+	}
 	const [refreshing, setRefreshing] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
 	const settings = (): ProviderSettings => props.provider.settings ?? {};
@@ -132,7 +164,7 @@ function AgentCard(props: { provider: ChatProvider; scope: string }): JSX.Elemen
 					<p class="text-ink/45 text-ui-xs">
 						{props.provider.available
 							? `${props.provider.models.length} model${props.provider.models.length === 1 ? "" : "s"} · updated ${ago(props.provider.refreshedAt)}`
-							: "Not installed on this machine"}
+							: `Not installed on ${props.machineLabel}`}
 					</p>
 				</div>
 				<Show when={props.provider.available}>
@@ -157,6 +189,12 @@ function AgentCard(props: { provider: ChatProvider; scope: string }): JSX.Elemen
 					</button>
 				</Show>
 			</header>
+			<SetupRow
+				provider={props.provider}
+				machineLabel={props.machineLabel}
+				busy={settingUp()}
+				onSetup={(step) => void runSetup(step)}
+			/>
 			<Show when={error()}>
 				{(message) => (
 					<div class="px-4 pb-3">
@@ -197,5 +235,91 @@ function AgentCard(props: { provider: ChatProvider; scope: string }): JSX.Elemen
 				</div>
 			</Show>
 		</section>
+	);
+}
+
+/** Install an agent that is missing, or sign it in; with where its sign-in stands. */
+function SetupRow(props: {
+	provider: ChatProvider;
+	machineLabel: string;
+	busy: boolean;
+	onSetup: (step: "install" | "sign-in") => void;
+}): JSX.Element {
+	const setup = () => props.provider.setup;
+	const status = () => {
+		const signedIn = setup()?.signedIn;
+		if (signedIn === true) return "Signed in";
+		if (signedIn === false)
+			return setup()?.signInOptional ? "Not signed in (optional)" : "Not signed in";
+		return null;
+	};
+
+	return (
+		<Show when={setup()}>
+			{(current) => (
+				<Show
+					when={props.provider.available}
+					fallback={
+						<div class="flex flex-wrap items-center gap-3 border-ink/5 border-t px-4 py-3">
+							<p class="min-w-0 flex-1 text-ink/55 text-ui-sm">
+								<Show
+									when={current().canInstall}
+									fallback={`Grid cannot install ${props.provider.name} for you.`}
+								>
+									Runs {props.provider.name}'s official installer in a terminal on{" "}
+									{props.machineLabel}.
+								</Show>
+							</p>
+							<Show
+								when={current().canInstall}
+								fallback={
+									<Show when={current().docs}>
+										{(docs) => (
+											<a
+												href={docs()}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="focus-ring rounded-sm text-accent text-ui-sm underline-offset-2 hover:underline"
+											>
+												How to install
+											</a>
+										)}
+									</Show>
+								}
+							>
+								<Button
+									variant="primary"
+									size="sm"
+									disabled={props.busy}
+									onClick={() => props.onSetup("install")}
+								>
+									Install
+								</Button>
+							</Show>
+						</div>
+					}
+				>
+					<Show when={current().canSignIn}>
+						<div class="flex flex-wrap items-center gap-3 border-ink/5 border-t px-4 py-3">
+							<p class="min-w-0 flex-1 text-ui-sm">
+								<span class={current().signedIn === false ? "text-ink/70" : "text-ink/55"}>
+									{status() ?? "Sign in to use your own account."}
+								</span>
+							</p>
+							<Button
+								variant={
+									current().signedIn === false && !current().signInOptional ? "primary" : "ghost"
+								}
+								size="sm"
+								disabled={props.busy}
+								onClick={() => props.onSetup("sign-in")}
+							>
+								{current().signedIn === true ? "Sign in again" : "Sign in"}
+							</Button>
+						</div>
+					</Show>
+				</Show>
+			)}
+		</Show>
 	);
 }
