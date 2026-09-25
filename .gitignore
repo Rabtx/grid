@@ -10,6 +10,8 @@ node_modules
 !.yarn/releases
 !.yarn/versions
 .claude/
+# portable Grid data: secrets, owner sign-in, chat db, projects (bun run grid)
+.grid/
 # testing
 /coverage
 

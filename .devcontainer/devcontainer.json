@@ -1,15 +1,20 @@
 {
 	"name": "Grid",
-	"build": {
-		"dockerfile": "Dockerfile",
-		"context": ".."
-	},
+	"dockerComposeFile": "compose.yml",
+	"service": "grid",
 	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-	"workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind,consistency=cached",
+	"shutdownAction": "stopCompose",
 
 	"postCreateCommand": "bun install && bun run prepare",
-	"forwardPorts": [3000, 3002, 4000],
+	// Grid starts in the background on attach (a second start exits: it is already running).
+	// Its log is .grid/grid.log.
+	"postAttachCommand": "mkdir -p .grid && setsid nohup bun run grid > .grid/grid.log 2>&1 &",
+	"forwardPorts": [8080, 3000, 3002, 4000],
 	"portsAttributes": {
+		"8080": {
+			"label": "Grid",
+			"onAutoForward": "openBrowser"
+		},
 		"3000": {
 			"label": "Web (Next.js)",
 			"onAutoForward": "notify"

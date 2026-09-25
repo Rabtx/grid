@@ -8,6 +8,7 @@ Compose is split into **fragments** under `compose/` and merged by the root
 |------|------|
 | `compose/postgres.yml` | Postgres 16, volume, healthcheck |
 | `compose/nest-api.yml` | NestJS API image (Bun multi-stage build) |
+| `compose/grid.yml` | Portable Grid — the whole product in one image (`docker/grid.Dockerfile`); run with `postgres.yml`, see `/docs/portable` |
 | `compose/web.yml` | Next.js web image (standalone output) |
 
 **Env:** copy `env.docker.example` from the repo root to `.env`.
