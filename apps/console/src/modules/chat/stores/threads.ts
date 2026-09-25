@@ -9,6 +9,10 @@ const [byProject, setByProject] = createSignal<Record<string, ChatSession[]>>({}
 const [loaded, setLoaded] = createSignal<Record<string, boolean>>({});
 const [errors, setErrors] = createSignal<Record<string, string | null>>({});
 const pending = new Map<string, Promise<void>>();
+// Threads with a turn in flight: read from the runner every few seconds, and set at once by the
+// open conversation when its own turn starts or ends.
+const [running, setRunning] = createSignal<{ id: string; project: string }[]>([]);
+const POLL_MS = 3000;
 
 const newestFirst = (list: ChatSession[]) =>
 	[...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -18,6 +22,37 @@ function put(project: string, list: ChatSession[]): void {
 }
 
 export const threadsStore = {
+	/** True while an agent is working in this thread. */
+	isRunning: (id: string): boolean => running().some((item) => item.id === id),
+	/** How many threads in this project are working. */
+	runningIn: (project: string): number =>
+		running().filter((item) => item.project === project).length,
+	/** The open conversation knows first: mark its thread running or done straight away. */
+	markRunning(id: string, project: string, value: boolean): void {
+		const rest = untrack(running).filter((item) => item.id !== id);
+		setRunning(value ? [...rest, { id, project }] : rest);
+	},
+	/** Keep the running list fresh while the app is visible; returns a stop function. */
+	watchRunning(token: () => string | null): () => void {
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		let stopped = false;
+		const tick = async () => {
+			const value = token();
+			if (value && document.visibilityState === "visible") {
+				try {
+					setRunning(await chatService.running(value));
+				} catch {
+					// The runner is down; the health watcher says so. Keep the last list.
+				}
+			}
+			if (!stopped) timer = setTimeout(() => void tick(), POLL_MS);
+		};
+		void tick();
+		return () => {
+			stopped = true;
+			clearTimeout(timer);
+		};
+	},
 	threads: (project: string): ChatSession[] => byProject()[project] ?? [],
 	loaded: (project: string): boolean => loaded()[project] === true,
 	error: (project: string): string | null => errors()[project] ?? null,

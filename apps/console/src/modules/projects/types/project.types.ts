@@ -27,6 +27,10 @@ export type Project = {
 	name: string;
 	summary: string | null;
 	repoUrl: string | null;
+	/** How it is drawn: `folder` (the default), `letter`, `symbol:<id>` or `mascot:<id>`. */
+	icon?: string | null;
+	/** A palette colour id or `#rrggbb`; unset picks one from the project's name. */
+	color?: string | null;
 	status: "active" | "archived";
 	createdAt: string;
 	updatedAt: string;
@@ -45,6 +49,8 @@ export type UpdateProjectInput = {
 	summary?: string | null;
 	repoUrl?: string | null;
 	status?: "active" | "archived";
+	icon?: string | null;
+	color?: string | null;
 };
 
 export type Task = {

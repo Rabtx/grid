@@ -78,9 +78,13 @@ export function TranscriptView(props: {
 				)}
 			</For>
 			<Show when={props.running && props.blocks.at(-1)?.kind !== "assistant"}>
-				<p class="flex items-center gap-2 text-ink/45 text-ui-sm">
-					<SpinnerIcon class="size-3.5" />
-					Working…
+				<p class="flex items-center gap-2 px-1 text-ink/50 text-ui-sm">
+					<span class="working-dots">
+						<i />
+						<i />
+						<i />
+					</span>
+					<span class="thread-running">Working</span>
 				</p>
 			</Show>
 		</div>

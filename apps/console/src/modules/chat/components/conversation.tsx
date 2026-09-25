@@ -8,6 +8,7 @@ import { ErrorNotice, FolderIcon } from "@/ui";
 import { type ChatConnection, connectChat, type ChatSocket } from "../lib/chat-socket";
 import { applyEvent, emptyTranscript, replay, type Transcript } from "../lib/transcript";
 import { chatSocketUrl } from "../services/chat.service";
+import { threadsStore } from "../stores/threads";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
 
 import { mergeModels } from "../lib/choices";
@@ -37,6 +38,13 @@ export function Conversation(props: {
 	const [transcript, setTranscript] = createSignal<Transcript>(emptyTranscript());
 	const [session, setSession] = createSignal<ChatSession | null>(null);
 	const [running, setRunning] = createSignal(false);
+	// The sidebar and tabs show this thread working the moment its turn starts, not at the next poll.
+	createEffect(
+		() => [running(), session()?.project] as const,
+		([value, project]) => {
+			if (project) threadsStore.markRunning(props.id, project, value);
+		},
+	);
 	const [connection, setConnection] = createSignal<ChatConnection>("connecting");
 	const [error, setError] = createSignal<string | null>(null);
 	const [restartNotice, setRestartNotice] = createSignal<string | null>(null);
