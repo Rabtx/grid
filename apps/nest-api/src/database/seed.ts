@@ -1,7 +1,7 @@
 import 'dotenv/config';
 
 import { hash } from 'bcryptjs';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
@@ -11,8 +11,9 @@ import * as schema from './schema';
  * Development seed: one verified account you can sign in with, and a board with
  * enough on it to see every stage rendered.
  *
- * Re-running replaces the demo account. Deleting the user cascades to projects and
- * tasks, so there is nothing to clean up by hand.
+ * Re-running only adds what is missing: an existing demo account keeps its id, password, projects
+ * and tasks, so threads and folders tied to that account survive. `--reset` deletes the account
+ * first (the cascade clears its projects and tasks) for a clean board.
  */
 const DEMO_EMAIL = 'demo@grid.dev';
 const DEMO_USERNAME = 'demo';
@@ -110,6 +111,34 @@ const PLATFORM_TASKS: SeedTask[] = [
 	},
 ];
 
+type Db = ReturnType<typeof drizzle<typeof schema>>;
+
+/** The demo account, created when missing and otherwise left exactly as it is. */
+async function demoUser(db: Db): Promise<typeof schema.users.$inferSelect> {
+	const [existing] = await db.select().from(schema.users).where(eq(schema.users.email, DEMO_EMAIL));
+	if (existing) {
+		console.log(`kept the demo account ${DEMO_EMAIL}`);
+		return existing;
+	}
+	const [user] = await db
+		.insert(schema.users)
+		.values({
+			email: DEMO_EMAIL,
+			username: DEMO_USERNAME,
+			passwordHash: await hash(DEMO_PASSWORD, 12),
+			emailVerifiedAt: new Date(),
+			isActive: true,
+		})
+		.returning();
+	if (!user) throw new Error('Seed user was not created');
+	await db.insert(schema.userProfiles).values({
+		userId: user.id,
+		displayName: 'Demo',
+		bio: 'Seeded account for local development.',
+	});
+	return user;
+}
+
 async function main(): Promise<void> {
 	const databaseUrl = process.env.DATABASE_URL;
 	if (!databaseUrl) throw new Error('DATABASE_URL is required to seed');
@@ -118,31 +147,24 @@ async function main(): Promise<void> {
 	const db = drizzle(client, { schema });
 
 	try {
-		// Start clean so the seed is repeatable; the cascade clears projects and tasks.
-		await db.delete(schema.users).where(eq(schema.users.email, DEMO_EMAIL));
-
-		const [user] = await db
-			.insert(schema.users)
-			.values({
-				email: DEMO_EMAIL,
-				username: DEMO_USERNAME,
-				passwordHash: await hash(DEMO_PASSWORD, 12),
-				emailVerifiedAt: new Date(),
-				isActive: true,
-			})
-			.returning();
-		if (!user) throw new Error('Seed user was not created');
-
-		await db.insert(schema.userProfiles).values({
-			userId: user.id,
-			displayName: 'Demo',
-			bio: 'Seeded account for local development.',
-		});
+		if (process.argv.includes('--reset')) {
+			await db.delete(schema.users).where(eq(schema.users.email, DEMO_EMAIL));
+			console.log('reset the demo account');
+		}
+		const user = await demoUser(db);
 
 		for (const [slug, name, summary, taskList] of [
 			['grid', 'Grid', 'The control plane itself.', GRID_TASKS],
 			['platform', 'Platform', 'Runtime and provider work.', PLATFORM_TASKS],
 		] as const) {
+			const [existing] = await db
+				.select({ id: schema.projects.id })
+				.from(schema.projects)
+				.where(and(eq(schema.projects.ownerId, user.id), eq(schema.projects.slug, slug)));
+			if (existing) {
+				console.log(`kept project "${slug}"`);
+				continue;
+			}
 			const [project] = await db
 				.insert(schema.projects)
 				.values({ ownerId: user.id, slug, name, summary })
