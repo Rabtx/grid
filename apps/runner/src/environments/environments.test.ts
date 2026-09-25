@@ -208,6 +208,38 @@ describe("environments through the home runner", () => {
 		expect((await fetch(`${homeUrl}/env/${id}/terminals`, as("alice"))).status).toBe(404);
 	});
 
+	it("remembers which environment each project runs on, per person, until it is removed", async () => {
+		const id = await pairAway("alice");
+		const put = (token: string, project: string, environment: string | null) =>
+			fetch(
+				`${homeUrl}/environments/placements/${project}`,
+				as(token, { method: "PUT", body: JSON.stringify({ environment }) }),
+			);
+		const placements = async (token: string) =>
+			(
+				(await (await fetch(`${homeUrl}/environments/placements`, as(token))).json()) as {
+					data: Record<string, string>;
+				}
+			).data;
+
+		expect((await put("alice", "shop", id)).status).toBe(204);
+		expect(await placements("alice")).toMatchObject({ shop: id });
+		expect(await placements("bob")).toEqual({});
+		// Nobody can point a project at someone else's environment.
+		expect((await put("bob", "shop", id)).status).toBe(404);
+
+		// A project's chats and folders reach the environment through the same relay.
+		const folders = await fetch(`${homeUrl}/env/${id}/projects/folders`, as("alice"));
+		expect(folders.status).toBe(200);
+
+		expect((await put("alice", "shop", null)).status).toBe(204);
+		expect((await placements("alice")).shop).toBeUndefined();
+
+		await put("alice", "shop", id);
+		await fetch(`${homeUrl}/environments/${id}`, as("alice", { method: "DELETE" }));
+		expect((await placements("alice")).shop).toBeUndefined();
+	});
+
 	it("never lets the environment's own routes be reached without a pairing", async () => {
 		expect((await fetch(`${awayUrl}/terminals`, as("alice"))).status).toBe(401);
 		expect((await fetch(`${awayUrl}/terminals`, as("grid-env.x.y"))).status).toBe(401);

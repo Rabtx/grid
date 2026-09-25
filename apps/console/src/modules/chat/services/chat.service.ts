@@ -1,18 +1,26 @@
 import type { ChatProvider, ChatSession, ProviderSettings } from "../types/chat.types";
 
-/** The runner, on the console's own origin (`/runner`), like the terminals. */
-function runnerUrl(path: string): string {
-	return `${window.location.origin}/runner${path}`;
+/**
+ * The runner, on the console's own origin (`/runner`), like the terminals. `scope` points a call
+ * at an environment's runner (`/env/<id>`, from `placementsStore.scopeOf`); empty is this machine.
+ */
+function runnerUrl(path: string, scope = ""): string {
+	return `${window.location.origin}/runner${scope}${path}`;
 }
 
-export function chatSocketUrl(): string {
-	return runnerUrl("/chat").replace(/^http/, "ws");
+export function chatSocketUrl(scope = ""): string {
+	return runnerUrl("/chat", scope).replace(/^http/, "ws");
 }
 
-async function call<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
+async function call<T>(
+	path: string,
+	token: string,
+	init: RequestInit = {},
+	scope = "",
+): Promise<T> {
 	let response: Response;
 	try {
-		response = await fetch(runnerUrl(path), {
+		response = await fetch(runnerUrl(path, scope), {
 			...init,
 			headers: {
 				...init.headers,
@@ -34,20 +42,25 @@ async function call<T>(path: string, token: string, init: RequestInit = {}): Pro
 	return body?.data as T;
 }
 
+/** Every call takes the machine's `scope` last: empty for this machine. */
 export const chatService = {
-	providers: (token: string) => call<ChatProvider[]>("/chat/providers", token),
+	providers: (token: string, scope = "") =>
+		call<ChatProvider[]>("/chat/providers", token, {}, scope),
 	/** Ask one agent for its models again (they are kept otherwise). */
-	refreshProvider: (token: string, id: string) =>
-		call<ChatProvider>(`/chat/providers/${id}/refresh`, token, { method: "POST" }),
-	saveProviderSettings: (token: string, id: string, settings: ProviderSettings) =>
-		call<void>(`/chat/providers/${id}/settings`, token, {
-			method: "PUT",
-			body: JSON.stringify(settings),
-		}),
+	refreshProvider: (token: string, id: string, scope = "") =>
+		call<ChatProvider>(`/chat/providers/${id}/refresh`, token, { method: "POST" }, scope),
+	saveProviderSettings: (token: string, id: string, settings: ProviderSettings, scope = "") =>
+		call<void>(
+			`/chat/providers/${id}/settings`,
+			token,
+			{ method: "PUT", body: JSON.stringify(settings) },
+			scope,
+		),
 	/** Threads with an agent working right now, across projects. */
-	running: (token: string) => call<{ id: string; project: string }[]>("/chat/running", token),
-	sessions: (token: string, project: string) =>
-		call<ChatSession[]>(`/chat/sessions?project=${encodeURIComponent(project)}`, token),
+	running: (token: string, scope = "") =>
+		call<{ id: string; project: string }[]>("/chat/running", token, {}, scope),
+	sessions: (token: string, project: string, scope = "") =>
+		call<ChatSession[]>(`/chat/sessions?project=${encodeURIComponent(project)}`, token, {}, scope),
 	create: (
 		token: string,
 		input: {
@@ -58,9 +71,21 @@ export const chatService = {
 			mode?: string;
 			effort?: string;
 		},
-	) => call<ChatSession>("/chat/sessions", token, { method: "POST", body: JSON.stringify(input) }),
-	rename: (token: string, id: string, title: string) =>
-		call<void>(`/chat/sessions/${id}`, token, { method: "PATCH", body: JSON.stringify({ title }) }),
-	remove: (token: string, id: string) =>
-		call<void>(`/chat/sessions/${id}`, token, { method: "DELETE" }),
+		scope = "",
+	) =>
+		call<ChatSession>(
+			"/chat/sessions",
+			token,
+			{ method: "POST", body: JSON.stringify(input) },
+			scope,
+		),
+	rename: (token: string, id: string, title: string, scope = "") =>
+		call<void>(
+			`/chat/sessions/${id}`,
+			token,
+			{ method: "PATCH", body: JSON.stringify({ title }) },
+			scope,
+		),
+	remove: (token: string, id: string, scope = "") =>
+		call<void>(`/chat/sessions/${id}`, token, { method: "DELETE" }, scope),
 };

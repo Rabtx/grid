@@ -86,7 +86,45 @@ export class EnvironmentStore {
 				secret TEXT NOT NULL,
 				created_at TEXT NOT NULL
 			);
+			CREATE TABLE IF NOT EXISTS project_environments (
+				owner_id TEXT NOT NULL,
+				project TEXT NOT NULL,
+				environment_id TEXT NOT NULL,
+				PRIMARY KEY (owner_id, project)
+			);
 		`);
+	}
+
+	/**
+	 * Where each of this person's projects runs, by project slug: the environment holding its
+	 * folder. A project not listed runs on this machine.
+	 */
+	placements(ownerId: string): Record<string, string> {
+		const rows = this.db
+			.query<{ project: string; environment_id: string }, [string]>(
+				"SELECT project, environment_id FROM project_environments WHERE owner_id = ?",
+			)
+			.all(ownerId);
+		return Object.fromEntries(rows.map((row) => [row.project, row.environment_id]));
+	}
+
+	/** Run a project on one of this person's environments, or (null) back on this machine. */
+	place(ownerId: string, project: string, environmentId: string | null): void {
+		if (environmentId === null) {
+			this.db
+				.query("DELETE FROM project_environments WHERE owner_id = ? AND project = ?")
+				.run(ownerId, project);
+			return;
+		}
+		if (!this.target(ownerId, environmentId)) {
+			throw new EnvironmentError("That environment does not exist", 404);
+		}
+		this.db
+			.query(
+				`INSERT INTO project_environments (owner_id, project, environment_id) VALUES (?, ?, ?)
+				ON CONFLICT (owner_id, project) DO UPDATE SET environment_id = excluded.environment_id`,
+			)
+			.run(ownerId, project, environmentId);
 	}
 
 	list(ownerId: string): Environment[] {
@@ -126,7 +164,11 @@ export class EnvironmentStore {
 		return row ? { url: row.url, token: environmentToken(row.peer_id, row.secret) } : null;
 	}
 
+	/** Forget an environment; its projects fall back to this machine. */
 	remove(ownerId: string, id: string): boolean {
+		this.db
+			.query("DELETE FROM project_environments WHERE owner_id = ? AND environment_id = ?")
+			.run(ownerId, id);
 		return (
 			this.db.query("DELETE FROM environments WHERE id = ? AND owner_id = ?").run(id, ownerId)
 				.changes > 0

@@ -11,6 +11,7 @@ import {
 } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
+import { placementsStore, scopeFor } from "@/modules/environments";
 
 import { foldersService } from "../services/folders.service";
 import { projectsService } from "../services/projects.service";
@@ -186,12 +187,31 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		}
 	});
 
-	// Folder links live with the runner on this machine; without it they are simply unknown.
+	// Folder links live with the runner on the machine each project runs on: this one, or the
+	// environment holding the project's folder. A machine that cannot be reached leaves its
+	// projects' folders unknown rather than failing the rest.
 	const folders = createMemo(async () => {
 		foldersRevision();
 		const token = auth.token();
 		if (!token) return {};
-		return foldersService.projectFolders(token).catch(() => ({}));
+		await placementsStore.reload(token);
+		const placed = untrack(placementsStore.placements);
+		const here = await foldersService.projectFolders(token).catch(() => ({}));
+		const merged: Record<string, string> = Object.fromEntries(
+			Object.entries(here).filter(([project]) => !placed[project]),
+		);
+		const environments = [...new Set(Object.values(placed))];
+		await Promise.all(
+			environments.map(async (environment) => {
+				const there = await foldersService
+					.projectFolders(token, scopeFor(environment))
+					.catch(() => ({}) as Record<string, string>);
+				for (const [project, path] of Object.entries(there)) {
+					if (placed[project] === environment) merged[project] = path;
+				}
+			}),
+		);
+		return merged;
 	});
 
 	const tasks = createMemo(async () => {
