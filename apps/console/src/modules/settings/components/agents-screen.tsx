@@ -37,8 +37,9 @@ export function AgentsScreen(): JSX.Element {
 		<div class="mx-auto flex w-full max-w-[60rem] flex-col py-6 md:py-10">
 			<SettingsNav />
 			<header class="mb-2">
-				<h1 class="font-semibold text-title">Agents</h1>
-				<p class="mt-1 text-ink/50 text-ui-sm">
+				{/* The tab above names the page; the heading stays for screen readers. */}
+				<h1 class="sr-only">Agents</h1>
+				<p class="text-ink/50 text-ui-sm">
 					The coding agents installed on this machine. Model lists are kept; refresh one when an
 					agent gains models.
 				</p>
@@ -123,7 +124,8 @@ function AgentCard(props: { provider: ChatProvider }): JSX.Element {
 						<Show when={refreshing()} fallback={<RestoreIcon class="size-4" />}>
 							<SpinnerIcon class="size-4" />
 						</Show>
-						{refreshing() ? "Refreshing…" : "Refresh models"}
+						<span class="hidden sm:inline">{refreshing() ? "Refreshing…" : "Refresh models"}</span>
+						<span class="sr-only sm:hidden">Refresh models</span>
 					</Button>
 					<button
 						type="button"

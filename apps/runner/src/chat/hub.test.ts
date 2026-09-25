@@ -63,3 +63,36 @@ describe("ChatHub project folders", () => {
 		expect(() => hub.defaultCwd("u1", "platform")).toThrow("Choose this project's folder first");
 	});
 });
+
+describe("ChatHub running threads", () => {
+	it("lists only this person's threads with a turn in flight", async () => {
+		let finish: () => void = () => undefined;
+		const provider: Provider = {
+			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+			start: async () => ({
+				prompt: () =>
+					new Promise((resolve) => {
+						finish = () => resolve({ reason: "done" });
+					}),
+				cancel: () => undefined,
+				approve: () => undefined,
+				setModel: async () => undefined,
+				setMode: async () => undefined,
+				setEffort: async () => undefined,
+				close: () => undefined,
+			}),
+		};
+		const store = new ChatStore(":memory:");
+		const hub = new ChatHub(store, new Map([["fake", provider]]), root);
+		const mine = hub.create("u1", { project: "shop", provider: "fake" });
+		hub.create("u2", { project: "shop", provider: "fake" });
+		const turn = hub.prompt("u1", mine.id, "go");
+		await Bun.sleep(5);
+		expect(hub.running("u1")).toEqual([{ id: mine.id, project: "shop" }]);
+		expect(hub.running("u2")).toEqual([]);
+		finish();
+		await turn;
+		expect(hub.running("u1")).toEqual([]);
+		hub.closeAll();
+	});
+});

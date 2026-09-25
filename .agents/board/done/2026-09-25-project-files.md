@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: codex
 reviewer: human
 parent: none
@@ -81,3 +81,5 @@ filesystem authority. Contract impact: new authenticated runner endpoints
 a disposable folder and isolated runner database. Review: human pending. Implementation commit:
 `06f3b98872762d8049eb62c0c8e922d5c817a4bf`.
 Draft PR: https://github.com/shabirkhan-dev/grid/pull/63
+
+Review (claude): merged main (project-tree conflict resolved); file rows now use the shared `attachContextMenu` and `Menu pointerOnly` — the ⋯ shows on hover with a pointer only, long press or right-click opens the menu — instead of an always-visible button and a second long-press implementation. Typecheck, lint, architecture and 195 console tests pass.

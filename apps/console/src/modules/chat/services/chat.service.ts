@@ -44,6 +44,8 @@ export const chatService = {
 			method: "PUT",
 			body: JSON.stringify(settings),
 		}),
+	/** Threads with an agent working right now, across projects. */
+	running: (token: string) => call<{ id: string; project: string }[]>("/chat/running", token),
 	sessions: (token: string, project: string) =>
 		call<ChatSession[]>(`/chat/sessions?project=${encodeURIComponent(project)}`, token),
 	create: (

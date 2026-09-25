@@ -27,8 +27,9 @@ export function AppearanceScreen(): JSX.Element {
 			<SettingsNav />
 			<header class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 				<div class="min-w-0">
-					<h1 class="font-semibold text-title">Appearance</h1>
-					<p class="mt-1 text-ink/50 text-ui-sm">Theme, tint, translucency and interface scale.</p>
+					{/* The tab above names the page; the heading stays for screen readers. */}
+					<h1 class="sr-only">Appearance</h1>
+					<p class="text-ink/50 text-ui-sm">Theme, tint, translucency and interface scale.</p>
 					<p class="mt-1 text-ink/40 text-ui-xs">These settings are saved on this device.</p>
 				</div>
 				<Button variant="ghost" class="self-start" onClick={() => resetAppearance()}>

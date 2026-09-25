@@ -140,12 +140,11 @@ function Action(props: { compact?: boolean }): JSX.Element {
 }
 
 /**
- * Desktop title bar, 40px: the screen's tabs (or its name) on the left, the project centred and
- * quiet, the screen's action on the right.
+ * Desktop title bar, 40px: the screen's tabs (or its name) on the left, the project's views and
+ * the screen's action on the right.
  */
 export function TitleBar(): JSX.Element {
 	const shell = useShell();
-	const workspace = useWorkspace();
 
 	return (
 		<header class="flex h-10 shrink-0 select-none items-stretch border-stroke border-b">
@@ -166,13 +165,7 @@ export function TitleBar(): JSX.Element {
 					{(tabs) => <>{tabs()()}</>}
 				</Show>
 			</div>
-			<div class="hidden min-w-0 flex-1 items-center justify-center px-4 xl:flex">
-				<span class="pointer-events-none truncate font-medium text-ink/40 text-ui-caption">
-					<Loading fallback="Grid">
-						{workspace.currentProject() ? `${workspace.currentProject()?.name} — Grid` : "Grid"}
-					</Loading>
-				</span>
-			</div>
+			<div class="min-w-0 flex-1" />
 			<div class="flex shrink-0 items-center gap-2 pr-2">
 				<ProjectViews />
 				<Action />
@@ -184,6 +177,7 @@ export function TitleBar(): JSX.Element {
 /** Phone title bar: the menu, the screen's tabs (or its name), and its action in thumb reach. */
 export function TopBar(): JSX.Element {
 	const shell = useShell();
+	const location = useLocation();
 
 	return (
 		<header class="glass z-30 shrink-0 border-stroke border-b pt-[env(safe-area-inset-top)]">
@@ -200,7 +194,10 @@ export function TopBar(): JSX.Element {
 						{(tabs) => <>{tabs()()}</>}
 					</Show>
 				</div>
-				<ProjectViews compact />
+				{/* In a chat the phone header is the title alone; the drawer reaches the board. */}
+				<Show when={!location.pathname.startsWith("/chat")}>
+					<ProjectViews compact />
+				</Show>
 				<Action compact />
 			</div>
 		</header>

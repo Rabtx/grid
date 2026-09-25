@@ -1,9 +1,10 @@
 import { useMatch } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Loading, Show } from "solid-js";
+import { createEffect, createSignal, For, Loading, onSettled, Show } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import {
+	attachContextMenu,
 	Button,
 	EmptyState,
 	ErrorNotice,
@@ -12,6 +13,7 @@ import {
 	FolderIcon,
 	Input,
 	Menu,
+	type MenuControl,
 	MoreIcon,
 	PlusIcon,
 	Sheet,
@@ -279,54 +281,21 @@ function FileRow(props: {
 	onCopy: (value: string) => Promise<void>;
 }): JSX.Element {
 	let row: HTMLLIElement | undefined;
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	let start = { x: 0, y: 0 };
-	let held = false;
+	let menu: MenuControl | undefined;
 	const folder = () => props.entry.kind === "folder";
-	const openMenu = () => {
-		if (!row?.isConnected) return;
-		const popover = row?.querySelector<HTMLElement>("[popover]");
-		if (popover?.showPopover && !popover.matches(":popover-open")) popover.showPopover();
-	};
-	const cancelHold = () => {
-		if (timer) clearTimeout(timer);
-		timer = undefined;
-	};
+	// Right-click and long press open the row's menu; the ⋯ is for pointers, on hover.
+	onSettled(() => (row ? attachContextMenu(row, (point) => menu?.open(point)) : undefined));
 	const items = () => [
 		...(folder() ? [{ id: "open", label: "Open folder" }] : []),
 		{ id: "path", label: "Copy relative path" },
 		{ id: "name", label: "Copy name" },
 	];
 	return (
-		// The row owns secondary context gestures; its primary folder button remains keyboard accessible.
-		// oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
 		<li
 			ref={(el) => {
 				row = el;
 			}}
-			class="flex min-w-0 items-center border-stroke border-b last:border-b-0"
-			onContextMenu={(event) => {
-				event.preventDefault();
-				// A mouse context event can light-dismiss a popover opened in the same event turn.
-				setTimeout(openMenu, 0);
-			}}
-			onPointerDown={(event) => {
-				if (event.pointerType !== "touch") return;
-				start = { x: event.clientX, y: event.clientY };
-				held = false;
-				cancelHold();
-				timer = setTimeout(() => {
-					held = true;
-					openMenu();
-					timer = undefined;
-				}, 500);
-			}}
-			onPointerMove={(event) => {
-				if (Math.abs(event.clientX - start.x) > 8 || Math.abs(event.clientY - start.y) > 8)
-					cancelHold();
-			}}
-			onPointerUp={cancelHold}
-			onPointerCancel={cancelHold}
+			class="group/row flex min-w-0 select-none items-center border-stroke border-b last:border-b-0 [-webkit-touch-callout:none]"
 		>
 			<Show
 				when={folder()}
@@ -339,27 +308,28 @@ function FileRow(props: {
 			>
 				<button
 					type="button"
-					onClick={(event) => {
-						if (held) {
-							event.preventDefault();
-							held = false;
-						} else props.onOpen();
-					}}
+					onClick={() => props.onOpen()}
 					class="focus-ring flex min-h-11 min-w-0 flex-1 items-center gap-3 px-3 text-left text-ui hover:bg-ink/5"
 				>
 					<FolderIcon class="size-4 shrink-0 text-ink/55" />
 					<span class="min-w-0 flex-1 truncate">{props.entry.name}</span>
 				</button>
 			</Show>
-			<Menu
-				label={`${props.entry.name} actions`}
-				trigger={<MoreIcon class="size-4" />}
-				items={items()}
-				onSelect={(id) => {
-					if (id === "open") props.onOpen();
-					else void props.onCopy(id === "name" ? props.entry.name : props.entry.path);
-				}}
-			/>
+			<div class="pr-1 opacity-0 transition-opacity duration-fast focus-within:opacity-100 group-hover/row:opacity-100 pointer-coarse:opacity-100">
+				<Menu
+					label={`${props.entry.name} actions`}
+					trigger={<MoreIcon class="size-4" />}
+					items={items()}
+					pointerOnly
+					control={(control) => {
+						menu = control;
+					}}
+					onSelect={(id) => {
+						if (id === "open") props.onOpen();
+						else void props.onCopy(id === "name" ? props.entry.name : props.entry.path);
+					}}
+				/>
+			</div>
 		</li>
 	);
 }
