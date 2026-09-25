@@ -9,6 +9,7 @@
 		"development-workflow",
 		"backend-api",
 		"---",
+		"portable",
 		"docker",
 		"deploy",
 		"qol",

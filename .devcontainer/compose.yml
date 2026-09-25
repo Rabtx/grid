@@ -1,0 +1,27 @@
+# Codespaces / Dev Containers: the Grid workspace plus its own Postgres.
+# `bun run grid` (started on attach) finds DATABASE_URL and serves Grid on port 8080.
+services:
+  grid:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    command: sleep infinity
+    volumes:
+      - ../..:/workspaces:cached
+    environment:
+      DATABASE_URL: postgresql://grid:grid@postgres:5432/grid
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: grid
+      POSTGRES_PASSWORD: grid
+      POSTGRES_DB: grid
+    volumes:
+      - grid_postgres:/var/lib/postgresql/data
+
+volumes:
+  grid_postgres:

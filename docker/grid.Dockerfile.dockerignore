@@ -1,0 +1,12 @@
+# Context for docker/grid.Dockerfile — the whole monorepo, minus machine-local state.
+.git
+**/node_modules
+**/dist
+**/.next
+**/target
+**/coverage
+.grid
+.env
+**/.env
+**/.env.*
+!**/.env.example
