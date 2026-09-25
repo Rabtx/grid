@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: codex
 reviewer: human
 parent: none
@@ -74,3 +74,7 @@ Implementation commit: `743b4f3` (`feat(console): polish pwa launch and shell ca
 Review: human reviewer requested through [PR #66](https://github.com/shabirkhan-dev/grid/pull/66);
 outcome pending. Keep this card in `doing/`
 until independent review and CI pass.
+
+## Resolution
+
+The easy slice landed (reviewed by claude: first-paint theme, theme-color sync, iOS title, content-hashed shell precache with lazy route caching). The "Remaining decisions and larger work" list above stays as follow-up ideas for new cards.
