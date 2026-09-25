@@ -3,7 +3,7 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
-import { environmentsStore } from "@/modules/environments";
+import { environmentsStore, placementsStore } from "@/modules/environments";
 import { useWorkspace } from "@/modules/projects";
 import {
 	Button,
@@ -113,15 +113,22 @@ export function TerminalScreen(): JSX.Element {
 		}
 	}
 
-	async function openTerminal(environment?: string): Promise<void> {
+	/**
+	 * Open a shell. Left unsaid, it opens where the current project runs, in its folder: on this
+	 * machine or on the environment holding the folder. `null` is this machine, explicitly.
+	 */
+	async function openTerminal(machine?: string | null): Promise<void> {
 		const token = auth.token();
 		if (!token || busy()) return;
 		setBusy(true);
 		try {
-			// A new shell here starts in the current project's folder, where the work is. The
-			// folder is this machine's path, so an environment starts in its own default instead.
 			const slug = untrack(workspace.currentSlug);
-			const cwd = slug && !environment ? untrack(workspace.folders)[slug] : undefined;
+			const home = untrack(() => placementsStore.environmentOf(slug));
+			const environment = (machine === undefined ? home : machine) ?? undefined;
+			// The project's folder is a path on the machine it runs on; elsewhere, that machine's
+			// own default folder.
+			const cwd =
+				slug && (environment ?? null) === home ? untrack(workspace.folders)[slug] : undefined;
 			const info = await terminalsService.open(token, DEFAULT_SIZE, cwd, environment);
 			setTerminals((list) => [...list, info]);
 			navigate(`/terminal/${info.id}`);
@@ -295,7 +302,7 @@ export function TerminalScreen(): JSX.Element {
 								icon: <GlobeIcon class="size-4" />,
 							})),
 						]}
-						onSelect={(id) => void openTerminal(id === THIS_MACHINE ? undefined : id)}
+						onSelect={(id) => void openTerminal(id === THIS_MACHINE ? null : id)}
 					/>
 				</Show>
 				<div class="hidden items-center pointer-fine:flex">

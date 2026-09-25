@@ -33,6 +33,8 @@ function shortPath(path: string): string {
 /** One conversation: its live transcript and the composer under it. */
 export function Conversation(props: {
 	id: string;
+	/** The machine the chat runs on (`placementsStore`); empty for this one. */
+	scope: string;
 	providers: ChatProvider[];
 	onSession: (session: ChatSession) => void;
 }): JSX.Element {
@@ -96,7 +98,7 @@ export function Conversation(props: {
 		const link = quietReconnects<ChatConnection>(setConnection);
 		let attachedBefore = false;
 		const live = connectChat({
-			url: chatSocketUrl(),
+			url: chatSocketUrl(untrack(() => props.scope)),
 			id: props.id,
 			token: auth.token,
 			renew: auth.renew,

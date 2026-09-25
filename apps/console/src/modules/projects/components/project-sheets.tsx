@@ -3,6 +3,7 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
+import { MachinePicker, placementsStore, scopeFor } from "@/modules/environments";
 import {
 	Button,
 	CloseIcon,
@@ -58,12 +59,15 @@ export function AddProjectSheet(): JSX.Element {
 	const [repoUrl, setRepoUrl] = createSignal("");
 	const [error, setError] = createSignal<string | null>(null);
 	const [saving, setSaving] = createSignal(false);
+	// The machine the folder is on, and so where the project runs: this one unless picked.
+	const [machine, setMachine] = createSignal<string | null>(null);
 
 	function close(): void {
 		workspace.setAddProjectOpen(false);
 		setFolder(null);
 		setError(null);
 		setSlugEdited(false);
+		setMachine(null);
 	}
 
 	// A short name no other project uses: `app`, then `app-2`, `app-3`…
@@ -80,7 +84,7 @@ export function AddProjectSheet(): JSX.Element {
 		if (!token) return;
 		setError(null);
 		try {
-			const details = await foldersService.inspect(token, path);
+			const details = await foldersService.inspect(token, path, scopeFor(machine()));
 			setFolder(details.path);
 			setName(details.name);
 			setSlug(slugify(details.name));
@@ -103,7 +107,8 @@ export function AddProjectSheet(): JSX.Element {
 				name: name().trim(),
 				repoUrl: repoUrl().trim() || null,
 			});
-			await foldersService.link(token, project.slug, path);
+			await foldersService.link(token, project.slug, path, scopeFor(machine()));
+			await placementsStore.place(token, project.slug, machine());
 			workspace.refreshProjects();
 			workspace.refreshFolders();
 			close();
@@ -127,11 +132,21 @@ export function AddProjectSheet(): JSX.Element {
 					<Switch>
 						<Match when={!folder()}>
 							<p class="text-ink/55 text-ui-sm">
-								The folder with the project's code, on the machine Grid runs on.
+								The folder with the project's code. The project runs on the machine it is on: its
+								chats, agents, files and terminals.
 							</p>
-							{/* Mounted only while open: the browser lists folders as soon as it mounts. */}
+							<MachinePicker value={machine()} onChange={setMachine} />
+							{/* Mounted only while open, and again per machine: it lists folders on mount. */}
 							<Show when={workspace.addProjectOpen()}>
-								<FolderBrowser actionLabel="Use" onPick={(path) => void pick(path)} />
+								<For each={[scopeFor(machine())]}>
+									{(scope) => (
+										<FolderBrowser
+											scope={scope}
+											actionLabel="Use"
+											onPick={(path) => void pick(path)}
+										/>
+									)}
+								</For>
 							</Show>
 						</Match>
 						<Match when={folder()}>
@@ -215,13 +230,25 @@ export function AddProjectSheet(): JSX.Element {
 	);
 }
 
-/** Link an existing project to its folder on this machine. */
+/**
+ * Link an existing project to its folder, on this machine or an environment. Choosing a folder
+ * on an environment moves the project there: its chats, agents, files and terminals follow.
+ */
 export function ChooseFolderSheet(): JSX.Element {
 	const auth = useAuth();
 	const workspace = useWorkspace();
 	const [error, setError] = createSignal<string | null>(null);
+	const [machine, setMachine] = createSignal<string | null>(null);
 	const project = () =>
 		workspace.projects().find((item) => item.slug === workspace.choosingFolderFor());
+
+	// Open on the machine the project runs on now.
+	createEffect(
+		() => workspace.choosingFolderFor(),
+		(slug) => {
+			if (slug) setMachine(placementsStore.environmentOf(slug));
+		},
+	);
 
 	function close(): void {
 		workspace.chooseFolderFor(null);
@@ -233,7 +260,8 @@ export function ChooseFolderSheet(): JSX.Element {
 		const slug = workspace.choosingFolderFor();
 		if (!token || !slug) return;
 		try {
-			await foldersService.link(token, slug, path);
+			await foldersService.link(token, slug, path, scopeFor(machine()));
+			await placementsStore.place(token, slug, machine());
 			workspace.refreshFolders();
 			close();
 		} catch (cause) {
@@ -252,12 +280,22 @@ export function ChooseFolderSheet(): JSX.Element {
 				<SheetHeader title={`Folder for ${project()?.name ?? "this project"}`} onClose={close} />
 				<div class="flex min-h-0 flex-1 flex-col gap-3 p-4">
 					<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
+					<MachinePicker value={machine()} onChange={setMachine} />
 					<Show when={workspace.choosingFolderFor()}>
-						<FolderBrowser
-							start={workspace.folders()[workspace.choosingFolderFor() ?? ""]}
-							actionLabel="Use"
-							onPick={(path) => void link(path)}
-						/>
+						<For each={[scopeFor(machine())]}>
+							{(scope) => (
+								<FolderBrowser
+									scope={scope}
+									start={
+										machine() === placementsStore.environmentOf(workspace.choosingFolderFor())
+											? workspace.folders()[workspace.choosingFolderFor() ?? ""]
+											: undefined
+									}
+									actionLabel="Use"
+									onPick={(path) => void link(path)}
+								/>
+							)}
+						</For>
 					</Show>
 				</div>
 			</div>

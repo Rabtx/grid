@@ -1,5 +1,7 @@
 import { createSignal, untrack } from "solid-js";
 
+import { placementsStore } from "@/modules/environments";
+
 import { chatService } from "../services/chat.service";
 import type { ChatSession } from "../types/chat.types";
 
@@ -13,6 +15,8 @@ const pending = new Map<string, Promise<void>>();
 // open conversation when its own turn starts or ends.
 const [running, setRunning] = createSignal<{ id: string; project: string }[]>([]);
 const POLL_MS = 3000;
+// Each machine's last answer, by scope, for a machine that misses one poll.
+const lastRunning = new Map<string, { id: string; project: string }[]>();
 
 const newestFirst = (list: ChatSession[]) =>
 	[...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -39,11 +43,19 @@ export const threadsStore = {
 		const tick = async () => {
 			const value = token();
 			if (value && document.visibilityState === "visible") {
-				try {
-					setRunning(await chatService.running(value));
-				} catch {
-					// The runner is down; the health watcher says so. Keep the last list.
-				}
+				// This machine and every environment a project runs on. One that cannot be reached
+				// keeps its last answer rather than dropping its threads' indicators.
+				const scopes = untrack(placementsStore.scopes);
+				const answers = await Promise.all(
+					scopes.map((scope) =>
+						chatService.running(value, scope).then(
+							(list) => ({ scope, list }),
+							() => ({ scope, list: null }),
+						),
+					),
+				);
+				for (const { scope, list } of answers) if (list) lastRunning.set(scope, list);
+				setRunning(scopes.flatMap((scope) => lastRunning.get(scope) ?? []));
 			}
 			if (!stopped) timer = setTimeout(() => void tick(), POLL_MS);
 		};
@@ -61,7 +73,7 @@ export const threadsStore = {
 		const running = pending.get(project);
 		if (running) return running;
 		const work = chatService
-			.sessions(token, project)
+			.sessions(token, project, placementsStore.scopeOf(project))
 			.then(
 				(list) => {
 					put(project, list);
@@ -94,11 +106,11 @@ export const threadsStore = {
 		put(session.project, [session, ...rest]);
 	},
 	async rename(token: string, session: ChatSession, title: string): Promise<void> {
-		await chatService.rename(token, session.id, title);
+		await chatService.rename(token, session.id, title, placementsStore.scopeOf(session.project));
 		threadsStore.upsert({ ...session, title });
 	},
 	async remove(token: string, session: ChatSession): Promise<void> {
-		await chatService.remove(token, session.id);
+		await chatService.remove(token, session.id, placementsStore.scopeOf(session.project));
 		put(
 			session.project,
 			(untrack(byProject)[session.project] ?? []).filter((item) => item.id !== session.id),

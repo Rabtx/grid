@@ -5,6 +5,7 @@ import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from
 import { onRunnerRecovered } from "@/lib/runner-health";
 
 import { useAuth } from "@/modules/auth";
+import { placementsStore, scopeFor } from "@/modules/environments";
 import { useWorkspace } from "@/modules/projects";
 import { ShellSlot, useShell } from "@/modules/shell";
 import { Button, ErrorNotice, FolderIcon } from "@/ui";
@@ -93,17 +94,23 @@ export function ChatScreen(): JSX.Element {
 		workspace.projects().find((item) => item.slug === project())?.name ?? project() ?? "";
 	const folder = () => (project() ? workspace.folders()[project() ?? ""] : undefined);
 
-	const providers = () => providersStore.providers();
+	// The machine this project runs on (its folder's): its agents, threads and sockets are there.
+	const scope = () => scopeFor(placementsStore.environmentOf(project()));
+	const providers = () => providersStore.providers(scope());
 	const sessions = () => threadsStore.threads(project() ?? "");
 	const [tabIds, setTabIds] = createSignal<string[]>([]);
 
-	// The agents are read once per visit and kept; the threads are shared with the sidebar.
+	// The agents are read once per visit and kept; the threads are shared with the sidebar. Where
+	// the project runs is known first, so both come from the right machine.
 	createEffect(
-		() => [project(), auth.token()] as const,
+		() => [project(), auth.token(), scope()] as const,
 		([slug, token]) => {
 			if (!token) return;
-			void providersStore.load(token);
-			if (slug) void threadsStore.load(token, slug);
+			void placementsStore.load(token).then(() => {
+				const where = untrack(scope);
+				void providersStore.load(token, where);
+				if (slug) void threadsStore.reload(token, slug);
+			});
 		},
 	);
 
@@ -111,7 +118,7 @@ export function ChatScreen(): JSX.Element {
 		const unsub = onRunnerRecovered(() => {
 			const token = auth.token();
 			if (!token) return;
-			void providersStore.reload(token);
+			void providersStore.reload(token, untrack(scope));
 			const slug = untrack(project);
 			if (slug) void threadsStore.reload(token, slug);
 		});
@@ -202,7 +209,14 @@ export function ChatScreen(): JSX.Element {
 					/>
 				}
 			>
-				{(id) => <Conversation id={id} providers={providers()} onSession={threadsStore.upsert} />}
+				{(id) => (
+					<Conversation
+						id={id}
+						scope={scope()}
+						providers={providers()}
+						onSession={threadsStore.upsert}
+					/>
+				)}
 			</Show>
 		</>
 	);
@@ -261,15 +275,19 @@ function NewChat(props: {
 		if (!token || !provider || !props.project || !props.folder) return false;
 		setError(null);
 		try {
-			const session = await chatService.create(token, {
-				project: props.project,
-				provider: provider.id,
-				// The project's folder, sent explicitly: the chat works there and resumes there.
-				cwd: props.folder,
-				model: model() ?? undefined,
-				effort: effort() ?? undefined,
-				mode: mode() ?? provider.settings?.mode ?? undefined,
-			});
+			const session = await chatService.create(
+				token,
+				{
+					project: props.project,
+					provider: provider.id,
+					// The project's folder, sent explicitly: the chat works there and resumes there.
+					cwd: props.folder,
+					model: model() ?? undefined,
+					effort: effort() ?? undefined,
+					mode: mode() ?? provider.settings?.mode ?? undefined,
+				},
+				placementsStore.scopeOf(props.project),
+			);
 			remember(AGENT_KEY, provider.id);
 			remember(modelKey(provider.id), model());
 			remember(effortKey(provider.id), effort());

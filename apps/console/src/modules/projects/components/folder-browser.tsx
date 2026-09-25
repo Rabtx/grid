@@ -11,12 +11,14 @@ function shortPath(path: string, home: string): string {
 }
 
 /**
- * Browse folders on the machine Grid runs on — from a phone as well as the desktop — and pick
- * one. Starts in the usual projects folder (or home), marks git repositories, and takes a typed
- * path to jump anywhere.
+ * Browse folders on a machine — this one, or an environment through `scope` — from a phone as
+ * well as the desktop, and pick one. Starts in the usual projects folder (or home), marks git
+ * repositories, and takes a typed path to jump anywhere.
  */
 export function FolderBrowser(props: {
 	start?: string;
+	/** The machine to browse (`placementsStore`/`scopeFor`); empty for this one. */
+	scope?: string;
 	actionLabel: string;
 	onPick: (path: string) => void;
 }): JSX.Element {
@@ -30,7 +32,7 @@ export function FolderBrowser(props: {
 		if (!token) return;
 		setError(null);
 		try {
-			const next = await foldersService.list(token, path);
+			const next = await foldersService.list(token, path, props.scope ?? "");
 			setListing(next);
 			setTyped(shortPath(next.path, next.home));
 		} catch (cause) {

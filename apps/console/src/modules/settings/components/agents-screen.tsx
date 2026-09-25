@@ -4,6 +4,7 @@ import { createEffect, createSignal, For, Show } from "solid-js";
 import { useAuth } from "@/modules/auth";
 import { ModelPicker, ModePicker } from "@/modules/chat/components/pickers";
 import { providersStore } from "@/modules/chat/stores/providers";
+import { MachinePicker, scopeFor } from "@/modules/environments";
 import type { ChatProvider, ProviderSettings } from "@/modules/chat/types/chat.types";
 import { Button, ErrorNotice, RestoreIcon, Skeleton, SpinnerIcon } from "@/ui";
 
@@ -26,11 +27,14 @@ function ago(iso: string | null | undefined): string {
  */
 export function AgentsScreen(): JSX.Element {
 	const auth = useAuth();
+	// Each machine has its own agents; this one unless an environment is picked.
+	const [machine, setMachine] = createSignal<string | null>(null);
+	const scope = () => scopeFor(machine());
 
 	createEffect(
-		() => auth.token(),
-		(token) => {
-			if (token) void providersStore.load(token);
+		() => [auth.token(), scope()] as const,
+		([token, where]) => {
+			if (token) void providersStore.load(token, where);
 		},
 	);
 
@@ -45,7 +49,10 @@ export function AgentsScreen(): JSX.Element {
 					agent gains models.
 				</p>
 			</header>
-			<Show when={providersStore.error()}>
+			<div class="mt-4 md:max-w-xs">
+				<MachinePicker value={machine()} onChange={setMachine} />
+			</div>
+			<Show when={providersStore.error(scope())}>
 				{(message) => (
 					<div class="mt-4">
 						<ErrorNotice message={message()} />
@@ -53,7 +60,7 @@ export function AgentsScreen(): JSX.Element {
 				)}
 			</Show>
 			<Show
-				when={providersStore.providers().length > 0}
+				when={providersStore.providers(scope()).length > 0}
 				fallback={
 					<div class="mt-6 flex flex-col gap-3" aria-hidden="true">
 						<Skeleton class="h-28" />
@@ -62,8 +69,8 @@ export function AgentsScreen(): JSX.Element {
 				}
 			>
 				<div class="mt-6 flex flex-col gap-4">
-					<For each={providersStore.providers()}>
-						{(provider) => <AgentCard provider={provider} />}
+					<For each={providersStore.providers(scope())}>
+						{(provider) => <AgentCard provider={provider} scope={scope()} />}
 					</For>
 				</div>
 			</Show>
@@ -74,7 +81,7 @@ export function AgentsScreen(): JSX.Element {
 	);
 }
 
-function AgentCard(props: { provider: ChatProvider }): JSX.Element {
+function AgentCard(props: { provider: ChatProvider; scope: string }): JSX.Element {
 	const auth = useAuth();
 	const [refreshing, setRefreshing] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
@@ -89,7 +96,12 @@ function AgentCard(props: { provider: ChatProvider }): JSX.Element {
 		if (!token) return;
 		setError(null);
 		try {
-			await providersStore.saveSettings(token, props.provider.id, { ...settings(), ...change });
+			await providersStore.saveSettings(
+				token,
+				props.provider.id,
+				{ ...settings(), ...change },
+				props.scope,
+			);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : "Could not save");
 		}
@@ -101,7 +113,7 @@ function AgentCard(props: { provider: ChatProvider }): JSX.Element {
 		setRefreshing(true);
 		setError(null);
 		try {
-			await providersStore.refresh(token, props.provider.id);
+			await providersStore.refresh(token, props.provider.id, props.scope);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : "Could not refresh the models");
 		} finally {

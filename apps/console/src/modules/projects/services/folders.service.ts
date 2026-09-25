@@ -9,21 +9,25 @@ export type FolderListing = {
 	folders: FolderEntry[];
 };
 
-/** Folders on the machine Grid runs on, and which one holds each project's code. */
+/**
+ * Folders on a machine, and which one holds each project's code there. `scope` picks the
+ * machine: empty for this one, `/env/<id>` for an environment (see `placementsStore`).
+ */
 export const foldersService = {
-	list: (token: string, path?: string) =>
+	list: (token: string, path?: string, scope = "") =>
 		runnerCall<FolderListing>(
-			`/fs/folders${path ? `?path=${encodeURIComponent(path)}` : ""}`,
+			`${scope}/fs/folders${path ? `?path=${encodeURIComponent(path)}` : ""}`,
 			token,
 		),
-	inspect: (token: string, path: string) =>
+	inspect: (token: string, path: string, scope = "") =>
 		runnerCall<{ path: string; name: string; repoUrl: string | null }>(
-			`/fs/inspect?path=${encodeURIComponent(path)}`,
+			`${scope}/fs/inspect?path=${encodeURIComponent(path)}`,
 			token,
 		),
-	projectFolders: (token: string) => runnerCall<Record<string, string>>("/projects/folders", token),
-	link: (token: string, project: string, path: string) =>
-		runnerCall<void>(`/projects/folders/${project}`, token, {
+	projectFolders: (token: string, scope = "") =>
+		runnerCall<Record<string, string>>(`${scope}/projects/folders`, token),
+	link: (token: string, project: string, path: string, scope = "") =>
+		runnerCall<void>(`${scope}/projects/folders/${project}`, token, {
 			method: "PUT",
 			body: JSON.stringify({ path }),
 		}),

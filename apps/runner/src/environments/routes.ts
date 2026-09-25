@@ -47,7 +47,10 @@ export async function pairRequest(
 	return failure(405, "Method not allowed");
 }
 
-/** The home side: this person's environments, adding one with a code, and removing one. */
+/**
+ * The home side: this person's environments (adding one with a code, removing one), and which
+ * environment each project runs on.
+ */
 export async function environmentRequest(
 	request: Request,
 	url: URL,
@@ -55,6 +58,23 @@ export async function environmentRequest(
 	deps: EnvironmentDeps,
 ): Promise<Response | null> {
 	const fetcher = deps.fetcher ?? fetch;
+	if (url.pathname === "/environments/placements" && request.method === "GET") {
+		return Response.json({ data: deps.store.placements(userId) });
+	}
+	const placement = url.pathname.match(/^\/environments\/placements\/([\w-]+)$/);
+	if (placement && request.method === "PUT") {
+		const body = (await request.json().catch(() => null)) as { environment?: unknown } | null;
+		const environment = body?.environment;
+		if (environment !== null && typeof environment !== "string") {
+			return failure(400, "Say which environment, or null for this machine");
+		}
+		try {
+			deps.store.place(userId, placement[1], environment);
+			return new Response(null, { status: 204 });
+		} catch (cause) {
+			return fromError(cause);
+		}
+	}
 	if (url.pathname === "/environments" && request.method === "GET") {
 		return Response.json({ data: deps.store.list(userId) });
 	}
