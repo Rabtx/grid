@@ -8,6 +8,7 @@
 		"packages/*"
 	],
 	"scripts": {
+		"grid": "bun --cwd=apps/launcher run start",
 		"dev": "bun run --parallel --no-exit-on-error --filter '*' dev",
 		"build": "bun run --filter '*' build",
 		"start": "bun run --parallel --filter '*' start",

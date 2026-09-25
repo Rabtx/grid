@@ -13,6 +13,7 @@ roles:
     paths:
       - apps/nest-api/**
       - apps/runner/**
+      - apps/launcher/**
       - scripts/python/**
     reviewers:
       - reviewer

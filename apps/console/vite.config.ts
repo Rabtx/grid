@@ -11,9 +11,14 @@ const RUNNER_TARGET = process.env.GRID_RUNNER_PROXY ?? "http://localhost:4100";
 
 /**
  * Hostnames Vite accepts besides localhost and IPs: any Tailscale MagicDNS name, so a phone can
- * open the console over `tailscale serve` HTTPS. Add more with GRID_ALLOWED_HOSTS (comma-separated).
+ * open the console over `tailscale serve` HTTPS, and GitHub Codespaces' forwarded ports. Add more
+ * (a VPS's domain, say) with GRID_ALLOWED_HOSTS (comma-separated).
  */
-const allowedHosts = [".ts.net", ...(process.env.GRID_ALLOWED_HOSTS?.split(",") ?? [])];
+const allowedHosts = [
+	".ts.net",
+	".app.github.dev",
+	...(process.env.GRID_ALLOWED_HOSTS?.split(",") ?? []),
+];
 
 /**
  * The console calls the API on its own origin (`/api/…`) and this forwards it, in dev and in
