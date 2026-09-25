@@ -12,18 +12,22 @@ if [ -n "${TS_AUTH_KEY:-}" ] && ! tailscale status >/dev/null 2>&1; then
 		echo "tailscale: could not join the tailnet; pairing stays off" >&2
 fi
 
+# The dev container user may sudo to root without a password, but not straight to postgres, so
+# Postgres commands go through root.
+as_postgres() { sudo runuser -u postgres -- "$@"; }
+
 sudo service postgresql start >/dev/null
 for _ in $(seq 1 30); do
-	sudo -u postgres pg_isready -q && break
+	pg_isready -q && break
 	sleep 1
 done
 
 # The role and database Grid's DATABASE_URL names, made once.
-if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname = 'grid'" | grep -q 1; then
-	sudo -u postgres psql -qc "CREATE ROLE grid LOGIN PASSWORD 'grid'"
+if ! as_postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname = 'grid'" | grep -q 1; then
+	as_postgres psql -qc "CREATE ROLE grid LOGIN PASSWORD 'grid'"
 fi
-if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'grid'" | grep -q 1; then
-	sudo -u postgres createdb -O grid grid
+if ! as_postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'grid'" | grep -q 1; then
+	as_postgres createdb -O grid grid
 fi
 
 mkdir -p .grid
