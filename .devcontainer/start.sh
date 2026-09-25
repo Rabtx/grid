@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Runs each time the container starts: the tailnet (when there is a key), Postgres, then Grid in
-# the background. Grid's log is .grid/grid.log; a second start while one runs exits on its own.
+# Runs each time the container starts: joins the tailnet (when there is a key), starts Postgres,
+# then marks the workspace ready. Grid itself is kept running by the grid-service feature, which
+# waits for that mark: a lifecycle command cannot keep anything running once it returns.
 set -euo pipefail
 
 # Join the tailnet so a home Grid can pair with this Codespace. Secrets reach lifecycle commands
@@ -31,4 +32,5 @@ if ! as_postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'grid'" | 
 fi
 
 mkdir -p .grid
-setsid nohup bun run grid >.grid/grid.log 2>&1 &
+: >.grid/grid.log
+touch .grid/ready

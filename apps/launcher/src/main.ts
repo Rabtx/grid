@@ -106,16 +106,28 @@ function claimDataDir(dataDir: string): boolean {
 	const file = join(dataDir, "grid.pid");
 	if (existsSync(file)) {
 		const pid = Number(readFileSync(file, "utf8"));
-		try {
-			process.kill(pid, 0);
-			return false;
-		} catch {
-			// A stale file from a Grid that didn't shut down cleanly.
-		}
+		if (isLauncher(pid)) return false;
+		// A stale file from a Grid that didn't shut down cleanly (or from before a restart, when
+		// its number may now belong to something else).
 	}
 	writeFileSync(file, String(process.pid));
 	process.on("exit", () => rmSync(file, { force: true }));
 	return true;
+}
+
+/** Whether a process is alive and is a Grid launcher (on Linux, by its command line). */
+function isLauncher(pid: number): boolean {
+	try {
+		process.kill(pid, 0);
+	} catch {
+		return false;
+	}
+	try {
+		return readFileSync(`/proc/${pid}/cmdline`, "utf8").includes("src/main.ts");
+	} catch {
+		// No /proc (macOS): a live process with that number is the best we can tell.
+		return true;
+	}
 }
 
 function main(): Promise<void> {

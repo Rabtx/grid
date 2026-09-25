@@ -1,0 +1,7 @@
+{
+	"id": "grid-service",
+	"version": "1.0.0",
+	"name": "Grid service",
+	"description": "Keeps Grid running for as long as the container runs, starting it once start.sh has the tailnet and Postgres ready.",
+	"entrypoint": "/usr/local/share/grid-service/entrypoint.sh"
+}
