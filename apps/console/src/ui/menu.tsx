@@ -1,6 +1,11 @@
 import type { JSX } from "@solidjs/web";
 import { createUniqueId, For, Show } from "solid-js";
 
+import type { MenuPoint } from "./context-menu";
+
+/** Open a menu from code: at a point (a right-click, a long press), or under its trigger. */
+export type MenuControl = { open: (point?: MenuPoint) => void };
+
 export type MenuItem = {
 	id: string;
 	label: string;
@@ -41,6 +46,13 @@ export function Menu(props: {
 	disabled?: boolean;
 	items: readonly MenuItem[];
 	onSelect: (id: string) => void;
+	/**
+	 * Row menus: the trigger is for pointers only. Touch screens open the menu with a long press
+	 * on the row (see `attachContextMenu`), as native lists do, so no dots are drawn there.
+	 */
+	pointerOnly?: boolean;
+	/** Hands over a way to open the menu from code, for right-click and long press. */
+	control?: (control: MenuControl) => void;
 }): JSX.Element {
 	const uid = createUniqueId().replace(/[^a-zA-Z0-9_-]/g, "");
 	const listId = `menu-${uid}`;
@@ -48,6 +60,15 @@ export function Menu(props: {
 	const anchorOk = supportsAnchorPositioning();
 	let triggerEl: HTMLButtonElement | undefined;
 	let listEl: HTMLElement | undefined;
+	let openAt: MenuPoint | null = null;
+
+	props.control?.({
+		open: (point) => {
+			const el = listEl as (HTMLElement & { showPopover?: () => void }) | undefined;
+			openAt = point ?? null;
+			el?.showPopover?.();
+		},
+	});
 
 	function focusFirstItem(): void {
 		listEl?.querySelector<HTMLButtonElement>("button:not([disabled])")?.focus();
@@ -81,8 +102,24 @@ export function Menu(props: {
 		const target = event.currentTarget as HTMLElement;
 		const open = target.matches(":popover-open");
 		if (open) {
-			// JS fallback when CSS anchor positioning is unavailable: place under the trigger.
-			if (
+			// Opened at a point (right-click, long press) from md up: place it there, kept on screen.
+			// Phones keep the bottom sheet, which is where a thumb expects it.
+			if (openAt && window.matchMedia("(min-width: 48rem)").matches) {
+				target.style.position = "fixed";
+				target.style.margin = "0";
+				target.style.right = "auto";
+				target.style.bottom = "auto";
+				const surface = target.getBoundingClientRect();
+				const left = Math.min(openAt.x, window.innerWidth - surface.width - 8);
+				const top =
+					openAt.y + surface.height + 8 > window.innerHeight
+						? Math.max(8, openAt.y - surface.height)
+						: openAt.y;
+				target.style.left = `${Math.max(8, left)}px`;
+				target.style.top = `${top}px`;
+				// Anchor positioning would pull it back under the (possibly hidden) trigger.
+				target.style.setProperty("position-area", "none");
+			} else if (
 				!anchorOk &&
 				triggerEl &&
 				typeof window !== "undefined" &&
@@ -103,7 +140,10 @@ export function Menu(props: {
 			focusFirstItem();
 		} else {
 			closeInlinePositioning();
-			triggerEl?.focus();
+			listEl?.style.removeProperty("position-area");
+			// Focus goes back to the trigger only when the trigger opened it and can be seen.
+			if (!openAt) triggerEl?.focus();
+			openAt = null;
 		}
 	}
 
@@ -147,7 +187,7 @@ export function Menu(props: {
 				disabled={props.disabled}
 				popovertarget={listId}
 				style={anchorOk ? `anchor-name: ${anchorName}` : undefined}
-				class={props.triggerClass ?? TRIGGER_CLASS}
+				class={`${props.triggerClass ?? TRIGGER_CLASS} ${props.pointerOnly ? "pointer-coarse:hidden" : ""}`}
 			>
 				{props.trigger}
 			</button>

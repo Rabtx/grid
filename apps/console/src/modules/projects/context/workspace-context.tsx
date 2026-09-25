@@ -67,11 +67,16 @@ type WorkspaceState = {
 	projectAction: () => ProjectAction | null;
 	setProjectAction: (action: ProjectAction | null) => void;
 	renameProject: (slug: string, name: string) => Promise<void>;
+	/** Save how a project is drawn: its icon and colour (null for the defaults). */
+	styleProject: (
+		slug: string,
+		look: { icon: string | null; color: string | null },
+	) => Promise<void>;
 	/** Archive the project: it leaves the console; its folder and chats are untouched. */
 	removeProject: (slug: string) => Promise<void>;
 };
 
-export type ProjectAction = { kind: "rename" | "remove"; slug: string };
+export type ProjectAction = { kind: "rename" | "remove" | "customize"; slug: string };
 
 export type NewTaskDefaults = {
 	status?: TaskStatus;
@@ -253,6 +258,16 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		setProjectsRevision((n) => n + 1);
 	}
 
+	async function styleProject(
+		slug: string,
+		look: { icon: string | null; color: string | null },
+	): Promise<void> {
+		const token = untrack(auth.token);
+		if (!token) return;
+		await projectsService.update(token, slug, look);
+		setProjectsRevision((n) => n + 1);
+	}
+
 	async function removeProject(slug: string): Promise<void> {
 		const token = untrack(auth.token);
 		if (!token) return;
@@ -298,6 +313,7 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		projectAction,
 		setProjectAction,
 		renameProject,
+		styleProject,
 		removeProject,
 	};
 

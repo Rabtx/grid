@@ -231,7 +231,8 @@ export function BoardLanes(props: {
 										void move(task, status);
 									}}
 								>
-									<header class="flex h-9 items-center gap-2 px-1">
+									{/* Phones name the lane in the stage tabs above, so the header only shows from md. */}
+									<header class="hidden h-9 items-center gap-2 px-1 md:flex">
 										{lane().icon()}
 										<h2
 											id={`${boardLaneId(lane().id)}-title`}
@@ -262,11 +263,7 @@ export function BoardLanes(props: {
 									<div class="flex flex-col gap-2 p-0.5">
 										<Show
 											when={laneTasks().length > 0}
-											fallback={
-												<p class="grid h-20 place-items-center rounded-lg border border-ink/10 border-dashed text-ink/35 text-ui-sm">
-													No tasks
-												</p>
-											}
+											fallback={<p class="px-2 py-2 text-ink/30 text-ui-xs">No tasks</p>}
 										>
 											<For each={laneTasks()}>
 												{(task) => (

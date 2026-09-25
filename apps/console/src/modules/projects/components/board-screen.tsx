@@ -95,14 +95,12 @@ function Board(): JSX.Element {
 				ownerOptions={options()}
 				onOwnerChange={(next) => setSearchParams({ owner: next === "all" ? undefined : next })}
 			/>
-			<p class="mb-2 text-ink/45 text-ui-sm tabular-nums lg:hidden">
-				<Show
-					when={isFiltered()}
-					fallback={`${workspace.tasks().length} task${workspace.tasks().length === 1 ? "" : "s"}`}
-				>
+			{/* The bar already shows the total; only a filter makes a count worth repeating. */}
+			<Show when={isFiltered()}>
+				<p class="mb-2 text-ink/45 text-ui-sm tabular-nums">
 					{filteredTasks().length} of {workspace.tasks().length} tasks
-				</Show>
-			</p>
+				</p>
+			</Show>
 			<Show
 				when={!filteredEmpty()}
 				fallback={

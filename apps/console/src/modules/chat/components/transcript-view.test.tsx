@@ -7,7 +7,6 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { Toaster } from "@/ui";
 
 import type { Block } from "../lib/transcript";
-import type { Choice } from "../types/chat.types";
 import { TranscriptView } from "./transcript-view";
 
 let dispose: (() => void) | undefined;
@@ -42,14 +41,8 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-const sampleModels: Choice[] = [
-	{ id: "claude-3-7-sonnet", name: "Claude 3.7 Sonnet" },
-	{ id: "gpt-4o", name: "GPT-4o" },
-	{ id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
-];
-
 describe("TranscriptView - User Message", () => {
-	it("renders user message right-aligned with rounded bubble and action buttons", async () => {
+	it("renders user message right-aligned with rounded bubble and a copy action", async () => {
 		const blocks: Block[] = [{ kind: "user", key: "b0", text: "Hello world" }];
 		const root = mount(() => (
 			<>
@@ -76,18 +69,6 @@ describe("TranscriptView - User Message", () => {
 
 		copyBtn?.click();
 		expect(navigator.clipboard.writeText).toHaveBeenCalledWith("Hello world");
-
-		const noteBtn = userWrapper?.querySelector<HTMLButtonElement>(
-			'button[aria-label="Add as note"]',
-		);
-		expect(noteBtn).not.toBeNull();
-		expect(noteBtn?.getAttribute("title")).toBe("Add as note");
-
-		noteBtn?.click();
-		flush();
-		expect(root.querySelector("output[aria-live=polite]")?.textContent).toContain(
-			"Saved to notes (feature coming soon)",
-		);
 	});
 
 	it("shows more / show less for long user messages", () => {
@@ -110,8 +91,7 @@ describe("TranscriptView - User Message", () => {
 });
 
 describe("TranscriptView - Assistant Message", () => {
-	it("renders response with copy, handover, note, and regenerate actions", () => {
-		const onHandover = vi.fn();
+	it("renders response with copy and regenerate actions", () => {
 		const onRegenerate = vi.fn();
 
 		const blocks: Block[] = [
@@ -125,10 +105,7 @@ describe("TranscriptView - Assistant Message", () => {
 				<TranscriptView
 					blocks={blocks}
 					running={false}
-					models={sampleModels}
-					currentModel="claude-3-7-sonnet"
 					onApprove={() => {}}
-					onHandover={onHandover}
 					onRegenerate={onRegenerate}
 				/>
 			</>
@@ -147,40 +124,6 @@ describe("TranscriptView - Assistant Message", () => {
 		copyBtn?.click();
 		expect(navigator.clipboard.writeText).toHaveBeenCalledWith("Here is your code");
 
-		// Note button
-		const noteBtn = assistantWrapper?.querySelector<HTMLButtonElement>(
-			'button[aria-label="Add as note"]',
-		);
-		expect(noteBtn).not.toBeNull();
-		noteBtn?.click();
-		flush();
-		expect(root.querySelector("output[aria-live=polite]")?.textContent).toContain(
-			"Saved to notes (feature coming soon)",
-		);
-
-		// Handover menu trigger
-		const handoverTrigger = assistantWrapper?.querySelector<HTMLButtonElement>(
-			'button[aria-label="Handover to model"]',
-		);
-		expect(handoverTrigger).not.toBeNull();
-
-		// Handover menu items
-		const menuItems = root.querySelectorAll('button[role="menuitem"]');
-		expect(menuItems.length).toBe(sampleModels.length);
-
-		// Current model should be disabled
-		const currentItem = [...menuItems].find((el) => el.textContent?.includes("Claude 3.7 Sonnet"));
-		expect(currentItem?.textContent).toContain("(current)");
-		expect(currentItem?.hasAttribute("disabled")).toBe(true);
-
-		// Click target model
-		const targetItem = [...menuItems].find((el) =>
-			el.textContent?.includes("GPT-4o"),
-		) as HTMLButtonElement;
-		expect(targetItem).toBeDefined();
-		targetItem.click();
-		expect(onHandover).toHaveBeenCalledWith("gpt-4o");
-
 		// Regenerate button
 		const regenerateBtn = assistantWrapper?.querySelector<HTMLButtonElement>(
 			'button[aria-label="Regenerate response"]',
@@ -198,13 +141,7 @@ describe("TranscriptView - Assistant Message", () => {
 		];
 
 		const root = mount(() => (
-			<TranscriptView
-				blocks={blocks}
-				running={true}
-				models={sampleModels}
-				currentModel="claude-3-7-sonnet"
-				onApprove={() => {}}
-			/>
+			<TranscriptView blocks={blocks} running={true} onApprove={() => {}} />
 		));
 		flush();
 
@@ -220,13 +157,7 @@ describe("TranscriptView - Assistant Message", () => {
 		const blocks: Block[] = [{ kind: "assistant", key: "b0", text: "Initial greeting" }];
 
 		const root = mount(() => (
-			<TranscriptView
-				blocks={blocks}
-				running={false}
-				models={sampleModels}
-				currentModel="claude-3-7-sonnet"
-				onApprove={() => {}}
-			/>
+			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
 		));
 		flush();
 
@@ -234,5 +165,23 @@ describe("TranscriptView - Assistant Message", () => {
 			'button[aria-label="Regenerate response"]',
 		);
 		expect(regenerateBtn).toBeNull();
+	});
+});
+
+describe("TranscriptView - touch", () => {
+	it("hides the hover action bars on touch screens", () => {
+		const blocks: Block[] = [
+			{ kind: "user", key: "b0", text: "Write some code" },
+			{ kind: "assistant", key: "b1", text: "Here is your code" },
+		];
+		const root = mount(() => (
+			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
+		));
+		flush();
+		const bars = [...root.querySelectorAll("button[aria-label^='Copy']")].map(
+			(button) => button.parentElement?.className ?? "",
+		);
+		expect(bars.length).toBe(2);
+		for (const bar of bars) expect(bar).toContain("pointer-coarse:hidden");
 	});
 });

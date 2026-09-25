@@ -8,6 +8,7 @@ import {
 	ChooseFolderSheet,
 	NewTaskDialog,
 	ProjectActionDialogs,
+	ProjectLookSheet,
 	WorkspaceProvider,
 } from "@/modules/projects";
 import {
@@ -127,6 +128,7 @@ function ShellFrame(props: { children: JSX.Element }): JSX.Element {
 			<AddProjectSheet />
 			<ChooseFolderSheet />
 			<ProjectActionDialogs />
+			<ProjectLookSheet />
 			<VoiceControls />
 			<ShortcutsHelp />
 		</div>

@@ -10,7 +10,6 @@ import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import ComputerTerminal01Icon from "@hugeicons/core-free-icons/ComputerTerminal01Icon";
 import Copy01Icon from "@hugeicons/core-free-icons/Copy01Icon";
 import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon";
-import Exchange01Icon from "@hugeicons/core-free-icons/Exchange01Icon";
 import File01Icon from "@hugeicons/core-free-icons/File01Icon";
 import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
 import Folder01Icon from "@hugeicons/core-free-icons/Folder01Icon";
@@ -22,7 +21,6 @@ import Logout01Icon from "@hugeicons/core-free-icons/Logout01Icon";
 import Menu01Icon from "@hugeicons/core-free-icons/Menu01Icon";
 import Mic01Icon from "@hugeicons/core-free-icons/Mic01Icon";
 import MoreHorizontalIcon from "@hugeicons/core-free-icons/MoreHorizontalIcon";
-import NoteAddIcon from "@hugeicons/core-free-icons/NoteAddIcon";
 import PencilEdit01Icon from "@hugeicons/core-free-icons/PencilEdit01Icon";
 import RotateCcwIcon from "@hugeicons/core-free-icons/RotateCcwIcon";
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon";
@@ -203,14 +201,6 @@ export function ArchiveIcon(props: IconProps): JSX.Element {
 
 export function CopyIcon(props: IconProps): JSX.Element {
 	return <Icon icon={Copy01Icon} class={props.class} />;
-}
-
-export function NoteIcon(props: IconProps): JSX.Element {
-	return <Icon icon={NoteAddIcon} class={props.class} />;
-}
-
-export function HandoverIcon(props: IconProps): JSX.Element {
-	return <Icon icon={Exchange01Icon} class={props.class} />;
 }
 
 /** A spinning ring for work in progress; still under reduced motion. */

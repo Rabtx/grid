@@ -2,7 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, onSettled, Show, untrack } from "solid-js";
 
 import { insertIntoField, MicButton, registerDictationTarget } from "@/modules/voice";
-import { BranchIcon, PlusIcon, SendIcon, StopSquareIcon } from "@/ui";
+import { BranchIcon, SendIcon, StopSquareIcon } from "@/ui";
 
 /** A 24px chip on the context row — 44px for a thumb. */
 const CONTEXT_CHIP =
@@ -126,15 +126,6 @@ export function Composer(props: {
 				class="block max-h-40 w-full resize-none bg-transparent px-3 py-3 text-ink text-ui-input outline-none placeholder:text-ink/35"
 			/>
 			<div class="flex items-center gap-1 px-2 pb-2">
-				<button
-					type="button"
-					disabled
-					title="Attachments are not available yet"
-					aria-label="Attach"
-					class="focus-ring grid size-[26px] shrink-0 place-items-center rounded-md bg-selection text-ink/55 transition-colors duration-fast ease-out-grid hover:bg-selection-hover disabled:opacity-40 pointer-coarse:size-11"
-				>
-					<PlusIcon class="size-4" />
-				</button>
 				<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
 					{props.controls}
 				</div>
