@@ -5,19 +5,19 @@ type: feature
 from: human
 to: web
 priority: normal
-status: backlog
+status: doing
 assignee: web
 reviewer: human
 parent: .agents/plans/agent-chat.md
 depends_on: []
-branch: none
-worktree: none
+branch: agent/web/task-agent-runs
+worktree: ../grid-worktrees/agent/web/task-agent-runs
 scope:
   - apps/console/src/modules/projects/**
   - apps/console/src/modules/chat/**
 allowed_shared: []
 created: 2026-09-25
-updated: 2026-09-25
+updated: 2026-09-26
 ---
 
 ## What
