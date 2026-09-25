@@ -15,9 +15,11 @@
 	// Tailscale's kernel networking needs a tun device.
 	"runArgs": ["--device=/dev/net/tun"],
 
-	// Grid's own database, started by start.sh inside this container.
 	"containerEnv": {
-		"DATABASE_URL": "postgresql://grid:grid@localhost:5432/grid"
+		// Grid's own database, started by start.sh inside this container.
+		"DATABASE_URL": "postgresql://grid:grid@localhost:5432/grid",
+		// Pair with a home Grid whenever this Codespace is on a tailnet (it stays on loopback when not).
+		"GRID_PAIRING": "1"
 	},
 
 	"postCreateCommand": "bun install && bun run prepare",
