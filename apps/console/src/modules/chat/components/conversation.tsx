@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, onSettled, Show, untrack } from "solid-js";
 
 import { onAppResume } from "@/lib/app-resume";
+import { linkFor } from "@/lib/runner-link";
 import { quietReconnects } from "@/lib/quiet-reconnects";
 import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
@@ -99,6 +100,12 @@ export function Conversation(props: {
 		let attachedBefore = false;
 		const live = connectChat({
 			url: chatSocketUrl(untrack(() => props.scope)),
+			// One connection per machine, shared with every other open chat and terminal on it.
+			createSocket: (url) =>
+				linkFor(
+					untrack(() => props.scope),
+					auth.token,
+				).socket("chat", url) as unknown as WebSocket,
 			id: props.id,
 			token: auth.token,
 			renew: auth.renew,

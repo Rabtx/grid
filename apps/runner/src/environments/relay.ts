@@ -5,8 +5,9 @@
  */
 
 /** What the console may reach on an environment: its terminals, agents and folders. */
-const RELAYED_HTTP = /^\/(terminals|chat|fs|projects|transcribe)(\/|$)/;
-export const RELAYED_SOCKETS = new Set(["/terminal", "/chat"]);
+// `link` is here so the console can tell whether an environment has the link (426) or not (404).
+const RELAYED_HTTP = /^\/(terminals|chat|fs|projects|transcribe|link)(\/|$)/;
+export const RELAYED_SOCKETS = new Set(["/terminal", "/chat", "/link"]);
 
 const CLOSE_NOT_FOUND = 4404;
 
