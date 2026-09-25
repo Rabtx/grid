@@ -10,6 +10,7 @@ import {
 	FileIcon,
 	IconButton,
 	MenuIcon,
+	NoteIcon,
 	PlusIcon,
 	SidebarIcon,
 } from "@/ui";
@@ -64,11 +65,13 @@ function ProjectViews(props: { compact?: boolean }): JSX.Element {
 	const slug = () =>
 		location.pathname.startsWith("/chat/") ||
 		location.pathname.startsWith("/board/") ||
-		location.pathname.startsWith("/files/")
+		location.pathname.startsWith("/files/") ||
+		location.pathname.startsWith("/notes/")
 			? workspace.currentSlug()
 			: null;
 	const onBoard = () => location.pathname.startsWith("/board/");
 	const onFiles = () => location.pathname.startsWith("/files/");
+	const onNotes = () => location.pathname.startsWith("/notes/");
 
 	return (
 		<Show when={slug()}>
@@ -76,7 +79,7 @@ function ProjectViews(props: { compact?: boolean }): JSX.Element {
 				<nav aria-label="Project views" class="flex items-center gap-0.5 rounded-lg bg-ink/5 p-0.5">
 					<a
 						href={workspace.projectHref(project())}
-						aria-current={onBoard() || onFiles() ? undefined : "page"}
+						aria-current={onBoard() || onFiles() || onNotes() ? undefined : "page"}
 						class={VIEW}
 						title="Threads"
 					>
@@ -91,6 +94,15 @@ function ProjectViews(props: { compact?: boolean }): JSX.Element {
 					>
 						<FileIcon class="size-3.5" />
 						<span class={props.compact ? "sr-only" : ""}>Files</span>
+					</a>
+					<a
+						href={`/notes/${project()}`}
+						aria-current={onNotes() ? "page" : undefined}
+						class={VIEW}
+						title="Notes"
+					>
+						<NoteIcon class="size-3.5" />
+						<span class={props.compact ? "sr-only" : ""}>Notes</span>
 					</a>
 					<a
 						href={`/board/${project()}`}

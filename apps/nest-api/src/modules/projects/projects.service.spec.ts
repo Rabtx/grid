@@ -1,7 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, type Mocked, vi } from 'vitest';
 
-import type { ProjectRecord, TaskRecord } from '@/database/schema';
+import type { NoteRecord, ProjectRecord, TaskRecord } from '@/database/schema';
 import { ProjectsRepository } from './projects.repository';
 import { ProjectsService } from './projects.service';
 
@@ -41,6 +41,19 @@ function taskRecord(overrides: Partial<TaskRecord> = {}): TaskRecord {
 	};
 }
 
+function noteRecord(overrides: Partial<NoteRecord> = {}): NoteRecord {
+	return {
+		id: 'e45e4aef-e38b-88d4-fda1-8fcbcad41978',
+		projectId: projectRecord().id,
+		body: 'Use Hono for the API',
+		source: 'Claude in Plan the API',
+		threadId: 'thread-1',
+		createdAt: new Date('2026-09-02T00:00:00.000Z'),
+		updatedAt: new Date('2026-09-02T00:00:00.000Z'),
+		...overrides,
+	};
+}
+
 describe('ProjectsService', () => {
 	let repository: Mocked<ProjectsRepository>;
 	let service: ProjectsService;
@@ -72,6 +85,12 @@ describe('ProjectsService', () => {
 			),
 			updateTask: vi.fn(async (_id, input) => taskRecord(input as Partial<TaskRecord>)),
 			deleteTask: vi.fn(async () => true),
+			listNotes: vi.fn(async () => [noteRecord()]),
+			createNote: vi.fn(async (input) => noteRecord(input as Partial<NoteRecord>)),
+			updateNote: vi.fn(async (_project, id: string, body: string) =>
+				id === noteRecord().id ? noteRecord({ body }) : null,
+			),
+			deleteNote: vi.fn(async (_project, id: string) => id === noteRecord().id),
 		} as unknown as Mocked<ProjectsRepository>;
 		service = new ProjectsService(repository);
 	});
@@ -130,5 +149,49 @@ describe('ProjectsService', () => {
 		const task = await service.updateTask(OWNER_ID, 'grid', 1, { status: 'review' });
 		expect(task.status).toBe('review');
 		expect(repository.updateTask).toHaveBeenCalledWith(taskRecord().id, { status: 'review' });
+	});
+
+	it('saves a note with where it came from', async () => {
+		const note = await service.createNote(OWNER_ID, 'grid', {
+			body: 'Keep Postgres',
+			source: 'Codex in Plan',
+			threadId: 'thread-9',
+		});
+		expect(note).toMatchObject({
+			body: 'Keep Postgres',
+			source: 'Codex in Plan',
+			threadId: 'thread-9',
+		});
+		expect(repository.createNote).toHaveBeenCalledWith({
+			projectId: projectRecord().id,
+			body: 'Keep Postgres',
+			source: 'Codex in Plan',
+			threadId: 'thread-9',
+		});
+	});
+
+	it('lists notes as views with ISO dates', async () => {
+		const [note] = await service.listNotes(OWNER_ID, 'grid');
+		expect(note).toEqual({
+			id: noteRecord().id,
+			body: 'Use Hono for the API',
+			source: 'Claude in Plan the API',
+			threadId: 'thread-1',
+			createdAt: '2026-09-02T00:00:00.000Z',
+			updatedAt: '2026-09-02T00:00:00.000Z',
+		});
+	});
+
+	it('edits and deletes only notes on the project, and hides other owners', async () => {
+		const edited = await service.updateNote(OWNER_ID, 'grid', noteRecord().id, { body: 'Changed' });
+		expect(edited.body).toBe('Changed');
+		await expect(
+			service.updateNote(OWNER_ID, 'grid', 'f0000000-0000-4000-8000-000000000000', { body: 'x' }),
+		).rejects.toThrow(NotFoundException);
+		await expect(
+			service.deleteNote(OWNER_ID, 'grid', 'f0000000-0000-4000-8000-000000000000'),
+		).rejects.toThrow(NotFoundException);
+		await expect(service.listNotes(OTHER_OWNER_ID, 'grid')).rejects.toThrow(NotFoundException);
+		await expect(service.deleteNote(OWNER_ID, 'grid', noteRecord().id)).resolves.toBeUndefined();
 	});
 });

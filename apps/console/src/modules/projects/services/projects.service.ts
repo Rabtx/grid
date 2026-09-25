@@ -1,8 +1,10 @@
 import { apiClient } from "@/lib/api-client";
 
 import type {
+	CreateNoteInput,
 	CreateProjectInput,
 	CreateTaskInput,
+	Note,
 	Project,
 	Task,
 	UpdateProjectInput,
@@ -23,4 +25,12 @@ export const projectsService = {
 		apiClient.patch<Task>(`/projects/${slug}/tasks/${number}`, input, { accessToken }),
 	deleteTask: (accessToken: string, slug: string, number: number) =>
 		apiClient.delete<void>(`/projects/${slug}/tasks/${number}`, { accessToken }),
+	listNotes: (accessToken: string, slug: string) =>
+		apiClient.get<Note[]>(`/projects/${slug}/notes`, { accessToken }),
+	createNote: (accessToken: string, slug: string, input: CreateNoteInput) =>
+		apiClient.post<Note>(`/projects/${slug}/notes`, input, { accessToken }),
+	updateNote: (accessToken: string, slug: string, id: string, body: string) =>
+		apiClient.patch<Note>(`/projects/${slug}/notes/${id}`, { body }, { accessToken }),
+	deleteNote: (accessToken: string, slug: string, id: string) =>
+		apiClient.delete<void>(`/projects/${slug}/notes/${id}`, { accessToken }),
 };

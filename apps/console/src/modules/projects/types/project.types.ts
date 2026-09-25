@@ -76,3 +76,17 @@ export type CreateTaskInput = {
 };
 
 export type UpdateTaskInput = Partial<CreateTaskInput> & { position?: number };
+
+/** Something kept on a project: a decision, a snippet, an agent's answer. Markdown. */
+export type Note = {
+	id: string;
+	body: string;
+	/** Where it was saved from, e.g. "Claude in Fix login". */
+	source: string | null;
+	/** The chat it came from. */
+	threadId: string | null;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type CreateNoteInput = { body: string; source?: string | null; threadId?: string | null };

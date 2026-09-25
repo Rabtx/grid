@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 
 import { DatabaseService } from '@/database/database.service';
-import type { NewProjectRecord, NewTaskRecord } from '@/database/schema';
-import { projects, tasks } from '@/database/schema';
+import type { NewNoteRecord, NewProjectRecord, NewTaskRecord } from '@/database/schema';
+import { notes, projects, tasks } from '@/database/schema';
 
 @Injectable()
 export class ProjectsRepository {
@@ -106,6 +106,37 @@ export class ProjectsRepository {
 
 	async deleteTask(taskId: string) {
 		const deleted = await this.database.db.delete(tasks).where(eq(tasks.id, taskId)).returning();
+		return deleted.length > 0;
+	}
+
+	async listNotes(projectId: string) {
+		return this.database.db
+			.select()
+			.from(notes)
+			.where(eq(notes.projectId, projectId))
+			.orderBy(desc(notes.createdAt));
+	}
+
+	async createNote(input: NewNoteRecord) {
+		const [note] = await this.database.db.insert(notes).values(input).returning();
+		if (!note) throw new Error('Note insert did not return a record');
+		return note;
+	}
+
+	async updateNote(projectId: string, noteId: string, body: string) {
+		const [note] = await this.database.db
+			.update(notes)
+			.set({ body, updatedAt: new Date() })
+			.where(and(eq(notes.projectId, projectId), eq(notes.id, noteId)))
+			.returning();
+		return note ?? null;
+	}
+
+	async deleteNote(projectId: string, noteId: string) {
+		const deleted = await this.database.db
+			.delete(notes)
+			.where(and(eq(notes.projectId, projectId), eq(notes.id, noteId)))
+			.returning();
 		return deleted.length > 0;
 	}
 }

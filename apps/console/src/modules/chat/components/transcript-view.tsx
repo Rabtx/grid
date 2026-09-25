@@ -14,6 +14,7 @@ import {
 	IdeaIcon,
 	Menu,
 	type MenuControl,
+	NoteAddIcon,
 	RestoreIcon,
 	SearchIcon,
 	SpinnerIcon,
@@ -80,6 +81,8 @@ export function TranscriptView(props: {
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
 	onRegenerate?: (prompt: string) => void;
+	/** Save a message to the project's notes; no action is shown without it. */
+	onNote?: (text: string) => void;
 }): JSX.Element {
 	const grouped = createMemo(() => groupRows(props.blocks));
 
@@ -103,6 +106,7 @@ export function TranscriptView(props: {
 									running={props.running}
 									onApprove={props.onApprove}
 									onRegenerate={props.onRegenerate}
+									onNote={props.onNote}
 								/>
 							)}
 						</Match>
@@ -129,6 +133,7 @@ function BlockView(props: {
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
 	onRegenerate?: (prompt: string) => void;
+	onNote?: (text: string) => void;
 }): JSX.Element {
 	const userPrompt = createMemo(() => {
 		if (props.block.kind !== "assistant") return null;
@@ -138,13 +143,19 @@ function BlockView(props: {
 	return (
 		<Switch>
 			<Match when={props.block.kind === "user" && props.block}>
-				{(block) => <UserMessage text={(block() as Extract<Block, { kind: "user" }>).text} />}
+				{(block) => (
+					<UserMessage
+						text={(block() as Extract<Block, { kind: "user" }>).text}
+						onNote={props.onNote}
+					/>
+				)}
 			</Match>
 			<Match when={props.block.kind === "assistant" && props.block}>
 				{(block) => (
 					<AssistantMessage
 						text={(block() as Extract<Block, { kind: "assistant" }>).text}
 						running={props.running}
+						onNote={props.onNote}
 						canRegenerate={Boolean(userPrompt())}
 						onRegenerate={() => {
 							const prompt = userPrompt();
@@ -223,13 +234,32 @@ function BlockView(props: {
 const ACTION_BTN =
 	"focus-ring grid size-6 place-items-center rounded-md text-ink/40 transition-[background-color,color,transform] duration-fast ease-out-grid hover:bg-ink/8 hover:text-ink/70 active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30 pointer-coarse:size-9";
 
-/** What you sent: a right-aligned bubble, clamped to four lines until opened, with copy & note actions. */
 /** Copy text, briefly confirming on the button that asked. */
 function copyText(text: string, done: () => void): void {
 	void navigator.clipboard?.writeText(text).then(done);
 }
 
-function UserMessage(props: { text: string }): JSX.Element {
+/** The "Add as note" button in a message's hover bar. */
+function NoteButton(props: { onNote?: (text: string) => void; text: string }): JSX.Element {
+	return (
+		<Show when={props.onNote}>
+			{(save) => (
+				<button
+					type="button"
+					aria-label="Add as note"
+					title="Add as note"
+					class={ACTION_BTN}
+					onClick={() => save()(props.text)}
+				>
+					<NoteAddIcon class="size-3.5" />
+				</button>
+			)}
+		</Show>
+	);
+}
+
+/** What you sent: a right-aligned bubble, clamped to four lines until opened, with copy & note actions. */
+function UserMessage(props: { text: string; onNote?: (text: string) => void }): JSX.Element {
 	const [open, setOpen] = createSignal(false);
 	const [copied, setCopied] = createSignal(false);
 	// Touch screens: a long press opens the actions (the hover bar is for pointers).
@@ -251,11 +281,17 @@ function UserMessage(props: { text: string }): JSX.Element {
 				label="Message actions"
 				trigger={<span />}
 				triggerClass="hidden"
-				items={[{ id: "copy", label: "Copy message" }]}
+				items={[
+					{ id: "copy", label: "Copy message" },
+					...(props.onNote ? [{ id: "note", label: "Add as note" }] : []),
+				]}
 				control={(control) => {
 					menu = control;
 				}}
-				onSelect={() => copyText(props.text, () => undefined)}
+				onSelect={(id) => {
+					if (id === "note") props.onNote?.(props.text);
+					else copyText(props.text, () => undefined);
+				}}
 			/>
 			<div class="max-w-[85%] rounded-2xl rounded-br-sm border border-ink/10 bg-ink/8 px-3.5 py-2.5 shadow-xs sm:max-w-[75%]">
 				<p
@@ -290,13 +326,14 @@ function UserMessage(props: { text: string }): JSX.Element {
 						<CheckIcon class="size-3.5 text-success" />
 					</Show>
 				</button>
+				<NoteButton text={props.text} onNote={props.onNote} />
 			</div>
 		</div>
 	);
 }
 
 /**
- * The agent's response: Markdown with its actions (copy, regenerate) under it on hover; on touch a
+ * The agent's response: Markdown with its actions (copy, note, regenerate) under it on hover; on touch a
  * long press opens them instead, so nothing is drawn at rest.
  */
 function AssistantMessage(props: {
@@ -304,6 +341,7 @@ function AssistantMessage(props: {
 	running?: boolean;
 	canRegenerate?: boolean;
 	onRegenerate?: () => void;
+	onNote?: (text: string) => void;
 }): JSX.Element {
 	const [copied, setCopied] = createSignal(false);
 	let menu: MenuControl | undefined;
@@ -325,6 +363,7 @@ function AssistantMessage(props: {
 				triggerClass="hidden"
 				items={[
 					{ id: "copy", label: "Copy response" },
+					...(props.onNote ? [{ id: "note", label: "Add as note" }] : []),
 					...(props.canRegenerate
 						? [{ id: "regenerate", label: "Regenerate", disabled: props.running }]
 						: []),
@@ -334,6 +373,7 @@ function AssistantMessage(props: {
 				}}
 				onSelect={(id) => {
 					if (id === "copy") copyText(props.text, () => undefined);
+					else if (id === "note") props.onNote?.(props.text);
 					else props.onRegenerate?.();
 				}}
 			/>
@@ -358,6 +398,7 @@ function AssistantMessage(props: {
 						<CheckIcon class="size-3.5 text-success" />
 					</Show>
 				</button>
+				<NoteButton text={props.text} onNote={props.onNote} />
 				<Show when={props.canRegenerate}>
 					<button
 						type="button"

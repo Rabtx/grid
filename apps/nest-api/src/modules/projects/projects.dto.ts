@@ -134,7 +134,31 @@ export class UpdateTaskDto {
 	position?: number;
 }
 
+export const createNoteSchema = z
+	.object({
+		body: z.string().trim().min(1).max(20_000),
+		source: optionalText(200),
+		threadId: optionalText(120),
+	})
+	.strict();
+
+export class CreateNoteDto {
+	static schema = createNoteSchema;
+	body!: string;
+	source?: string | null;
+	threadId?: string | null;
+}
+
+export const updateNoteSchema = z.object({ body: z.string().trim().min(1).max(20_000) }).strict();
+
+export class UpdateNoteDto {
+	static schema = updateNoteSchema;
+	body!: string;
+}
+
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+export type CreateNoteInput = z.infer<typeof createNoteSchema>;
+export type UpdateNoteInput = z.infer<typeof updateNoteSchema>;

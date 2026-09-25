@@ -21,6 +21,8 @@ import Logout01Icon from "@hugeicons/core-free-icons/Logout01Icon";
 import Menu01Icon from "@hugeicons/core-free-icons/Menu01Icon";
 import Mic01Icon from "@hugeicons/core-free-icons/Mic01Icon";
 import MoreHorizontalIcon from "@hugeicons/core-free-icons/MoreHorizontalIcon";
+import Note01Icon from "@hugeicons/core-free-icons/Note01Icon";
+import NoteAddGlyph from "@hugeicons/core-free-icons/NoteAddIcon";
 import PencilEdit01Icon from "@hugeicons/core-free-icons/PencilEdit01Icon";
 import RotateCcwIcon from "@hugeicons/core-free-icons/RotateCcwIcon";
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon";
@@ -197,6 +199,14 @@ export function BranchIcon(props: IconProps): JSX.Element {
 
 export function ArchiveIcon(props: IconProps): JSX.Element {
 	return <Icon icon={Archive01Icon} class={props.class} />;
+}
+
+export function NoteIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Note01Icon} class={props.class} />;
+}
+
+export function NoteAddIcon(props: IconProps): JSX.Element {
+	return <Icon icon={NoteAddGlyph} class={props.class} />;
 }
 
 export function CopyIcon(props: IconProps): JSX.Element {

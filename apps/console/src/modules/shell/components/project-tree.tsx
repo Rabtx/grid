@@ -17,6 +17,7 @@ import {
 	type MenuControl,
 	type MenuItem,
 	MoreIcon,
+	NoteIcon,
 	PlusIcon,
 	Skeleton,
 } from "@/ui";
@@ -32,6 +33,7 @@ const PROJECT_MENU: MenuItem[] = [
 	{ id: "folder", label: "Change folder" },
 	{ id: "board", label: "Open board" },
 	{ id: "files", label: "Open files" },
+	{ id: "notes", label: "Open notes" },
 	{ id: "remove", label: "Remove from Grid", danger: true },
 ];
 
@@ -197,6 +199,7 @@ function ProjectNode(props: {
 		else if (id === "folder") workspace.chooseFolderFor(slug());
 		else if (id === "board") navigate(`/board/${slug()}`);
 		else if (id === "files") navigate(`/files/${slug()}`);
+		else if (id === "notes") navigate(`/notes/${slug()}`);
 	}
 
 	return (
@@ -270,6 +273,13 @@ function ProjectNode(props: {
 						class={`${ROW} h-7 px-2 text-ink/60 text-ui-sm pointer-coarse:h-11`}
 					>
 						<FileIcon class="size-3.5 shrink-0 text-ink/45" /> Files
+					</a>
+					<a
+						href={`/notes/${slug()}`}
+						aria-current={location.pathname === `/notes/${slug()}` ? "page" : undefined}
+						class={`${ROW} h-7 px-2 text-ink/60 text-ui-sm pointer-coarse:h-11`}
+					>
+						<NoteIcon class="size-3.5 shrink-0 text-ink/45" /> Notes
 					</a>
 					<Show when={!folder()}>
 						<button

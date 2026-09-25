@@ -7,6 +7,7 @@ import {
 	HttpStatus,
 	Param,
 	ParseIntPipe,
+	ParseUUIDPipe,
 	Patch,
 	Post,
 	UseGuards,
@@ -16,7 +17,14 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AccessTokenPayload } from '@/modules/auth/auth.types';
 import { CurrentUser } from '@/modules/auth/current-user.decorator';
 import { JwtAuthGuard } from '@/modules/auth/jwt-auth.guard';
-import { CreateProjectDto, CreateTaskDto, UpdateProjectDto, UpdateTaskDto } from './projects.dto';
+import {
+	CreateNoteDto,
+	CreateProjectDto,
+	CreateTaskDto,
+	UpdateNoteDto,
+	UpdateProjectDto,
+	UpdateTaskDto,
+} from './projects.dto';
 import { ProjectsService } from './projects.service';
 
 @ApiTags('Projects')
@@ -92,5 +100,44 @@ export class ProjectsController {
 		@Param('number', ParseIntPipe) number: number,
 	) {
 		return this.projects.deleteTask(user.sub, slug, number);
+	}
+
+	@Get(':slug/notes')
+	@ApiOperation({ summary: "List a project's notes, newest first" })
+	listNotes(@CurrentUser() user: AccessTokenPayload, @Param('slug') slug: string) {
+		return this.projects.listNotes(user.sub, slug);
+	}
+
+	@Post(':slug/notes')
+	@HttpCode(HttpStatus.CREATED)
+	@ApiOperation({ summary: 'Save a note to a project' })
+	createNote(
+		@CurrentUser() user: AccessTokenPayload,
+		@Param('slug') slug: string,
+		@Body() body: CreateNoteDto,
+	) {
+		return this.projects.createNote(user.sub, slug, body);
+	}
+
+	@Patch(':slug/notes/:id')
+	@ApiOperation({ summary: 'Edit a note' })
+	updateNote(
+		@CurrentUser() user: AccessTokenPayload,
+		@Param('slug') slug: string,
+		@Param('id', ParseUUIDPipe) id: string,
+		@Body() body: UpdateNoteDto,
+	) {
+		return this.projects.updateNote(user.sub, slug, id, body);
+	}
+
+	@Delete(':slug/notes/:id')
+	@HttpCode(HttpStatus.NO_CONTENT)
+	@ApiOperation({ summary: 'Delete a note' })
+	deleteNote(
+		@CurrentUser() user: AccessTokenPayload,
+		@Param('slug') slug: string,
+		@Param('id', ParseUUIDPipe) id: string,
+	) {
+		return this.projects.deleteNote(user.sub, slug, id);
 	}
 }
