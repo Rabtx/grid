@@ -14,6 +14,12 @@ export type LaunchConfig = {
 	databaseUrl: string | undefined;
 	ownerEmail: string;
 	rebuild: boolean;
+	/**
+	 * Let a home Grid pair with this one and drive it as an environment. On by default when the
+	 * machine was put on a tailnet with an auth key (a Codespace with a TS_AUTH_KEY secret), since
+	 * that is what the key is for; GRID_PAIRING=0 or 1 decides otherwise.
+	 */
+	pairing: boolean;
 };
 
 export function readLaunchConfig(env: Env, root: string): LaunchConfig {
@@ -29,6 +35,7 @@ export function readLaunchConfig(env: Env, root: string): LaunchConfig {
 		databaseUrl: env.DATABASE_URL || undefined,
 		ownerEmail: env.GRID_OWNER_EMAIL ?? "owner@grid.local",
 		rebuild: env.GRID_REBUILD === "1",
+		pairing: env.GRID_PAIRING ? env.GRID_PAIRING === "1" : Boolean(env.TS_AUTH_KEY),
 	};
 }
 

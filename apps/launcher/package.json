@@ -7,7 +7,8 @@
 		"start": "bun run src/main.ts",
 		"lint": "oxlint .",
 		"typecheck": "tsc --noEmit",
-		"test": "bun test"
+		"test": "bun test",
+		"pair": "bun run src/pair.ts"
 	},
 	"devDependencies": {
 		"@types/bun": "1.4.2",

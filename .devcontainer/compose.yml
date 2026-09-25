@@ -10,6 +10,13 @@ services:
       - ../..:/workspaces:cached
     environment:
       DATABASE_URL: postgresql://grid:grid@postgres:5432/grid
+    # Tailscale's kernel networking: a tun device and the rights to configure it.
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - MKNOD
+    devices:
+      - /dev/net/tun:/dev/net/tun
     depends_on:
       - postgres
 

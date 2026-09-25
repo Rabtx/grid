@@ -28,5 +28,11 @@ with a token, then run threads and terminals there through the remote runner, wi
 transcripts flowing back to the home Grid. Execution environments stay disposable; projects,
 tasks and sessions stay in the home Grid.
 
-- Runner-to-runner pairing and auth; project folders mapped per environment.
-- Environment picker on a project and in the composer.
+- Done (`agent/backend/environments-link`): runner-to-runner pairing over the tailnet
+  (one-time code → hashed secret bound to the person), the home runner relaying `/env/<id>/…`
+  so the person's session never leaves home, Settings → Environments, terminals on an
+  environment, and a Codespace joining the tailnet via Tailscale's dev container feature.
+- Next: agent chats and project folders on an environment; environment picker on a project and
+  in the composer.
+- Then: GitHub sign-in to list, create, start and stop Codespaces from Grid, and GitHub's
+  private port forwarding as a second route for people without Tailscale.

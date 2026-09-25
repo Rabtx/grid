@@ -40,6 +40,8 @@ export type TerminalHandle = {
  */
 export function TerminalView(props: {
 	id: string;
+	/** The environment the shell runs on; absent for this machine. */
+	environment?: string;
 	active: boolean;
 	fontSize: number;
 	/** The key bar's armed modifiers; reading them releases them. */
@@ -209,7 +211,7 @@ export function TerminalView(props: {
 
 		const link = quietReconnects<ConnectionState>((state) => props.onState(state));
 		const live = connectTerminal({
-			url: terminalSocketUrl(),
+			url: terminalSocketUrl(untrack(() => props.environment)),
 			id: props.id,
 			token: auth.token,
 			renew: auth.renew,

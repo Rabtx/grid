@@ -24,6 +24,13 @@ export type RunnerConfig = {
 	projectsDir: string;
 	/** Speech-to-text for voice input, when the browser has no recogniser of its own. */
 	transcribe: TranscribeConfig;
+	/**
+	 * Let another Grid pair with this runner and drive it as an environment (a Codespace, a VPS).
+	 * Off by default: a runner only answers its own Grid until someone asks for this.
+	 */
+	pairing: boolean;
+	/** Hosts besides tailnet addresses that may be added as environments (https only). */
+	environmentHosts: string[];
 };
 
 export function readConfig(env: Record<string, string | undefined> = process.env): RunnerConfig {
@@ -40,5 +47,10 @@ export function readConfig(env: Record<string, string | undefined> = process.env
 			env.RUNNER_CHAT_DB ??
 			join(env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"), "grid", "chat.db"),
 		projectsDir: env.RUNNER_PROJECTS_DIR ?? join(homedir(), "Projects"),
+		pairing: env.RUNNER_PAIRING === "1",
+		environmentHosts: (env.RUNNER_ENVIRONMENT_HOSTS ?? "")
+			.split(",")
+			.map((host) => host.trim().toLowerCase())
+			.filter(Boolean),
 	};
 }

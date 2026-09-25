@@ -27,4 +27,11 @@ describe("launch config", () => {
 	test("an empty DATABASE_URL means Grid starts its own Postgres", () => {
 		expect(readLaunchConfig({ DATABASE_URL: "" }, "/repo").databaseUrl).toBeUndefined();
 	});
+
+	test("pairing follows a tailnet auth key unless GRID_PAIRING says otherwise", () => {
+		expect(readLaunchConfig({}, "/repo").pairing).toBe(false);
+		expect(readLaunchConfig({ TS_AUTH_KEY: "k" }, "/repo").pairing).toBe(true);
+		expect(readLaunchConfig({ TS_AUTH_KEY: "k", GRID_PAIRING: "0" }, "/repo").pairing).toBe(false);
+		expect(readLaunchConfig({ GRID_PAIRING: "1" }, "/repo").pairing).toBe(true);
+	});
 });

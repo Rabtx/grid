@@ -9,6 +9,27 @@ Reproducible environment for Grid: **Bun**, **Rust**, and the Bash lint/format h
 
 The container comes with its own Postgres (`compose.yml`). After start, `postCreateCommand` runs `bun install` and `bun run prepare` (git hooks), and on attach Grid itself starts in the background (`bun run grid`, port 8080, log in `.grid/grid.log`) — the same setup opens in GitHub Codespaces. Use `bun run dev`, `bun run lint`, etc. as on the host. See `/docs/portable`.
 
+## Pair this Codespace with your home Grid
+
+A Grid running elsewhere (your laptop, a VPS) can drive this Codespace's terminals as an
+**environment**. They meet on your Tailscale network, so nothing here is exposed publicly.
+
+1. In the Tailscale admin console, create an auth key that is **reusable**, **ephemeral** and
+   **tagged** (for example `tag:grid-env`). Allow your home Grid to reach it, and nothing else:
+
+   ```json
+   { "src": ["autogroup:member"], "dst": ["tag:grid-env:4100"], "action": "accept" }
+   ```
+
+2. Save it as a Codespaces secret named `TS_AUTH_KEY` (GitHub → Settings → Codespaces →
+   Secrets), available to this repository, and rebuild the Codespace.
+3. Grid starts with pairing on: its runner listens only on the tailnet address. In a terminal
+   here, run `bun run grid:pair` to get the address and a one-time code (valid ten minutes).
+4. On the home Grid, open Settings → Environments, add the address and code.
+
+Removing the environment at home revokes its secret on both sides. Set `GRID_PAIRING=0` to keep
+a tailnet-connected Codespace unpaired.
+
 ## What’s installed
 
 | Tool                               | Why                             |
@@ -16,6 +37,7 @@ The container comes with its own Postgres (`compose.yml`). After start, `postCre
 | **Bun** `1.4.2`                    | Package manager + JS/TS runtime |
 | **Rust** (stable, rustfmt, clippy) | the `packages/logger` Rust side |
 | **ShellCheck** + **shfmt**         | Bash script quality             |
+| **Tailscale** (feature)            | Pairing with a home Grid        |
 
 C and Lua toolchains were removed — they are not part of the product stack.
 

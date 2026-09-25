@@ -42,6 +42,30 @@ In a Codespace, projects live under `/workspaces`, next to the checked-out repos
 the agent CLIs you want Grid to drive (Claude Code, Codex, opencode…) in the Codespace's terminal
 and sign them in there; the runner finds them on `PATH`.
 
+## Environments: one Grid driving another
+
+Any Grid can pair with another machine running Grid (a Codespace, a VPS, a second laptop) and
+open terminals there, through its own console. Environments are disposable; the home Grid keeps
+your sign-in, projects and settings.
+
+**How it stays secure**
+
+- **Network.** The machines meet on your Tailscale network. The environment's runner listens only
+  on its tailnet address, so WireGuard encrypts and authenticates every packet, and nothing is
+  published to the internet. A home Grid only accepts tailnet addresses (`….ts.net`, `100.64/10`)
+  unless `RUNNER_ENVIRONMENT_HOSTS` allows another host over https.
+- **Pairing.** The environment shows a one-time code (`bun run grid:pair`, valid ten minutes, and
+  ten wrong guesses void it). The home Grid trades it for a 256-bit secret; the environment keeps
+  only its hash, bound to the person who paired.
+- **Your sign-in never leaves home.** The console talks to its own runner under `/env/<id>/…`. The
+  home runner checks your session itself, then calls the environment with the pairing token in its
+  place.
+- **Revocable.** Removing the environment deletes the secret on both sides.
+
+**Pair a Codespace**: follow `.devcontainer/README.md` — a tagged, ephemeral Tailscale auth key as
+the `TS_AUTH_KEY` Codespaces secret, rebuild, `bun run grid:pair`, then Settings → Environments at
+home.
+
 ## A VPS
 
 With Docker on the server:
@@ -70,3 +94,5 @@ process manager of choice.
 | `GRID_ALLOWED_HOSTS` | — | Extra hostnames for the gateway (Tailscale and Codespaces are built in) |
 | `GRID_PUBLIC_URL` | — | The address printed at start |
 | `GRID_API_PORT` / `GRID_RUNNER_PORT` | `4000` / `4100` | Internal loopback ports |
+| `GRID_PAIRING` | on when `TS_AUTH_KEY` is set | Let a home Grid pair with this one over the tailnet |
+| `RUNNER_ENVIRONMENT_HOSTS` | — | Non-tailnet hosts a home Grid may add as environments (https only) |
