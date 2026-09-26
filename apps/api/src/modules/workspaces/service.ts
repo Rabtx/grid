@@ -1,0 +1,117 @@
+import type { Database, schema } from "@grid/db";
+
+import { badRequest, conflict, forbidden, notFound } from "../../http/errors";
+import {
+	outranks,
+	requireRole,
+	type WorkspaceAccess,
+	workspaceAccess,
+	type WorkspaceScope,
+} from "./access";
+import * as q from "./queries";
+import type { CreateWorkspaceInput, UpdateMemberInput, UpdateWorkspaceInput } from "./schema";
+
+const workspaceView = (w: schema.WorkspaceRecord, role: schema.WorkspaceRole) => ({
+	slug: w.slug,
+	name: w.name,
+	icon: w.icon,
+	color: w.color,
+	role,
+	createdAt: w.createdAt.toISOString(),
+	updatedAt: w.updatedAt.toISOString(),
+});
+const accessView = (access: WorkspaceAccess) => workspaceView(access.workspace, access.role);
+
+export async function listWorkspaces(db: Database, userId: string) {
+	const rows = await q.listForUser(db, userId);
+	if (rows.length > 0) return rows.map((row) => workspaceView(row.workspace, row.role));
+	// Someone with none yet gets their personal one, as any workspace-less request would.
+	return [accessView(await workspaceAccess(db, { userId, workspace: null }))];
+}
+
+export async function createWorkspace(db: Database, userId: string, input: CreateWorkspaceInput) {
+	if (await q.slugTaken(db, input.slug)) throw conflict(`Workspace "${input.slug}" already exists`);
+	const workspace = await q.createWorkspace(db, userId, {
+		slug: input.slug,
+		name: input.name,
+		icon: input.icon ?? null,
+		color: input.color ?? null,
+	});
+	return workspaceView(workspace, "owner");
+}
+
+export async function getWorkspace(db: Database, scope: WorkspaceScope) {
+	return accessView(await workspaceAccess(db, scope));
+}
+
+/** Admins change how it looks; only an owner renames the slug, since every link uses it. */
+export async function updateWorkspace(
+	db: Database,
+	scope: WorkspaceScope,
+	input: UpdateWorkspaceInput,
+) {
+	const access = await workspaceAccess(db, scope);
+	requireRole(access, input.slug !== undefined ? "owner" : "admin");
+	if (input.slug && input.slug !== access.workspace.slug && (await q.slugTaken(db, input.slug)))
+		throw conflict(`Workspace "${input.slug}" already exists`);
+	const updated = await q.updateWorkspace(db, access.workspace.id, input);
+	if (!updated) throw notFound(`Workspace "${access.workspace.slug}" not found`);
+	return workspaceView(updated, access.role);
+}
+
+/** Deletes the workspace with all its projects, tasks and notes. Owners only. */
+export async function deleteWorkspace(db: Database, scope: WorkspaceScope) {
+	const access = await workspaceAccess(db, scope);
+	requireRole(access, "owner");
+	await q.deleteWorkspace(db, access.workspace.id);
+}
+
+export async function listMembers(db: Database, scope: WorkspaceScope) {
+	const access = await workspaceAccess(db, scope);
+	return (await q.listMembers(db, access.workspace.id)).map((m) => ({
+		...m,
+		joinedAt: m.joinedAt.toISOString(),
+	}));
+}
+
+async function requireMember(db: Database, workspaceId: string, userId: string) {
+	const member = await q.findMember(db, workspaceId, userId);
+	if (!member) throw notFound("Member not found");
+	return member;
+}
+
+async function keepAnOwner(db: Database, workspaceId: string, member: { role: string }) {
+	if (member.role === "owner" && (await q.countOwners(db, workspaceId)) <= 1)
+		throw badRequest("A workspace needs at least one owner");
+}
+
+/**
+ * Admins move people between member and admin; making, or unmaking, an owner takes an owner.
+ */
+export async function updateMember(
+	db: Database,
+	scope: WorkspaceScope,
+	userId: string,
+	input: UpdateMemberInput,
+) {
+	const access = await workspaceAccess(db, scope);
+	requireRole(access, "admin");
+	const member = await requireMember(db, access.workspace.id, userId);
+	if (!outranks(access.role, member.role) || !outranks(access.role, input.role))
+		throw forbidden(`Only a workspace owner can do this`);
+	if (input.role !== "owner") await keepAnOwner(db, access.workspace.id, member);
+	await q.setRole(db, access.workspace.id, userId, input.role);
+	return (await listMembers(db, scope)).find((m) => m.userId === userId);
+}
+
+/** Anyone can leave; admins remove members and admins, owners remove anyone. */
+export async function removeMember(db: Database, scope: WorkspaceScope, userId: string) {
+	const access = await workspaceAccess(db, scope);
+	const member = await requireMember(db, access.workspace.id, userId);
+	if (userId !== scope.userId) {
+		requireRole(access, "admin");
+		if (!outranks(access.role, member.role)) throw forbidden(`Only a workspace owner can do this`);
+	}
+	await keepAnOwner(db, access.workspace.id, member);
+	await q.removeMember(db, access.workspace.id, userId);
+}

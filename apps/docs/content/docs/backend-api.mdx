@@ -23,29 +23,57 @@ Base URL prefix: `/api/v1` (URI versioning). Auth uses JWT bearer tokens unless 
 
 ## Endpoints
 
-Health and Swagger ship with the API. Auth, profile, and billing routes also live under
-`/api/v1/*` — see Swagger at `/api/docs` for the full interactive list.
+Auth, profile and billing routes also live under `/api/v1/*`; the contract suite in
+`apps/api/test/contract` pins their responses.
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | `GET` | `/api/v1/health` | none | Liveness probe |
-| — | `/api/docs` | none in dev | Swagger UI |
 
-### Projects and tasks
+### Workspaces
 
-All project routes require `JwtAuthGuard` (bearer token). `:slug` is the project slug;
-`:number` is the integer task number on that board.
+A workspace is the company: it owns projects and billing. Every route takes a bearer token;
+`:ws` is the workspace slug. A workspace you do not belong to answers `404`, like one that does
+not exist. Roles: **owner** (billing, slug, deleting), **admin** (settings, members), **member**
+(the work). A workspace always keeps at least one owner.
 
-| Method | Path | Auth | Purpose |
+| Method | Path | Role | Purpose |
 | --- | --- | --- | --- |
-| `GET` | `/api/v1/projects` | JWT | List projects owned by the caller |
-| `POST` | `/api/v1/projects` | JWT | Create a project (`201`) |
-| `GET` | `/api/v1/projects/:slug` | JWT | Get one project |
-| `PATCH` | `/api/v1/projects/:slug` | JWT | Update a project |
-| `GET` | `/api/v1/projects/:slug/tasks` | JWT | List tasks on a project board |
-| `POST` | `/api/v1/projects/:slug/tasks` | JWT | Create a task (`201`) |
-| `PATCH` | `/api/v1/projects/:slug/tasks/:number` | JWT | Update a task (including stage moves) |
-| `DELETE` | `/api/v1/projects/:slug/tasks/:number` | JWT | Delete a task (`204`) |
+| `GET` | `/api/v1/workspaces` | — | Your workspaces, each with your `role` |
+| `POST` | `/api/v1/workspaces` | — | Create one; you become its owner (`201`) |
+| `GET` | `/api/v1/workspaces/:ws` | member | Get one |
+| `PATCH` | `/api/v1/workspaces/:ws` | admin (owner for `slug`) | Update name, icon, colour or slug |
+| `DELETE` | `/api/v1/workspaces/:ws` | owner | Delete it with all its projects (`204`) |
+| `GET` | `/api/v1/workspaces/:ws/members` | member | List members |
+| `PATCH` | `/api/v1/workspaces/:ws/members/:userId` | admin (owner for owners) | Change a role |
+| `DELETE` | `/api/v1/workspaces/:ws/members/:userId` | admin, or yourself | Remove a member or leave (`204`) |
+
+### Projects, tasks and notes
+
+Under `/api/v1/workspaces/:ws/projects`; the bare `/api/v1/projects` means your default
+workspace (the oldest you own, made on first use if you have none). `:slug` is the project slug;
+`:number` is the task number on that board.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `…/projects` | List the workspace's projects |
+| `POST` | `…/projects` | Create a project (`201`) |
+| `GET` | `…/projects/:slug` | Get one project |
+| `PATCH` | `…/projects/:slug` | Update a project |
+| `GET` | `…/projects/:slug/tasks` | List tasks on a project board |
+| `POST` | `…/projects/:slug/tasks` | Create a task (`201`) |
+| `PATCH` | `…/projects/:slug/tasks/:number` | Update a task (including stage moves) |
+| `DELETE` | `…/projects/:slug/tasks/:number` | Delete a task (`204`) |
+| `GET` | `…/projects/:slug/notes` | List notes, newest first |
+| `POST` | `…/projects/:slug/notes` | Create a note (`201`) |
+| `PATCH` | `…/projects/:slug/notes/:id` | Edit a note |
+| `DELETE` | `…/projects/:slug/notes/:id` | Delete a note (`204`) |
+
+### Billing
+
+Plans belong to a workspace. `GET /api/v1/billing/subscription?workspace=:ws` shows it to any
+member; `POST /api/v1/billing/checkout` and `/portal` take an optional `workspace` in the body and
+need its owner. Without one they use your default workspace.
 
 ## Changelog
 
@@ -53,4 +81,5 @@ Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-09-26 | Workspaces: `/workspaces` routes, projects under `/workspaces/:ws/projects`, billing per workspace; `/projects` kept as the default workspace | no |
 | 2026-09-22 | Documented existing projects and tasks endpoints | no |

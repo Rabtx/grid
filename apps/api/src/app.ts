@@ -17,6 +17,7 @@ import type { EmailSender } from "./modules/email/email";
 import { healthRoutes } from "./modules/health/routes";
 import { projectRoutes } from "./modules/projects/routes";
 import { profileRoutes, uploadedFile } from "./modules/profiles/routes";
+import { workspaceRoutes } from "./modules/workspaces/routes";
 
 /** A route that does not exist, in the words clients already know (query string included). */
 function notFoundRoute(c: AppContext): ApiError {
@@ -74,6 +75,8 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 			sessions: deps.sessions,
 		}),
 	);
+	api.route("/workspaces", workspaceRoutes({ db: deps.db, sessions: deps.sessions }));
+	// The user's default workspace, for clients that do not pick one yet.
 	api.route("/projects", projectRoutes({ db: deps.db, sessions: deps.sessions }));
 	api.route(
 		"/users/me",

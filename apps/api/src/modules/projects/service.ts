@@ -9,6 +9,7 @@ import type {
 	UpdateProjectInput,
 	UpdateTaskInput,
 } from "./schema";
+import { workspaceAccess, type WorkspaceScope } from "../workspaces/access";
 import * as q from "./queries";
 
 const taskKey = (number: number) => `TASK-${number}`;
@@ -44,26 +45,34 @@ const noteView = (r: q.NoteRecord) => ({
 	updatedAt: r.updatedAt.toISOString(),
 });
 
-async function requireProject(db: Database, ownerId: string, slug: string) {
-	const project = await q.findProject(db, ownerId, slug);
+async function requireProject(db: Database, scope: WorkspaceScope, slug: string) {
+	const { workspace } = await workspaceAccess(db, scope);
+	const project = await q.findProject(db, workspace.id, slug);
 	if (!project) throw notFound(`Project "${slug}" not found`);
 	return project;
 }
-async function requireTask(db: Database, ownerId: string, slug: string, number: number) {
-	const project = await requireProject(db, ownerId, slug);
+async function requireTask(db: Database, scope: WorkspaceScope, slug: string, number: number) {
+	const project = await requireProject(db, scope, slug);
 	const task = await q.findTask(db, project.id, number);
 	if (!task) throw notFound(`Task ${taskKey(number)} not found`);
 	return task;
 }
-export async function listProjects(db: Database, ownerId: string) {
-	return (await q.listProjects(db, ownerId)).map(projectView);
+export async function listProjects(db: Database, scope: WorkspaceScope) {
+	const { workspace } = await workspaceAccess(db, scope);
+	return (await q.listProjects(db, workspace.id)).map(projectView);
 }
-export async function createProject(db: Database, ownerId: string, input: CreateProjectInput) {
-	if (await q.findProject(db, ownerId, input.slug))
+export async function createProject(
+	db: Database,
+	scope: WorkspaceScope,
+	input: CreateProjectInput,
+) {
+	const { workspace } = await workspaceAccess(db, scope);
+	if (await q.findProject(db, workspace.id, input.slug))
 		throw conflict(`Project "${input.slug}" already exists`);
 	return projectView(
 		await q.createProject(db, {
-			ownerId,
+			workspaceId: workspace.id,
+			createdBy: scope.userId,
 			slug: input.slug,
 			name: input.name,
 			summary: input.summary ?? null,
@@ -73,31 +82,31 @@ export async function createProject(db: Database, ownerId: string, input: Create
 		}),
 	);
 }
-export async function getProject(db: Database, ownerId: string, slug: string) {
-	return projectView(await requireProject(db, ownerId, slug));
+export async function getProject(db: Database, scope: WorkspaceScope, slug: string) {
+	return projectView(await requireProject(db, scope, slug));
 }
 export async function updateProject(
 	db: Database,
-	ownerId: string,
+	scope: WorkspaceScope,
 	slug: string,
 	input: UpdateProjectInput,
 ) {
-	const project = await requireProject(db, ownerId, slug);
+	const project = await requireProject(db, scope, slug);
 	const updated = await q.updateProject(db, project.id, input);
 	if (!updated) throw notFound(`Project "${slug}" not found`);
 	return projectView(updated);
 }
-export async function listTasks(db: Database, ownerId: string, slug: string) {
-	const project = await requireProject(db, ownerId, slug);
+export async function listTasks(db: Database, scope: WorkspaceScope, slug: string) {
+	const project = await requireProject(db, scope, slug);
 	return (await q.listTasks(db, project.id)).map(taskView);
 }
 export async function createTask(
 	db: Database,
-	ownerId: string,
+	scope: WorkspaceScope,
 	slug: string,
 	input: CreateTaskInput,
 ) {
-	const project = await requireProject(db, ownerId, slug);
+	const project = await requireProject(db, scope, slug);
 	return taskView(
 		await q.createTask(db, {
 			projectId: project.id,
@@ -112,31 +121,36 @@ export async function createTask(
 }
 export async function updateTask(
 	db: Database,
-	ownerId: string,
+	scope: WorkspaceScope,
 	slug: string,
 	number: number,
 	input: UpdateTaskInput,
 ) {
-	const task = await requireTask(db, ownerId, slug, number);
+	const task = await requireTask(db, scope, slug, number);
 	const updated = await q.updateTask(db, task.id, input);
 	if (!updated) throw notFound(`Task ${taskKey(number)} not found`);
 	return taskView(updated);
 }
-export async function deleteTask(db: Database, ownerId: string, slug: string, number: number) {
-	const task = await requireTask(db, ownerId, slug, number);
+export async function deleteTask(
+	db: Database,
+	scope: WorkspaceScope,
+	slug: string,
+	number: number,
+) {
+	const task = await requireTask(db, scope, slug, number);
 	if (!(await q.deleteTask(db, task.id))) throw notFound(`Task ${taskKey(number)} not found`);
 }
-export async function listNotes(db: Database, ownerId: string, slug: string) {
-	const project = await requireProject(db, ownerId, slug);
+export async function listNotes(db: Database, scope: WorkspaceScope, slug: string) {
+	const project = await requireProject(db, scope, slug);
 	return (await q.listNotes(db, project.id)).map(noteView);
 }
 export async function createNote(
 	db: Database,
-	ownerId: string,
+	scope: WorkspaceScope,
 	slug: string,
 	input: CreateNoteInput,
 ) {
-	const project = await requireProject(db, ownerId, slug);
+	const project = await requireProject(db, scope, slug);
 	return noteView(
 		await q.createNote(db, {
 			projectId: project.id,
@@ -148,17 +162,17 @@ export async function createNote(
 }
 export async function updateNote(
 	db: Database,
-	ownerId: string,
+	scope: WorkspaceScope,
 	slug: string,
 	id: string,
 	input: UpdateNoteInput,
 ) {
-	const project = await requireProject(db, ownerId, slug);
+	const project = await requireProject(db, scope, slug);
 	const note = await q.updateNote(db, project.id, id, input.body);
 	if (!note) throw notFound("Note not found");
 	return noteView(note);
 }
-export async function deleteNote(db: Database, ownerId: string, slug: string, id: string) {
-	const project = await requireProject(db, ownerId, slug);
+export async function deleteNote(db: Database, scope: WorkspaceScope, slug: string, id: string) {
+	const project = await requireProject(db, scope, slug);
 	if (!(await q.deleteNote(db, project.id, id))) throw notFound("Note not found");
 }

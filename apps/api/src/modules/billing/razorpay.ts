@@ -53,6 +53,7 @@ export async function createRazorpayCheckout(
 		customer_notify: 1,
 		notes: {
 			userId: input.userId,
+			workspaceId: input.workspaceId,
 			email: input.email,
 			planCode: input.planCode,
 			billingInterval: input.billingInterval,
@@ -164,6 +165,7 @@ export async function parseRazorpayWebhook(
 		provider: "razorpay",
 		idempotencyKey: `${payload.event}:${subscription.id}:${subscription.status}`,
 		userId: subscription.notes?.userId,
+		workspaceId: subscription.notes?.workspaceId,
 		providerCustomerId: subscription.customer_id,
 		providerSubscriptionId: subscription.id,
 		planCode: asPlanCode(subscription.notes?.planCode),

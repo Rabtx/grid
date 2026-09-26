@@ -46,12 +46,14 @@ export async function createStripeCheckout(
 		line_items: [{ price: input.priceId, quantity: 1 }],
 		metadata: {
 			userId: input.userId,
+			workspaceId: input.workspaceId,
 			planCode: input.planCode,
 			billingInterval: input.billingInterval,
 		},
 		subscription_data: {
 			metadata: {
 				userId: input.userId,
+				workspaceId: input.workspaceId,
 				planCode: input.planCode,
 				billingInterval: input.billingInterval,
 			},
@@ -129,6 +131,7 @@ function normalizeStripeEvent(event: Stripe.Event): NormalizedWebhookEvent | nul
 				provider: "stripe",
 				idempotencyKey: event.id,
 				userId: session.metadata?.userId ?? session.client_reference_id ?? undefined,
+				workspaceId: session.metadata?.workspaceId,
 				providerCustomerId: customerId(session.customer),
 				providerSubscriptionId: subscriptionId(session.subscription),
 				planCode: asPlanCode(session.metadata?.planCode),
@@ -143,6 +146,7 @@ function normalizeStripeEvent(event: Stripe.Event): NormalizedWebhookEvent | nul
 				provider: "stripe",
 				idempotencyKey: event.id,
 				userId: subscription.metadata?.userId,
+				workspaceId: subscription.metadata?.workspaceId,
 				providerCustomerId: customerId(subscription.customer),
 				providerSubscriptionId: subscription.id,
 				planCode: asPlanCode(subscription.metadata?.planCode),
@@ -158,6 +162,7 @@ function normalizeStripeEvent(event: Stripe.Event): NormalizedWebhookEvent | nul
 				provider: "stripe",
 				idempotencyKey: event.id,
 				userId: subscription.metadata?.userId,
+				workspaceId: subscription.metadata?.workspaceId,
 				providerCustomerId: customerId(subscription.customer),
 				providerSubscriptionId: subscription.id,
 				planCode: asPlanCode(subscription.metadata?.planCode),

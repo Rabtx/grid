@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { createDatabase, schema } from "@grid/db";
+import { createPersonalWorkspace } from "@grid/db/workspaces";
 import { and, eq } from "drizzle-orm";
 
 import { call, demoToken, json, stable } from "./client";
@@ -12,6 +13,7 @@ const foreignSlug = `foreign-${crypto.randomUUID().slice(0, 8)}`;
 let token: string;
 let ownerId: string;
 let foreignUserId: string;
+let foreignWorkspaceId: string;
 
 const auth = () => ({ authorization: `Bearer ${token}` });
 const request = (path: string, init: RequestInit = {}) =>
@@ -37,16 +39,20 @@ beforeAll(async () => {
 		.returning();
 	if (!foreign) throw new Error("Foreign owner insert failed");
 	foreignUserId = foreign.id;
+	const workspace = await createPersonalWorkspace(database.db, foreign);
+	foreignWorkspaceId = workspace.id;
 	await database.db
 		.insert(schema.projects)
-		.values({ ownerId: foreign.id, slug: foreignSlug, name: "Foreign" });
+		.values({ workspaceId: workspace.id, slug: foreignSlug, name: "Foreign" });
 }, 90_000);
 
 afterAll(async () => {
 	if (ownerId)
 		await database.db
 			.delete(schema.projects)
-			.where(and(eq(schema.projects.ownerId, ownerId), eq(schema.projects.slug, slug)));
+			.where(and(eq(schema.projects.createdBy, ownerId), eq(schema.projects.slug, slug)));
+	if (foreignWorkspaceId)
+		await database.db.delete(schema.workspaces).where(eq(schema.workspaces.id, foreignWorkspaceId));
 	if (foreignUserId)
 		await database.db.delete(schema.users).where(eq(schema.users.id, foreignUserId));
 	await database.close();

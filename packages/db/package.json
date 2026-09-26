@@ -6,7 +6,8 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./schema": "./src/schema/index.ts",
-		"./password": "./src/password.ts"
+		"./password": "./src/password.ts",
+		"./workspaces": "./src/workspaces.ts"
 	},
 	"scripts": {
 		"generate": "bun --env-file=../../apps/api/.env x drizzle-kit generate",

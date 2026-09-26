@@ -7,14 +7,14 @@ import type { BillingInterval, PaymentProviderName, PlanCode, SubscriptionStatus
 export type SubscriptionRecord = typeof schema.subscriptions.$inferSelect;
 export type NewSubscriptionRecord = typeof schema.subscriptions.$inferInsert;
 
-export async function findLatestSubscriptionForUser(
+export async function findLatestSubscriptionForWorkspace(
 	db: Database,
-	userId: string,
+	workspaceId: string,
 ): Promise<SubscriptionRecord | null> {
 	const rows = await db
 		.select()
 		.from(schema.subscriptions)
-		.where(eq(schema.subscriptions.userId, userId))
+		.where(eq(schema.subscriptions.workspaceId, workspaceId))
 		.orderBy(desc(schema.subscriptions.updatedAt))
 		.limit(1);
 	return rows[0] ?? null;
@@ -38,9 +38,9 @@ export async function findSubscriptionByProvider(
 	return rows[0] ?? null;
 }
 
-export async function findActiveCustomerForUser(
+export async function findActiveCustomerForWorkspace(
 	db: Database,
-	userId: string,
+	workspaceId: string,
 	provider: PaymentProviderName,
 ): Promise<SubscriptionRecord | null> {
 	const rows = await db
@@ -48,7 +48,7 @@ export async function findActiveCustomerForUser(
 		.from(schema.subscriptions)
 		.where(
 			and(
-				eq(schema.subscriptions.userId, userId),
+				eq(schema.subscriptions.workspaceId, workspaceId),
 				eq(schema.subscriptions.provider, provider),
 				isNotNull(schema.subscriptions.providerCustomerId),
 			),
@@ -62,6 +62,7 @@ export async function upsertSubscriptionFromWebhook(
 	db: Database,
 	input: {
 		userId: string;
+		workspaceId: string;
 		provider: PaymentProviderName;
 		providerCustomerId?: string;
 		providerSubscriptionId?: string;
@@ -81,6 +82,7 @@ export async function upsertSubscriptionFromWebhook(
 			.update(schema.subscriptions)
 			.set({
 				userId: input.userId,
+				workspaceId: input.workspaceId,
 				providerCustomerId: input.providerCustomerId ?? existing.providerCustomerId,
 				planCode: input.planCode,
 				billingInterval: input.billingInterval,
@@ -96,6 +98,7 @@ export async function upsertSubscriptionFromWebhook(
 
 	const values: NewSubscriptionRecord = {
 		userId: input.userId,
+		workspaceId: input.workspaceId,
 		provider: input.provider,
 		providerCustomerId: input.providerCustomerId,
 		providerSubscriptionId: input.providerSubscriptionId,

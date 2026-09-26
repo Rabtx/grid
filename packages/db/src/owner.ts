@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { createDatabase } from "./client";
 import { hashPassword } from "./password";
 import * as schema from "./schema";
+import { createPersonalWorkspace } from "./workspaces";
 
 /**
  * First start of a portable Grid: when the database has no users yet, create the owner — a
@@ -42,6 +43,7 @@ async function main(): Promise<void> {
 			.returning();
 		if (!user) throw new Error("The owner account was not created");
 		await db.insert(schema.userProfiles).values({ userId: user.id, displayName: "Owner" });
+		await createPersonalWorkspace(db, { id: user.id, username: user.username });
 		console.log(JSON.stringify({ created: true, email, password }));
 	} finally {
 		await close();
