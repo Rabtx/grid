@@ -15,6 +15,7 @@ const STATUS_CODES: Record<number, string> = {
 	413: "PAYLOAD_TOO_LARGE",
 	415: "UNSUPPORTED_MEDIA_TYPE",
 	422: "UNPROCESSABLE_ENTITY",
+	423: "LOCKED",
 	429: "TOO_MANY_REQUESTS",
 	500: "INTERNAL_SERVER_ERROR",
 	501: "NOT_IMPLEMENTED",
@@ -30,6 +31,7 @@ const STATUS_MESSAGES: Record<number, string> = {
 	404: "Not Found",
 	409: "Conflict",
 	422: "Unprocessable Entity",
+	423: "Locked",
 	429: "Too Many Requests",
 	500: "Internal Server Error",
 	503: "Service Unavailable",
@@ -69,6 +71,7 @@ export const unauthorized = make(401);
 export const forbidden = make(403);
 export const notFound = make(404);
 export const conflict = make(409);
+export const locked = make(423);
 export const tooManyRequests = make(429);
 export const serviceUnavailable = make(503);
 

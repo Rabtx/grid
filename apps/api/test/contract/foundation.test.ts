@@ -48,7 +48,7 @@ describe("the envelope every client unwraps", () => {
 	});
 
 	it("an invalid body is VALIDATION_ERROR with field errors", async () => {
-		const reply = await call("/api/v1/auth/login", json({}));
+		const reply = await call("/api/v1/auth/verify-email", json({}));
 		expect(reply.status).toBe(400);
 		const body = stable(reply.body) as { code: string; errors: { path: string }[] };
 		expect(body.code).toBe("VALIDATION_ERROR");
