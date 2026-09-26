@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
-import { For, Show } from "solid-js";
+import { createEffect, For, Show } from "solid-js";
 
-import { SearchIcon } from "./icons";
+import { SearchIcon, SpinnerIcon } from "./icons";
 
 import { Kbd } from "./badge";
 import { type TabOption, Tabs } from "./tabs";
@@ -117,6 +117,93 @@ export function Palette<T extends string>(props: {
 				<span class="flex-1" />
 				{props.footer}
 			</div>
+		</div>
+	);
+}
+
+export type AutocompleteItem = { id: string; icon?: JSX.Element; label: string; hint?: string };
+
+/**
+ * Suggestions floating above a text field while you type: @-mentions, / commands. The field keeps
+ * the keyboard (arrows and Enter are the caller's); a pointer picks without blurring the field.
+ */
+export function AutocompleteList(props: {
+	label: string;
+	items: readonly AutocompleteItem[];
+	active: number;
+	onPick: (id: string) => void;
+	loading?: boolean;
+	empty?: string;
+}): JSX.Element {
+	let list: HTMLUListElement | undefined;
+	createEffect(
+		() => props.active,
+		(index) => {
+			(list?.children[index] as HTMLElement | undefined)?.scrollIntoView?.({ block: "nearest" });
+		},
+	);
+	return (
+		<div
+			aria-label={props.label}
+			class="absolute right-0 bottom-full left-0 z-30 mb-1.5 flex max-h-60 flex-col overflow-hidden rounded-kit-xl bg-surface-raised shadow-float md:right-auto md:left-2 md:w-96"
+		>
+			<div class="flex h-8 shrink-0 items-center justify-between border-line border-b px-3 text-caption text-fg-subtle">
+				<span>
+					{props.label}
+					<Show when={props.items.length > 0}> · {props.items.length}</Show>
+				</span>
+				<span class="flex items-center gap-1.5">
+					<Show when={props.loading}>
+						<SpinnerIcon size="xs" class="animate-spin" />
+					</Show>
+					<span class="hidden md:inline">↑↓ move · ↵ pick · esc close</span>
+				</span>
+			</div>
+			<Show
+				when={props.items.length > 0}
+				fallback={
+					<p class="flex items-center justify-center gap-2 p-4 text-caption text-fg-subtle">
+						<Show when={props.loading} fallback={props.empty ?? "Nothing matches"}>
+							<SpinnerIcon size="sm" class="animate-spin" />
+							Searching…
+						</Show>
+					</p>
+				}
+			>
+				<ul
+					ref={(el) => {
+						list = el;
+					}}
+					class="flex min-h-0 flex-1 flex-col overflow-y-auto p-1"
+				>
+					<For each={props.items}>
+						{(item, index) => (
+							<li>
+								<button
+									type="button"
+									aria-current={index() === props.active ? "true" : undefined}
+									onMouseDown={(event) => {
+										// Keep the field focused while the pick applies.
+										event.preventDefault();
+										props.onPick(item.id);
+									}}
+									class="flex h-8 w-full items-center gap-2 rounded-kit px-2 text-left text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=true]:bg-fill-strong aria-[current=true]:text-fg pointer-coarse:h-11"
+								>
+									<Show when={item.icon}>
+										<span class="shrink-0 text-fg-subtle">{item.icon}</span>
+									</Show>
+									<span class="truncate font-mono text-caption">{item.label}</span>
+									<Show when={item.hint}>
+										<span class="ml-auto truncate font-mono text-caption text-fg-faint">
+											{item.hint}
+										</span>
+									</Show>
+								</button>
+							</li>
+						)}
+					</For>
+				</ul>
+			</Show>
 		</div>
 	);
 }

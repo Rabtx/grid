@@ -1,5 +1,6 @@
 import { render } from "@solidjs/web";
 
+import { Toasts } from "./kit";
 import { Toaster } from "./ui";
 
 import { App } from "./app";
@@ -25,6 +26,7 @@ if (moved) {
 			<>
 				<App />
 				<Toaster />
+				<Toasts />
 			</>
 		),
 		root,

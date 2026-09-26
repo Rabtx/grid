@@ -73,17 +73,19 @@ type IconButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 	label: string;
 	/** xs is a 24px glyph button inside rows and headers (44px on touch). */
 	size?: "xs" | "sm" | "md";
+	/** A tooltip other than the label, e.g. why it is disabled. */
+	tooltip?: string;
 	variant?: "ghost" | "secondary";
 };
 
 /** A square button holding one icon; its label is its name and tooltip. */
 export function IconButton(props: IconButtonProps): JSX.Element {
-	const rest = omit(props, "label", "size", "variant", "class", "children");
+	const rest = omit(props, "label", "size", "variant", "class", "children", "tooltip");
 	return (
 		<button
 			type="button"
 			aria-label={props.label}
-			title={props.label}
+			title={props.tooltip ?? props.label}
 			{...rest}
 			class={iconButton({ variant: props.variant, size: props.size, class: props.class })}
 		>

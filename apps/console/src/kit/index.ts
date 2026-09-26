@@ -37,9 +37,17 @@ export * from "./icons";
 export { Divider, Grid, Page, PageHeader, Row, Section, Spacer, Stack } from "./layout";
 export { Breadcrumbs, type HeaderTab, HeaderTabs } from "./header";
 export { Menu, MENU_ITEM, type MenuGroup, type MenuItem, MenuList, menuTrigger } from "./menu";
-export { AgentMessage, Attachment, DiffCard, type DiffLine, UserMessage } from "./message";
+export {
+	AgentMessage,
+	Attachment,
+	DiffCard,
+	type DiffLine,
+	DiffStat,
+	Prose,
+	UserMessage,
+} from "./message";
 export { NavButton, NavGroup, NavLink, NavNote, NavSection } from "./nav";
-export { Palette, type PaletteItem } from "./palette";
+export { type AutocompleteItem, AutocompleteList, Palette, type PaletteItem } from "./palette";
 export { type Placement, Popover, type PopoverControl } from "./popover";
 export {
 	MIC_BUTTON,
@@ -52,8 +60,20 @@ export {
 	STOP_BUTTON,
 	Suggestions,
 } from "./prompt-box";
-export { Checklist, ChoicePrompt, ProgressRing } from "./prompts";
-export { CodeBlock, type RunStep, RunStatus, RunSteps, type StepStatus } from "./run";
+export { Checklist, ChoicePrompt, DecisionCard, ProgressRing } from "./prompts";
+export {
+	CodeBlock,
+	Disclosure,
+	InlineNotice,
+	type PlanEntry,
+	PlanList,
+	Pre,
+	Rail,
+	type RunStep,
+	RunStatus,
+	RunSteps,
+	type StepStatus,
+} from "./run";
 export { Select, type SelectGroup, type SelectOption } from "./select";
 export { CopyField, SettingsGroup, SettingsRow } from "./settings";
 export { Pagination, Stepper } from "./steps";

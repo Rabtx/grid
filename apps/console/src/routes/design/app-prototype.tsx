@@ -863,7 +863,7 @@ function ThreadView(props: { thread: Thread; onAnswer: (index: number) => void }
 							path="src/auth/redirect.ts"
 							lines={[
 								{ kind: "context", text: "export function nextPath(session) {" },
-								{ kind: "remove", text: "  if (!session) return '/login';" },
+								{ kind: "del", text: "  if (!session) return '/login';" },
 								{ kind: "add", text: "  if (session === undefined) return null;" },
 								{ kind: "add", text: "  if (!session) return '/login';" },
 								{ kind: "context", text: "  return session.next ?? '/';" },

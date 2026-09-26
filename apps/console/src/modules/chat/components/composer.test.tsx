@@ -173,16 +173,16 @@ describe("Composer with file mentions", () => {
 		typeInto(textarea, "@");
 		await settle();
 
-		const options = container.querySelectorAll("button[data-selected]");
+		const options = container.querySelectorAll('[aria-label="File mentions"] li button');
 		expect(options.length).toBeGreaterThan(1);
-		expect(options[0].getAttribute("data-selected")).toBe("true");
+		expect(options[0].getAttribute("aria-current")).toBe("true");
 
 		// Press ArrowDown
 		pressKey(textarea, "ArrowDown");
 		await settle();
 
-		const afterDown = container.querySelectorAll("button[data-selected]");
-		expect(afterDown[1].getAttribute("data-selected")).toBe("true");
+		const afterDown = container.querySelectorAll('[aria-label="File mentions"] li button');
+		expect(afterDown[1].getAttribute("aria-current")).toBe("true");
 
 		// Press Enter to select second option: src/components/composer.tsx
 		pressKey(textarea, "Enter");
@@ -241,7 +241,7 @@ describe("Composer with file mentions", () => {
 		await settle();
 
 		const itemButton = [
-			...container.querySelectorAll<HTMLButtonElement>("button[data-selected]"),
+			...container.querySelectorAll<HTMLButtonElement>('[aria-label="File mentions"] li button'),
 		].find((b) => b.textContent?.includes("README.md"));
 		expect(itemButton).toBeDefined();
 
