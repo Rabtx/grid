@@ -1,3 +1,5 @@
+import type { FileDiff } from "./diff";
+
 /**
  * The one stream every agent is translated into. Providers speak different protocols (ACP,
  * Claude's stream-json, Codex's app-server); each adapter maps its own onto these events, and
@@ -43,6 +45,8 @@ export type ChatEvent =
 			input?: string;
 			/** What came back, trimmed for display. */
 			output?: string;
+			/** The files an edit changed, as unified diffs. */
+			diffs?: FileDiff[];
 	  }
 	/** The agent wants permission before it acts. */
 	| { type: "approval"; id: string; title: string; detail?: string; options: ApprovalOption[] }

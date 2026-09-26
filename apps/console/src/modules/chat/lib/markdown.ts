@@ -115,6 +115,48 @@ export function splitLines(html: string): string[] {
 	return lines;
 }
 
+const EXTENSIONS: Record<string, string> = {
+	ts: "typescript",
+	tsx: "typescript",
+	mts: "typescript",
+	cts: "typescript",
+	js: "javascript",
+	jsx: "javascript",
+	mjs: "javascript",
+	cjs: "javascript",
+	json: "json",
+	css: "css",
+	html: "xml",
+	svg: "xml",
+	xml: "xml",
+	md: "markdown",
+	mdx: "markdown",
+	py: "python",
+	rs: "rust",
+	go: "go",
+	sql: "sql",
+	sh: "bash",
+	bash: "bash",
+	zsh: "bash",
+	yml: "yaml",
+	yaml: "yaml",
+};
+
+/** The highlighter's language for a file, from its extension; null when it has none. */
+export function languageFor(path: string): string | null {
+	const extension = path.split("/").pop()?.split(".").slice(1).pop()?.toLowerCase();
+	return (extension && EXTENSIONS[extension]) || null;
+}
+
+/** Code as highlighted HTML, one balanced line per source line; plain (escaped) without a language. */
+export function highlightLines(text: string, language: string | null): string[] {
+	const html =
+		language && hljs.getLanguage(language)
+			? hljs.highlight(text, { language, ignoreIllegals: true }).value
+			: escapeHtml(text);
+	return splitLines(html);
+}
+
 /** Copy a code card's text when its button is pressed; wire it to the element holding the HTML. */
 export function copyCodeFrom(event: MouseEvent): void {
 	const button = (event.target as Element | null)?.closest<HTMLButtonElement>("[data-copy-code]");

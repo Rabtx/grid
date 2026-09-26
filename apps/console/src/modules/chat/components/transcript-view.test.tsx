@@ -41,6 +41,39 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
+describe("TranscriptView - edit diffs", () => {
+	it("shows an edit's changed lines in colour with its counts", () => {
+		const blocks: Block[] = [
+			{
+				kind: "tool",
+				key: "t0",
+				id: "e1",
+				title: "Edit src/app.ts",
+				tool: "edit",
+				status: "completed",
+				input: "src/app.ts",
+				diffs: [
+					{
+						path: "src/app.ts",
+						patch: "@@ -1,2 +1,2 @@\n const a = 1;\n-const b = 2;\n+const b = 3;",
+						added: 1,
+						removed: 1,
+					},
+				],
+			},
+		];
+		const root = mount(() => (
+			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
+		));
+		flush();
+		expect(root.querySelector('tr[data-kind="add"]')?.textContent).toContain("const b = 3;");
+		expect(root.querySelector('tr[data-kind="del"]')?.textContent).toContain("const b = 2;");
+		expect(root.querySelector("figcaption")?.textContent).toContain("src/app.ts");
+		// The raw path input gives way to the diff.
+		expect(root.querySelector("pre")).toBeNull();
+	});
+});
+
 describe("TranscriptView - Add as note", () => {
 	it("saves a sent message or an agent answer through onNote", () => {
 		const onNote = vi.fn();

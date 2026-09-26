@@ -2,6 +2,7 @@ import type {
 	ApprovalOption,
 	ChatEvent,
 	Choice,
+	FileDiff,
 	PlanEntry,
 	ToolKind,
 	ToolStatus,
@@ -21,6 +22,7 @@ export type Block =
 			status: ToolStatus;
 			input?: string;
 			output?: string;
+			diffs?: FileDiff[];
 	  }
 	| {
 			kind: "approval";
@@ -96,6 +98,7 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 					status: event.status ?? earlier.status,
 					input: event.input ?? earlier.input,
 					output: event.output ?? earlier.output,
+					diffs: event.diffs ?? earlier.diffs,
 				};
 				return { ...transcript, blocks: blocks.map((block, i) => (i === index ? updated : block)) };
 			}
@@ -112,6 +115,7 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 						status: event.status ?? "running",
 						input: event.input,
 						output: event.output,
+						diffs: event.diffs,
 					},
 				],
 			};

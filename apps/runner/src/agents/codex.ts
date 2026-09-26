@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 
 import { cached, effortChoices } from "./catalog";
 import { type ApprovalOption, type Choice, clip, type ToolKind, type ToolStatus } from "./events";
+import { diffFromPatch, diffTexts, type FileDiff } from "./diff";
 import type { AgentContext, AgentSession, Provider, ProviderInfo, TurnResult } from "./provider";
 import { JsonRpc, type Spawn, spawnJsonProcess } from "./stdio";
 
@@ -178,7 +179,7 @@ type Item = {
 	exitCode?: number | null;
 	status?: string;
 	commandActions?: { type: string; path?: string | null; query?: string | null; name?: string }[];
-	changes?: { path: string; kind?: unknown }[];
+	changes?: { path: string; kind?: { type?: string } | string; diff?: string }[];
 	server?: string;
 	tool?: string;
 	query?: string;
@@ -202,6 +203,19 @@ function commandKind(item: Item): ToolKind {
 	return "execute";
 }
 
+/** A file change's diffs: a new file carries its content, anything else a unified patch. */
+function changeDiffs(item: Item): { diffs?: FileDiff[] } {
+	const diffs = (item.changes ?? [])
+		.filter((change) => typeof change.diff === "string" && change.diff)
+		.map((change) => {
+			const kind = typeof change.kind === "string" ? change.kind : change.kind?.type;
+			return kind === "add"
+				? diffTexts(change.path, null, change.diff as string)
+				: diffFromPatch(change.path, change.diff as string);
+		});
+	return diffs.length ? { diffs } : {};
+}
+
 /** A Codex item as a tool call, or null for items that are not tools (messages, reasoning). */
 export function codexTool(item: Item): {
 	id: string;
@@ -210,6 +224,7 @@ export function codexTool(item: Item): {
 	status: ToolStatus;
 	input?: string;
 	output?: string;
+	diffs?: FileDiff[];
 } | null {
 	const status = STATUS[item.status ?? "inProgress"] ?? "running";
 	switch (item.type) {
@@ -232,6 +247,7 @@ export function codexTool(item: Item): {
 				kind: "edit",
 				status,
 				input: JSON.stringify({ path: paths[0] ?? "", paths }),
+				...changeDiffs(item),
 			};
 		}
 		case "mcpToolCall":
