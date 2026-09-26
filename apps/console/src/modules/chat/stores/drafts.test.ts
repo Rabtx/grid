@@ -48,6 +48,10 @@ describe("taskDraft", () => {
 		);
 	});
 
+	it("leads with the task key when there is one", () => {
+		expect(taskDraft({ key: "TASK-3", title: "Fix login" })).toBe("TASK-3: Fix login");
+	});
+
 	it("trims whitespace and ignores empty or blank description and branch", () => {
 		const text = taskDraft({
 			title: "  Fix layout bug  ",

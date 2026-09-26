@@ -21,7 +21,9 @@ export function taskDraft(task: {
 	branch?: string | null;
 	key?: string;
 }): string {
-	const parts: string[] = [task.title.trim()];
+	// The key (TASK-3) keeps the chat traceable to its card.
+	const title = task.title.trim();
+	const parts: string[] = [task.key ? `${task.key}: ${title}` : title];
 	const description = task.description?.trim();
 	if (description) parts.push(description);
 	const branch = task.branch?.trim();

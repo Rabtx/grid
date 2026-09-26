@@ -5,7 +5,7 @@ type: chore
 from: human
 to: pm
 priority: normal
-status: doing
+status: done
 assignee: codex
 reviewer: human
 parent: none
@@ -61,7 +61,7 @@ architecture and typecheck. No API, schema, or runtime contract changed.
 
 Implementation commit: `29518d2` (`docs: explain grid product and current architecture`).
 Review: human reviewer pending through [PR #85](https://github.com/shabirkhan-dev/grid/pull/85).
-Keep this card in `doing/` until reviewed.
+Reviewed and merged in #85.
 
 Follow-up outside this card: `AGENTS.md` still describes the product as an unbuilt engineering
 spine, and the portable guide still instructs people to install agents manually in a Codespace.
