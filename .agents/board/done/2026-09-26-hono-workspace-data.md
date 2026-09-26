@@ -5,7 +5,7 @@ type: feature
 from: human
 to: backend
 priority: normal
-status: review
+status: done
 assignee: backend
 reviewer: human
 parent: .agents/plans/api-on-hono.md
@@ -62,3 +62,11 @@ Review: human reviewer pending. Local comparison ports: NestJS 4021, Hono 4022.
 Commit: `90b3435` implementation; `b31d25c` card claim (rebased onto auth core at `405eb91`).
 
 During validation, a bare `bun --cwd=apps/api test` used the contract client's default port 4000 once. The test avatar it created on the live service was identified by its unique filename and removed. Subsequent runs pinned `CONTRACT_API_URL` to 4022.
+
+## Review
+
+Reviewed and merged in #94 by the lead agent. Both lanes were combined on main and checked
+together: typecheck 9/9, lint and architecture clean, apps/api unit tests 39 passed, and the
+whole contract suite 48/48 against NestJS and 48/48 against Hono. The only conflict (both lanes
+mounting routes in `app.ts`) was resolved by keeping both, and main's tree is identical to the
+tested one.

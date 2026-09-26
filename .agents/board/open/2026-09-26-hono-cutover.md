@@ -30,6 +30,10 @@ updated: 2026-09-26
 
 Remove the forwarding; point the launcher, `bun run dev`, the devcontainer, Docker files and deploy docs at `apps/api`; delete `apps/nest-api` and its packages from the lockfile. Check every real flow in the browser (sign-in, 2FA, passkeys, board, notes, avatar, billing pages) and on a real Codespace.
 
+Also give uploads a home of their own: avatars are still written to `apps/nest-api/uploads`
+(`GRID_UPLOADS_DIR`'s default, so old and new avatars both load during the move). Move the
+default into Grid's data directory, move existing files, and keep `/uploads/avatars/...` URLs working.
+
 ## Why / Context
 
 Done when NestJS is gone and nothing notices. Rules for every card are in the plan: Bun-native first, same contract, contract tests on
