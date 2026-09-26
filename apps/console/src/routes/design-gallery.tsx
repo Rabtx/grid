@@ -2,6 +2,9 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, For } from "solid-js";
 
 import { APPEARANCE_LIMITS, appearance, type Theme, updateAppearance } from "@/lib/appearance";
+
+import { AppPrototype } from "./design/app-prototype";
+import { FeedbackSection, FormsSection, WorkSection } from "./design/more-sections";
 import {
 	Avatar,
 	Badge,
@@ -25,18 +28,12 @@ import {
 	MenuList,
 	NavButton,
 	NavLink,
-	NavSection,
 	Palette,
 	Panel,
-	PROMPT_ADD,
-	PROMPT_CHIP,
-	PROMPT_FIELD,
-	PromptBox,
 	RunStatus,
 	RunSteps,
 	SearchInput,
 	Segmented,
-	SEND_BUTTON,
 	Skeleton,
 	Switch,
 	Table,
@@ -46,16 +43,14 @@ import {
 	Th,
 	Tooltip,
 	Tr,
+	Toasts,
 	WorkspaceMark,
 } from "@/kit";
 import {
-	AppsIcon,
 	BellIcon,
 	BoardIcon,
-	BranchIcon,
 	ChatIcon,
 	CheckIcon,
-	ChevronDownIcon,
 	ClockIcon,
 	ComputerIcon,
 	CopyIcon,
@@ -64,24 +59,16 @@ import {
 	FileIcon,
 	FolderIcon,
 	GlobeIcon,
-	HomeIcon,
-	IdeaIcon,
 	InboxIcon,
-	MenuIcon,
-	MicIcon,
 	MoonIcon,
 	MoreIcon,
 	NoteIcon,
 	PlusIcon,
-	RocketIcon,
 	SearchIcon,
-	SendIcon,
 	SettingsIcon,
-	SidebarIcon,
 	SignOutIcon,
 	SunIcon,
 	TerminalIcon,
-	ToolIcon,
 	TrashIcon,
 	UnfoldIcon,
 	UserAddIcon,
@@ -107,8 +94,11 @@ export function DesignGallery(): JSX.Element {
 		<div class="min-h-dvh bg-surface-sunken font-kit text-fg">
 			<Toolbar />
 			<main class="mx-auto flex max-w-6xl flex-col gap-10 px-4 pt-6 pb-24 md:px-8">
-				<Section title="App" note="The shell, home and composer, built only from the kit.">
-					<AppPreview />
+				<Section
+					title="App"
+					note="A working miniature, built only from the kit: switch views, open threads, send a message and answer the agent."
+				>
+					<AppPrototype />
 				</Section>
 				<Section title="Foundations">
 					<Foundations />
@@ -131,7 +121,17 @@ export function DesignGallery(): JSX.Element {
 				<Section title="Agent work">
 					<AgentWork />
 				</Section>
+				<Section title="Feedback">
+					<FeedbackSection />
+				</Section>
+				<Section title="Forms and settings">
+					<FormsSection />
+				</Section>
+				<Section title="Work surfaces">
+					<WorkSection />
+				</Section>
 			</main>
+			<Toasts />
 		</div>
 	);
 }
@@ -222,280 +222,6 @@ const PROJECTS = [
 	{ name: "api", color: "#10b981", open: false },
 	{ name: "mobile", color: "#f59e0b", open: false },
 ];
-
-const THREADS = ["Fix login redirect loop", "Add billing page", "Speed up the test suite"];
-
-function AppPreview(): JSX.Element {
-	const [view, setView] = createSignal<"home" | "activity">("home");
-	const [draft, setDraft] = createSignal("");
-	const [mode, setMode] = createSignal<"build" | "plan">("build");
-
-	return (
-		<div class="flex h-[40rem] overflow-hidden rounded-kit-xl bg-surface-sunken shadow-[0_0_0_1px_var(--kit-line-strong),0_8px_24px_-12px_rgb(0_0_0/0.08)]">
-			<aside class="hidden w-60 shrink-0 flex-col md:flex">
-				<div class="flex h-12 items-center gap-1 px-2">
-					<button
-						type="button"
-						class="focus-ring flex h-8 min-w-0 flex-1 items-center gap-2 rounded-kit px-1.5 hover:bg-fill"
-					>
-						<WorkspaceMark name="Acme Labs" />
-						<span class="truncate font-medium text-body">Acme Labs</span>
-						<UnfoldIcon class="size-3.5 shrink-0 text-fg-faint" />
-					</button>
-					<IconButton label="Search" size="sm">
-						<SearchIcon class={ICON} />
-					</IconButton>
-				</div>
-				<div class="px-2 pb-3">
-					<Segmented
-						label="View"
-						block
-						options={[
-							{ value: "home", label: "Home", icon: <HomeIcon class="size-3.5" /> },
-							{
-								value: "activity",
-								label: "Activity",
-								icon: <InboxIcon class="size-3.5" />,
-								count: 3,
-							},
-						]}
-						value={view()}
-						onChange={setView}
-					/>
-				</div>
-				<div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-2">
-					<div class="flex flex-col gap-px">
-						<NavButton icon={<EditIcon class={ICON} />} label="New chat" current />
-						<NavLink {...demo("1")} icon={<BoardIcon class={ICON} />} label="Board" />
-						<NavLink {...demo("2")} icon={<TerminalIcon class={ICON} />} label="Terminal" />
-						<NavLink
-							{...demo("3")}
-							icon={<AppsIcon class={ICON} />}
-							label="Environments"
-							trailing={<Badge tone="accent">New</Badge>}
-						/>
-					</div>
-					<NavSection
-						label="Projects"
-						action={
-							<IconButton label="Add project" size="sm" class="size-6!">
-								<PlusIcon class="size-3.5" />
-							</IconButton>
-						}
-					>
-						<For each={PROJECTS}>
-							{(project) => (
-								<>
-									<NavLink
-										{...demo("4")}
-										icon={<FolderIcon class={ICON} />}
-										label={project.name}
-										trailing={
-											project.open ? undefined : <span class="text-caption text-fg-faint">2</span>
-										}
-									/>
-									{project.open ? (
-										<div class="ml-4 flex flex-col gap-px border-line border-l pl-2">
-											<For each={THREADS}>
-												{(thread, index) => (
-													<NavLink
-														{...demo("5")}
-														label={thread}
-														trailing={
-															index() === 0 ? (
-																<span class="size-1.5 rounded-full bg-accent" />
-															) : undefined
-														}
-													/>
-												)}
-											</For>
-										</div>
-									) : null}
-								</>
-							)}
-						</For>
-					</NavSection>
-				</div>
-				<div class="flex flex-col gap-2 p-2">
-					<button
-						type="button"
-						class="focus-ring flex h-9 items-center gap-2 rounded-kit bg-surface px-2.5 text-body shadow-[0_0_0_1px_var(--kit-line)] hover:bg-fill"
-					>
-						<RocketIcon class="size-4 text-accent" />
-						<span class="flex-1 text-left">Getting started</span>
-						<span class="text-caption text-fg-subtle">2 of 5</span>
-					</button>
-					<button
-						type="button"
-						class="focus-ring flex h-9 items-center gap-2 rounded-kit px-1.5 text-body hover:bg-fill"
-					>
-						<Avatar name="Sam Rivera" />
-						<span class="flex-1 truncate text-left">Sam Rivera</span>
-						<BellIcon class="size-4 text-fg-subtle" />
-					</button>
-				</div>
-			</aside>
-			<div class="flex min-w-0 flex-1 flex-col bg-surface md:border-line md:border-l">
-				<header class="flex h-12 shrink-0 items-center gap-1 border-line border-b px-1.5 md:hidden">
-					<IconButton label="Open navigation">
-						<MenuIcon class="size-5" />
-					</IconButton>
-					<button
-						type="button"
-						class="focus-ring flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-kit"
-					>
-						<WorkspaceMark name="Acme Labs" />
-						<span class="truncate font-medium text-body">web-app</span>
-						<UnfoldIcon class="size-3.5 text-fg-faint" />
-					</button>
-					<IconButton label="New chat">
-						<EditIcon class="size-5" />
-					</IconButton>
-				</header>
-				<header class="hidden h-12 shrink-0 items-center gap-2 border-line border-b px-2 md:flex">
-					<IconButton label="Hide sidebar" size="sm">
-						<SidebarIcon class={ICON} />
-					</IconButton>
-					<HeaderTabs
-						tabs={[
-							{
-								id: "1",
-								label: "Fix login redirect loop",
-								href: "#",
-								icon: <ChatIcon class="size-3.5" />,
-							},
-							{
-								id: "2",
-								label: "Add billing page",
-								href: "#",
-								icon: <ChatIcon class="size-3.5" />,
-							},
-							{ id: "new", label: "New chat", href: "#", icon: <EditIcon class="size-3.5" /> },
-						]}
-						current="new"
-						onClose={() => undefined}
-						newHref="#"
-						newLabel="New chat"
-					/>
-					<IconButton label="Toggle work panel" size="sm">
-						<SidebarIcon class={`${ICON} -scale-x-100`} />
-					</IconButton>
-				</header>
-				<div class="flex min-h-0 flex-1 flex-col items-center justify-end overflow-y-auto px-4 pb-6 md:justify-center md:pb-16">
-					<div class="flex w-full max-w-2xl flex-col gap-6">
-						<h3 class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center font-medium text-fg text-heading">
-							What should we work on in
-							<span class="inline-flex items-center gap-1.5 whitespace-nowrap">
-								<span class="text-accent">
-									<FolderIcon class="size-5" />
-								</span>
-								web-app
-							</span>
-						</h3>
-						<PromptBox
-							field={
-								<textarea
-									rows={2}
-									aria-label="Message"
-									placeholder="Ask anything, @ to add files, / for commands"
-									value={draft()}
-									onInput={(event) => setDraft(event.currentTarget.value)}
-									class={PROMPT_FIELD}
-								/>
-							}
-							tools={
-								<>
-									<button type="button" class={PROMPT_ADD} aria-label="Add">
-										<PlusIcon class={ICON} />
-									</button>
-									<span class="hidden md:inline-flex">
-										<Segmented
-											label="Mode"
-											options={[
-												{ value: "build", label: "Build" },
-												{ value: "plan", label: "Plan" },
-											]}
-											value={mode()}
-											onChange={setMode}
-										/>
-									</span>
-								</>
-							}
-							options={
-								<>
-									<button type="button" class={PROMPT_CHIP}>
-										<span class="size-2 rounded-full bg-[#d97757]" />
-										Opus 5.5
-										<ChevronDownIcon class="size-3.5 text-fg-faint" />
-									</button>
-									<button
-										type="button"
-										aria-label="Dictate"
-										class={`${PROMPT_CHIP} w-8 justify-center px-0`}
-									>
-										<MicIcon class={ICON} />
-									</button>
-								</>
-							}
-							send={
-								<button
-									type="button"
-									aria-label="Send"
-									disabled={!draft().trim()}
-									class={SEND_BUTTON}
-								>
-									<SendIcon class={ICON} />
-								</button>
-							}
-							tray={
-								<>
-									<span class="flex items-center gap-1.5">
-										<FolderIcon class="size-3.5" />
-										~/code/web-app
-									</span>
-									<span class="flex items-center gap-1.5">
-										<BranchIcon class="size-3.5" />
-										<span class="font-mono">main</span>
-									</span>
-									<span class="flex-1" />
-									<span class="hidden items-center gap-1.5 md:flex">
-										<ComputerIcon class="size-3.5" />
-										This machine
-									</span>
-								</>
-							}
-						/>
-						<ul class="flex flex-col gap-0.5 px-1">
-							<For
-								each={[
-									{
-										icon: <IdeaIcon class={ICON} />,
-										text: "Explain how this project is organised",
-									},
-									{ icon: <ToolIcon class={ICON} />, text: "Find and fix a bug" },
-									{ icon: <CheckIcon class={ICON} />, text: "Write tests for the recent changes" },
-								]}
-							>
-								{(item) => (
-									<li>
-										<button
-											type="button"
-											onClick={() => setDraft(item.text)}
-											class="focus-ring flex h-8 w-full items-center gap-2.5 rounded-kit px-2 text-body text-fg-muted hover:bg-fill hover:text-fg"
-										>
-											<span class="text-fg-subtle">{item.icon}</span>
-											{item.text}
-										</button>
-									</li>
-								)}
-							</For>
-						</ul>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
-}
 
 /* ── Foundations ──────────────────────────────────────────────────────────────────────────── */
 

@@ -3,25 +3,36 @@ import AlertCircleIcon from "@hugeicons/core-free-icons/AlertCircleIcon";
 import Archive01Icon from "@hugeicons/core-free-icons/Archive01Icon";
 import ArrowDown01Icon from "@hugeicons/core-free-icons/ArrowDown01Icon";
 import ArrowLeft01Icon from "@hugeicons/core-free-icons/ArrowLeft01Icon";
+import ArrowRight01Glyph from "@hugeicons/core-free-icons/ArrowRight01Icon";
 import ArrowUp02Icon from "@hugeicons/core-free-icons/ArrowUp02Icon";
 import ArrowUpRight01Glyph from "@hugeicons/core-free-icons/ArrowUpRight01Icon";
 import Attachment01Glyph from "@hugeicons/core-free-icons/Attachment01Icon";
 import BubbleChatIcon from "@hugeicons/core-free-icons/BubbleChatIcon";
+import Calendar03Glyph from "@hugeicons/core-free-icons/Calendar03Icon";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
+import CheckmarkCircle02Glyph from "@hugeicons/core-free-icons/CheckmarkCircle02Icon";
 import Clock01Glyph from "@hugeicons/core-free-icons/Clock01Icon";
+import CodeGlyph from "@hugeicons/core-free-icons/CodeIcon";
 import ComputerGlyph from "@hugeicons/core-free-icons/ComputerIcon";
 import ComputerTerminal01Icon from "@hugeicons/core-free-icons/ComputerTerminal01Icon";
 import Copy01Icon from "@hugeicons/core-free-icons/Copy01Icon";
 import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon";
 import File01Icon from "@hugeicons/core-free-icons/File01Icon";
+import FilterHorizontalGlyph from "@hugeicons/core-free-icons/FilterHorizontalIcon";
+import Flag02Glyph from "@hugeicons/core-free-icons/Flag02Icon";
 import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
 import Folder01Icon from "@hugeicons/core-free-icons/Folder01Icon";
 import GitBranchIcon from "@hugeicons/core-free-icons/GitBranchIcon";
+import GitPullRequestGlyph from "@hugeicons/core-free-icons/GitPullRequestIcon";
 import Globe02Icon from "@hugeicons/core-free-icons/Globe02Icon";
 import GridViewGlyph from "@hugeicons/core-free-icons/GridViewIcon";
 import Home01Glyph from "@hugeicons/core-free-icons/Home01Icon";
 import Idea01Icon from "@hugeicons/core-free-icons/Idea01Icon";
+import Image01Glyph from "@hugeicons/core-free-icons/Image01Icon";
 import InboxGlyph from "@hugeicons/core-free-icons/InboxIcon";
+import InformationCircleGlyph from "@hugeicons/core-free-icons/InformationCircleIcon";
+import Key01Glyph from "@hugeicons/core-free-icons/Key01Icon";
+import Link01Glyph from "@hugeicons/core-free-icons/Link01Icon";
 import Loading03Icon from "@hugeicons/core-free-icons/Loading03Icon";
 import Logout01Icon from "@hugeicons/core-free-icons/Logout01Icon";
 import Menu01Icon from "@hugeicons/core-free-icons/Menu01Icon";
@@ -37,11 +48,15 @@ import RotateCcwIcon from "@hugeicons/core-free-icons/RotateCcwIcon";
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon";
 import Settings01Icon from "@hugeicons/core-free-icons/Settings01Icon";
 import SidebarLeftIcon from "@hugeicons/core-free-icons/SidebarLeftIcon";
+import Sorting05Glyph from "@hugeicons/core-free-icons/Sorting05Icon";
 import StopIcon from "@hugeicons/core-free-icons/StopIcon";
 import Sun03Icon from "@hugeicons/core-free-icons/Sun03Icon";
+import Tag01Glyph from "@hugeicons/core-free-icons/Tag01Icon";
 import Tick02Icon from "@hugeicons/core-free-icons/Tick02Icon";
 import UnfoldMoreIcon from "@hugeicons/core-free-icons/UnfoldMoreIcon";
+import Upload04Glyph from "@hugeicons/core-free-icons/Upload04Icon";
 import UserAdd01Glyph from "@hugeicons/core-free-icons/UserAdd01Icon";
+import UserGlyph from "@hugeicons/core-free-icons/UserIcon";
 import Wrench01Icon from "@hugeicons/core-free-icons/Wrench01Icon";
 import type { JSX } from "@solidjs/web";
 
@@ -279,4 +294,64 @@ export function RocketIcon(props: IconProps): JSX.Element {
 
 export function UserAddIcon(props: IconProps): JSX.Element {
 	return <Icon icon={UserAdd01Glyph} class={props.class} />;
+}
+
+export function FilterIcon(props: IconProps): JSX.Element {
+	return <Icon icon={FilterHorizontalGlyph} class={props.class} />;
+}
+
+export function SortIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Sorting05Glyph} class={props.class} />;
+}
+
+export function ChevronRightIcon(props: IconProps): JSX.Element {
+	return <Icon icon={ArrowRight01Glyph} class={props.class} />;
+}
+
+export function UploadIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Upload04Glyph} class={props.class} />;
+}
+
+export function InfoIcon(props: IconProps): JSX.Element {
+	return <Icon icon={InformationCircleGlyph} class={props.class} />;
+}
+
+export function LinkIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Link01Glyph} class={props.class} />;
+}
+
+export function UserIcon(props: IconProps): JSX.Element {
+	return <Icon icon={UserGlyph} class={props.class} />;
+}
+
+export function PullRequestIcon(props: IconProps): JSX.Element {
+	return <Icon icon={GitPullRequestGlyph} class={props.class} />;
+}
+
+export function CodeIcon(props: IconProps): JSX.Element {
+	return <Icon icon={CodeGlyph} class={props.class} />;
+}
+
+export function ImageIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Image01Glyph} class={props.class} />;
+}
+
+export function CalendarIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Calendar03Glyph} class={props.class} />;
+}
+
+export function TagIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Tag01Glyph} class={props.class} />;
+}
+
+export function FlagIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Flag02Glyph} class={props.class} />;
+}
+
+export function CheckCircleIcon(props: IconProps): JSX.Element {
+	return <Icon icon={CheckmarkCircle02Glyph} class={props.class} />;
+}
+
+export function KeyIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Key01Glyph} class={props.class} />;
 }

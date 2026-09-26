@@ -154,3 +154,54 @@
 		0 1px 2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.35)),
 		0 6px 20px -10px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.9));
 }
+
+/* The kit slider: a thin track filled in ink up to the value, a white thumb with a hairline. */
+@layer components {
+	.kit-slider::-webkit-slider-runnable-track {
+		height: 4px;
+		border-radius: 9999px;
+		background: linear-gradient(
+			to right,
+			var(--ink) var(--fill, 50%),
+			var(--kit-fill-strong) var(--fill, 50%)
+		);
+	}
+	.kit-slider::-moz-range-track {
+		height: 4px;
+		border-radius: 9999px;
+		background: var(--kit-fill-strong);
+	}
+	.kit-slider::-moz-range-progress {
+		height: 4px;
+		border-radius: 9999px;
+		background: var(--ink);
+	}
+	.kit-slider::-webkit-slider-thumb {
+		appearance: none;
+		width: 16px;
+		height: 16px;
+		margin-top: -6px;
+		border-radius: 9999px;
+		background: #fff;
+		box-shadow:
+			0 0 0 1px var(--kit-line-strong),
+			0 1px 3px rgb(0 0 0 / 0.2);
+	}
+	.kit-slider::-moz-range-thumb {
+		width: 16px;
+		height: 16px;
+		border: 0;
+		border-radius: 9999px;
+		background: #fff;
+		box-shadow:
+			0 0 0 1px var(--kit-line-strong),
+			0 1px 3px rgb(0 0 0 / 0.2);
+	}
+	.kit-slider:focus-visible {
+		outline: none;
+	}
+	.kit-slider:focus-visible::-webkit-slider-thumb {
+		outline: 2px solid var(--signal-accent);
+		outline-offset: 1px;
+	}
+}

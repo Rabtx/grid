@@ -50,3 +50,23 @@ export function WorkspaceMark(props: {
 		</span>
 	);
 }
+
+/** A few people at a glance: overlapping avatars and a count for the rest. */
+export function AvatarGroup(props: { names: readonly string[]; max?: number }): JSX.Element {
+	const shown = () => props.names.slice(0, props.max ?? 3);
+	const rest = () => props.names.length - shown().length;
+	return (
+		<span class="flex items-center -space-x-1.5">
+			{shown().map((name) => (
+				<span class="rounded-full ring-2 ring-surface">
+					<Avatar name={name} size="sm" />
+				</span>
+			))}
+			{rest() > 0 ? (
+				<span class="grid size-5 place-items-center rounded-full bg-fill-strong text-micro text-fg-subtle ring-2 ring-surface">
+					+{rest()}
+				</span>
+			) : null}
+		</span>
+	);
+}
