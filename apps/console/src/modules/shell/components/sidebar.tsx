@@ -2,6 +2,7 @@ import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { Loading, Show } from "solid-js";
 
+import { workspaceHref } from "@/lib/active-workspace";
 import { useWorkspace } from "@/modules/projects";
 import { WorkspaceSwitcher } from "@/modules/workspaces";
 import {
@@ -81,7 +82,7 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 
 			<div class="flex shrink-0 flex-col gap-px px-2 pb-3">
 				<Loading fallback={<Skeleton class="h-8" />}>
-					<a href={newChat()} class={NAV_ROW}>
+					<a href={workspaceHref(newChat())} class={NAV_ROW}>
 						<EditIcon class="size-4 shrink-0 text-ink/55" />
 						<span class="min-w-0 flex-1 truncate">New chat</span>
 					</a>
@@ -91,7 +92,7 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 					<span class="min-w-0 flex-1 truncate">Search</span>
 					<Hint>Ctrl K</Hint>
 				</button>
-				<a href="/terminal" aria-current={current("/terminal")} class={NAV_ROW}>
+				<a href={workspaceHref("/terminal")} aria-current={current("/terminal")} class={NAV_ROW}>
 					<TerminalIcon class="size-4 shrink-0 text-ink/55" />
 					Terminal
 				</a>
