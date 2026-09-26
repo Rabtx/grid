@@ -11,10 +11,11 @@ Next.js web frontend with shared design primitives and Tailwind-based styling.
 
 Fumadocs-powered documentation site for onboarding, architecture, and workflows.
 
-## `apps/nest-api`
+## `apps/api`
 
-NestJS API spine with Drizzle over PostgreSQL: auth (MFA, passkeys, magic links, Google),
-profiles, projects/tasks, health, and billing (Stripe/Razorpay) modules.
+The Grid API: Hono on Bun with Drizzle over PostgreSQL (schema and migrations in
+`packages/db`): auth (2FA, passkeys, magic links, Google), sessions, profiles, projects, tasks,
+notes, health, and billing (Stripe/Razorpay).
 
 ## Cross-app strategy
 

@@ -1,55 +1,44 @@
-# Grid API (Hono on Bun)
+# Grid API
 
-The Grid API, `/api/v1/...`, replacing `apps/nest-api` one module at a time. The plan and the
-rules are in [.agents/plans/api-on-hono.md](../../.agents/plans/api-on-hono.md).
-
-While the port is under way this API owns the API port (4000) and **forwards every route it
-does not serve yet to NestJS** behind it (`GRID_LEGACY_API_URL`, 4010 in dev), unchanged. So a
-module moves over simply by adding its routes here.
+The Grid API, `/api/v1/...`: accounts and sign-in (password, 2FA, passkeys, Google, magic
+links), sessions, projects, tasks, notes, profiles and billing. Hono on `Bun.serve`, Postgres
+through [`@grid/db`](../../packages/db) (Drizzle on `Bun.sql`). It replaced the NestJS API; the
+move is described in [.agents/plans/api-on-hono.md](../../.agents/plans/api-on-hono.md).
 
 ## Run
 
 ```bash
-bun run dev                  # from the repo root: this API on :4000, NestJS on :4010, and the rest
-bun --cwd=apps/api run dev   # this API alone (reads apps/nest-api/.env during the move)
-bun --cwd=apps/api test      # unit tests (app.request, no server)
+cp apps/api/.env.example apps/api/.env   # once; Bun loads it on its own
+bun run db:migrate                       # from the repo root
+bun run dev                              # everything, this API on :4000
+bun --cwd=apps/api run dev               # this API alone
+bun --cwd=apps/api test                  # unit tests (database ones skip without DATABASE_URL)
+bun --cwd=apps/api run test:contract     # black-box tests against a running API
 ```
+
+`bun run grid` runs the whole product behind one port; the launcher gives this API its secrets,
+database and an uploads folder in Grid's data directory.
 
 ## Layout
 
 | Path | What |
 | --- | --- |
 | `src/main.ts` | `Bun.serve`, the database, shutdown |
-| `src/app.ts` | Middleware, the mounted modules, forwarding to NestJS, 404 and error handling |
-| `src/config/` | Environment (same variables and defaults as NestJS) |
+| `src/app.ts` | Middleware, the mounted modules, uploaded files, 404 and error handling |
+| `src/config/` | Environment (zod) |
 | `src/http/` | Shared pieces: `ok`/`noContent`, `ApiError` and helpers, `parse`/`body` (zod), `requireUser`, `rateLimit`, request ids |
-| `src/modules/<name>/` | One module's routes and logic |
-| `test/contract/` | Black-box HTTP tests run against NestJS **and** this API |
+| `src/modules/<name>/` | One area's routes and logic: plain functions, Drizzle queries |
+| `test/contract/` | Black-box HTTP tests that pin the responses clients rely on |
 
-The database schema and migrations are in [`packages/db`](../../packages/db) (`@grid/db`).
+## Conventions
 
-## Porting a module
-
-1. Read the NestJS module (`apps/nest-api/src/modules/<name>`): its controllers (routes, status
-   codes, guards, throttles), DTOs (zod schemas) and service (behaviour and error messages).
-2. Write the **contract tests first** in `test/contract/<name>.test.ts`, using `call`, `json` and
-   `stable` from `test/contract/client.ts`. Run them against NestJS until they pass:
-   `CONTRACT_API_URL=http://127.0.0.1:4010 bun run test:contract` (once a minute per server:
-   sign-in is rate limited). Sign in through `demoToken()` from the client, never on your own.
-3. Port the module to `src/modules/<name>/`: a `routes.ts` exporting a function that returns a
-   `Hono<AppEnv>`, plus plain functions for the logic and the queries (`@grid/db` and Drizzle).
-   No classes or decorators are needed. Mount it in `src/app.ts` next to `healthRoutes()`.
-4. Match the old contract exactly:
-   - success bodies through `ok(c, data, status)`, and `noContent(c)` for 204
-   - errors as `ApiError`s, e.g. `notFound(\`Project "${slug}" not found\`)` or
-     `unauthorized({ code: "AUTH_REQUIRED", message: "Authentication required" })`, keeping
-     NestJS's codes and messages
-   - validation through `body(c.req, schema)` / `parse(schema, value)`, which answer
-     `VALIDATION_ERROR` with the same field errors
-   - signed-in routes behind `requireUser(deps.sessions)`, with the user as `c.get("user")`
-   - route throttles with `rateLimit({ limit, windowMs })`, the same numbers as `@Throttle`
-5. Run the contract tests against this API (`CONTRACT_API_URL=http://127.0.0.1:4000 bun run test:contract`); they must
-   pass on both. Add unit tests with `app.request()` for logic the contract does not reach.
-
-Bun first: `Bun.password`, `Bun.sql` (through `@grid/db`), `Bun.file`/`Bun.write`, WebCrypto.
-Add a package only when neither Bun nor Hono does the job, and say why on the card.
+- Success bodies through `ok(c, data, status)`, and `noContent(c)` for 204. Errors are
+  `ApiError`s (`notFound(...)`, `unauthorized({ code, message })`…), rendered in one shape.
+- Validate input with `body(c.req, schema)` / `parse(schema, value)`: a 400 `VALIDATION_ERROR`
+  with field errors.
+- Signed-in routes use `requireUser(deps.sessions)`; the user is `c.get("user")`.
+- Throttle sensitive routes with `rateLimit({ limit, windowMs })`.
+- A change to a response the clients see comes with a contract test. Contract suites sign in
+  through `demoToken()` (sign-in is rate limited), so run the suite at most once a minute.
+- Bun first: `Bun.password`, `Bun.sql`, `Bun.file`/`Bun.write`, `Bun.CryptoHasher`, WebCrypto.
+  Add a package only when neither Bun nor Hono does the job.

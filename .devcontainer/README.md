@@ -62,4 +62,4 @@ C and Lua toolchains were removed — they are not part of the product stack.
 | 8080 | Grid          |
 | 3000 | Web (Next.js) |
 | 3002 | Docs          |
-| 4000 | Nest API      |
+| 4000 | Grid API      |

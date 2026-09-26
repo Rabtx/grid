@@ -42,6 +42,11 @@ other so a bug is always traceable to one of them:
 - Stay inside `apps/api/src/modules/<your module>/` and your contract tests; shared pieces
   (`src/app.ts`, `src/http/*`, `packages/db`) change only through the foundation owner.
 
+## Status
+
+Phases 0–3 are done (#92, #93, #94, #95, #96, #97, #98 and the cutover): `apps/api` serves every
+route and `apps/nest-api` is deleted. Next: workspaces, then PGlite.
+
 ## Phases and cards
 
 | Phase | Card | Owner | Depends on |

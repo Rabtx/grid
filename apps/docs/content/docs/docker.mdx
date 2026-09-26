@@ -1,6 +1,6 @@
 ---
 title: Docker
-description: Compose stack for Postgres, Nest API, and Next.js web.
+description: Compose stack for Postgres, the Grid API, and Next.js web.
 ---
 Run the Grid stack with Docker Compose. Fragments live under **`docker/compose/`** and are merged by the root **`docker-compose.yml`** via [`include`](https://docs.docker.com/compose/how-tos/multiple-compose-files/include/) (Compose **v2.20+**). Compose files follow the Compose Spec (**no** top-level `version` key).
 
@@ -9,7 +9,7 @@ Run the Grid stack with Docker Compose. Fragments live under **`docker/compose/`
 | Fragment | Contents |
 |----------|----------|
 | `docker/compose/postgres.yml` | Postgres 16, named volume, healthcheck |
-| `docker/compose/nest-api.yml` | NestJS API (multi-stage Bun image) |
+| `docker/compose/api.yml` | The Grid API (`apps/api/Dockerfile`, Bun) |
 | `docker/compose/web.yml` | Next.js web (standalone image) |
 
 See **`docker/README.md`** for the manual `-f` fallback.
@@ -33,19 +33,18 @@ See **`docker/README.md`** for the manual `-f` fallback.
 3. Open:
 
    - Web: http://localhost:3000
-   - Nest health: http://localhost:4000/api/v1/health
-   - Nest Swagger: http://localhost:4000/api/docs
+   - API health: http://localhost:4000/api/v1/health
 
 ## Ports
 
 | Service | Host port (default) |
 |---------|---------------------|
 | Postgres | 5433 (container 5432) |
-| Nest API | 4000 |
+| API | 4000 |
 | Web | 3000 |
 
 ## Notes
 
-- Nest runs migrations on startup when `RUN_MIGRATIONS=true` (default).
+- The API runs migrations on startup when `RUN_MIGRATIONS=true` (default); uploads live in the `api_data` volume.
 - `NEXT_PUBLIC_NEST_API_URL` is baked in at **web image build** time and must be reachable from the browser (typically `http://localhost:4000`).
 - Host-only API/web development: `docker compose up -d postgres`, then `bun run dev`.

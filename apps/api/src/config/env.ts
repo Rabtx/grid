@@ -72,8 +72,7 @@ export const envSchema = z
 		RAZORPAY_PLAN_TEAM_YEARLY: z.string().min(1).optional(),
 		RAZORPAY_PLAN_ENTERPRISE_MONTHLY: z.string().min(1).optional(),
 		RAZORPAY_PLAN_ENTERPRISE_YEARLY: z.string().min(1).optional(),
-		/** NestJS, behind this API until every module is ported; unported routes are forwarded. */
-		GRID_LEGACY_API_URL: z.url().optional(),
+		/** Where uploaded files (avatars) live; the launcher puts them in Grid's data folder. */
 		GRID_UPLOADS_DIR: z.string().min(1).optional(),
 	})
 	.superRefine((env, context) => {

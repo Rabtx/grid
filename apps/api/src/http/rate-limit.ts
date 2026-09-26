@@ -25,7 +25,7 @@ export function clientIp(c: Context<AppEnv>): string {
 }
 
 /**
- * At most `limit` requests per `windowMs` from one address to one route, as NestJS's throttler
+ * At most `limit` requests per `windowMs` from one address to one route, as the old API's throttler
  * did (100 a minute by default, stricter on sign-in routes). Counts live in memory: one API
  * process per Grid.
  */

@@ -28,8 +28,6 @@ export type AppConfig = {
 	refreshCookieName: string;
 	cookieDomain?: string;
 	cookieSameSite: "lax" | "strict" | "none";
-	/** NestJS behind this API, for routes not ported yet. */
-	legacyApiUrl?: string;
 	uploadsDir: string;
 	corsOrigin: string;
 	trustProxy: boolean;
@@ -86,10 +84,7 @@ export function createConfig(env: Env = parseEnv()): AppConfig {
 		refreshCookieName: env.REFRESH_COOKIE_NAME,
 		...(env.COOKIE_DOMAIN ? { cookieDomain: env.COOKIE_DOMAIN } : {}),
 		cookieSameSite: env.COOKIE_SAME_SITE,
-		...(env.GRID_LEGACY_API_URL
-			? { legacyApiUrl: env.GRID_LEGACY_API_URL.replace(/\/$/, "") }
-			: {}),
-		uploadsDir: env.GRID_UPLOADS_DIR ?? resolve(import.meta.dir, "../../../nest-api/uploads"),
+		uploadsDir: env.GRID_UPLOADS_DIR ?? resolve(import.meta.dir, "../../uploads"),
 		corsOrigin: env.CORS_ORIGIN,
 		trustProxy: env.TRUST_PROXY,
 		authDevExposeCodes: env.AUTH_DEV_EXPOSE_CODES,

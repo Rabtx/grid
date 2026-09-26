@@ -77,7 +77,7 @@ grid/
 ├── apps/
 │   ├── console/         # Vite + Solid 2 SPA — the product (control plane), performance-first
 │   ├── web/             # Next.js — to be trimmed to the marketing/landing site only
-│   ├── nest-api/        # NestJS production API (PostgreSQL in later phases)
+│   ├── api/             # The Grid API: Hono on Bun, PostgreSQL through packages/db
 │   ├── runner/          # Bun service on this machine: terminals (PTY over WebSocket) for the console
 │   ├── docs/            # Docs site (Fumadocs); source in apps/docs/content/docs/
 
@@ -118,7 +118,7 @@ grid/
 | `bun run test:coverage` | Run TS coverage + all language tests |
 | `bun run test:e2e:web` | Run web Playwright e2e tests |
 | `bun run architecture:check` | Enforce architecture import boundaries + kebab-case naming |
-| `bun run naming:check` | Enforce kebab-case (dotted Nest-style) file/folder names |
+| `bun run naming:check` | Enforce kebab-case (dotted) file/folder names |
 
 ## Conventions
 
@@ -152,7 +152,7 @@ grid/
   secret scan, architecture check. Hooks run automatically if installed via `bun run prepare`.
 - **Commit messages**: Enforced by `commit-msg` hook — Conventional Commits only
   (`feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert`), **all lowercase**,
-  10–200 chars, no WIP. Example: `feat(auth): add nestjs login and shared ui forms`.
+  10–200 chars, no WIP. Example: `feat(auth): add passkey login and shared ui forms`.
 - **Do not commit**: build output (`.next/`, `dist/`, `target/`), `node_modules/`, `.env` files,
   cache dirs. These are in `.gitignore`.
 - **Separate concerns**: Don't mix lint/format-only fixes with feature changes in the same commit.
@@ -166,7 +166,7 @@ grid/
 
 ### Docker
 
-Postgres, Nest API, and Next.js via Compose fragments under `docker/compose/`
+Postgres, the Grid API, and Next.js via Compose fragments under `docker/compose/`
 (merged by root `docker-compose.yml`, Compose v2.20+, no `version:` key):
 
 ```bash
@@ -174,7 +174,7 @@ cp env.docker.example .env
 docker compose up -d --build
 ```
 
-Defaults: web `:3000`, Nest `:4000`, Postgres host `:5433`. Host-only API/web: start `postgres`
+Defaults: web `:3000`, API `:4000`, Postgres host `:5433`. Host-only API/web: start `postgres`
 only, then `bun run dev`. See `/docs/docker` and `docker/README.md`.
 
 ## Before finishing any task
@@ -193,7 +193,7 @@ only, then `bun run dev`. See `/docs/docker` and `docker/README.md`.
   - `/docs/architecture` — architecture baseline and enforceable boundaries
   - `/docs/overrides` — policy for project-specific architecture overrides
   - `/docs/docker` — Docker Compose setup
-  - `/docs/deploy` — Vercel (web/docs) + Render (Nest) + Neon
+  - `/docs/deploy` — Vercel (web/docs) + Render (API) + Neon
 - `.agents/skills/solid-2/SKILL.md` — Solid 2 only in `apps/console`: removed 1.x APIs, their replacements, and idioms. Read before any Solid work.
 - `.agents/skills/mobile-first/SKILL.md` — Mobile-first responsive rules and checklist for all UI, especially the Solid console.
 - `.agents/skills/browser-ui-test/SKILL.md` — Browser UI/UX verification via Playwright MCP + `apps/web` e2e after interactive web changes.

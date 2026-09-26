@@ -1,4 +1,4 @@
-# Project entrypoint: Postgres + Nest API + Next.js web.
+# Project entrypoint: Postgres + the Grid API + Next.js web.
 # Requires Docker Compose v2.20+ (include). From repo root:
 #   cp env.docker.example .env && docker compose up -d --build
 #
@@ -8,5 +8,5 @@ name: grid
 
 include:
   - path: docker/compose/postgres.yml
-  - path: docker/compose/nest-api.yml
+  - path: docker/compose/api.yml
   - path: docker/compose/web.yml

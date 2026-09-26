@@ -18,9 +18,7 @@ const app = createApp({
 });
 
 const server = Bun.serve({ port: config.port, hostname: "0.0.0.0", fetch: app.fetch });
-console.log(
-	`grid api on :${server.port}${config.legacyApiUrl ? `, forwarding unported routes to ${config.legacyApiUrl}` : ""}`,
-);
+console.log(`grid api on :${server.port}`);
 
 const stop = async () => {
 	await server.stop();

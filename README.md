@@ -77,7 +77,7 @@ are the more current status. These plans are directions, not release dates.
 | `apps/console` | Solid 2 product interface and installable PWA |
 | `apps/runner` | Bun service for agents, chat sessions, terminals, project files, and environments |
 | `apps/launcher` | `bun run grid`: setup and one-port gateway |
-| `apps/nest-api` | NestJS API for identity, projects, tasks, and billing foundations |
+| `apps/api` | The Grid API (Hono on Bun) for identity, projects, tasks, notes, and billing |
 | `apps/web` | Next.js web app; the Solid console is the active product workspace |
 | `apps/docs` | Setup, API, architecture, and deployment guides |
 | `packages/` | Shared tokens, UI, logging, and TypeScript configuration |

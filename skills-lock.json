@@ -73,12 +73,6 @@
       "skillPath": "skills/m12-lifecycle/SKILL.md",
       "computedHash": "e360c0db5b5bf8e47d418e0a4a6ce33de7725b40eb126e6266f9fedfbccff291"
     },
-    "nestjs-best-practices": {
-      "source": "Kadajett/agent-nestjs-skills",
-      "sourceType": "github",
-      "skillPath": "SKILL.md",
-      "computedHash": "1b6f82e889d19d305e38e35594de08eca0242321f353cafa4cf5e61dd3aa1a73"
-    },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "github",

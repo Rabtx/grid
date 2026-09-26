@@ -45,14 +45,14 @@ fi
 
 if [[ "$FIRST" =~ ^wip([[:space:]:]|$) ]]; then
     msg "commit-msg: error - wip commits are not allowed"
-    msg "example: feat(web): add nest-backed login form"
+    msg "example: feat(web): add api-backed login form"
     exit 1
 fi
 
 # Reject any uppercase letter in the subject line
 if [[ "$FIRST" =~ [A-Z] ]]; then
     msg "commit-msg: error - subject must be all lowercase (no uppercase letters)"
-    msg "example: feat(auth): add nestjs login and shared ui forms"
+    msg "example: feat(auth): add passkey login and shared ui forms"
     exit 1
 fi
 
@@ -64,7 +64,7 @@ if ! [[ "$FIRST" =~ $CONV_RE ]]; then
     msg "commit-msg: error - subject must use conventional commits"
     msg "format:   <type>(optional-scope): <description>"
     msg "types:    feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
-    msg "example:  feat(auth): add nestjs login and shared ui forms"
+    msg "example:  feat(auth): add passkey login and shared ui forms"
     exit 1
 fi
 

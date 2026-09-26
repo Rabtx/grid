@@ -7,7 +7,15 @@
  * runner and the console behind a single gateway port and stops them together.
  */
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	cpSync,
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	renameSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 
 import { gatewayUrl, readLaunchConfig, type LaunchConfig } from "./config";
@@ -102,6 +110,29 @@ async function buildConsole(config: LaunchConfig): Promise<void> {
 	await run(["bun", "run", "build"], app("console"), {});
 }
 
+/**
+ * Uploaded files (avatars) live in the data directory, next to Grid's other state. Files the
+ * old API kept in apps/nest-api/uploads are moved over once, so their URLs keep working.
+ */
+function prepareUploads(dataDir: string): string {
+	const uploads = join(dataDir, "uploads");
+	const old = join(root, "apps", "nest-api", "uploads");
+	if (existsSync(old) && !existsSync(uploads)) {
+		mkdirSync(dataDir, { recursive: true });
+		try {
+			renameSync(old, uploads);
+		} catch (error) {
+			// Another disk (a Docker volume, a separate data drive): copy, then remove the old copy.
+			if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
+			cpSync(old, uploads, { recursive: true });
+			rmSync(old, { recursive: true, force: true });
+		}
+		log(`moved uploaded files to ${uploads}`);
+	}
+	mkdirSync(join(uploads, "avatars"), { recursive: true });
+	return uploads;
+}
+
 /** One Grid per data directory: a second start (another shell, a re-attached Codespace) exits. */
 function claimDataDir(dataDir: string): boolean {
 	const file = join(dataDir, "grid.pid");
@@ -163,31 +194,21 @@ async function start(config: LaunchConfig): Promise<void> {
 		}
 	}
 
-	const apiEnv = {
-		...database,
-		NODE_ENV: "development",
-		JWT_SECRET: secrets.jwtSecret,
-		AUTH_TOKEN_SECRET: secrets.authTokenSecret,
-		AUTH_DEV_EXPOSE_CODES: "false",
-	};
+	const uploadsDir = prepareUploads(config.dataDir);
 	const services: { name: string; cmd: string[]; cwd: string; env: Record<string, string> }[] = [
-		// The API: Hono on the API port, handing the routes it does not serve yet to NestJS on
-		// loopback behind it. Both read the same database and secrets.
 		{
 			name: "api",
 			cmd: ["bun", "src/main.ts"],
 			cwd: app("api"),
 			env: {
-				...apiEnv,
+				...database,
+				NODE_ENV: "development",
 				PORT: String(config.apiPort),
-				GRID_LEGACY_API_URL: `http://127.0.0.1:${config.legacyApiPort}`,
+				JWT_SECRET: secrets.jwtSecret,
+				AUTH_TOKEN_SECRET: secrets.authTokenSecret,
+				AUTH_DEV_EXPOSE_CODES: "false",
+				GRID_UPLOADS_DIR: uploadsDir,
 			},
-		},
-		{
-			name: "legacy-api",
-			cmd: ["bun", "src/main.ts"],
-			cwd: app("nest-api"),
-			env: { ...apiEnv, PORT: String(config.legacyApiPort) },
 		},
 		{
 			name: "runner",

@@ -28,16 +28,5 @@
     "**/*.less",
     "**/*.html",
     "**/*.graphql"
-  ],
-  "overrides": [
-    {
-      "files": [
-        "apps/nest-api/**/*.ts"
-      ],
-      "options": {
-        "singleQuote": true,
-        "trailingComma": "all"
-      }
-    }
   ]
 }

@@ -2,7 +2,7 @@ import type { Context } from "hono";
 
 import type { AppEnv } from "./context";
 
-/** Reason phrases in the form NestJS put in `code` when an error named none. */
+/** Reason phrases put in `code` when an error names none (clients already read these). */
 const STATUS_CODES: Record<number, string> = {
 	400: "BAD_REQUEST",
 	401: "UNAUTHORIZED",
@@ -23,7 +23,7 @@ const STATUS_CODES: Record<number, string> = {
 	503: "SERVICE_UNAVAILABLE",
 };
 
-/** NestJS's default messages for exceptions thrown without one ("Not Found", "Conflict"…). */
+/** Default messages for errors thrown without one ("Not Found", "Conflict"…). */
 const STATUS_MESSAGES: Record<number, string> = {
 	400: "Bad Request",
 	401: "Unauthorized",
