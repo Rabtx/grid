@@ -2,7 +2,7 @@ import { createRouter, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, lazy, Loading } from "solid-js";
 
-import { AuthProvider, LoginForm } from "@/modules/auth";
+import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { EnvironmentsScreen } from "@/modules/environments";
 import { AgentsScreen, AppearanceScreen } from "@/modules/settings";
@@ -18,6 +18,7 @@ const Router = createRouter({
 	routes: [
 		{ path: "/", component: ProjectRoute },
 		{ path: "/login", component: LoginRoute },
+		{ path: "/setup", component: SetupRoute },
 		{ path: "/board", component: RedirectRoute },
 		{ path: "/board/:slug", component: BoardRoute },
 		{ path: "/files/:slug", component: FilesRoute },
@@ -55,6 +56,14 @@ function LoginRoute(): JSX.Element {
 	return (
 		<div class="flex justify-center pt-[12vh] pb-12">
 			<LoginForm />
+		</div>
+	);
+}
+
+function SetupRoute(): JSX.Element {
+	return (
+		<div class="flex justify-center px-4 pt-[8vh] pb-12">
+			<SetupForm />
 		</div>
 	);
 }

@@ -1,6 +1,6 @@
-import { afterAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
-import { call, json, stable, type Reply } from "./client";
+import { call, demoToken, json, SIGN_IN_TIMEOUT, stable, type Reply } from "./client";
 
 /**
  * Sign-up to sign-out on one throwaway account, against whichever server CONTRACT_API_URL names.
@@ -43,11 +43,33 @@ function error(reply: Reply): { code: string; message: string } {
 
 const expectedUser = { email, username, isActive: true, hasPassword: true };
 
+/** Signup is closed by default, so the throwaway account joins the demo workspace by link. */
+const invites: string[] = [];
+const inviteIds: string[] = [];
+beforeAll(async () => {
+	const authorization = `Bearer ${await demoToken()}`;
+	const workspaces = await call("/api/v1/workspaces", { headers: { authorization } });
+	const [own] = data<{ slug: string; role: string }[]>(workspaces).filter(
+		(w) => w.role === "owner",
+	);
+	if (!own) throw new Error("The demo account owns no workspace");
+	for (let index = 0; index < 2; index++) {
+		const reply = await call(
+			`/api/v1/workspaces/${own.slug}/invites`,
+			json({ role: "member" }, { headers: { authorization } }),
+		);
+		const invite = data<{ id: string; token: string }>(reply);
+		invites.push(invite.token);
+		inviteIds.push(invite.id);
+	}
+}, SIGN_IN_TIMEOUT);
+
 afterAll(async () => {
 	if (!process.env.DATABASE_URL) return;
 	const { SQL } = await import("bun");
 	const sql = new SQL(process.env.DATABASE_URL, { max: 1 });
 	await sql`delete from users where email = ${email}`;
+	for (const id of inviteIds) await sql`delete from workspace_invites where id = ${id}`;
 	await sql.close();
 });
 
@@ -55,7 +77,12 @@ describe("auth: sign-up and verification", () => {
 	let code = "";
 
 	it("registers an account and sends a code", async () => {
-		const reply = await post("/api/v1/auth/register", { email, username, password: PASSWORD });
+		const reply = await post("/api/v1/auth/register", {
+			email,
+			username,
+			password: PASSWORD,
+			inviteToken: invites[0],
+		});
 		expect(reply.status).toBe(201);
 		const body = data<{ developmentCode: string; user: unknown }>(reply);
 		expect(body).toMatchObject({ accepted: true, message: "A verification code has been sent." });
@@ -69,6 +96,7 @@ describe("auth: sign-up and verification", () => {
 			email,
 			username: `${username}-b`,
 			password: PASSWORD,
+			inviteToken: invites[1],
 		});
 		expect(again.status).toBe(409);
 		expect(error(again)).toEqual({

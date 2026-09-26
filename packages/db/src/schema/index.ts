@@ -1,5 +1,6 @@
 export * from "./auth-challenges.schema";
 export * from "./auth-identities.schema";
+export * from "./instance.schema";
 export * from "./notes.schema";
 export * from "./passkeys.schema";
 export * from "./projects.schema";

@@ -6,6 +6,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./schema": "./src/schema/index.ts",
+		"./instance": "./src/instance.ts",
 		"./password": "./src/password.ts",
 		"./workspaces": "./src/workspaces.ts"
 	},

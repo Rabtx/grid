@@ -39,7 +39,7 @@ const metadata = (c: AppContext) => ({
 });
 
 /** A new session's reply: the refresh token in the cookie, and in the body only for native apps. */
-function presentSession(c: AppContext, result: SessionResult) {
+export function presentSession(c: AppContext, result: SessionResult) {
 	setRefreshCookie(c, result.refreshToken);
 	if (isNativeClient(c)) return result;
 	const { refreshToken: _refreshToken, ...rest } = result;

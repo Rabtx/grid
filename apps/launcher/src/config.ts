@@ -7,12 +7,11 @@ export type LaunchConfig = {
 	port: number;
 	apiPort: number;
 	runnerPort: number;
-	/** Secrets, the owner's first sign-in details and the chat database. */
+	/** Secrets, the first-run setup link and the chat database. */
 	dataDir: string;
 	/** Where new project folders go and where the runner's terminals start. */
 	projectsDir: string;
 	databaseUrl: string | undefined;
-	ownerEmail: string;
 	rebuild: boolean;
 	/**
 	 * Let a home Grid pair with this one and drive it as an environment. On by default when the
@@ -33,7 +32,6 @@ export function readLaunchConfig(env: Env, root: string): LaunchConfig {
 		projectsDir:
 			env.GRID_PROJECTS_DIR ?? (env.CODESPACES ? "/workspaces" : join(dataDir, "projects")),
 		databaseUrl: env.DATABASE_URL || undefined,
-		ownerEmail: env.GRID_OWNER_EMAIL ?? "owner@grid.local",
 		rebuild: env.GRID_REBUILD === "1",
 		pairing: env.GRID_PAIRING ? env.GRID_PAIRING === "1" : Boolean(env.TS_AUTH_KEY),
 	};

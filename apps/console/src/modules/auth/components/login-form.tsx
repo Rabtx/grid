@@ -2,11 +2,12 @@ import ViewIcon from "@hugeicons/core-free-icons/ViewIcon";
 import ViewOffIcon from "@hugeicons/core-free-icons/ViewOffIcon";
 import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, Show } from "solid-js";
+import { createEffect, createSignal, onSettled, Show } from "solid-js";
 
 import { Button, ErrorNotice, Field, Icon, IconButton, Input } from "@/ui";
 
 import { useAuth } from "../context/auth-context";
+import { authService } from "../services/auth.service";
 
 export function LoginForm(): JSX.Element {
 	const auth = useAuth();
@@ -32,6 +33,16 @@ export function LoginForm(): JSX.Element {
 	const [password, setPassword] = createSignal("");
 	const [error, setError] = createSignal<string | null>(null);
 	const [pending, setPending] = createSignal(false);
+	// A Grid nobody has set up yet has no accounts to sign in to: point at the setup link instead.
+	const [setupNeeded, setSetupNeeded] = createSignal(false);
+	onSettled(() => {
+		authService
+			.instance()
+			.then((status) => setSetupNeeded(status.setupNeeded))
+			.catch(() => {
+				// Unknown (offline, say): the form works as before.
+			});
+	});
 
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -86,6 +97,12 @@ export function LoginForm(): JSX.Element {
 					<Icon icon={showPassword() ? ViewOffIcon : ViewIcon} />
 				</IconButton>
 			</div>
+
+			<Show when={setupNeeded()}>
+				<p class="text-ink/60 text-ui-sm">
+					This Grid isn't set up yet. Open the setup link it printed when it started.
+				</p>
+			</Show>
 
 			<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
 

@@ -10,6 +10,7 @@ import {
 	type AuthUser,
 	isTwoFactorChallenge,
 	type LoginInput,
+	type SetupInput,
 } from "../types/auth.types";
 
 type AuthState = {
@@ -33,6 +34,8 @@ type AuthState = {
 	 */
 	renew: () => Promise<string | null>;
 	login: (input: LoginInput) => Promise<void>;
+	/** First run: create the owner and sign in as them. */
+	setUp: (input: SetupInput) => Promise<void>;
 	logout: () => Promise<void>;
 };
 
@@ -162,6 +165,12 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 			generation++;
 			renewing = null;
 			acceptSession(result);
+		},
+		setUp: async (input) => {
+			const session = await authService.setUp(input);
+			generation++;
+			renewing = null;
+			acceptSession(session);
 		},
 		logout: async () => {
 			generation++;

@@ -69,6 +69,29 @@ workspace (the oldest you own, made on first use if you have none). `:slug` is t
 | `PATCH` | `…/projects/:slug/notes/:id` | Edit a note |
 | `DELETE` | `…/projects/:slug/notes/:id` | Delete a note (`204`) |
 
+### Setup, signup and invites
+
+A new Grid has no accounts. While nobody has signed up, the launcher (or the API container's
+entrypoint) prints a one-time setup link, `/setup?code=…`; the setup call creates the owner (email
+already verified) and the first workspace, and signs them in. Signup is then **closed**:
+`POST /auth/register` needs an `inviteToken`, unless this Grid's owner opens signup. Google
+sign-in makes new accounts only while signup is open.
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/instance` | none | `{ setupNeeded, signupOpen }` |
+| `PATCH` | `/api/v1/instance` | Grid owner | Open or close signup (`{ signupOpen }`) |
+| `POST` | `/api/v1/instance/setup` | setup code | First run: owner account and workspace, signed in (`201`); `409` once set up |
+| `GET` | `/api/v1/workspaces/:ws/invites` | admin | Pending invites |
+| `POST` | `/api/v1/workspaces/:ws/invites` | admin | Invite by email (sent) or as a link (`{ email?, role }`); the reply carries the `token` and `url` once (`201`) |
+| `DELETE` | `/api/v1/workspaces/:ws/invites/:id` | admin | Revoke (`204`) |
+| `GET` | `/api/v1/invites/:token` | none | What the invite is for: workspace, role, email |
+| `POST` | `/api/v1/invites/:token/accept` | JWT | Join with the invite's role |
+
+Invites last 7 days and work once. One for an email only works for that address, and signing up
+with it starts the account verified. Roles are `admin` or `member`; ownership is handed over, not
+invited.
+
 ### Billing
 
 Plans belong to a workspace. `GET /api/v1/billing/subscription?workspace=:ws` shows it to any
@@ -81,5 +104,6 @@ Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-09-26 | First-run setup link, closed signup, workspace invites; `register` needs an `inviteToken` unless signup is open | yes: open signup or pass `inviteToken` |
 | 2026-09-26 | Workspaces: `/workspaces` routes, projects under `/workspaces/:ws/projects`, billing per workspace; `/projects` kept as the default workspace | no |
 | 2026-09-22 | Documented existing projects and tasks endpoints | no |
