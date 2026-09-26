@@ -34,6 +34,11 @@ export class InteractiveCliScreen {
 		private readonly emit: (event: InteractiveCliEvent) => void,
 	) {
 		this.terminal = new Terminal({ cols, rows, allowProposedApi: true, scrollback: 1000 });
+		this.terminal.onLineFeed(() => {
+			const buffer = this.terminal.buffer.active;
+			const row = buffer.viewportY + Math.max(0, buffer.cursorY - 1);
+			this.captureAd(buffer.getLine(row)?.translateToString(true) ?? "");
+		});
 	}
 
 	write(bytes: Uint8Array): void {
@@ -70,12 +75,10 @@ export class InteractiveCliScreen {
 			this.emit({ type: "screen", content });
 			const visible = lines.map((line) => line.trim()).filter(Boolean);
 			const last = visible.at(-1) ?? "";
-			const ad = visible.find((line) => /^(?:ad|sponsored|advertisement)\s*:/i.test(line));
-			if (ad && this.lastAd !== ad) {
-				this.lastAd = ad;
-				this.adHistory.push(ad);
-				this.emit({ type: "ad", content: ad });
-			} else if (!ad) this.lastAd = "";
+			for (const line of visible) this.captureAd(line);
+			if (!visible.some((line) => /^(?:ad|sponsored|advertisement)\s*:/i.test(line))) {
+				this.lastAd = "";
+			}
 			if (/\b(?:y\/n|yes\/no|confirm|allow|approve)\b/i.test(last)) {
 				this.interaction(`confirmation:${last}`, { type: "confirmation", text: last });
 			} else if (last.endsWith("?")) {
@@ -94,6 +97,15 @@ export class InteractiveCliScreen {
 			this.emit({ type: "error", message: cause instanceof Error ? cause.message : String(cause) });
 			this.emit({ type: "screen", content: this.lastScreen });
 		}
+	}
+
+	private captureAd(line: string): void {
+		const ad = line.trim();
+		if (!/^(?:ad|sponsored|advertisement)\s*:/i.test(ad)) return;
+		if (this.lastAd === ad) return;
+		this.lastAd = ad;
+		this.adHistory.push(ad);
+		this.emit({ type: "ad", content: ad });
 	}
 
 	private interaction(key: string, event: InteractiveCliEvent): void {

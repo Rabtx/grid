@@ -25,6 +25,22 @@ describe("InteractiveCliScreen", () => {
 		expect(screen.snapshot()).toContain("Ad: Sponsor message");
 		screen.dispose();
 	});
+
+	it.each(["", "\x1b[?1049h"])(
+		"retains ads that scroll off in a single PTY chunk",
+		async (prefix) => {
+			const events: { type: string; content?: string }[] = [];
+			const screen = new InteractiveCliScreen(40, 3, (event) => events.push(event));
+			screen.write(bytes(`${prefix}Ad: Sponsor message\r\nline1\r\nline2\r\nline3\r\nline4`));
+			await settle();
+			expect(screen.snapshot()).not.toContain("Ad: Sponsor message");
+			expect(screen.ads()).toContain("Ad: Sponsor message");
+			expect(events.filter((event) => event.type === "ad")).toEqual([
+				{ type: "ad", content: "Ad: Sponsor message" },
+			]);
+			screen.dispose();
+		},
+	);
 });
 
 describe("spawnInteractiveCli", () => {
