@@ -5,13 +5,13 @@ type: feature
 from: human
 to: backend
 priority: normal
-status: ready
+status: doing
 assignee: backend
 reviewer: human
 parent: .agents/plans/api-on-hono.md
 depends_on: [str-hono-foundation]
-branch: none
-worktree: none
+branch: agent/backend/hono-workspace-data
+worktree: /home/ghost/Projects/grid-worktrees/agent/backend/hono-workspace-data
 scope:
   - apps/api/src/modules/projects/**
   - apps/api/src/modules/profiles/**
