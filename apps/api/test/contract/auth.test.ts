@@ -282,9 +282,10 @@ describe("auth: sessions", () => {
 	});
 
 	it("rejects cross-site writes", async () => {
+		// Not on /login: sign-in attempts are rate limited, and other suites need theirs.
 		const reply = await call(
-			"/api/v1/auth/login",
-			json({ email, password: PASSWORD }, { headers: { origin: "https://evil.example" } }),
+			"/api/v1/auth/verify-email",
+			json({ email, code: "123456" }, { headers: { origin: "https://evil.example" } }),
 		);
 		expect(reply.status).toBe(403);
 		expect(error(reply)).toEqual({

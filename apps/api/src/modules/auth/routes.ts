@@ -1,4 +1,6 @@
+import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 import { Hono } from "hono";
+import type { JWTVerifyGetKey } from "jose";
 
 import { requireUser, type SessionLookup } from "../../http/auth";
 import type { AppContext, AppEnv } from "../../http/context";
@@ -9,9 +11,18 @@ import { clearRefreshCookie, isNativeClient, readRefreshCookie, setRefreshCookie
 import { csrf } from "./csrf";
 import * as flows from "./flows";
 import type { AuthDeps, MfaChallenge, SessionResult } from "./flows";
+import * as mfa from "../mfa/mfa";
+import * as passkeys from "../passkeys/passkeys";
+import * as google from "../social/google";
 import {
+	challengeTokenBodySchema,
 	changePasswordBodySchema,
 	emailBodySchema,
+	googleCredentialBodySchema,
+	passkeyAuthenticationBodySchema,
+	passkeyOptionsBodySchema,
+	passkeyRegistrationBodySchema,
+	totpCodeBodySchema,
 	loginBodySchema,
 	magicLinkBodySchema,
 	refreshBodySchema,
@@ -45,12 +56,18 @@ async function refreshToken(c: AppContext): Promise<string> {
 	return readRefreshCookie(c) ?? refreshToken ?? "";
 }
 
+export type AuthRouteDeps = AuthDeps & {
+	sessions: SessionLookup;
+	/** Google's signing keys; tests pass their own. */
+	googleKeys?: JWTVerifyGetKey;
+};
+
 /**
- * `/auth`: sign-up, email verification, sign-in with a refresh-token session, refresh, sign-out,
- * password reset and change, and the session list. 2FA completion, passkeys and Google are still
- * served by NestJS (they fall through to it).
+ * `/auth`: sign-up, email verification, sign-in (password, 2FA, magic link, passkey, Google)
+ * with a refresh-token session, refresh, sign-out, password reset and change, sessions, and
+ * `/auth/security` for managing 2FA, passkeys and Google.
  */
-export function authRoutes(deps: AuthDeps & { sessions: SessionLookup }): Hono<AppEnv> {
+export function authRoutes(deps: AuthRouteDeps): Hono<AppEnv> {
 	const signedIn = requireUser(deps.sessions);
 	return new Hono<AppEnv>()
 		.post("/register", perMinute(5), csrf, async (c) =>
@@ -114,5 +131,77 @@ export function authRoutes(deps: AuthDeps & { sessions: SessionLookup }): Hono<A
 		.post("/methods/magic-link/consume", perMinute(8), csrf, async (c) => {
 			const { token } = await body(c.req, magicLinkBodySchema);
 			return ok(c, presentSession(c, await flows.consumeMagicLink(deps, token, metadata(c))));
+		})
+		.post("/methods/two-factor/verify", perMinute(8), csrf, async (c) => {
+			const input = await body(c.req, challengeTokenBodySchema);
+			return ok(c, presentSession(c, await flows.completeMfaLogin(deps, input, metadata(c))));
+		})
+		.post("/methods/google", perMinute(10), csrf, async (c) => {
+			const { credential } = await body(c.req, googleCredentialBodySchema);
+			const user = await google.authenticateGoogle(deps, credential);
+			return ok(c, presentSession(c, await flows.createSession(deps, user, metadata(c))));
+		})
+		.post("/methods/passkeys/options", perMinute(10), csrf, async (c) => {
+			const { email } = await body(c.req, passkeyOptionsBodySchema);
+			return ok(c, await passkeys.beginAuthentication(deps, email), 201);
+		})
+		.post("/methods/passkeys/verify", perMinute(10), csrf, async (c) => {
+			const input = await body(c.req, passkeyAuthenticationBodySchema);
+			const user = await passkeys.finishAuthentication(deps, {
+				challengeId: input.challengeId,
+				response: input.response as unknown as AuthenticationResponseJSON,
+			});
+			return ok(c, presentSession(c, await flows.createSession(deps, user, metadata(c))));
+		})
+		.route("/security", securityRoutes(deps));
+}
+
+/**
+ * `/auth/security`, signed in: 2FA setup and removal, passkeys, and connecting Google. Like
+ * before, these POSTs answer 201 and take no CSRF check (the access token is a header).
+ */
+function securityRoutes(deps: AuthRouteDeps): Hono<AppEnv> {
+	return new Hono<AppEnv>()
+		.use("*", requireUser(deps.sessions))
+		.get("/", async (c) => {
+			const userId = c.get("user").sub;
+			const [mfaStatus, passkeyList, social] = await Promise.all([
+				mfa.mfaStatus(deps, userId),
+				passkeys.listPasskeys(deps, userId),
+				google.googleStatus(deps.db, userId),
+			]);
+			return ok(c, { mfa: mfaStatus, passkeys: passkeyList, social });
+		})
+		.post("/totp/setup", async (c) => ok(c, await mfa.beginTotpSetup(deps, c.get("user").sub), 201))
+		.post("/totp/confirm", async (c) => {
+			const { code } = await body(c.req, totpCodeBodySchema);
+			return ok(c, await mfa.confirmTotpSetup(deps, c.get("user").sub, code), 201);
+		})
+		.post("/totp/disable", async (c) => {
+			const { code } = await body(c.req, totpCodeBodySchema);
+			return ok(c, await mfa.disableTotp(deps, c.get("user").sub, code), 201);
+		})
+		.post("/passkeys/options", async (c) =>
+			ok(c, await passkeys.beginRegistration(deps, c.get("user").sub), 201),
+		)
+		.post("/passkeys", async (c) => {
+			const input = await body(c.req, passkeyRegistrationBodySchema);
+			const passkey = await passkeys.finishRegistration(deps, {
+				userId: c.get("user").sub,
+				challengeId: input.challengeId,
+				name: input.name,
+				response: input.response as unknown as RegistrationResponseJSON,
+			});
+			return ok(c, passkey, 201);
+		})
+		.delete("/passkeys/:passkeyId", async (c) =>
+			ok(
+				c,
+				await passkeys.removePasskey(deps, c.get("user").sub, uuidV4(c.req.param("passkeyId"))),
+			),
+		)
+		.post("/google/link", async (c) => {
+			const { credential } = await body(c.req, googleCredentialBodySchema);
+			return ok(c, await google.linkGoogle(deps, c.get("user").sub, credential), 201);
 		});
 }

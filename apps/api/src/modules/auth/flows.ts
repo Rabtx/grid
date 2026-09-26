@@ -22,6 +22,7 @@ import {
 	toPublicUser,
 	type UserRecord,
 } from "../users/users";
+import { verifyLoginCode } from "../mfa/mfa";
 import type { AuthCrypto, ChallengePurpose } from "./crypto";
 import * as store from "./store";
 import type { ChallengeRecord, RequestMetadata } from "./store";
@@ -145,6 +146,29 @@ export async function login(
 	}
 	await resetFailedLogins(deps.db, user.id);
 	if (await store.isTotpEnabled(deps.db, user.id)) return mfaChallenge(deps, user);
+	return createSession(deps, user, metadata);
+}
+
+/** The second step for accounts with 2FA: the login's challenge plus a code or recovery code. */
+export async function completeMfaLogin(
+	deps: AuthDeps,
+	body: { challengeToken: string; code: string },
+	metadata: RequestMetadata,
+): Promise<SessionResult> {
+	const challenge = await tokenChallenge(deps, body.challengeToken, "mfa_login");
+	if (!(await verifyLoginCode(deps, challenge.userId, body.code))) {
+		const attempts = challenge.attempts + 1;
+		await store.recordChallengeAttempt(
+			deps.db,
+			challenge.id,
+			attempts,
+			attempts >= deps.config.otpMaxAttempts,
+		);
+		throw invalidOtp();
+	}
+	if (!(await store.consumeChallenge(deps.db, challenge.id))) throw invalidOtp();
+	const user = await findUserById(deps.db, challenge.userId);
+	if (!user?.isActive) throw invalidCredentials();
 	return createSession(deps, user, metadata);
 }
 

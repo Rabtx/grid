@@ -99,6 +99,41 @@ export async function createUser(
 	}
 }
 
+/**
+ * An account made from a verified identity provider (Google): no password, the email already
+ * verified, and a username derived from the email with a random suffix.
+ */
+export async function createFederatedUser(
+	db: Database,
+	input: { email: string; displayName?: string | null; avatarUrl?: string | null },
+): Promise<UserRecord> {
+	const email = normalizeEmail(input.email);
+	const base = normalizeUsername(email.split("@")[0] ?? "user")
+		.replace(/[^a-z0-9._-]/g, "")
+		.slice(0, 48);
+	for (let attempt = 0; attempt < 5; attempt++) {
+		const username = `${base || "user"}-${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`;
+		try {
+			return await db.transaction(async (tx) => {
+				const [user] = await tx
+					.insert(schema.users)
+					.values({ email, username, passwordHash: null, emailVerifiedAt: new Date() })
+					.returning();
+				if (!user) throw new Error("User insert did not return a record");
+				await tx.insert(schema.userProfiles).values({
+					userId: user.id,
+					displayName: input.displayName,
+					avatarUrl: input.avatarUrl,
+				});
+				return user;
+			});
+		} catch (error) {
+			if (!isUniqueViolation(error)) throw error;
+		}
+	}
+	throw conflict({ code: "USER_CREATION_CONFLICT", message: "The account could not be created" });
+}
+
 /** The signed-in user, still active. */
 export async function currentUser(db: Database, id: string): Promise<PublicUser> {
 	const user = await findUserById(db, id);
