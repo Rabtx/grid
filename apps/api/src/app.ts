@@ -1,3 +1,4 @@
+import type { Database } from "@grid/db";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
@@ -9,10 +10,10 @@ import { ApiError, errorResponse } from "./http/errors";
 import { forward } from "./http/forward";
 import { rateLimit } from "./http/rate-limit";
 import { requestId } from "./http/request-id";
-import type { Database } from "@grid/db";
 
 import { authCrypto } from "./modules/auth/crypto";
 import { authRoutes } from "./modules/auth/routes";
+import { billingRoutes } from "./modules/billing/routes";
 import type { EmailSender } from "./modules/email/email";
 import { healthRoutes } from "./modules/health/routes";
 
@@ -75,6 +76,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 			sessions: deps.sessions,
 		}),
 	);
+	api.route("/billing", billingRoutes({ db: deps.db, sessions: deps.sessions }));
 	app.route(base, api);
 
 	// Not ported yet: NestJS answers. Without it (after the cutover), a plain 404.
