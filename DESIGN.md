@@ -157,6 +157,52 @@ Focus is keyboard-only (`focus-ring`: a 2px accent outline). Secondary row actio
 hover on pointer devices but are always visible on touch. Empty states are one short sentence;
 errors are an inline strip with the concrete reason and a retry.
 
+## Kit (the console rebuild)
+
+The console is being rebuilt screen by screen on a new design system in `apps/console/src/kit`,
+taken closely from the reference designs: light, calm and spacious, with hierarchy from text
+colour rather than size. Tokens live in `@grid/tokens/kit.css`, on top of the same hue,
+saturation and lightness inputs as above. `/design` shows every piece in every state, with an app
+preview composed only of kit parts; new screens use the kit, and `@/ui` goes away as screens move.
+
+- **Font:** Inter (self-hosted), regular and medium only. Sizes: caption 12, body 13 (the base),
+  body-lg 14, heading 16, headline 18, display 24; phones step up (body 15, fields 16).
+- **Text:** `text-fg` strong, `text-fg-muted` default, `text-fg-subtle` metadata and section
+  labels, `text-fg-faint` placeholders only.
+- **Surfaces:** `bg-surface` content, `bg-surface-sunken` the frame and sidebar,
+  `bg-surface-raised` menus and dialogs; `line` / `line-strong` hairlines; `fill` hover,
+  `fill-strong` selected.
+- **Shape:** rows 30px and controls 32px on desktop (44px on touch); radius 6 chips, 8 controls,
+  12 cards, 14 floating surfaces, 18 the composer; `shadow-float` for floating layers,
+  `shadow-raise` for the composer and prompts.
+- **Layout:** the sidebar sits on the sunken frame and the screen sits flush beside it with a
+  hairline; open things are tabs along the top. Phones get a top bar and a drawer; every menu
+  and dialog is a bottom sheet there.
+
+### Building with the kit
+
+Every visual decision lives in one place, so a tweak is made once:
+
+1. **Tokens** (`kit.css`) hold the values. Four knobs move the whole system live — roundness
+   (`--kit-radius-scale`), spacing (`--kit-density`), line strength (`--kit-line-scale`) and the
+   hue/saturation/lightness inputs — stored per device with the rest of Appearance and exposed on
+   `/design` under Tweak.
+2. **Kit components** turn tokens into recipes, each defined with the `variants()` helper
+   (`base` + axes like `size`, `tone`, `variant` + defaults). A new size or tone is one entry.
+   Repeated recipes are named utilities: `surface-card`, `surface-well`, `surface-field`,
+   `surface-outline`, `ring-line`, `ring-line-strong`, `shadow-raise`, `shadow-lift`,
+   `shadow-float`, `shadow-focus`, `shadow-knob`, `shadow-page`.
+3. **Screens compose.** Layout with `Stack`, `Row`, `Grid`, `Page`, `PageHeader`, `Section`,
+   `Spacer`, `Divider`; text with `Text` and `Heading`; icons with a `size`. A kit component's
+   `class` prop is for layout only (width, flex, grid placement, margin); content goes through
+   slots (`icon`, `trailing`, `actions`, `footer`…).
+
+`src/styles/kit-guard.test.ts` enforces this on every file outside `src/kit` that imports
+`@/kit`: no `style` attributes, no bracketed one-off values, no hex colours, no radii or shadows
+of their own, no raw palette colours, no weights beyond regular and medium, and no `@/ui`
+imports. When something a screen needs is missing, add it to the kit (and to `/design`) rather
+than styling it in place.
+
 ## Typography
 
 - Use the app's configured sans font for product UI.

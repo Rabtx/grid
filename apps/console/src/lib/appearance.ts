@@ -25,6 +25,12 @@ export type Appearance = {
 	/** Interface scale, 0.5–2 in steps of 0.1. */
 	uiScale: number;
 	density: Density;
+	/** Kit corner roundness, 0–2; 1 is the reference design. */
+	radius: number;
+	/** Kit control and row heights, 0.85–1.2; touch sizes never drop below 44px. */
+	spacing: number;
+	/** Kit hairline strength, 0.5–2. */
+	lines: number;
 };
 
 export const APPEARANCE_DEFAULTS: Appearance = {
@@ -37,6 +43,9 @@ export const APPEARANCE_DEFAULTS: Appearance = {
 	glassBlur: 24,
 	uiScale: 1,
 	density: "comfortable",
+	radius: 1,
+	spacing: 1,
+	lines: 1,
 };
 
 export const APPEARANCE_LIMITS = {
@@ -46,6 +55,9 @@ export const APPEARANCE_LIMITS = {
 	glassOpacity: { min: 0.15, max: 1, step: 0.01 },
 	glassBlur: { min: 1, max: 64, step: 1 },
 	uiScale: { min: 0.5, max: 2, step: 0.1 },
+	radius: { min: 0, max: 2, step: 0.05 },
+	spacing: { min: 0.85, max: 1.2, step: 0.01 },
+	lines: { min: 0.5, max: 2, step: 0.05 },
 } as const;
 
 /** Accent presets offered next to the custom colour picker (null is the default). */
@@ -97,6 +109,9 @@ export function normalizeAppearance(input: unknown): Appearance {
 		glassBlur: Math.round(clamp(raw.glassBlur, l.glassBlur.min, l.glassBlur.max, d.glassBlur)),
 		uiScale: Math.round(clamp(raw.uiScale, l.uiScale.min, l.uiScale.max, d.uiScale) * 10) / 10,
 		density: oneOf(raw.density, ["compact", "comfortable", "spacious"], d.density),
+		radius: Math.round(clamp(raw.radius, l.radius.min, l.radius.max, d.radius) * 100) / 100,
+		spacing: Math.round(clamp(raw.spacing, l.spacing.min, l.spacing.max, d.spacing) * 100) / 100,
+		lines: Math.round(clamp(raw.lines, l.lines.min, l.lines.max, d.lines) * 100) / 100,
 	};
 }
 
@@ -113,7 +128,7 @@ export function readableInk(hex: string): "#000000" | "#ffffff" {
 /** The actual canvas colour, for the status/browser bar surrounding the page. */
 export function canvasColor(value: Appearance, prefersDark: boolean): string {
 	const dark = value.theme === "dark" || (value.theme === "system" && prefersDark);
-	const lightness = (dark ? value.darkLightness : 99.2) / 100;
+	const lightness = (dark ? value.darkLightness : 99.6) / 100;
 	const saturation = value.saturation / 100;
 	const amount = saturation * Math.min(lightness, 1 - lightness);
 	const channel = (offset: number) => {
@@ -145,6 +160,9 @@ export function applyAppearance(
 	style.setProperty("--glass-opacity", String(value.glassOpacity));
 	style.setProperty("--glass-blur", `${value.glassBlur}px`);
 	style.setProperty("--ui-scale", String(value.uiScale));
+	style.setProperty("--kit-radius-scale", String(value.radius));
+	style.setProperty("--kit-density", String(value.spacing));
+	style.setProperty("--kit-line-scale", String(value.lines));
 	if (value.accent) {
 		style.setProperty("--user-accent", value.accent);
 		style.setProperty("--user-accent-ink", readableInk(value.accent));

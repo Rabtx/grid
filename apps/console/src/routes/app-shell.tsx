@@ -35,27 +35,32 @@ import { BrandLogo } from "@/ui";
 // Pages outside any workspace keep the signed-out frame even for someone signed in.
 const OUTSIDE = /^\/(login|setup|invite)(\/|$)/;
 
+// Pages that draw their whole screen themselves.
+const STANDALONE = /^\/design(\/|$)/;
+
 export function AppShell(props: { children: JSX.Element }): JSX.Element {
 	const auth = useAuth();
 	const location = useLocation();
 
 	return (
-		<div class="min-h-dvh bg-canvas text-ink">
-			{/* Restoring (opening for someone signed in last time) is signed in: their screens need
+		<Show when={!STANDALONE.test(location.pathname)} fallback={props.children}>
+			<div class="min-h-dvh bg-canvas text-ink">
+				{/* Restoring (opening for someone signed in last time) is signed in: their screens need
 			    the workspace from the first render, or they have nothing to read. */}
-			<Show
-				when={(auth.token() || auth.restoring()) && !OUTSIDE.test(location.pathname)}
-				fallback={<SignedOutShell>{props.children}</SignedOutShell>}
-			>
-				<WorkspacesProvider>
-					<WorkspaceProvider>
-						<SignedInShell>{props.children}</SignedInShell>
-					</WorkspaceProvider>
-				</WorkspacesProvider>
-			</Show>
-			<OfflineBanner />
-			<UpdateBanner />
-		</div>
+				<Show
+					when={(auth.token() || auth.restoring()) && !OUTSIDE.test(location.pathname)}
+					fallback={<SignedOutShell>{props.children}</SignedOutShell>}
+				>
+					<WorkspacesProvider>
+						<WorkspaceProvider>
+							<SignedInShell>{props.children}</SignedInShell>
+						</WorkspaceProvider>
+					</WorkspacesProvider>
+				</Show>
+				<OfflineBanner />
+				<UpdateBanner />
+			</div>
+		</Show>
 	);
 }
 

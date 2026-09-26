@@ -31,8 +31,8 @@
 
 	/* Light (the base values; dark overrides below). The canvas is where content sits; the
 	   backdrop is the quieter frame around it that the navigation lives on. */
-	--canvas-lightness: 99.2%;
-	--backdrop-lightness: 96.6%;
+	--canvas-lightness: 99.6%;
+	--backdrop-lightness: 98%;
 	--ink-lightness: 16%;
 	--selection-subtle-strength: 5%;
 	--selection-strength: 6%;
@@ -142,9 +142,10 @@
 	--sidebar-border: var(--stroke);
 
 	/* ── Type (phone defaults; the desktop scale starts at md) ── */
+	/* Inter, self-hosted by the console (@fontsource-variable/inter); the system font until it loads. */
 	--font-sans:
-		system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
-		"Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+		"Inter Variable", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+		sans-serif;
 	--font-mono:
 		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
 		monospace;
