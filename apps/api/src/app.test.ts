@@ -3,6 +3,8 @@ import { Hono } from "hono";
 import { SignJWT } from "jose";
 import * as z from "zod";
 
+import type { Database } from "@grid/db";
+
 import { createApp } from "./app";
 import { createConfig } from "./config/config";
 import { parseEnv } from "./config/env";
@@ -14,6 +16,8 @@ import { requestId } from "./http/request-id";
 import { ok } from "./http/respond";
 import { body } from "./http/validate";
 
+// These tests never reach a route that queries the database.
+const noDb = {} as Database;
 const SECRET = "test-secret-that-is-at-least-32-characters";
 const config = (env: Record<string, string> = {}) =>
 	createConfig(parseEnv({ NODE_ENV: "test", JWT_SECRET: SECRET, ...env }));
@@ -41,7 +45,7 @@ const token = (claims: { sub: string; sid: string }, secret = SECRET) =>
 		.sign(new TextEncoder().encode(secret));
 
 describe("envelope and errors", () => {
-	const app = createApp({ config: config(), sessions: sessions() });
+	const app = createApp({ config: config(), sessions: sessions(), db: noDb, send: async () => {} });
 
 	it("wraps success in the envelope and echoes a caller's request id", async () => {
 		const response = await app.request("/api/v1/health", {
@@ -210,8 +214,10 @@ describe("forwarding to NestJS", () => {
 		const app = createApp({
 			config: config({ GRID_LEGACY_API_URL: `http://127.0.0.1:${legacy.port}` }),
 			sessions: sessions(),
+			db: noDb,
+			send: async () => {},
 		});
-		const response = await app.request("/api/v1/auth/login?next=%2F", {
+		const response = await app.request("/api/v1/not-ported/thing?next=%2F", {
 			method: "POST",
 			headers: { cookie: "a=1", "content-type": "application/json", "x-request-id": "req_fwd" },
 			body: JSON.stringify({ email: "x@y.z" }),
@@ -220,7 +226,7 @@ describe("forwarding to NestJS", () => {
 		expect(response.headers.get("set-cookie")).toContain("grid_refresh_token=abc");
 		expect(await response.json()).toEqual({
 			method: "POST",
-			path: "/api/v1/auth/login?next=%2F",
+			path: "/api/v1/not-ported/thing?next=%2F",
 			cookie: "a=1",
 			requestId: "req_fwd",
 			body: JSON.stringify({ email: "x@y.z" }),
@@ -231,6 +237,8 @@ describe("forwarding to NestJS", () => {
 		const app = createApp({
 			config: config({ GRID_LEGACY_API_URL: `http://127.0.0.1:${legacy.port}` }),
 			sessions: sessions(),
+			db: noDb,
+			send: async () => {},
 		});
 		const json = (await (await app.request("/api/v1/health")).json()) as { data: unknown };
 		expect(json.data).toEqual({ status: "ok", service: "grid-api" });
@@ -240,6 +248,8 @@ describe("forwarding to NestJS", () => {
 		const app = createApp({
 			config: config({ GRID_LEGACY_API_URL: `http://127.0.0.1:${legacy.port}` }),
 			sessions: sessions(),
+			db: noDb,
+			send: async () => {},
 		});
 		const json = (await (await app.request("/uploads/avatars/a.png")).json()) as { path: string };
 		expect(json.path).toBe("/uploads/avatars/a.png");

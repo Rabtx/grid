@@ -7,10 +7,13 @@ import { tooManyRequests } from "./errors";
 
 type Window = { count: number; resetAt: number };
 
-/** The caller's address: the first forwarded hop behind a trusted proxy, else the socket's. */
+/**
+ * The caller's address, as Express's `req.ip` gave it: behind one trusted proxy (TRUST_PROXY),
+ * the hop that proxy saw (the last `X-Forwarded-For` entry); otherwise the socket's address.
+ */
 export function clientIp(c: Context<AppEnv>): string {
 	if (c.get("config").trustProxy) {
-		const forwarded = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+		const forwarded = c.req.header("x-forwarded-for")?.split(",").at(-1)?.trim();
 		if (forwarded) return forwarded;
 	}
 	try {

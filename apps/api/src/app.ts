@@ -9,6 +9,11 @@ import { ApiError, errorResponse } from "./http/errors";
 import { forward } from "./http/forward";
 import { rateLimit } from "./http/rate-limit";
 import { requestId } from "./http/request-id";
+import type { Database } from "@grid/db";
+
+import { authCrypto } from "./modules/auth/crypto";
+import { authRoutes } from "./modules/auth/routes";
+import type { EmailSender } from "./modules/email/email";
 import { healthRoutes } from "./modules/health/routes";
 
 /** NestJS's words for a route that does not exist, query string included. */
@@ -19,7 +24,10 @@ function notFoundRoute(c: AppContext): ApiError {
 
 export type AppDeps = {
 	config: AppConfig;
+	db: Database;
 	sessions: SessionLookup;
+	/** Sends the codes and sign-in links. */
+	send: EmailSender;
 };
 
 /**
@@ -57,6 +65,16 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 	// Ported modules. Each one's routes answer here; everything else falls through below.
 	const api = new Hono<AppEnv>();
 	api.route("/health", healthRoutes());
+	api.route(
+		"/auth",
+		authRoutes({
+			db: deps.db,
+			config,
+			crypto: authCrypto(config),
+			send: deps.send,
+			sessions: deps.sessions,
+		}),
+	);
 	app.route(base, api);
 
 	// Not ported yet: NestJS answers. Without it (after the cutover), a plain 404.

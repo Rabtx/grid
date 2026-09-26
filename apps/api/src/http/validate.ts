@@ -19,11 +19,35 @@ export function parse<T>(schema: ZodType<T>, value: unknown): T {
 	});
 }
 
-/** The JSON body, validated. A missing or malformed body validates as `{}`. */
+/**
+ * The JSON body, validated, read as Express did: a body that is not JSON by its content type, or
+ * is empty, counts as `{}`; malformed JSON is a 400 with the parser's message.
+ */
 export async function body<T>(
-	request: Request | { json: () => Promise<unknown> },
+	request: { header: (name: string) => string | undefined; text: () => Promise<string> },
 	schema: ZodType<T>,
 ): Promise<T> {
-	const value = await request.json().catch(() => ({}));
-	return parse(schema, value);
+	return parse(schema, await readJson(request));
+}
+
+export async function readJson(request: {
+	header: (name: string) => string | undefined;
+	text: () => Promise<string>;
+}): Promise<unknown> {
+	if (!request.header("content-type")?.toLowerCase().includes("json")) return {};
+	const text = await request.text();
+	if (!text.trim()) return {};
+	try {
+		return JSON.parse(text);
+	} catch (error) {
+		throw badRequest(error instanceof Error ? error.message : "Invalid JSON");
+	}
+}
+
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** A route parameter that must be a v4 UUID, refused in NestJS's words. */
+export function uuidV4(value: string): string {
+	if (!UUID_V4.test(value)) throw badRequest("Validation failed (uuid v 4 is expected)");
+	return value;
 }
