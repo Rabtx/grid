@@ -246,7 +246,7 @@ describe("TaskPanel", () => {
 		await settle();
 
 		expect(draftsStore.take("alpha")).toBe(
-			"First task in backlog\n\nDraft the empty state.\n\nWork on branch feature/first-task",
+			"TASK-1: First task in backlog\n\nDraft the empty state.\n\nWork on branch feature/first-task",
 		);
 		expect(container.querySelector('[data-testid="chat-screen"]')).not.toBeNull();
 	});
@@ -265,7 +265,7 @@ describe("TaskPanel", () => {
 		await settle();
 
 		expect(draftsStore.take("alpha")).toBe(
-			"Second task ready for work\n\nWork on branch feature/second-task",
+			"TASK-2: Second task ready for work\n\nWork on branch feature/second-task",
 		);
 		expect(container.querySelector('[data-testid="chat-screen"]')).not.toBeNull();
 	});

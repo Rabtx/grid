@@ -33,11 +33,19 @@ function useSection(): () => string | null {
 function Heading(): JSX.Element {
 	const workspace = useWorkspace();
 	const section = useSection();
+	const location = useLocation();
+	// A project's Files and Notes pages are named after the project, like its board.
+	const projectPage = () =>
+		location.pathname.startsWith("/files/") || location.pathname.startsWith("/notes/")
+			? (workspace.currentProject()?.name ?? null)
+			: null;
 
 	return (
 		<Show
 			when={!section() && workspace.activeSlug()}
-			fallback={<h1 class="truncate px-1.5 font-medium text-ui">{section() ?? "Grid"}</h1>}
+			fallback={
+				<h1 class="truncate px-1.5 font-medium text-ui">{section() ?? projectPage() ?? "Grid"}</h1>
+			}
 		>
 			<Loading fallback={<span />}>
 				<div class="flex min-w-0 items-center gap-2 px-1.5">

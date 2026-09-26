@@ -143,7 +143,7 @@ describe("TaskCard", () => {
 		await settle();
 
 		expect(draftsStore.take("alpha")).toBe(
-			"Implement neural search engine\n\nConnect to vector index and rank embeddings.\n\nWork on branch agent/search/vector-index",
+			"TASK-42: Implement neural search engine\n\nConnect to vector index and rank embeddings.\n\nWork on branch agent/search/vector-index",
 		);
 		expect(container.querySelector('[data-testid="chat-screen"]')).not.toBeNull();
 		expect(movedStatus).toBeNull();
@@ -168,7 +168,7 @@ describe("TaskCard", () => {
 		runItem?.click();
 		await settle();
 
-		expect(draftsStore.take("alpha")).toBe("Minimal task title");
+		expect(draftsStore.take("alpha")).toBe("TASK-43: Minimal task title");
 		expect(container.querySelector('[data-testid="chat-screen"]')).not.toBeNull();
 	});
 
@@ -192,7 +192,7 @@ describe("TaskCard", () => {
 		await settle();
 
 		expect(draftsStore.take("alpha")).toBe(
-			"Task with branch only\n\nWork on branch agent/web/branch-test",
+			"TASK-44: Task with branch only\n\nWork on branch agent/web/branch-test",
 		);
 		expect(container.querySelector('[data-testid="chat-screen"]')).not.toBeNull();
 	});
@@ -217,7 +217,7 @@ describe("TaskCard", () => {
 		await settle();
 
 		expect(draftsStore.take("alpha")).toBe(
-			"Task with description only\n\nOnly markdown description here.",
+			"TASK-45: Task with description only\n\nOnly markdown description here.",
 		);
 		expect(container.querySelector('[data-testid="chat-screen"]')).not.toBeNull();
 	});
