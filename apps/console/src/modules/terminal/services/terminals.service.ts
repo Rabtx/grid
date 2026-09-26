@@ -65,6 +65,7 @@ export const terminalsService = {
 		size: { cols: number; rows: number },
 		cwd?: string,
 		environment?: string,
+		provider?: string,
 	) =>
 		on(environment)(
 			await call<TerminalInfo>(
@@ -73,7 +74,11 @@ export const terminalsService = {
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ ...size, ...(cwd ? { cwd } : {}) }),
+					body: JSON.stringify({
+						...size,
+						...(cwd ? { cwd } : {}),
+						...(provider ? { provider } : {}),
+					}),
 				},
 				environment,
 			),

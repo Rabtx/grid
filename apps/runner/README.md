@@ -10,6 +10,12 @@ still owns sign-in, projects, and board tasks.
   runner restart. Settings → Agents can install or sign in supported CLIs on this machine.
 - **Terminals:** Bun PTYs outlive their browser sockets. A reconnect receives missed output
   when it is still available; restarting the runner ends the running shells.
+- **Interactive CLIs:** Start Freebuff from the terminal screen in an active project folder.
+  The runner executes the installed `freebuff` command directly in a Bun PTY, retains raw
+  output, and interprets VT screen state with `@xterm/headless`. The console can switch between
+  a mobile screen view and the raw terminal; both send input to the same unchanged CLI. Freebuff
+  ads remain visible in its screen and raw output. Install the official CLI with
+  `npm install -g freebuff` on the runner machine.
 - **Files:** browse and create files or folders inside a linked project root. Path checks keep
   those operations inside that root.
 - **Environments:** a home Grid can pair with another runner and relay project chats, files,
@@ -60,8 +66,12 @@ Protocol (`/terminal` WebSocket): the client's first message is
 output it already has. The server answers `{"t":"ready"}`, then missed or kept output as binary
 frames, then live output. Input goes as binary frames. Control messages are JSON
 text: `{"t":"resize","cols","rows"}` from the client; `{"t":"title"}` and `{"t":"exit","code"}`
-from the server. Close code 4401 means sign in again, 4404 means the terminal is gone.
-HTTP: `GET /terminals`, `POST /terminals {cols, rows, cwd?}`, `DELETE /terminals/:id`.
+from the server. Interactive CLI terminals also send `{"t":"event","event":...}` with screen,
+text, status, selection, question, confirmation, ad, or error data; `ready.screen` contains the
+current interpreted screen and `ready.ads` restores detected ads after reconnect. Close code 4401 means sign in again, 4404 means the
+terminal is gone. HTTP: `GET /terminals`, `POST /terminals {cols, rows, cwd?, provider?}`,
+`DELETE /terminals/:id`. `provider: "freebuff"` requires an existing workspace `cwd` and an
+installed `freebuff` executable.
 
 **Voice input** (`POST /transcribe`, body = the recording): only for browsers without a speech
 recogniser of their own (the console uses the device's recogniser — Android, iOS, macOS, Chrome

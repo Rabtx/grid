@@ -57,6 +57,8 @@ function setup(renew: () => Promise<string | null> = async () => null) {
 		onState: (state) => states.push(state),
 		onTitle: (title) => events.push(`title:${title}`),
 		onExit: (code) => events.push(`exit:${code}`),
+		onEvent: (event) =>
+			events.push(`${event.type}:${event.type === "screen" ? event.content : ""}`),
 		createSocket: (url) => {
 			const socket = new FakeSocket(url);
 			sockets.push(socket);
@@ -70,6 +72,26 @@ function setup(renew: () => Promise<string | null> = async () => null) {
 const ready = JSON.stringify({ t: "ready", terminal: { id: "term-1" } });
 
 describe("connectTerminal", () => {
+	it("receives interpreted screen state and interaction events alongside raw output", () => {
+		const { sockets, events, output } = setup();
+		sockets[0].accept();
+		sockets[0].receive(
+			JSON.stringify({
+				t: "ready",
+				terminal: { id: "term-1" },
+				screen: "Freebuff",
+				ads: ["Ad: sponsor"],
+			}),
+		);
+		sockets[0].receive(
+			JSON.stringify({ t: "event", event: { type: "selection", options: ["One", "Two"] } }),
+		);
+		sockets[0].receive(new TextEncoder().encode("Ad: visible").buffer);
+		expect(events).toContain("screen:Freebuff");
+		expect(events).toContain("ad:");
+		expect(events).toContain("selection:");
+		expect(output).toEqual(["Ad: visible"]);
+	});
 	beforeEach(() => {
 		vi.useFakeTimers();
 	});

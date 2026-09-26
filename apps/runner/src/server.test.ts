@@ -66,6 +66,17 @@ function closeCode(ws: WebSocket): Promise<number> {
 }
 
 describe("runner server", () => {
+	it("rejects unknown interactive CLIs and Freebuff without a workspace folder", async () => {
+		const create = (body: object) =>
+			fetch(`${base}/terminals`, {
+				method: "POST",
+				headers: { ...auth, "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+		expect((await create({ provider: "unknown", cwd: import.meta.dir })).status).toBe(400);
+		expect((await create({ provider: "freebuff" })).status).toBe(400);
+	});
+
 	it("refuses to list terminals without a valid token", async () => {
 		expect((await fetch(`${base}/terminals`)).status).toBe(401);
 		expect(

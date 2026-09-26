@@ -45,6 +45,45 @@ function client() {
 const config = { ...readConfig({}), replayBytes: 10, maxTerminalsPerUser: 2 };
 
 describe("TerminalStore", () => {
+	it("keeps an interactive CLI alive across detach and replays raw bytes and screen state", async () => {
+		const cli = fakePty();
+		const store = new TerminalStore(config, fakePty().spawn, (options) =>
+			cli.spawn({ ...options, shell: options.provider.command[0] }),
+		);
+		const info = store.open("me", { cols: 80, rows: 24 }, import.meta.dir, undefined, {
+			id: "fixture",
+			name: "Fixture",
+			command: ["fixture"],
+		});
+		expect(info?.cwd).toBe(import.meta.dir);
+		expect(info?.provider).toBe("fixture");
+		const first = client();
+		const attached = store.attach("me", info?.id ?? "", first.handle);
+		attached?.detach();
+		cli.spawned[0].onData(bytes("Ad: Hello from sponsor\r\nChoose?"));
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(cli.spawned[0].killed).toBe(false);
+		const late = store.attach("me", info?.id ?? "", client().handle);
+		expect(late?.history.map((part) => new TextDecoder().decode(part)).join("")).toContain(
+			"Ad: Hello from sponsor",
+		);
+		expect(late?.screen).toContain("Ad: Hello from sponsor");
+		expect(late?.ads).toEqual(["Ad: Hello from sponsor"]);
+		store.write("me", info?.id ?? "", "/history\r");
+		expect(cli.spawned[0].writes).toEqual(["/history\r"]);
+		store.closeAll();
+	});
+	it("requires an absolute existing workspace folder for interactive CLIs", () => {
+		const store = new TerminalStore(config, fakePty().spawn);
+		expect(() =>
+			store.open("me", { cols: 80, rows: 24 }, ".", undefined, {
+				id: "fixture",
+				name: "Fixture",
+				command: ["fixture"],
+			}),
+		).toThrow("workspace folder");
+	});
+
 	it("keeps each person's terminals to themselves", () => {
 		const { spawn } = fakePty();
 		const store = new TerminalStore(config, spawn);

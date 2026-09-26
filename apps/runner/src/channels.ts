@@ -57,6 +57,7 @@ export function openTerminal(
 			output: (bytes) => sink.bytes(bytes),
 			exited: (code) => sink.text({ t: "exit", code }),
 			titled: (title) => sink.text({ t: "title", title }),
+			event: (event) => sink.text({ t: "event", event }),
 		},
 		typeof hello.offset === "number" ? hello.offset : undefined,
 	);
@@ -64,7 +65,14 @@ export function openTerminal(
 		sink.close(CLOSE_NOT_FOUND, "That terminal does not exist");
 		return null;
 	}
-	sink.text({ t: "ready", terminal: attached.info, resumed: attached.resumed, at: attached.at });
+	sink.text({
+		t: "ready",
+		terminal: attached.info,
+		resumed: attached.resumed,
+		at: attached.at,
+		screen: attached.screen,
+		ads: attached.ads,
+	});
 	for (const bytes of attached.history) sink.bytes(bytes);
 	if (attached.info.exitCode !== null) {
 		sink.text({ t: "exit", code: attached.info.exitCode });

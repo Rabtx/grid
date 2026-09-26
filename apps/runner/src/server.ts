@@ -16,6 +16,7 @@ import { closeLink, createLink, type LinkState, linkMessage } from "./link";
 import type { PushNotifier } from "./push/notifier";
 import { pushRequest } from "./push/routes";
 import type { TerminalStore } from "./terminals";
+import { INTERACTIVE_CLIS } from "./agents/interactive-cli";
 import { transcribe, TranscribeError } from "./transcribe";
 
 /** What the console sends first on a socket: who it is and which terminal it wants. */
@@ -218,16 +219,37 @@ export function startServer(
 
 				if (request.method === "GET" && !id) return Response.json({ data: store.list(who.userId) });
 				if (request.method === "POST" && !id) {
-					const body = (await request.json().catch(() => ({}))) as {
+					const body = (await request.json().catch(() => null)) as {
 						cols?: number;
 						rows?: number;
 						cwd?: string;
-					};
-					const info = store.open(
-						who.userId,
-						{ cols: body.cols ?? 80, rows: body.rows ?? 24 },
-						typeof body.cwd === "string" ? body.cwd : undefined,
-					);
+						provider?: string;
+					} | null;
+					if (!body || typeof body !== "object") return error(400, "Send terminal options");
+					const provider =
+						typeof body.provider === "string" && Object.hasOwn(INTERACTIVE_CLIS, body.provider)
+							? INTERACTIVE_CLIS[body.provider]
+							: undefined;
+					if (body.provider !== undefined && !provider)
+						return error(400, "Unknown interactive CLI");
+					if (provider && (typeof body.cwd !== "string" || !body.cwd)) {
+						return error(400, "Choose an active workspace folder");
+					}
+					if (provider && !Bun.which(provider.command[0], { PATH: process.env.PATH ?? "" })) {
+						return error(503, `${provider.name} CLI is not installed on this runner`);
+					}
+					let info;
+					try {
+						info = store.open(
+							who.userId,
+							{ cols: body.cols ?? 80, rows: body.rows ?? 24 },
+							typeof body.cwd === "string" ? body.cwd : undefined,
+							undefined,
+							provider,
+						);
+					} catch (cause) {
+						return error(400, cause instanceof Error ? cause.message : "Could not start the CLI");
+					}
 					if (!info) return error(429, "Close a terminal before opening another");
 					return Response.json({ data: info }, { status: 201 });
 				}

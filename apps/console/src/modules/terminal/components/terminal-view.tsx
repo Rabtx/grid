@@ -14,6 +14,7 @@ import { registerDictationTarget } from "@/modules/voice";
 import { ChevronDownIcon, CopyIcon } from "@/ui";
 
 import { applyModifiers, type Arrow, arrowSequence, type Modifiers } from "../lib/keys";
+import type { InteractiveCliEvent } from "../lib/interactive-cli-event";
 import { lineForThumb, type ScrollState, thumbGeometry } from "../lib/scrollbar";
 import { keptScreen, screenRecorder } from "../lib/screen-cache";
 import { connectTerminal, type ConnectionState } from "../lib/terminal-socket";
@@ -52,6 +53,7 @@ export function TerminalView(props: {
 	onHandle: (handle: TerminalHandle) => void;
 	onState: (state: ConnectionState) => void;
 	onTitle: (title: string) => void;
+	onEvent?: (event: InteractiveCliEvent) => void;
 }): JSX.Element {
 	const auth = useAuth();
 	let host: HTMLDivElement | undefined;
@@ -243,6 +245,7 @@ export function TerminalView(props: {
 			},
 			onState: link.set,
 			onTitle: (title) => props.onTitle(title),
+			onEvent: props.onEvent,
 			onExit: (code) => {
 				terminal.write(`\r\n\x1b[2m[process exited with code ${code}]\x1b[0m\r\n`);
 			},

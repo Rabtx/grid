@@ -1,6 +1,12 @@
 import { statSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, isAbsolute } from "node:path";
 
+import {
+	InteractiveCliScreen,
+	spawnInteractiveCli,
+	type InteractiveCliEvent,
+	type InteractiveCliProvider,
+} from "./agents/interactive-cli";
 import type { RunnerConfig } from "./config";
 
 /** What the console sees of a terminal: enough to draw its tab. */
@@ -13,6 +19,7 @@ export type TerminalInfo = {
 	createdAt: string;
 	/** Null while the shell runs; its exit code once it has ended. */
 	exitCode: number | null;
+	provider?: string;
 };
 
 /** One attached client. A terminal can have several (a phone and a laptop on the same shell). */
@@ -20,6 +27,7 @@ export type TerminalClient = {
 	output: (bytes: Uint8Array) => void;
 	exited: (code: number) => void;
 	titled: (title: string) => void;
+	event?: (event: InteractiveCliEvent) => void;
 };
 
 /** A handle on the PTY, so tests can stand in for a real shell. */
@@ -50,6 +58,7 @@ class Terminal {
 	private written = 0;
 	info: TerminalInfo;
 	pty: Pty | null = null;
+	screen: InteractiveCliScreen | null = null;
 
 	constructor(
 		readonly ownerId: string,
@@ -67,6 +76,7 @@ class Terminal {
 			this.replaySize -= this.replay.shift()?.byteLength ?? 0;
 		}
 		for (const client of this.clients) client.output(bytes);
+		this.screen?.write(bytes);
 
 		let title: string | null = null;
 		for (const match of new TextDecoder().decode(bytes).matchAll(TITLE_SEQUENCE)) title = match[1];
@@ -113,6 +123,7 @@ export class TerminalStore {
 	constructor(
 		private readonly config: RunnerConfig,
 		private readonly spawnPty: SpawnPty,
+		private readonly spawnCli = spawnInteractiveCli,
 	) {}
 
 	list(ownerId: string): TerminalInfo[] {
@@ -131,8 +142,11 @@ export class TerminalStore {
 		size: { cols: number; rows: number },
 		cwd?: string,
 		run?: { command: string; title: string },
+		provider?: InteractiveCliProvider,
 	): TerminalInfo | null {
 		if (this.list(ownerId).length >= this.config.maxTerminalsPerUser) return null;
+		if (provider && (!cwd || !isAbsolute(cwd) || !isDirectory(cwd)))
+			throw new Error("Choose an existing workspace folder");
 		const start = cwd && isDirectory(cwd) ? cwd : this.config.defaultCwd;
 		const cols = clampSize(size.cols, 80);
 		const rows = clampSize(size.rows, 24);
@@ -140,28 +154,41 @@ export class TerminalStore {
 			ownerId,
 			{
 				id: crypto.randomUUID(),
-				title: run?.title ?? basename(this.config.shell),
+				title: provider?.name ?? run?.title ?? basename(this.config.shell),
 				cwd: start,
 				cols,
 				rows,
 				createdAt: new Date().toISOString(),
 				exitCode: null,
+				...(provider ? { provider: provider.id } : {}),
 			},
 			this.config.replayBytes,
 		);
+		if (provider) {
+			terminal.screen = new InteractiveCliScreen(cols, rows, (event) => {
+				for (const client of terminal.clients) client.event?.(event);
+			});
+		}
 		this.terminals.set(terminal.info.id, terminal);
-		terminal.pty = this.spawnPty({
+		const options = {
 			shell: this.config.shell,
 			cwd: start,
 			cols,
 			rows,
-			onData: (bytes) => terminal.record(bytes),
-			onExit: (code) => {
+			onData: (bytes: Uint8Array) => terminal.record(bytes),
+			onExit: (code: number) => {
 				terminal.info = { ...terminal.info, exitCode: code };
 				terminal.pty = null;
 				for (const client of terminal.clients) client.exited(code);
 			},
-		});
+		};
+		try {
+			terminal.pty = provider ? this.spawnCli({ ...options, provider }) : this.spawnPty(options);
+		} catch (cause) {
+			terminal.screen?.dispose();
+			this.terminals.delete(terminal.info.id);
+			throw cause;
+		}
 		// The shell reads it once it is up, like anything typed ahead.
 		if (run) terminal.pty?.write(`${run.command}\r`);
 		return terminal.info;
@@ -183,6 +210,8 @@ export class TerminalStore {
 		resumed: boolean;
 		/** The byte offset `history` starts at. */
 		at: number;
+		screen?: string;
+		ads?: string[];
 		detach: () => void;
 	} | null {
 		const terminal = this.owned(ownerId, id);
@@ -195,6 +224,8 @@ export class TerminalStore {
 			history: replay.bytes,
 			resumed: tail !== null,
 			at: replay.at,
+			...(terminal.screen ? { screen: terminal.screen.snapshot() } : {}),
+			...(terminal.screen ? { ads: terminal.screen.ads() } : {}),
 			detach: () => terminal.clients.delete(client),
 		};
 	}
@@ -213,6 +244,7 @@ export class TerminalStore {
 		if (next.cols === terminal.info.cols && next.rows === terminal.info.rows) return;
 		terminal.info = { ...terminal.info, ...next };
 		terminal.pty.resize(next.cols, next.rows);
+		terminal.screen?.resize(next.cols, next.rows);
 	}
 
 	/** End the shell (if it still runs) and forget the terminal. */
@@ -220,12 +252,16 @@ export class TerminalStore {
 		const terminal = this.owned(ownerId, id);
 		if (!terminal) return false;
 		terminal.pty?.kill();
+		terminal.screen?.dispose();
 		this.terminals.delete(id);
 		return true;
 	}
 
 	closeAll(): void {
-		for (const terminal of this.terminals.values()) terminal.pty?.kill();
+		for (const terminal of this.terminals.values()) {
+			terminal.pty?.kill();
+			terminal.screen?.dispose();
+		}
 		this.terminals.clear();
 	}
 

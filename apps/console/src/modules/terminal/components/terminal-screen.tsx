@@ -18,6 +18,7 @@ import {
 } from "@/ui";
 
 import { type Modifiers, NO_MODIFIERS } from "../lib/keys";
+import type { InteractiveCliEvent } from "../lib/interactive-cli-event";
 import type { ConnectionState } from "../lib/terminal-socket";
 import { forgetScreen, preloadScreens } from "../lib/screen-cache";
 import { RunnerError, terminalsService } from "../services/terminals.service";
@@ -66,6 +67,13 @@ export function TerminalScreen(): JSX.Element {
 	const [modifiers, setModifiers] = createSignal<Modifiers>(NO_MODIFIERS);
 	const [fontSize, setFontSize] = createSignal(initialFontSize());
 	const [busy, setBusy] = createSignal(false);
+	const [cliView, setCliView] = createSignal<"screen" | "terminal">("screen");
+	const [cliScreens, setCliScreens] = createSignal<Record<string, string>>({});
+	const [cliInteractions, setCliInteractions] = createSignal<Record<string, InteractiveCliEvent>>(
+		{},
+	);
+	const [cliAds, setCliAds] = createSignal<Record<string, string[]>>({});
+	const [cliInput, setCliInput] = createSignal("");
 	// Plain maps: handles are imperative objects, not state to render.
 	const handles = new Map<string, TerminalHandle>();
 	// Armed modifiers are read by the terminal on the very next key, before signals settle.
@@ -120,7 +128,7 @@ export function TerminalScreen(): JSX.Element {
 	 * Open a shell. Left unsaid, it opens where the current project runs, in its folder: on this
 	 * machine or on the environment holding the folder. `null` is this machine, explicitly.
 	 */
-	async function openTerminal(machine?: string | null): Promise<void> {
+	async function openTerminal(machine?: string | null, provider?: string): Promise<void> {
 		const token = auth.token();
 		if (!token || busy()) return;
 		setBusy(true);
@@ -132,7 +140,7 @@ export function TerminalScreen(): JSX.Element {
 			// own default folder.
 			const cwd =
 				slug && (environment ?? null) === home ? untrack(workspace.folders)[slug] : undefined;
-			const info = await terminalsService.open(token, DEFAULT_SIZE, cwd, environment);
+			const info = await terminalsService.open(token, DEFAULT_SIZE, cwd, environment, provider);
 			setTerminals((list) => [...list, info]);
 			navigate(`/terminal/${info.id}`);
 		} catch (cause) {
@@ -140,6 +148,45 @@ export function TerminalScreen(): JSX.Element {
 		} finally {
 			setBusy(false);
 		}
+	}
+
+	function onCliEvent(id: string, event: InteractiveCliEvent): void {
+		if (event.type === "screen") setCliScreens((all) => ({ ...all, [id]: event.content }));
+		else if (event.type === "ad")
+			setCliAds((all) => ({
+				...all,
+				[id]: (all[id] ?? []).includes(event.content)
+					? all[id]
+					: [...(all[id] ?? []), event.content],
+			}));
+		else if (event.type !== "text") setCliInteractions((all) => ({ ...all, [id]: event }));
+		if (event.type === "error" && id === activeId()) setCliView("terminal");
+	}
+
+	function interactionLabel(event: InteractiveCliEvent): string {
+		switch (event.type) {
+			case "selection":
+				return "Choose with arrow keys, then Enter";
+			case "status":
+				return event.status;
+			case "question":
+			case "confirmation":
+				return event.text;
+			case "error":
+				return event.message;
+			default:
+				return "";
+		}
+	}
+
+	function sendCliInput(event: SubmitEvent): void {
+		event.preventDefault();
+		const text = cliInput();
+		const handle = handles.get(activeId() ?? "");
+		if (!handle) return;
+		if (text) handle.paste(text);
+		handle.send("\r");
+		setCliInput("");
 	}
 
 	async function closeTerminal(id: string): Promise<void> {
@@ -151,6 +198,21 @@ export function TerminalScreen(): JSX.Element {
 		const next = list[index + 1] ?? list[index - 1] ?? null;
 		setTerminals(list.filter((terminal) => terminal.id !== id));
 		handles.delete(id);
+		setCliScreens((all) => {
+			const next = { ...all };
+			delete next[id];
+			return next;
+		});
+		setCliInteractions((all) => {
+			const next = { ...all };
+			delete next[id];
+			return next;
+		});
+		setCliAds((all) => {
+			const next = { ...all };
+			delete next[id];
+			return next;
+		});
 		forgetScreen(id);
 		if (activeId() === id) navigate(next ? `/terminal/${next.id}` : "/terminal", { replace: true });
 		await terminalsService.close(token, id, environment).catch((cause: unknown) => {
@@ -170,7 +232,13 @@ export function TerminalScreen(): JSX.Element {
 		setBusy(true);
 		try {
 			const environment = currentTerminal?.environment;
-			const info = await terminalsService.open(token, DEFAULT_SIZE, cwd, environment);
+			const info = await terminalsService.open(
+				token,
+				DEFAULT_SIZE,
+				cwd,
+				environment,
+				currentTerminal?.provider,
+			);
 			setTerminals((list) => list.map((terminal) => (terminal.id === currentId ? info : terminal)));
 			handles.delete(currentId);
 			setStates((all) => {
@@ -247,7 +315,7 @@ export function TerminalScreen(): JSX.Element {
 
 	return (
 		<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-			<div class="flex h-10 shrink-0 items-center gap-1 border-stroke border-b pr-1 pl-2">
+			<div class="flex h-12 shrink-0 items-center gap-1 border-stroke border-b pr-1 pl-2">
 				<div
 					role="tablist"
 					aria-label="Terminals"
@@ -294,9 +362,23 @@ export function TerminalScreen(): JSX.Element {
 				<Show
 					when={environmentsStore.environments().length > 0}
 					fallback={
-						<IconButton label="New terminal" disabled={busy()} onClick={() => void openTerminal()}>
-							<PlusIcon class="size-4" />
-						</IconButton>
+						<div class="flex items-center gap-1">
+							<Button
+								size="sm"
+								class="min-h-11"
+								disabled={busy()}
+								onClick={() => void openTerminal(undefined, "freebuff")}
+							>
+								Freebuff
+							</Button>
+							<IconButton
+								label="New terminal"
+								disabled={busy()}
+								onClick={() => void openTerminal()}
+							>
+								<PlusIcon class="size-4" />
+							</IconButton>
+						</div>
 					}
 				>
 					<Menu
@@ -304,6 +386,11 @@ export function TerminalScreen(): JSX.Element {
 						trigger={<PlusIcon class="size-4" />}
 						disabled={busy()}
 						items={[
+							{
+								id: "freebuff",
+								label: "Freebuff in project",
+								icon: <TerminalIcon class="size-4" />,
+							},
 							{ id: THIS_MACHINE, label: "This machine", icon: <TerminalIcon class="size-4" /> },
 							...environmentsStore.environments().map((environment) => ({
 								id: environment.id,
@@ -311,8 +398,21 @@ export function TerminalScreen(): JSX.Element {
 								icon: <GlobeIcon class="size-4" />,
 							})),
 						]}
-						onSelect={(id) => void openTerminal(id === THIS_MACHINE ? null : id)}
+						onSelect={(id) =>
+							void openTerminal(
+								id === THIS_MACHINE ? null : id === "freebuff" ? undefined : id,
+								id === "freebuff" ? "freebuff" : undefined,
+							)
+						}
 					/>
+				</Show>
+				<Show when={terminals().find((terminal) => terminal.id === activeId())?.provider}>
+					<Button
+						size="sm"
+						onClick={() => setCliView(cliView() === "screen" ? "terminal" : "screen")}
+					>
+						{cliView() === "screen" ? "Raw terminal" : "Screen view"}
+					</Button>
 				</Show>
 				<div class="hidden items-center pointer-fine:flex">
 					<IconButton label="Smaller text" size="sm" onClick={() => changeFontSize(-1)}>
@@ -361,6 +461,7 @@ export function TerminalScreen(): JSX.Element {
 						</Button>
 						<Button
 							size="sm"
+							class="min-h-11"
 							onClick={() => {
 								const id = activeId();
 								if (id) void closeTerminal(id);
@@ -403,7 +504,56 @@ export function TerminalScreen(): JSX.Element {
 								onHandle={(handle) => handles.set(terminal.id, handle)}
 								onState={(state) => setStates((all) => ({ ...all, [terminal.id]: state }))}
 								onTitle={(title) => setTitles((all) => ({ ...all, [terminal.id]: title }))}
+								onEvent={(event) => onCliEvent(terminal.id, event)}
 							/>
+							<Show when={terminal.provider && cliView() === "screen"}>
+								<div class="absolute inset-0 z-10 flex flex-col bg-canvas text-ink">
+									<div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+										<Show when={cliInteractions()[terminal.id]}>
+											{(interaction) => (
+												<p class="mb-3 text-ui-sm text-ink/70">{interactionLabel(interaction())}</p>
+											)}
+										</Show>
+										<pre class="whitespace-pre-wrap break-words font-mono text-ui-sm leading-relaxed">
+											{cliScreens()[terminal.id] ?? "Starting Freebuff…"}
+										</pre>
+										<For each={cliAds()[terminal.id] ?? []}>
+											{(ad) => <p class="mt-4 border-t border-stroke pt-3 text-ui-sm">{ad}</p>}
+										</For>
+									</div>
+									<div class="flex shrink-0 gap-2 px-3 pt-2">
+										<Button
+											size="sm"
+											class="min-h-11"
+											onClick={() => handles.get(terminal.id)?.send("\x03")}
+										>
+											Ctrl+C
+										</Button>
+										<Button
+											size="sm"
+											class="min-h-11"
+											onClick={() => handles.get(terminal.id)?.send("\r")}
+										>
+											Enter
+										</Button>
+									</div>
+									<form
+										onSubmit={sendCliInput}
+										class="flex shrink-0 gap-2 border-stroke border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+									>
+										<input
+											aria-label="Freebuff input"
+											value={cliInput()}
+											onInput={(event) => setCliInput(event.currentTarget.value)}
+											placeholder="Prompt or /command"
+											class="min-h-11 min-w-0 flex-1 rounded-md border border-stroke bg-canvas px-3 text-ui-input"
+										/>
+										<Button type="submit" variant="primary" class="min-h-11">
+											Send
+										</Button>
+									</form>
+								</div>
+							</Show>
 						</div>
 					)}
 				</For>

@@ -1,4 +1,5 @@
 import { onRunnerRecovered, reportRunnerFailure, reportRunnerSuccess } from "@/lib/runner-health";
+import type { InteractiveCliEvent } from "./interactive-cli-event";
 
 /** Where a terminal's connection stands, as the screen shows it. */
 export type ConnectionState =
@@ -28,6 +29,7 @@ export type TerminalSocketOptions = {
 	onState: (state: ConnectionState) => void;
 	onTitle: (title: string) => void;
 	onExit: (code: number) => void;
+	onEvent?: (event: InteractiveCliEvent) => void;
 	createSocket?: (url: string) => WebSocket;
 	/** How many bytes of output the screen already shows (kept on the device), to get only the rest. */
 	offset?: number | null;
@@ -183,6 +185,14 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 				const at = (message as { at?: unknown }).at;
 				received = typeof at === "number" ? at : null;
 				if (!resumed) options.onReset();
+				if (typeof message.screen === "string") {
+					options.onEvent?.({ type: "screen", content: message.screen });
+				}
+				if (Array.isArray(message.ads)) {
+					for (const ad of message.ads) {
+						if (typeof ad === "string") options.onEvent?.({ type: "ad", content: ad });
+					}
+				}
 				setState("open");
 				if (pending) {
 					ws.send(encoder.encode(pending));
@@ -190,6 +200,8 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 				}
 			} else if (message?.t === "title" && typeof message.title === "string") {
 				options.onTitle(message.title);
+			} else if (message?.t === "event" && message.event && typeof message.event === "object") {
+				options.onEvent?.(message.event as InteractiveCliEvent);
 			} else if (message?.t === "exit" && typeof message.code === "number") {
 				finished = true;
 				options.onExit(message.code);
@@ -292,7 +304,14 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 	};
 }
 
-function parse(text: string): { t?: string; title?: unknown; code?: unknown } | null {
+function parse(text: string): {
+	t?: string;
+	title?: unknown;
+	code?: unknown;
+	screen?: unknown;
+	ads?: unknown;
+	event?: unknown;
+} | null {
 	try {
 		return JSON.parse(text) as { t?: string };
 	} catch {
