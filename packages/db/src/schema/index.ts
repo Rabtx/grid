@@ -10,3 +10,4 @@ export * from "./totp-factors.schema";
 export * from "./user-profiles.schema";
 export * from "./users.schema";
 export * from "./webauthn-challenges.schema";
+export * from "./workspaces.schema";

@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { users } from "./users.schema";
+import { workspaces } from "./workspaces.schema";
 
 export const subscriptions = pgTable(
 	"subscriptions",
@@ -17,6 +18,10 @@ export const subscriptions = pgTable(
 		userId: uuid("user_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
+		/** The workspace the plan is for; the company pays, not the person. */
+		workspaceId: uuid("workspace_id")
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
 		provider: varchar("provider", { length: 32 }).notNull(),
 		providerCustomerId: varchar("provider_customer_id", { length: 191 }),
 		providerSubscriptionId: varchar("provider_subscription_id", { length: 191 }),
@@ -30,6 +35,7 @@ export const subscriptions = pgTable(
 	},
 	(table) => [
 		index("subscriptions_user_id_idx").on(table.userId),
+		index("subscriptions_workspace_id_idx").on(table.workspaceId),
 		index("subscriptions_status_idx").on(table.status),
 		uniqueIndex("subscriptions_provider_sub_unique").on(
 			table.provider,

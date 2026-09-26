@@ -30,7 +30,10 @@ export function billingRoutes(deps: BillingDeps): Hono<AppEnv> {
 	router.get("/subscription", requireUser(deps.sessions), async (c) => {
 		const user = c.get("user");
 		const db = getDb(deps.db);
-		const subscription = await getSubscription(db, user.sub);
+		const subscription = await getSubscription(db, {
+			userId: user.sub,
+			workspace: c.req.query("workspace") ?? null,
+		});
 		return ok(c, { subscription });
 	});
 

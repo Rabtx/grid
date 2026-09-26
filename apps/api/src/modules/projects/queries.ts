@@ -6,13 +6,17 @@ export type ProjectRecord = schema.ProjectRecord;
 export type TaskRecord = schema.TaskRecord;
 export type NoteRecord = schema.NoteRecord;
 
-export const listProjects = (db: Database, ownerId: string) =>
-	db.select().from(projects).where(eq(projects.ownerId, ownerId)).orderBy(asc(projects.name));
-export async function findProject(db: Database, ownerId: string, slug: string) {
+export const listProjects = (db: Database, workspaceId: string) =>
+	db
+		.select()
+		.from(projects)
+		.where(eq(projects.workspaceId, workspaceId))
+		.orderBy(asc(projects.name));
+export async function findProject(db: Database, workspaceId: string, slug: string) {
 	const [project] = await db
 		.select()
 		.from(projects)
-		.where(and(eq(projects.ownerId, ownerId), eq(projects.slug, slug)))
+		.where(and(eq(projects.workspaceId, workspaceId), eq(projects.slug, slug)))
 		.limit(1);
 	return project ?? null;
 }

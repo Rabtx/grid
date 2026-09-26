@@ -14,6 +14,8 @@ export type SubscriptionStatus =
 
 export type CheckoutInput = {
 	userId: string;
+	/** The workspace the plan is for. */
+	workspaceId: string;
 	email: string;
 	planCode: PlanCode;
 	billingInterval: BillingInterval;
@@ -37,6 +39,7 @@ export type NormalizedWebhookEvent = {
 	provider: PaymentProviderName;
 	idempotencyKey: string;
 	userId?: string;
+	workspaceId?: string;
 	providerCustomerId?: string;
 	providerSubscriptionId?: string;
 	planCode?: PlanCode;

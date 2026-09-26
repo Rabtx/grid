@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { createDatabase, type Database } from "./client";
 import { hashPassword } from "./password";
 import * as schema from "./schema";
+import { createPersonalWorkspace, defaultWorkspaceOf } from "./workspaces";
 
 /**
  * Development seed: one verified account you can sign in with, and a board with
@@ -208,6 +209,13 @@ async function main(): Promise<void> {
 			console.log("reset the demo account");
 		}
 		const user = await demoUser(db);
+		const workspace =
+			(await defaultWorkspaceOf(db, user.id))?.workspace ??
+			(await createPersonalWorkspace(db, {
+				id: user.id,
+				username: user.username,
+				displayName: "Demo",
+			}));
 
 		const realGridTasks = loadAgentBoardTasks();
 		const gridTaskList = realGridTasks.length > 0 ? realGridTasks : FALLBACK_GRID_TASKS;
@@ -219,13 +227,13 @@ async function main(): Promise<void> {
 			const [existing] = await db
 				.select({ id: schema.projects.id })
 				.from(schema.projects)
-				.where(and(eq(schema.projects.ownerId, user.id), eq(schema.projects.slug, slug)));
+				.where(and(eq(schema.projects.workspaceId, workspace.id), eq(schema.projects.slug, slug)));
 			const project =
 				existing ??
 				(
 					await db
 						.insert(schema.projects)
-						.values({ ownerId: user.id, slug, name, summary })
+						.values({ workspaceId: workspace.id, createdBy: user.id, slug, name, summary })
 						.returning({ id: schema.projects.id })
 				)[0];
 			if (!project) throw new Error(`Seed project ${slug} was not created`);

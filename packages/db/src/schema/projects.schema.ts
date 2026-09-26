@@ -1,6 +1,7 @@
 import { index, pgEnum, pgTable, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 
 import { users } from "./users.schema";
+import { workspaces } from "./workspaces.schema";
 
 export const projectStatus = pgEnum("project_status", ["active", "archived"]);
 
@@ -8,9 +9,12 @@ export const projects = pgTable(
 	"projects",
 	{
 		id: uuid("id").defaultRandom().primaryKey(),
-		ownerId: uuid("owner_id")
+		/** The workspace that owns the project. */
+		workspaceId: uuid("workspace_id")
 			.notNull()
-			.references(() => users.id, { onDelete: "cascade" }),
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		/** Who made it; kept when they leave (the project stays with the workspace). */
+		createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
 		slug: varchar("slug", { length: 64 }).notNull(),
 		name: varchar("name", { length: 120 }).notNull(),
 		summary: varchar("summary", { length: 280 }),
@@ -23,8 +27,8 @@ export const projects = pgTable(
 		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 	},
 	(table) => [
-		uniqueIndex("projects_owner_slug_unique").on(table.ownerId, table.slug),
-		index("projects_owner_id_idx").on(table.ownerId),
+		uniqueIndex("projects_workspace_slug_unique").on(table.workspaceId, table.slug),
+		index("projects_workspace_id_idx").on(table.workspaceId),
 		index("projects_status_idx").on(table.status),
 	],
 );

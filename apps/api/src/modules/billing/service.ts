@@ -3,9 +3,12 @@ import type { Database } from "@grid/db";
 import type { AppConfig } from "../../config/config";
 import { badRequest, notFound, serviceUnavailable } from "../../http/errors";
 import type { CreateCheckoutInput, CreatePortalInput } from "./dto";
+import { defaultWorkspaceOf } from "@grid/db/workspaces";
+
+import { requireRole, workspaceAccess, type WorkspaceScope } from "../workspaces/access";
 import {
-	findActiveCustomerForUser,
-	findLatestSubscriptionForUser,
+	findActiveCustomerForWorkspace,
+	findLatestSubscriptionForWorkspace,
 	findUserById,
 	type SubscriptionRecord,
 	upsertSubscriptionFromWebhook,
@@ -31,8 +34,13 @@ export function listConfiguredProviders(config: AppConfig): PaymentProviderName[
 	return providers;
 }
 
-export function getSubscription(db: Database, userId: string): Promise<SubscriptionRecord | null> {
-	return findLatestSubscriptionForUser(db, userId);
+/** The workspace's plan; any member can see it. */
+export async function getSubscription(
+	db: Database,
+	scope: WorkspaceScope,
+): Promise<SubscriptionRecord | null> {
+	const { workspace } = await workspaceAccess(db, scope);
+	return findLatestSubscriptionForWorkspace(db, workspace.id);
 }
 
 export async function createCheckout(
@@ -41,6 +49,8 @@ export async function createCheckout(
 	userId: string,
 	input: CreateCheckoutInput,
 ): Promise<CheckoutResult> {
+	const access = await workspaceAccess(db, { userId, workspace: input.workspace ?? null });
+	requireRole(access, "owner");
 	const user = await findUserById(db, userId);
 	if (!user?.isActive) {
 		throw notFound({
@@ -60,6 +70,7 @@ export async function createCheckout(
 
 	const checkoutInput = {
 		userId,
+		workspaceId: access.workspace.id,
 		email: user.email,
 		planCode: input.planCode,
 		billingInterval: input.billingInterval,
@@ -83,7 +94,9 @@ export async function createPortal(
 	const providerName = input.provider ?? config.billingDefaultProvider;
 	requireConfiguredProvider(config, providerName);
 
-	const subscription = await findActiveCustomerForUser(db, userId, providerName);
+	const access = await workspaceAccess(db, { userId, workspace: input.workspace ?? null });
+	requireRole(access, "owner");
+	const subscription = await findActiveCustomerForWorkspace(db, access.workspace.id, providerName);
 	if (!subscription?.providerCustomerId) {
 		throw badRequest({
 			code: "BILLING_NO_CUSTOMER",
@@ -129,8 +142,19 @@ export async function handleWebhook(
 		return { received: true, handled: true };
 	}
 
+	// Checkouts started before workspaces carry only the user: bill their default workspace.
+	const workspaceId =
+		event.workspaceId ?? (await defaultWorkspaceOf(db, event.userId))?.workspace.id;
+	if (!workspaceId) {
+		console.warn(
+			`Ignoring ${event.provider} webhook without a workspace (${event.idempotencyKey})`,
+		);
+		return { received: true, handled: true };
+	}
+
 	await upsertSubscriptionFromWebhook(db, {
 		userId: event.userId,
+		workspaceId,
 		provider: event.provider,
 		providerCustomerId: event.providerCustomerId,
 		providerSubscriptionId: event.providerSubscriptionId,

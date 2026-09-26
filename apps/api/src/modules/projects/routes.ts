@@ -2,10 +2,11 @@ import type { Database } from "@grid/db";
 import { Hono } from "hono";
 
 import { requireUser, type SessionLookup } from "../../http/auth";
-import type { AppEnv } from "../../http/context";
+import type { AppContext, AppEnv } from "../../http/context";
 import { badRequest } from "../../http/errors";
 import { noContent, ok } from "../../http/respond";
 import { body } from "../../http/validate";
+import type { WorkspaceScope } from "../workspaces/access";
 import * as s from "./schema";
 import * as service from "./service";
 
@@ -22,7 +23,12 @@ const uuid = (value: string) => {
 export function projectRoutes(deps: { db: Database; sessions: SessionLookup }): Hono<AppEnv> {
 	const app = new Hono<AppEnv>();
 	app.use("*", requireUser(deps.sessions));
-	const user = (c: { get: (key: "user") => { sub: string } }) => c.get("user").sub;
+	// Under `/workspaces/:ws/projects` the workspace comes from the URL; the bare `/projects` means
+	// the user's default workspace.
+	const user = (c: AppContext): WorkspaceScope => ({
+		userId: c.get("user").sub,
+		workspace: c.req.param("ws") ?? null,
+	});
 	app.get("/", async (c) => ok(c, await service.listProjects(deps.db, user(c))));
 	app.post("/", async (c) =>
 		ok(
