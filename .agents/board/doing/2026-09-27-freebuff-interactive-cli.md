@@ -39,6 +39,7 @@ The human requested the cross-role runner and console integration. Reuse the exi
 - `bun --cwd=apps/console run build`: passed.
 - Real installed Freebuff CLI (`0.0.201`) launched through Bun PTY in this worktree: 11,519 raw bytes, 1,619 screen characters, `screen` and `text` events. A fixture test verified workspace `cwd`, `/history` input, and exit; reconnect tests verified raw replay, parsed screen, and detected ads.
 - Browser UI check could not run: this session exposed no browser to computer use. Console unit tests, token checks, typecheck, and production build passed; phone and desktop visual behavior remains for human review.
+- PR CI and Security jobs did not start. GitHub annotated every job with an account payment/spending-limit issue ([CI run](https://github.com/shabirkhan-dev/grid/actions/runs/36267895920), [Security run](https://github.com/shabirkhan-dev/grid/actions/runs/36267895915)); no job logs or code failures were produced. Rerun after account billing is resolved.
 
 ## Changed
 
