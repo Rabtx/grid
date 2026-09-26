@@ -16,6 +16,8 @@ import { authRoutes } from "./modules/auth/routes";
 import { billingRoutes } from "./modules/billing/routes";
 import type { EmailSender } from "./modules/email/email";
 import { healthRoutes } from "./modules/health/routes";
+import { projectRoutes } from "./modules/projects/routes";
+import { profileRoutes, uploadedFile } from "./modules/profiles/routes";
 
 /** NestJS's words for a route that does not exist, query string included. */
 function notFoundRoute(c: AppContext): ApiError {
@@ -76,6 +78,11 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 			sessions: deps.sessions,
 		}),
 	);
+	api.route("/projects", projectRoutes({ db: deps.db, sessions: deps.sessions }));
+	api.route(
+		"/users/me",
+		profileRoutes({ db: deps.db, sessions: deps.sessions, uploadsDir: config.uploadsDir }),
+	);
 	api.route("/billing", billingRoutes({ db: deps.db, sessions: deps.sessions }));
 	app.route(base, api);
 
@@ -83,7 +90,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 	const fallback = (c: AppContext) =>
 		config.legacyApiUrl ? forward(c, config.legacyApiUrl) : errorResponse(c, notFoundRoute(c));
 	app.all(`/${config.apiPrefix}/*`, fallback);
-	app.all("/uploads/*", fallback);
+	app.get("/uploads/*", (c) => uploadedFile(c, config.uploadsDir));
 
 	app.notFound((c) => errorResponse(c, notFoundRoute(c)));
 	app.onError((error, c) => errorResponse(c, error));
