@@ -39,6 +39,7 @@ The human requested the cross-role runner and console integration. Reuse the exi
 - `bun --cwd=apps/console run build`: passed.
 - Real installed Freebuff CLI (`0.0.201`) launched through Bun PTY in this worktree: 11,519 raw bytes, 1,619 screen characters, `screen` and `text` events. A fixture test verified workspace `cwd`, `/history` input, and exit; reconnect tests verified raw replay, parsed screen, and detected ads.
 - Browser UI check could not run: this session exposed no browser to computer use. Console unit tests, token checks, typecheck, and production build passed; phone and desktop visual behavior remains for human review.
+- After the independent reviewer found that an ad could scroll off during one PTY write, the VT parser now captures completed lines as they scroll. Regression tests pass for normal and alternate buffers. After merging `origin/main` (`c539575`) into this branch: runner 115 passed, console Vitest 283 passed, root lint/typecheck/format check passed, and console production build passed.
 - PR CI and Security jobs did not start. GitHub annotated every job with an account payment/spending-limit issue ([CI run](https://github.com/shabirkhan-dev/grid/actions/runs/36267895920), [Security run](https://github.com/shabirkhan-dev/grid/actions/runs/36267895915)); no job logs or code failures were produced. Rerun after account billing is resolved.
 
 ## Changed
@@ -53,11 +54,11 @@ Additive runner `POST /terminals` `provider` option, `ready.screen`/`ready.ads`,
 
 ## Review
 
-Human reviewer pending on draft PR [#106](https://github.com/shabirkhan-dev/grid/pull/106). Branch is not merged.
+An independent review requested the ad-scroll fix; follow-up review of the updated branch is pending on draft PR [#106](https://github.com/shabirkhan-dev/grid/pull/106). Branch is not merged.
 
 ## Commit
 
-`4ef7042` (`feat(runner): run freebuff through interactive cli pty`).
+`4ef7042` (`feat(runner): run freebuff through interactive cli pty`), followed by the ad-scroll fix and merge of current `origin/main`.
 
 ## Resolution
 
