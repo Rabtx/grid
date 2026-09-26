@@ -156,9 +156,7 @@ export function TerminalScreen(): JSX.Element {
 		else if (event.type === "ad")
 			setCliAds((all) => ({
 				...all,
-				[id]: (all[id] ?? []).includes(event.content)
-					? all[id]
-					: [...(all[id] ?? []), event.content],
+				[id]: [...(all[id] ?? []), event.content],
 			}));
 		else if (event.type !== "text") setCliInteractions((all) => ({ ...all, [id]: event }));
 		if (event.type === "error" && id === activeId()) setCliView("terminal");

@@ -27,6 +27,7 @@ export class InteractiveCliScreen {
 	private lastInteraction = "";
 	private lastAd = "";
 	private readonly adHistory: string[] = [];
+	private completedAds = 0;
 
 	constructor(
 		cols: number,
@@ -37,12 +38,19 @@ export class InteractiveCliScreen {
 		this.terminal.onLineFeed(() => {
 			const buffer = this.terminal.buffer.active;
 			const row = buffer.viewportY + Math.max(0, buffer.cursorY - 1);
-			this.captureAd(buffer.getLine(row)?.translateToString(true) ?? "");
+			const line = buffer.getLine(row)?.translateToString(true).trim() ?? "";
+			if (/^(?:ad|sponsored|advertisement)\s*:/i.test(line)) {
+				this.recordAd(line);
+				this.completedAds++;
+			} else this.lastAd = "";
 		});
 	}
 
 	write(bytes: Uint8Array): void {
-		this.terminal.write(this.decoder.decode(bytes, { stream: true }), () => this.interpret());
+		const completedAds = this.completedAds;
+		this.terminal.write(this.decoder.decode(bytes, { stream: true }), () =>
+			this.interpret(completedAds),
+		);
 	}
 
 	resize(cols: number, rows: number): void {
@@ -62,7 +70,7 @@ export class InteractiveCliScreen {
 		this.terminal.dispose();
 	}
 
-	private interpret(): void {
+	private interpret(completedAds = this.completedAds): void {
 		try {
 			const buffer = this.terminal.buffer.active;
 			const lines: string[] = [];
@@ -75,7 +83,9 @@ export class InteractiveCliScreen {
 			this.emit({ type: "screen", content });
 			const visible = lines.map((line) => line.trim()).filter(Boolean);
 			const last = visible.at(-1) ?? "";
-			for (const line of visible) this.captureAd(line);
+			if (completedAds === this.completedAds) {
+				for (const line of visible) this.captureAd(line);
+			}
 			if (!visible.some((line) => /^(?:ad|sponsored|advertisement)\s*:/i.test(line))) {
 				this.lastAd = "";
 			}
@@ -103,6 +113,10 @@ export class InteractiveCliScreen {
 		const ad = line.trim();
 		if (!/^(?:ad|sponsored|advertisement)\s*:/i.test(ad)) return;
 		if (this.lastAd === ad) return;
+		this.recordAd(ad);
+	}
+
+	private recordAd(ad: string): void {
 		this.lastAd = ad;
 		this.adHistory.push(ad);
 		this.emit({ type: "ad", content: ad });

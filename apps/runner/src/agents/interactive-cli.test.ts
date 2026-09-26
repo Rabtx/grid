@@ -41,6 +41,19 @@ describe("InteractiveCliScreen", () => {
 			screen.dispose();
 		},
 	);
+
+	it("retains repeated ad occurrences even when their text matches", async () => {
+		const events: { type: string; content?: string }[] = [];
+		const screen = new InteractiveCliScreen(40, 3, (event) => events.push(event));
+		screen.write(bytes("Ad: sponsor\r\ncontent\r\nAd: sponsor\r\nmore\r\nend\r\nlast"));
+		await settle();
+		expect(screen.ads()).toEqual(["Ad: sponsor", "Ad: sponsor"]);
+		expect(events.filter((event) => event.type === "ad")).toEqual([
+			{ type: "ad", content: "Ad: sponsor" },
+			{ type: "ad", content: "Ad: sponsor" },
+		]);
+		screen.dispose();
+	});
 });
 
 describe("spawnInteractiveCli", () => {
