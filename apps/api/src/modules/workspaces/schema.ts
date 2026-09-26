@@ -1,7 +1,7 @@
 import { RESERVED_WORKSPACE_SLUGS } from "@grid/db/workspaces";
 import * as z from "zod";
 
-const slug = z
+export const workspaceSlugSchema = z
 	.string()
 	.trim()
 	.toLowerCase()
@@ -26,12 +26,12 @@ const color = z
 	.optional();
 
 export const createWorkspaceSchema = z
-	.object({ slug, name: z.string().trim().min(1).max(120), icon, color })
+	.object({ slug: workspaceSlugSchema, name: z.string().trim().min(1).max(120), icon, color })
 	.strict();
 
 export const updateWorkspaceSchema = z
 	.object({
-		slug: slug.optional(),
+		slug: workspaceSlugSchema.optional(),
 		name: z.string().trim().min(1).max(120).optional(),
 		icon,
 		color,
@@ -41,6 +41,17 @@ export const updateWorkspaceSchema = z
 
 export const updateMemberSchema = z.object({ role: z.enum(["owner", "admin", "member"]) }).strict();
 
+export const createInviteSchema = z
+	.object({
+		email: z.email().trim().toLowerCase().max(320).optional(),
+		role: z.enum(["admin", "member"]).default("member"),
+	})
+	.strict();
+
+/** Invite tokens are 32 URL-safe characters. */
+export const inviteTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{32}$/, "Invalid invite token");
+
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;
+export type CreateInviteInput = z.infer<typeof createInviteSchema>;
 export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceSchema>;
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;

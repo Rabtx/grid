@@ -3,7 +3,7 @@
  *
  * Grid is one disposable bundle: the same checkout runs on a laptop, a VPS or a Codespace. This
  * launcher prepares what a fresh machine lacks — a data directory, generated secrets, a Postgres
- * (Docker, when DATABASE_URL isn't set), migrations and an owner account — then runs the API, the
+ * (Docker, when DATABASE_URL isn't set), migrations and a first-run setup link — then runs the API, the
  * runner and the console behind a single gateway port and stops them together.
  */
 import { randomBytes } from "node:crypto";
@@ -87,21 +87,22 @@ async function migrate(env: Record<string, string>): Promise<void> {
 	}
 }
 
-type Owner = { created: false } | { created: true; email: string; password: string };
-
-async function ensureOwner(config: LaunchConfig, env: Record<string, string>): Promise<void> {
-	const output = await run(["bun", "src/owner.ts"], pkg("db"), {
-		...env,
-		GRID_OWNER_EMAIL: config.ownerEmail,
-	});
-	const owner = JSON.parse(output.trim().split("\n").at(-1) ?? "{}") as Owner;
-	const file = join(config.dataDir, "owner.txt");
-	if (owner.created) {
-		writeFileSync(file, `email: ${owner.email}\npassword: ${owner.password}\n`, { mode: 0o600 });
-		log(`created the owner account — sign in as ${owner.email}; the password is in ${file}`);
-	} else if (existsSync(file)) {
-		log(`the owner's first sign-in details are in ${file}`);
+/**
+ * A Grid nobody has signed up to yet gets a one-time setup link: whoever opens it creates the
+ * owner account and the first workspace. A new link every start until then (only its hash is
+ * stored); kept in setup-link.txt too, for a Grid started in the background.
+ */
+async function ensureSetupLink(config: LaunchConfig, env: Record<string, string>): Promise<void> {
+	const output = await run(["bun", "src/setup-code.ts"], pkg("db"), env);
+	const { code } = JSON.parse(output.trim().split("\n").at(-1) ?? "{}") as { code?: string | null };
+	const file = join(config.dataDir, "setup-link.txt");
+	if (!code) {
+		rmSync(file, { force: true });
+		return;
 	}
+	const link = `${gatewayUrl(config, process.env)}/setup?code=${code}`;
+	writeFileSync(file, `${link}\n`, { mode: 0o600 });
+	log(`set up this Grid: open ${link}`);
 }
 
 async function buildConsole(config: LaunchConfig): Promise<void> {
@@ -177,7 +178,7 @@ async function start(config: LaunchConfig): Promise<void> {
 	const secrets = loadSecrets(config.dataDir);
 	const database = { DATABASE_URL: await databaseUrl(config) };
 	await migrate(database);
-	await ensureOwner(config, database);
+	await ensureSetupLink(config, database);
 	await buildConsole(config);
 
 	// Paired, the runner listens on this machine's tailnet address only: the home Grid reaches

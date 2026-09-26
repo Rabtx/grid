@@ -5,6 +5,7 @@ import { createRemoteJWKSet, type JWTVerifyGetKey, jwtVerify } from "jose";
 
 import type { AppConfig } from "../../config/config";
 import { conflict, serviceUnavailable, unauthorized } from "../../http/errors";
+import { isSignupOpen, signupClosed } from "../instance/instance";
 import {
 	createFederatedUser,
 	findUserByEmail,
@@ -104,6 +105,7 @@ export async function authenticateGoogle(deps: Deps, credential: string): Promis
 			message: "Sign in with your existing method, then connect Google in account security.",
 		});
 	}
+	if (!(await isSignupOpen(deps.db))) throw signupClosed();
 	const user = await createFederatedUser(deps.db, {
 		email: profile.email,
 		displayName: profile.name,

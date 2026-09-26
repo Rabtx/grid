@@ -19,6 +19,17 @@ export function magicLinkEmail(url: string): EmailTemplate {
 	};
 }
 
+export function workspaceInviteEmail(workspace: string, url: string): EmailTemplate {
+	const safeUrl = escapeHtml(url);
+	return {
+		subject: `You're invited to ${workspace} on Grid`,
+		html: layout(
+			`Join ${workspace}`,
+			`<p>You've been invited to the ${escapeHtml(workspace)} workspace on Grid.</p><p><a href="${safeUrl}" style="display:inline-block;padding:12px 18px;border-radius:8px;background:#171717;color:#fff;text-decoration:none">Accept the invite</a></p><p style="font-size:12px;color:#737373;word-break:break-all">${safeUrl}</p>`,
+		),
+	};
+}
+
 function codeEmail(subject: string, heading: string, purpose: string, code: string): EmailTemplate {
 	return {
 		subject,

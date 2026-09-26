@@ -50,9 +50,8 @@ bun install
 bun run grid
 ```
 
-Open **http://localhost:8080** (or the address printed by the launcher). On first start, Grid
-creates an owner account and saves its sign-in details in `.grid/owner.txt`. Change that password
-after signing in. `bun run grid` starts Postgres through Docker when `DATABASE_URL` is unset,
+On first start, the launcher prints a one-time setup link (also saved in `.grid/setup-link.txt`).
+Open it to create your account and your workspace; after that, people join by invite. `bun run grid` starts Postgres through Docker when `DATABASE_URL` is unset,
 applies migrations, builds the console, and runs the API and runner behind one port.
 
 For a Codespace or VPS, environment variables, pairing, and deployment steps, read the

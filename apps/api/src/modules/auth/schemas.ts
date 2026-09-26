@@ -1,9 +1,9 @@
 import * as z from "zod";
 
-const emailSchema = z.email().trim().toLowerCase().max(320);
-const passwordSchema = z.string().min(12).max(128);
+export const emailSchema = z.email().trim().toLowerCase().max(320);
+export const passwordSchema = z.string().min(12).max(128);
 const otpSchema = z.string().regex(/^\d{6}$/, "Code must contain exactly 6 digits");
-const usernameSchema = z
+export const usernameSchema = z
 	.string()
 	.trim()
 	.toLowerCase()
@@ -19,6 +19,8 @@ export const registerBodySchema = z
 		email: emailSchema,
 		username: usernameSchema,
 		password: passwordSchema,
+		/** Needed unless this Grid's owner has opened signup. */
+		inviteToken: z.string().min(1).max(128).optional(),
 	})
 	.strict();
 

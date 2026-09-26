@@ -15,16 +15,17 @@ bun run grid
 runs the API, the runner and the console together and stops them together:
 
 1. **Data directory** — `.grid/` in the checkout (gitignored), or `GRID_DATA_DIR`. It holds the
-   generated secrets, the owner's first sign-in details, the chat database and, by default, new
+   generated secrets, the first-run setup link, the chat database and, by default, new
    project folders.
 2. **Secrets** — `JWT_SECRET` and `AUTH_TOKEN_SECRET` are generated once per data directory, so
    sign-ins survive restarts.
 3. **Postgres** — `DATABASE_URL` if set; otherwise the repo's Postgres container is started with
    Docker (`docker/compose/postgres.yml`).
 4. **Migrations** — applied on every start, waiting for a just-started Postgres.
-5. **Owner** — when the database has no users, a verified owner account is created with a
-   generated password. Its details are printed once and kept in `.grid/owner.txt` (mode 600).
-   Change the password after signing in.
+5. **Setup link** — while nobody has signed up, a one-time setup link is printed and kept in
+   `.grid/setup-link.txt` (mode 600); each start issues a fresh one. Whoever opens it creates the
+   owner account and the first workspace. Signup then stays closed: people join by invite, unless
+   the owner opens it (`PATCH /api/v1/instance`).
 6. **Console** — built on first start (`GRID_REBUILD=1` rebuilds).
 7. **Gateway** — the console on `GRID_PORT` (default `8080`), with `/api` and `/runner`
    (WebSocket included) forwarded behind it — the only port to expose.
@@ -35,8 +36,8 @@ Only one Grid runs per data directory; a second start reports the running one an
 
 Open the repository in a Codespace. The dev container (`.devcontainer/`) comes with its own
 Postgres, installs dependencies, and starts Grid in the background on attach — port **8080**,
-labelled *Grid*, opens in the browser. The log is `.grid/grid.log`; the owner's sign-in is in
-`.grid/owner.txt`.
+labelled *Grid*, opens in the browser. The log is `.grid/grid.log`; the first-run setup link is
+in `.grid/setup-link.txt`.
 
 In a Codespace, projects live under `/workspaces`, next to the checked-out repositories. Install
 the agent CLIs you want Grid to drive (Claude Code, Codex, opencode…) in the Codespace's terminal
@@ -72,7 +73,7 @@ With Docker on the server:
 
 ```bash
 docker compose -f docker/compose/postgres.yml -f docker/compose/grid.yml up -d --build
-docker compose -f docker/compose/postgres.yml -f docker/compose/grid.yml exec grid cat /data/owner.txt
+docker compose -f docker/compose/postgres.yml -f docker/compose/grid.yml exec grid cat /data/setup-link.txt
 ```
 
 The `grid` image (`docker/grid.Dockerfile`) keeps its data in the `/data` volume and projects in
@@ -87,10 +88,9 @@ process manager of choice.
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `GRID_PORT` | `8080` | The one public port |
-| `GRID_DATA_DIR` | `<repo>/.grid` | Secrets, owner sign-in, chat database |
+| `GRID_DATA_DIR` | `<repo>/.grid` | Secrets, setup link, chat database |
 | `GRID_PROJECTS_DIR` | `<data>/projects`, `/workspaces` in a Codespace | Where project folders go |
 | `DATABASE_URL` | Docker Postgres on `:5433` | Postgres connection |
-| `GRID_OWNER_EMAIL` | `owner@grid.local` | The first account's email |
 | `GRID_ALLOWED_HOSTS` | — | Extra hostnames for the gateway (Tailscale and Codespaces are built in) |
 | `GRID_PUBLIC_URL` | — | The address printed at start |
 | `GRID_API_PORT` / `GRID_RUNNER_PORT` | `4000` / `4100` | Internal loopback ports |

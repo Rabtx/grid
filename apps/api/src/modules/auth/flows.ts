@@ -16,13 +16,22 @@ import {
 	currentUser,
 	findUserByEmail,
 	findUserById,
+	markEmailVerified,
+	normalizeEmail,
 	type PublicUser,
 	recordFailedLogin,
 	resetFailedLogins,
 	toPublicUser,
 	type UserRecord,
 } from "../users/users";
+import { isSignupOpen, signupClosed } from "../instance/instance";
 import { verifyLoginCode } from "../mfa/mfa";
+import {
+	acceptInvite,
+	emailMismatch,
+	findPendingInvite,
+	inviteInvalid,
+} from "../workspaces/invites";
 import type { AuthCrypto, ChallengePurpose } from "./crypto";
 import * as store from "./store";
 import type { ChallengeRecord, RequestMetadata } from "./store";
@@ -75,15 +84,34 @@ function isLive(session: store.SessionRecord | null): session is store.SessionRe
 	return session !== null && session.revokedAt === null && session.expiresAt > new Date();
 }
 
+/**
+ * Sign-up: open to anyone only when this Grid's owner has opened it; otherwise it takes an invite,
+ * which the new account accepts straight away. An invite sent to this email already proves the
+ * address, so that account starts verified.
+ */
 export async function register(
 	deps: AuthDeps,
-	body: { email: string; username: string; password: string },
+	body: { email: string; username: string; password: string; inviteToken?: string },
 ): Promise<AuthChallengeResult & { user: PublicUser }> {
-	const user = await createUser(deps.db, {
-		...body,
-		passwordHash: await hash(deps, body.password),
+	const { inviteToken, ...account } = body;
+	const invite = inviteToken ? await findPendingInvite(deps.db, inviteToken) : null;
+	if (inviteToken && !invite) throw inviteInvalid();
+	if (!invite && !(await isSignupOpen(deps.db))) throw signupClosed();
+	if (invite?.invite.email && invite.invite.email !== normalizeEmail(account.email))
+		throw emailMismatch();
+	const created = await createUser(deps.db, {
+		...account,
+		passwordHash: await hash(deps, account.password),
 	});
-	return { ...(await issueCode(deps, user, "email_verification")), user: toPublicUser(user) };
+	if (invite && inviteToken) await acceptInvite(deps.db, inviteToken, created);
+	if (invite?.invite.email === created.email) {
+		const user = (await markEmailVerified(deps.db, created.id)) ?? created;
+		return { ...accepted("Your account is ready."), user: toPublicUser(user) };
+	}
+	return {
+		...(await issueCode(deps, created, "email_verification")),
+		user: toPublicUser(created),
+	};
 }
 
 export async function verifyEmail(

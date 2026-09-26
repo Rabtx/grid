@@ -134,6 +134,16 @@ export async function createFederatedUser(
 	throw conflict({ code: "USER_CREATION_CONFLICT", message: "The account could not be created" });
 }
 
+export async function markEmailVerified(db: Database, id: string): Promise<UserRecord | null> {
+	return first(
+		db
+			.update(schema.users)
+			.set({ emailVerifiedAt: new Date(), updatedAt: new Date() })
+			.where(eq(schema.users.id, id))
+			.returning(),
+	);
+}
+
 /** The signed-in user, still active. */
 export async function currentUser(db: Database, id: string): Promise<PublicUser> {
 	const user = await findUserById(db, id);

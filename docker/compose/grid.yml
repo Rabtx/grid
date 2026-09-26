@@ -1,6 +1,6 @@
 # Portable Grid on a VPS: one container behind port 8080, plus Postgres.
 #   docker compose -f docker/compose/postgres.yml -f docker/compose/grid.yml up -d --build
-# Owner sign-in: docker compose -f docker/compose/postgres.yml -f docker/compose/grid.yml exec grid cat /data/owner.txt
+# First-run setup link: docker compose -f docker/compose/postgres.yml -f docker/compose/grid.yml exec grid cat /data/setup-link.txt
 services:
   grid:
     build:
@@ -10,7 +10,6 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-grid}:${POSTGRES_PASSWORD:-grid}@postgres:5432/${POSTGRES_DB:-grid}
-      GRID_OWNER_EMAIL: ${GRID_OWNER_EMAIL:-owner@grid.local}
       # The domain people open Grid on, e.g. grid.example.com (comma-separated).
       GRID_ALLOWED_HOSTS: ${GRID_ALLOWED_HOSTS:-}
       GRID_PUBLIC_URL: ${GRID_PUBLIC_URL:-}

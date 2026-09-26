@@ -55,8 +55,8 @@ bun run grid
 
 Bun is pinned to **1.4.2** in `package.json`. Set `DATABASE_URL` to an existing PostgreSQL
 instance or have Docker with Compose available so the launcher can start Postgres. The gateway
-uses port `8080` by default (`GRID_PORT` changes it). The first owner's credentials are written
-to `.grid/owner.txt`. See [portable Grid](apps/docs/content/docs/portable.mdx) for Codespaces,
+uses port `8080` by default (`GRID_PORT` changes it). On first start it prints a one-time setup
+link (also in `.grid/setup-link.txt`) for creating the owner account and first workspace. See [portable Grid](apps/docs/content/docs/portable.mdx) for Codespaces,
 VPS, pairing, and configuration.
 
 ## Development commands

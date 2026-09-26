@@ -15,9 +15,10 @@ import { authRoutes } from "./modules/auth/routes";
 import { billingRoutes } from "./modules/billing/routes";
 import type { EmailSender } from "./modules/email/email";
 import { healthRoutes } from "./modules/health/routes";
+import { instanceRoutes } from "./modules/instance/routes";
 import { projectRoutes } from "./modules/projects/routes";
 import { profileRoutes, uploadedFile } from "./modules/profiles/routes";
-import { workspaceRoutes } from "./modules/workspaces/routes";
+import { inviteRoutes, workspaceRoutes } from "./modules/workspaces/routes";
 
 /** A route that does not exist, in the words clients already know (query string included). */
 function notFoundRoute(c: AppContext): ApiError {
@@ -65,17 +66,18 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 	// Ported modules. Each one's routes answer here; everything else falls through below.
 	const api = new Hono<AppEnv>();
 	api.route("/health", healthRoutes());
-	api.route(
-		"/auth",
-		authRoutes({
-			db: deps.db,
-			config,
-			crypto: authCrypto(config),
-			send: deps.send,
-			sessions: deps.sessions,
-		}),
-	);
-	api.route("/workspaces", workspaceRoutes({ db: deps.db, sessions: deps.sessions }));
+	const auth = {
+		db: deps.db,
+		config,
+		crypto: authCrypto(config),
+		send: deps.send,
+		sessions: deps.sessions,
+	};
+	api.route("/auth", authRoutes(auth));
+	api.route("/instance", instanceRoutes(auth));
+	const workspaces = { db: deps.db, sessions: deps.sessions, send: deps.send };
+	api.route("/workspaces", workspaceRoutes(workspaces));
+	api.route("/invites", inviteRoutes(workspaces));
 	// The user's default workspace, for clients that do not pick one yet.
 	api.route("/projects", projectRoutes({ db: deps.db, sessions: deps.sessions }));
 	api.route(

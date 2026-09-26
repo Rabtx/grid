@@ -1,6 +1,11 @@
 import { serviceUnavailable } from "../../http/errors";
 
-import { magicLinkEmail, passwordResetEmail, verificationEmail } from "./templates";
+import {
+	magicLinkEmail,
+	passwordResetEmail,
+	verificationEmail,
+	workspaceInviteEmail,
+} from "./templates";
 
 export type EmailMessage = { to: string; subject: string; html: string };
 
@@ -47,3 +52,9 @@ export const sendPasswordResetCode = (send: EmailSender, to: string, code: strin
 	send({ to, ...passwordResetEmail(code) });
 export const sendMagicLink = (send: EmailSender, to: string, url: string) =>
 	send({ to, ...magicLinkEmail(url) });
+export const sendWorkspaceInvite = (
+	send: EmailSender,
+	to: string,
+	workspace: string,
+	url: string,
+) => send({ to, ...workspaceInviteEmail(workspace, url) });

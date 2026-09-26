@@ -19,6 +19,22 @@ export interface TwoFactorChallenge {
 
 export type LoginResult = AuthSession | TwoFactorChallenge;
 
+/** First run: the owner account and the first workspace, with the code from the setup link. */
+export interface SetupInput {
+	code: string;
+	email: string;
+	username: string;
+	password: string;
+	displayName?: string;
+	workspace: { name: string; slug: string };
+}
+
+/** Whether this Grid still needs its first-run setup, and whether anyone may sign up. */
+export interface InstanceStatus {
+	setupNeeded: boolean;
+	signupOpen: boolean;
+}
+
 export interface LoginInput {
 	email: string;
 	password: string;
