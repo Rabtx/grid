@@ -5,7 +5,7 @@ import { call, json, stable, type Reply } from "./client";
 /**
  * Sign-up to sign-out on one throwaway account, against whichever server CONTRACT_API_URL names.
  * The account is deleted afterwards when DATABASE_URL is set (run with
- * `bun --env-file=../nest-api/.env test test/contract`). The flows stay inside the routes'
+ * `bun run test:contract`). The flows stay inside the routes'
  * per-minute limits, so run the suite at most once a minute per server.
  */
 const run = Math.random().toString(36).slice(2, 10);

@@ -12,7 +12,7 @@ import * as flows from "./flows";
 
 /**
  * Sign-in rules against a real database (the dev one, with throwaway `flows-*@grid.test`
- * accounts removed afterwards). Skipped without DATABASE_URL: `bun --env-file=../nest-api/.env test`.
+ * accounts removed afterwards). Skipped without DATABASE_URL (Bun loads it from apps/api/.env).
  */
 const url = process.env.DATABASE_URL;
 const suite = url ? describe : describe.skip;
@@ -104,7 +104,7 @@ suite("sign-in rules", () => {
 		).toBe("AUTH_INVALID_CREDENTIALS");
 	});
 
-	it("hands accounts with 2FA a challenge NestJS can complete, not a session", async () => {
+	it("hands accounts with 2FA a challenge to complete, not a session", async () => {
 		const user = await account("mfa");
 		await database.db
 			.insert(schema.totpFactors)

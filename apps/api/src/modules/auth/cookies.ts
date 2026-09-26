@@ -5,7 +5,7 @@ import type { AppContext } from "../../http/context";
 
 /**
  * The refresh-token cookie: httpOnly, scoped to the auth routes, Secure in production (and
- * whenever SameSite=None requires it). Same name and attributes as NestJS set.
+ * whenever SameSite=None requires it). The name and attributes browsers already hold.
  */
 function options(config: AppConfig) {
 	const sameSite = config.cookieSameSite;

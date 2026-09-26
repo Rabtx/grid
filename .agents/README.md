@@ -1,7 +1,7 @@
 # Agent coordination hub
 
 Cross-team communication for the agents building this monorepo:
-**backend** (NestJS), **web** (Next.js), **ui-ux** (the design system), and the human.
+**backend** (the Hono API, runner and launcher), **web** (Next.js), **ui-ux** (the design system), and the human.
 
 ```
 .agents/

@@ -1,6 +1,6 @@
 ---
 title: Deploy
-description: Host web and docs on Vercel, Nest API on Render with Neon Postgres.
+description: Host web and docs on Vercel, the Grid API on Render with Neon Postgres.
 ---
 
 Ship the Grid stack without Docker on the public internet:
@@ -9,7 +9,7 @@ Ship the Grid stack without Docker on the public internet:
 |-----|----------|--------|
 | `apps/web` | [Vercel](https://vercel.com) | Next.js, Bun monorepo install |
 | `apps/docs` | [Vercel](https://vercel.com) | Separate Vercel project |
-| `apps/nest-api` | [Render](https://render.com) | Docker Blueprint + Neon `DATABASE_URL` |
+| `apps/api` | [Render](https://render.com) | Docker Blueprint + Neon `DATABASE_URL` |
 | Database | [Neon](https://neon.tech) | Serverless Postgres (TLS auto-detected) |
 
 Repo files: `apps/web/vercel.json`, `apps/docs/vercel.json`, root `render.yaml`.
@@ -18,12 +18,12 @@ Repo files: `apps/web/vercel.json`, `apps/docs/vercel.json`, root `render.yaml`.
 
 1. Create a project at [console.neon.tech](https://console.neon.tech).
 2. Copy the **pooled** connection string (includes `sslmode=require`).
-3. You will paste it into Render as `DATABASE_URL`. Nest enables TLS automatically for `neon.tech` URLs.
+3. You will paste it into Render as `DATABASE_URL`. The API enables TLS automatically for `neon.tech` URLs.
 
-## 2) Nest API on Render
+## 2) The API on Render
 
 1. In Render, **New → Blueprint** and connect this GitHub repo (or create a Web Service with Docker).
-2. Use `render.yaml` at the repo root (dockerfile `apps/nest-api/Dockerfile`, context `.`).
+2. Use `render.yaml` at the repo root (dockerfile `apps/api/Dockerfile`, context `.`).
 3. Fill **sync: false** env vars in the dashboard:
 
 | Variable | Example |
@@ -60,9 +60,9 @@ Migrations run on container start when `RUN_MIGRATIONS=true` (default in the Blu
 |----------|--------|
 | `NEXT_PUBLIC_NEST_API_URL` | `https://<your-service>.onrender.com` (no `/api` path) |
 | `NEXT_PUBLIC_SITE_URL` | `https://your-web.vercel.app` — absolute origin for canonical URL, Open Graph, `sitemap.xml` and `robots.txt` (no trailing slash) |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | optional; must match Nest `GOOGLE_CLIENT_ID` |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | optional; must match the API's `GOOGLE_CLIENT_ID` |
 
-6. Deploy. Then go back to Render and set `WEB_APP_URL` / `CORS_ORIGIN` / WebAuthn to this Vercel URL, and **redeploy Nest** if needed.
+6. Deploy. Then go back to Render and set `WEB_APP_URL` / `CORS_ORIGIN` / WebAuthn to this Vercel URL, and **redeploy the API** if needed.
 
 `NEXT_PUBLIC_*` is baked at **build** time — change the API URL or site URL → redeploy web.
 
@@ -77,7 +77,7 @@ Migrations run on container start when `RUN_MIGRATIONS=true` (default in the Blu
 | `OPENROUTER_API_KEY` | from [OpenRouter](https://openrouter.ai) |
 | `OPENROUTER_MODEL` | e.g. `anthropic/claude-3.5-sonnet` |
 
-4. Deploy. Docs do not call Nest.
+4. Deploy. Docs do not call the API.
 
 ## Cross-origin auth (important)
 
@@ -94,14 +94,14 @@ Long-term option: put both under one parent domain (e.g. `app.example.com` + `ap
 
 - [ ] Neon `DATABASE_URL` on Render
 - [ ] Resend key + verified from-address
-- [ ] Nest health returns OK
+- [ ] API health returns OK
 - [ ] Web `NEXT_PUBLIC_NEST_API_URL` → Render origin
 - [ ] Web `NEXT_PUBLIC_SITE_URL` → Vercel web origin (canonical / OG / sitemap)
-- [ ] Nest `CORS_ORIGIN` / `WEB_APP_URL` → Vercel web URL
+- [ ] API `CORS_ORIGIN` / `WEB_APP_URL` → Vercel web URL
 - [ ] Login works (cookie + credentials)
 - [ ] Docs project live (optional OpenRouter)
 
 ## Related
 
 - [Docker](/docs/docker) — local Compose stack
-- Nest API README production notes under `apps/nest-api/`
+- API README: `apps/api/README.md`

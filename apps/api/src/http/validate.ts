@@ -4,7 +4,7 @@ import { badRequest } from "./errors";
 
 export type ValidationErrorItem = { code: string; path: string; message: string };
 
-/** Check a value against a schema, failing as NestJS's validation pipe did (400, field errors). */
+/** Check a value against a schema: a 400 VALIDATION_ERROR with field errors when it fails. */
 export function parse<T>(schema: ZodType<T>, value: unknown): T {
 	const result = schema.safeParse(value);
 	if (result.success) return result.data;
@@ -46,7 +46,7 @@ export async function readJson(request: {
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** A route parameter that must be a v4 UUID, refused in NestJS's words. */
+/** A route parameter that must be a v4 UUID, refused in the words clients already know. */
 export function uuidV4(value: string): string {
 	if (!UUID_V4.test(value)) throw badRequest("Validation failed (uuid v 4 is expected)");
 	return value;

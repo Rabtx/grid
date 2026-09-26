@@ -7,7 +7,6 @@ WORKDIR /app
 
 FROM base AS deps
 COPY package.json bun.lock ./
-COPY apps/nest-api/package.json ./apps/nest-api/
 COPY apps/web/package.json ./apps/web/
 COPY apps/docs/package.json ./apps/docs/
 COPY packages/ui/package.json ./packages/ui/

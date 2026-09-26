@@ -18,7 +18,6 @@ COPY apps/api/package.json apps/api/
 COPY apps/console/package.json apps/console/
 COPY apps/docs/package.json apps/docs/
 COPY apps/launcher/package.json apps/launcher/
-COPY apps/nest-api/package.json apps/nest-api/
 COPY apps/runner/package.json apps/runner/
 COPY apps/web/package.json apps/web/
 COPY packages/db/package.json packages/db/
@@ -28,12 +27,11 @@ COPY packages/typescript-config/package.json packages/typescript-config/
 COPY packages/ui/package.json packages/ui/
 RUN --mount=type=cache,target=/root/.bun/install/cache \
 	bun install --frozen-lockfile --ignore-scripts \
-	--filter launcher --filter nest-api --filter runner --filter console
+	--filter launcher --filter api --filter runner --filter console
 
 COPY packages packages
 COPY apps/api apps/api
 COPY apps/launcher apps/launcher
-COPY apps/nest-api apps/nest-api
 COPY apps/runner apps/runner
 COPY apps/console apps/console
 COPY docker docker

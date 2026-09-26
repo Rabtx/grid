@@ -7,7 +7,6 @@ import { type AppConfig, basePath, isAllowedOrigin } from "./config/config";
 import type { SessionLookup } from "./http/auth";
 import type { AppContext, AppEnv } from "./http/context";
 import { ApiError, errorResponse } from "./http/errors";
-import { forward } from "./http/forward";
 import { rateLimit } from "./http/rate-limit";
 import { requestId } from "./http/request-id";
 
@@ -19,7 +18,7 @@ import { healthRoutes } from "./modules/health/routes";
 import { projectRoutes } from "./modules/projects/routes";
 import { profileRoutes, uploadedFile } from "./modules/profiles/routes";
 
-/** NestJS's words for a route that does not exist, query string included. */
+/** A route that does not exist, in the words clients already know (query string included). */
 function notFoundRoute(c: AppContext): ApiError {
 	const url = new URL(c.req.url);
 	return new ApiError(404, `Cannot ${c.req.method} ${url.pathname}${url.search}`);
@@ -33,10 +32,7 @@ export type AppDeps = {
 	send: EmailSender;
 };
 
-/**
- * The Grid API: `/api/v1/...` with the same contract NestJS served. Routes not ported yet are
- * forwarded to NestJS (see `GRID_LEGACY_API_URL`), so each module moves over on its own.
- */
+/** The Grid API: `/api/v1/...`, plus the uploaded files it serves at `/uploads/...`. */
 export function createApp(deps: AppDeps): Hono<AppEnv> {
 	const { config } = deps;
 	const app = new Hono<AppEnv>();
@@ -86,10 +82,6 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 	api.route("/billing", billingRoutes({ db: deps.db, sessions: deps.sessions }));
 	app.route(base, api);
 
-	// Not ported yet: NestJS answers. Without it (after the cutover), a plain 404.
-	const fallback = (c: AppContext) =>
-		config.legacyApiUrl ? forward(c, config.legacyApiUrl) : errorResponse(c, notFoundRoute(c));
-	app.all(`/${config.apiPrefix}/*`, fallback);
 	app.get("/uploads/*", (c) => uploadedFile(c, config.uploadsDir));
 
 	app.notFound((c) => errorResponse(c, notFoundRoute(c)));

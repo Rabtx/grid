@@ -16,7 +16,7 @@ describe("api client", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("points at the Nest API by default", () => {
+	it("points at the Grid API by default", () => {
 		expect(getBaseUrl()).toContain("localhost:4000");
 	});
 

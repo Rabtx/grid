@@ -115,7 +115,7 @@ describe("profile and avatar", () => {
 		expect(uploaded.status).toBe(200);
 		const url = (data(uploaded).profile as { avatarUrl: string }).avatarUrl;
 		expect(url).toMatch(/\/uploads\/avatars\/[\w-]+\.png$/);
-		avatarFile = join(import.meta.dir, "../../../nest-api", new URL(url).pathname);
+		avatarFile = join(import.meta.dir, "../..", new URL(url).pathname);
 		const image = await fetch(url);
 		expect(image.status).toBe(200);
 		expect(new Uint8Array(await image.arrayBuffer())).toEqual(bytes);

@@ -1,10 +1,8 @@
 /**
- * The contract suite's client. It talks HTTP to whichever server `CONTRACT_API_URL` names, so
- * the same tests run against NestJS and against Hono, and a route only moves over once both
- * give the same answers:
+ * The contract suite's client: black-box HTTP against a running API, pinning the responses the
+ * console, the runner and native clients rely on (it proved the move from NestJS to Hono).
  *
- *   CONTRACT_API_URL=http://127.0.0.1:4010 bun run test:contract   # NestJS
- *   CONTRACT_API_URL=http://127.0.0.1:4000 bun run test:contract   # Hono (forwarding the rest)
+ *   CONTRACT_API_URL=http://127.0.0.1:4000 bun run test:contract
  *
  * `test:contract` loads DATABASE_URL (tests create and remove their own rows). Sign-up and
  * sign-in are limited per minute, so run the suite at most once a minute against one server.

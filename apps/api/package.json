@@ -4,12 +4,12 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "GRID_LEGACY_API_URL=${GRID_LEGACY_API_URL:-http://127.0.0.1:4010} bun --env-file=../nest-api/.env --watch src/main.ts",
+		"dev": "bun --watch src/main.ts",
 		"start": "bun src/main.ts",
 		"lint": "oxlint .",
 		"typecheck": "tsc --noEmit",
-		"test": "bun --env-file=../nest-api/.env test src",
-		"test:contract": "bun --env-file=../nest-api/.env test test/contract"
+		"test": "bun test src",
+		"test:contract": "bun test test/contract"
 	},
 	"dependencies": {
 		"@grid/db": "workspace:*",

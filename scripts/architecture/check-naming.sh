@@ -17,14 +17,14 @@ checked=0
 SCOPES=(
     apps/web/src
     apps/console/src
-    apps/nest-api/src
+    apps/api/src
     apps/docs/src
     packages/ui/src
     packages/logger/src
 )
 
 # Whole stem is one or more kebab segments joined by dots
-# (Nest/Angular style: auth.service.ts, users.module.ts, icon.web.tsx).
+# (dotted names: auth.test.ts, users.types.ts, icon.web.tsx).
 is_kebab_stem() {
     [[ "$1" =~ ^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)*$ ]]
 }

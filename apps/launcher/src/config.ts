@@ -6,8 +6,6 @@ export type LaunchConfig = {
 	/** The one public port: the console, with /api and /runner forwarded behind it. */
 	port: number;
 	apiPort: number;
-	/** NestJS, on loopback behind the Hono API until every module is ported. */
-	legacyApiPort: number;
 	runnerPort: number;
 	/** Secrets, the owner's first sign-in details and the chat database. */
 	dataDir: string;
@@ -29,7 +27,6 @@ export function readLaunchConfig(env: Env, root: string): LaunchConfig {
 	return {
 		port: Number(env.GRID_PORT ?? 8080),
 		apiPort: Number(env.GRID_API_PORT ?? 4000),
-		legacyApiPort: Number(env.GRID_LEGACY_API_PORT ?? Number(env.GRID_API_PORT ?? 4000) + 10),
 		runnerPort: Number(env.GRID_RUNNER_PORT ?? 4100),
 		dataDir,
 		// In a Codespace the repos live under /workspaces, so that is where projects belong.

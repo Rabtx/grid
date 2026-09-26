@@ -20,12 +20,13 @@ Grid uses a strong default architecture that is intentionally overridable.
 - `src/lib/*` contains framework-agnostic helpers for the app.
 - `src/components/*` contains reusable visual components.
 
-### `apps/nest-api`
+### `apps/api`
 
-- `src/modules/*` holds feature modules (controller/service/repository).
-- `src/common/*` holds cross-cutting HTTP concerns (filters, interceptors, pipes, guards).
+- `src/modules/*` holds feature modules: `routes.ts` plus plain functions for logic and queries.
+- `src/http/*` holds cross-cutting HTTP pieces (envelope, errors, validation, sign-in check,
+  rate limits, request ids).
 - `src/config/*` holds validated environment configuration.
-- Controllers stay thin; business logic lives in services; database access in repositories.
+- The schema and migrations live in `packages/db` (`@grid/db`), shared with the launcher.
 
 ### `packages/*`
 
@@ -39,7 +40,7 @@ Grid uses a strong default architecture that is intentionally overridable.
   - no `@/...` imports inside `packages/*`
   - no deep web module imports (`@/modules/*/*/*`) from outside `src/modules/`
   - no cross-app relative imports (`../../apps/`)
-  - kebab-case file/folder names under TS/JS `src/` (allows Nest dotted names like `auth.service.ts`, route groups `(auth)`, and `[id]` params)
+  - kebab-case file/folder names under TS/JS `src/` (allows dotted names like `auth.test.ts`, route groups `(auth)`, and `[id]` params)
 
 ## ADRs
 

@@ -90,7 +90,7 @@ describe("ported route parsing with app.request", () => {
 		}
 	});
 
-	it("serves an avatar already present in the NestJS uploads directory", async () => {
+	it("serves an avatar already present in the uploads directory", async () => {
 		const uploadsDir = await mkdtemp(join(tmpdir(), "grid-avatar-contract-"));
 		try {
 			await mkdir(join(uploadsDir, "avatars"));

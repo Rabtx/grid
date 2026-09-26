@@ -1,4 +1,4 @@
-# Render Blueprint — Nest API + Neon (external).
+# Render Blueprint — the Grid API + Neon (external).
 # https://render.com/docs/blueprint-spec
 #
 # Neon: create a project at https://console.neon.tech, copy the pooled
@@ -8,11 +8,11 @@
 
 services:
   - type: web
-    name: grid-nest-api
+    name: grid-api
     runtime: docker
     plan: free
     region: oregon
-    dockerfilePath: ./apps/nest-api/Dockerfile
+    dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
     healthCheckPath: /api/v1/health
     envVars:

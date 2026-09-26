@@ -13,7 +13,7 @@ Each agent must load the universal contract and exactly one role charter before 
 
 ## Active roles
 
-- [Backend](backend.md) — the complete NestJS API and backend platform
+- [Backend](backend.md) — the complete Grid API (Hono on Bun) and backend platform
 - [Web](web.md) — Next.js web application
 - [QA](qa.md) — behavior, regression, accessibility, and end-to-end verification
 - [Reviewer](reviewer.md) — independent code, scope, and contract review

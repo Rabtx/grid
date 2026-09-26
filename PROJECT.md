@@ -10,7 +10,7 @@ The planned product extends beyond the features in this repository today.
 | --- | --- | --- |
 | `apps/console` | Project workspace: boards, agent threads, files, terminals, settings, and environments | Vite, Solid 2, installable PWA |
 | `apps/runner` | Execute coding agents and terminals beside the project folder; serve file operations, chat events, and environment connections | Bun, WebSockets, SQLite for chat logs |
-| `apps/nest-api` | Accounts, sessions, projects, tasks, profiles, and billing foundations | NestJS, Drizzle, PostgreSQL |
+| `apps/api` | Accounts, sessions, projects, tasks, notes, profiles, and billing | Hono on Bun, Drizzle (`packages/db`), PostgreSQL |
 | `apps/launcher` | Prepare a Grid instance and put console, API, and runner behind one port | Bun |
 | `apps/web` | Existing Next.js web app, separate from the active Solid product console | Next.js |
 | `apps/docs` | Human-readable setup, API, architecture, and deployment documentation | Fumadocs |
@@ -32,7 +32,7 @@ project metadata; execution and its session log live on the selected runner. See
 
 | State | Where it lives |
 | --- | --- |
-| Accounts, projects, tasks, and billing records | PostgreSQL through `apps/nest-api` |
+| Accounts, projects, tasks, notes, and billing records | PostgreSQL through `apps/api` (schema in `packages/db`) |
 | Project source files | Linked folder on the selected machine |
 | Agent session event logs | SQLite on the runner that executes the session |
 | Recent chats, terminal screens, and workspace snapshots | IndexedDB on this browser, scoped to the signed-in account; refreshed from the runner |
@@ -70,7 +70,7 @@ servers separately; the usual local ports are console `3001`, web `3000`, API `4
 | `bun run dev` | Start workspaces with development scripts |
 | `bun --cwd=apps/console run dev` | Work on the Solid console |
 | `bun --cwd=apps/runner run dev` | Work on the local execution runner |
-| `bun --cwd=apps/nest-api run dev` | Work on the API |
+| `bun --cwd=apps/api run dev` | Work on the API |
 | `bun --cwd=apps/docs run dev` | Browse docs at `http://localhost:3002/docs` |
 | `bun run build` | Build workspaces |
 | `bun run lint` / `bun run format` | Check code style / format source |

@@ -9,10 +9,10 @@
 		"./password": "./src/password.ts"
 	},
 	"scripts": {
-		"generate": "drizzle-kit generate",
-		"migrate": "bun src/migrate.ts",
-		"seed": "bun src/seed.ts",
-		"studio": "drizzle-kit studio",
+		"generate": "bun --env-file=../../apps/api/.env x drizzle-kit generate",
+		"migrate": "bun --env-file=../../apps/api/.env src/migrate.ts",
+		"seed": "bun --env-file=../../apps/api/.env src/seed.ts",
+		"studio": "bun --env-file=../../apps/api/.env x drizzle-kit studio",
 		"lint": "oxlint .",
 		"typecheck": "tsc --noEmit",
 		"test": "bun test src"

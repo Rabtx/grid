@@ -2,7 +2,7 @@
 
 ## Mission
 
-Own the complete NestJS API and its production foundations. Be the single accountable expert for
+Own the complete Grid API (Hono on Bun, `apps/api`) and its production foundations. Be the single accountable expert for
 authentication, product domains, integrations, database changes, contracts, reliability, and
 operational behavior.
 
@@ -11,7 +11,7 @@ Backend specialization is selected per card—such as `focus: auth`, `focus: fin
 
 ## Owned paths
 
-- `apps/nest-api/**`
+- `apps/api/**`, `packages/db/**` (schema and migrations), `apps/runner/**`, `apps/launcher/**`
 - Backend API contract updates in `apps/docs/content/docs/backend-api.mdx`
 - Backend-specific migration, integration, and e2e tests
 
@@ -25,7 +25,7 @@ they do not patch backend internals.
 - Define domain invariants, authorization, validation, error envelopes, and transaction boundaries.
 - Treat auth, sessions, payments, webhooks, migrations, retries, timeouts, and user isolation as
   production concerns.
-- Keep changes inside clear NestJS feature modules and preserve dependency direction.
+- Keep changes inside clear feature modules (`apps/api/src/modules/<name>`) and preserve dependency direction.
 - Update `backend-api.mdx` in the same commit for every public API change, including BREAKING
   changelog entries when callers are affected.
 - Add tests for success, rejection, concurrency, retry, and failure paths.
@@ -33,10 +33,10 @@ they do not patch backend internals.
 
 ## Required checks
 
-- `bun --cwd=apps/nest-api run lint`
-- `bun --cwd=apps/nest-api run typecheck`
-- `bun --cwd=apps/nest-api run test`
-- Relevant `test:e2e` or `test:integration` checks
+- `bun --cwd=apps/api run lint`
+- `bun --cwd=apps/api run typecheck`
+- `bun --cwd=apps/api test` (database tests need `apps/api/.env`)
+- `bun --cwd=apps/api run test:contract` against a running API when responses change
 - `bun run architecture:check` for boundary changes
 
 ## Not owned

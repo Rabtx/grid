@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { Hono } from "hono";
 import { SignJWT } from "jose";
 import * as z from "zod";
@@ -68,7 +68,7 @@ describe("envelope and errors", () => {
 		expect(response.headers.get("x-request-id")).toMatch(/^req_[0-9a-f-]{36}$/);
 	});
 
-	it("answers an unknown route like NestJS did, without a legacy API", async () => {
+	it("answers an unknown route with a 404 in the usual error shape", async () => {
 		const response = await app.request("/api/v1/nothing-here?x=1");
 		expect(response.status).toBe(404);
 		expect(await response.json()).toMatchObject({
@@ -182,76 +182,5 @@ describe("validation and rate limits", () => {
 		const last = await app.request("/busy");
 		expect(last.headers.get("retry-after")).not.toBeNull();
 		expect(((await last.json()) as { code: string }).code).toBe("TOO_MANY_REQUESTS");
-	});
-});
-
-describe("forwarding to NestJS", () => {
-	let legacy: ReturnType<typeof Bun.serve>;
-
-	beforeAll(() => {
-		legacy = Bun.serve({
-			port: 0,
-			fetch: async (request) => {
-				const url = new URL(request.url);
-				const headers = new Headers({ "content-type": "application/json" });
-				headers.append("set-cookie", "grid_refresh_token=abc; Path=/api/v1/auth; HttpOnly");
-				return new Response(
-					JSON.stringify({
-						method: request.method,
-						path: url.pathname + url.search,
-						cookie: request.headers.get("cookie"),
-						requestId: request.headers.get("x-request-id"),
-						body: request.method === "GET" ? null : await request.text(),
-					}),
-					{ status: 201, headers },
-				);
-			},
-		});
-	});
-	afterAll(() => legacy.stop(true));
-
-	it("passes unported routes through unchanged, cookies both ways", async () => {
-		const app = createApp({
-			config: config({ GRID_LEGACY_API_URL: `http://127.0.0.1:${legacy.port}` }),
-			sessions: sessions(),
-			db: noDb,
-			send: async () => {},
-		});
-		const response = await app.request("/api/v1/not-ported/thing?next=%2F", {
-			method: "POST",
-			headers: { cookie: "a=1", "content-type": "application/json", "x-request-id": "req_fwd" },
-			body: JSON.stringify({ email: "x@y.z" }),
-		});
-		expect(response.status).toBe(201);
-		expect(response.headers.get("set-cookie")).toContain("grid_refresh_token=abc");
-		expect(await response.json()).toEqual({
-			method: "POST",
-			path: "/api/v1/not-ported/thing?next=%2F",
-			cookie: "a=1",
-			requestId: "req_fwd",
-			body: JSON.stringify({ email: "x@y.z" }),
-		});
-	});
-
-	it("still serves ported routes itself", async () => {
-		const app = createApp({
-			config: config({ GRID_LEGACY_API_URL: `http://127.0.0.1:${legacy.port}` }),
-			sessions: sessions(),
-			db: noDb,
-			send: async () => {},
-		});
-		const json = (await (await app.request("/api/v1/health")).json()) as { data: unknown };
-		expect(json.data).toEqual({ status: "ok", service: "grid-api" });
-	});
-
-	it("forwards uploaded files too", async () => {
-		const app = createApp({
-			config: config({ GRID_LEGACY_API_URL: `http://127.0.0.1:${legacy.port}` }),
-			sessions: sessions(),
-			db: noDb,
-			send: async () => {},
-		});
-		const json = (await (await app.request("/uploads/avatars/a.png")).json()) as { path: string };
-		expect(json.path).toBe("/uploads/avatars/a.png");
 	});
 });

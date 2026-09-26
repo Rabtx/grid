@@ -5,8 +5,8 @@ import { SignJWT } from "jose";
 import type { AccessTokenPayload } from "../../http/context";
 
 /**
- * Codes, tokens and hashes, byte-for-byte as NestJS made them, so a code sent by one API is
- * accepted by the other and sessions survive the switch. HMACs use Bun's own hasher.
+ * Codes, tokens and hashes, byte-for-byte as they are already stored, so codes, challenges and
+ * sessions issued before the move keep working. HMACs use Bun's own hasher.
  */
 export type ChallengePurpose =
 	| "email_verification"

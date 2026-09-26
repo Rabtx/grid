@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The API moved from NestJS to Hono on Bun (`apps/api`), route for route with the same
+  contract; `apps/nest-api` and its packages are gone. The schema and migrations live in
+  `packages/db` (Drizzle on `Bun.sql`). Passwords, 2FA codes and Google tokens now use Bun and
+  WebCrypto (`Bun.password`, `Bun.CryptoHasher`, jose) instead of bcryptjs, otplib and
+  google-auth-library. Swagger at `/api/docs` is no longer served.
 - Documentation lives only in `apps/docs` (Fumadocs). Removed the root `docs/` pointer folder.
 - Architecture boundary check scopes deep `@/modules/*/*/*` imports to consumers outside `src/modules/`.
 - Root `format` script tolerates missing local `cargo`/`shfmt` tooling.

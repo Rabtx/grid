@@ -44,7 +44,7 @@
 			"onAutoForward": "silent"
 		},
 		"4000": {
-			"label": "Nest API",
+			"label": "Grid API",
 			"onAutoForward": "silent"
 		}
 	},

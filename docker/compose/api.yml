@@ -1,10 +1,10 @@
-# NestJS production API — included from root docker-compose.yml
+# The Grid API (Hono on Bun) — included from root docker-compose.yml
 services:
-  nest-api:
+  api:
     build:
       context: ../..
-      dockerfile: apps/nest-api/Dockerfile
-    image: grid-nest-api:local
+      dockerfile: apps/api/Dockerfile
+    image: grid-api:local
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -24,7 +24,9 @@ services:
       RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
       TRUST_PROXY: ${TRUST_PROXY:-false}
     ports:
-      - "${NEST_API_PORT:-4000}:4000"
+      - "${API_PORT:-4000}:4000"
+    volumes:
+      - api_data:/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,3 +42,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 25s
+
+volumes:
+  api_data:

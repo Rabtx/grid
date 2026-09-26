@@ -9,7 +9,7 @@ const secrets = {
 };
 const c = authCrypto(secrets);
 
-describe("auth crypto matches what NestJS stored", () => {
+describe("auth crypto matches what is already stored", () => {
 	it("hashes codes as HMAC-SHA256 of purpose:email:code", () => {
 		const expected = createHmac("sha256", secrets.authTokenSecret)
 			.update("password_reset:a@b.c:123456")

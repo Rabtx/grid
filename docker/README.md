@@ -7,7 +7,7 @@ Compose is split into **fragments** under `compose/` and merged by the root
 | File | Role |
 |------|------|
 | `compose/postgres.yml` | Postgres 16, volume, healthcheck |
-| `compose/nest-api.yml` | NestJS API image (Bun multi-stage build) |
+| `compose/api.yml` | The Grid API image (`apps/api/Dockerfile`, Bun) |
 | `compose/grid.yml` | Portable Grid — the whole product in one image (`docker/grid.Dockerfile`); run with `postgres.yml`, see `/docs/portable` |
 | `compose/web.yml` | Next.js web image (standalone output) |
 
@@ -21,7 +21,7 @@ docker compose up -d --build
 | Service | Host port (default) |
 |---------|---------------------|
 | Postgres | 5433 → 5432 |
-| Nest API | 4000 |
+| API | 4000 |
 | Web | 3000 |
 
 `NEXT_PUBLIC_NEST_API_URL` must be a URL the **browser** can reach (usually `http://localhost:4000`), not the Docker service hostname.
