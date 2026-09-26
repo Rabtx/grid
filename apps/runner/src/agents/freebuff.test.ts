@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { freebuffMenu, freebuffReply } from "./freebuff";
+import { freebuffMenu, freebuffProgress, freebuffReply } from "./freebuff";
 
 describe("Freebuff CLI screen", () => {
 	it("reads the model picker from rendered terminal lines", () => {
@@ -32,5 +32,20 @@ describe("Freebuff CLI screen", () => {
 		].join("\n");
 		expect(freebuffReply(screen, "Reply with only hello.")).toBe("hello");
 		expect(freebuffReply(screen, "Another prompt")).toBeNull();
+	});
+
+	it("reads a growing answer before the final reply marker", () => {
+		const screen = [
+			"Write four lines. ⎘",
+			"A blinking cursor waits in the dark, patient and quiet.",
+			"Hidden text flows in a steady, ordered stream.",
+			"The window is raw and unfiltered, a",
+			"working... 3s ■ Esc",
+			"│  ▍Enter a coding task or / for commands",
+		].join("\n");
+		expect(freebuffProgress(screen, "Write four lines.")).toBe(
+			"A blinking cursor waits in the dark, patient and quiet.\nHidden text flows in a steady, ordered stream.\nThe window is raw and unfiltered, a",
+		);
+		expect(freebuffReply(screen, "Write four lines.")).toBeNull();
 	});
 });

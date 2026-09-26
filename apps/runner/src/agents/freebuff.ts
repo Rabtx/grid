@@ -1,4 +1,7 @@
 import { Terminal } from "@xterm/headless";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import type { Choice } from "./events";
 import type { AgentContext, AgentSession, Provider } from "./provider";
@@ -25,21 +28,27 @@ export function freebuffMenu(screen: string): { models: Choice[]; selected: numb
 	return { models, selected };
 }
 
-/** The reply is between Freebuff's copied user prompt and its reply footer. */
-export function freebuffReply(screen: string, prompt?: string): string | null {
+/** Read the answer from Freebuff's rendered conversation, including an unfinished turn. */
+function visibleReply(
+	screen: string,
+	prompt: string | undefined,
+	complete: boolean,
+): string | null {
 	const lines = screen.split("\n").map((line) => line.trim());
-	const end = lines.findLastIndex((line) => /⎘\s*•\s*\d/.test(line));
-	if (end < 0) return null;
-	let start = -1;
-	for (let i = end - 1; i >= 0; i--) {
-		if (lines[i].includes("⎘")) {
-			start = i;
-			break;
-		}
-	}
+	const hint = prompt?.trim().split("\n").at(-1)?.slice(-40);
+	const start = lines.findLastIndex(
+		(line) => line.includes("⎘") && !/⎘\s*•\s*\d/.test(line) && (!hint || line.includes(hint)),
+	);
 	if (start < 0) return null;
-	if (prompt && !lines[start].includes(prompt.trim().split("\n").at(-1)?.slice(-40) ?? ""))
-		return null;
+	const end = lines.findIndex(
+		(line, index) =>
+			index > start &&
+			(/⎘\s*•\s*\d/.test(line) ||
+				/^(?:thinking|working)\.\.\./i.test(line) ||
+				line.includes("End session") ||
+				/^[╭╰]─/.test(line)),
+	);
+	if (end < 0 || (complete && !/⎘\s*•\s*\d/.test(lines[end]))) return null;
 	let reply = lines.slice(start + 1, end);
 	if (reply.some((line) => line.startsWith("• Thinking"))) {
 		const thinking = reply.findIndex((line) => line.startsWith("• Thinking"));
@@ -49,11 +58,20 @@ export function freebuffReply(screen: string, prompt?: string): string | null {
 	return reply.join("\n").trim();
 }
 
+export function freebuffReply(screen: string, prompt?: string): string | null {
+	return visibleReply(screen, prompt, true);
+}
+
+export function freebuffProgress(screen: string, prompt: string): string | null {
+	return visibleReply(screen, prompt, false);
+}
+
 function cli(binary: string, cwd: string) {
 	const vt = new Terminal({ cols: COLS, rows: ROWS, allowProposedApi: true });
 	const decoder = new TextDecoder();
 	let screen = "";
 	let exited = false;
+	let onScreen: ((content: string) => void) | undefined;
 	const proc = Bun.spawn([binary], {
 		cwd,
 		env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" },
@@ -69,6 +87,7 @@ function cli(binary: string, cwd: string) {
 					)
 						.join("\n")
 						.trimEnd();
+					onScreen?.(screen);
 				});
 			},
 		},
@@ -83,6 +102,10 @@ function cli(binary: string, cwd: string) {
 			return screen;
 		},
 		write: (text: string) => terminal.write(text),
+		waitExit: () => proc.exited,
+		onScreen: (listener?: (content: string) => void) => {
+			onScreen = listener;
+		},
 		wait: async (ready: (screen: string) => boolean, timeoutMs = 15_000) => {
 			const until = Date.now() + timeoutMs;
 			while (Date.now() < until && !exited) {
@@ -136,11 +159,14 @@ export function freebuffProvider(options: { binary: string; available: () => boo
 			modes: [],
 		}),
 		catalog: async () => {
-			const child = cli(options.binary, process.cwd());
+			const cwd = mkdtempSync(join(tmpdir(), "grid-freebuff-models-"));
+			const child = cli(options.binary, cwd);
 			try {
 				return { models: (await modelMenu(child)).menu.models };
 			} finally {
 				child.close();
+				await child.waitExit();
+				rmSync(cwd, { recursive: true, force: true });
 			}
 		},
 		start: async (context) => startFreebuff(options.binary, context),
@@ -148,8 +174,22 @@ export function freebuffProvider(options: { binary: string; available: () => boo
 }
 
 async function startFreebuff(binary: string, context: AgentContext): Promise<AgentSession> {
-	const process = cli(binary, context.cwd);
+	let process = cli(binary, context.cwd);
 	try {
+		await process.wait(
+			(screen) =>
+				freebuffMenu(screen).selected >= 0 ||
+				screen.includes("Enter a coding task or / for commands"),
+			30_000,
+		);
+		if (process.screen.includes("Enter a coding task or / for commands")) {
+			process.write("\x03");
+			await process.wait((screen) => screen.includes("Press Ctrl-C again to exit"));
+			process.write("\x03");
+			await process.waitExit();
+			process.close();
+			process = cli(binary, context.cwd);
+		}
 		const { menu, ads } = await modelMenu(process);
 		const wanted = context.model
 			? menu.models.findIndex((model) => model.id === context.model)
@@ -172,6 +212,21 @@ async function startFreebuff(binary: string, context: AgentContext): Promise<Age
 		return {
 			prompt: async (text) => {
 				cancelled = false;
+				let emitted = "";
+				if (ads.length && !adsShown) {
+					context.emit({ type: "message", text: `${ads.join("\n")}\n\n` });
+					adsShown = true;
+				}
+				process.onScreen((screen) => {
+					const progress = freebuffProgress(screen, text);
+					if (!progress?.startsWith(emitted)) return;
+					const lastWord = Math.max(progress.lastIndexOf(" "), progress.lastIndexOf("\n"));
+					const stable = progress.slice(0, lastWord + 1);
+					if (stable.length > emitted.length) {
+						context.emit({ type: "message", text: stable.slice(emitted.length) });
+						emitted = stable;
+					}
+				});
 				try {
 					process.write(text);
 					await Bun.sleep(100);
@@ -186,14 +241,15 @@ async function startFreebuff(binary: string, context: AgentContext): Promise<Age
 					if (cancelled) return { reason: "cancelled" };
 					const reply = freebuffReply(process.screen, text);
 					if (!reply) throw new Error("Freebuff returned no readable reply");
-					if (ads.length && !adsShown) {
-						context.emit({ type: "message", text: `${ads.join("\n")}\n\n` });
-						adsShown = true;
-					}
-					context.emit({ type: "message", text: reply });
+					context.emit({
+						type: "message",
+						text: reply.startsWith(emitted) ? reply.slice(emitted.length) : `\n\n${reply}`,
+					});
 					return { reason: "done" };
 				} catch (cause) {
 					return { reason: cancelled ? "cancelled" : "error", error: String(cause) };
+				} finally {
+					process.onScreen();
 				}
 			},
 			cancel: () => {
