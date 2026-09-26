@@ -428,7 +428,7 @@ export function WorkSection(): JSX.Element {
 					path="src/auth/redirect.ts"
 					lines={[
 						{ kind: "context", text: "export function nextPath(session) {" },
-						{ kind: "remove", text: "  if (!session) return '/login';" },
+						{ kind: "del", text: "  if (!session) return '/login';" },
 						{ kind: "add", text: "  if (session === undefined) return null;" },
 						{ kind: "add", text: "  if (!session) return '/login';" },
 					]}

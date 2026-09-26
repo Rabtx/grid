@@ -1,42 +1,63 @@
 import type { JSX } from "@solidjs/web";
-import { createMemo, createSignal, For, Match, onSettled, Show, Switch } from "solid-js";
+import { createMemo, createSignal, For, Match, Show, Switch } from "solid-js";
 
 import {
+	AgentMessage,
 	AlertIcon,
-	attachContextMenu,
-	Button,
 	CheckIcon,
 	CloseIcon,
 	CopyIcon,
+	DecisionCard,
+	DiffCard,
+	DiffStat,
+	Disclosure,
 	EditIcon,
 	FileIcon,
 	GlobeIcon,
+	IconButton,
 	IdeaIcon,
+	InlineNotice,
 	Menu,
-	type MenuControl,
 	NoteAddIcon,
+	PlanList,
+	type PopoverControl,
+	Pre,
+	Prose,
+	Rail,
 	RestoreIcon,
+	Row,
 	SearchIcon,
+	Shimmer,
 	SpinnerIcon,
+	Stack,
 	TerminalIcon,
+	Text,
 	ToolIcon,
-} from "@/ui";
+	UserMessage,
+	WorkingDots,
+} from "@/kit";
 
+import { diffRows } from "../lib/diff";
 import { copyCodeFrom, renderMarkdown } from "../lib/markdown";
-import { DiffView } from "./diff-view";
-import { type Block, groupRows, type Row, summariseTools, toolFile } from "../lib/transcript";
-import type { ToolKind } from "../types/chat.types";
+import {
+	type Block,
+	groupRows,
+	type Row as TranscriptRow,
+	summariseTools,
+	toolFile,
+} from "../lib/transcript";
+import type { FileDiff, ToolKind } from "../types/chat.types";
 
 type ToolBlock = Extract<Block, { kind: "tool" }>;
 
-const TOOL_ICONS: Record<ToolKind, (props: { class?: string }) => JSX.Element> = {
-	read: FileIcon,
-	edit: EditIcon,
-	execute: TerminalIcon,
-	search: SearchIcon,
-	fetch: GlobeIcon,
-	think: IdeaIcon,
-	other: ToolIcon,
+const TOOL_ICONS: Record<ToolKind, () => JSX.Element> = {
+	read: () => <FileIcon size="sm" />,
+	edit: () => <EditIcon size="sm" />,
+	execute: () => <TerminalIcon size="sm" />,
+	search: () => <SearchIcon size="sm" />,
+	fetch: () => <GlobeIcon size="sm" />,
+	think: () => <IdeaIcon size="sm" />,
+	other: () => <ToolIcon size="sm" />,
 };
 
 /** How a call reads in the expanded list: a quiet verb, then what it acted on. */
@@ -89,16 +110,20 @@ export function TranscriptView(props: {
 
 	return (
 		// oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- delegates clicks from the code cards' own buttons
-		<div class="flex flex-col gap-3" onClick={copyCodeFrom}>
+		<div class="flex flex-col gap-2" onClick={copyCodeFrom}>
 			{/* keyed={false}: rows only ever append or update in place, so each keeps its DOM (and an open <details>). */}
 			<For each={grouped()} keyed={false}>
 				{(row) => (
 					<Switch>
-						<Match when={row().kind === "work" && (row() as Extract<Row, { kind: "work" }>)}>
+						<Match
+							when={row().kind === "work" && (row() as Extract<TranscriptRow, { kind: "work" }>)}
+						>
 							{(work) => <WorkGroup tools={work().tools} />}
 						</Match>
 						<Match
-							when={row().kind === "block" && (row() as Extract<Row, { kind: "block" }>).block}
+							when={
+								row().kind === "block" && (row() as Extract<TranscriptRow, { kind: "block" }>).block
+							}
 						>
 							{(block) => (
 								<BlockView
@@ -115,14 +140,12 @@ export function TranscriptView(props: {
 				)}
 			</For>
 			<Show when={props.running && props.blocks.at(-1)?.kind !== "assistant"}>
-				<p class="flex items-center gap-2 px-1 text-ink/50 text-ui-sm">
-					<span class="working-dots">
-						<i />
-						<i />
-						<i />
-					</span>
-					<span class="thread-running">Working</span>
-				</p>
+				<Row gap={2} class="px-1">
+					<WorkingDots />
+					<Text as="span" tone="subtle">
+						<Shimmer active>Working</Shimmer>
+					</Text>
+				</Row>
 			</Show>
 		</div>
 	);
@@ -145,7 +168,7 @@ function BlockView(props: {
 		<Switch>
 			<Match when={props.block.kind === "user" && props.block}>
 				{(block) => (
-					<UserMessage
+					<UserMessageView
 						text={(block() as Extract<Block, { kind: "user" }>).text}
 						onNote={props.onNote}
 					/>
@@ -167,15 +190,11 @@ function BlockView(props: {
 			</Match>
 			<Match when={props.block.kind === "reasoning" && props.block}>
 				{(block) => (
-					<details class="group text-ink/50 text-ui-sm">
-						<summary class="flex cursor-pointer list-none items-center gap-1.5 hover:text-ink/70">
-							<IdeaIcon class="size-3.5" />
-							Thinking
-						</summary>
-						<p class="mt-1.5 whitespace-pre-wrap border-ink/10 border-l-2 pl-3">
+					<Disclosure icon={<IdeaIcon size="sm" />} summary="Thinking">
+						<p class="mt-1.5 ml-2 whitespace-pre-wrap border-line border-l-2 pl-3 text-body text-fg-subtle">
 							{(block() as Extract<Block, { kind: "reasoning" }>).text}
 						</p>
-					</details>
+					</Disclosure>
 				)}
 			</Match>
 			<Match
@@ -188,100 +207,70 @@ function BlockView(props: {
 			<Match
 				when={props.block.kind === "plan" && (props.block as Extract<Block, { kind: "plan" }>)}
 			>
-				{(plan) => (
-					<ol class="flex flex-col gap-1 rounded-lg border border-ink/10 px-3 py-2.5 text-ui-sm">
-						<For each={plan().entries}>
-							{(entry) => (
-								<li
-									class={`flex items-start gap-2 ${entry.status === "completed" ? "text-ink/40 line-through" : "text-ink/80"}`}
-								>
-									<span class="mt-0.5 grid size-4 shrink-0 place-items-center">
-										<Show
-											when={entry.status === "completed"}
-											fallback={
-												<span
-													class={`size-2.5 rounded-full border ${entry.status === "in_progress" ? "border-accent bg-accent/30" : "border-ink/30"}`}
-												/>
-											}
-										>
-											<CheckIcon class="size-3.5 text-success" />
-										</Show>
-									</span>
-									{entry.text}
-								</li>
-							)}
-						</For>
-					</ol>
-				)}
+				{(plan) => <PlanList entries={plan().entries} />}
 			</Match>
 			<Match
 				when={props.block.kind === "notice" && (props.block as Extract<Block, { kind: "notice" }>)}
 			>
 				{(notice) => (
-					<p
-						class={`flex items-start gap-2 text-ui-sm ${notice().tone === "error" ? "text-danger" : "text-ink/45"}`}
-					>
-						<Show when={notice().tone === "error"}>
-							<AlertIcon class="mt-0.5 size-3.5 shrink-0" />
-						</Show>
+					<InlineNotice tone={notice().tone === "error" ? "error" : "info"}>
 						{notice().text}
-					</p>
+					</InlineNotice>
 				)}
 			</Match>
 		</Switch>
 	);
 }
 
-const ACTION_BTN =
-	"focus-ring grid size-6 place-items-center rounded-md text-ink/40 transition-[background-color,color,transform] duration-fast ease-out-grid hover:bg-ink/8 hover:text-ink/70 active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30 pointer-coarse:size-9";
-
-/** Copy text, briefly confirming on the button that asked. */
-function copyText(text: string, done: () => void): void {
-	void navigator.clipboard?.writeText(text).then(done);
+/** A message's copy button, confirming on itself. */
+function CopyButton(props: { text: string; label: string }): JSX.Element {
+	const [copied, setCopied] = createSignal(false);
+	return (
+		<IconButton
+			size="xs"
+			label={props.label}
+			tooltip={copied() ? "Copied" : "Copy"}
+			onClick={() =>
+				void navigator.clipboard?.writeText(props.text).then(() => {
+					setCopied(true);
+					setTimeout(() => setCopied(false), 1500);
+				})
+			}
+		>
+			<Show when={copied()} fallback={<CopyIcon size="sm" />}>
+				<CheckIcon size="sm" class="text-success" />
+			</Show>
+		</IconButton>
+	);
 }
 
-/** The "Add as note" button in a message's hover bar. */
-function NoteButton(props: { onNote?: (text: string) => void; text: string }): JSX.Element {
+/** The long-press menu on touch screens: the same actions as the hover bar. */
+function TouchMenu(props: {
+	label: string;
+	items: { id: string; label: string; disabled?: boolean }[];
+	onSelect: (id: string) => void;
+	control: (control: PopoverControl) => void;
+}): JSX.Element {
 	return (
-		<Show when={props.onNote}>
-			{(save) => (
-				<button
-					type="button"
-					aria-label="Add as note"
-					title="Add as note"
-					class={ACTION_BTN}
-					onClick={() => save()(props.text)}
-				>
-					<NoteAddIcon class="size-3.5" />
-				</button>
-			)}
-		</Show>
+		<Menu
+			label={props.label}
+			trigger={<span />}
+			triggerClass="hidden"
+			groups={[{ items: props.items }]}
+			control={props.control}
+			onSelect={props.onSelect}
+		/>
 	);
 }
 
 /** What you sent: a right-aligned bubble, clamped to four lines until opened, with copy & note actions. */
-function UserMessage(props: { text: string; onNote?: (text: string) => void }): JSX.Element {
-	const [open, setOpen] = createSignal(false);
-	const [copied, setCopied] = createSignal(false);
-	// Touch screens: a long press opens the actions (the hover bar is for pointers).
-	let menu: MenuControl | undefined;
-	let row: HTMLDivElement | undefined;
-	onSettled(() =>
-		row ? attachContextMenu(row, (point) => menu?.open(point), { touchOnly: true }) : undefined,
-	);
+function UserMessageView(props: { text: string; onNote?: (text: string) => void }): JSX.Element {
+	let menu: PopoverControl | undefined;
 	const long = () => props.text.split("\n").length > 4 || props.text.length > 400;
-
 	return (
-		<div
-			class="group/user flex flex-col items-end"
-			ref={(el) => {
-				row = el;
-			}}
-		>
-			<Menu
+		<>
+			<TouchMenu
 				label="Message actions"
-				trigger={<span />}
-				triggerClass="hidden"
 				items={[
 					{ id: "copy", label: "Copy message" },
 					...(props.onNote ? [{ id: "note", label: "Add as note" }] : []),
@@ -291,51 +280,41 @@ function UserMessage(props: { text: string; onNote?: (text: string) => void }): 
 				}}
 				onSelect={(id) => {
 					if (id === "note") props.onNote?.(props.text);
-					else copyText(props.text, () => undefined);
+					else void navigator.clipboard?.writeText(props.text);
 				}}
 			/>
-			<div class="max-w-[85%] rounded-2xl rounded-br-sm border border-ink/10 bg-ink/8 px-3.5 py-2.5 shadow-xs sm:max-w-[75%]">
-				<p
-					class={`whitespace-pre-wrap break-words text-ink text-ui ${open() ? "" : "line-clamp-4"}`}
-				>
-					{props.text}
-				</p>
-			</div>
-			<div class="flex h-6 items-center justify-end gap-1 px-1 pt-1 opacity-0 transition-opacity duration-fast group-hover/user:opacity-100 group-focus-within/user:opacity-100 pointer-coarse:hidden">
-				<Show when={long()}>
-					<button
-						type="button"
-						class="focus-ring rounded-md px-1.5 text-ink/45 text-ui-xs hover:bg-ink/8 hover:text-ink/70 pointer-coarse:min-h-9"
-						onClick={() => setOpen(!open())}
-					>
-						{open() ? "Show less" : "Show more"}
-					</button>
-				</Show>
-				<button
-					type="button"
-					aria-label="Copy message"
-					title={copied() ? "Copied" : "Copy"}
-					class={ACTION_BTN}
-					onClick={() =>
-						void navigator.clipboard?.writeText(props.text).then(() => {
-							setCopied(true);
-							setTimeout(() => setCopied(false), 1500);
-						})
-					}
-				>
-					<Show when={copied()} fallback={<CopyIcon class="size-3.5" />}>
-						<CheckIcon class="size-3.5 text-success" />
-					</Show>
-				</button>
-				<NoteButton text={props.text} onNote={props.onNote} />
-			</div>
-		</div>
+			<UserMessage
+				clamp={long()}
+				onMenuAt={(point) => menu?.open(point)}
+				actions={
+					<>
+						<CopyButton text={props.text} label="Copy message" />
+						<NoteButton text={props.text} onNote={props.onNote} />
+					</>
+				}
+			>
+				{props.text}
+			</UserMessage>
+		</>
+	);
+}
+
+/** The "Add as note" button in a message's hover bar. */
+function NoteButton(props: { onNote?: (text: string) => void; text: string }): JSX.Element {
+	return (
+		<Show when={props.onNote}>
+			{(save) => (
+				<IconButton size="xs" label="Add as note" onClick={() => save()(props.text)}>
+					<NoteAddIcon size="sm" />
+				</IconButton>
+			)}
+		</Show>
 	);
 }
 
 /**
- * The agent's response: Markdown with its actions (copy, note, regenerate) under it on hover; on touch a
- * long press opens them instead, so nothing is drawn at rest.
+ * The agent's response: Markdown with its actions (copy, note, regenerate) under it on hover; on
+ * touch a long press opens them instead, so nothing is drawn at rest.
  */
 function AssistantMessage(props: {
 	text: string;
@@ -344,24 +323,11 @@ function AssistantMessage(props: {
 	onRegenerate?: () => void;
 	onNote?: (text: string) => void;
 }): JSX.Element {
-	const [copied, setCopied] = createSignal(false);
-	let menu: MenuControl | undefined;
-	let row: HTMLDivElement | undefined;
-	onSettled(() =>
-		row ? attachContextMenu(row, (point) => menu?.open(point), { touchOnly: true }) : undefined,
-	);
-
+	let menu: PopoverControl | undefined;
 	return (
-		<div
-			class="group/assistant flex flex-col items-start"
-			ref={(el) => {
-				row = el;
-			}}
-		>
-			<Menu
+		<>
+			<TouchMenu
 				label="Response actions"
-				trigger={<span />}
-				triggerClass="hidden"
 				items={[
 					{ id: "copy", label: "Copy response" },
 					...(props.onNote ? [{ id: "note", label: "Add as note" }] : []),
@@ -373,47 +339,48 @@ function AssistantMessage(props: {
 					menu = control;
 				}}
 				onSelect={(id) => {
-					if (id === "copy") copyText(props.text, () => undefined);
+					if (id === "copy") void navigator.clipboard?.writeText(props.text);
 					else if (id === "note") props.onNote?.(props.text);
 					else props.onRegenerate?.();
 				}}
 			/>
-			<div
-				class="chat-prose min-w-0 max-w-full break-words px-1 text-ink text-ui"
-				innerHTML={renderMarkdown(props.text)}
-			/>
-			<div class="flex h-6 items-center gap-1 px-1 pt-1 opacity-0 transition-opacity duration-fast group-hover/assistant:opacity-100 group-focus-within/assistant:opacity-100 pointer-coarse:hidden">
-				<button
-					type="button"
-					aria-label="Copy response"
-					title={copied() ? "Copied" : "Copy"}
-					class={ACTION_BTN}
-					onClick={() =>
-						void navigator.clipboard?.writeText(props.text).then(() => {
-							setCopied(true);
-							setTimeout(() => setCopied(false), 1500);
-						})
-					}
-				>
-					<Show when={copied()} fallback={<CopyIcon class="size-3.5" />}>
-						<CheckIcon class="size-3.5 text-success" />
-					</Show>
-				</button>
-				<NoteButton text={props.text} onNote={props.onNote} />
-				<Show when={props.canRegenerate}>
-					<button
-						type="button"
-						aria-label="Regenerate response"
-						title={props.running ? "Cannot regenerate while running" : "Regenerate response"}
-						disabled={props.running}
-						class={ACTION_BTN}
-						onClick={() => props.onRegenerate?.()}
-					>
-						<RestoreIcon class="size-3.5" />
-					</button>
-				</Show>
-			</div>
-		</div>
+			<AgentMessage
+				onMenuAt={(point) => menu?.open(point)}
+				actions={
+					<>
+						<CopyButton text={props.text} label="Copy response" />
+						<NoteButton text={props.text} onNote={props.onNote} />
+						<Show when={props.canRegenerate}>
+							<IconButton
+								size="xs"
+								label="Regenerate response"
+								tooltip={props.running ? "Cannot regenerate while running" : undefined}
+								disabled={props.running}
+								onClick={() => props.onRegenerate?.()}
+							>
+								<RestoreIcon size="sm" />
+							</IconButton>
+						</Show>
+					</>
+				}
+			>
+				<Prose html={renderMarkdown(props.text)} />
+			</AgentMessage>
+		</>
+	);
+}
+
+/** A file's change, highlighted: the diff rows of the chat model drawn by the kit's DiffCard. */
+function FileChange(props: { diff: FileDiff }): JSX.Element {
+	const lines = createMemo(() => diffRows(props.diff));
+	return (
+		<DiffCard
+			path={props.diff.path}
+			added={props.diff.added}
+			removed={props.diff.removed}
+			numbered={!props.diff.snippet}
+			lines={lines()}
+		/>
 	);
 }
 
@@ -425,38 +392,36 @@ function WorkGroup(props: { tools: ToolBlock[] }): JSX.Element {
 	const busy = () =>
 		props.tools.some((tool) => tool.status === "running" || tool.status === "pending");
 	const failed = () => props.tools.some((tool) => tool.status === "failed");
-	const Icon = () => TOOL_ICONS[props.tools[0]?.tool ?? "other"] ?? ToolIcon;
-
 	return (
-		<details class="group/work">
-			<summary class="flex min-h-7 cursor-pointer list-none items-center gap-1.5 px-1 py-1 text-ink/50 text-ui transition-colors duration-fast hover:text-ink/80 pointer-coarse:min-h-10 [&::-webkit-details-marker]:hidden">
-				<span class="grid size-3.5 shrink-0 place-items-center">
-					<Show
-						when={busy()}
-						fallback={
-							<Show when={failed()} fallback={Icon()({ class: "size-3.5 text-ink/45" })}>
-								<AlertIcon class="size-3.5 text-danger" />
-							</Show>
-						}
-					>
-						<SpinnerIcon class="size-3.5" />
-					</Show>
-				</span>
-				<span class="min-w-0 flex-1 truncate">
+		<Disclosure
+			icon={
+				<Show
+					when={busy()}
+					fallback={
+						<Show when={failed()} fallback={TOOL_ICONS[props.tools[0]?.tool ?? "other"]()}>
+							<AlertIcon size="sm" class="text-danger" />
+						</Show>
+					}
+				>
+					<SpinnerIcon size="sm" class="animate-spin" />
+				</Show>
+			}
+			summary={
+				<Text as="span" size="inherit" tone="inherit" truncate>
 					{busy() ? (props.tools.at(-1)?.title ?? "Working…") : summariseTools(props.tools)}
-				</span>
-			</summary>
-			<ul class="mt-0.5 mb-1 ml-2.5 flex flex-col border-ink/10 border-l pl-3.5">
+				</Text>
+			}
+		>
+			<Rail>
 				<For each={props.tools} keyed={false}>
 					{(tool) => <ToolRow tool={tool()} />}
 				</For>
-			</ul>
-		</details>
+			</Rail>
+		</Disclosure>
 	);
 }
 
 function ToolRow(props: { tool: ToolBlock }): JSX.Element {
-	const Icon = () => TOOL_ICONS[props.tool.tool] ?? ToolIcon;
 	const parts = () => toolParts(props.tool);
 	// Lines an edit added and removed, across its files.
 	const changed = () => {
@@ -469,48 +434,44 @@ function ToolRow(props: { tool: ToolBlock }): JSX.Element {
 	};
 	return (
 		<li>
-			<details class="group/tool">
-				<summary class="flex min-h-7 cursor-pointer list-none items-center gap-1.5 py-1 hover:text-ink pointer-coarse:min-h-10 [&::-webkit-details-marker]:hidden">
-					{Icon()({ class: "size-3.5 shrink-0 text-ink/40" })}
-					<span class="shrink-0 text-ink/50 text-ui">{parts()[0]}</span>
-					<span class="min-w-0 flex-1 truncate pl-1 font-mono text-ink/70 text-ui-sm">
-						{parts()[1]}
-					</span>
-					<Show when={changed()}>
-						{(count) => (
-							<span class="shrink-0 font-mono text-ui-xs tabular-nums">
-								<span class="text-success">+{count().added}</span>{" "}
-								<span class="text-danger">−{count().removed}</span>
-							</span>
-						)}
-					</Show>
-					<Show when={props.tool.status === "failed"}>
-						<CloseIcon class="size-3.5 shrink-0 text-danger" />
-					</Show>
-					<Show when={props.tool.status === "running" || props.tool.status === "pending"}>
-						<SpinnerIcon class="size-3 shrink-0" />
-					</Show>
-				</summary>
+			<Disclosure
+				icon={TOOL_ICONS[props.tool.tool]()}
+				summary={
+					<>
+						<Text as="span" size="inherit" tone="subtle" class="shrink-0">
+							{parts()[0]}
+						</Text>
+						<Text as="span" tone="default" mono truncate class="flex-1 pl-1">
+							{parts()[1]}
+						</Text>
+						<Show when={changed()}>
+							{(count) => <DiffStat added={count().added} removed={count().removed} />}
+						</Show>
+						<Show when={props.tool.status === "failed"}>
+							<CloseIcon size="sm" class="text-danger" />
+						</Show>
+						<Show when={props.tool.status === "running" || props.tool.status === "pending"}>
+							<SpinnerIcon size="xs" class="animate-spin" />
+						</Show>
+					</>
+				}
+			>
 				<Show when={props.tool.input || props.tool.output || props.tool.diffs?.length}>
-					<div class="mt-1 mb-1.5 flex flex-col gap-1.5">
+					<Stack gap={1.5} class="mt-1 mb-1.5">
 						<Show
 							when={!props.tool.diffs?.length}
-							fallback={<For each={props.tool.diffs}>{(diff) => <DiffView diff={diff} />}</For>}
+							fallback={<For each={props.tool.diffs}>{(diff) => <FileChange diff={diff} />}</For>}
 						>
 							<Show when={props.tool.input}>
-								<pre class="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-ink/6 px-2.5 py-1.5 font-mono text-ink/80 text-ui-xs">
-									{props.tool.input}
-								</pre>
+								<Pre tone="input">{props.tool.input}</Pre>
 							</Show>
 						</Show>
 						<Show when={props.tool.output}>
-							<pre class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-ink/4 px-2.5 py-1.5 font-mono text-ink/60 text-ui-xs">
-								{props.tool.output}
-							</pre>
+							<Pre tone="output">{props.tool.output}</Pre>
 						</Show>
-					</div>
+					</Stack>
 				</Show>
-			</details>
+			</Disclosure>
 		</li>
 	);
 }
@@ -520,40 +481,27 @@ function ApprovalCard(props: {
 	approval: Extract<Block, { kind: "approval" }>;
 	onApprove: (id: string, optionId: string | null) => void;
 }): JSX.Element {
-	const chosen = () =>
-		props.approval.options.find((option) => option.id === props.approval.resolved);
+	const resolved = () => {
+		const answer = props.approval.resolved;
+		if (answer === undefined) return undefined;
+		if (answer === null) return "Dismissed";
+		return props.approval.options.find((option) => option.id === answer)?.label ?? "Answered";
+	};
 	return (
-		<div
-			class={`rounded-xl border px-3.5 py-3 ${props.approval.resolved === undefined ? "border-warning/50 bg-warning/5" : "border-ink/10"}`}
-		>
-			<p class="font-medium text-ink text-ui-sm">{props.approval.title}</p>
-			<Show when={props.approval.detail}>
-				<pre class="mt-1.5 overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-ink/6 px-2.5 py-1.5 font-mono text-ink/80 text-ui-xs">
-					{props.approval.detail}
-				</pre>
-			</Show>
-			<Show
-				when={props.approval.resolved === undefined}
-				fallback={
-					<p class="mt-2 text-ink/45 text-ui-xs">
-						{props.approval.resolved === null ? "Dismissed" : `${chosen()?.label ?? "Answered"}`}
-					</p>
-				}
-			>
-				<div class="mt-2.5 flex flex-wrap gap-2">
-					<For each={props.approval.options}>
-						{(option) => (
-							<Button
-								size="md"
-								variant={option.kind === "deny" ? "secondary" : "primary"}
-								onClick={() => props.onApprove(props.approval.id, option.id)}
-							>
-								{option.label}
-							</Button>
-						)}
-					</For>
-				</div>
-			</Show>
-		</div>
+		<DecisionCard
+			title={props.approval.title}
+			detail={
+				<Show when={props.approval.detail}>
+					<Pre tone="input">{props.approval.detail}</Pre>
+				</Show>
+			}
+			options={props.approval.options.map((option) => ({
+				id: option.id,
+				label: option.label,
+				primary: option.kind !== "deny",
+			}))}
+			resolved={resolved()}
+			onChoose={(id) => props.onApprove(props.approval.id, id)}
+		/>
 	);
 }

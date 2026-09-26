@@ -50,19 +50,27 @@ export function Alert(props: {
 	);
 }
 
-/** A strip across the top of a screen: offline, an update, a trial ending. */
+/** A strip across the top of a screen: offline, an update, a lost connection. */
 export function Banner(props: {
 	children: JSX.Element;
 	action?: JSX.Element;
-	tone?: "neutral" | "accent";
+	/** neutral is the dark strip; quiet is a soft grey one that says without shouting. */
+	tone?: "neutral" | "accent" | "quiet";
 }): JSX.Element {
+	const tone = () =>
+		({
+			neutral: "bg-inverse text-inverse-fg",
+			accent: "bg-accent text-white",
+			quiet: "bg-fill-strong text-fg-muted",
+		})[props.tone ?? "neutral"];
 	return (
-		<div
-			class={`flex min-h-10 items-center justify-center gap-3 px-4 py-1.5 text-body ${props.tone === "accent" ? "bg-accent text-white" : "bg-inverse text-inverse-fg"}`}
+		<output
+			aria-live="polite"
+			class={`flex min-h-9 items-center justify-center gap-3 px-4 py-1.5 text-body ${tone()}`}
 		>
 			<span class="min-w-0 truncate">{props.children}</span>
 			{props.action}
-		</div>
+		</output>
 	);
 }
 

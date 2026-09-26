@@ -2,15 +2,10 @@ import type { JSX } from "@solidjs/web";
 import { Show } from "solid-js";
 
 import { workspaceHref } from "@/lib/active-workspace";
-import { AgentMark, ChatIcon, EditIcon, HeaderTabs, Shimmer, Text } from "@/kit";
+import { ChatIcon, EditIcon, HeaderTabs, Shimmer, Text } from "@/kit";
 
 import { threadsStore } from "../stores/threads";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
-
-/** The agent's initial in a small tile (the kit's AgentMark), for the model pickers. */
-export function ProviderMark(props: { provider: string; class?: string }): JSX.Element {
-	return <AgentMark name={props.provider} size={props.class === "size-4" ? "md" : "sm"} />;
-}
 
 /** "Claude Opus 4.6" when the model is known, else the agent's name. */
 export function sessionModel(session: ChatSession, providers: ChatProvider[]): string {

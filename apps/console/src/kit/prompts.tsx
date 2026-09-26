@@ -165,3 +165,42 @@ export function Checklist(props: {
 		</div>
 	);
 }
+
+/**
+ * The agent is waiting on you: what it wants to do, the detail, and the choices it offered. Once
+ * answered it quietens and says what was chosen.
+ */
+export function DecisionCard(props: {
+	title: string;
+	detail?: JSX.Element;
+	options: readonly { id: string; label: string; primary?: boolean }[];
+	/** What was chosen (its label), "Dismissed", or undefined while it waits. */
+	resolved?: string;
+	onChoose: (id: string) => void;
+}): JSX.Element {
+	return (
+		<div
+			class={`flex flex-col gap-2.5 rounded-kit-lg px-3.5 py-3 ${props.resolved === undefined ? "bg-warning/5 ring-1 ring-warning/40" : "ring-line"}`}
+		>
+			<p class="font-medium text-body text-fg">{props.title}</p>
+			{props.detail}
+			<Show
+				when={props.resolved === undefined}
+				fallback={<p class="text-caption text-fg-subtle">{props.resolved}</p>}
+			>
+				<div class="flex flex-wrap gap-2">
+					<For each={props.options}>
+						{(option) => (
+							<Button
+								variant={option.primary ? "primary" : "secondary"}
+								onClick={() => props.onChoose(option.id)}
+							>
+								{option.label}
+							</Button>
+						)}
+					</For>
+				</div>
+			</Show>
+		</div>
+	);
+}

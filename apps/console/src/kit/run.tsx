@@ -140,3 +140,93 @@ export function CodeBlock(props: { label: string; code: string }): JSX.Element {
 		</div>
 	);
 }
+
+/**
+ * Something that folds open: a quiet summary line, then its content. Native `<details>`, so it
+ * keeps its state while a run appends above and below it.
+ */
+export function Disclosure(props: {
+	summary: JSX.Element;
+	/** The summary's leading glyph: an icon, a spinner, a warning. */
+	icon?: JSX.Element;
+	children: JSX.Element;
+	open?: boolean;
+}): JSX.Element {
+	return (
+		<details class="group/disclosure" open={props.open}>
+			<summary class="flex min-h-7 cursor-pointer list-none items-center gap-1.5 px-1 py-1 text-body-lg text-fg-subtle transition-colors duration-fast hover:text-fg-muted pointer-coarse:min-h-10 [&::-webkit-details-marker]:hidden">
+				<Show when={props.icon}>
+					<span class="grid size-4 shrink-0 place-items-center">{props.icon}</span>
+				</Show>
+				<span class="flex min-w-0 flex-1 items-center gap-1.5">{props.summary}</span>
+			</summary>
+			{props.children}
+		</details>
+	);
+}
+
+/** Steps listed down a thin guide line, under the thing that holds them. */
+export function Rail(props: { children: JSX.Element }): JSX.Element {
+	return (
+		<ul class="mt-0.5 mb-1 ml-3 flex flex-col border-line border-l pl-3.5">{props.children}</ul>
+	);
+}
+
+/** Raw text a tool took or gave back, monospaced and wrapped; output scrolls past a height. */
+export function Pre(props: { children: JSX.Element; tone?: "input" | "output" }): JSX.Element {
+	return (
+		<pre
+			class={`overflow-x-auto whitespace-pre-wrap break-words rounded-kit px-2.5 py-1.5 font-mono text-caption ${props.tone === "output" ? "max-h-64 overflow-y-auto bg-fill text-fg-subtle" : "bg-fill-strong text-fg-muted"}`}
+		>
+			{props.children}
+		</pre>
+	);
+}
+
+export type PlanEntry = { text: string; status: "pending" | "in_progress" | "completed" };
+
+/** An agent's plan: its steps, done ones ticked and struck, the current one ringed. */
+export function PlanList(props: { entries: readonly PlanEntry[] }): JSX.Element {
+	return (
+		<ol class="surface-card flex flex-col gap-1 px-3 py-2.5 text-body">
+			<For each={props.entries}>
+				{(entry) => (
+					<li
+						class={`flex items-start gap-2 ${entry.status === "completed" ? "text-fg-faint line-through" : "text-fg-muted"}`}
+					>
+						<span class="mt-0.5 grid size-4 shrink-0 place-items-center">
+							<Show
+								when={entry.status === "completed"}
+								fallback={
+									<span
+										class={`size-2.5 rounded-full ${entry.status === "in_progress" ? "bg-accent/30 ring-1 ring-accent" : "ring-1 ring-line-strong"}`}
+									/>
+								}
+							>
+								<CheckIcon size="sm" class="text-success" />
+							</Show>
+						</span>
+						{entry.text}
+					</li>
+				)}
+			</For>
+		</ol>
+	);
+}
+
+/** A line the run itself says: it restarted, it stopped, something failed. */
+export function InlineNotice(props: {
+	tone?: "info" | "error";
+	children: JSX.Element;
+}): JSX.Element {
+	return (
+		<p
+			class={`flex items-start gap-2 text-body ${props.tone === "error" ? "text-danger" : "text-fg-subtle"}`}
+		>
+			<Show when={props.tone === "error"}>
+				<AlertIcon size="sm" class="mt-0.5" />
+			</Show>
+			{props.children}
+		</p>
+	);
+}

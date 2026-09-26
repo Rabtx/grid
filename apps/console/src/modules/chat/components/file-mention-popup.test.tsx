@@ -41,7 +41,7 @@ describe("FileMentionPopup", () => {
 			selectedIndex: 0,
 		});
 
-		expect(container.textContent).toContain("Files (3)");
+		expect(container.textContent).toContain("File mentions · 3");
 		expect(container.textContent).toContain("app.ts");
 		expect(container.textContent).toContain("src");
 		expect(container.textContent).toContain("main.tsx");
@@ -49,17 +49,15 @@ describe("FileMentionPopup", () => {
 		expect(container.textContent).toContain("README.md");
 	});
 
-	it("indicates the selected item via data-selected and background styling", () => {
+	it("marks the selected item as current", () => {
 		mount({
 			files: ["src/app.ts", "src/index.ts"],
 			selectedIndex: 1,
 		});
 
-		const items = container.querySelectorAll("button[data-selected]");
-		expect(items[0].getAttribute("data-selected")).toBe("false");
-		expect(items[1].getAttribute("data-selected")).toBe("true");
-
-		expect(items[1]?.className).toContain("bg-ink/10");
+		const items = container.querySelectorAll("li button");
+		expect(items[0].getAttribute("aria-current")).toBeNull();
+		expect(items[1].getAttribute("aria-current")).toBe("true");
 	});
 
 	it("calls onSelect when an item is clicked", () => {
@@ -82,7 +80,7 @@ describe("FileMentionPopup", () => {
 			loading: true,
 		});
 
-		expect(container.textContent).toContain("Searching files…");
+		expect(container.textContent).toContain("Searching…");
 	});
 
 	it("displays 'No matching files found' when files list is empty and not loading", () => {

@@ -4,8 +4,6 @@ import { render } from "@solidjs/web";
 import { flush } from "solid-js";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { Toaster } from "@/ui";
-
 import type { Block } from "../lib/transcript";
 import { TranscriptView } from "./transcript-view";
 
@@ -109,17 +107,16 @@ describe("TranscriptView - User Message", () => {
 		const blocks: Block[] = [{ kind: "user", key: "b0", text: "Hello world" }];
 		const root = mount(() => (
 			<>
-				<Toaster />
 				<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
 			</>
 		));
 		flush();
 
-		const userWrapper = root.querySelector(".group\\/user");
+		const userWrapper = root.querySelector(".group\\/message");
 		expect(userWrapper).not.toBeNull();
-		expect(userWrapper?.className).toContain("flex-col items-end");
+		expect(userWrapper?.className).toContain("items-end");
 
-		const bubble = userWrapper?.querySelector(".rounded-2xl.rounded-br-sm");
+		const bubble = userWrapper?.querySelector(".bg-fill-strong");
 		expect(bubble).not.toBeNull();
 		expect(bubble?.textContent).toContain("Hello world");
 
@@ -164,7 +161,6 @@ describe("TranscriptView - Assistant Message", () => {
 
 		const root = mount(() => (
 			<>
-				<Toaster />
 				<TranscriptView
 					blocks={blocks}
 					running={false}
@@ -175,7 +171,7 @@ describe("TranscriptView - Assistant Message", () => {
 		));
 		flush();
 
-		const assistantWrapper = root.querySelector(".group\\/assistant");
+		const assistantWrapper = [...root.querySelectorAll(".group\\/message")].at(-1);
 		expect(assistantWrapper).not.toBeNull();
 
 		// Copy response

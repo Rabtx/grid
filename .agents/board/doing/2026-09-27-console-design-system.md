@@ -55,9 +55,18 @@ references very closely, Inter, fix look and feel and navigation/layout, gallery
    keyboard support, and `pt-safe`/`pb-safe`. The old status bar is gone: the folder lives in the
    composer tray and the tree, the runner warning floats.
 
+4. **Thread view on the kit (agent/frontend/port-thread).** Conversation, transcript (messages
+   with hover actions and long-press menus, thinking, tool groups on a rail, plans, notices,
+   approvals), diffs, model and mode pickers, and @-mentions. New kit pieces: `Prose`,
+   `DiffStat`, the richer `DiffCard` (numbered, highlighted, show all), `Disclosure`, `Rail`,
+   `Pre`, `PlanList`, `InlineNotice`, `DecisionCard`, `AutocompleteList`, `IconButton` tooltips,
+   a quiet `Banner`; kit `Toasts` mounted at the root beside the old toaster.
+
 ### Validation
 
 - typecheck, lint, architecture check pass; console vitest 45 files / 282 tests pass.
+- Thread port: console vitest 47 files / 285 tests (chat tests query by meaning, not old class
+  names); the chat module no longer imports `@/ui`; checked a real thread in the browser.
 - Shell port: console vitest 47 files / 285 tests (shell tests follow the new tree); guard
   passes on every ported file; checked in the browser signed in as the demo account: new chat,
   a thread in the header tabs, thread hover actions and menu, phone drawer.

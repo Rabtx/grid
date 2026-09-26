@@ -9,7 +9,7 @@ import { quietReconnects } from "@/lib/quiet-reconnects";
 import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
 import { notesStore } from "@/modules/projects";
-import { ErrorNotice, FolderIcon, toast } from "@/ui";
+import { Alert, Banner, FolderIcon, notify, Row, Text } from "@/kit";
 
 import { type ChatConnection, connectChat, type ChatSocket } from "../lib/chat-socket";
 import { applyEvent, emptyTranscript, replay, type Transcript } from "../lib/transcript";
@@ -100,13 +100,14 @@ export function Conversation(props: {
 				source: agent ? `${agent} in ${current.title}` : current.title,
 				threadId: current.id,
 			});
-			toast({
-				message: "Added to notes",
-				action: { label: "Open", onClick: () => navigate(`/notes/${current.project}`) },
+			notify({
+				title: "Added to notes",
+				tone: "success",
+				action: { label: "Open", run: () => navigate(`/notes/${current.project}`) },
 			});
 		} catch (cause) {
-			toast({
-				message: cause instanceof Error ? cause.message : "Could not add the note",
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not add the note",
 				tone: "danger",
 			});
 		}
@@ -276,16 +277,13 @@ export function Conversation(props: {
 					connection() === "signed-out"
 				}
 			>
-				<output
-					aria-live="polite"
-					class="block shrink-0 bg-ink/5 px-4 py-1.5 text-ink/60 text-ui-xs"
-				>
+				<Banner tone="quiet">
 					{connection() === "reconnecting"
 						? "Connection lost — reconnecting…"
 						: connection() === "gone"
 							? "This chat no longer exists."
 							: "Your session ended. Sign in again."}
-				</output>
+				</Banner>
 			</Show>
 			<div
 				ref={(el) => {
@@ -295,9 +293,9 @@ export function Conversation(props: {
 					const el = event.currentTarget;
 					pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
 				}}
-				class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 md:px-6"
+				class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 md:px-6"
 			>
-				<div class="mx-auto w-full max-w-4xl">
+				<div class="mx-auto w-full max-w-3xl">
 					<TranscriptView
 						blocks={transcript().blocks}
 						running={running()}
@@ -307,19 +305,19 @@ export function Conversation(props: {
 					/>
 				</div>
 			</div>
-			<div class="shrink-0 px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-6">
-				<div class="mx-auto w-full max-w-4xl">
+			<div class="shrink-0 px-3 pt-1 pb-safe md:px-6 md:pb-4">
+				<div class="mx-auto w-full max-w-3xl">
 					<Show when={error()}>
 						{(message) => (
 							<div class="mb-2">
-								<ErrorNotice message={message()} />
+								<Alert tone="danger" title={message()} />
 							</div>
 						)}
 					</Show>
 					<Show when={restartNotice()}>
 						{(notice) => (
-							<div class="mb-2 rounded-md bg-ink/5 px-3 py-2 text-ink/70 text-ui-xs">
-								{notice()}
+							<div class="mb-2">
+								<Alert tone="accent" title={notice()} />
 							</div>
 						)}
 					</Show>
@@ -332,10 +330,12 @@ export function Conversation(props: {
 						header={
 							<Show when={session()}>
 								{(current) => (
-									<span class="flex min-w-0 items-center gap-1.5" title={current().cwd}>
-										<FolderIcon class="size-3.5 shrink-0" />
-										<span class="truncate">{shortPath(current().cwd)}</span>
-									</span>
+									<Row gap={1.5} class="min-w-0">
+										<FolderIcon size="sm" />
+										<Text as="span" size="caption" tone="subtle" truncate>
+											{shortPath(current().cwd)}
+										</Text>
+									</Row>
 								)}
 							</Show>
 						}
@@ -361,7 +361,7 @@ export function Conversation(props: {
 								</Show>
 								<Show when={transcript().usage?.contextWindow}>
 									<span
-										class="shrink-0 px-1 text-ink/40 text-ui-caption tabular-nums"
+										class="shrink-0 px-1 text-caption text-fg-faint tabular-nums"
 										title="Context used"
 									>
 										{Math.round(
