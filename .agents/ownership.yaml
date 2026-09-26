@@ -11,7 +11,9 @@ roles:
   backend:
     team: backend
     paths:
+      - apps/api/**
       - apps/nest-api/**
+      - packages/db/**
       - apps/runner/**
       - apps/launcher/**
       - scripts/python/**

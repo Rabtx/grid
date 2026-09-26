@@ -6,11 +6,11 @@
 	"license": "MIT OR Apache-2.0",
 	"scripts": {
 		"build": "nest build",
-		"db:generate": "drizzle-kit generate",
-		"db:migrate": "bun src/database/migrate.ts",
-		"db:seed": "bun src/database/seed.ts",
-		"db:studio": "drizzle-kit studio",
-		"dev": "nest start --watch",
+		"db:generate": "bun run --cwd ../../packages/db generate",
+		"db:migrate": "bun ../../packages/db/src/migrate.ts",
+		"db:seed": "bun ../../packages/db/src/seed.ts",
+		"db:studio": "bun run --cwd ../../packages/db studio",
+		"dev": "PORT=${PORT:-4010} bun --watch src/main.ts",
 		"start": "nest start",
 		"start:dev": "nest start --watch",
 		"start:debug": "nest start --debug --watch",
@@ -25,6 +25,7 @@
 		"test:integration": "vitest run --config vitest.integration.config.ts"
 	},
 	"dependencies": {
+		"@grid/db": "workspace:*",
 		"@nestjs/common": "^12.0.4",
 		"@nestjs/core": "^12.0.4",
 		"@nestjs/platform-express": "^12.0.4",

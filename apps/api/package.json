@@ -1,0 +1,25 @@
+{
+	"name": "api",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "GRID_LEGACY_API_URL=${GRID_LEGACY_API_URL:-http://127.0.0.1:4010} bun --env-file=../nest-api/.env --watch src/main.ts",
+		"start": "bun src/main.ts",
+		"lint": "oxlint .",
+		"typecheck": "tsc --noEmit",
+		"test": "bun test src",
+		"test:contract": "bun test test/contract"
+	},
+	"dependencies": {
+		"@grid/db": "workspace:*",
+		"drizzle-orm": "^0.45.3",
+		"hono": "^4.13.9",
+		"jose": "^6.2.12",
+		"zod": "^4.6.5"
+	},
+	"devDependencies": {
+		"@types/bun": "1.4.2",
+		"typescript": "^6.0.3"
+	}
+}
