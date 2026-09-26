@@ -5,13 +5,13 @@ type: feature
 from: human
 to: backend
 priority: high
-status: ready
+status: in_progress
 assignee: backend
 reviewer: human
 parent: .agents/plans/api-on-hono.md
 depends_on: [str-hono-foundation]
-branch: none
-worktree: none
+branch: agent/backend/hono-auth-core
+worktree: ../grid-worktrees/agent/backend/hono-auth-core
 scope:
   - apps/api/src/modules/auth/**
   - apps/api/src/modules/users/**
