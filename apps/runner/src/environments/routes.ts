@@ -48,18 +48,18 @@ export async function pairRequest(
 }
 
 /**
- * The home side: this person's environments (adding one with a code, removing one), and which
+ * The home side: the workspace's environments (adding one with a code, removing one), and which
  * environment each project runs on.
  */
 export async function environmentRequest(
 	request: Request,
 	url: URL,
-	userId: string,
+	workspace: string,
 	deps: EnvironmentDeps,
 ): Promise<Response | null> {
 	const fetcher = deps.fetcher ?? fetch;
 	if (url.pathname === "/environments/placements" && request.method === "GET") {
-		return Response.json({ data: deps.store.placements(userId) });
+		return Response.json({ data: deps.store.placements(workspace) });
 	}
 	const placement = url.pathname.match(/^\/environments\/placements\/([\w-]+)$/);
 	if (placement && request.method === "PUT") {
@@ -69,14 +69,14 @@ export async function environmentRequest(
 			return failure(400, "Say which environment, or null for this machine");
 		}
 		try {
-			deps.store.place(userId, placement[1], environment);
+			deps.store.place(workspace, placement[1], environment);
 			return new Response(null, { status: 204 });
 		} catch (cause) {
 			return fromError(cause);
 		}
 	}
 	if (url.pathname === "/environments" && request.method === "GET") {
-		return Response.json({ data: deps.store.list(userId) });
+		return Response.json({ data: deps.store.list(workspace) });
 	}
 	if (url.pathname === "/environments" && request.method === "POST") {
 		const body = (await request.json().catch(() => null)) as {
@@ -88,7 +88,7 @@ export async function environmentRequest(
 			return failure(400, "Send the environment's address and its pairing code");
 		}
 		try {
-			const added = await pairEnvironment(deps, userId, {
+			const added = await pairEnvironment(deps, workspace, {
 				url: body.url,
 				code: body.code,
 				label: typeof body.label === "string" ? body.label : "",
@@ -101,7 +101,7 @@ export async function environmentRequest(
 	const one = url.pathname.match(/^\/environments\/([\w-]+)(\/health)?$/);
 	if (!one) return null;
 	const [, id, health] = one;
-	const target = deps.store.target(userId, id);
+	const target = deps.store.target(workspace, id);
 	if (!target) return failure(404, "That environment does not exist");
 
 	if (health && request.method === "GET") {
@@ -118,7 +118,7 @@ export async function environmentRequest(
 			method: "DELETE",
 			headers: { Authorization: `Bearer ${target.token}` },
 		}).catch(() => undefined);
-		deps.store.remove(userId, id);
+		deps.store.remove(workspace, id);
 		return new Response(null, { status: 204 });
 	}
 	return failure(405, "Method not allowed");
@@ -126,18 +126,20 @@ export async function environmentRequest(
 
 /**
  * Pair with an environment: trade its one-time code for a pairing token, and keep it as one of
- * this person's environments. Throws `EnvironmentError` with a message worth showing.
+ * the workspace's environments. Throws `EnvironmentError` with a message worth showing.
  */
 export async function pairEnvironment(
 	deps: EnvironmentDeps,
-	userId: string,
+	workspace: string,
 	input: { url: string; code: string; label: string; codespace?: string },
 ): Promise<Environment> {
 	const origin = deps.checkUrl(input.url).origin;
 	const response = await remote(deps.fetcher ?? fetch, `${origin}/pair`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ code: input.code, label: "Home Grid", ownerId: userId }),
+		// The environment keeps its chats and folders under this key: the home workspace. (Named
+		// `ownerId` on the wire, as environments paired before workspaces expect.)
+		body: JSON.stringify({ code: input.code, label: "Home Grid", ownerId: workspace }),
 	});
 	const answer = (await response.json().catch(() => null)) as {
 		data?: { peerId?: unknown; secret?: unknown };
@@ -151,7 +153,7 @@ export async function pairEnvironment(
 			response.status === 403 ? 403 : 502,
 		);
 	}
-	return deps.store.add(userId, {
+	return deps.store.add(workspace, {
 		label: input.label,
 		url: origin,
 		peerId,

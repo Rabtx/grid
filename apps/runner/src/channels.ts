@@ -100,14 +100,14 @@ function isCursor(value: unknown): value is ChatCursor {
  */
 export function openChat(
 	chat: ChatHub,
-	userId: string,
+	workspace: string,
 	hello: { id: string; resume?: unknown; visible?: boolean },
 	sink: ChannelSink,
 ): Channel | null {
 	let visible = hello.visible !== false;
 	try {
 		const attached = chat.attach(
-			userId,
+			workspace,
 			hello.id,
 			{
 				event: (event, n) => sink.text({ t: "event", event, n }),
@@ -129,7 +129,7 @@ export function openChat(
 				if (typeof message !== "string") return;
 				const command = parse<ChatCommand>(message);
 				if (command) {
-					chatCommand(chat, userId, hello.id, command, (reason) =>
+					chatCommand(chat, workspace, hello.id, command, (reason) =>
 						sink.text({ t: "error", message: reason }),
 					);
 				}

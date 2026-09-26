@@ -1,4 +1,5 @@
 import { type Channel, type ChannelSink, openChat, openTerminal } from "./channels";
+import type { Who } from "./auth";
 import type { ChatHub } from "./chat/hub";
 import type { TerminalStore } from "./terminals";
 
@@ -54,7 +55,7 @@ export function createLink(): LinkState {
 export function linkMessage(
 	link: LinkState,
 	socket: LinkSocket,
-	userId: string,
+	who: Who,
 	message: string | Uint8Array,
 	deps: { store: TerminalStore; chat: ChatHub },
 ): void {
@@ -114,9 +115,9 @@ export function linkMessage(
 	const hello = { ...control, id: control.id };
 	const channel =
 		control.kind === "chat"
-			? openChat(deps.chat, userId, hello, sink)
+			? openChat(deps.chat, who.workspace, hello, sink)
 			: control.kind === "terminal"
-				? openTerminal(deps.store, userId, hello, sink)
+				? openTerminal(deps.store, who.userId, hello, sink)
 				: (sink.close(1003, "Unknown channel kind"), null);
 	if (channel && !ended) link.channels.set(ch, channel);
 }

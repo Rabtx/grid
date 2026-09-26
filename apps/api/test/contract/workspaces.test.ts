@@ -53,9 +53,17 @@ afterAll(async () => {
 describe("workspaces", () => {
 	it("requires a token and lists the caller's workspaces with their role", async () => {
 		expect((await call("/api/v1/workspaces")).status).toBe(401);
-		const listed = payload(await request("")) as unknown as { slug: string; role: string }[];
+		const listed = payload(await request("")) as unknown as {
+			id: string;
+			slug: string;
+			role: string;
+			isDefault: boolean;
+		}[];
 		expect(listed.length).toBeGreaterThan(0);
 		expect(listed.some((w) => w.role === "owner")).toBe(true);
+		// Exactly one is the default, and each carries the id other services key it by.
+		expect(listed.filter((w) => w.isDefault)).toHaveLength(1);
+		expect(listed.every((w) => /^[0-9a-f-]{36}$/.test(w.id))).toBe(true);
 		expect(listed.some((w) => w.slug === foreignWorkspace)).toBe(false);
 	});
 

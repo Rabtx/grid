@@ -27,8 +27,13 @@ bun --cwd=apps/runner test
   (`/runner`, proxied by Vite), the same way as the API, so it works over localhost, the LAN and
   an HTTPS tunnel.
 - Every request and socket carries the console's access token. The runner checks it against the
-  API (`GET /api/v1/auth/me`), so it keeps no secret of its own and a signed-out session stops
-  working here too. Terminals belong to the person who opened them.
+  API (`GET /api/v1/auth/me` and `/api/v1/workspaces`), so it keeps no secret of its own and a
+  signed-out session stops working here too.
+- A request acts in a workspace: `X-Grid-Workspace: <slug>` on HTTP, `workspace` in a socket's
+  hello, or the person's default workspace without either. Project folders, chats and
+  environments belong to the workspace, so teammates share them; terminals, agent settings and
+  notifications stay the person's own. What a runner kept per person before workspaces moves into
+  that person's default workspace the first time they use it.
 - A terminal outlives its socket: the shell keeps running when a phone locks or the network
   drops. The runner keeps up to 512 KB of recent output and sends only what a reconnecting
   device missed when it can; otherwise it replays the kept output.

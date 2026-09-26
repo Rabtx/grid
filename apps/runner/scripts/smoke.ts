@@ -69,11 +69,14 @@ async function smoke(agent: string): Promise<Outcome> {
 		let store = new ChatStore(database);
 		let hub = new ChatHub(store, providerRegistry());
 		store.setProjectFolder(OWNER, "smoke", folder);
-		const session = hub.create(OWNER, {
-			project: "smoke",
-			provider: agent,
-			mode: FULL_ACCESS[agent],
-		});
+		const session = hub.create(
+			{ userId: OWNER, workspace: OWNER },
+			{
+				project: "smoke",
+				provider: agent,
+				mode: FULL_ACCESS[agent],
+			},
+		);
 		if (session.cwd !== folder) notes.push(`thread cwd was ${session.cwd}`);
 
 		let detach = watch(hub, session.id, notes);

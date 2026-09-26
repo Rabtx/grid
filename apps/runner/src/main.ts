@@ -1,6 +1,6 @@
 import { providerRegistry } from "./agents/registry";
 import { withAgentBins } from "./agents/setup";
-import { createTokenVerifier } from "./auth";
+import { createTokenVerifier, signedOut, type Verify } from "./auth";
 import { ChatHub } from "./chat/hub";
 import { ChatStore } from "./chat/store";
 import { readConfig } from "./config";
@@ -30,13 +30,20 @@ chat.onUnwatchedAttention((session, event) => {
 // Another Grid may drive this one as an environment, with a token only it holds; everyone else
 // signs in through this Grid's own API as usual.
 const pairing = config.pairing ? new PairingStore(config.chatDb) : undefined;
-const signIn = createTokenVerifier(config.apiUrl);
-const verify = async (token: string) =>
-	pairing && isEnvironmentToken(token) ? pairing.verify(token) : signIn(token);
-
 const environments: EnvironmentDeps = {
 	store: new EnvironmentStore(config.chatDb),
 	checkUrl: (raw) => checkEnvironmentUrl(raw, config.environmentHosts),
+};
+// What people kept here before workspaces moves into their default workspace when they use it.
+const signIn = createTokenVerifier(config.apiUrl, fetch, (who) => {
+	chat.adopt(who);
+	environments.store.adopt(who.userId, who.workspace);
+});
+// A paired Grid acts under the key it paired with (its home workspace), whichever it names.
+const verify: Verify = async (token, workspace) => {
+	if (!pairing || !isEnvironmentToken(token)) return signIn(token, workspace);
+	const key = pairing.verify(token);
+	return key ? { who: { userId: key, workspace: key } } : signedOut;
 };
 // Codespaces connect over the tailnet like any environment; GitHub only starts them and hands
 // Grid their pairing code.

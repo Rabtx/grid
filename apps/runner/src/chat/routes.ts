@@ -1,3 +1,4 @@
+import type { Who } from "../auth";
 import { ChatError, type ChatHub } from "./hub";
 
 /**
@@ -7,9 +8,10 @@ import { ChatError, type ChatHub } from "./hub";
 export async function chatRequest(
 	request: Request,
 	url: URL,
-	userId: string,
+	who: Who,
 	hub: ChatHub,
 ): Promise<Response | null> {
+	const { userId, workspace } = who;
 	if (url.pathname === "/chat/providers" && request.method === "GET") {
 		return Response.json({ data: await hub.providerList(userId) });
 	}
@@ -37,12 +39,12 @@ export async function chatRequest(
 		return failure(405, "Method not allowed");
 	}
 	if (url.pathname === "/chat/running" && request.method === "GET") {
-		return Response.json({ data: hub.running(userId) });
+		return Response.json({ data: hub.running(workspace) });
 	}
 	if (url.pathname === "/chat/sessions" && request.method === "GET") {
 		const project = url.searchParams.get("project");
 		if (!project) return failure(400, "Say which project");
-		return Response.json({ data: hub.list(userId, project) });
+		return Response.json({ data: hub.list(workspace, project) });
 	}
 	if (url.pathname === "/chat/sessions" && request.method === "POST") {
 		const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
@@ -52,7 +54,7 @@ export async function chatRequest(
 		return run(() =>
 			Response.json(
 				{
-					data: hub.create(userId, {
+					data: hub.create(who, {
 						project: body.project as string,
 						provider: body.provider as string,
 						cwd: typeof body.cwd === "string" ? body.cwd : undefined,
@@ -70,7 +72,7 @@ export async function chatRequest(
 		const id = match[1];
 		if (request.method === "DELETE") {
 			return run(() => {
-				hub.delete(userId, id);
+				hub.delete(workspace, id);
 				return new Response(null, { status: 204 });
 			});
 		}
@@ -78,7 +80,7 @@ export async function chatRequest(
 			const body = (await request.json().catch(() => ({}))) as { title?: unknown };
 			if (typeof body.title !== "string") return failure(400, "Nothing to change");
 			return run(() => {
-				hub.rename(userId, id, body.title as string);
+				hub.rename(workspace, id, body.title as string);
 				return new Response(null, { status: 204 });
 			});
 		}
@@ -96,7 +98,7 @@ export type ChatCommand =
 
 export function chatCommand(
 	hub: ChatHub,
-	userId: string,
+	workspace: string,
 	sessionId: string,
 	command: ChatCommand,
 	reportError: (message: string) => void,
@@ -105,19 +107,19 @@ export function chatCommand(
 		reportError(cause instanceof Error ? cause.message : String(cause));
 	try {
 		if (command.t === "prompt" && typeof command.text === "string") {
-			hub.prompt(userId, sessionId, command.text).catch(fail);
+			hub.prompt(workspace, sessionId, command.text).catch(fail);
 		} else if (command.t === "cancel") {
-			hub.cancel(userId, sessionId);
+			hub.cancel(workspace, sessionId);
 		} else if (command.t === "approve" && typeof command.id === "string") {
 			hub.approve(
-				userId,
+				workspace,
 				sessionId,
 				command.id,
 				typeof command.optionId === "string" ? command.optionId : null,
 			);
 		} else if (command.t === "configure") {
 			hub
-				.configure(userId, sessionId, {
+				.configure(workspace, sessionId, {
 					model: typeof command.model === "string" ? command.model : undefined,
 					mode: typeof command.mode === "string" ? command.mode : undefined,
 					effort: typeof command.effort === "string" ? command.effort : undefined,
