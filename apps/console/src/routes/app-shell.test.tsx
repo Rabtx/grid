@@ -93,29 +93,41 @@ describe("AppShell", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("lists every project once and marks the one in the URL as current", async () => {
+	it("lists every project once and opens the one in the URL at the page you are on", async () => {
 		await settle();
 
+		// Project rows are the links that fold open.
 		const links = [
 			...container.querySelectorAll<HTMLAnchorElement>(
-				'nav[aria-label="Navigation"] ul a:not([aria-label])',
+				'nav[aria-label="Navigation"] a[aria-expanded]',
 			),
-		].filter((link) => link.querySelector(".truncate"));
+		];
 		expect(links.map((link) => link.querySelector(".truncate")?.textContent)).toEqual([
 			"Alpha",
 			"Beta",
 		]);
 
-		const current = links.filter((link) => link.getAttribute("aria-current") === "page");
-		expect(current.map((link) => link.getAttribute("href"))).toEqual(["/chat/beta"]);
+		// The project in the URL is open, and the page you are on inside it is the current row.
+		expect(links.map((link) => link.getAttribute("aria-expanded"))).toEqual(["false", "true"]);
+		const current = [
+			...container.querySelectorAll<HTMLAnchorElement>(
+				'nav[aria-label="Navigation"] a[aria-current="page"]',
+			),
+		];
+		expect(current.map((link) => link.getAttribute("href"))).toEqual(["/board/beta"]);
 	});
 
 	it("names the active project in the title bar", async () => {
 		await settle();
 
-		expect(container.querySelector("header h1")?.textContent).toBe("Beta");
+		expect(appHeader(container)?.querySelector("h1")?.textContent).toBe("Beta");
 	});
 });
+
+/** The app's own title bar: the first header that is not inside a dialog. */
+function appHeader(container: HTMLElement): HTMLElement | undefined {
+	return [...container.querySelectorAll("header")].find((header) => !header.closest("dialog"));
+}
 
 describe("AppShell top bar", () => {
 	afterEach(() => {
@@ -159,7 +171,7 @@ describe("AppShell top bar", () => {
 			container,
 		);
 		await settle();
-		const header = container.querySelector("header") as HTMLElement;
+		const header = appHeader(container) as HTMLElement;
 		return { header, dispose };
 	}
 

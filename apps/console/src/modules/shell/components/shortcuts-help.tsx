@@ -1,11 +1,10 @@
-import type { JSX } from "@solidjs/web";
-import { createSignal, onSettled } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
+import type { JSX } from "@solidjs/web";
+import { createSignal, For, onSettled } from "solid-js";
 
-import { useWorkspace } from "@/modules/projects";
-import { CloseIcon, IconButton, Sheet } from "@/ui";
-
+import { Dialog, Grid, Kbd, ListCard, Row, Text } from "@/kit";
 import { installShortcuts, type Shortcut } from "@/lib/shortcuts";
+import { useWorkspace } from "@/modules/projects";
 
 const SHORTCUTS: readonly Omit<Shortcut, "run">[] = [
 	{ keys: "c", label: "New task" },
@@ -17,6 +16,7 @@ const SHORTCUTS: readonly Omit<Shortcut, "run">[] = [
 	{ keys: "?", label: "Show shortcuts" },
 ];
 
+/** The keyboard shortcuts, installed once, and the list of them behind `?`. */
 export function ShortcutsHelp(): JSX.Element {
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -46,30 +46,27 @@ export function ShortcutsHelp(): JSX.Element {
 	});
 
 	return (
-		<Sheet open={open()} onClose={() => setOpen(false)} label="Keyboard shortcuts">
-			<div class="p-5 md:p-6">
-				<div class="flex items-start justify-between gap-4">
-					<div>
-						<h2 class="text-ink text-ui-lg">Keyboard shortcuts</h2>
-						<p class="mt-1 text-ink/55 text-ui-sm">
-							Move through Grid without leaving the keyboard.
-						</p>
-					</div>
-					<IconButton label="Close keyboard shortcuts" onClick={() => setOpen(false)}>
-						<CloseIcon />
-					</IconButton>
-				</div>
-				<div class="mt-5 grid gap-2 sm:grid-cols-2">
-					{SHORTCUTS.map((shortcut) => (
-						<div class="flex items-center justify-between gap-4 rounded-md bg-ink/5 px-3 py-2.5">
-							<span class="text-ink/70 text-ui-sm">{shortcut.label}</span>
-							<kbd class="rounded border border-ink/15 bg-canvas px-1.5 py-0.5 font-mono text-ink/70 text-ui-xs">
-								{shortcut.keys}
-							</kbd>
-						</div>
-					))}
-				</div>
-			</div>
-		</Sheet>
+		<Dialog
+			open={open()}
+			onClose={() => setOpen(false)}
+			title="Keyboard shortcuts"
+			description="Move through Grid without leaving the keyboard."
+			width="34rem"
+		>
+			<Grid columns={2} gap={2}>
+				<For each={SHORTCUTS}>
+					{(shortcut) => (
+						<ListCard>
+							<Row justify="between" class="px-3 py-2.5">
+								<Text>{shortcut.label}</Text>
+								<Row gap={1}>
+									<For each={shortcut.keys.split(" ")}>{(key) => <Kbd>{key}</Kbd>}</For>
+								</Row>
+							</Row>
+						</ListCard>
+					)}
+				</For>
+			</Grid>
+		</Dialog>
 	);
 }

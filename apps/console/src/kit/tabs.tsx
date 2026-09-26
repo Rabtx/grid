@@ -51,6 +51,8 @@ export function Segmented<T extends string>(props: {
 	onChange: (value: T) => void;
 	/** Stretch to the container, each segment an equal share. */
 	block?: boolean;
+	/** Icons only (labels stay for screen readers and tooltips): tight bars on phones. */
+	iconsOnly?: boolean;
 }): JSX.Element {
 	return (
 		<fieldset
@@ -62,11 +64,12 @@ export function Segmented<T extends string>(props: {
 					<button
 						type="button"
 						aria-pressed={props.value === option.value ? "true" : "false"}
+						title={props.iconsOnly ? option.label : undefined}
 						onClick={() => props.onChange(option.value)}
 						class={`focus-ring flex h-[calc(var(--kit-h-control-sm)-0.25rem)] items-center justify-center gap-1.5 rounded-kit-sm px-2.5 text-body text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid hover:text-fg aria-pressed:bg-surface aria-pressed:font-medium aria-pressed:text-fg aria-pressed:shadow-knob ${props.block ? "flex-1" : ""}`}
 					>
 						{option.icon}
-						{option.label}
+						<span class={props.iconsOnly ? "sr-only" : ""}>{option.label}</span>
 						<Show when={option.count}>
 							<span class="inline-grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 font-medium text-micro text-white tabular-nums">
 								{option.count}

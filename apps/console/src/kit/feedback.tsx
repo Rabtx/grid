@@ -146,3 +146,45 @@ export function UsageBar(props: { value: number; ticks?: number; label?: string 
 		</div>
 	);
 }
+
+/** Three dots rising in turn: an agent is working right now. */
+export function WorkingDots(props: { label?: string }): JSX.Element {
+	return (
+		<span class="working-dots shrink-0 text-fg-subtle" title={props.label ?? "Working"}>
+			<i />
+			<i />
+			<i />
+		</span>
+	);
+}
+
+/** Text with a light sweeping across it while something is live (a running thread's title). */
+export function Shimmer(props: { active: boolean; children: JSX.Element }): JSX.Element {
+	return <span class={props.active ? "thread-running" : ""}>{props.children}</span>;
+}
+
+/**
+ * A message that floats over the app: a pill at the top (offline), or a card at the bottom with
+ * an action (a new version to reload into). Announced politely to screen readers.
+ */
+export function FloatingNotice(props: {
+	position: "top" | "bottom";
+	children: JSX.Element;
+	action?: JSX.Element;
+}): JSX.Element {
+	return (
+		<output
+			aria-live="polite"
+			class={
+				props.position === "top"
+					? "fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.5rem)] z-50 mx-auto block w-fit rounded-full bg-inverse px-3 py-1 text-caption text-inverse-fg shadow-float"
+					: "fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center gap-3 rounded-kit-xl bg-surface-raised px-4 py-3 shadow-float"
+			}
+		>
+			<span class={props.position === "bottom" ? "min-w-0 flex-1 text-body text-fg" : ""}>
+				{props.children}
+			</span>
+			{props.action}
+		</output>
+	);
+}

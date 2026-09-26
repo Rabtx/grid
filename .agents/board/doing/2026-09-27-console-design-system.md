@@ -46,9 +46,21 @@ references very closely, Inter, fix look and feel and navigation/layout, gallery
    prototype and the component sections; and `kit-guard.test.ts` holding kit-built files to
    no inline or one-off styling.
 
+3. **App shell and home on the kit (agent/frontend/port-shell).** Sidebar, project tree (row
+   actions on hover, right-click and long press, inline rename, running shimmer), workspace
+   switcher, account menu, title bar and phone top bar, drawer, command palette, shortcuts,
+   banners, create-workspace dialog, session tabs, the composer and the new-chat screen. New kit
+   pieces: `AppFrame`, `AuthFrame`, menus opened at a point, `NavGroup`/`NavNote`, row actions,
+   `InlineInput`, `WorkingDots`, `Shimmer`, `FloatingNotice`, `LinkButton`, `AgentMark`, palette
+   keyboard support, and `pt-safe`/`pb-safe`. The old status bar is gone: the folder lives in the
+   composer tray and the tree, the runner warning floats.
+
 ### Validation
 
 - typecheck, lint, architecture check pass; console vitest 45 files / 282 tests pass.
+- Shell port: console vitest 47 files / 285 tests (shell tests follow the new tree); guard
+  passes on every ported file; checked in the browser signed in as the demo account: new chat,
+  a thread in the header tabs, thread hover actions and menu, phone drawer.
 - Hardening: console vitest 47 files / 285 tests (guard and `variants` tests added); roundness
   knob checked live across the prototype.
 - `/design` checked at 1100px and 375px, light and dark; menus, dialog, drawer and palette

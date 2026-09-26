@@ -2,59 +2,69 @@ import { useLocation, useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
+import {
+	BoardIcon,
+	ConfirmDialog,
+	EditIcon,
+	FileIcon,
+	FolderIcon,
+	IconButton,
+	iconButton,
+	InlineInput,
+	Menu,
+	type MenuGroup,
+	MoreIcon,
+	NavButton,
+	NavGroup,
+	NavLink,
+	NavNote,
+	NoteIcon,
+	PlusIcon,
+	type PopoverControl,
+	Shimmer,
+	Skeleton,
+	Stack,
+	Text,
+	TrashIcon,
+	WorkingDots,
+} from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
 import { useAuth } from "@/modules/auth";
 import { threadsStore } from "@/modules/chat/stores/threads";
 import type { ChatSession } from "@/modules/chat/types/chat.types";
 import { type Project, ProjectIcon, useWorkspace } from "@/modules/projects";
-import {
-	BoardIcon,
-	attachContextMenu,
-	FileIcon,
-	ChevronDownIcon,
-	ConfirmDialog,
-	FolderIcon,
-	Menu,
-	type MenuControl,
-	type MenuItem,
-	MoreIcon,
-	NoteIcon,
-	PlusIcon,
-	Skeleton,
-} from "@/ui";
 
 import { useShell } from "../context/shell-context";
 
 const OPEN_KEY = "grid.sidebar.open";
 
-const PROJECT_MENU: MenuItem[] = [
-	{ id: "new", label: "New thread" },
-	{ id: "rename", label: "Rename" },
-	{ id: "customize", label: "Customize…" },
-	{ id: "folder", label: "Change folder" },
-	{ id: "board", label: "Open board" },
-	{ id: "files", label: "Open files" },
-	{ id: "notes", label: "Open notes" },
-	{ id: "remove", label: "Remove from Grid", danger: true },
+const PROJECT_MENU: MenuGroup[] = [
+	{
+		items: [
+			{ id: "new", label: "New thread", icon: <PlusIcon /> },
+			{ id: "rename", label: "Rename", icon: <EditIcon /> },
+			{ id: "customize", label: "Customize…" },
+			{ id: "folder", label: "Change folder", icon: <FolderIcon /> },
+		],
+	},
+	{
+		items: [
+			{ id: "board", label: "Open board", icon: <BoardIcon /> },
+			{ id: "files", label: "Open files", icon: <FileIcon /> },
+			{ id: "notes", label: "Open notes", icon: <NoteIcon /> },
+		],
+	},
+	{ items: [{ id: "remove", label: "Remove from Grid", icon: <TrashIcon />, danger: true }] },
 ];
 
-const THREAD_MENU: MenuItem[] = [
-	{ id: "rename", label: "Rename" },
-	{ id: "delete", label: "Delete", danger: true },
+const THREAD_MENU: MenuGroup[] = [
+	{
+		items: [
+			{ id: "rename", label: "Rename", icon: <EditIcon /> },
+			{ id: "delete", label: "Delete", icon: <TrashIcon />, danger: true },
+		],
+	},
 ];
-
-const ROW =
-	"focus-ring flex w-full min-w-0 items-center gap-2 rounded-md text-left text-ui transition-colors duration-fast ease-out-grid hover:bg-ink/10 hover:text-ink aria-[current=page]:bg-selection-strong aria-[current=page]:text-ink";
-
-// Row actions for pointers: revealed on hover or keyboard focus. Touch screens get none — a long
-// press on the row opens the same menu, as native lists do.
-const ACTIONS =
-	"absolute inset-y-0 right-0.5 flex items-center opacity-0 transition-opacity duration-fast focus-within:opacity-100 group-hover/row:opacity-100 pointer-coarse:opacity-100";
-// (On touch the wrapper stays rendered — a hidden ancestor would hide the menu it holds — and
-// its buttons hide themselves.)
-
-// A row that long-presses into a menu: no iOS link callout or text selection competing with it.
-const PRESSABLE = "select-none [-webkit-touch-callout:none]";
 
 function rememberedOpen(): string[] {
 	try {
@@ -77,16 +87,16 @@ function relative(iso: string): string {
 }
 
 /**
- * Projects as folders you open and close, each holding its threads. A project is a folder on
- * this machine: opening it lists its threads, picking it goes back to the thread you were in.
- * Projects and threads each have a menu (rename, and the rest).
+ * Projects as folders you open and close, each holding its pages and threads. A project is a
+ * folder on this machine: opening it lists its threads, picking it goes back to the thread you
+ * were in. Projects and threads each have a menu: ⋯ on hover, right-click, or a long press.
  */
 export function ProjectTree(): JSX.Element {
 	const workspace = useWorkspace();
+	const auth = useAuth();
 	const [open, setOpen] = createSignal<string[]>(rememberedOpen());
 	const [deleting, setDeleting] = createSignal<ChatSession | null>(null);
 	const [pending, setPending] = createSignal(false);
-	const auth = useAuth();
 
 	function setOpenFor(slug: string, value: boolean): void {
 		const current = untrack(open);
@@ -115,19 +125,14 @@ export function ProjectTree(): JSX.Element {
 			<Show
 				when={workspace.projects().length > 0}
 				fallback={
-					<div class="px-2">
-						<button
-							type="button"
-							class={`${ROW} h-8 px-2 text-ink/50 pointer-coarse:h-11`}
-							onClick={() => workspace.setAddProjectOpen(true)}
-						>
-							<PlusIcon class="size-4 shrink-0" />
-							Open a folder as a project
-						</button>
-					</div>
+					<NavButton
+						icon={<PlusIcon />}
+						label="Open a folder as a project"
+						onClick={() => workspace.setAddProjectOpen(true)}
+					/>
 				}
 			>
-				<ul class="flex flex-col gap-px px-2">
+				<Stack gap={0.5}>
 					<For each={workspace.projects()}>
 						{(project) => (
 							<ProjectNode
@@ -138,14 +143,16 @@ export function ProjectTree(): JSX.Element {
 							/>
 						)}
 					</For>
-				</ul>
+				</Stack>
 			</Show>
 			<ConfirmDialog
 				open={deleting() !== null}
+				onClose={() => setDeleting(null)}
 				title={`Delete “${deleting()?.title ?? "this thread"}”?`}
 				description="The thread and its history are removed. Files the agent changed stay as they are."
-				confirmLabel="Delete"
-				tone="danger"
+				confirm="Delete"
+				danger
+				stayOpen
 				pending={pending()}
 				onConfirm={() => {
 					const session = deleting();
@@ -157,7 +164,6 @@ export function ProjectTree(): JSX.Element {
 						setDeleting(null);
 					});
 				}}
-				onCancel={() => setDeleting(null)}
 			/>
 		</>
 	);
@@ -177,11 +183,7 @@ function ProjectNode(props: {
 	const slug = () => props.project.slug;
 	const current = () => slug() === workspace.currentSlug();
 	const folder = () => workspace.folders()[slug()];
-	const onBoard = () => workspace.activeSlug() === slug();
-	let menu: MenuControl | undefined;
-	let row: HTMLDivElement | undefined;
-	// Right-click and long press open the row's menu.
-	onSettled(() => (row ? attachContextMenu(row, (point) => menu?.open(point)) : undefined));
+	let menu: PopoverControl | undefined;
 
 	// A project's threads are read the first time it is opened.
 	createEffect(
@@ -203,115 +205,97 @@ function ProjectNode(props: {
 		else if (id === "notes") navigate(`/notes/${slug()}`);
 	}
 
+	const page = (path: string) => location.pathname === `/${path}/${slug()}`;
+
 	return (
-		<li>
-			<div
-				class={`group/row relative flex items-center ${PRESSABLE}`}
-				ref={(el) => {
-					row = el;
+		<div>
+			<NavLink
+				href={workspaceHref(`/chat/${slug()}`)}
+				aria-expanded={props.open ? "true" : "false"}
+				icon={<ProjectIcon project={props.project} running={threadsStore.runningIn(slug()) > 0} />}
+				label={props.project.name}
+				onMenuAt={(point) => menu?.open(point)}
+				onClick={(event: MouseEvent) => {
+					if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+					event.preventDefault();
+					// The project you are in folds and unfolds; another one opens and is gone to.
+					if (current() && props.open) return props.onToggle(false);
+					props.onToggle(true);
+					// Read at click time: the last thread changes as you work.
+					navigate(workspace.projectHref(slug()));
 				}}
-			>
-				<button
-					type="button"
-					aria-label={props.open ? `Close ${props.project.name}` : `Open ${props.project.name}`}
-					aria-expanded={props.open ? "true" : "false"}
-					class="focus-ring grid size-6 shrink-0 place-items-center rounded-md text-ink/40 hover:bg-ink/10 hover:text-ink pointer-coarse:size-10"
-					onClick={() => props.onToggle(!props.open)}
-				>
-					<ChevronDownIcon
-						class={`size-3.5 transition-transform duration-fast ${props.open ? "" : "-rotate-90"}`}
-					/>
-				</button>
-				<a
-					href={workspaceHref(`/chat/${slug()}`)}
-					aria-current={current() ? "page" : undefined}
-					class={`${ROW} h-8 flex-1 pr-15 pl-1 font-medium text-ink/60 pointer-coarse:h-11 pointer-coarse:pr-2`}
-					onClick={(event) => {
-						if (event.metaKey || event.ctrlKey || event.shiftKey) return;
-						event.preventDefault();
-						props.onToggle(true);
-						// Read at click time: the last thread changes as you work.
-						navigate(workspace.projectHref(slug()));
-					}}
-				>
-					<ProjectIcon project={props.project} running={threadsStore.runningIn(slug()) > 0} />
-					<span class="min-w-0 flex-1 truncate">{props.project.name}</span>
-				</a>
-				<div class={ACTIONS}>
-					<a
-						href={workspaceHref(`/chat/${slug()}`)}
-						title="New thread"
-						aria-label={`New thread in ${props.project.name}`}
-						class="focus-ring grid size-6 place-items-center rounded-md text-ink/50 hover:bg-ink/10 hover:text-ink pointer-coarse:hidden"
-					>
-						<PlusIcon class="size-3.5" />
-					</a>
-					<Menu
-						label={`${props.project.name} options`}
-						trigger={<MoreIcon class="size-4" />}
-						items={PROJECT_MENU}
-						onSelect={onMenu}
-						pointerOnly
-						control={(control) => {
-							menu = control;
-						}}
-					/>
-				</div>
-			</div>
+				actions={
+					<>
+						<IconButton
+							size="xs"
+							label={`New thread in ${props.project.name}`}
+							onClick={() => navigate(`/chat/${slug()}`)}
+						>
+							<PlusIcon size="sm" />
+						</IconButton>
+						<Menu
+							label={`${props.project.name} options`}
+							pointerOnly
+							width="md:w-56"
+							triggerClass={iconButton({ size: "xs" })}
+							trigger={<MoreIcon />}
+							groups={PROJECT_MENU}
+							onSelect={onMenu}
+							control={(control) => {
+								menu = control;
+							}}
+						/>
+					</>
+				}
+			/>
 			<Show when={props.open}>
-				<div class="mb-1 ml-3 flex flex-col gap-px border-ink/10 border-l pl-1.5">
-					<a
+				<NavGroup>
+					<NavLink
+						level={1}
 						href={workspaceHref(`/board/${slug()}`)}
-						aria-current={onBoard() ? "page" : undefined}
-						class={`${ROW} h-7 px-2 text-ink/60 text-ui-sm pointer-coarse:h-10`}
-					>
-						<BoardIcon class="size-3.5 shrink-0 text-ink/45" />
-						Board
-					</a>
-					<a
+						current={workspace.activeSlug() === slug()}
+						icon={<BoardIcon size="sm" />}
+						label="Board"
+					/>
+					<NavLink
+						level={1}
 						href={workspaceHref(`/files/${slug()}`)}
-						aria-current={location.pathname === `/files/${slug()}` ? "page" : undefined}
-						class={`${ROW} h-7 px-2 text-ink/60 text-ui-sm pointer-coarse:h-11`}
-					>
-						<FileIcon class="size-3.5 shrink-0 text-ink/45" /> Files
-					</a>
-					<a
+						current={page("files")}
+						icon={<FileIcon size="sm" />}
+						label="Files"
+					/>
+					<NavLink
+						level={1}
 						href={workspaceHref(`/notes/${slug()}`)}
-						aria-current={location.pathname === `/notes/${slug()}` ? "page" : undefined}
-						class={`${ROW} h-7 px-2 text-ink/60 text-ui-sm pointer-coarse:h-11`}
-					>
-						<NoteIcon class="size-3.5 shrink-0 text-ink/45" /> Notes
-					</a>
+						current={page("notes")}
+						icon={<NoteIcon size="sm" />}
+						label="Notes"
+					/>
 					<Show when={!folder()}>
-						<button
-							type="button"
-							class={`${ROW} h-7 px-2 text-link text-ui-sm pointer-coarse:h-10`}
+						<NavButton
+							level={1}
+							tone="accent"
+							icon={<FolderIcon size="sm" />}
+							label="Choose its folder"
 							onClick={() => {
 								shell.setDrawerOpen(false);
 								workspace.chooseFolderFor(slug());
 							}}
-						>
-							<FolderIcon class="size-3.5 shrink-0" />
-							Choose its folder
-						</button>
+						/>
 					</Show>
 					<Show when={threadsStore.loaded(slug())} fallback={<Skeleton class="my-0.5 h-6" />}>
 						<Show
 							when={threadsStore.threads(slug()).length > 0}
-							fallback={
-								<p class="px-2 py-1 text-ink/40 text-ui-xs">
-									{threadsStore.error(slug()) ?? "No threads yet"}
-								</p>
-							}
+							fallback={<NavNote>{threadsStore.error(slug()) ?? "No threads yet"}</NavNote>}
 						>
 							<For each={threadsStore.threads(slug())}>
 								{(session) => <ThreadRow session={session} onDelete={props.onDelete} />}
 							</For>
 						</Show>
 					</Show>
-				</div>
+				</NavGroup>
 			</Show>
-		</li>
+		</div>
 	);
 }
 
@@ -324,16 +308,12 @@ function ThreadRow(props: {
 	const [renaming, setRenaming] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
 	const active = () => inThread()?.params.id === props.session.id;
-	let menu: MenuControl | undefined;
-	let row: HTMLDivElement | undefined;
-	onSettled(() => (row ? attachContextMenu(row, (point) => menu?.open(point)) : undefined));
+	const running = () => threadsStore.isRunning(props.session.id);
+	let menu: PopoverControl | undefined;
 
 	async function save(title: string): Promise<void> {
 		const token = untrack(auth.token);
 		const next = title.trim();
-		// Enter saves and closes the field, which then blurs: only the first of the two counts. The
-		// blur arrives while the field is being removed, inside an update, so the reads are untracked.
-		if (!untrack(renaming)) return;
 		const session = untrack(() => props.session);
 		setRenaming(false);
 		if (!token || !next || next === session.title) return;
@@ -346,66 +326,49 @@ function ThreadRow(props: {
 	}
 
 	return (
-		<div
-			class={`group/row relative ${PRESSABLE}`}
-			ref={(el) => {
-				row = el;
-			}}
-		>
-			<Show
-				when={renaming()}
-				fallback={
-					<a
-						href={workspaceHref(`/chat/${props.session.project}/${props.session.id}`)}
-						aria-current={active() ? "page" : undefined}
-						title={error() ?? props.session.title}
-						class={`${ROW} h-7 pr-8 pl-2 text-ink/60 text-ui-sm pointer-coarse:h-10 pointer-coarse:pr-2 ${error() ? "text-danger" : ""}`}
-						onDblClick={(event) => {
-							event.preventDefault();
-							setRenaming(true);
-						}}
-					>
-						<span
-							class={`min-w-0 flex-1 truncate ${threadsStore.isRunning(props.session.id) ? "thread-running" : ""}`}
-						>
-							{props.session.title}
-						</span>
-						<Show
-							when={threadsStore.isRunning(props.session.id)}
-							fallback={
-								<span class="shrink-0 text-ink/35 text-ui-caption tabular-nums group-hover/row:invisible pointer-coarse:group-hover/row:visible">
-									{relative(props.session.updatedAt)}
-								</span>
-							}
-						>
-							<span class="working-dots shrink-0" title="Working">
-								<i />
-								<i />
-								<i />
-							</span>
-						</Show>
-					</a>
-				}
-			>
-				<input
-					ref={(el) => queueMicrotask(() => el.select())}
+		<Show
+			when={!renaming()}
+			fallback={
+				<InlineInput
+					label="Thread name"
 					value={props.session.title}
-					aria-label="Thread name"
-					class="h-7 w-full rounded-md border border-ink/20 bg-canvas px-2 text-ink text-ui-sm outline-none focus:border-ink/40 pointer-coarse:h-10 pointer-coarse:text-ui-input"
-					onKeyDown={(event) => {
-						if (event.key === "Enter") void save(event.currentTarget.value);
-						else if (event.key === "Escape") setRenaming(false);
-					}}
-					onBlur={(event) => void save(event.currentTarget.value)}
+					onSave={(value) => void save(value)}
+					onCancel={() => setRenaming(false)}
 				/>
-			</Show>
-			<Show when={!renaming()}>
-				<div class={ACTIONS}>
+			}
+		>
+			<NavLink
+				level={1}
+				href={workspaceHref(`/chat/${props.session.project}/${props.session.id}`)}
+				current={active()}
+				tone={error() ? "danger" : "default"}
+				title={error() ?? props.session.title}
+				label={<Shimmer active={running()}>{props.session.title}</Shimmer>}
+				trailing={
+					<Show
+						when={running()}
+						fallback={
+							<Text as="span" size="micro" tone="faint" tabular>
+								{relative(props.session.updatedAt)}
+							</Text>
+						}
+					>
+						<WorkingDots />
+					</Show>
+				}
+				onDblClick={(event: MouseEvent) => {
+					event.preventDefault();
+					setRenaming(true);
+				}}
+				onMenuAt={(point) => menu?.open(point)}
+				actions={
 					<Menu
 						label={`${props.session.title} options`}
-						trigger={<MoreIcon class="size-4" />}
-						items={THREAD_MENU}
 						pointerOnly
+						width="md:w-44"
+						triggerClass={iconButton({ size: "xs" })}
+						trigger={<MoreIcon />}
+						groups={THREAD_MENU}
 						control={(control) => {
 							menu = control;
 						}}
@@ -415,8 +378,8 @@ function ThreadRow(props: {
 							else props.onDelete(props.session);
 						}}
 					/>
-				</div>
-			</Show>
-		</div>
+				}
+			/>
+		</Show>
 	);
 }

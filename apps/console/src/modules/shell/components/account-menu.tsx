@@ -1,32 +1,28 @@
+import { useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { For } from "solid-js";
 
-import { workspaceHref } from "@/lib/active-workspace";
+import {
+	Avatar,
+	CheckIcon,
+	ComputerIcon,
+	Menu,
+	menuTrigger,
+	MoonIcon,
+	Row,
+	SettingsIcon,
+	SignOutIcon,
+	Stack,
+	SunIcon,
+	Text,
+} from "@/kit";
 import { appearance, type Theme, updateAppearance } from "@/lib/appearance";
 import { useAuth } from "@/modules/auth";
-import { ComputerIcon, MoonIcon, Popover, SettingsIcon, SignOutIcon, SunIcon } from "@/ui";
 
-const ROW =
-	"focus-ring flex h-row w-full items-center gap-2.5 rounded-md px-2 text-left text-ink/80 text-ui transition-colors duration-fast ease-out-grid hover:bg-ink/6 hover:text-ink pointer-coarse:min-h-12";
-
-const THEMES: { value: Theme; label: string; icon: (props: { class?: string }) => JSX.Element }[] =
-	[
-		{ value: "light", label: "Light", icon: SunIcon },
-		{ value: "dark", label: "Dark", icon: MoonIcon },
-		{ value: "system", label: "Match system", icon: ComputerIcon },
-	];
-
-/** Your initial in a circle: who is signed in, at the foot of the navigation. */
-function Avatar(props: { name: string }): JSX.Element {
-	return (
-		<span
-			aria-hidden="true"
-			class="grid size-6 shrink-0 place-items-center rounded-full bg-ink/10 font-medium text-ink/75 text-ui-xs uppercase"
-		>
-			{props.name.slice(0, 1)}
-		</span>
-	);
-}
+const THEMES: { id: Theme; label: string; icon: () => JSX.Element }[] = [
+	{ id: "light", label: "Light", icon: () => <SunIcon /> },
+	{ id: "dark", label: "Dark", icon: () => <MoonIcon /> },
+	{ id: "system", label: "Match system", icon: () => <ComputerIcon /> },
+];
 
 /**
  * Who is signed in, and what belongs to them rather than the workspace: the theme, settings and
@@ -34,68 +30,58 @@ function Avatar(props: { name: string }): JSX.Element {
  */
 export function AccountMenu(): JSX.Element {
 	const auth = useAuth();
+	const navigate = useNavigate();
 	const name = () => auth.user()?.username ?? "Account";
 
 	return (
-		<Popover
+		<Menu
 			label="Account"
-			panelClass="md:w-60"
-			triggerClass="focus-ring flex h-9 w-full min-w-0 items-center gap-2 rounded-md px-1.5 text-left transition-colors duration-fast ease-out-grid hover:bg-ink/6 pointer-coarse:h-12"
+			placement="top-start"
+			width="md:w-60"
+			triggerClass={menuTrigger({ size: "md", width: "full" })}
 			trigger={
 				<>
 					<Avatar name={name()} />
-					<span class="min-w-0 flex-1 truncate text-ink/80 text-ui">{name()}</span>
+					<Text as="span" size="inherit" truncate class="flex-1">
+						{name()}
+					</Text>
 				</>
 			}
-		>
-			{(close) => (
-				<div class="flex flex-col p-1.5 md:p-1">
-					<div class="flex items-center gap-2.5 px-2 py-2">
-						<Avatar name={name()} />
-						<div class="min-w-0">
-							<p class="truncate font-medium text-ink text-ui">{name()}</p>
-							<p class="truncate text-ink/50 text-ui-xs">{auth.user()?.email}</p>
-						</div>
-					</div>
-					<div class="my-1 h-px bg-stroke" />
-					<div class="flex h-row items-center gap-2.5 px-2 pointer-coarse:min-h-12">
-						<span class="flex-1 text-ink/80 text-ui">Theme</span>
-						<fieldset class="flex rounded-md border-0 bg-ink/5 p-0.5">
-							<legend class="sr-only">Theme</legend>
-							<For each={THEMES}>
-								{(theme) => (
-									<button
-										type="button"
-										title={theme.label}
-										aria-label={theme.label}
-										aria-pressed={appearance().theme === theme.value ? "true" : "false"}
-										onClick={() => updateAppearance({ theme: theme.value })}
-										class="focus-ring grid size-6 place-items-center rounded-sm text-ink/50 transition-colors duration-fast ease-out-grid hover:text-ink aria-pressed:bg-canvas aria-pressed:text-ink aria-pressed:shadow-sm pointer-coarse:size-9"
-									>
-										<theme.icon class="size-3.5" />
-									</button>
-								)}
-							</For>
-						</fieldset>
-					</div>
-					<a href={workspaceHref("/settings/appearance")} class={ROW} onClick={() => close()}>
-						<SettingsIcon class="size-4 shrink-0 text-ink/55" />
-						Settings
-					</a>
-					<div class="my-1 h-px bg-stroke" />
-					<button
-						type="button"
-						class={ROW}
-						onClick={() => {
-							close();
-							void auth.logout();
-						}}
-					>
-						<SignOutIcon class="size-4 shrink-0 text-ink/55" />
-						Sign out
-					</button>
-				</div>
-			)}
-		</Popover>
+			header={
+				<Row gap={2.5} class="px-2 py-2">
+					<Avatar name={name()} size="lg" />
+					<Stack gap={0} class="min-w-0">
+						<Text tone="strong" weight="medium" truncate>
+							{name()}
+						</Text>
+						<Text size="caption" tone="subtle" truncate>
+							{auth.user()?.email}
+						</Text>
+					</Stack>
+				</Row>
+			}
+			groups={[
+				{
+					label: "Theme",
+					items: THEMES.map((theme) => ({
+						id: `theme:${theme.id}`,
+						label: theme.label,
+						icon: theme.icon(),
+						trailing: appearance().theme === theme.id ? <CheckIcon /> : undefined,
+					})),
+				},
+				{
+					items: [
+						{ id: "settings", label: "Settings", icon: <SettingsIcon />, shortcut: "Ctrl ," },
+						{ id: "signout", label: "Sign out", icon: <SignOutIcon /> },
+					],
+				},
+			]}
+			onSelect={(id) => {
+				if (id.startsWith("theme:")) updateAppearance({ theme: id.slice(6) as Theme });
+				else if (id === "settings") navigate("/settings/appearance");
+				else void auth.logout();
+			}}
+		/>
 	);
 }

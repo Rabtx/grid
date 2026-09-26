@@ -4,18 +4,21 @@ import { createSignal, onSettled, Show, untrack } from "solid-js";
 import { useAuth } from "@/modules/auth";
 import { useWorkspace } from "@/modules/projects";
 import { insertIntoField, MicButton, registerDictationTarget } from "@/modules/voice";
-import { BranchIcon, SendIcon, StopSquareIcon } from "@/ui";
+import {
+	BranchIcon,
+	MIC_BUTTON,
+	PROMPT_FIELD,
+	PromptBox,
+	Row,
+	SEND_BUTTON,
+	SendIcon,
+	STOP_BUTTON,
+	StopSquareIcon,
+	Text,
+} from "@/kit";
 
 import { useFileMentions } from "../lib/use-file-mentions";
 import { FileMentionPopup } from "./file-mention-popup";
-
-/** An item in the strip under the composer — 44px for a thumb. */
-const CONTEXT_CHIP =
-	"flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-sm text-ink/55 transition-colors duration-fast ease-out-grid pointer-coarse:h-8";
-
-/** The composer's two round buttons beside the toolbar: the mic and send (or stop). */
-const ROUND =
-	"focus-ring grid size-8 shrink-0 place-items-center rounded-full transition-[background-color,color,opacity,transform] duration-fast ease-out-grid active:scale-95 pointer-coarse:size-11";
 
 /** Put text in the composer from outside it: a suggestion picked on the new-chat screen. */
 export type ComposerControl = { fill: (text: string) => void };
@@ -115,17 +118,12 @@ export function Composer(props: {
 	}
 
 	return (
-		<div class="relative">
-			<form
-				ref={(el) => {
-					form = el;
-				}}
-				class="relative z-10 rounded-2xl border border-ink/10 bg-canvas shadow-[0_1px_2px_rgb(0_0_0/0.03),0_8px_24px_-12px_rgb(0_0_0/0.12)] transition-colors duration-fast ease-out-grid focus-within:border-ink/20"
-				onSubmit={(event) => {
-					event.preventDefault();
-					void send();
-				}}
-			>
+		<PromptBox
+			formRef={(el) => {
+				form = el;
+			}}
+			onSubmit={() => void send()}
+			overlay={
 				<Show when={mentions.open()}>
 					<FileMentionPopup
 						files={mentions.files()}
@@ -135,6 +133,8 @@ export function Composer(props: {
 						onClose={mentions.close}
 					/>
 				</Show>
+			}
+			field={
 				<textarea
 					ref={(el) => {
 						textarea = el;
@@ -165,65 +165,71 @@ export function Composer(props: {
 							void send();
 						}
 					}}
-					class="block max-h-50 min-h-12 w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-ink text-ui-input outline-none placeholder:text-ink/35"
+					class={PROMPT_FIELD}
 				/>
-				<div class="flex items-center gap-1 px-2 pb-2">
-					<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
-						{props.controls}
-					</div>
-					<MicButton
-						target={() =>
-							textarea
-								? {
-										insert: (text) => textarea && insertIntoField(textarea, text),
-										focus: () => textarea?.focus(),
-										label: "Message",
-										floatingMic: false,
-									}
-								: null
-						}
-						class={`${ROUND} text-ink/50 hover:bg-ink/6 hover:text-ink aria-pressed:bg-danger aria-pressed:text-canvas`}
-					/>
-					<Show
-						when={props.running}
-						fallback={
-							<button
-								type="submit"
-								aria-label="Send"
-								disabled={!draft().trim() || props.disabled || sending()}
-								class={`${ROUND} bg-primary text-primary-foreground disabled:bg-ink/10 disabled:text-ink/35`}
-							>
-								<SendIcon class="size-4" />
-							</button>
-						}
-					>
+			}
+			tools={props.controls}
+			options={
+				<MicButton
+					target={() =>
+						textarea
+							? {
+									insert: (text) => textarea && insertIntoField(textarea, text),
+									focus: () => textarea?.focus(),
+									label: "Message",
+									floatingMic: false,
+								}
+							: null
+					}
+					class={MIC_BUTTON}
+				/>
+			}
+			send={
+				<Show
+					when={props.running}
+					fallback={
 						<button
-							type="button"
-							aria-label="Stop"
-							onClick={() => props.onStop?.()}
-							class={`${ROUND} bg-ink/10 text-ink hover:bg-ink/15`}
+							type="submit"
+							aria-label="Send"
+							disabled={!draft().trim() || props.disabled || sending()}
+							class={SEND_BUTTON}
 						>
-							<StopSquareIcon class="size-4" />
+							<SendIcon />
 						</button>
-					</Show>
-				</div>
-			</form>
-			{/* Where the agent works, tucked under the card rather than competing with the text. */}
-			<Show when={props.header || props.branch}>
-				<div class="-mt-3 flex min-w-0 items-center gap-3 rounded-b-2xl border border-ink/8 border-t-0 bg-ink/3 px-4 pt-4 pb-1.5 text-ui-xs pointer-coarse:pb-0.5">
-					<Show when={props.header}>
-						<span class={CONTEXT_CHIP}>{props.header}</span>
-					</Show>
-					<Show when={props.branch}>
-						{(branch) => (
-							<span class={CONTEXT_CHIP}>
-								<BranchIcon class="size-3.5 shrink-0" />
-								<span class="truncate font-mono">{branch()}</span>
-							</span>
-						)}
-					</Show>
-				</div>
-			</Show>
-		</div>
+					}
+				>
+					<button
+						type="button"
+						aria-label="Stop"
+						onClick={() => props.onStop?.()}
+						class={STOP_BUTTON}
+					>
+						<StopSquareIcon />
+					</button>
+				</Show>
+			}
+			tray={
+				// Where the agent works, tucked under the card rather than competing with the text.
+				props.header || props.branch ? (
+					<>
+						<Show when={props.header}>
+							<Row gap={1.5} class="min-w-0">
+								{props.header}
+							</Row>
+						</Show>
+						<Show when={props.branch}>
+							{(branch) => (
+								<Row gap={1.5}>
+									<BranchIcon size="sm" />
+									<Text as="span" size="caption" tone="subtle" mono truncate>
+										{branch()}
+									</Text>
+								</Row>
+							)}
+						</Show>
+					</>
+				) : undefined
+			}
+		/>
 	);
 }

@@ -15,11 +15,25 @@ export function PromptBox(props: {
 	send: JSX.Element;
 	/** Under the card: where the agent works, the branch. */
 	tray?: JSX.Element;
+	/** Floats inside the card over the text: the @-mention list. */
+	overlay?: JSX.Element;
+	/** The card is a form: Enter-to-send and the send button submit it. */
+	onSubmit?: (event: SubmitEvent) => void;
+	/** The form element, for voice dictation to find its field. */
+	formRef?: (form: HTMLFormElement) => void;
 	class?: string;
 }): JSX.Element {
 	return (
 		<div class={`relative flex flex-col ${props.class ?? ""}`}>
-			<div class="relative z-10 flex flex-col rounded-kit-2xl bg-surface-raised shadow-lift transition-shadow duration-fast focus-within:shadow-focus">
+			<form
+				ref={(el) => props.formRef?.(el)}
+				onSubmit={(event) => {
+					event.preventDefault();
+					props.onSubmit?.(event);
+				}}
+				class="relative z-10 flex flex-col rounded-kit-2xl bg-surface-raised shadow-lift transition-shadow duration-fast focus-within:shadow-focus"
+			>
+				{props.overlay}
 				{props.field}
 				<div class="flex items-center gap-1.5 px-3 pb-3">
 					<div class="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
@@ -28,7 +42,7 @@ export function PromptBox(props: {
 					{props.options}
 					{props.send}
 				</div>
-			</div>
+			</form>
 			<Show when={props.tray}>
 				<div class="mx-3 flex min-h-9 items-center gap-3 rounded-b-kit-lg border border-line border-t-0 bg-surface-sunken px-3 text-body text-fg-subtle pointer-coarse:min-h-11">
 					{props.tray}
@@ -53,6 +67,14 @@ export const PROMPT_ADD =
 /** The round send button: dark when there is something to send. */
 export const SEND_BUTTON =
 	"focus-ring grid size-7 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg transition-[opacity,transform] duration-fast active:scale-95 disabled:bg-fill-strong disabled:text-fg-faint pointer-coarse:size-10";
+
+/** Stop, in place of send while the agent works. */
+export const STOP_BUTTON =
+	"focus-ring grid size-7 shrink-0 place-items-center rounded-full bg-fill-strong text-fg transition-transform duration-fast hover:bg-fill-strong active:scale-95 pointer-coarse:size-10";
+
+/** The composer's mic: red while it listens. */
+export const MIC_BUTTON =
+	"focus-ring grid size-7 shrink-0 place-items-center rounded-kit text-fg-subtle transition-colors duration-fast hover:bg-fill hover:text-fg aria-pressed:bg-danger aria-pressed:text-white pointer-coarse:size-10";
 
 /** A round-cornered square icon button on the composer's toolbar: the mic, a tool. */
 export const PROMPT_ICON =

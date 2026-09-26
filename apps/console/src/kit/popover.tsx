@@ -1,7 +1,12 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, createUniqueId, Show } from "solid-js";
 
+import type { MenuPoint } from "./context-menu";
+
 export type Placement = "bottom-start" | "bottom-end" | "top-start" | "top-end";
+
+/** Open or close a popover from code: under its trigger, or at a point (right-click, long press). */
+export type PopoverControl = { open: (point?: MenuPoint) => void; close: () => void };
 
 // Phones: a bottom sheet with a grabber. From md: anchored to the trigger with CSS anchor
 // positioning (or a measured fallback), flipping when it would leave the screen.
@@ -32,6 +37,13 @@ export function Popover(props: {
 	/** Width from md; the phone sheet is always full width. */
 	width?: string;
 	disabled?: boolean;
+	/** Hands over a way to open it from code, e.g. from a row's context menu. */
+	control?: (control: PopoverControl) => void;
+	/**
+	 * Row menus: the trigger shows for pointers only. Touch screens open the menu with a long
+	 * press on the row instead, as native lists do, so no dots are drawn there.
+	 */
+	pointerOnly?: boolean;
 	children: (close: () => void) => JSX.Element;
 }): JSX.Element {
 	const uid = createUniqueId().replace(/[^a-zA-Z0-9_-]/g, "");
@@ -40,10 +52,30 @@ export function Popover(props: {
 	const anchored = anchoring();
 	const [open, setOpen] = createSignal(false);
 	let trigger: HTMLButtonElement | undefined;
-	let panel: (HTMLDivElement & { hidePopover?: () => void }) | undefined;
+	let panel: (HTMLDivElement & { hidePopover?: () => void; showPopover?: () => void }) | undefined;
+	let at: MenuPoint | null = null;
+
+	props.control?.({
+		open: (point) => {
+			at = point ?? null;
+			panel?.showPopover?.();
+		},
+		close: () => panel?.hidePopover?.(),
+	});
 
 	function place(): void {
-		if (anchored || !trigger || !panel || !matchMedia("(min-width: 48rem)").matches) return;
+		if (!panel || !matchMedia("(min-width: 48rem)").matches) return;
+		// Opened at a point: put it there, kept on screen. Phones keep the bottom sheet.
+		if (at) {
+			const box = panel.getBoundingClientRect();
+			panel.style.position = "fixed";
+			panel.style.margin = "0";
+			panel.style.setProperty("position-area", "none");
+			panel.style.top = `${Math.max(8, Math.min(at.y, innerHeight - box.height - 8))}px`;
+			panel.style.left = `${Math.max(8, Math.min(at.x, innerWidth - box.width - 8))}px`;
+			return;
+		}
+		if (anchored || !trigger) return;
 		const rect = trigger.getBoundingClientRect();
 		const box = panel.getBoundingClientRect();
 		const placement = props.placement ?? "bottom-start";
@@ -68,7 +100,7 @@ export function Popover(props: {
 				popovertarget={id}
 				disabled={props.disabled}
 				style={anchored ? `anchor-name: ${anchor}` : undefined}
-				class={props.triggerClass}
+				class={`${props.triggerClass} ${props.pointerOnly ? "pointer-coarse:hidden" : ""}`}
 			>
 				{props.trigger}
 			</button>
@@ -82,6 +114,11 @@ export function Popover(props: {
 					const isOpen = (event.currentTarget as HTMLElement).matches(":popover-open");
 					setOpen(isOpen);
 					if (isOpen) requestAnimationFrame(place);
+					else {
+						at = null;
+						for (const property of ["position", "margin", "top", "left", "position-area"])
+							panel?.style.removeProperty(property);
+					}
 				}}
 				style={anchored ? `position-anchor: ${anchor}` : undefined}
 				class={`${SURFACE} ${AREA[props.placement ?? "bottom-start"]} ${props.width ?? "md:w-64"}`}

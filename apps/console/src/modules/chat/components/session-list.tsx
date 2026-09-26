@@ -1,22 +1,15 @@
 import type { JSX } from "@solidjs/web";
-import { For, Show } from "solid-js";
+import { Show } from "solid-js";
 
 import { workspaceHref } from "@/lib/active-workspace";
-import { CloseIcon, PlusIcon } from "@/ui";
+import { AgentMark, ChatIcon, EditIcon, HeaderTabs, Shimmer, Text } from "@/kit";
 
 import { threadsStore } from "../stores/threads";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
 
-/** The agent's initial in a small tile, so chats from different agents read apart. */
+/** The agent's initial in a small tile (the kit's AgentMark), for the model pickers. */
 export function ProviderMark(props: { provider: string; class?: string }): JSX.Element {
-	return (
-		<span
-			class={`grid shrink-0 place-items-center rounded-[0.25rem] bg-ink/15 font-semibold text-ink/80 text-ui-caption uppercase leading-none ${props.class ?? "size-3.5"}`}
-			aria-hidden="true"
-		>
-			{props.provider.slice(0, 1)}
-		</span>
-	);
+	return <AgentMark name={props.provider} size={props.class === "size-4" ? "md" : "sm"} />;
 }
 
 /** "Claude Opus 4.6" when the model is known, else the agent's name. */
@@ -29,8 +22,8 @@ export function sessionModel(session: ChatSession, providers: ChatProvider[]): s
 }
 
 /**
- * The chats open in the title bar, like browser tabs: the current one filled, each closable,
- * and "New chat" while the composer is showing. Phones show only the current one.
+ * The chats open in the title bar, like browser tabs: the current one raised, each closable, and
+ * "New chat" while the composer is showing. Phones show only the current thread's title.
  */
 export function SessionTabs(props: {
 	tabs: ChatSession[];
@@ -46,54 +39,37 @@ export function SessionTabs(props: {
 			when={!props.compact}
 			fallback={
 				// Phones: just the thread's title in the header — no tab, no chrome — shimmering while it runs.
-				<h1
-					class={`min-w-0 truncate px-1 font-medium text-ink text-ui ${active() && threadsStore.isRunning(active()?.id ?? "") ? "thread-running" : ""}`}
-				>
-					{active()?.title ?? "New chat"}
-				</h1>
+				<Text as="h1" tone="strong" weight="medium" truncate>
+					<Shimmer active={threadsStore.isRunning(active()?.id ?? "")}>
+						{active()?.title ?? "New chat"}
+					</Shimmer>
+				</Text>
 			}
 		>
-			<div role="tablist" aria-label="Open chats" class="flex min-w-0 items-center gap-0.5">
-				<For each={props.tabs}>
-					{(tab) => (
-						<div
-							class="group flex h-7 min-w-20 max-w-56 shrink items-center gap-1 rounded-md pr-0.5 pl-2 text-ink/55 hover:bg-ink/6 hover:text-ink aria-selected:bg-selection aria-selected:text-ink pointer-coarse:h-9"
-							aria-selected={props.activeId === tab.id ? "true" : "false"}
-						>
-							<a
-								role="tab"
-								href={workspaceHref(props.hrefFor(tab.id))}
-								aria-selected={props.activeId === tab.id ? "true" : "false"}
-								class="focus-ring flex min-w-0 items-center gap-1.5 rounded-sm text-ui-sm"
-							>
-								<ProviderMark provider={tab.provider} />
-								<span class={`truncate ${threadsStore.isRunning(tab.id) ? "thread-running" : ""}`}>
-									{tab.title}
-								</span>
-							</a>
-							<button
-								type="button"
-								aria-label={`Close ${tab.title}`}
-								title="Close tab"
-								onClick={() => props.onClose(tab.id)}
-								class="focus-ring grid size-5 shrink-0 place-items-center rounded-sm text-ink/40 opacity-0 hover:bg-ink/10 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 group-aria-selected:opacity-100"
-							>
-								<CloseIcon class="size-3" />
-							</button>
-						</div>
-					)}
-				</For>
-				<Show when={!props.activeId}>
-					<div
-						role="tab"
-						aria-selected="true"
-						class="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-selection px-2 text-ink text-ui-sm pointer-coarse:h-9"
-					>
-						<PlusIcon class="size-3.5 text-ink/55" />
-						New chat
-					</div>
-				</Show>
-			</div>
+			<HeaderTabs
+				tabs={[
+					...props.tabs.map((tab) => ({
+						id: tab.id,
+						label: tab.title,
+						href: workspaceHref(props.hrefFor(tab.id)),
+						icon: <ChatIcon size="sm" />,
+						running: threadsStore.isRunning(tab.id),
+					})),
+					...(props.activeId
+						? []
+						: [
+								{
+									id: "new",
+									label: "New chat",
+									href: workspaceHref(props.hrefFor("")),
+									icon: <EditIcon size="sm" />,
+									closable: false,
+								},
+							]),
+				]}
+				current={props.activeId ?? "new"}
+				onClose={props.onClose}
+			/>
 		</Show>
 	);
 }

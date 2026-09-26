@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
-import { Popover, type Placement } from "./popover";
+import { Popover, type Placement, type PopoverControl } from "./popover";
 import { variants } from "./variants";
 
 export type MenuItem = {
@@ -102,9 +102,13 @@ export function Menu(props: {
 	width?: string;
 	header?: JSX.Element;
 	footer?: JSX.Element;
+	control?: (control: PopoverControl) => void;
+	pointerOnly?: boolean;
 }): JSX.Element {
 	return (
 		<Popover
+			control={props.control}
+			pointerOnly={props.pointerOnly}
 			label={props.label}
 			trigger={props.trigger}
 			triggerClass={props.triggerClass}
