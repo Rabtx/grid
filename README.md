@@ -1,157 +1,92 @@
 # Grid
 
-**Grid is an AI-native operating system for building and running a startup.** It brings projects,
-agents, development, deployment, infrastructure, operations and management into one
-browser-accessible control plane.
+**One place to build a project with people and AI agents, from any device.** Grid brings a
+project's board, files, agent conversations, and terminals into a browser-based workspace. The
+work runs on a machine with the project's code: your laptop, a VPS, or a GitHub Codespace.
 
-For developers: a browser-first, plugin-driven control plane that coordinates humans, AI agents,
-workspaces, tools and infrastructure. Grid is not an IDE with AI bolted on — agents are
-first-class workers inside the system, and Grid is the layer that coordinates them.
+Grid's larger goal is an AI-native operating system for building and running a startup. Agents
+are workers in the project, with visible sessions and tool activity, rather than a chat box
+separate from the work. Grid can use different coding agents and does not require one AI provider
+or one permanent development machine.
 
-The guiding constraints:
+## The problem
 
-- **Browser first** — the browser is the interface; execution happens on a host that may be local,
-  Docker, SSH or a remote VPS.
-- **Agent-native** — humans, agents, automations and runners are all entities that perform work.
-- **Provider agnostic** — no single AI provider becomes architectural bedrock.
-- **Portable** — machines are disposable; projects, tasks, sessions and context are not.
+A task, its code, the agent working on it, and the terminal running it often live in different
+places. That makes it hard to start work with the right context, see what changed, or continue
+from a phone or another computer. Grid connects those pieces around the **project folder**:
 
-## Where this repository is today
+1. Open a project and find its tasks on the board.
+2. Talk to an agent in that project's folder, with its actions visible in the thread.
+3. Browse the files and use a terminal on the machine that holds the project.
+4. Reopen the workspace on another device and catch up with the session.
 
-This repository holds the **engineering spine** Grid is being built on — a Bun workspaces
-monorepo with the web client, API, mobile control surface, docs site, shared UI and the full
-lint/typecheck/test/CI surface. The Grid product surfaces described above (board, agent runs,
-workspaces, ship, operate) are **not implemented yet**.
+A task can prefill a new agent thread. Direct run dispatch and status on the task card are still
+being developed; see [What's next](#whats-next).
 
-Multi-agent development of Grid itself runs through [.agents/](.agents/README.md).
+## What works today
 
-## Quick start
+| Area | Current capability |
+| --- | --- |
+| Projects and board | Link project folders, create and move tasks, and view each project's board. |
+| Agent sessions | Talk to supported coding-agent CLIs in project threads; stream replies, tool calls, and approvals; resume stored conversations. Grid can help install and sign in agents on the execution machine. |
+| Files and terminals | Browse project folders, create files and folders, and use persistent terminal sessions. The file editor is still planned. |
+| Environments | Run a project on this machine or a paired Grid environment. Manage GitHub Codespaces from Grid when GitHub access is configured. |
+| Phone and offline startup | Use the installable console on phone or desktop. Local snapshots make recent screens appear quickly; the app shell can reopen offline, while live agent and terminal work still needs a runner connection. |
 
-**Prerequisites**
+Grid has a working development workspace, not yet the full startup operating system in its
+mission. Deployment, infrastructure operations, and business management are future product
+areas. The [project reference](PROJECT.md) explains the current architecture and where data
+lives.
 
-- [Bun](https://bun.sh) `1.4.2` (pinned via `packageManager` and `.mise.toml`)
-- [mise](https://mise.jdx.dev) — `mise install` also provides `shellcheck` and `shfmt`, which
-  `bun run lint` and `bun run format` need for the shell scripts
-- Optional: Docker Compose `v2.20+`, Rust toolchain (`packages/logger` Rust side)
+## Try Grid locally
+
+You need [Bun](https://bun.sh) **1.4.2** and either Docker with Compose or a PostgreSQL database
+set through `DATABASE_URL`.
 
 ```bash
 git clone https://github.com/shabirkhan-dev/grid.git
 cd grid
 bun install
-bun run prepare
-bun run dev
+bun run grid
 ```
 
-`bun run dev` starts every workspace.
+Open **http://localhost:8080** (or the address printed by the launcher). On first start, Grid
+creates an owner account and saves its sign-in details in `.grid/owner.txt`. Change that password
+after signing in. `bun run grid` starts Postgres through Docker when `DATABASE_URL` is unset,
+applies migrations, builds the console, and runs the API and runner behind one port.
 
-| App | Dev URL |
+For a Codespace or VPS, environment variables, pairing, and deployment steps, read the
+[portable Grid guide](apps/docs/content/docs/portable.mdx). To work on individual services, see
+[development commands](PROJECT.md#development-commands).
+
+## What's next
+
+The [open board](.agents/board/open/) tracks the next reviewable features: Project Notes,
+`@` file mentions in prompts, a readable diff viewer for agent edits, and launching an agent
+run directly from a task. The [agent chat plan](.agents/plans/agent-chat.md) and
+[console plan](.agents/plans/console-design-migration.md) describe broader interaction work.
+
+The [portable Grid plan](.agents/plans/portable-next.md) proposes lighter local setup and an API
+migration. Some environment work described there has already shipped; the board and merged code
+are the more current status. These plans are directions, not release dates.
+
+## Repository map
+
+| Path | Role |
 | --- | --- |
-| Web | http://localhost:3000 |
-| Console | http://localhost:3001 |
-| Nest API | http://localhost:4000 — `/api/v1/health`, `/api/docs` |
-| Docs | http://localhost:3002/docs |
+| `apps/console` | Solid 2 product interface and installable PWA |
+| `apps/runner` | Bun service for agents, chat sessions, terminals, project files, and environments |
+| `apps/launcher` | `bun run grid`: setup and one-port gateway |
+| `apps/nest-api` | NestJS API for identity, projects, tasks, and billing foundations |
+| `apps/web` | Next.js web app; the Solid console is the active product workspace |
+| `apps/docs` | Setup, API, architecture, and deployment guides |
+| `packages/` | Shared tokens, UI, logging, and TypeScript configuration |
+| `.agents/` | Project board, plans, ownership, and agent work rules |
 
-To work on one app in isolation: `bun --cwd=apps/web run dev` (same pattern for `nest-api`
-and `docs`).
-
-## Layout
-
-### Apps
-
-| Path | What it is |
-| --- | --- |
-| `apps/web` | Next.js 16 — landing page and the outgoing control plane |
-| `apps/console` | Vite + Solid 2 SPA — the control plane being built to replace it |
-| `apps/nest-api` | NestJS API spine, Drizzle over Postgres/Neon |
-| `apps/docs` | Fumadocs site — project docs at `/docs` |
-
-### Packages
-
-| Package | Path | Role |
-| --- | --- | --- |
-| `@grid/ui` | `packages/ui` | shadcn base — the unopinionated primitives |
-| `@grid/logger` | `packages/logger` | Shared structured logging |
-| `@grid/typescript-config` | `packages/typescript-config` | Base tsconfigs every workspace extends |
-
-### Everything else
-
-| Path | Purpose |
-| --- | --- |
-| `.agents/` | Agent contract, roles, board and skills — the single source; there is no second copy |
-| `docker/` | Compose fragments: Postgres, Nest, web, optional profiles |
-| `scripts/` | Shell utilities, git hooks, plus architecture and naming checks |
-| `.github/workflows/` | `ci.yml`, `cd.yml`, `security.yml` |
-| `.devcontainer/` | Bun + Rust + Bash tooling |
-
-## Commands
-
-| Command | Does |
-| --- | --- |
-| `bun run dev` | All dev servers |
-| `bun run build` | Build every app |
-| `bun run lint` / `lint:fix` | oxlint, plus ShellCheck over `scripts/` |
-| `bun run format` | Format TS/JS, shell and the Rust logger |
-| `bun run typecheck` | TypeScript across workspaces |
-| `bun run test` / `test:coverage` | Unit tests / coverage gates |
-| `bun run test:e2e:web` | Playwright e2e for web |
-| `bun run architecture:check` | Import-boundary rules |
-| `bun run naming:check` | File and symbol naming rules |
-| `bun run preflight` | `lint` + `typecheck` + `test` — run before pushing |
-
-## Tooling
-
-- **Bun** workspaces, with `bun run --filter` driving tasks across them
-- **oxlint + oxfmt** for TS/JS — tabs, line width 100
-- **Lefthook** pre-commit and commit-msg, enforcing Conventional Commits
-- Bash: ShellCheck + shfmt · Rust: rustfmt + clippy
-
-## Docker
-
-```bash
-cp env.docker.example .env
-docker compose up -d --build
-```
-
-Web `:3000`, Nest `:4000`, Postgres on host `:5433`.
-
-More in [docker/README.md](docker/README.md) and `/docs/docker`.
-
-## Deploy
-
-| Piece | Host | Config |
-| --- | --- | --- |
-| Web + docs | [Vercel](https://vercel.com) | `apps/*/vercel.json` |
-| Nest API | [Render](https://render.com) | `render.yaml` |
-| Database | [Neon](https://neon.tech) | `DATABASE_URL` |
-
-Walkthrough: `/docs/deploy` — [apps/docs/content/docs/deploy.mdx](apps/docs/content/docs/deploy.mdx).
-
-## Dev Container
-
-`.devcontainer/` installs **Bun**, **Rust** and the Bash lint tools. C, Lua and Python are
-deliberately excluded.
-
-```text
-Reopen in Container → bun run prepare → bun run dev
-```
-
-See [.devcontainer/README.md](.devcontainer/README.md).
-
-## Docs
-
-```bash
-bun --cwd=apps/docs run dev
-```
-
-- [/docs/quick-start](http://localhost:3002/docs/quick-start)
-- [/docs/architecture](http://localhost:3002/docs/architecture)
-- [/docs/deploy](http://localhost:3002/docs/deploy)
-- [/docs/docker](http://localhost:3002/docs/docker)
-
-Also in the repo: [PROJECT.md](PROJECT.md), [DESIGN.md](DESIGN.md), [AGENTS.md](AGENTS.md),
-[CHANGELOG.md](CHANGELOG.md).
+Grid uses Bun workspaces. See [PROJECT.md](PROJECT.md) for development commands and technical
+boundaries, [DESIGN.md](DESIGN.md) for the interface language, and [AGENTS.md](AGENTS.md) before
+contributing code. Documentation source lives in `apps/docs/content/docs/`.
 
 ## License
 
-Dual-licensed under **MIT** or **Apache-2.0**, at your option —
-[LICENSE-MIT](LICENSE-MIT), [LICENSE-Apache-2.0](LICENSE-Apache-2.0).
+Choose either [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-Apache-2.0).
