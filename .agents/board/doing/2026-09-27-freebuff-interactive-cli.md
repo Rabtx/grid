@@ -33,10 +33,31 @@ The human requested the cross-role runner and console integration. Reuse the exi
 
 ## Validation
 
-- Runner and console tests, lint, typecheck, build, architecture check, format.
-- PTY integration test with a fixture CLI, reconnect, input, screen parsing, and ad visibility.
-- Browser check at phone and desktop sizes.
+- `bun --cwd=apps/runner test`: 113 passed; focused final PTY/server tests: 23 passed.
+- `bun --cwd=apps/console run test`: 278 passed; focused final socket/token tests: 12 passed.
+- `bun run lint`, `bun run typecheck`, `bun run format`, `bun run architecture:check`: passed. Existing lint warnings remain outside this scope.
+- `bun --cwd=apps/console run build`: passed.
+- Real installed Freebuff CLI (`0.0.201`) launched through Bun PTY in this worktree: 11,519 raw bytes, 1,619 screen characters, `screen` and `text` events. A fixture test verified workspace `cwd`, `/history` input, and exit; reconnect tests verified raw replay, parsed screen, and detected ads.
+- Browser UI check could not run: this session exposed no browser to computer use. Console unit tests, token checks, typecheck, and production build passed; phone and desktop visual behavior remains for human review.
+
+## Changed
+
+- `apps/runner/src/agents/interactive-cli.ts`, runner terminal HTTP/WebSocket support, tests, and runner README.
+- `apps/console/src/modules/terminal/**` adds Freebuff launch, parsed screen view, ad display, input, and raw terminal fallback.
+- `apps/runner/package.json` and `bun.lock` add `@xterm/headless`.
+
+## Contract impact
+
+Additive runner `POST /terminals` `provider` option, `ready.screen`/`ready.ads`, and `event` WebSocket messages; documented in `apps/runner/README.md`.
+
+## Review
+
+Human reviewer pending. Branch is not merged.
+
+## Commit
+
+`4ef7042` (`feat(runner): run freebuff through interactive cli pty`).
 
 ## Resolution
 
-Pending implementation and independent review.
+Implementation committed; awaiting independent review and browser visual check before moving this card to done.
