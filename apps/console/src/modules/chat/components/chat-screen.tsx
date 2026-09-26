@@ -1,14 +1,14 @@
 import { useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { onRunnerRecovered } from "@/lib/runner-health";
 
 import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
-import { useWorkspace } from "@/modules/projects";
+import { ProjectIcon, useWorkspace } from "@/modules/projects";
 import { ShellSlot, useShell } from "@/modules/shell";
-import { Button, ErrorNotice, FolderIcon } from "@/ui";
+import { BranchIcon, Button, CheckIcon, ErrorNotice, FolderIcon, IdeaIcon, ToolIcon } from "@/ui";
 
 import { chatService } from "../services/chat.service";
 import { draftsStore } from "../stores/drafts";
@@ -16,7 +16,7 @@ import { offeredProviders, providersStore } from "../stores/providers";
 import { threadsStore } from "../stores/threads";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
 
-import { Composer } from "./composer";
+import { Composer, type ComposerControl } from "./composer";
 import { Conversation, queueFirstMessage } from "./conversation";
 import { ModelPicker, ModePicker } from "./pickers";
 import { SessionTabs } from "./session-list";
@@ -222,6 +222,14 @@ export function ChatScreen(): JSX.Element {
 	);
 }
 
+/** Ways into a first message; picking one fills the composer to edit before sending. */
+const SUGGESTIONS: { text: string; icon: (props: { class?: string }) => JSX.Element }[] = [
+	{ text: "Explain how this project is organised", icon: IdeaIcon },
+	{ text: "Find and fix a bug in ", icon: ToolIcon },
+	{ text: "Write tests for the recent changes", icon: CheckIcon },
+	{ text: "Review the uncommitted changes", icon: BranchIcon },
+];
+
 /** "What should we work on?" — pick an agent, type, and the chat starts with that message. */
 function NewChat(props: {
 	project: string | null;
@@ -233,6 +241,9 @@ function NewChat(props: {
 	onCreated: (session: ChatSession) => void;
 }): JSX.Element {
 	const auth = useAuth();
+	const workspace = useWorkspace();
+	const project = () => workspace.projects().find((item) => item.slug === props.project) ?? null;
+	let composer: ComposerControl | undefined;
 	// A draft left for this project (a thread started from a task), taken once.
 	const initial = untrack(() => (props.project ? draftsStore.take(props.project) : undefined));
 	// Installed agents that are not turned off in Settings → Agents.
@@ -300,11 +311,22 @@ function NewChat(props: {
 		}
 	}
 
+	const ready = () => Boolean(chosen() && props.project && props.folder);
+
 	return (
-		<div class="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-3 pb-3 md:justify-center md:px-6 md:py-12">
+		<div class="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:justify-center md:px-6 md:pt-12 md:pb-[12vh]">
 			<div class="mx-auto flex w-full max-w-3xl flex-col">
-				<h1 class="mb-4 truncate px-2.5 text-ink text-ui-lg">
-					What should we work on{props.projectName ? ` in ${props.projectName}` : ""}?
+				<h1 class="mb-5 flex min-w-0 items-center justify-center gap-2 px-2 text-center font-medium text-ink text-ui-lg md:mb-6 md:text-title">
+					<span class="shrink-0">What should we work on</span>
+					<Show when={project()}>
+						{(current) => (
+							<span class="flex min-w-0 items-center gap-1.5">
+								<span class="shrink-0 text-ink/50">in</span>
+								<ProjectIcon project={current()} class="size-5" />
+								<span class="truncate">{current().name}</span>
+							</span>
+						)}
+					</Show>
 				</h1>
 				<Show when={error()}>
 					{(message) => (
@@ -314,7 +336,7 @@ function NewChat(props: {
 					)}
 				</Show>
 				<Show when={!props.folder && props.project}>
-					<div class="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-ink/10 bg-ink/4 px-3 py-2.5">
+					<div class="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-ink/10 bg-ink/3 px-3 py-2.5">
 						<FolderIcon class="size-4 shrink-0 text-ink/50" />
 						<p class="min-w-0 flex-1 text-ink/70 text-ui-sm">
 							A project is a folder: choose this project's folder so its threads work inside it.
@@ -324,63 +346,88 @@ function NewChat(props: {
 						</Button>
 					</div>
 				</Show>
-				<Show
-					when={available().length > 0 || props.providers.length === 0}
-					fallback={
-						<ErrorNotice message="No agent is available on this project's machine. Install and sign in one in Settings → Agents, or turn one on there." />
-					}
-				>
-					<Composer
-						project={props.project}
-						initial={initial}
-						running={false}
-						disabled={!chosen() || !props.project || !props.folder}
-						onSend={start}
-						header={<FolderLine folder={props.folder} onChoose={props.onChooseFolder} />}
-						controls={
-							<Show when={chosen()}>
-								{(provider) => (
-									<>
-										<ModelPicker
-											agents={available()}
-											agent={provider().id}
-											onAgent={(id) => {
-												setAgent(id);
-												setPickedModel(null);
-												setPickedEffort(null);
-												setMode(null);
-											}}
-											models={models()}
-											model={model() ?? ""}
-											onModel={(id) => {
-												// Keep the chosen effort when the new model has that level too.
-												const levels = models().find((item) => item.id === id)?.efforts ?? [];
-												if (!levels.some((level) => level.id === effort())) setPickedEffort(null);
-												else setPickedEffort(effort());
-												setPickedModel(id);
-											}}
-											efforts={efforts()}
-											effort={effort()}
-											onEffort={setPickedEffort}
-										/>
-										<Show when={provider().modes.length > 0}>
-											<ModePicker
-												modes={provider().modes}
-												mode={
-													mode() ??
-													provider().settings?.mode ??
-													provider().defaultMode ??
-													provider().modes[0].id
-												}
-												onMode={setMode}
-											/>
-										</Show>
-									</>
+				{/* Phones: suggestions sit above the composer as chips in thumb reach; desktop lists
+				    them under it. One list, placed by order. */}
+				<div class="flex flex-col">
+					<Show when={ready()}>
+						<ul class="order-first -mx-3 mb-3 flex gap-2 overflow-x-auto px-3 [scrollbar-width:none] md:order-last md:mx-0 md:mt-4 md:mb-0 md:flex-col md:gap-0.5 md:overflow-visible md:px-1">
+							<For each={SUGGESTIONS}>
+								{(suggestion) => (
+									<li class="shrink-0">
+										<button
+											type="button"
+											onClick={() => composer?.fill(suggestion.text)}
+											class="focus-ring flex h-9 items-center gap-2 whitespace-nowrap rounded-full border border-ink/10 px-3 text-ink/70 text-ui-sm transition-colors duration-fast ease-out-grid hover:bg-ink/5 hover:text-ink md:h-8 md:w-full md:rounded-md md:border-0 md:px-2"
+										>
+											<suggestion.icon class="size-4 shrink-0 text-ink/45" />
+											{suggestion.text.trim()}
+										</button>
+									</li>
 								)}
-							</Show>
+							</For>
+						</ul>
+					</Show>
+					<Show
+						when={available().length > 0 || props.providers.length === 0}
+						fallback={
+							<ErrorNotice message="No agent is available on this project's machine. Install and sign in one in Settings → Agents, or turn one on there." />
 						}
-					/>
-				</Show>
+					>
+						<Composer
+							project={props.project}
+							initial={initial}
+							control={(control) => {
+								composer = control;
+							}}
+							running={false}
+							disabled={!chosen() || !props.project || !props.folder}
+							onSend={start}
+							header={<FolderLine folder={props.folder} onChoose={props.onChooseFolder} />}
+							controls={
+								<Show when={chosen()}>
+									{(provider) => (
+										<>
+											<ModelPicker
+												agents={available()}
+												agent={provider().id}
+												onAgent={(id) => {
+													setAgent(id);
+													setPickedModel(null);
+													setPickedEffort(null);
+													setMode(null);
+												}}
+												models={models()}
+												model={model() ?? ""}
+												onModel={(id) => {
+													// Keep the chosen effort when the new model has that level too.
+													const levels = models().find((item) => item.id === id)?.efforts ?? [];
+													if (!levels.some((level) => level.id === effort())) setPickedEffort(null);
+													else setPickedEffort(effort());
+													setPickedModel(id);
+												}}
+												efforts={efforts()}
+												effort={effort()}
+												onEffort={setPickedEffort}
+											/>
+											<Show when={provider().modes.length > 0}>
+												<ModePicker
+													modes={provider().modes}
+													mode={
+														mode() ??
+														provider().settings?.mode ??
+														provider().defaultMode ??
+														provider().modes[0].id
+													}
+													onMode={setMode}
+												/>
+											</Show>
+										</>
+									)}
+								</Show>
+							}
+						/>
+					</Show>
+				</div>
 			</div>
 		</div>
 	);

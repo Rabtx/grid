@@ -27,9 +27,9 @@ import type { ChatProvider, Choice } from "../types/chat.types";
 
 import { ProviderMark } from "./session-list";
 
-/** The chips on the composer's toolbar: the model and the mode, 26px, 44px for a thumb. */
+/** The chips on the composer's toolbar: the model and the mode, 28px, 44px for a thumb. */
 const CHIP =
-	"focus-ring inline-flex h-[26px] min-w-0 max-w-[15rem] shrink items-center gap-1.5 rounded-md bg-selection px-2 text-ui-xs transition-colors duration-fast ease-out-grid hover:bg-selection-hover aria-expanded:bg-selection-strong disabled:opacity-40 pointer-coarse:h-11";
+	"focus-ring inline-flex h-7 min-w-0 max-w-[15rem] shrink items-center gap-1.5 rounded-full px-2.5 text-ink/70 text-ui-xs transition-colors duration-fast ease-out-grid hover:bg-ink/6 hover:text-ink aria-expanded:bg-ink/8 aria-expanded:text-ink disabled:opacity-40 pointer-coarse:h-11";
 
 /** A row in a picker panel: 36px, 44px for a thumb. The tone is added by each row. */
 const ROW =
