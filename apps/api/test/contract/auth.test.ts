@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
 
 import { call, json, stable, type Reply } from "./client";
 
@@ -124,12 +124,6 @@ describe("auth: sessions", () => {
 	let access = "";
 	let cookie = "";
 
-	beforeAll(async () => {
-		const reply = await post("/api/v1/auth/login", { email, password: PASSWORD });
-		access = data<{ accessToken: string }>(reply).accessToken;
-		cookie = cookieOf(reply) ?? "";
-	});
-
 	const bearer = () => ({ authorization: `Bearer ${access}` });
 
 	it("signs in with a refresh cookie, and never shows the refresh token to a browser", async () => {
@@ -145,6 +139,9 @@ describe("auth: sessions", () => {
 		const body = data<Record<string, unknown>>(reply);
 		expect(Object.keys(body).sort()).toEqual(["accessToken", "accessTokenExpiresAt", "user"]);
 		expect(user(body.user)).toEqual({ ...expectedUser, emailVerified: true });
+		// This session is the one the tests below use.
+		access = (body as { accessToken: string }).accessToken;
+		cookie = cookieOf(reply) ?? "";
 		const setCookie = reply.headers.get("set-cookie") ?? "";
 		expect(setCookie).toMatch(/grid_refresh_token=[0-9a-f-]{36}\.[A-Za-z0-9_-]+/);
 		expect(setCookie).toMatch(/Path=\/api\/v1\/auth/);

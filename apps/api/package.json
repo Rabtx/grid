@@ -9,7 +9,7 @@
 		"lint": "oxlint .",
 		"typecheck": "tsc --noEmit",
 		"test": "bun --env-file=../nest-api/.env test src",
-		"test:contract": "bun test test/contract"
+		"test:contract": "bun --env-file=../nest-api/.env test test/contract"
 	},
 	"dependencies": {
 		"@grid/db": "workspace:*",

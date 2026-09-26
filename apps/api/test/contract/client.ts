@@ -3,8 +3,11 @@
  * the same tests run against NestJS and against Hono, and a route only moves over once both
  * give the same answers:
  *
- *   CONTRACT_API_URL=http://127.0.0.1:4010 bun test test/contract   # NestJS
- *   CONTRACT_API_URL=http://127.0.0.1:4000 bun test test/contract   # Hono (forwarding the rest)
+ *   CONTRACT_API_URL=http://127.0.0.1:4010 bun run test:contract   # NestJS
+ *   CONTRACT_API_URL=http://127.0.0.1:4000 bun run test:contract   # Hono (forwarding the rest)
+ *
+ * `test:contract` loads DATABASE_URL (tests create and remove their own rows). Sign-up and
+ * sign-in are limited per minute, so run the suite at most once a minute against one server.
  */
 export const API_URL = (process.env.CONTRACT_API_URL ?? "http://127.0.0.1:4000").replace(/\/$/, "");
 
@@ -35,3 +38,38 @@ export function stable(body: unknown): unknown {
 	const { requestId: _requestId, timestamp: _timestamp, ...rest } = body as Record<string, unknown>;
 	return rest;
 }
+
+let demo: Promise<string> | null = null;
+
+/**
+ * An access token for the seeded demo account, signed in once per test run and shared by every
+ * suite. Sign-in allows 8 attempts a minute per address, so each suite signing in on its own
+ * would run out; a throttled attempt waits for Retry-After and tries once more.
+ */
+export function demoToken(): Promise<string> {
+	demo ??= (async () => {
+		for (let attempt = 0; attempt < 2; attempt++) {
+			const reply = await call(
+				"/api/v1/auth/login",
+				json(
+					{ email: "demo@grid.dev", password: "GridDemo2026!" },
+					{ headers: { origin: "http://localhost:3001", "x-requested-with": "XMLHttpRequest" } },
+				),
+			);
+			if (reply.status === 200) {
+				return (reply.body as { data: { accessToken: string } }).data.accessToken;
+			}
+			if (reply.status !== 429 || attempt > 0) {
+				throw new Error(
+					`Demo sign-in failed (${reply.status}); seed it with bun run --filter @grid/db seed`,
+				);
+			}
+			await Bun.sleep((Number(reply.headers.get("retry-after")) || 60) * 1000 + 1000);
+		}
+		throw new Error("Demo sign-in stayed throttled");
+	})();
+	return demo;
+}
+
+/** Long enough for one wait on the sign-in limit. */
+export const SIGN_IN_TIMEOUT = 90_000;
