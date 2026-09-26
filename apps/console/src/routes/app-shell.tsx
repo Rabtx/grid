@@ -32,15 +32,19 @@ import { BrandLogo } from "@/ui";
  * Frame shared by every route. Signed out it is just the brand; signed in it is one layout
  * that grows up: a top bar and drawer on phones, a persistent sidebar from `lg:`.
  */
+// Pages outside any workspace keep the signed-out frame even for someone signed in.
+const OUTSIDE = /^\/(login|setup|invite)(\/|$)/;
+
 export function AppShell(props: { children: JSX.Element }): JSX.Element {
 	const auth = useAuth();
+	const location = useLocation();
 
 	return (
 		<div class="min-h-dvh bg-canvas text-ink">
 			{/* Restoring (opening for someone signed in last time) is signed in: their screens need
 			    the workspace from the first render, or they have nothing to read. */}
 			<Show
-				when={auth.token() || auth.restoring()}
+				when={(auth.token() || auth.restoring()) && !OUTSIDE.test(location.pathname)}
 				fallback={<SignedOutShell>{props.children}</SignedOutShell>}
 			>
 				<WorkspacesProvider>
@@ -57,12 +61,14 @@ export function AppShell(props: { children: JSX.Element }): JSX.Element {
 
 function SignedOutShell(props: { children: JSX.Element }): JSX.Element {
 	return (
-		<>
-			<header class="flex h-12 items-center px-4 pt-[env(safe-area-inset-top)] md:px-6">
-				<BrandLogo class="h-7" />
+		<div class="flex min-h-dvh flex-col md:bg-backdrop">
+			<header class="flex h-14 shrink-0 items-center px-4 pt-[env(safe-area-inset-top)] md:h-24 md:justify-center">
+				<BrandLogo class="h-6" />
 			</header>
-			<main class="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6">{props.children}</main>
-		</>
+			<main class="flex flex-1 items-start justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-6 md:pt-[2vh]">
+				{props.children}
+			</main>
+		</div>
 	);
 }
 

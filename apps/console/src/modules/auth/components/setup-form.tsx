@@ -1,8 +1,9 @@
-import { useLocation, useNavigate } from "@solidjs/router";
+import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createSignal, Show } from "solid-js";
 
-import { Button, ErrorNotice, Field, Input } from "@/ui";
+import { rememberWorkspace } from "@/lib/active-workspace";
+import { AuthCard, Button, ErrorNotice, Field, Input, WorkspacePreview } from "@/ui";
 
 import { useAuth } from "../context/auth-context";
 import { slugInput, slugify } from "../lib/slug";
@@ -13,7 +14,6 @@ import { slugInput, slugify } from "../lib/slug";
  */
 export function SetupForm(): JSX.Element {
 	const auth = useAuth();
-	const navigate = useNavigate();
 	const location = useLocation();
 	const code = () => new URLSearchParams(location.search).get("code") ?? "";
 
@@ -41,7 +41,9 @@ export function SetupForm(): JSX.Element {
 				displayName: name().trim() || undefined,
 				workspace: { name: workspace(), slug: workspaceSlug() },
 			});
-			navigate("/", { replace: true });
+			// Into the new workspace, at its own URL.
+			rememberWorkspace(workspaceSlug());
+			window.location.replace(`/${encodeURIComponent(workspaceSlug())}/`);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : "Setup failed");
 		} finally {
@@ -53,87 +55,93 @@ export function SetupForm(): JSX.Element {
 		<Show
 			when={code()}
 			fallback={
-				<div class="flex w-full max-w-[22rem] flex-col gap-1">
-					<h1 class="font-semibold text-title">Set up Grid</h1>
-					<p class="text-ink/50 text-ui-sm">
-						Open the setup link Grid printed when it started (it is also in setup-link.txt in Grid's
-						data folder).
-					</p>
-				</div>
+				<AuthCard>
+					<div class="flex flex-col gap-1">
+						<h1 class="font-medium text-title">Set up Grid</h1>
+						<p class="text-ink/50 text-ui-sm">
+							Open the setup link Grid printed when it started (it is also in setup-link.txt in
+							Grid's data folder).
+						</p>
+					</div>
+				</AuthCard>
 			}
 		>
-			<form class="flex w-full max-w-[22rem] flex-col gap-4" onSubmit={submit}>
-				<header class="flex flex-col gap-1">
-					<h1 class="font-semibold text-title">Set up Grid</h1>
-					<p class="text-ink/50 text-ui-sm">Your account, and the workspace your team works in.</p>
-				</header>
+			<AuthCard aside={<WorkspacePreview name={workspace()} slug={workspaceSlug()} />}>
+				<form class="flex w-full flex-col gap-4" onSubmit={submit}>
+					<header class="flex flex-col gap-1">
+						<h1 class="font-medium text-title">Set up Grid</h1>
+						<p class="text-ink/50 text-ui-sm">
+							Your account, and the workspace your team works in.
+						</p>
+					</header>
 
-				<Field label="Your name">
-					<Input
-						autocomplete="name"
-						enterkeyhint="next"
-						value={name()}
-						onInput={(event) => setName(event.currentTarget.value)}
-					/>
-				</Field>
-				<Field label="Email">
-					<Input
-						type="email"
-						required
-						autocomplete="email"
-						inputmode="email"
-						enterkeyhint="next"
-						value={email()}
-						onInput={(event) => setEmail(event.currentTarget.value)}
-					/>
-				</Field>
-				<Field label="Username" hint="Lowercase letters, numbers, dots, dashes.">
-					<Input
-						required
-						minlength={3}
-						autocomplete="username"
-						autocapitalize="off"
-						enterkeyhint="next"
-						value={username()}
-						onInput={(event) => setUsername(event.currentTarget.value)}
-					/>
-				</Field>
-				<Field label="Password" hint="At least 12 characters.">
-					<Input
-						type="password"
-						required
-						minlength={12}
-						autocomplete="new-password"
-						enterkeyhint="next"
-						value={password()}
-						onInput={(event) => setPassword(event.currentTarget.value)}
-					/>
-				</Field>
-				<Field label="Workspace" hint="Your company or team.">
-					<Input
-						required
-						enterkeyhint="next"
-						value={workspace()}
-						onInput={(event) => setWorkspace(event.currentTarget.value)}
-					/>
-				</Field>
-				<Field label="Workspace URL" hint={`Links look like /${workspaceSlug() || "acme"}/board`}>
-					<Input
-						required
-						minlength={2}
-						autocapitalize="off"
-						enterkeyhint="go"
-						value={workspaceSlug()}
-						onInput={(event) => setSlug(slugInput(event.currentTarget.value))}
-					/>
-				</Field>
+					<Field label="Your name">
+						<Input
+							autocomplete="name"
+							enterkeyhint="next"
+							value={name()}
+							onInput={(event) => setName(event.currentTarget.value)}
+						/>
+					</Field>
+					<Field label="Email">
+						<Input
+							type="email"
+							required
+							autocomplete="email"
+							inputmode="email"
+							enterkeyhint="next"
+							value={email()}
+							onInput={(event) => setEmail(event.currentTarget.value)}
+						/>
+					</Field>
+					<Field label="Username" hint="Lowercase letters, numbers, dots, dashes.">
+						<Input
+							required
+							minlength={3}
+							autocomplete="username"
+							autocapitalize="off"
+							enterkeyhint="next"
+							value={username()}
+							onInput={(event) => setUsername(event.currentTarget.value)}
+						/>
+					</Field>
+					<Field label="Password" hint="At least 12 characters.">
+						<Input
+							type="password"
+							required
+							minlength={12}
+							autocomplete="new-password"
+							enterkeyhint="next"
+							value={password()}
+							onInput={(event) => setPassword(event.currentTarget.value)}
+						/>
+					</Field>
+					<Field label="Workspace" hint="Your company or team.">
+						<Input
+							required
+							enterkeyhint="next"
+							value={workspace()}
+							onInput={(event) => setWorkspace(event.currentTarget.value)}
+						/>
+					</Field>
+					<Field label="Workspace URL" hint={`Links look like /${workspaceSlug() || "acme"}/board`}>
+						<Input
+							required
+							minlength={2}
+							autocapitalize="off"
+							enterkeyhint="go"
+							value={workspaceSlug()}
+							onInput={(event) => setSlug(slugInput(event.currentTarget.value))}
+						/>
+					</Field>
 
-				<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
+					<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
 
-				<Button type="submit" variant="primary" size="lg" disabled={pending()} class="w-full">
-					{pending() ? "Setting up…" : "Create account and workspace"}
-				</Button>
-			</form>
+					<Button type="submit" variant="primary" size="lg" disabled={pending()} class="w-full">
+						{pending() ? "Setting up…" : "Create account and workspace"}
+					</Button>
+				</form>
+			</AuthCard>
 		</Show>
 	);
 }

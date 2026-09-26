@@ -42,7 +42,13 @@ Built in four PRs:
    lighter model and mode pills; the folder and branch sit in a strip tucked under it. New chat
    titles the project with its icon and offers suggestions that fill the composer: a list under
    it on desktop, chips above it in thumb reach on phones.
-3. Setup, invite acceptance and workspace URLs.
+3. **Setup, invites and workspace URLs.** Every signed-in URL leads with its workspace
+   (`/acme/board/web`): a history adapter keeps the slug out of the routes, so links, `navigate`
+   and `useLocation` still deal in `/board/web`. `/` and old links move to the remembered (or
+   default) workspace; a workspace you are not in falls back to your default. Sign-in, setup and
+   `/invite/:token` sit in a card on the backdrop; setup and invites show the workspace's
+   sidebar in miniature beside the form. An invite joins with one button when signed in, or
+   with a new account (confirming the email by code when needed) or an existing one.
 4. Members and invites in settings.
 
 ### Validation (PR 1)
@@ -51,5 +57,9 @@ Built in four PRs:
 - Console vitest: all files pass, including the new `active-workspace.test.tsx`.
 - PR 2: console vitest passes (new composer fill test); checked new chat and a conversation on
   desktop and phone, light and dark.
+- PR 3: console vitest 45 files / 282 tests (URL resolution and history tests added). Against
+  a database clone: created a link invite, viewed it signed in, then joined it signed out with
+  a new account through the email code and landed in `/demo/…`; `/`, `/terminal` and
+  `/nope/chat` redirect correctly; links navigate without reloads; back works.
 - Browser, against a clone of the dev database: created a workspace (moved into it, empty
   project list), switched back to the default one; desktop and phone, light and dark.

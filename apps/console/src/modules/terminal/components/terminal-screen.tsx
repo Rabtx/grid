@@ -2,6 +2,7 @@ import { useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
+import { workspaceHref } from "@/lib/active-workspace";
 import { useAuth } from "@/modules/auth";
 import { environmentsStore, placementsStore } from "@/modules/environments";
 import { useWorkspace } from "@/modules/projects";
@@ -329,7 +330,7 @@ export function TerminalScreen(): JSX.Element {
 							>
 								<a
 									role="tab"
-									href={`/terminal/${terminal.id}`}
+									href={workspaceHref(`/terminal/${terminal.id}`)}
 									aria-selected={activeId() === terminal.id ? "true" : "false"}
 									class="focus-ring flex max-w-44 items-center gap-1.5 rounded-sm text-ui-sm"
 								>

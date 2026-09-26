@@ -37,3 +37,27 @@ describe("active workspace", () => {
 		expect(localStorage.getItem("grid.workspace")).toBeNull();
 	});
 });
+
+describe("resolveStart", () => {
+	it("takes the workspace from the first segment of the URL", async () => {
+		const { resolveStart } = await load(null);
+		expect(resolveStart("/acme/board/web", "beta")).toEqual({
+			inUrl: "acme",
+			active: "acme",
+			outside: false,
+		});
+	});
+
+	it("falls back to the remembered workspace for the root and old section links", async () => {
+		const { resolveStart } = await load(null);
+		expect(resolveStart("/", "beta")).toEqual({ inUrl: null, active: "beta", outside: false });
+		expect(resolveStart("/chat/web", null)).toEqual({ inUrl: null, active: null, outside: false });
+	});
+
+	it("keeps sign-in, setup and invites outside any workspace", async () => {
+		const { resolveStart } = await load(null);
+		for (const path of ["/login", "/setup", "/invite/abc"]) {
+			expect(resolveStart(path, "beta")).toEqual({ inUrl: null, active: "beta", outside: true });
+		}
+	});
+});

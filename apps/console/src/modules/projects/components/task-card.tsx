@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { onSettled, Show } from "solid-js";
 
+import { workspaceHref } from "@/lib/active-workspace";
 import { draftsStore, taskDraft } from "@/modules/chat/stores/drafts";
 import { attachContextMenu, ChatIcon, Menu, type MenuControl, MoreIcon } from "@/ui";
 
@@ -86,7 +87,9 @@ export function TaskCard(props: {
 		>
 			{/* The link wraps a whole card, so it is named explicitly: the label repeats what is visible. */}
 			<a
-				href={`/board/${workspace.activeSlug()}/tasks/${props.task.number}${location.search}`}
+				href={workspaceHref(
+					`/board/${workspace.activeSlug()}/tasks/${props.task.number}${location.search}`,
+				)}
 				aria-label={`${props.task.key} ${props.task.title}`}
 				draggable={props.canDrag ? "true" : undefined}
 				onDragStart={(event) => {

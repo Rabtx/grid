@@ -2,6 +2,7 @@ import { useLocation, useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
+import { workspaceHref } from "@/lib/active-workspace";
 import { useAuth } from "@/modules/auth";
 import { threadsStore } from "@/modules/chat/stores/threads";
 import type { ChatSession } from "@/modules/chat/types/chat.types";
@@ -222,7 +223,7 @@ function ProjectNode(props: {
 					/>
 				</button>
 				<a
-					href={`/chat/${slug()}`}
+					href={workspaceHref(`/chat/${slug()}`)}
 					aria-current={current() ? "page" : undefined}
 					class={`${ROW} h-8 flex-1 pr-15 pl-1 font-medium text-ink/60 pointer-coarse:h-11 pointer-coarse:pr-2`}
 					onClick={(event) => {
@@ -238,7 +239,7 @@ function ProjectNode(props: {
 				</a>
 				<div class={ACTIONS}>
 					<a
-						href={`/chat/${slug()}`}
+						href={workspaceHref(`/chat/${slug()}`)}
 						title="New thread"
 						aria-label={`New thread in ${props.project.name}`}
 						class="focus-ring grid size-6 place-items-center rounded-md text-ink/50 hover:bg-ink/10 hover:text-ink pointer-coarse:hidden"
@@ -260,7 +261,7 @@ function ProjectNode(props: {
 			<Show when={props.open}>
 				<div class="mb-1 ml-3 flex flex-col gap-px border-ink/10 border-l pl-1.5">
 					<a
-						href={`/board/${slug()}`}
+						href={workspaceHref(`/board/${slug()}`)}
 						aria-current={onBoard() ? "page" : undefined}
 						class={`${ROW} h-7 px-2 text-ink/60 text-ui-sm pointer-coarse:h-10`}
 					>
@@ -268,14 +269,14 @@ function ProjectNode(props: {
 						Board
 					</a>
 					<a
-						href={`/files/${slug()}`}
+						href={workspaceHref(`/files/${slug()}`)}
 						aria-current={location.pathname === `/files/${slug()}` ? "page" : undefined}
 						class={`${ROW} h-7 px-2 text-ink/60 text-ui-sm pointer-coarse:h-11`}
 					>
 						<FileIcon class="size-3.5 shrink-0 text-ink/45" /> Files
 					</a>
 					<a
-						href={`/notes/${slug()}`}
+						href={workspaceHref(`/notes/${slug()}`)}
 						aria-current={location.pathname === `/notes/${slug()}` ? "page" : undefined}
 						class={`${ROW} h-7 px-2 text-ink/60 text-ui-sm pointer-coarse:h-11`}
 					>
@@ -355,7 +356,7 @@ function ThreadRow(props: {
 				when={renaming()}
 				fallback={
 					<a
-						href={`/chat/${props.session.project}/${props.session.id}`}
+						href={workspaceHref(`/chat/${props.session.project}/${props.session.id}`)}
 						aria-current={active() ? "page" : undefined}
 						title={error() ?? props.session.title}
 						class={`${ROW} h-7 pr-8 pl-2 text-ink/60 text-ui-sm pointer-coarse:h-10 pointer-coarse:pr-2 ${error() ? "text-danger" : ""}`}

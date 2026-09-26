@@ -6,7 +6,10 @@ import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { EnvironmentsScreen } from "@/modules/environments";
 import { AgentsScreen, AppearanceScreen } from "@/modules/settings";
-import { EmptyState } from "@/ui";
+import { InviteScreen } from "@/modules/workspaces";
+import { AuthCard, EmptyState } from "@/ui";
+
+import { workspaceHistory } from "./lib/workspace-history";
 
 import { AppShell } from "./routes/app-shell";
 import { DevUiRoute } from "./routes/dev-ui";
@@ -15,10 +18,14 @@ import { RequireAuth } from "./routes/require-auth";
 // The console has no landing page of its own — that still lives in the marketing site — so "/"
 // opens the current project's chats and "/board" its board.
 const Router = createRouter({
+	// Every signed-in page lives under its workspace (`/acme/board/web`); the routes see `/board/web`.
+	history: workspaceHistory(),
 	routes: [
 		{ path: "/", component: ProjectRoute },
 		{ path: "/login", component: LoginRoute },
 		{ path: "/setup", component: SetupRoute },
+		// An invite link: join its workspace, signed in or with a new account.
+		{ path: "/invite/:token", component: InviteRoute },
 		{ path: "/board", component: RedirectRoute },
 		{ path: "/board/:slug", component: BoardRoute },
 		{ path: "/files/:slug", component: FilesRoute },
@@ -54,18 +61,18 @@ export function App(): JSX.Element {
 
 function LoginRoute(): JSX.Element {
 	return (
-		<div class="flex justify-center pt-[12vh] pb-12">
+		<AuthCard>
 			<LoginForm />
-		</div>
+		</AuthCard>
 	);
 }
 
 function SetupRoute(): JSX.Element {
-	return (
-		<div class="flex justify-center px-4 pt-[8vh] pb-12">
-			<SetupForm />
-		</div>
-	);
+	return <SetupForm />;
+}
+
+function InviteRoute(): JSX.Element {
+	return <InviteScreen />;
 }
 
 function ProjectRoute(): JSX.Element {
