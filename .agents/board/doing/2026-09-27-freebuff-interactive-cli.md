@@ -52,7 +52,7 @@ Additive runner `POST /terminals` `provider` option, `ready.screen`/`ready.ads`,
 
 ## Review
 
-Human reviewer pending. Branch is not merged.
+Human reviewer pending on draft PR [#106](https://github.com/shabirkhan-dev/grid/pull/106). Branch is not merged.
 
 ## Commit
 
