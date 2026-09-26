@@ -15,6 +15,7 @@ worktree: ../grid-worktrees/agent/backend/freebuff-interactive-cli
 scope:
   - apps/runner/**
   - apps/console/src/modules/terminal/**
+  - apps/console/src/modules/chat/**
   - bun.lock
 allowed_shared:
   - apps/console/src/modules/terminal/**
@@ -25,7 +26,7 @@ updated: 2026-09-27
 
 ## What
 
-Launch the official Freebuff CLI in the active Grid workspace through Bun PTY. Preserve raw terminal input/output and provide interpreted screen and interaction events for a mobile-friendly view.
+Launch the official Freebuff CLI in the active Grid workspace through Bun PTY. Preserve raw terminal input/output and provide interpreted screen and interaction events for a mobile-friendly view. Human clarification: expose Freebuff and its CLI-listed models in the existing Chat selector and deliver responses in the Chat transcript.
 
 ## Scope
 
@@ -42,12 +43,15 @@ The human requested the cross-role runner and console integration. Reuse the exi
 - After the independent reviewer found that an ad could scroll off during one PTY write, the VT parser now captures completed lines as they scroll. Regression tests pass for normal and alternate buffers. After merging `origin/main` (`c539575`) into this branch: runner 115 passed, console Vitest 283 passed, root lint/typecheck/format check passed, and console production build passed.
 - Follow-up review found equal ad text could be collapsed. The parser now records every completed ad line, and the console appends every ad event. Regression test covers two matching ads in one write. Runner 116 passed, console Vitest 283 passed, root lint/typecheck passed after this fix.
 - Another review found a split-chunk duplicate and ad-history replay on reconnect. Pending terminal lines now complete once; the WebSocket ready message replaces the ad history snapshot instead of replaying it as new events. Regression tests cover both cases. Runner 117 passed, console Vitest 284 passed, root lint/typecheck passed.
+- Human clarified the primary UI is Chat. The runner now lists Freebuff's models from the official CLI menu, expands its "See all models" choice through PTY keys, selects the chosen model, and maps a completed answer to Chat events. Live PTY checks listed eight models and returned distinct replies for two messages in one Solar Mini 4 session. A GLM session returned only the final `hello` answer after visible thinking. Freebuff's menu ad text remains in the Chat transcript. Runner 119 tests, console 284 tests, root lint/typecheck, and console build passed before the last formatting pass.
 - PR CI and Security jobs did not start. GitHub annotated every job with an account payment/spending-limit issue ([CI run](https://github.com/shabirkhan-dev/grid/actions/runs/36267895920), [Security run](https://github.com/shabirkhan-dev/grid/actions/runs/36267895915)); no job logs or code failures were produced. Rerun after account billing is resolved.
 
 ## Changed
 
 - `apps/runner/src/agents/interactive-cli.ts`, runner terminal HTTP/WebSocket support, tests, and runner README.
+- `apps/runner/src/agents/freebuff.ts` and provider registry connect the official CLI PTY to Chat's existing provider/model picker and transcript. Freebuff Chat sessions stay live across mobile disconnects and idle periods while the runner is running.
 - `apps/console/src/modules/terminal/**` adds Freebuff launch, parsed screen view, ad display, input, and raw terminal fallback.
+- `apps/console/src/modules/chat/components/conversation.tsx` shows the chosen Freebuff model after the first message because Freebuff selects its model at session start.
 - `apps/runner/package.json` and `bun.lock` add `@xterm/headless`.
 
 ## Contract impact

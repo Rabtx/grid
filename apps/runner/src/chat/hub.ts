@@ -344,6 +344,13 @@ export class ChatHub {
 		change: { model?: string; mode?: string; effort?: string },
 	): Promise<void> {
 		const session = this.owned(workspace, id);
+		if (
+			session.provider === "freebuff" &&
+			change.model &&
+			this.store.events(id).some((event) => event.type === "user")
+		) {
+			throw new ChatError("Start a new Freebuff chat to change models", 409);
+		}
 		this.store.update(id, change);
 		const live = this.live.get(id);
 		if (!live?.agent) {
@@ -506,6 +513,8 @@ export class ChatHub {
 
 	private scheduleIdle(id: string, live: Live): void {
 		clearTimeout(live.idleTimer);
+		// Freebuff's conversation lives in its PTY, including while a phone is disconnected.
+		if (this.store.get(id)?.provider === "freebuff") return;
 		live.idleTimer = setTimeout(() => {
 			if (!live.running) this.park(id);
 		}, IDLE_MS);

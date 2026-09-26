@@ -16,6 +16,10 @@ still owns sign-in, projects, and board tasks.
   a mobile screen view and the raw terminal; both send input to the same unchanged CLI. Freebuff
   ads remain visible in its screen and raw output. Install the official CLI with
   `npm install -g freebuff` on the runner machine.
+- **Freebuff in Chat:** Pick Freebuff and a model in the existing Chat composer. The runner reads
+  model names and Freebucks rates from the official CLI's PTY menu, sends prompts through that PTY,
+  and shows its replies and ads in the Chat transcript. One chat keeps its CLI process while the
+  runner is running; start a new chat to choose a different Freebuff model.
 - **Files:** browse and create files or folders inside a linked project root. Path checks keep
   those operations inside that root.
 - **Environments:** a home Grid can pair with another runner and relay project chats, files,

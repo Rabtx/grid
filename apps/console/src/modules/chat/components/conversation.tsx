@@ -341,7 +341,23 @@ export function Conversation(props: {
 						}
 						controls={
 							<>
-								<Show when={models().length > 0}>
+								<Show
+									when={
+										session()?.provider === "freebuff" &&
+										transcript().blocks.some((block) => block.kind === "user")
+									}
+								>
+									<span class="min-w-0 truncate px-2 text-ui-sm text-ink/55">
+										{currentModel()?.name ?? model()}
+									</span>
+								</Show>
+								<Show
+									when={
+										models().length > 0 &&
+										(session()?.provider !== "freebuff" ||
+											!transcript().blocks.some((block) => block.kind === "user"))
+									}
+								>
 									<ModelPicker
 										agent={session()?.provider}
 										models={models()}
