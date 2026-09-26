@@ -8,7 +8,13 @@ import type { AccessTokenPayload } from "../../http/context";
  * Codes, tokens and hashes, byte-for-byte as NestJS made them, so a code sent by one API is
  * accepted by the other and sessions survive the switch. HMACs use Bun's own hasher.
  */
-export type ChallengePurpose = "email_verification" | "password_reset" | "magic_link" | "mfa_login";
+export type ChallengePurpose =
+	| "email_verification"
+	| "password_reset"
+	| "magic_link"
+	| "mfa_login"
+	| "webauthn_registration"
+	| "webauthn_authentication";
 
 const hmac = (secret: string, value: string) =>
 	new Bun.CryptoHasher("sha256", secret).update(value).digest("hex");
