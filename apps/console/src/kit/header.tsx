@@ -41,7 +41,16 @@ export function Breadcrumbs(props: {
 	);
 }
 
-export type HeaderTab = { id: string; label: string; href: string; icon?: JSX.Element };
+export type HeaderTab = {
+	id: string;
+	label: string;
+	href: string;
+	icon?: JSX.Element;
+	/** Its agent is working: the label shimmers. */
+	running?: boolean;
+	/** False for a tab that is a place rather than a document (a new chat). */
+	closable?: boolean;
+};
 
 /**
  * Open things as tabs along the top, as a browser has them: the current one raised, each closable,
@@ -71,9 +80,9 @@ export function HeaderTabs(props: {
 									{tab.icon}
 								</span>
 							</Show>
-							<span class="truncate">{tab.label}</span>
+							<span class={`truncate ${tab.running ? "thread-running" : ""}`}>{tab.label}</span>
 						</a>
-						<Show when={props.onClose}>
+						<Show when={props.onClose && tab.closable !== false}>
 							<button
 								type="button"
 								aria-label={`Close ${tab.label}`}

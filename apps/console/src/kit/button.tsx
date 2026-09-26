@@ -23,7 +23,7 @@ export const button = variants({
 	defaults: { variant: "secondary", size: "md" },
 });
 
-const iconButton = variants({
+export const iconButton = variants({
 	base: "focus-ring inline-grid shrink-0 select-none place-items-center rounded-kit transition-[background-color,color,transform] duration-fast ease-out-grid active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40",
 	variants: {
 		variant: {
@@ -88,6 +88,33 @@ export function IconButton(props: IconButtonProps): JSX.Element {
 			class={iconButton({ variant: props.variant, size: props.size, class: props.class })}
 		>
 			{props.children}
+		</button>
+	);
+}
+
+const linkButton = variants({
+	base: "focus-ring inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-kit-sm text-caption transition-colors duration-fast",
+	variants: {
+		tone: {
+			subtle: "text-fg-subtle hover:text-fg-muted",
+			accent: "text-link underline-offset-2 hover:underline",
+		},
+	},
+	defaults: { tone: "subtle" },
+});
+
+/** A button that reads as text: a folder path to change, a quiet inline action. */
+export function LinkButton(
+	props: JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
+		tone?: "subtle" | "accent";
+		icon?: JSX.Element;
+	},
+): JSX.Element {
+	const rest = omit(props, "tone", "icon", "class", "children");
+	return (
+		<button type="button" {...rest} class={linkButton({ tone: props.tone, class: props.class })}>
+			{props.icon}
+			<span class="min-w-0 truncate">{props.children}</span>
 		</button>
 	);
 }

@@ -1,6 +1,6 @@
 import { useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
 
 import { onRunnerRecovered } from "@/lib/runner-health";
 
@@ -8,7 +8,20 @@ import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
 import { ProjectIcon, useWorkspace } from "@/modules/projects";
 import { ShellSlot, useShell } from "@/modules/shell";
-import { BranchIcon, Button, CheckIcon, ErrorNotice, FolderIcon, IdeaIcon, ToolIcon } from "@/ui";
+import {
+	Alert,
+	BranchIcon,
+	Button,
+	CheckIcon,
+	FolderIcon,
+	IdeaIcon,
+	LinkButton,
+	Row,
+	Stack,
+	Suggestions,
+	Text,
+	ToolIcon,
+} from "@/kit";
 
 import { chatService } from "../services/chat.service";
 import { draftsStore } from "../stores/drafts";
@@ -223,11 +236,11 @@ export function ChatScreen(): JSX.Element {
 }
 
 /** Ways into a first message; picking one fills the composer to edit before sending. */
-const SUGGESTIONS: { text: string; icon: (props: { class?: string }) => JSX.Element }[] = [
-	{ text: "Explain how this project is organised", icon: IdeaIcon },
-	{ text: "Find and fix a bug in ", icon: ToolIcon },
-	{ text: "Write tests for the recent changes", icon: CheckIcon },
-	{ text: "Review the uncommitted changes", icon: BranchIcon },
+const SUGGESTIONS = [
+	{ label: "Explain how this project is organised", icon: () => <IdeaIcon /> },
+	{ label: "Find and fix a bug in ", icon: () => <ToolIcon /> },
+	{ label: "Write tests for the recent changes", icon: () => <CheckIcon /> },
+	{ label: "Review the uncommitted changes", icon: () => <BranchIcon /> },
 ];
 
 /** "What should we work on?" — pick an agent, type, and the chat starts with that message. */
@@ -314,63 +327,60 @@ function NewChat(props: {
 	const ready = () => Boolean(chosen() && props.project && props.folder);
 
 	return (
-		<div class="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:justify-center md:px-6 md:pt-12 md:pb-[12vh]">
-			<div class="mx-auto flex w-full max-w-3xl flex-col">
-				<h1 class="mb-5 flex min-w-0 items-center justify-center gap-2 px-2 text-center font-medium text-ink text-ui-lg md:mb-6 md:text-title">
-					<span class="shrink-0">What should we work on</span>
+		<div class="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-3 pb-3 md:justify-center md:px-6 md:pt-12 md:pb-24">
+			<Stack gap={5} class="mx-auto w-full max-w-2xl">
+				<Row gap={2} justify="center" wrap class="px-2">
+					<Text as="h1" size="heading" tone="strong" weight="medium">
+						What should we work on
+					</Text>
 					<Show when={project()}>
 						{(current) => (
-							<span class="flex min-w-0 items-center gap-1.5">
-								<span class="shrink-0 text-ink/50">in</span>
+							<Row gap={1.5}>
+								<Text as="span" size="heading" tone="subtle">
+									in
+								</Text>
 								<ProjectIcon project={current()} class="size-5" />
-								<span class="truncate">{current().name}</span>
-							</span>
+								<Text as="span" size="heading" tone="strong" weight="medium" truncate>
+									{current().name}
+								</Text>
+							</Row>
 						)}
 					</Show>
-				</h1>
-				<Show when={error()}>
-					{(message) => (
-						<div class="mb-3">
-							<ErrorNotice message={message()} />
-						</div>
-					)}
-				</Show>
+				</Row>
+				<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
 				<Show when={!props.folder && props.project}>
-					<div class="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-ink/10 bg-ink/3 px-3 py-2.5">
-						<FolderIcon class="size-4 shrink-0 text-ink/50" />
-						<p class="min-w-0 flex-1 text-ink/70 text-ui-sm">
-							A project is a folder: choose this project's folder so its threads work inside it.
-						</p>
-						<Button variant="primary" onClick={() => props.onChooseFolder()}>
-							Choose folder
-						</Button>
-					</div>
+					<Alert
+						tone="accent"
+						title="Choose this project's folder"
+						action={
+							<Button variant="primary" size="sm" onClick={() => props.onChooseFolder()}>
+								Choose folder
+							</Button>
+						}
+					>
+						A project is a folder: its threads work inside it.
+					</Alert>
 				</Show>
 				{/* Phones: suggestions sit above the composer as chips in thumb reach; desktop lists
-				    them under it. One list, placed by order. */}
-				<div class="flex flex-col">
+				    them under it. */}
+				<Stack gap={3}>
 					<Show when={ready()}>
-						<ul class="order-first -mx-3 mb-3 flex gap-2 overflow-x-auto px-3 [scrollbar-width:none] md:order-last md:mx-0 md:mt-4 md:mb-0 md:flex-col md:gap-0.5 md:overflow-visible md:px-1">
-							<For each={SUGGESTIONS}>
-								{(suggestion) => (
-									<li class="shrink-0">
-										<button
-											type="button"
-											onClick={() => composer?.fill(suggestion.text)}
-											class="focus-ring flex h-9 items-center gap-2 whitespace-nowrap rounded-full border border-ink/10 px-3 text-ink/70 text-ui-sm transition-colors duration-fast ease-out-grid hover:bg-ink/5 hover:text-ink md:h-8 md:w-full md:rounded-md md:border-0 md:px-2"
-										>
-											<suggestion.icon class="size-4 shrink-0 text-ink/45" />
-											{suggestion.text.trim()}
-										</button>
-									</li>
-								)}
-							</For>
-						</ul>
+						<Suggestions
+							items={SUGGESTIONS.map((item) => ({ icon: item.icon(), label: item.label.trim() }))}
+							onPick={(label) =>
+								composer?.fill(
+									SUGGESTIONS.find((item) => item.label.trim() === label)?.label ?? label,
+								)
+							}
+							class="md:order-last"
+						/>
 					</Show>
 					<Show
 						when={available().length > 0 || props.providers.length === 0}
 						fallback={
-							<ErrorNotice message="No agent is available on this project's machine. Install and sign in one in Settings → Agents, or turn one on there." />
+							<Alert tone="warning" title="No agent is available on this project's machine">
+								Install and sign in one in Settings → Agents, or turn one on there.
+							</Alert>
 						}
 					>
 						<Composer
@@ -427,8 +437,8 @@ function NewChat(props: {
 							}
 						/>
 					</Show>
-				</div>
-			</div>
+				</Stack>
+			</Stack>
 		</div>
 	);
 }
@@ -439,26 +449,19 @@ function FolderLine(props: { folder: string | undefined; onChoose: () => void })
 		<Show
 			when={props.folder}
 			fallback={
-				<button
-					type="button"
-					onClick={() => props.onChoose()}
-					class="focus-ring mt-0.5 flex items-center gap-1 rounded-sm text-link text-ui-xs underline-offset-2 hover:underline"
-				>
-					<FolderIcon class="size-3.5 shrink-0" />
+				<LinkButton tone="accent" icon={<FolderIcon size="sm" />} onClick={() => props.onChoose()}>
 					Choose this project's folder
-				</button>
+				</LinkButton>
 			}
 		>
 			{(path) => (
-				<button
-					type="button"
+				<LinkButton
 					title={`${path()} — change`}
+					icon={<FolderIcon size="sm" />}
 					onClick={() => props.onChoose()}
-					class="focus-ring mt-0.5 flex min-w-0 max-w-full items-center gap-1 rounded-sm text-ink/45 text-ui-xs hover:text-ink/70"
 				>
-					<FolderIcon class="size-3.5 shrink-0" />
-					<span class="truncate">{path().replace(/^\/home\/[^/]+/, "~")}</span>
-				</button>
+					{path().replace(/^\/home\/[^/]+/, "~")}
+				</LinkButton>
 			)}
 		</Show>
 	);

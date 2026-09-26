@@ -118,6 +118,10 @@ export function ConfirmDialog(props: {
 	description: string;
 	confirm: string;
 	danger?: boolean;
+	/** The action is running: the button waits and cannot be pressed twice. */
+	pending?: boolean;
+	/** Keep the dialog open after confirming (the caller closes it when the work is done). */
+	stayOpen?: boolean;
 }): JSX.Element {
 	return (
 		<Dialog
@@ -136,13 +140,14 @@ export function ConfirmDialog(props: {
 					</button>
 					<button
 						type="button"
+						disabled={props.pending}
 						onClick={() => {
 							props.onConfirm();
-							props.onClose();
+							if (!props.stayOpen) props.onClose();
 						}}
-						class={`focus-ring h-kit-control rounded-kit px-3 font-medium text-body ${props.danger ? "bg-danger text-white hover:bg-danger/90" : "bg-inverse text-inverse-fg hover:bg-inverse/88"}`}
+						class={`focus-ring h-kit-control rounded-kit px-3 font-medium text-body disabled:opacity-50 ${props.danger ? "bg-danger text-white hover:bg-danger/90" : "bg-inverse text-inverse-fg hover:bg-inverse/88"}`}
 					>
-						{props.confirm}
+						{props.pending ? "Working…" : props.confirm}
 					</button>
 				</>
 			}

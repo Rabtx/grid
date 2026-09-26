@@ -2,16 +2,13 @@ import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, Show } from "solid-js";
 
-import { Sheet } from "@/ui";
+import { Dialog } from "@/kit";
 
 import { useShell } from "../context/shell-context";
 
 import { Sidebar } from "./sidebar";
 
-/**
- * Phone navigation: the sidebar (projects with their threads) in a drawer that closes itself
- * after navigating.
- */
+/** Phone navigation: the sidebar in a drawer from the left that closes itself after navigating. */
 export function NavDrawer(): JSX.Element {
 	const shell = useShell();
 	const location = useLocation();
@@ -25,11 +22,11 @@ export function NavDrawer(): JSX.Element {
 	);
 
 	return (
-		<Sheet open={shell.drawerOpen()} onClose={close} label="Navigation" placement="side">
-			{/* Phones only (the sheet is hidden from lg), so the sidebar and panel never draw twice. */}
+		<Dialog open={shell.drawerOpen()} onClose={close} title="Navigation" kind="sidebar" bare>
+			{/* Phones only, so the sidebar never draws twice. */}
 			<Show when={!shell.desktop()}>
 				<Sidebar onClose={close} />
 			</Show>
-		</Sheet>
+		</Dialog>
 	);
 }

@@ -56,3 +56,35 @@ export function Field(props: {
 		</div>
 	);
 }
+
+/**
+ * A field that takes a row's place while you rename it: selected on open, Enter saves, Escape
+ * cancels, leaving saves. The caller removes it once `onDone` fires.
+ */
+export function InlineInput(props: {
+	label: string;
+	value: string;
+	onSave: (value: string) => void;
+	onCancel: () => void;
+}): JSX.Element {
+	let done = false;
+	const finish = (save: boolean, value: string) => {
+		if (done) return;
+		done = true;
+		if (save) props.onSave(value);
+		else props.onCancel();
+	};
+	return (
+		<input
+			ref={(el) => queueMicrotask(() => el.select())}
+			value={props.value}
+			aria-label={props.label}
+			onKeyDown={(event) => {
+				if (event.key === "Enter") finish(true, event.currentTarget.value);
+				else if (event.key === "Escape") finish(false, event.currentTarget.value);
+			}}
+			onBlur={(event) => finish(true, event.currentTarget.value)}
+			class="surface-field h-[calc(var(--kit-h-row)-0.25rem)] w-full px-2 text-body text-fg outline-none pointer-coarse:h-11 pointer-coarse:text-field"
+		/>
+	);
+}

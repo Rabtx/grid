@@ -332,3 +332,11 @@
 		0 0 0 1px var(--kit-line),
 		0 16px 40px -20px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 1.5));
 }
+
+/* Room for the phone's notch and home bar, so nothing sits under them. */
+@utility pt-safe {
+	padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+	padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}

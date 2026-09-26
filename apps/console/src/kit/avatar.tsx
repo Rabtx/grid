@@ -86,3 +86,15 @@ export function ProviderMark(props: { provider: Provider }): JSX.Element {
 		<span aria-hidden="true" class={`size-2 shrink-0 rounded-full ${PROVIDER[props.provider]}`} />
 	);
 }
+
+/** An agent (Claude Code, Codex…) as its initial in a small tile, so chats from each read apart. */
+export function AgentMark(props: { name: string; size?: "sm" | "md" }): JSX.Element {
+	return (
+		<span
+			aria-hidden="true"
+			class={`grid shrink-0 place-items-center rounded-[4px] bg-fill-strong font-semibold text-fg-muted uppercase leading-none ${props.size === "md" ? "size-4 text-micro" : "size-3.5 text-micro"}`}
+		>
+			{props.name.slice(0, 1)}
+		</span>
+	);
+}

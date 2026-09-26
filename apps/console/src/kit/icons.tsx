@@ -110,7 +110,8 @@ export function Icon(props: {
 }): JSX.Element {
 	return (
 		<svg
-			class={`shrink-0 ${props.class ?? SIZE[props.size ?? "md"]}`}
+			// A class that sets its own size wins; otherwise the size scale applies and the class adds to it.
+			class={`shrink-0 ${props.class?.includes("size-") ? "" : SIZE[props.size ?? "md"]} ${props.class ?? ""}`}
 			viewBox="0 0 24 24"
 			fill="none"
 			aria-hidden="true"

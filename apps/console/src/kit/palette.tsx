@@ -27,14 +27,35 @@ export function Palette<T extends string>(props: {
 	onPick: (id: string) => void;
 	detail?: JSX.Element;
 	footer?: JSX.Element;
+	/** Take the keyboard when shown. */
+	autofocus?: boolean;
+	/** Shown when nothing matches. */
+	empty?: string;
 }): JSX.Element {
 	return (
 		<div class="flex max-h-[70dvh] flex-col">
 			<div class="flex h-12 shrink-0 items-center gap-2.5 px-4">
 				<SearchIcon class="size-4 shrink-0 text-fg-subtle" />
 				<input
+					ref={(el) => {
+						if (props.autofocus) queueMicrotask(() => el.focus());
+					}}
 					type="search"
 					aria-label="Search"
+					autocomplete="off"
+					spellcheck={false}
+					onKeyDown={(event) => {
+						// Arrows move through the results, Enter opens the highlighted one.
+						const ids = props.items.map((item) => item.id);
+						if (ids.length === 0) return;
+						const at = Math.max(0, ids.indexOf(props.active ?? ""));
+						if (event.key === "ArrowDown") props.onActive(ids[(at + 1) % ids.length]);
+						else if (event.key === "ArrowUp")
+							props.onActive(ids[(at - 1 + ids.length) % ids.length]);
+						else if (event.key === "Enter") props.onPick(props.active ?? ids[0]);
+						else return;
+						event.preventDefault();
+					}}
 					placeholder={props.placeholder ?? "Search anything…"}
 					value={props.query}
 					onInput={(event) => props.onQuery(event.currentTarget.value)}
@@ -55,6 +76,11 @@ export function Palette<T extends string>(props: {
 				<div class="min-h-0 flex-1 overflow-y-auto p-1.5 md:max-w-[50%] md:border-line md:border-r">
 					<Show when={props.groupLabel}>
 						<p class="px-2 pt-1 pb-1.5 text-caption text-fg-subtle">{props.groupLabel}</p>
+					</Show>
+					<Show when={props.items.length === 0}>
+						<p class="px-3 py-6 text-center text-body text-fg-subtle">
+							{props.empty ?? "Nothing matches."}
+						</p>
 					</Show>
 					<For each={props.items}>
 						{(item) => (

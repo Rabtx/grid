@@ -1,13 +1,20 @@
 import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onSettled, Show } from "solid-js";
 
-import { useWorkspace } from "@/modules/projects";
-import { BoardIcon, ChatIcon, PlusIcon, SearchIcon, SettingsIcon, Sheet, TerminalIcon } from "@/ui";
+import {
+	BoardIcon,
+	ChatIcon,
+	Dialog,
+	Kbd,
+	Palette,
+	PlusIcon,
+	SettingsIcon,
+	TerminalIcon,
+} from "@/kit";
+import { ProjectIcon, useWorkspace } from "@/modules/projects";
 
 import { useShell } from "../context/shell-context";
-
-import { ProjectMark } from "./sidebar";
 
 type Command = {
 	id: string;
@@ -32,8 +39,7 @@ export function CommandPalette(): JSX.Element {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [query, setQuery] = createSignal("");
-	const [selected, setSelected] = createSignal(0);
-	let input: HTMLInputElement | undefined;
+	const [active, setActive] = createSignal<string | null>(null);
 
 	onSettled(() => {
 		const onKeydown = (event: KeyboardEvent) => {
@@ -48,16 +54,6 @@ export function CommandPalette(): JSX.Element {
 		document.addEventListener("keydown", onKeydown);
 		return () => document.removeEventListener("keydown", onKeydown);
 	});
-
-	createEffect(
-		() => shell.paletteOpen(),
-		(open) => {
-			if (!open) return;
-			setQuery("");
-			setSelected(0);
-			queueMicrotask(() => input?.focus());
-		},
-	);
 
 	const commands = createMemo<Command[]>(() => {
 		const inChat = location.pathname.startsWith("/chat");
@@ -84,7 +80,7 @@ export function CommandPalette(): JSX.Element {
 				id: "new-chat",
 				label: `New chat in ${current.name}`,
 				icon: () => <PlusIcon />,
-				run: () => navigate(`/chat/${current.slug}/new`),
+				run: () => navigate(`/chat/${current.slug}`),
 			});
 		}
 		list.push({
@@ -98,7 +94,7 @@ export function CommandPalette(): JSX.Element {
 				id: `project-${project.slug}`,
 				label: project.name,
 				hint: "Project",
-				icon: () => <ProjectMark name={project.name} />,
+				icon: () => <ProjectIcon project={project} />,
 				run: () => navigate(inChat ? `/chat/${project.slug}` : `/board/${project.slug}`),
 			});
 		}
@@ -112,77 +108,58 @@ export function CommandPalette(): JSX.Element {
 		);
 	});
 
-	function run(command: Command | undefined): void {
+	// Each opening starts fresh, on the first result.
+	createEffect(
+		() => shell.paletteOpen(),
+		(open) => {
+			if (open) setQuery("");
+		},
+	);
+	createEffect(
+		() => matches()[0]?.id ?? null,
+		(first) => {
+			setActive(first);
+		},
+	);
+
+	function run(id: string): void {
+		const command = matches().find((item) => item.id === id);
 		if (!command) return;
 		shell.setPaletteOpen(false);
 		command.run();
 	}
 
-	function onKeyDown(event: KeyboardEvent): void {
-		const count = matches().length;
-		if (event.key === "ArrowDown" && count > 0) {
-			event.preventDefault();
-			setSelected((index) => (index + 1) % count);
-		} else if (event.key === "ArrowUp" && count > 0) {
-			event.preventDefault();
-			setSelected((index) => (index - 1 + count) % count);
-		} else if (event.key === "Enter") {
-			event.preventDefault();
-			run(matches()[selected()]);
-		}
-	}
-
 	return (
-		<Sheet open={shell.paletteOpen()} onClose={() => shell.setPaletteOpen(false)} label="Search">
-			<div class="flex max-h-[min(28rem,70dvh)] flex-col">
-				<div class="flex shrink-0 items-center gap-2 border-stroke border-b px-3 pt-3 pb-2 md:pt-2">
-					<SearchIcon class="size-4 shrink-0 text-ink/45" />
-					<input
-						ref={(el) => {
-							input = el;
-						}}
-						value={query()}
-						onInput={(event) => {
-							setQuery(event.currentTarget.value);
-							setSelected(0);
-						}}
-						onKeyDown={onKeyDown}
-						aria-label="Search"
-						placeholder="Go to a project, a section or an action…"
-						autocomplete="off"
-						spellcheck={false}
-						class="h-8 min-w-0 flex-1 bg-transparent text-ui-input outline-none placeholder:text-ink/35"
-					/>
-				</div>
-				<Show
-					when={matches().length > 0}
-					fallback={<p class="px-4 py-6 text-center text-ink/45 text-ui-sm">Nothing matches.</p>}
-				>
-					<ul class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
-						<For each={matches()}>
-							{(command, index) => (
-								<li>
-									<button
-										type="button"
-										aria-current={index() === selected() ? "true" : undefined}
-										onClick={() => run(command)}
-										onPointerMove={() => setSelected(index())}
-										class="focus-ring flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-left text-ink/80 text-ui-sm aria-[current=true]:bg-selection aria-[current=true]:text-ink pointer-coarse:h-11"
-									>
-										<span class="grid size-4 shrink-0 place-items-center text-ink/55 [&>svg]:size-4">
-											{command.icon()}
-										</span>
-										<span class="min-w-0 flex-1 truncate">{command.label}</span>
-										<Show when={command.hint}>
-											<span class="shrink-0 text-ink/40 text-ui-caption">{command.hint}</span>
-										</Show>
-									</button>
-								</li>
-							)}
-						</For>
-					</ul>
-				</Show>
-			</div>
-		</Sheet>
+		<Dialog
+			open={shell.paletteOpen()}
+			onClose={() => shell.setPaletteOpen(false)}
+			title="Search"
+			bare
+			width="36rem"
+		>
+			<Show when={shell.paletteOpen()}>
+				<Palette
+					autofocus
+					query={query()}
+					onQuery={setQuery}
+					placeholder="Go to a project, a section or an action…"
+					items={matches().map((command) => ({
+						id: command.id,
+						icon: command.icon(),
+						label: command.label,
+						hint: command.hint,
+					}))}
+					active={active()}
+					onActive={setActive}
+					onPick={run}
+					footer={
+						<>
+							<Kbd>Esc</Kbd>
+							<span>Close</span>
+						</>
+					}
+				/>
+			</Show>
+		</Dialog>
 	);
 }

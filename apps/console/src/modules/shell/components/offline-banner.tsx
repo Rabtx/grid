@@ -1,8 +1,10 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, onSettled, Show } from "solid-js";
 
+import { FloatingNotice } from "@/kit";
+
 /**
- * A quiet strip while the device has no network. The app shell still opens offline (the service
+ * A quiet pill while the device has no network. The app shell still opens offline (the service
  * worker has it), so this says why the board cannot load or save until the connection is back.
  */
 export function OfflineBanner(): JSX.Element {
@@ -20,12 +22,9 @@ export function OfflineBanner(): JSX.Element {
 
 	return (
 		<Show when={offline()}>
-			<output
-				aria-live="polite"
-				class="fixed inset-x-0 top-[env(safe-area-inset-top)] z-50 mx-auto mt-2 block w-fit rounded-full bg-ink px-3 py-1 text-canvas text-ui-xs shadow-lg"
-			>
+			<FloatingNotice position="top">
 				You're offline — changes will not save until you're back.
-			</output>
+			</FloatingNotice>
 		</Show>
 	);
 }

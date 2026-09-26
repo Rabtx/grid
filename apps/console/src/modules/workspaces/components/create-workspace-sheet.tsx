@@ -1,8 +1,8 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, Show } from "solid-js";
+import { createSignal, createUniqueId, Show } from "solid-js";
 
+import { Alert, Button, Dialog, Field, Input, Stack } from "@/kit";
 import { slugify, slugInput } from "@/modules/auth";
-import { Button, ErrorNotice, Field, Input, Sheet } from "@/ui";
 
 import { useWorkspaces } from "../context/workspaces-context";
 
@@ -12,6 +12,7 @@ import { useWorkspaces } from "../context/workspaces-context";
  */
 export function CreateWorkspaceSheet(): JSX.Element {
 	const workspaces = useWorkspaces();
+	const form = createUniqueId();
 	const [name, setName] = createSignal("");
 	// The slug follows the name until someone edits it.
 	const [slug, setSlug] = createSignal<string | null>(null);
@@ -39,45 +40,59 @@ export function CreateWorkspaceSheet(): JSX.Element {
 	}
 
 	return (
-		<Sheet open={workspaces.createOpen()} onClose={close} label="Create workspace">
-			<form class="flex flex-col gap-4 p-4 pt-6 md:p-5" onSubmit={submit}>
-				<header class="flex flex-col gap-1">
-					<h2 class="font-medium text-ui-lg">Create a workspace</h2>
-					<p class="text-ink/55 text-ui-sm">
-						A company or team: its own projects, members and environments.
-					</p>
-				</header>
-				<Field label="Name">
-					<Input
-						required
-						autofocus
-						maxlength={120}
-						enterkeyhint="next"
-						placeholder="Acme"
-						value={name()}
-						onInput={(event) => setName(event.currentTarget.value)}
-					/>
-				</Field>
-				<Field label="URL" hint="Lowercase letters, numbers and dashes.">
-					<Input
-						required
-						minlength={2}
-						autocapitalize="off"
-						enterkeyhint="go"
-						value={finalSlug()}
-						onInput={(event) => setSlug(slugInput(event.currentTarget.value))}
-					/>
-				</Field>
-				<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
-				<div class="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
-					<Button type="button" variant="ghost" onClick={close}>
+		<Dialog
+			open={workspaces.createOpen()}
+			onClose={close}
+			title="Create a workspace"
+			description="A company or team: its own projects, members and environments."
+			footer={
+				<>
+					<Button variant="ghost" onClick={close}>
 						Cancel
 					</Button>
-					<Button type="submit" variant="primary" disabled={pending() || !name().trim()}>
+					<Button
+						type="submit"
+						form={form}
+						variant="primary"
+						disabled={pending() || !name().trim()}
+					>
 						{pending() ? "Creating…" : "Create workspace"}
 					</Button>
-				</div>
+				</>
+			}
+		>
+			<form id={form} onSubmit={submit}>
+				<Stack gap={4}>
+					<Field label="Name">
+						{(id) => (
+							<Input
+								id={id}
+								required
+								autofocus
+								maxlength={120}
+								enterkeyhint="next"
+								placeholder="Acme"
+								value={name()}
+								onInput={(event) => setName(event.currentTarget.value)}
+							/>
+						)}
+					</Field>
+					<Field label="URL" hint={`Links will look like /${finalSlug() || "acme"}/board`}>
+						{(id) => (
+							<Input
+								id={id}
+								required
+								minlength={2}
+								autocapitalize="off"
+								enterkeyhint="go"
+								value={finalSlug()}
+								onInput={(event) => setSlug(slugInput(event.currentTarget.value))}
+							/>
+						)}
+					</Field>
+					<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
+				</Stack>
 			</form>
-		</Sheet>
+		</Dialog>
 	);
 }
