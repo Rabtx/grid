@@ -324,6 +324,7 @@ export function Conversation(props: {
 						)}
 					</Show>
 					<Composer
+						project={session()?.project}
 						running={running()}
 						disabled={connection() === "gone" || connection() === "signed-out"}
 						onSend={send}

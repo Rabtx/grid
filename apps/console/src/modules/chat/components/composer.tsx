@@ -1,8 +1,13 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, onSettled, Show, untrack } from "solid-js";
 
+import { useAuth } from "@/modules/auth";
+import { useWorkspace } from "@/modules/projects";
 import { insertIntoField, MicButton, registerDictationTarget } from "@/modules/voice";
 import { BranchIcon, SendIcon, StopSquareIcon } from "@/ui";
+
+import { useFileMentions } from "../lib/use-file-mentions";
+import { FileMentionPopup } from "./file-mention-popup";
 
 /** A 24px chip on the context row — 44px for a thumb. */
 const CONTEXT_CHIP =
@@ -31,11 +36,28 @@ export function Composer(props: {
 	branch?: string;
 	/** Text to start with, e.g. a task a thread is started from. */
 	initial?: string;
+	/** The project slug, for file mentions autocomplete. */
+	project?: string | null;
 }): JSX.Element {
+	const auth = useAuth();
+	const workspace = useWorkspace();
 	const [draft, setDraft] = createSignal(untrack(() => props.initial) ?? "");
 	const [sending, setSending] = createSignal(false);
 	let textarea: HTMLTextAreaElement | undefined;
 	let form: HTMLFormElement | undefined;
+
+	const projectSlug = () => props.project ?? workspace.currentSlug();
+
+	const mentions = useFileMentions({
+		project: projectSlug,
+		token: auth.token,
+		textarea: () => textarea,
+		value: draft,
+		onChange: (next) => {
+			setDraft(next);
+			grow();
+		},
+	});
 
 	// The composer has its own mic next to Send (a floating one would sit on top of it).
 	onSettled(() => {
@@ -76,12 +98,21 @@ export function Composer(props: {
 			ref={(el) => {
 				form = el;
 			}}
-			class="rounded-lg border border-ink/10 bg-ink/3 backdrop-blur-sm transition-colors duration-fast ease-out-grid focus-within:border-ink/20"
+			class="relative rounded-lg border border-ink/10 bg-ink/3 backdrop-blur-sm transition-colors duration-fast ease-out-grid focus-within:border-ink/20"
 			onSubmit={(event) => {
 				event.preventDefault();
 				void send();
 			}}
 		>
+			<Show when={mentions.open()}>
+				<FileMentionPopup
+					files={mentions.files()}
+					loading={mentions.loading()}
+					selectedIndex={mentions.selectedIndex()}
+					onSelect={mentions.selectFile}
+					onClose={mentions.close}
+				/>
+			</Show>
 			<Show when={props.header || props.branch}>
 				<div class="flex flex-wrap items-center gap-2.5 px-3 pt-2.5 text-ui-xs">
 					<Show when={props.header}>
@@ -110,8 +141,12 @@ export function Composer(props: {
 				onInput={(event) => {
 					setDraft(event.currentTarget.value);
 					grow();
+					mentions.handleInput();
 				}}
+				onKeyUp={mentions.handleCursorMove}
+				onClick={mentions.handleCursorMove}
 				onKeyDown={(event) => {
+					if (mentions.handleKeyDown(event)) return;
 					// A physical keyboard sends on Enter; a phone's Enter makes a new line.
 					if (
 						event.key === "Enter" &&
