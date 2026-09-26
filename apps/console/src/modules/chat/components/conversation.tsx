@@ -1,3 +1,4 @@
+import { useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, onSettled, Show, untrack } from "solid-js";
 
@@ -7,7 +8,8 @@ import { linkFor } from "@/lib/runner-link";
 import { quietReconnects } from "@/lib/quiet-reconnects";
 import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
-import { ErrorNotice, FolderIcon } from "@/ui";
+import { notesStore } from "@/modules/projects";
+import { ErrorNotice, FolderIcon, toast } from "@/ui";
 
 import { type ChatConnection, connectChat, type ChatSocket } from "../lib/chat-socket";
 import { applyEvent, emptyTranscript, replay, type Transcript } from "../lib/transcript";
@@ -83,6 +85,31 @@ export function Conversation(props: {
 			...(nextEffort !== undefined ? { effort: nextEffort } : {}),
 		}));
 		socket?.send({ t: "configure", model: next, ...(nextEffort ? { effort: nextEffort } : {}) });
+	}
+
+	// "Add as note": the message goes to the project's notes, marked with the agent and chat.
+	const navigate = useNavigate();
+	async function saveNote(text: string): Promise<void> {
+		const token = auth.token();
+		const current = session();
+		if (!token || !current) return;
+		const agent = provider()?.name;
+		try {
+			await notesStore.add(token, current.project, {
+				body: text,
+				source: agent ? `${agent} in ${current.title}` : current.title,
+				threadId: current.id,
+			});
+			toast({
+				message: "Added to notes",
+				action: { label: "Open", onClick: () => navigate(`/notes/${current.project}`) },
+			});
+		} catch (cause) {
+			toast({
+				message: cause instanceof Error ? cause.message : "Could not add the note",
+				tone: "danger",
+			});
+		}
 	}
 
 	function handleRegenerate(prompt: string): void {
@@ -275,6 +302,7 @@ export function Conversation(props: {
 						blocks={transcript().blocks}
 						running={running()}
 						onRegenerate={handleRegenerate}
+						onNote={(text) => void saveNote(text)}
 						onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
 					/>
 				</div>

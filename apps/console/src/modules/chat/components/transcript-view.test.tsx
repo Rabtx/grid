@@ -41,6 +41,36 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
+describe("TranscriptView - Add as note", () => {
+	it("saves a sent message or an agent answer through onNote", () => {
+		const onNote = vi.fn();
+		const blocks: Block[] = [
+			{ kind: "user", key: "b0", text: "Plan the API" },
+			{ kind: "assistant", key: "b1", text: "Use **Hono**" },
+		];
+		const root = mount(() => (
+			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} onNote={onNote} />
+		));
+		flush();
+
+		const buttons = root.querySelectorAll<HTMLButtonElement>('button[aria-label="Add as note"]');
+		expect(buttons).toHaveLength(2);
+		buttons[0]?.click();
+		buttons[1]?.click();
+		expect(onNote).toHaveBeenNthCalledWith(1, "Plan the API");
+		expect(onNote).toHaveBeenNthCalledWith(2, "Use **Hono**");
+	});
+
+	it("shows no note action without onNote", () => {
+		const blocks: Block[] = [{ kind: "assistant", key: "b1", text: "Hi" }];
+		const root = mount(() => (
+			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
+		));
+		flush();
+		expect(root.querySelector('button[aria-label="Add as note"]')).toBeNull();
+	});
+});
+
 describe("TranscriptView - User Message", () => {
 	it("renders user message right-aligned with rounded bubble and a copy action", async () => {
 		const blocks: Block[] = [{ kind: "user", key: "b0", text: "Hello world" }];

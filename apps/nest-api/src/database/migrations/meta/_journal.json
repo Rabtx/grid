@@ -43,6 +43,13 @@
       "when": 1790298377202,
       "tag": "0005_loud_justin_hammer",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790375482203,
+      "tag": "0006_project_notes",
+      "breakpoints": true
     }
   ]
 }

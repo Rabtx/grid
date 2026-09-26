@@ -1,9 +1,11 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 
-import type { ProjectRecord, TaskRecord } from '@/database/schema';
+import type { NoteRecord, ProjectRecord, TaskRecord } from '@/database/schema';
 import type {
+	CreateNoteInput,
 	CreateProjectInput,
 	CreateTaskInput,
+	UpdateNoteInput,
 	UpdateProjectInput,
 	UpdateTaskInput,
 } from './projects.dto';
@@ -30,6 +32,15 @@ export type TaskView = {
 	owner: { kind: NonNullable<TaskRecord['ownerKind']>; name: string | null } | null;
 	branch: string | null;
 	position: number;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type NoteView = {
+	id: string;
+	body: string;
+	source: string | null;
+	threadId: string | null;
 	createdAt: string;
 	updatedAt: string;
 };
@@ -113,6 +124,41 @@ export class ProjectsService {
 		if (!deleted) throw new NotFoundException(`Task ${taskKey(number)} not found`);
 	}
 
+	async listNotes(ownerId: string, slug: string): Promise<NoteView[]> {
+		const project = await this.requireProject(ownerId, slug);
+		const records = await this.repository.listNotes(project.id);
+		return records.map(toNoteView);
+	}
+
+	async createNote(ownerId: string, slug: string, input: CreateNoteInput): Promise<NoteView> {
+		const project = await this.requireProject(ownerId, slug);
+		const note = await this.repository.createNote({
+			projectId: project.id,
+			body: input.body,
+			source: input.source ?? null,
+			threadId: input.threadId ?? null,
+		});
+		return toNoteView(note);
+	}
+
+	async updateNote(
+		ownerId: string,
+		slug: string,
+		id: string,
+		input: UpdateNoteInput,
+	): Promise<NoteView> {
+		const project = await this.requireProject(ownerId, slug);
+		const note = await this.repository.updateNote(project.id, id, input.body);
+		if (!note) throw new NotFoundException('Note not found');
+		return toNoteView(note);
+	}
+
+	async deleteNote(ownerId: string, slug: string, id: string): Promise<void> {
+		const project = await this.requireProject(ownerId, slug);
+		const deleted = await this.repository.deleteNote(project.id, id);
+		if (!deleted) throw new NotFoundException('Note not found');
+	}
+
 	private async requireProject(ownerId: string, slug: string): Promise<ProjectRecord> {
 		const project = await this.repository.findProjectBySlug(ownerId, slug);
 		if (!project) throw new NotFoundException(`Project "${slug}" not found`);
@@ -155,6 +201,17 @@ function toTaskView(record: TaskRecord): TaskView {
 		owner: record.ownerKind ? { kind: record.ownerKind, name: record.ownerName } : null,
 		branch: record.branch,
 		position: record.position,
+		createdAt: record.createdAt.toISOString(),
+		updatedAt: record.updatedAt.toISOString(),
+	};
+}
+
+function toNoteView(record: NoteRecord): NoteView {
+	return {
+		id: record.id,
+		body: record.body,
+		source: record.source,
+		threadId: record.threadId,
 		createdAt: record.createdAt.toISOString(),
 		updatedAt: record.updatedAt.toISOString(),
 	};
