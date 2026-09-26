@@ -217,7 +217,7 @@ function TaskFields(props: { task: Task }): JSX.Element {
 				<Button
 					size="sm"
 					variant="secondary"
-					title="Start a thread in this project about this task"
+					title="Run with agent"
 					onClick={() => {
 						const slug = workspace.activeSlug();
 						if (!slug) return;
@@ -226,7 +226,7 @@ function TaskFields(props: { task: Task }): JSX.Element {
 					}}
 				>
 					<ChatIcon class="size-3.5" />
-					Start a thread
+					Run with agent
 				</Button>
 				<IconButton
 					label="Delete task"
