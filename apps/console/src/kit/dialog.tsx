@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createEffect, Show } from "solid-js";
 
-import { CloseIcon } from "../ui/icons";
+import { CloseIcon } from "./icons";
 
 import { attachSwipe } from "./sheet-gestures";
 

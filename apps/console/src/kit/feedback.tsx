@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { Show } from "solid-js";
 
-import { AlertIcon, CheckCircleIcon, CloseIcon, InfoIcon, SpinnerIcon } from "../ui/icons";
+import { AlertIcon, CheckCircleIcon, CloseIcon, InfoIcon, SpinnerIcon } from "./icons";
 
 import type { Tone } from "./badge";
 
@@ -78,21 +78,28 @@ export function Spinner(props: { class?: string; label?: string }): JSX.Element 
 	);
 }
 
-const DOT: Record<string, string> = {
+const DOT = {
 	online: "bg-success",
 	busy: "bg-warning",
+	waiting: "bg-warning",
 	offline: "bg-fg-faint",
 	error: "bg-danger",
 	running: "bg-accent animate-pulse",
-};
+	unread: "bg-accent",
+} as const;
 
-/** Presence or state as a dot: a machine online, an agent running. */
-export function StatusDot(props: { status: keyof typeof DOT; label?: string }): JSX.Element {
+/** Presence or state as a dot: a machine online, an agent running or waiting, something unread. */
+export function StatusDot(props: {
+	status: keyof typeof DOT;
+	size?: "sm" | "md";
+	label?: string;
+}): JSX.Element {
 	return (
 		<span
-			role={props.label ? "img" : undefined}
+			title={props.label}
 			aria-label={props.label}
-			class={`inline-block size-2 shrink-0 rounded-full ${DOT[props.status]}`}
+			aria-hidden={props.label ? undefined : "true"}
+			class={`inline-block shrink-0 rounded-full ${props.size === "sm" ? "size-1.5" : "size-2"} ${DOT[props.status]}`}
 		/>
 	);
 }

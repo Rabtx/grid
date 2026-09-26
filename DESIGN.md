@@ -175,9 +175,33 @@ preview composed only of kit parts; new screens use the kit, and `@/ui` goes awa
 - **Shape:** rows 30px and controls 32px on desktop (44px on touch); radius 6 chips, 8 controls,
   12 cards, 14 floating surfaces, 18 the composer; `shadow-float` for floating layers,
   `shadow-raise` for the composer and prompts.
-- **Layout:** the sidebar sits on the sunken frame; the screen is a raised panel beside it; open
-  things are tabs along the top. Phones get a top bar and a drawer; every menu and dialog is a
-  bottom sheet there.
+- **Layout:** the sidebar sits on the sunken frame and the screen sits flush beside it with a
+  hairline; open things are tabs along the top. Phones get a top bar and a drawer; every menu
+  and dialog is a bottom sheet there.
+
+### Building with the kit
+
+Every visual decision lives in one place, so a tweak is made once:
+
+1. **Tokens** (`kit.css`) hold the values. Four knobs move the whole system live — roundness
+   (`--kit-radius-scale`), spacing (`--kit-density`), line strength (`--kit-line-scale`) and the
+   hue/saturation/lightness inputs — stored per device with the rest of Appearance and exposed on
+   `/design` under Tweak.
+2. **Kit components** turn tokens into recipes, each defined with the `variants()` helper
+   (`base` + axes like `size`, `tone`, `variant` + defaults). A new size or tone is one entry.
+   Repeated recipes are named utilities: `surface-card`, `surface-well`, `surface-field`,
+   `surface-outline`, `ring-line`, `ring-line-strong`, `shadow-raise`, `shadow-lift`,
+   `shadow-float`, `shadow-focus`, `shadow-knob`, `shadow-page`.
+3. **Screens compose.** Layout with `Stack`, `Row`, `Grid`, `Page`, `PageHeader`, `Section`,
+   `Spacer`, `Divider`; text with `Text` and `Heading`; icons with a `size`. A kit component's
+   `class` prop is for layout only (width, flex, grid placement, margin); content goes through
+   slots (`icon`, `trailing`, `actions`, `footer`…).
+
+`src/styles/kit-guard.test.ts` enforces this on every file outside `src/kit` that imports
+`@/kit`: no `style` attributes, no bracketed one-off values, no hex colours, no radii or shadows
+of their own, no raw palette colours, no weights beyond regular and medium, and no `@/ui`
+imports. When something a screen needs is missing, add it to the kit (and to `/design`) rather
+than styling it in place.
 
 ## Typography
 

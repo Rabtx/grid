@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
-import { FileIcon } from "../ui/icons";
+import { FileIcon } from "./icons";
 
 /** What you asked: a soft bubble on the right, as wide as the text needs. */
 export function UserMessage(props: {
@@ -39,7 +39,7 @@ export function AgentMessage(props: { children: JSX.Element; actions?: JSX.Eleme
 /** A file attached to a message. */
 export function Attachment(props: { name: string; onRemove?: () => void }): JSX.Element {
 	return (
-		<span class="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-kit bg-surface px-2 text-body text-fg-muted shadow-[inset_0_0_0_1px_var(--kit-line-strong)]">
+		<span class="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-kit bg-surface px-2 text-body text-fg-muted ring-line-strong">
 			<FileIcon class="size-3.5 shrink-0 text-fg-subtle" />
 			<span class="truncate">{props.name}</span>
 		</span>
@@ -53,7 +53,7 @@ export function DiffCard(props: { path: string; lines: readonly DiffLine[] }): J
 	const added = () => props.lines.filter((line) => line.kind === "add").length;
 	const removed = () => props.lines.filter((line) => line.kind === "remove").length;
 	return (
-		<div class="overflow-hidden rounded-kit-lg shadow-[inset_0_0_0_1px_var(--kit-line)]">
+		<div class="overflow-hidden rounded-kit-lg ring-line">
 			<div class="flex h-9 items-center gap-2 border-line border-b bg-fill px-3 text-caption">
 				<FileIcon class="size-3.5 text-fg-subtle" />
 				<span class="min-w-0 flex-1 truncate font-mono text-fg-muted">{props.path}</span>

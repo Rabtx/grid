@@ -2,15 +2,31 @@ import type { JSX } from "@solidjs/web";
 import { Show } from "solid-js";
 
 /** A bordered block of related content on the canvas. */
+const PAD = { none: "", sm: "p-3", md: "p-4", lg: "p-5" } as const;
+
 export function Card(props: {
 	children: JSX.Element;
-	class?: string;
+	/** Inner padding from the scale; none when the content draws its own (a table, a list). */
+	padding?: keyof typeof PAD;
 	raised?: boolean;
+	/** Clip the content to the corners (lists and tables inside). */
+	clip?: boolean;
+	/** Layout only. */
+	class?: string;
 }): JSX.Element {
 	return (
 		<div
-			class={`rounded-kit-lg bg-surface ${props.raised ? "shadow-raise shadow-[0_0_0_1px_var(--kit-line)]" : "shadow-[inset_0_0_0_1px_var(--kit-line)]"} ${props.class ?? ""}`}
+			class={`surface-card ${props.raised ? "shadow-raise" : ""} ${props.clip ? "overflow-hidden" : ""} ${PAD[props.padding ?? "none"]} ${props.class ?? ""}`}
 		>
+			{props.children}
+		</div>
+	);
+}
+
+/** A list of rows in a card, divided by hairlines: activity, members, settings. */
+export function ListCard(props: { children: JSX.Element; class?: string }): JSX.Element {
+	return (
+		<div class={`surface-card divide-y divide-line overflow-hidden ${props.class ?? ""}`}>
 			{props.children}
 		</div>
 	);
@@ -24,15 +40,13 @@ export function Panel(props: {
 	children: JSX.Element;
 }): JSX.Element {
 	return (
-		<div class="overflow-hidden rounded-kit-lg bg-fill shadow-[inset_0_0_0_1px_var(--kit-line)]">
+		<div class="overflow-hidden rounded-kit-lg bg-fill ring-line">
 			<div class="flex h-9 items-center gap-2 px-3 text-caption text-fg-subtle">
 				<Show when={props.icon}>{props.icon}</Show>
 				<span class="min-w-0 flex-1 truncate">{props.title}</span>
 				{props.action}
 			</div>
-			<div class="rounded-kit-lg bg-surface shadow-[0_0_0_1px_var(--kit-line)]">
-				{props.children}
-			</div>
+			<div class="rounded-kit-lg bg-surface ring-line">{props.children}</div>
 		</div>
 	);
 }
@@ -79,11 +93,11 @@ export function EmptyState(props: {
 }
 
 /** A placeholder with the shape of what is loading. */
-export function Skeleton(props: { class?: string }): JSX.Element {
+export function Skeleton(props: { class?: string; circle?: boolean }): JSX.Element {
 	return (
 		<span
 			aria-hidden="true"
-			class={`block animate-pulse rounded-kit bg-fill-strong ${props.class ?? "h-4"}`}
+			class={`block animate-pulse bg-fill-strong ${props.circle ? "rounded-full" : "rounded-kit"} ${props.class ?? "h-4"}`}
 		/>
 	);
 }

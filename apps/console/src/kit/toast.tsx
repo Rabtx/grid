@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, For, Show } from "solid-js";
 
-import { CheckCircleIcon, AlertIcon, CloseIcon } from "../ui/icons";
+import { CheckCircleIcon, AlertIcon, CloseIcon } from "./icons";
 
 type ToastItem = {
 	id: number;

@@ -26,7 +26,7 @@ export function RadioCards<T extends string>(props: {
 				{(option) => (
 					<label
 						aria-label={option.label}
-						class="relative flex cursor-pointer items-start gap-3 rounded-kit-lg bg-surface p-3.5 shadow-[inset_0_0_0_1px_var(--kit-line-strong)] transition-shadow duration-fast hover:bg-fill has-checked:shadow-[inset_0_0_0_1.5px_var(--ink)] has-focus-visible:outline-2 has-focus-visible:outline-accent"
+						class="relative flex cursor-pointer items-start gap-3 rounded-kit-lg bg-surface p-3.5 ring-line-strong transition-shadow duration-fast hover:bg-fill has-checked:ring-selected has-focus-visible:outline-2 has-focus-visible:outline-accent"
 					>
 						<input
 							type="radio"
@@ -47,7 +47,7 @@ export function RadioCards<T extends string>(props: {
 								<span class="text-body text-fg-subtle">{option.description}</span>
 							</Show>
 						</span>
-						<span class="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full shadow-[inset_0_0_0_1.5px_var(--kit-line-strong)] peer-checked:bg-inverse peer-checked:shadow-none after:size-1.5 after:rounded-full after:bg-inverse-fg after:opacity-0 peer-checked:after:opacity-100" />
+						<span class="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full ring-line-strong peer-checked:bg-inverse peer-checked:shadow-none after:size-1.5 after:rounded-full after:bg-inverse-fg after:opacity-0 peer-checked:after:opacity-100" />
 					</label>
 				)}
 			</For>
@@ -64,9 +64,36 @@ export function Slider(props: {
 	step?: number;
 	onChange: (value: number) => void;
 	format?: (value: number) => string;
+	/** Label, a short track and the value on one line, for toolbars. */
+	inline?: boolean;
 }): JSX.Element {
 	const id = createUniqueId();
 	const percent = () => ((props.value - props.min) / (props.max - props.min)) * 100;
+	const input = () => (
+		<input
+			id={id}
+			type="range"
+			min={props.min}
+			max={props.max}
+			step={props.step ?? 1}
+			value={props.value}
+			onInput={(event) => props.onChange(Number(event.currentTarget.value))}
+			style={{ "--fill": `${percent()}%` }}
+			class={`kit-slider h-5 cursor-pointer appearance-none bg-transparent ${props.inline ? "w-24" : "w-full"}`}
+		/>
+	);
+	if (props.inline)
+		return (
+			<div class="flex items-center gap-2 text-caption">
+				<label for={id} class="text-fg-subtle">
+					{props.label}
+				</label>
+				{input()}
+				<span class="w-8 text-fg tabular-nums">
+					{props.format ? props.format(props.value) : props.value}
+				</span>
+			</div>
+		);
 	return (
 		<div class="flex flex-col gap-2">
 			<div class="flex items-center justify-between text-body">
@@ -77,17 +104,7 @@ export function Slider(props: {
 					{props.format ? props.format(props.value) : props.value}
 				</span>
 			</div>
-			<input
-				id={id}
-				type="range"
-				min={props.min}
-				max={props.max}
-				step={props.step ?? 1}
-				value={props.value}
-				onInput={(event) => props.onChange(Number(event.currentTarget.value))}
-				style={{ "--fill": `${percent()}%` }}
-				class="kit-slider h-5 w-full cursor-pointer appearance-none bg-transparent"
-			/>
+			{input()}
 		</div>
 	);
 }

@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
-import { CheckIcon, ChevronDownIcon } from "../ui/icons";
+import { CheckIcon, ChevronDownIcon } from "./icons";
 
 import { MENU_ITEM } from "./menu";
 import { type Placement, Popover } from "./popover";
@@ -38,7 +38,7 @@ export function Select<T extends string>(props: {
 	const trigger = () =>
 		props.look === "chip"
 			? "focus-ring inline-flex h-7 max-w-60 shrink-0 items-center gap-1.5 rounded-kit px-2 text-body-lg text-fg-muted hover:bg-fill hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:h-10"
-			: "focus-ring flex h-kit-control w-full items-center gap-2 rounded-kit bg-surface px-3 text-left text-field text-fg shadow-[inset_0_0_0_1px_var(--kit-line-strong)] hover:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ink)_20%,transparent)] aria-expanded:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ink)_35%,transparent),0_0_0_3px_var(--kit-fill-strong)] disabled:opacity-50";
+			: "surface-field focus-ring flex h-kit-control w-full items-center gap-2 px-3 text-left text-field text-fg disabled:opacity-50";
 
 	return (
 		<Popover

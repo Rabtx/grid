@@ -4,73 +4,81 @@ import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
 import { type Theme, updateAppearance } from "@/lib/appearance";
 import {
 	ActivityItem,
+	Card,
+	ListCard,
+	menuTrigger,
+	PreviewFrame,
+	PROMPT_ICON,
+	ProviderMark,
+	StatusDot,
+	Suggestions,
+	Terminal,
+	TermText,
 	AgentMessage,
 	Avatar,
 	BoardColumn,
+	BoardIcon,
+	BranchIcon,
 	Button,
+	ChatIcon,
+	CheckIcon,
 	ChoicePrompt,
 	CodeBlock,
+	ComputerIcon,
 	Count,
 	DescriptionList,
 	Dialog,
 	DiffCard,
+	EditIcon,
+	FileIcon,
 	FileTree,
+	FilterIcon,
+	FolderIcon,
 	HeaderTabs,
+	HomeIcon,
 	IconButton,
+	IdeaIcon,
+	InboxIcon,
 	Kbd,
 	Menu,
+	MenuIcon,
+	MicIcon,
+	MoonIcon,
 	NavButton,
 	NavSection,
 	notify,
 	Palette,
+	PlusIcon,
 	PROMPT_ADD,
 	PROMPT_FIELD,
 	PromptBox,
+	PullRequestIcon,
 	RunStatus,
 	type RunStep,
 	RunSteps,
+	SearchIcon,
 	SearchInput,
 	Segmented,
 	Select,
 	SEND_BUTTON,
-	TaskCard,
-	type TaskStatusKind,
-	TaskStatus,
-	Toolbar,
-	ToolbarButton,
-	UserMessage,
-	WorkspaceMark,
-} from "@/kit";
-import {
-	BoardIcon,
-	BranchIcon,
-	ChatIcon,
-	CheckIcon,
-	ComputerIcon,
-	EditIcon,
-	FileIcon,
-	FilterIcon,
-	FolderIcon,
-	HomeIcon,
-	IdeaIcon,
-	InboxIcon,
-	MenuIcon,
-	MicIcon,
-	MoonIcon,
-	PlusIcon,
-	PullRequestIcon,
-	SearchIcon,
 	SendIcon,
 	SettingsIcon,
 	SidebarIcon,
 	SignOutIcon,
 	SortIcon,
 	SunIcon,
+	TaskCard,
+	TaskStatus,
+	type TaskStatusKind,
 	TerminalIcon,
+	Toolbar,
+	ToolbarButton,
 	ToolIcon,
 	UnfoldIcon,
 	UserAddIcon,
-} from "@/ui";
+	UserMessage,
+	WorkspaceMark,
+} from "@/kit";
 
 const ICON = "size-4";
 
@@ -242,7 +250,7 @@ export function AppPrototype(): JSX.Element {
 				<Menu
 					label="Workspace"
 					width="md:w-64"
-					triggerClass="focus-ring flex h-8 min-w-0 flex-1 items-center gap-2 rounded-kit px-1.5 hover:bg-fill aria-expanded:bg-fill-strong"
+					triggerClass={menuTrigger({ width: "fill" })}
 					trigger={
 						<>
 							<WorkspaceMark name={workspace()} />
@@ -370,8 +378,9 @@ export function AppPrototype(): JSX.Element {
 													onClick={() => openThread(item.id)}
 													trailing={
 														<Show when={item.phase !== "done"}>
-															<span
-																class={`size-1.5 rounded-full ${item.phase === "asking" ? "bg-warning" : "animate-pulse bg-accent"}`}
+															<StatusDot
+																size="sm"
+																status={item.phase === "asking" ? "waiting" : "running"}
 															/>
 														</Show>
 													}
@@ -390,7 +399,7 @@ export function AppPrototype(): JSX.Element {
 					label="Account"
 					placement="top-start"
 					width="md:w-60"
-					triggerClass="focus-ring flex h-9 w-full items-center gap-2 rounded-kit px-1.5 text-body-lg hover:bg-fill aria-expanded:bg-fill-strong"
+					triggerClass={menuTrigger({ size: "md", width: "full" })}
 					trigger={
 						<>
 							<Avatar name="Sam Rivera" />
@@ -439,7 +448,7 @@ export function AppPrototype(): JSX.Element {
 	);
 
 	return (
-		<div class="relative flex h-[42rem] overflow-hidden rounded-kit-xl bg-surface-sunken shadow-[0_0_0_1px_var(--kit-line-strong),0_8px_24px_-12px_rgb(0_0_0/0.08)] md:h-[44rem]">
+		<PreviewFrame>
 			<Show when={sidebar()}>
 				<aside class="hidden w-60 shrink-0 md:block">
 					<Sidebar />
@@ -537,7 +546,7 @@ export function AppPrototype(): JSX.Element {
 				</div>
 			</div>
 			<HeaderTabRouter tabs={tabs()} onOpen={openThread} onNew={() => go("home")} />
-		</div>
+		</PreviewFrame>
 	);
 }
 
@@ -692,13 +701,13 @@ function Composer(props: {
 										value: "opus",
 										label: "Opus 5.5",
 										description: "Most capable, for hard problems",
-										icon: <span class="size-2 rounded-full bg-[#d97757]" />,
+										icon: <ProviderMark provider="anthropic" />,
 									},
 									{
 										value: "sonnet",
 										label: "Sonnet 5",
 										description: "Fast and strong for everyday work",
-										icon: <span class="size-2 rounded-full bg-[#d97757]" />,
+										icon: <ProviderMark provider="anthropic" />,
 									},
 								],
 							},
@@ -709,17 +718,13 @@ function Composer(props: {
 										value: "gpt",
 										label: "GPT-5.6",
 										description: "OpenAI's coding model",
-										icon: <span class="size-2 rounded-full bg-fg" />,
+										icon: <ProviderMark provider="openai" />,
 									},
 								],
 							},
 						]}
 					/>
-					<button
-						type="button"
-						aria-label="Dictate"
-						class="focus-ring grid size-7 shrink-0 place-items-center rounded-kit text-fg-subtle hover:bg-fill hover:text-fg pointer-coarse:size-10"
-					>
+					<button type="button" aria-label="Dictate" class={PROMPT_ICON}>
 						<MicIcon class={ICON} />
 					</button>
 				</>
@@ -773,22 +778,11 @@ function Home(props: { project: string; onSend: (text: string) => void }): JSX.E
 						{props.project}
 					</span>
 				</h3>
-				<ul class="order-none flex gap-2 overflow-x-auto [scrollbar-width:none] md:order-last md:flex-col md:gap-0.5 md:px-1">
-					<For each={SUGGESTIONS}>
-						{(item) => (
-							<li class="shrink-0">
-								<button
-									type="button"
-									onClick={() => props.onSend(item.text)}
-									class="focus-ring flex h-9 items-center gap-2.5 whitespace-nowrap rounded-full px-3 text-body text-fg-muted shadow-[inset_0_0_0_1px_var(--kit-line-strong)] hover:bg-fill hover:text-fg md:h-8 md:w-full md:rounded-kit md:px-2 md:shadow-none"
-								>
-									<span class="text-fg-subtle">{item.icon()}</span>
-									{item.text}
-								</button>
-							</li>
-						)}
-					</For>
-				</ul>
+				<Suggestions
+					items={SUGGESTIONS.map((item) => ({ icon: item.icon(), label: item.text }))}
+					onPick={props.onSend}
+					class="md:order-last"
+				/>
 				<Composer
 					placeholder="Ask anything, @ to add files, / for commands"
 					onSend={props.onSend}
@@ -936,7 +930,7 @@ function ActivityView(props: { onOpen: () => void }): JSX.Element {
 		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8">
 			<div class="mx-auto flex max-w-2xl flex-col gap-5">
 				<PageHeader title="Activity" description="What needs you, and what moved." />
-				<div class="divide-y divide-line overflow-hidden rounded-kit-lg shadow-[inset_0_0_0_1px_var(--kit-line)]">
+				<ListCard>
 					<Show when={items().includes("approve")}>
 						<ActivityItem
 							unread
@@ -982,7 +976,7 @@ function ActivityView(props: { onOpen: () => void }): JSX.Element {
 							time="1h"
 						/>
 					</Show>
-				</div>
+				</ListCard>
 			</div>
 		</div>
 	);
@@ -1048,7 +1042,7 @@ function BoardView(): JSX.Element {
 								<TaskStatus status={task().status} />
 								<span class="font-mono">{task().id}</span>
 							</div>
-							<div class="overflow-hidden rounded-kit-lg shadow-[inset_0_0_0_1px_var(--kit-line)]">
+							<Card clip>
 								<DescriptionList
 									items={[
 										{ label: "Project", value: "web-app" },
@@ -1059,7 +1053,7 @@ function BoardView(): JSX.Element {
 										{ label: "Labels", value: task().labels?.join(", ") || "None" },
 									]}
 								/>
-							</div>
+							</Card>
 							<Button
 								variant="primary"
 								icon={<ChatIcon class={ICON} />}
@@ -1098,37 +1092,33 @@ function FilesView(): JSX.Element {
 	);
 }
 
-// A terminal is always dark, whatever the theme, like a real one.
-const TERM = { text: "#d4d4d4", green: "#7fd88f", blue: "#7aa2f7", dim: "#8b8b8b" };
-
 function Prompt(): JSX.Element {
 	return (
 		<>
-			<span style={{ color: TERM.green }}>sam@acme</span>:
-			<span style={{ color: TERM.blue }}>~/code/web-app</span>$
+			<TermText tone="green">sam@acme</TermText>:<TermText tone="blue">~/code/web-app</TermText>$
 		</>
 	);
 }
 
 function TerminalView(): JSX.Element {
 	return (
-		<div
-			class="flex min-h-0 flex-1 flex-col bg-[#161616] p-4 font-mono text-caption leading-6"
-			style={{ color: TERM.text }}
-		>
+		<Terminal class="flex-1">
 			<p>
 				<Prompt /> bun test
 			</p>
-			<p style={{ color: TERM.dim }}>bun test v1.4.2</p>
 			<p>
-				<span style={{ color: TERM.green }}>✓</span> 19 pass
+				<TermText tone="dim">bun test v1.4.2</TermText>
+			</p>
+			<p>
+				<TermText tone="green">✓</TermText> 19 pass
 			</p>
 			<p>
 				<Prompt /> <span class="animate-pulse">▍</span>
 			</p>
-			<p class="mt-auto flex items-center gap-2" style={{ color: TERM.dim }}>
-				<Count quiet>2</Count> terminals on this machine
+			<p class="mt-auto flex items-center gap-2">
+				<Count quiet>2</Count>
+				<TermText tone="dim">terminals on this machine</TermText>
 			</p>
-		</div>
+		</Terminal>
 	);
 }

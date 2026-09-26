@@ -70,3 +70,19 @@ export function AvatarGroup(props: { names: readonly string[]; max?: number }): 
 		</span>
 	);
 }
+
+const PROVIDER = {
+	anthropic: "bg-provider-anthropic",
+	openai: "bg-provider-openai",
+	google: "bg-provider-google",
+	other: "bg-provider-other",
+} as const;
+
+export type Provider = keyof typeof PROVIDER;
+
+/** Which company's model: a dot in its colour, beside the model's name. */
+export function ProviderMark(props: { provider: Provider }): JSX.Element {
+	return (
+		<span aria-hidden="true" class={`size-2 shrink-0 rounded-full ${PROVIDER[props.provider]}`} />
+	);
+}

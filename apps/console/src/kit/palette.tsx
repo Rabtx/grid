@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
-import { SearchIcon } from "../ui/icons";
+import { SearchIcon } from "./icons";
 
 import { Kbd } from "./badge";
 import { type TabOption, Tabs } from "./tabs";

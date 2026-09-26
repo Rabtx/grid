@@ -59,7 +59,7 @@ export function TaskCard(props: {
 		<button
 			type="button"
 			onClick={() => props.onClick?.()}
-			class="focus-ring flex w-full flex-col gap-2 rounded-kit-lg bg-surface p-3 text-left shadow-[0_0_0_1px_var(--kit-line),0_1px_2px_rgb(0_0_0/0.03)] transition-shadow duration-fast hover:shadow-[0_0_0_1px_var(--kit-line-strong),0_2px_6px_-2px_rgb(0_0_0/0.08)]"
+			class="focus-ring flex w-full flex-col gap-2 rounded-kit-lg bg-surface p-3 text-left shadow-lift transition-shadow duration-fast hover:shadow-lift-hover"
 		>
 			<div class="flex items-center gap-2 text-caption text-fg-subtle">
 				<TaskStatus status={props.status} class="size-3.5" />
@@ -78,7 +78,7 @@ export function TaskCard(props: {
 					</Show>
 					<For each={props.labels}>
 						{(label) => (
-							<span class="inline-flex h-5 items-center rounded-kit-sm px-1.5 text-caption text-fg-subtle shadow-[inset_0_0_0_1px_var(--kit-line-strong)]">
+							<span class="inline-flex h-5 items-center rounded-kit-sm px-1.5 text-caption text-fg-subtle ring-line-strong">
 								{label}
 							</span>
 						)}

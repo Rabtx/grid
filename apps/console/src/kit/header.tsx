@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
-import { CloseIcon, PlusIcon } from "../ui/icons";
+import { CloseIcon, PlusIcon } from "./icons";
 
 /** Where you are: `Chat / Meta ROAS dropped`, the last part in full ink. */
 export function Breadcrumbs(props: {
@@ -60,7 +60,7 @@ export function HeaderTabs(props: {
 				{(tab) => (
 					<div
 						aria-current={props.current === tab.id ? "page" : undefined}
-						class="group/tab relative flex h-8 w-40 min-w-24 shrink items-center rounded-kit-md text-body-lg text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=page]:bg-surface aria-[current=page]:text-fg aria-[current=page]:shadow-[0_0_0_1px_var(--kit-line-strong),0_1px_2px_rgb(0_0_0/0.03)] pointer-coarse:h-10"
+						class="group/tab relative flex h-8 w-40 min-w-24 shrink items-center rounded-kit-md text-body-lg text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=page]:bg-surface aria-[current=page]:text-fg aria-[current=page]:shadow-lift pointer-coarse:h-10"
 					>
 						<a
 							href={tab.href}

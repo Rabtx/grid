@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
 import { Popover, type Placement } from "./popover";
+import { variants } from "./variants";
 
 export type MenuItem = {
 	id: string;
@@ -17,6 +18,16 @@ export type MenuItem = {
 
 /** Groups of items, drawn with a divider between them; a group may have a caption. */
 export type MenuGroup = { label?: string; items: readonly MenuItem[] };
+
+/** What opens a menu from the navigation: the workspace switcher, your account, a picker. */
+export const menuTrigger = variants({
+	base: "focus-ring flex min-w-0 items-center gap-2 rounded-kit px-1.5 text-left transition-colors duration-fast hover:bg-fill aria-expanded:bg-fill-strong",
+	variants: {
+		size: { sm: "h-8 pointer-coarse:h-11", md: "h-9 text-body-lg pointer-coarse:h-12" },
+		width: { auto: "", fill: "flex-1", full: "w-full" },
+	},
+	defaults: { size: "sm", width: "auto" },
+});
 
 export const MENU_ITEM =
 	"focus-ring flex h-kit-row w-full min-w-0 items-center gap-2.5 rounded-kit-md px-2 text-left text-nav transition-colors duration-fast ease-out-grid disabled:pointer-events-none disabled:opacity-40 pointer-coarse:h-12";

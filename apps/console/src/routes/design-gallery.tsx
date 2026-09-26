@@ -7,72 +7,84 @@ import { AppPrototype } from "./design/app-prototype";
 import { FeedbackSection, FormsSection, WorkSection } from "./design/more-sections";
 import {
 	Avatar,
+	button,
+	Popover,
+	Stack,
+	Grid,
+	Heading,
+	menuTrigger,
+	RadiusScale,
+	Row,
+	Slider,
+	Specimen,
+	StatusDot,
+	SurfaceSwatches,
+	Text,
+	UserMessage,
 	Badge,
+	BellIcon,
+	BoardIcon,
 	Breadcrumbs,
 	Button,
 	Card,
+	ChatIcon,
 	Checkbox,
+	CheckIcon,
 	Checklist,
 	ChoicePrompt,
+	ClockIcon,
 	CodeBlock,
+	ComputerIcon,
+	CopyIcon,
 	Count,
 	DescriptionList,
 	Dialog,
+	EditIcon,
 	EmptyState,
+	ExternalIcon,
 	Field,
+	FileIcon,
+	FolderIcon,
+	GlobeIcon,
 	HeaderTabs,
 	IconButton,
+	InboxIcon,
 	Input,
 	Kbd,
 	Menu,
 	MenuList,
+	MoonIcon,
+	MoreIcon,
 	NavButton,
 	NavLink,
+	NoteIcon,
 	Palette,
 	Panel,
+	PlusIcon,
 	RunStatus,
 	RunSteps,
+	SearchIcon,
 	SearchInput,
 	Segmented,
+	SettingsIcon,
+	SignOutIcon,
 	Skeleton,
+	SunIcon,
 	Switch,
 	Table,
 	Tabs,
 	Td,
+	TerminalIcon,
 	Textarea,
 	Th,
+	Toasts,
 	Tooltip,
 	Tr,
-	Toasts,
-	WorkspaceMark,
-} from "@/kit";
-import {
-	BellIcon,
-	BoardIcon,
-	ChatIcon,
-	CheckIcon,
-	ClockIcon,
-	ComputerIcon,
-	CopyIcon,
-	EditIcon,
-	ExternalIcon,
-	FileIcon,
-	FolderIcon,
-	GlobeIcon,
-	InboxIcon,
-	MoonIcon,
-	MoreIcon,
-	NoteIcon,
-	PlusIcon,
-	SearchIcon,
-	SettingsIcon,
-	SignOutIcon,
-	SunIcon,
-	TerminalIcon,
 	TrashIcon,
 	UnfoldIcon,
 	UserAddIcon,
-} from "@/ui";
+	WorkspaceMark,
+} from "@/kit";
 
 const ICON = "size-4";
 
@@ -155,42 +167,75 @@ function Toolbar(): JSX.Element {
 					value={appearance().theme}
 					onChange={(theme) => updateAppearance({ theme })}
 				/>
-				<Range
-					label="Hue"
-					value={appearance().hue}
-					max={APPEARANCE_LIMITS.hue.max}
-					onChange={(hue) => updateAppearance({ hue })}
-				/>
-				<Range
-					label="Tint"
-					value={appearance().saturation}
-					max={APPEARANCE_LIMITS.saturation.max}
-					onChange={(saturation) => updateAppearance({ saturation })}
-				/>
+				<TweakPanel />
 			</div>
 		</header>
 	);
 }
 
-function Range(props: {
-	label: string;
-	value: number;
-	max: number;
-	onChange: (value: number) => void;
-}): JSX.Element {
+/** Every knob of the system on one panel: roundness, spacing, lines, text size and the tint. */
+function TweakPanel(): JSX.Element {
+	const knob = (
+		label: string,
+		key: "radius" | "spacing" | "lines" | "uiScale" | "hue" | "saturation" | "darkLightness",
+		format: (value: number) => string = (value) => String(value),
+	) => (
+		<Slider
+			label={label}
+			value={appearance()[key]}
+			min={APPEARANCE_LIMITS[key].min}
+			max={APPEARANCE_LIMITS[key].max}
+			step={APPEARANCE_LIMITS[key].step}
+			format={format}
+			onChange={(value) => updateAppearance({ [key]: value })}
+		/>
+	);
+	const times = (value: number) => `${value.toFixed(2)}×`;
 	return (
-		<label class="flex items-center gap-2 text-caption text-fg-subtle">
-			{props.label}
-			<input
-				type="range"
-				min="0"
-				max={props.max}
-				value={props.value}
-				onInput={(event) => props.onChange(Number(event.currentTarget.value))}
-				class="w-24 accent-[var(--signal-accent)]"
-			/>
-			<span class="w-7 text-fg tabular-nums">{props.value}</span>
-		</label>
+		<Popover
+			label="Tweak the design"
+			placement="bottom-end"
+			width="md:w-80"
+			triggerClass={button({ size: "sm" })}
+			trigger={
+				<>
+					<SettingsIcon size="sm" />
+					Tweak
+				</>
+			}
+		>
+			{() => (
+				<Stack gap={4} class="p-4">
+					<Text size="caption" tone="subtle">
+						These move the whole system at once and are kept on this device.
+					</Text>
+					{knob("Roundness", "radius", times)}
+					{knob("Spacing", "spacing", times)}
+					{knob("Lines", "lines", times)}
+					{knob("Text size", "uiScale", (value) => `${Math.round(value * 100)}%`)}
+					{knob("Hue", "hue")}
+					{knob("Tint", "saturation", (value) => `${value}%`)}
+					{knob("Dark background", "darkLightness", (value) => `${value}%`)}
+					<Button
+						size="sm"
+						variant="ghost"
+						onClick={() =>
+							updateAppearance({
+								radius: 1,
+								spacing: 1,
+								lines: 1,
+								uiScale: 1,
+								hue: 240,
+								saturation: 0,
+								darkLightness: 9,
+							})
+						}
+					>
+						Reset to the reference
+					</Button>
+				</Stack>
+			)}
+		</Popover>
 	);
 }
 
@@ -206,54 +251,40 @@ function Section(props: { title: string; note?: string; children: JSX.Element })
 	);
 }
 
-function Specimen(props: { label: string; children: JSX.Element; class?: string }): JSX.Element {
-	return (
-		<Card class={`flex flex-col gap-3 p-4 ${props.class ?? ""}`}>
-			<p class="text-caption text-fg-subtle">{props.label}</p>
-			{props.children}
-		</Card>
-	);
-}
-
 /* ── App preview ──────────────────────────────────────────────────────────────────────────── */
 
 const PROJECTS = [
-	{ name: "web-app", color: "#6366f1", open: true },
-	{ name: "api", color: "#10b981", open: false },
-	{ name: "mobile", color: "#f59e0b", open: false },
+	{ name: "web-app", open: true },
+	{ name: "api", open: false },
+	{ name: "mobile", open: false },
 ];
 
 /* ── Foundations ──────────────────────────────────────────────────────────────────────────── */
 
 function Foundations(): JSX.Element {
 	return (
-		<div class="grid gap-4 md:grid-cols-2">
+		<Grid columns={2}>
 			<Specimen label="Text">
-				<p class="text-fg text-body">Strong: titles, values, what you are looking at</p>
-				<p class="text-body text-fg-muted">Default: body text and labels</p>
-				<p class="text-body text-fg-subtle">Subtle: metadata, section labels, icons at rest</p>
-				<p class="text-body text-fg-faint">Faint: placeholders and disabled only</p>
+				<Text tone="strong">Strong: titles, values, what you are looking at</Text>
+				<Text>Default: body text and labels</Text>
+				<Text tone="subtle">Subtle: metadata, section labels, icons at rest</Text>
+				<Text tone="faint">Faint: placeholders and disabled only</Text>
 			</Specimen>
 			<Specimen label="Type scale · Inter, regular and medium">
-				<p class="font-medium text-display">Display 24</p>
-				<p class="font-medium text-headline">Headline 18</p>
-				<p class="font-medium text-heading">Heading 16</p>
-				<p class="text-body-lg">Body large 14</p>
-				<p class="text-body">Body 13 — the base size of the console</p>
-				<p class="text-caption text-fg-subtle">Caption 12 — labels and metadata</p>
+				<Heading level={1}>Display 24</Heading>
+				<Heading level={2}>Headline 18</Heading>
+				<Heading level={3}>Heading 16</Heading>
+				<Text size="body-lg">Body large 14</Text>
+				<Text>Body 13 — the base size of the console</Text>
+				<Text size="caption" tone="subtle">
+					Caption 12 — labels and metadata
+				</Text>
 			</Specimen>
-			<Specimen label="Surfaces and lines">
-				<div class="grid grid-cols-3 gap-2 text-caption">
-					<Swatch class="bg-surface" label="Surface" />
-					<Swatch class="bg-surface-sunken" label="Sunken" />
-					<Swatch class="bg-surface-raised shadow-float" label="Raised" />
-					<Swatch class="bg-fill" label="Fill · hover" />
-					<Swatch class="bg-fill-strong" label="Fill · selected" />
-					<Swatch class="bg-inverse text-inverse-fg" label="Inverse" />
-				</div>
+			<Specimen label="Surfaces and fills">
+				<SurfaceSwatches />
 			</Specimen>
-			<Specimen label="Signals · only for meaning">
-				<div class="flex flex-wrap gap-2">
+			<Specimen label="Signals and corners">
+				<Row wrap>
 					<Badge tone="accent">Accent</Badge>
 					<Badge tone="success" dot>
 						Success
@@ -265,39 +296,10 @@ function Foundations(): JSX.Element {
 						Danger
 					</Badge>
 					<Badge>Neutral</Badge>
-				</div>
-				<div class="flex items-end gap-3 pt-2">
-					<For
-						each={[
-							"rounded-kit-sm",
-							"rounded-kit",
-							"rounded-kit-lg",
-							"rounded-kit-xl",
-							"rounded-kit-2xl",
-						]}
-					>
-						{(radius) => (
-							<div class="flex flex-col items-center gap-1">
-								<span class={`size-10 bg-fill-strong ${radius}`} />
-								<span class="text-micro text-fg-subtle">
-									{radius.replace("rounded-kit", "r") || "r"}
-								</span>
-							</div>
-						)}
-					</For>
-				</div>
+				</Row>
+				<RadiusScale />
 			</Specimen>
-		</div>
-	);
-}
-
-function Swatch(props: { class: string; label: string }): JSX.Element {
-	return (
-		<div
-			class={`flex h-16 items-end rounded-kit p-2 shadow-[inset_0_0_0_1px_var(--kit-line)] ${props.class}`}
-		>
-			{props.label}
-		</div>
+		</Grid>
 	);
 }
 
@@ -449,7 +451,7 @@ function Navigation(): JSX.Element {
 						{ label: "Invites" },
 					]}
 				/>
-				<div class="rounded-kit bg-surface-sunken p-1">
+				<div class="surface-well p-1">
 					<HeaderTabs
 						tabs={[
 							{ id: "a", label: "Board", href: "#", icon: <BoardIcon class="size-3.5" /> },
@@ -474,8 +476,7 @@ function Overlays(): JSX.Element {
 	const [query, setQuery] = createSignal("");
 	const [active, setActive] = createSignal<string | null>("web-app");
 	const [tab, setTab] = createSignal<"all" | "projects" | "threads">("all");
-	const TRIGGER =
-		"focus-ring flex h-8 items-center gap-2 rounded-kit px-2 text-body hover:bg-fill aria-expanded:bg-fill-strong";
+	const TRIGGER = menuTrigger();
 
 	return (
 		<div class="grid gap-4 md:grid-cols-2">
@@ -744,7 +745,7 @@ function Content(): JSX.Element {
 			<Panel title="3 items need your input" icon={<BellIcon class="size-3.5" />}>
 				<div class="flex flex-col gap-2 p-3">
 					<p class="flex items-center gap-2 text-body text-fg">
-						<span class="size-1.5 rounded-full bg-warning" />
+						<StatusDot size="sm" status="waiting" />
 						Approve 3 changes to the login flow
 					</p>
 					<p class="text-caption text-fg-subtle">web-app · Fix login redirect loop</p>
@@ -774,7 +775,7 @@ function Content(): JSX.Element {
 			</Card>
 			<Specimen label="Loading">
 				<div class="flex items-center gap-3">
-					<Skeleton class="size-8 rounded-full" />
+					<Skeleton circle class="size-8" />
 					<div class="flex flex-1 flex-col gap-2">
 						<Skeleton class="h-3.5 w-1/2" />
 						<Skeleton class="h-3 w-3/4" />
@@ -793,9 +794,9 @@ function AgentWork(): JSX.Element {
 		<div class="grid gap-4 md:grid-cols-2">
 			<Specimen label="A run">
 				<div class="flex flex-col gap-3">
-					<div class="self-end rounded-kit-lg bg-fill-strong px-3 py-2 text-body text-fg">
+					<UserMessage>
 						The login page loops back to itself after signing in. Find out why and fix it.
-					</div>
+					</UserMessage>
 					<RunStatus status="running">Working for 1m 28s</RunStatus>
 					<RunSteps
 						summary="6 tools, edited 2 files, ran 1 command"

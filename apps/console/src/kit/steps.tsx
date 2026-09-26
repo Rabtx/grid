@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
-import { ChevronRightIcon, BackIcon } from "../ui/icons";
+import { ChevronRightIcon, BackIcon } from "./icons";
 
 /** Where you are in a few steps (Details · Review · Secret key): done ticked, current ringed. */
 export function Stepper(props: {
@@ -30,7 +30,7 @@ export function Stepper(props: {
 											? "bg-success text-white"
 											: state() === "current"
 												? "shadow-[inset_0_0_0_4.5px_var(--signal-accent)]"
-												: "shadow-[inset_0_0_0_1.5px_var(--kit-line-strong)]"
+												: "ring-line-strong"
 									}`}
 								>
 									<Show when={state() === "done"}>

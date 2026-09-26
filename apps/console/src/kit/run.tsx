@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, For, Show } from "solid-js";
 
-import { AlertIcon, CheckIcon, ChevronDownIcon, SpinnerIcon } from "../ui/icons";
+import { AlertIcon, CheckIcon, ChevronDownIcon, SpinnerIcon } from "./icons";
 
 export type StepStatus = "running" | "done" | "error" | "waiting";
 
@@ -119,7 +119,7 @@ export function RunStatus(props: { status: StepStatus; children: JSX.Element }):
 export function CodeBlock(props: { label: string; code: string }): JSX.Element {
 	const [copied, setCopied] = createSignal(false);
 	return (
-		<div class="overflow-hidden rounded-kit-lg bg-fill shadow-[inset_0_0_0_1px_var(--kit-line)]">
+		<div class="overflow-hidden rounded-kit-lg bg-fill ring-line">
 			<div class="flex h-8 items-center justify-between pr-1 pl-3">
 				<span class="text-caption text-fg-subtle">{props.label}</span>
 				<button

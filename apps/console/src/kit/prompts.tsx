@@ -40,7 +40,7 @@ export function ChoicePrompt(props: {
 	}
 
 	return (
-		<fieldset class="flex min-w-0 flex-col gap-1 rounded-kit-2xl border-0 bg-surface p-3 shadow-raise shadow-[0_0_0_1px_var(--kit-line)]">
+		<fieldset class="flex min-w-0 flex-col gap-1 rounded-kit-2xl border-0 bg-surface p-3 shadow-raise">
 			<legend class="sr-only">{props.question}</legend>
 			<div class="flex items-center gap-2 px-2 pt-1 pb-2" aria-hidden="true">
 				<p class="min-w-0 flex-1 text-body-lg text-fg">{props.question}</p>
@@ -60,7 +60,7 @@ export function ChoicePrompt(props: {
 						onClick={() => props.onSubmit(index())}
 						class="flex h-10 items-center gap-3 rounded-kit-lg px-2 text-left text-body-lg text-fg-muted outline-none aria-[current=true]:bg-fill-strong aria-[current=true]:text-fg pointer-coarse:h-12"
 					>
-						<span class="grid size-6 shrink-0 place-items-center rounded-kit-sm text-caption text-fg-subtle shadow-[inset_0_0_0_1px_var(--kit-line-strong)]">
+						<span class="grid size-6 shrink-0 place-items-center rounded-kit-sm text-caption text-fg-subtle ring-line-strong">
 							{index() + 1}
 						</span>
 						{option}
@@ -128,7 +128,7 @@ export function Checklist(props: {
 }): JSX.Element {
 	const done = () => props.items.filter((item) => item.done).length;
 	return (
-		<div class="flex flex-col gap-1 rounded-kit-lg bg-surface p-3 shadow-[0_0_0_1px_var(--kit-line)]">
+		<div class="flex flex-col gap-1 rounded-kit-lg bg-surface p-3 ring-line">
 			<ProgressRing value={done() / Math.max(1, props.items.length)} size={22} />
 			<div class="flex items-baseline justify-between pt-2 pb-1">
 				<p class="font-medium text-body-lg text-fg">{props.title}</p>
@@ -144,7 +144,7 @@ export function Checklist(props: {
 						class="focus-ring flex h-8 items-center gap-2.5 rounded-kit px-1.5 text-left text-body text-fg-muted hover:bg-fill hover:text-fg pointer-coarse:h-11"
 					>
 						<span
-							class={`grid size-4 shrink-0 place-items-center rounded-full ${item.done ? "bg-success text-white" : "shadow-[inset_0_0_0_1.5px_var(--kit-line-strong)]"}`}
+							class={`grid size-4 shrink-0 place-items-center rounded-full ${item.done ? "bg-success text-white" : "ring-line-strong"}`}
 						>
 							<Show when={item.done}>
 								<svg viewBox="0 0 16 16" class="size-3" fill="none" aria-hidden="true">

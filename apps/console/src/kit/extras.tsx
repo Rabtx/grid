@@ -1,7 +1,8 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, Show } from "solid-js";
 
-import { UploadIcon } from "../ui/icons";
+import { WorkspaceMark } from "./avatar";
+import { UploadIcon } from "./icons";
 
 /** Drop files here, or pick them: a dashed area that lights up while something is dragged over. */
 export function DropZone(props: {
@@ -91,12 +92,54 @@ export function ActivityItem(props: {
 export function SplitLayout(props: { children: JSX.Element; aside?: JSX.Element }): JSX.Element {
 	return (
 		<div
-			class={`w-full md:overflow-hidden md:rounded-kit-xl md:bg-surface md:shadow-[0_0_0_1px_var(--kit-line),0_16px_40px_-20px_rgb(0_0_0/0.15)] ${props.aside ? "md:grid md:max-w-3xl md:grid-cols-2" : "md:max-w-sm"}`}
+			class={`w-full md:overflow-hidden md:rounded-kit-xl md:bg-surface md:shadow-page ${props.aside ? "md:grid md:max-w-3xl md:grid-cols-2" : "md:max-w-sm"}`}
 		>
 			<div class="flex flex-col gap-5 py-2 md:p-8">{props.children}</div>
 			<Show when={props.aside}>
 				<div class="hidden border-line border-l bg-surface-sunken md:block">{props.aside}</div>
 			</Show>
+		</div>
+	);
+}
+
+/**
+ * A workspace's sidebar in miniature, drawn from what is typed so far: its mark, name and URL
+ * over the navigation it will have. Beside setup and invite forms, it shows what is being made.
+ */
+export function WorkspacePreview(props: {
+	name: string;
+	slug: string;
+	color?: string | null;
+}): JSX.Element {
+	const name = () => props.name.trim() || "Your workspace";
+	return (
+		<div class="flex h-full items-center justify-end py-10 pl-10">
+			<div class="flex w-full flex-col gap-4 rounded-l-kit-lg border border-line border-r-0 bg-surface p-4">
+				<div class="flex items-center gap-2.5">
+					<WorkspaceMark name={name()} color={props.color} size="lg" />
+					<div class="min-w-0">
+						<p class="truncate font-medium text-body text-fg">{name()}</p>
+						<p class="truncate text-caption text-fg-subtle">/{props.slug || "workspace"}</p>
+					</div>
+				</div>
+				<div aria-hidden="true" class="flex flex-col gap-2.5 pt-1">
+					{["New chat", "Search", "Terminal"].map((label) => (
+						<span class="flex items-center gap-2 text-body text-fg-faint">
+							<span class="size-3 rounded-kit-sm bg-fill-strong" />
+							{label}
+						</span>
+					))}
+				</div>
+				<div aria-hidden="true" class="flex flex-col gap-2.5">
+					<span class="text-caption text-fg-faint">Projects</span>
+					{["w-24", "w-32", "w-20"].map((width) => (
+						<span class="flex items-center gap-2">
+							<span class="size-3 rounded-kit-sm bg-fill-strong" />
+							<span class={`h-2 rounded-full bg-fill ${width}`} />
+						</span>
+					))}
+				</div>
+			</div>
 		</div>
 	);
 }

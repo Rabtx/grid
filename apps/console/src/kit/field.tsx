@@ -2,7 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createUniqueId, Show, omit } from "solid-js";
 
 const CONTROL =
-	"w-full rounded-kit bg-surface px-3 text-fg text-field shadow-[inset_0_0_0_1px_var(--kit-line-strong)] outline-none transition-shadow duration-fast ease-out-grid placeholder:text-fg-faint hover:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ink)_20%,transparent)] focus:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ink)_35%,transparent),0_0_0_3px_var(--kit-fill-strong)] disabled:opacity-50 read-only:bg-fill aria-invalid:shadow-[inset_0_0_0_1px_var(--signal-danger)]";
+	"surface-field w-full px-3 text-fg text-field outline-none placeholder:text-fg-faint disabled:opacity-50 read-only:bg-fill";
 
 export function Input(props: JSX.InputHTMLAttributes<HTMLInputElement>): JSX.Element {
 	const rest = omit(props, "class");

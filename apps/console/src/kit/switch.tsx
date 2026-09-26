@@ -18,7 +18,7 @@ export function Switch(props: {
 			class="focus-ring relative inline-flex h-5 w-8.5 shrink-0 items-center rounded-full bg-fill-strong transition-colors duration-fast ease-out-grid aria-checked:bg-accent disabled:opacity-40 pointer-coarse:h-6 pointer-coarse:w-10"
 		>
 			<span
-				class={`size-4 rounded-full bg-white shadow-[0_1px_2px_rgb(0_0_0/0.2)] transition-transform duration-fast ease-out-grid pointer-coarse:size-5 ${props.checked ? "translate-x-4 pointer-coarse:translate-x-4.5" : "translate-x-0.5"}`}
+				class={`size-4 rounded-full bg-white shadow-knob transition-transform duration-fast ease-out-grid pointer-coarse:size-5 ${props.checked ? "translate-x-4 pointer-coarse:translate-x-4.5" : "translate-x-0.5"}`}
 			/>
 		</button>
 	);
@@ -41,7 +41,7 @@ export function Checkbox(props: {
 					el.indeterminate = props.indeterminate ?? false;
 				}}
 				onChange={(event) => props.onChange(event.currentTarget.checked)}
-				class="peer focus-ring size-4 cursor-pointer appearance-none rounded-[5px] bg-surface shadow-[inset_0_0_0_1px_var(--kit-line-strong)] transition-colors duration-fast checked:bg-inverse checked:shadow-none indeterminate:bg-inverse indeterminate:shadow-none"
+				class="peer focus-ring size-4 cursor-pointer appearance-none rounded-[5px] bg-surface ring-line-strong transition-colors duration-fast checked:bg-inverse checked:shadow-none indeterminate:bg-inverse indeterminate:shadow-none"
 			/>
 			<svg
 				viewBox="0 0 16 16"

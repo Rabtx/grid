@@ -2,6 +2,12 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, For } from "solid-js";
 
 import {
+	ActivityItem,
+	ListCard,
+	Row,
+	Stack,
+	WorkspacePreview,
+	AgentMessage,
 	Alert,
 	AvatarGroup,
 	Badge,
@@ -9,6 +15,9 @@ import {
 	BoardColumn,
 	Button,
 	Card,
+	ChatIcon,
+	CheckIcon,
+	ComputerIcon,
 	ConfirmDialog,
 	CopyField,
 	DiffCard,
@@ -16,46 +25,38 @@ import {
 	Field,
 	FileTree,
 	FilterChip,
+	FilterIcon,
+	GlobeIcon,
 	Input,
+	KeyIcon,
+	LinkIcon,
 	notify,
 	Pagination,
+	PlusIcon,
 	ProgressBar,
+	PullRequestIcon,
 	RadioCards,
+	SearchIcon,
 	SearchInput,
 	Select,
 	SettingsGroup,
 	SettingsRow,
 	Slider,
+	SortIcon,
 	Spinner,
+	SplitLayout,
 	StatusDot,
 	Stepper,
 	Switch,
 	TaskCard,
+	TerminalIcon,
 	Toolbar,
 	ToolbarButton,
-	UsageBar,
-	UserMessage,
-	AgentMessage,
-	ActivityItem,
-	SplitLayout,
-	WorkspaceMark,
-} from "@/kit";
-import {
-	ChatIcon,
-	CheckIcon,
-	ComputerIcon,
-	FilterIcon,
-	GlobeIcon,
-	KeyIcon,
-	LinkIcon,
-	PlusIcon,
-	PullRequestIcon,
-	SearchIcon,
-	SortIcon,
-	TerminalIcon,
 	TrashIcon,
+	UsageBar,
 	UserIcon,
-} from "@/ui";
+	UserMessage,
+} from "@/kit";
 
 function Specimen(props: { label: string; children: JSX.Element; class?: string }): JSX.Element {
 	return (
@@ -134,7 +135,7 @@ export function FeedbackSection(): JSX.Element {
 					confirm="Remove project"
 					danger
 				/>
-				<div class="overflow-hidden rounded-kit-lg">
+				<Card clip>
 					<Banner
 						action={
 							<button type="button" class="font-medium underline underline-offset-2">
@@ -144,7 +145,7 @@ export function FeedbackSection(): JSX.Element {
 					>
 						Grid was updated.
 					</Banner>
-				</div>
+				</Card>
 			</Specimen>
 			<Specimen label="Progress and status">
 				<div class="flex items-center gap-4">
@@ -314,8 +315,14 @@ export function FormsSection(): JSX.Element {
 				</SettingsGroup>
 			</div>
 			<Specimen label="Steps · a drawer's left rail">
-				<div class="grid gap-4 md:grid-cols-[12rem_1fr]">
-					<Stepper steps={["Details", "Review", "Secret key"]} current={step()} onStep={setStep} />
+				<Row gap={4} align="start" wrap>
+					<Stack class="w-48">
+						<Stepper
+							steps={["Details", "Review", "Secret key"]}
+							current={step()}
+							onStep={setStep}
+						/>
+					</Stack>
 					<div class="flex flex-col gap-3">
 						<p class="text-body text-fg-muted">Step {step() + 1} of 3</p>
 						<div class="flex gap-2">
@@ -332,7 +339,7 @@ export function FormsSection(): JSX.Element {
 							</Button>
 						</div>
 					</div>
-				</div>
+				</Row>
 			</Specimen>
 			<Specimen label="Upload">
 				<DropZone
@@ -344,26 +351,9 @@ export function FormsSection(): JSX.Element {
 				/>
 			</Specimen>
 			<Specimen label="Onboarding · form beside a preview" class="md:col-span-2">
-				<div class="rounded-kit-lg bg-surface-sunken p-4 md:p-8">
+				<div class="surface-well p-4 md:p-8">
 					<div class="mx-auto flex justify-center">
-						<SplitLayout
-							aside={
-								<div class="flex h-full items-center justify-end py-8 pl-8">
-									<div class="flex w-full flex-col gap-3 rounded-l-kit-lg border border-line border-r-0 bg-surface p-4">
-										<div class="flex items-center gap-2.5">
-											<WorkspaceMark name="Acme Labs" size="lg" />
-											<div>
-												<p class="font-medium text-body">Acme Labs</p>
-												<p class="text-caption text-fg-subtle">/acme-labs</p>
-											</div>
-										</div>
-										<For each={["w-24", "w-32", "w-20"]}>
-											{(width) => <span class={`h-2 rounded-full bg-fill-strong ${width}`} />}
-										</For>
-									</div>
-								</div>
-							}
-						>
+						<SplitLayout aside={<WorkspacePreview name="Acme Labs" slug="acme-labs" />}>
 							<div>
 								<h3 class="font-medium text-headline">Create your workspace</h3>
 								<p class="text-body text-fg-subtle">
@@ -489,7 +479,7 @@ export function WorkSection(): JSX.Element {
 				/>
 			</Specimen>
 			<Specimen label="Activity" class="md:col-span-2">
-				<div class="divide-y divide-line overflow-hidden rounded-kit-lg shadow-[inset_0_0_0_1px_var(--kit-line)]">
+				<ListCard>
 					<ActivityItem
 						unread
 						icon={<PullRequestIcon class="size-4" />}
@@ -529,7 +519,7 @@ export function WorkSection(): JSX.Element {
 						meta="web-app"
 						time="1d"
 					/>
-				</div>
+				</ListCard>
 			</Specimen>
 		</div>
 	);

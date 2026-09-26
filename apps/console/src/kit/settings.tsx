@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, Show } from "solid-js";
 
-import { CheckIcon, CopyIcon } from "../ui/icons";
+import { CheckIcon, CopyIcon } from "./icons";
 
 /** A titled block of settings: a heading and description, then its rows in one card. */
 export function SettingsGroup(props: {
@@ -21,9 +21,7 @@ export function SettingsGroup(props: {
 				</div>
 				{props.action}
 			</div>
-			<div class="divide-y divide-line rounded-kit-lg bg-surface shadow-[inset_0_0_0_1px_var(--kit-line)]">
-				{props.children}
-			</div>
+			<div class="divide-y divide-line rounded-kit-lg bg-surface ring-line">{props.children}</div>
 		</section>
 	);
 }
@@ -60,7 +58,7 @@ export function CopyField(props: {
 }): JSX.Element {
 	const [copied, setCopied] = createSignal(false);
 	return (
-		<div class="flex h-kit-control min-w-0 items-center gap-2 rounded-kit bg-fill pr-1 pl-3 shadow-[inset_0_0_0_1px_var(--kit-line)]">
+		<div class="flex h-kit-control min-w-0 items-center gap-2 rounded-kit bg-fill pr-1 pl-3 ring-line">
 			<Show when={props.icon}>
 				<span class="shrink-0 text-fg-subtle">{props.icon}</span>
 			</Show>

@@ -9,6 +9,14 @@
  *   fills     fill (hover) · fill-strong (selected, pressed)
  *
  * Every role is ink mixed over transparent, so a tint or the dark theme follows for free.
+ *
+ * Tweaks: four knobs move the whole system at once, live, from /design (and later Settings):
+ *   --kit-radius-scale   corner roundness (1 = the reference)
+ *   --kit-density        control and row heights (1 = the reference; touch never drops below 44px)
+ *   --kit-line-scale     how strong hairlines are
+ *   the hue, saturation and dark lightness inputs from product.css
+ *
+ * Screens never write these values; they use the kit components and the named utilities below.
  */
 
 :root {
@@ -16,8 +24,14 @@
 	--kit-fg-muted: color-mix(in srgb, var(--ink) 76%, transparent);
 	--kit-fg-subtle: color-mix(in srgb, var(--ink) 58%, transparent);
 	--kit-fg-faint: color-mix(in srgb, var(--ink) 38%, transparent);
-	--kit-line: color-mix(in srgb, var(--ink) 7%, transparent);
-	--kit-line-strong: color-mix(in srgb, var(--ink) 11%, transparent);
+	--kit-radius-scale: 1;
+	--kit-density: 1;
+	--kit-line-scale: 1;
+
+	--kit-line: color-mix(in srgb, var(--ink) calc(7% * var(--kit-line-scale)), transparent);
+	--kit-line-strong: color-mix(in srgb, var(--ink) calc(11% * var(--kit-line-scale)), transparent);
+	--kit-line-hover: color-mix(in srgb, var(--ink) calc(20% * var(--kit-line-scale)), transparent);
+	--kit-line-focus: color-mix(in srgb, var(--ink) calc(35% * var(--kit-line-scale)), transparent);
 	--kit-fill: color-mix(in srgb, var(--ink) 3.5%, transparent);
 	--kit-fill-strong: color-mix(in srgb, var(--ink) 6%, transparent);
 	--kit-surface: var(--canvas);
@@ -42,11 +56,23 @@
 	/* Navigation labels: a step above body, as the sidebar reads. */
 	--kit-fs-nav: 1rem; /* 16 */
 
-	/* Heights: touch sizes on phones. */
-	--kit-h-row: 2.75rem;
-	--kit-h-control-sm: 2.25rem;
-	--kit-h-control: 2.75rem;
-	--kit-h-control-lg: 3rem;
+	/* Heights (base values; the density knob scales them): touch sizes on phones. */
+	--kit-h-row-base: 2.75rem;
+	--kit-h-control-sm-base: 2.25rem;
+	--kit-h-control-base: 2.75rem;
+	--kit-h-control-lg-base: 3rem;
+
+	--kit-h-row: calc(var(--kit-h-row-base) * var(--kit-density));
+	--kit-h-control-sm: calc(var(--kit-h-control-sm-base) * var(--kit-density));
+	--kit-h-control: calc(var(--kit-h-control-base) * var(--kit-density));
+	--kit-h-control-lg: calc(var(--kit-h-control-lg-base) * var(--kit-density));
+
+	/* A terminal is dark whatever the theme. */
+	--kit-terminal-bg: #161616;
+	--kit-terminal-fg: #d4d4d4;
+	--kit-terminal-dim: #8b8b8b;
+	--kit-terminal-green: #7fd88f;
+	--kit-terminal-blue: #7aa2f7;
 }
 
 @media (width >= 48rem) {
@@ -60,20 +86,20 @@
 		--kit-fs-field: 0.875rem; /* 14 */
 		--kit-fs-nav: 0.875rem; /* 14 */
 
-		--kit-h-row: 2rem; /* 32 */
-		--kit-h-control-sm: 1.75rem; /* 28 */
-		--kit-h-control: 2rem; /* 32 */
-		--kit-h-control-lg: 2.5rem; /* 40 */
+		--kit-h-row-base: 2rem; /* 32 */
+		--kit-h-control-sm-base: 1.75rem; /* 28 */
+		--kit-h-control-base: 2rem; /* 32 */
+		--kit-h-control-lg-base: 2.5rem; /* 40 */
 	}
 }
 
-/* A coarse pointer keeps touch sizes whatever the width. */
+/* A coarse pointer keeps touch sizes whatever the width or density. */
 @media (pointer: coarse) {
 	:root {
-		--kit-h-row: 2.75rem;
-		--kit-h-control-sm: 2.5rem;
-		--kit-h-control: 2.75rem;
-		--kit-h-control-lg: 3rem;
+		--kit-h-row: max(2.75rem, calc(2.75rem * var(--kit-density)));
+		--kit-h-control-sm: max(2.5rem, calc(2.5rem * var(--kit-density)));
+		--kit-h-control: max(2.75rem, calc(2.75rem * var(--kit-density)));
+		--kit-h-control-lg: max(3rem, calc(3rem * var(--kit-density)));
 	}
 }
 
@@ -132,12 +158,24 @@
 	--spacing-kit-control-lg: var(--kit-h-control-lg);
 
 	/* Radius by size: chips 6, controls 8, rows and cards 10–12, floating surfaces 14, composer 16. */
-	--radius-kit-sm: 6px;
-	--radius-kit: 8px;
-	--radius-kit-md: 10px;
-	--radius-kit-lg: 12px;
-	--radius-kit-xl: 14px;
-	--radius-kit-2xl: 16px;
+	--radius-kit-sm: calc(6px * var(--kit-radius-scale));
+	--radius-kit: calc(8px * var(--kit-radius-scale));
+	--radius-kit-md: calc(10px * var(--kit-radius-scale));
+	--radius-kit-lg: calc(12px * var(--kit-radius-scale));
+	--radius-kit-xl: calc(14px * var(--kit-radius-scale));
+	--radius-kit-2xl: calc(16px * var(--kit-radius-scale));
+
+	--color-terminal: var(--kit-terminal-bg);
+	--color-terminal-fg: var(--kit-terminal-fg);
+	--color-terminal-dim: var(--kit-terminal-dim);
+	--color-terminal-green: var(--kit-terminal-green);
+	--color-terminal-blue: var(--kit-terminal-blue);
+
+	/* Agent providers' own colours, for their marks only. */
+	--color-provider-anthropic: #d97757;
+	--color-provider-openai: var(--ink);
+	--color-provider-google: #4285f4;
+	--color-provider-other: var(--kit-fg-subtle);
 }
 
 /* Floating surfaces (menus, popovers, dialogs): a hairline and a soft lift. */
@@ -148,11 +186,72 @@
 		0 2px 6px -2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.5));
 }
 
-/* Raised in-flow cards (the composer, a checklist): barely there. */
+/* Raised in-flow cards (the composer, a prompt): a hairline and barely any lift. */
 @utility shadow-raise {
 	box-shadow:
+		0 0 0 1px var(--kit-line-strong),
 		0 1px 2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.35)),
 		0 6px 20px -10px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.9));
+}
+
+/* A small lift for things that sit on a surface: a card on a board, the open tab. */
+@utility shadow-lift {
+	box-shadow:
+		0 0 0 1px var(--kit-line),
+		0 1px 2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.3));
+}
+
+/* Hairline edges drawn inside the box, so they never shift layout. */
+@utility ring-line {
+	box-shadow: inset 0 0 0 1px var(--kit-line);
+}
+@utility ring-line-strong {
+	box-shadow: inset 0 0 0 1px var(--kit-line-strong);
+}
+@utility ring-selected {
+	box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+@utility ring-danger {
+	box-shadow: inset 0 0 0 1px var(--signal-danger);
+}
+
+/* Surfaces, each a whole recipe: background, edge and corner. */
+@utility surface-card {
+	background: var(--kit-surface);
+	box-shadow: inset 0 0 0 1px var(--kit-line);
+	border-radius: var(--radius-kit-lg);
+}
+@utility surface-well {
+	background: var(--kit-fill);
+	box-shadow: inset 0 0 0 1px var(--kit-line);
+	border-radius: var(--radius-kit-lg);
+}
+
+/* Anything you type into: a field that darkens its edge on hover and rings on focus. */
+@utility surface-field {
+	background: var(--kit-surface);
+	box-shadow: inset 0 0 0 1px var(--kit-line-strong);
+	border-radius: var(--radius-kit);
+	transition: box-shadow var(--duration-fast) var(--ease-out-grid);
+	&:hover {
+		box-shadow: inset 0 0 0 1px var(--kit-line-hover);
+	}
+	&:focus,
+	&:focus-within,
+	&[aria-expanded="true"] {
+		box-shadow:
+			inset 0 0 0 1px var(--kit-line-focus),
+			0 0 0 3px var(--kit-fill-strong);
+	}
+	&[aria-invalid="true"] {
+		box-shadow: inset 0 0 0 1px var(--signal-danger);
+	}
+}
+
+/* A quiet control that is outlined rather than filled: secondary buttons, the composer's add. */
+@utility surface-outline {
+	background: var(--kit-surface);
+	box-shadow: inset 0 0 0 1px var(--kit-line-strong);
 }
 
 /* The kit slider: a thin track filled in ink up to the value, a white thumb with a hairline. */
@@ -204,4 +303,32 @@
 		outline: 2px solid var(--signal-accent);
 		outline-offset: 1px;
 	}
+}
+
+/* A lifted thing under the pointer: a board card, a clickable card. */
+@utility shadow-lift-hover {
+	box-shadow:
+		0 0 0 1px var(--kit-line-strong),
+		0 2px 6px -2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.8));
+}
+
+/* The composer while you type in it. */
+@utility shadow-focus {
+	box-shadow:
+		0 0 0 1px var(--kit-line-hover),
+		0 2px 8px -2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.6));
+}
+
+/* A knob that sits on a track: the switch thumb, the chosen segment. */
+@utility shadow-knob {
+	box-shadow:
+		0 0 0 1px var(--kit-line),
+		0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+/* A whole page as a card on the backdrop: sign-in and onboarding. */
+@utility shadow-page {
+	box-shadow:
+		0 0 0 1px var(--kit-line),
+		0 16px 40px -20px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 1.5));
 }

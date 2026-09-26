@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, For, Show } from "solid-js";
 
-import { ChevronRightIcon, FileIcon, FolderIcon } from "../ui/icons";
+import { ChevronRightIcon, FileIcon, FolderIcon } from "./icons";
 
 export type TreeNode = { name: string; children?: readonly TreeNode[]; badge?: JSX.Element };
 

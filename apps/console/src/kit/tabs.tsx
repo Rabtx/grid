@@ -63,7 +63,7 @@ export function Segmented<T extends string>(props: {
 						type="button"
 						aria-pressed={props.value === option.value ? "true" : "false"}
 						onClick={() => props.onChange(option.value)}
-						class={`focus-ring flex h-[calc(var(--kit-h-control-sm)-0.25rem)] items-center justify-center gap-1.5 rounded-[6px] px-2.5 text-body text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid hover:text-fg aria-pressed:bg-surface aria-pressed:font-medium aria-pressed:text-fg aria-pressed:shadow-[0_1px_2px_rgb(0_0_0/0.08),0_0_0_1px_var(--kit-line)] ${props.block ? "flex-1" : ""}`}
+						class={`focus-ring flex h-[calc(var(--kit-h-control-sm)-0.25rem)] items-center justify-center gap-1.5 rounded-kit-sm px-2.5 text-body text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid hover:text-fg aria-pressed:bg-surface aria-pressed:font-medium aria-pressed:text-fg aria-pressed:shadow-knob ${props.block ? "flex-1" : ""}`}
 					>
 						{option.icon}
 						{option.label}
