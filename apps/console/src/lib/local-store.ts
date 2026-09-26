@@ -3,11 +3,13 @@
  * chats, terminal screens, thread lists and environments, so the app shows them the moment it
  * opens or comes back, and the network only brings what is new.
  *
- * Everything is kept per signed-in account (keys are prefixed with the user's id) and wiped on
+ * Everything is kept per signed-in account and workspace (keys are prefixed with both) and wiped on
  * sign-out. Nothing here is the source of truth: the runner is, and it corrects this on every
  * connect. When IndexedDB is unavailable (some private windows), reads find nothing and writes
  * are dropped; the app works as before, only without the head start.
  */
+
+import { activeWorkspace } from "./active-workspace";
 
 const DB_NAME = "grid";
 const STORE = "kv";
@@ -52,7 +54,10 @@ async function run<T>(
 }
 
 function scoped(key: string): string | null {
-	return user ? `${user}:${key}` : null;
+	if (!user) return null;
+	// A chosen workspace keeps its own copy; the default one keeps the original keys.
+	const workspace = activeWorkspace();
+	return workspace ? `${user}@${workspace}:${key}` : `${user}:${key}`;
 }
 
 export const localStore = {

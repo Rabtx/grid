@@ -1,3 +1,4 @@
+import { workspaceHeaders } from "./active-workspace";
 import { reportRunnerFailure, reportRunnerSuccess } from "./runner-health";
 
 /**
@@ -15,6 +16,7 @@ export async function runnerCall<T>(
 			...init,
 			headers: {
 				...init.headers,
+				...workspaceHeaders(),
 				Authorization: `Bearer ${token}`,
 				...(init.body ? { "Content-Type": "application/json" } : {}),
 			},

@@ -113,7 +113,7 @@ export function readableInk(hex: string): "#000000" | "#ffffff" {
 /** The actual canvas colour, for the status/browser bar surrounding the page. */
 export function canvasColor(value: Appearance, prefersDark: boolean): string {
 	const dark = value.theme === "dark" || (value.theme === "system" && prefersDark);
-	const lightness = (dark ? value.darkLightness : 97) / 100;
+	const lightness = (dark ? value.darkLightness : 99.2) / 100;
 	const saturation = value.saturation / 100;
 	const amount = saturation * Math.min(lightness, 1 - lightness);
 	const channel = (offset: number) => {

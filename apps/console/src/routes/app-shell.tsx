@@ -25,6 +25,7 @@ import {
 	useShell,
 } from "@/modules/shell";
 import { VoiceControls } from "@/modules/voice";
+import { CreateWorkspaceSheet, WorkspacesProvider } from "@/modules/workspaces";
 import { BrandLogo } from "@/ui";
 
 /**
@@ -42,9 +43,11 @@ export function AppShell(props: { children: JSX.Element }): JSX.Element {
 				when={auth.token() || auth.restoring()}
 				fallback={<SignedOutShell>{props.children}</SignedOutShell>}
 			>
-				<WorkspaceProvider>
-					<SignedInShell>{props.children}</SignedInShell>
-				</WorkspaceProvider>
+				<WorkspacesProvider>
+					<WorkspaceProvider>
+						<SignedInShell>{props.children}</SignedInShell>
+					</WorkspaceProvider>
+				</WorkspacesProvider>
 			</Show>
 			<OfflineBanner />
 			<UpdateBanner />
@@ -76,8 +79,8 @@ const FULL_BLEED = /^\/(chat|terminal)(\/|$)/;
 
 /**
  * The signed-in frame, sized to the visible viewport so everything stays above a phone keyboard.
- * Desktop: the sidebar (projects and their threads), then the screen under its title bar.
- * Phone: a top bar and a drawer holding the sidebar. A status bar closes both.
+ * Desktop: the sidebar on the backdrop, and the screen on a raised canvas panel beside it under
+ * its title bar. Phone: the screen edge to edge under a top bar, the sidebar in a drawer.
  */
 function ShellFrame(props: { children: JSX.Element }): JSX.Element {
 	const shell = useShell();
@@ -104,28 +107,32 @@ function ShellFrame(props: { children: JSX.Element }): JSX.Element {
 	});
 
 	return (
-		<div class="flex h-[var(--app-height,100dvh)] overflow-hidden">
+		<div class="flex h-[var(--app-height,100dvh)] overflow-hidden bg-canvas lg:bg-backdrop">
 			<Show when={shell.desktop()}>
 				<Show when={!shell.collapsed()}>
-					<aside class="glass w-64 shrink-0 border-stroke border-r">
+					<aside class="w-60 shrink-0">
 						<Sidebar />
 					</aside>
 				</Show>
 			</Show>
-			<div class="flex min-w-0 flex-1 flex-col">
-				<Show when={shell.desktop()} fallback={<TopBar />}>
-					<TitleBar />
-				</Show>
-				<main
-					class={
-						FULL_BLEED.test(location.pathname)
-							? "flex min-h-0 flex-1 flex-col overflow-hidden"
-							: "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-4 md:px-6 lg:px-4"
-					}
-				>
-					{props.children}
-				</main>
-				<StatusBar />
+			<div
+				class={`flex min-w-0 flex-1 flex-col lg:py-2 lg:pr-2 ${shell.collapsed() ? "lg:pl-2" : ""}`}
+			>
+				<div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas lg:rounded-xl lg:border lg:border-ink/8 lg:shadow-[0_1px_2px_rgb(0_0_0/0.03)]">
+					<Show when={shell.desktop()} fallback={<TopBar />}>
+						<TitleBar />
+					</Show>
+					<main
+						class={
+							FULL_BLEED.test(location.pathname)
+								? "flex min-h-0 flex-1 flex-col overflow-hidden"
+								: "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-4 md:px-6 lg:px-6 lg:pt-5"
+						}
+					>
+						{props.children}
+					</main>
+					<StatusBar />
+				</div>
 			</div>
 			<NavDrawer />
 			<CommandPalette />
@@ -134,6 +141,7 @@ function ShellFrame(props: { children: JSX.Element }): JSX.Element {
 			<ChooseFolderSheet />
 			<ProjectActionDialogs />
 			<ProjectLookSheet />
+			<CreateWorkspaceSheet />
 			<VoiceControls />
 			<ShortcutsHelp />
 		</div>
