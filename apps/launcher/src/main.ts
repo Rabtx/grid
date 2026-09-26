@@ -15,6 +15,7 @@ import { waitForTailnet } from "./tailnet";
 
 const root = resolve(import.meta.dir, "../../..");
 const app = (name: string): string => join(root, "apps", name);
+const pkg = (name: string): string => join(root, "packages", name);
 
 type Secrets = { jwtSecret: string; authTokenSecret: string };
 
@@ -68,7 +69,7 @@ async function databaseUrl(config: LaunchConfig): Promise<string> {
 async function migrate(env: Record<string, string>): Promise<void> {
 	for (let attempt = 1; ; attempt++) {
 		try {
-			await run(["bun", "src/database/migrate.ts"], app("nest-api"), env);
+			await run(["bun", "src/migrate.ts"], pkg("db"), env);
 			return;
 		} catch (error) {
 			if (attempt >= 30) throw error;
@@ -81,7 +82,7 @@ async function migrate(env: Record<string, string>): Promise<void> {
 type Owner = { created: false } | { created: true; email: string; password: string };
 
 async function ensureOwner(config: LaunchConfig, env: Record<string, string>): Promise<void> {
-	const output = await run(["bun", "src/database/owner.ts"], app("nest-api"), {
+	const output = await run(["bun", "src/owner.ts"], pkg("db"), {
 		...env,
 		GRID_OWNER_EMAIL: config.ownerEmail,
 	});
@@ -162,19 +163,31 @@ async function start(config: LaunchConfig): Promise<void> {
 		}
 	}
 
+	const apiEnv = {
+		...database,
+		NODE_ENV: "development",
+		JWT_SECRET: secrets.jwtSecret,
+		AUTH_TOKEN_SECRET: secrets.authTokenSecret,
+		AUTH_DEV_EXPOSE_CODES: "false",
+	};
 	const services: { name: string; cmd: string[]; cwd: string; env: Record<string, string> }[] = [
+		// The API: Hono on the API port, handing the routes it does not serve yet to NestJS on
+		// loopback behind it. Both read the same database and secrets.
 		{
 			name: "api",
 			cmd: ["bun", "src/main.ts"],
-			cwd: app("nest-api"),
+			cwd: app("api"),
 			env: {
-				...database,
-				NODE_ENV: "development",
+				...apiEnv,
 				PORT: String(config.apiPort),
-				JWT_SECRET: secrets.jwtSecret,
-				AUTH_TOKEN_SECRET: secrets.authTokenSecret,
-				AUTH_DEV_EXPOSE_CODES: "false",
+				GRID_LEGACY_API_URL: `http://127.0.0.1:${config.legacyApiPort}`,
 			},
+		},
+		{
+			name: "legacy-api",
+			cmd: ["bun", "src/main.ts"],
+			cwd: app("nest-api"),
+			env: { ...apiEnv, PORT: String(config.legacyApiPort) },
 		},
 		{
 			name: "runner",

@@ -1,0 +1,71 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { secureHeaders } from "hono/secure-headers";
+
+import { type AppConfig, basePath, isAllowedOrigin } from "./config/config";
+import type { SessionLookup } from "./http/auth";
+import type { AppContext, AppEnv } from "./http/context";
+import { ApiError, errorResponse } from "./http/errors";
+import { forward } from "./http/forward";
+import { rateLimit } from "./http/rate-limit";
+import { requestId } from "./http/request-id";
+import { healthRoutes } from "./modules/health/routes";
+
+/** NestJS's words for a route that does not exist, query string included. */
+function notFoundRoute(c: AppContext): ApiError {
+	const url = new URL(c.req.url);
+	return new ApiError(404, `Cannot ${c.req.method} ${url.pathname}${url.search}`);
+}
+
+export type AppDeps = {
+	config: AppConfig;
+	sessions: SessionLookup;
+};
+
+/**
+ * The Grid API: `/api/v1/...` with the same contract NestJS served. Routes not ported yet are
+ * forwarded to NestJS (see `GRID_LEGACY_API_URL`), so each module moves over on its own.
+ */
+export function createApp(deps: AppDeps): Hono<AppEnv> {
+	const { config } = deps;
+	const app = new Hono<AppEnv>();
+
+	app.use("*", async (c, next) => {
+		c.set("config", config);
+		await next();
+	});
+	app.use("*", requestId);
+	app.use("*", secureHeaders({ crossOriginResourcePolicy: "cross-origin" }));
+	app.use(
+		"*",
+		cors({
+			origin: (origin) => (isAllowedOrigin(config, origin) ? origin : null),
+			credentials: true,
+			allowHeaders: [
+				"Content-Type",
+				"Authorization",
+				"X-Requested-With",
+				"X-Request-Id",
+				"X-Client-Platform",
+			],
+		}),
+	);
+
+	const base = basePath(config);
+	app.use(`${base}/*`, rateLimit({ limit: 100, windowMs: 60_000 }));
+
+	// Ported modules. Each one's routes answer here; everything else falls through below.
+	const api = new Hono<AppEnv>();
+	api.route("/health", healthRoutes());
+	app.route(base, api);
+
+	// Not ported yet: NestJS answers. Without it (after the cutover), a plain 404.
+	const fallback = (c: AppContext) =>
+		config.legacyApiUrl ? forward(c, config.legacyApiUrl) : errorResponse(c, notFoundRoute(c));
+	app.all(`/${config.apiPrefix}/*`, fallback);
+	app.all("/uploads/*", fallback);
+
+	app.notFound((c) => errorResponse(c, notFoundRoute(c)));
+	app.onError((error, c) => errorResponse(c, error));
+	return app;
+}

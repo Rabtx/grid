@@ -3,7 +3,7 @@ set -eu
 
 if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
 	echo "[nest-api] running database migrations..."
-	bun src/database/migrate.ts
+	bun ../../packages/db/src/migrate.ts
 fi
 
 exec "$@"

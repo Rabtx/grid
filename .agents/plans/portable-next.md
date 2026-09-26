@@ -5,15 +5,7 @@ port, on a laptop, a VPS (`docker/compose/grid.yml`) or a Codespace (`.devcontai
 
 ## Phase 2 — API on Hono
 
-Replace `apps/nest-api` (NestJS on Express) with a Hono API that runs unchanged on Bun, in a
-container or serverless (edge/lambda), keeping Postgres and the Drizzle schema and migrations.
-
-- Port module by module behind the same `/api/v1` contract, so the console doesn't change:
-  health → auth (sessions, refresh cookie, OTP, passkeys, Google) → profiles → projects/tasks →
-  billing.
-- Validation stays zod; the Drizzle schema and `src/database/migrations` move as they are.
-- Done when the console's e2e flows pass against Hono and `apps/nest-api` is removed, with its
-  dependencies (Nest CLI, class-validator, Express) gone from the lockfile.
+Planned in detail, with workspaces after it, in [api-on-hono](api-on-hono.md).
 
 ## Phase 3 — Postgres optional
 

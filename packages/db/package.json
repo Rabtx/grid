@@ -1,0 +1,26 @@
+{
+	"name": "@grid/db",
+	"version": "0.0.0",
+	"private": true,
+	"sideEffects": false,
+	"exports": {
+		".": "./src/index.ts",
+		"./schema": "./src/schema/index.ts"
+	},
+	"scripts": {
+		"generate": "drizzle-kit generate",
+		"migrate": "bun src/migrate.ts",
+		"seed": "bun src/seed.ts",
+		"studio": "drizzle-kit studio",
+		"lint": "oxlint .",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"drizzle-orm": "^0.45.3"
+	},
+	"devDependencies": {
+		"@types/bun": "1.4.2",
+		"drizzle-kit": "^0.31.11",
+		"typescript": "^6.0.3"
+	}
+}

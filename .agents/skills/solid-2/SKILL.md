@@ -142,5 +142,5 @@ Pin exact versions (no `^`) while these are prerelease, and bump them together.
 1. Grep your change for every left-column API above; none may appear.
 2. `bun --cwd=apps/console run typecheck`, `lint`, `test`, `build`.
 3. Run the console and exercise the change in a browser (sign in with the seeded demo account,
-   see `apps/nest-api/src/database/seed.ts`); check the console for errors. UI changes also follow
+   see `packages/db/src/seed.ts`); check the console for errors. UI changes also follow
    the [mobile-first](../mobile-first/SKILL.md) skill.

@@ -47,7 +47,7 @@ bun --cwd=apps/nest-api run db:migrate
 bun --cwd=apps/nest-api run db:studio
 ```
 
-Schema changes must be made in `src/database/schema` and committed with the generated migration.
+Schema changes must be made in `packages/db/src/schema` and committed with the generated migration.
 Do not use schema push in shared or production environments.
 
 ## Authentication endpoints
