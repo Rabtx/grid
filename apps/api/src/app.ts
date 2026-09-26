@@ -13,6 +13,7 @@ import { requestId } from "./http/request-id";
 
 import { authCrypto } from "./modules/auth/crypto";
 import { authRoutes } from "./modules/auth/routes";
+import { billingRoutes } from "./modules/billing/routes";
 import type { EmailSender } from "./modules/email/email";
 import { healthRoutes } from "./modules/health/routes";
 import { projectRoutes } from "./modules/projects/routes";
@@ -82,6 +83,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 		"/users/me",
 		profileRoutes({ db: deps.db, sessions: deps.sessions, uploadsDir: config.uploadsDir }),
 	);
+	api.route("/billing", billingRoutes({ db: deps.db, sessions: deps.sessions }));
 	app.route(base, api);
 
 	// Not ported yet: NestJS answers. Without it (after the cutover), a plain 404.
