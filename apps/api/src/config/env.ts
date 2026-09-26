@@ -74,6 +74,7 @@ export const envSchema = z
 		RAZORPAY_PLAN_ENTERPRISE_YEARLY: z.string().min(1).optional(),
 		/** NestJS, behind this API until every module is ported; unported routes are forwarded. */
 		GRID_LEGACY_API_URL: z.url().optional(),
+		GRID_UPLOADS_DIR: z.string().min(1).optional(),
 	})
 	.superRefine((env, context) => {
 		if (env.NODE_ENV !== "production") {

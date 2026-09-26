@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { type Env, parseEnv } from "./env";
 import { isLocalNetworkVariant } from "./local-network";
 
@@ -28,6 +30,7 @@ export type AppConfig = {
 	cookieSameSite: "lax" | "strict" | "none";
 	/** NestJS behind this API, for routes not ported yet. */
 	legacyApiUrl?: string;
+	uploadsDir: string;
 	corsOrigin: string;
 	trustProxy: boolean;
 	authDevExposeCodes: boolean;
@@ -86,6 +89,7 @@ export function createConfig(env: Env = parseEnv()): AppConfig {
 		...(env.GRID_LEGACY_API_URL
 			? { legacyApiUrl: env.GRID_LEGACY_API_URL.replace(/\/$/, "") }
 			: {}),
+		uploadsDir: env.GRID_UPLOADS_DIR ?? resolve(import.meta.dir, "../../../nest-api/uploads"),
 		corsOrigin: env.CORS_ORIGIN,
 		trustProxy: env.TRUST_PROXY,
 		authDevExposeCodes: env.AUTH_DEV_EXPOSE_CODES,

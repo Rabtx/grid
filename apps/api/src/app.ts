@@ -1,3 +1,4 @@
+import type { Database } from "@grid/db";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
@@ -9,12 +10,13 @@ import { ApiError, errorResponse } from "./http/errors";
 import { forward } from "./http/forward";
 import { rateLimit } from "./http/rate-limit";
 import { requestId } from "./http/request-id";
-import type { Database } from "@grid/db";
 
 import { authCrypto } from "./modules/auth/crypto";
 import { authRoutes } from "./modules/auth/routes";
 import type { EmailSender } from "./modules/email/email";
 import { healthRoutes } from "./modules/health/routes";
+import { projectRoutes } from "./modules/projects/routes";
+import { profileRoutes, uploadedFile } from "./modules/profiles/routes";
 
 /** NestJS's words for a route that does not exist, query string included. */
 function notFoundRoute(c: AppContext): ApiError {
@@ -75,13 +77,18 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 			sessions: deps.sessions,
 		}),
 	);
+	api.route("/projects", projectRoutes({ db: deps.db, sessions: deps.sessions }));
+	api.route(
+		"/users/me",
+		profileRoutes({ db: deps.db, sessions: deps.sessions, uploadsDir: config.uploadsDir }),
+	);
 	app.route(base, api);
 
 	// Not ported yet: NestJS answers. Without it (after the cutover), a plain 404.
 	const fallback = (c: AppContext) =>
 		config.legacyApiUrl ? forward(c, config.legacyApiUrl) : errorResponse(c, notFoundRoute(c));
 	app.all(`/${config.apiPrefix}/*`, fallback);
-	app.all("/uploads/*", fallback);
+	app.get("/uploads/*", (c) => uploadedFile(c, config.uploadsDir));
 
 	app.notFound((c) => errorResponse(c, notFoundRoute(c)));
 	app.onError((error, c) => errorResponse(c, error));
