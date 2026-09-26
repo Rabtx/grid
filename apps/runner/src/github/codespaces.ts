@@ -50,9 +50,11 @@ export type Codespace = {
 
 /** What Grid needs from the rest of the runner to connect a Codespace. */
 export type CodespaceHooks = {
-	environments: (ownerId: string) => Environment[];
+	/** The workspace's environments. */
+	environments: (workspace: string) => Environment[];
+	/** Pair one as an environment of the workspace. */
 	pair: (
-		ownerId: string,
+		workspace: string,
 		input: { url: string; code: string; label: string; codespace: string },
 	) => Promise<Environment>;
 };
@@ -243,7 +245,8 @@ export class CodespacesLink {
 		}
 	}
 
-	async list(ownerId: string): Promise<Codespace[]> {
+	/** The signed-in person's Codespaces, with which of them are the workspace's environments. */
+	async list(ownerId: string, workspace: string): Promise<Codespace[]> {
 		this.owned(ownerId);
 		const rows = await this.ghJson<
 			{
@@ -257,7 +260,7 @@ export class CodespacesLink {
 		>(["codespace", "list", "--json", "name,displayName,repository,state,machineName,lastUsedAt"]);
 		const paired = new Map(
 			this.hooks
-				.environments(ownerId)
+				.environments(workspace)
 				.filter((environment) => environment.codespace)
 				.map((environment) => [environment.codespace as string, environment.id]),
 		);
@@ -320,14 +323,14 @@ export class CodespacesLink {
 	 * ask Grid inside it for a pairing code over GitHub's own SSH channel, and pair. Progress
 	 * shows on the Codespace in `list`.
 	 */
-	connect(ownerId: string, name: string): void {
+	connect(ownerId: string, workspace: string, name: string): void {
 		this.owned(ownerId);
 		checkName(name);
 		const running = this.jobs.get(name);
 		if (running && !running.error) return;
 		const job = { ownerId, step: "Starting the Codespace…", error: null as string | null };
 		this.jobs.set(name, job);
-		void this.runConnect(ownerId, name, job).then(
+		void this.runConnect(workspace, name, job).then(
 			() => this.jobs.delete(name),
 			(cause: unknown) => {
 				job.error = cause instanceof Error ? cause.message : "Could not connect it";
@@ -336,7 +339,7 @@ export class CodespacesLink {
 	}
 
 	private async runConnect(
-		ownerId: string,
+		workspace: string,
 		name: string,
 		job: { step: string; error: string | null },
 	): Promise<void> {
@@ -379,7 +382,7 @@ export class CodespacesLink {
 			const url = output.match(/Address: (\S+)/)?.[1];
 			if (code && url) {
 				job.step = "Pairing…";
-				await this.hooks.pair(ownerId, {
+				await this.hooks.pair(workspace, {
 					url,
 					code,
 					label: info.display_name || name,

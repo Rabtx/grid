@@ -22,7 +22,7 @@ export type Environment = {
 
 type Row = {
 	id: string;
-	owner_id: string;
+	workspace_id: string;
 	label: string;
 	url: string;
 	peer_id: string;
@@ -87,7 +87,7 @@ export class EnvironmentStore {
 		this.db.exec(`
 			CREATE TABLE IF NOT EXISTS environments (
 				id TEXT PRIMARY KEY,
-				owner_id TEXT NOT NULL,
+				workspace_id TEXT NOT NULL,
 				label TEXT NOT NULL,
 				url TEXT NOT NULL,
 				peer_id TEXT NOT NULL,
@@ -95,65 +95,85 @@ export class EnvironmentStore {
 				created_at TEXT NOT NULL
 			);
 			CREATE TABLE IF NOT EXISTS project_environments (
-				owner_id TEXT NOT NULL,
+				workspace_id TEXT NOT NULL,
 				project TEXT NOT NULL,
 				environment_id TEXT NOT NULL,
-				PRIMARY KEY (owner_id, project)
+				PRIMARY KEY (workspace_id, project)
 			);
 		`);
 		// Added after the first release: which Codespace an environment is.
-		const columns = this.db.query<{ name: string }, []>("PRAGMA table_info(environments)").all();
-		if (!columns.some((column) => column.name === "codespace")) {
+		if (!hasColumn(this.db, "environments", "codespace")) {
 			this.db.exec("ALTER TABLE environments ADD COLUMN codespace TEXT");
 		}
+		// Environments were each person's before workspaces: their rows keep the person's id as the
+		// workspace until `adopt` moves them into that person's default workspace.
+		for (const table of ["environments", "project_environments"]) {
+			if (hasColumn(this.db, table, "owner_id")) {
+				this.db.exec(`ALTER TABLE ${table} RENAME COLUMN owner_id TO workspace_id`);
+			}
+		}
+	}
+
+	/** Moves a person's environments from before workspaces into their default workspace. */
+	adopt(userId: string, workspace: string): void {
+		if (userId === workspace) return;
+		this.db.transaction(() => {
+			this.db
+				.query("UPDATE environments SET workspace_id = ? WHERE workspace_id = ?")
+				.run(workspace, userId);
+			this.db
+				.query("UPDATE OR IGNORE project_environments SET workspace_id = ? WHERE workspace_id = ?")
+				.run(workspace, userId);
+			this.db.query("DELETE FROM project_environments WHERE workspace_id = ?").run(userId);
+		})();
 	}
 
 	/**
-	 * Where each of this person's projects runs, by project slug: the environment holding its
+	 * Where each of the workspace's projects runs, by project slug: the environment holding its
 	 * folder. A project not listed runs on this machine.
 	 */
-	placements(ownerId: string): Record<string, string> {
+	placements(workspace: string): Record<string, string> {
 		const rows = this.db
 			.query<{ project: string; environment_id: string }, [string]>(
-				"SELECT project, environment_id FROM project_environments WHERE owner_id = ?",
+				"SELECT project, environment_id FROM project_environments WHERE workspace_id = ?",
 			)
-			.all(ownerId);
+			.all(workspace);
 		return Object.fromEntries(rows.map((row) => [row.project, row.environment_id]));
 	}
 
-	/** Run a project on one of this person's environments, or (null) back on this machine. */
-	place(ownerId: string, project: string, environmentId: string | null): void {
+	/** Run a project on one of the workspace's environments, or (null) back on this machine. */
+	place(workspace: string, project: string, environmentId: string | null): void {
 		if (environmentId === null) {
 			this.db
-				.query("DELETE FROM project_environments WHERE owner_id = ? AND project = ?")
-				.run(ownerId, project);
+				.query("DELETE FROM project_environments WHERE workspace_id = ? AND project = ?")
+				.run(workspace, project);
 			return;
 		}
-		if (!this.target(ownerId, environmentId)) {
+		if (!this.target(workspace, environmentId)) {
 			throw new EnvironmentError("That environment does not exist", 404);
 		}
 		this.db
 			.query(
-				`INSERT INTO project_environments (owner_id, project, environment_id) VALUES (?, ?, ?)
-				ON CONFLICT (owner_id, project) DO UPDATE SET environment_id = excluded.environment_id`,
+				`INSERT INTO project_environments (workspace_id, project, environment_id) VALUES (?, ?, ?)
+				ON CONFLICT (workspace_id, project) DO UPDATE SET environment_id = excluded.environment_id`,
 			)
-			.run(ownerId, project, environmentId);
+			.run(workspace, project, environmentId);
 	}
 
-	list(ownerId: string): Environment[] {
+	list(workspace: string): Environment[] {
 		return this.db
-			.query<Row, [string]>("SELECT * FROM environments WHERE owner_id = ? ORDER BY created_at")
-			.all(ownerId)
+			.query<Row, [string]>("SELECT * FROM environments WHERE workspace_id = ? ORDER BY created_at")
+			.all(workspace)
 			.map(toEnvironment);
 	}
 
 	add(
-		ownerId: string,
+		workspace: string,
 		input: { label: string; url: string; peerId: string; secret: string; codespace?: string },
 	): Environment {
 		const row: Row = {
 			id: crypto.randomUUID(),
-			owner_id: ownerId,
+			workspace_id: workspace,
 			label: input.label.trim().slice(0, 80) || new URL(input.url).hostname,
 			url: input.url.replace(/\/$/, ""),
 			peer_id: input.peerId,
@@ -163,12 +183,12 @@ export class EnvironmentStore {
 		};
 		this.db
 			.query(
-				`INSERT INTO environments (id, owner_id, label, url, peer_id, secret, codespace, created_at)
+				`INSERT INTO environments (id, workspace_id, label, url, peer_id, secret, codespace, created_at)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			)
 			.run(
 				row.id,
-				row.owner_id,
+				row.workspace_id,
 				row.label,
 				row.url,
 				row.peer_id,
@@ -179,21 +199,21 @@ export class EnvironmentStore {
 		return toEnvironment(row);
 	}
 
-	/** Where to reach an environment and the token to present, if it is this person's. */
-	target(ownerId: string, id: string): { url: string; token: string } | null {
+	/** Where to reach an environment and the token to present, if it is the workspace's. */
+	target(workspace: string, id: string): { url: string; token: string } | null {
 		const row = this.db
-			.query<Row, [string, string]>("SELECT * FROM environments WHERE id = ? AND owner_id = ?")
-			.get(id, ownerId);
+			.query<Row, [string, string]>("SELECT * FROM environments WHERE id = ? AND workspace_id = ?")
+			.get(id, workspace);
 		return row ? { url: row.url, token: environmentToken(row.peer_id, row.secret) } : null;
 	}
 
 	/** Forget an environment; its projects fall back to this machine. */
-	remove(ownerId: string, id: string): boolean {
+	remove(workspace: string, id: string): boolean {
 		this.db
-			.query("DELETE FROM project_environments WHERE owner_id = ? AND environment_id = ?")
-			.run(ownerId, id);
+			.query("DELETE FROM project_environments WHERE workspace_id = ? AND environment_id = ?")
+			.run(workspace, id);
 		return (
-			this.db.query("DELETE FROM environments WHERE id = ? AND owner_id = ?").run(id, ownerId)
+			this.db.query("DELETE FROM environments WHERE id = ? AND workspace_id = ?").run(id, workspace)
 				.changes > 0
 		);
 	}
@@ -207,4 +227,11 @@ function toEnvironment(row: Row): Environment {
 		codespace: row.codespace ?? null,
 		createdAt: row.created_at,
 	};
+}
+
+function hasColumn(db: Database, table: string, column: string): boolean {
+	return db
+		.query<{ name: string }, []>(`PRAGMA table_info(${table})`)
+		.all()
+		.some((row) => row.name === column);
 }

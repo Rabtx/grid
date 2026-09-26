@@ -12,6 +12,8 @@ import * as q from "./queries";
 import type { CreateWorkspaceInput, UpdateMemberInput, UpdateWorkspaceInput } from "./schema";
 
 const workspaceView = (w: schema.WorkspaceRecord, role: schema.WorkspaceRole) => ({
+	/** Stable across renames: what other services (the runner) key a workspace's data by. */
+	id: w.id,
 	slug: w.slug,
 	name: w.name,
 	icon: w.icon,
@@ -22,11 +24,15 @@ const workspaceView = (w: schema.WorkspaceRecord, role: schema.WorkspaceRole) =>
 });
 const accessView = (access: WorkspaceAccess) => workspaceView(access.workspace, access.role);
 
+/** Yours, each with your role; `isDefault` marks the one requests without a workspace act in. */
 export async function listWorkspaces(db: Database, userId: string) {
+	// Resolving the default first makes a personal workspace for someone who has none yet.
+	const fallback = await workspaceAccess(db, { userId, workspace: null });
 	const rows = await q.listForUser(db, userId);
-	if (rows.length > 0) return rows.map((row) => workspaceView(row.workspace, row.role));
-	// Someone with none yet gets their personal one, as any workspace-less request would.
-	return [accessView(await workspaceAccess(db, { userId, workspace: null }))];
+	return rows.map((row) => ({
+		...workspaceView(row.workspace, row.role),
+		isDefault: row.workspace.id === fallback.workspace.id,
+	}));
 }
 
 export async function createWorkspace(db: Database, userId: string, input: CreateWorkspaceInput) {

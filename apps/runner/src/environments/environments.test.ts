@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "bun:test";
 
+import { signedOut } from "../auth";
 import { ChatHub } from "../chat/hub";
 import { ChatStore } from "../chat/store";
 import { readConfig } from "../config";
@@ -21,7 +22,10 @@ const awayTerminals = new TerminalStore(config, spawnPty);
 const away = startServer(
 	config,
 	awayTerminals,
-	async (token) => (isEnvironmentToken(token) ? awayPairing.verify(token) : null),
+	async (token) => {
+		const key = isEnvironmentToken(token) ? awayPairing.verify(token) : null;
+		return key ? { who: { userId: key, workspace: key } } : signedOut;
+	},
 	new ChatHub(new ChatStore(":memory:"), new Map()),
 	{ pairing: awayPairing },
 );
@@ -31,7 +35,12 @@ const homeTerminals = new TerminalStore(config, spawnPty);
 const home = startServer(
 	config,
 	homeTerminals,
-	async (token) => (token === "alice" ? "user-a" : token === "bob" ? "user-b" : null),
+	async (token) =>
+		token === "alice"
+			? { who: { userId: "user-a", workspace: "ws-a" } }
+			: token === "bob"
+				? { who: { userId: "user-b", workspace: "ws-b" } }
+				: signedOut,
 	new ChatHub(new ChatStore(":memory:"), new Map()),
 	{
 		environments: {
@@ -160,8 +169,8 @@ describe("environments through the home runner", () => {
 		);
 		expect(opened.status).toBe(201);
 		const terminal = ((await opened.json()) as { data: { id: string } }).data.id;
-		// It lives on the environment, as the person who paired it.
-		expect(awayTerminals.list("user-a").map((item) => item.id)).toContain(terminal);
+		// It lives on the environment, under the home workspace that paired it.
+		expect(awayTerminals.list("ws-a").map((item) => item.id)).toContain(terminal);
 		expect(homeTerminals.list("user-a")).toEqual([]);
 
 		const ws = new WebSocket(`ws://127.0.0.1:${home.port}/env/${id}/terminal`);

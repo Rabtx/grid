@@ -299,7 +299,10 @@ describe("ChatHub", () => {
 		const chat = hub();
 		const heard: string[] = [];
 		chat.onUnwatchedAttention((session, event) => heard.push(`${session.id}:${event.type}`));
-		const session = chat.create("me", { project: "alpha", provider: "echo", cwd: "/tmp" });
+		const session = chat.create(
+			{ userId: "me", workspace: "me" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
 
 		let visible = true;
 		const device = chat.attach("me", session.id, {
@@ -321,7 +324,10 @@ describe("ChatHub", () => {
 
 	it("catches a returning device up with only the events it missed", async () => {
 		const chat = hub();
-		const session = chat.create("me", { project: "alpha", provider: "echo", cwd: "/tmp" });
+		const session = chat.create(
+			{ userId: "me", workspace: "me" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
 		const first = chat.attach("me", session.id, { event: () => {}, state: () => {} });
 		expect(first.missed).toBeNull();
 		first.detach();
@@ -358,7 +364,10 @@ describe("ChatHub", () => {
 
 	it("numbers live events for the devices watching", async () => {
 		const chat = hub();
-		const session = chat.create("me", { project: "alpha", provider: "echo", cwd: "/tmp" });
+		const session = chat.create(
+			{ userId: "me", workspace: "me" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
 		const numbers: number[] = [];
 		const watching = chat.attach("me", session.id, {
 			event: (_event, n) => numbers.push(n),
@@ -370,7 +379,10 @@ describe("ChatHub", () => {
 
 	it("keeps each person's chats to themselves", () => {
 		const chat = hub();
-		const mine = chat.create("me", { project: "alpha", provider: "echo", cwd: "/tmp" });
+		const mine = chat.create(
+			{ userId: "me", workspace: "me" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
 		expect(chat.list("me", "alpha").map((session) => session.id)).toEqual([mine.id]);
 		expect(chat.list("you", "alpha")).toEqual([]);
 		expect(() => chat.attach("you", mine.id, { event: () => {}, state: () => {} })).toThrow(
@@ -380,17 +392,23 @@ describe("ChatHub", () => {
 
 	it("refuses an agent that is not installed and a folder that does not exist", () => {
 		const chat = hub();
-		expect(() => chat.create("me", { project: "alpha", provider: "nope" })).toThrow(
-			"not installed",
-		);
 		expect(() =>
-			chat.create("me", { project: "alpha", provider: "echo", cwd: "/no/such/dir" }),
+			chat.create({ userId: "me", workspace: "me" }, { project: "alpha", provider: "nope" }),
+		).toThrow("not installed");
+		expect(() =>
+			chat.create(
+				{ userId: "me", workspace: "me" },
+				{ project: "alpha", provider: "echo", cwd: "/no/such/dir" },
+			),
 		).toThrow("not a folder");
 	});
 
 	it("logs a turn, merging streamed text, and titles the chat from the first message", async () => {
 		const chat = hub();
-		const session = chat.create("me", { project: "alpha", provider: "echo", cwd: "/tmp" });
+		const session = chat.create(
+			{ userId: "me", workspace: "me" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
 		const live: ChatEvent[] = [];
 		chat.attach("me", session.id, { event: (event) => live.push(event), state: () => {} });
 		await chat.prompt("me", session.id, "say hello");
@@ -410,7 +428,10 @@ describe("ChatHub", () => {
 	it("closes a turn the runner never finished (it restarted mid-turn)", () => {
 		const store = new ChatStore(":memory:");
 		const before = new ChatHub(store, new Map([["echo", echo]]));
-		const session = before.create("me", { project: "alpha", provider: "echo", cwd: "/tmp" });
+		const session = before.create(
+			{ userId: "me", workspace: "me" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
 		store.append(session.id, [
 			{ type: "user", text: "go" },
 			{ type: "turn_start" },

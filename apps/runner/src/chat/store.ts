@@ -7,7 +7,10 @@ import type { ChatEvent, Choice } from "../agents/events";
 /** A conversation with an agent, as the console lists it. */
 export type ChatSessionRow = {
 	id: string;
+	/** Who started it: told when it needs attention. */
 	ownerId: string;
+	/** The workspace it belongs to: everyone in it shares the project's chats. */
+	workspaceId: string;
 	project: string;
 	provider: string;
 	title: string;
@@ -24,6 +27,7 @@ export type ChatSessionRow = {
 type Row = {
 	id: string;
 	owner_id: string;
+	workspace_id: string;
 	project: string;
 	provider: string;
 	title: string;
@@ -40,6 +44,7 @@ function toSession(row: Row): ChatSessionRow {
 	return {
 		id: row.id,
 		ownerId: row.owner_id,
+		workspaceId: row.workspace_id,
 		project: row.project,
 		provider: row.provider,
 		title: row.title,
@@ -87,16 +92,18 @@ export class ChatStore {
 			);
 		`);
 		this.db.exec("PRAGMA foreign_keys = ON");
-		// Which folder on this machine holds each project's code. Per machine by design: another
-		// machine running Grid links its own checkout of the same project.
-		this.db.exec(`
-			CREATE TABLE IF NOT EXISTS project_folders (
-				owner_id TEXT NOT NULL,
-				project TEXT NOT NULL,
-				path TEXT NOT NULL,
-				PRIMARY KEY (owner_id, project)
-			);
-		`);
+		// Which folder on this machine holds each project's code, per workspace. Per machine by
+		// design: another machine running Grid links its own checkout of the same project.
+		if (!hasColumn(this.db, "project_folders", "owner_id")) {
+			this.db.exec(`
+				CREATE TABLE IF NOT EXISTS project_folders (
+					workspace_id TEXT NOT NULL,
+					project TEXT NOT NULL,
+					path TEXT NOT NULL,
+					PRIMARY KEY (workspace_id, project)
+				);
+			`);
+		}
 		// Each agent's model list, asked of the agent once and kept until someone refreshes it; and
 		// each person's settings per agent (defaults, whether it is offered at all).
 		this.db.exec(`
@@ -113,22 +120,52 @@ export class ChatStore {
 			);
 		`);
 		// Added after the first release: older databases gain the column in place.
-		const columns = this.db.query<{ name: string }, []>("PRAGMA table_info(sessions)").all();
-		if (!columns.some((column) => column.name === "effort")) {
+		if (!hasColumn(this.db, "sessions", "effort")) {
 			this.db.exec("ALTER TABLE sessions ADD COLUMN effort TEXT");
 		}
+		// Chats and folders were each person's before workspaces. Their rows keep the person's id
+		// as the workspace until `adopt` moves them into that person's default workspace.
+		if (!hasColumn(this.db, "sessions", "workspace_id")) {
+			this.db.exec("ALTER TABLE sessions ADD COLUMN workspace_id TEXT");
+			this.db.exec("UPDATE sessions SET workspace_id = owner_id");
+		}
+		this.db.exec(
+			"CREATE INDEX IF NOT EXISTS sessions_by_workspace_project ON sessions (workspace_id, project, updated_at)",
+		);
+		if (hasColumn(this.db, "project_folders", "owner_id")) {
+			this.db.exec("ALTER TABLE project_folders RENAME COLUMN owner_id TO workspace_id");
+		}
+	}
+
+	/**
+	 * Moves what a person kept before workspaces (keyed by their own id) into their default
+	 * workspace. Runs whenever they act there; after the first time it finds nothing.
+	 */
+	adopt(userId: string, workspace: string): void {
+		if (userId === workspace) return;
+		this.db.transaction(() => {
+			this.db
+				.query("UPDATE sessions SET workspace_id = ? WHERE workspace_id = ?")
+				.run(workspace, userId);
+			// A folder the workspace already has for that project wins over the old one.
+			this.db
+				.query("UPDATE OR IGNORE project_folders SET workspace_id = ? WHERE workspace_id = ?")
+				.run(workspace, userId);
+			this.db.query("DELETE FROM project_folders WHERE workspace_id = ?").run(userId);
+		})();
 	}
 
 	create(session: Omit<ChatSessionRow, "createdAt" | "updatedAt" | "resumeToken">): ChatSessionRow {
 		const now = new Date().toISOString();
 		this.db
 			.query(
-				`INSERT INTO sessions (id, owner_id, project, provider, title, cwd, model, mode, effort, resume_token, created_at, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
 			)
 			.run(
 				session.id,
 				session.ownerId,
+				session.workspaceId,
 				session.project,
 				session.provider,
 				session.title,
@@ -147,12 +184,12 @@ export class ChatStore {
 		return row ? toSession(row) : null;
 	}
 
-	list(ownerId: string, project: string): ChatSessionRow[] {
+	list(workspace: string, project: string): ChatSessionRow[] {
 		return this.db
 			.query<Row, [string, string]>(
-				"SELECT * FROM sessions WHERE owner_id = ? AND project = ? ORDER BY updated_at DESC",
+				"SELECT * FROM sessions WHERE workspace_id = ? AND project = ? ORDER BY updated_at DESC",
 			)
-			.all(ownerId, project)
+			.all(workspace, project)
 			.map(toSession);
 	}
 
@@ -208,23 +245,23 @@ export class ChatStore {
 			.map((row) => JSON.parse(row.data) as ChatEvent);
 	}
 
-	/** Every project folder this person has linked on this machine, by project slug. */
-	projectFolders(ownerId: string): Record<string, string> {
+	/** Every project folder the workspace has linked on this machine, by project slug. */
+	projectFolders(workspace: string): Record<string, string> {
 		const rows = this.db
 			.query<{ project: string; path: string }, [string]>(
-				"SELECT project, path FROM project_folders WHERE owner_id = ?",
+				"SELECT project, path FROM project_folders WHERE workspace_id = ?",
 			)
-			.all(ownerId);
+			.all(workspace);
 		return Object.fromEntries(rows.map((row) => [row.project, row.path]));
 	}
 
-	setProjectFolder(ownerId: string, project: string, path: string): void {
+	setProjectFolder(workspace: string, project: string, path: string): void {
 		this.db
 			.query(
-				`INSERT INTO project_folders (owner_id, project, path) VALUES (?, ?, ?)
-				 ON CONFLICT (owner_id, project) DO UPDATE SET path = excluded.path`,
+				`INSERT INTO project_folders (workspace_id, project, path) VALUES (?, ?, ?)
+				 ON CONFLICT (workspace_id, project) DO UPDATE SET path = excluded.path`,
 			)
-			.run(ownerId, project, path);
+			.run(workspace, project, path);
 	}
 
 	/** A kept model list, or null when the agent has not been asked yet. */
@@ -273,6 +310,13 @@ export class ChatStore {
 	close(): void {
 		this.db.close();
 	}
+}
+
+function hasColumn(db: Database, table: string, column: string): boolean {
+	return db
+		.query<{ name: string }, []>(`PRAGMA table_info(${table})`)
+		.all()
+		.some((row) => row.name === column);
 }
 
 /** What an agent said it offers: its models (with effort levels) and modes. */

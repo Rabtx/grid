@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { ChatEvent } from "../agents/events";
 import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
+import type { Who } from "../auth";
 import type { ChatSessionRow, ChatStore, ProviderCatalog, ProviderSettings } from "./store";
 
 /** One device watching a session. `n` numbers each event, for catching up after a drop. */
@@ -177,17 +178,22 @@ export class ChatHub {
 		this.attention = listener;
 	}
 
-	/** This person's threads with an agent working right now, for the "running" indicators. */
-	running(ownerId: string): { id: string; project: string }[] {
+	/** The workspace's threads with an agent working right now, for the "running" indicators. */
+	running(workspace: string): { id: string; project: string }[] {
 		return [...this.live]
 			.filter(([, live]) => live.running)
 			.map(([id]) => this.store.get(id))
-			.filter((row): row is ChatSessionRow => row?.ownerId === ownerId)
+			.filter((row): row is ChatSessionRow => row?.workspaceId === workspace)
 			.map((row) => ({ id: row.id, project: row.project }));
 	}
 
-	list(ownerId: string, project: string): ChatSessionRow[] {
-		return this.store.list(ownerId, project);
+	list(workspace: string, project: string): ChatSessionRow[] {
+		return this.store.list(workspace, project);
+	}
+
+	/** See `ChatStore.adopt`. */
+	adopt(who: Who): void {
+		this.store.adopt(who.userId, who.workspace);
 	}
 
 	/**
@@ -195,25 +201,25 @@ export class ChatHub {
 	 * else `~/Projects/<slug>` when that exists; otherwise there is nowhere to work and a chat
 	 * cannot start.
 	 */
-	defaultCwd(ownerId: string, project: string): string {
-		const linked = this.store.projectFolders(ownerId)[project];
+	defaultCwd(workspace: string, project: string): string {
+		const linked = this.store.projectFolders(workspace)[project];
 		if (linked && isDirectory(linked)) return linked;
 		const guess = join(this.projectsDir, project);
 		if (isDirectory(guess)) return guess;
 		throw new ChatError("Choose this project's folder first: chats work inside it.", 409);
 	}
 
-	projectFolders(ownerId: string): Record<string, string> {
-		return this.store.projectFolders(ownerId);
+	projectFolders(workspace: string): Record<string, string> {
+		return this.store.projectFolders(workspace);
 	}
 
-	linkProjectFolder(ownerId: string, project: string, path: string): void {
+	linkProjectFolder(workspace: string, project: string, path: string): void {
 		if (!isDirectory(path)) throw new ChatError(`${path} is not a folder on this machine`, 400);
-		this.store.setProjectFolder(ownerId, project, path);
+		this.store.setProjectFolder(workspace, project, path);
 	}
 
 	create(
-		ownerId: string,
+		who: Who,
 		input: {
 			project: string;
 			provider: string;
@@ -226,12 +232,13 @@ export class ChatHub {
 		const provider = this.providers.get(input.provider);
 		if (!provider?.info().available)
 			throw new ChatError("That agent is not installed on this machine", 400);
-		const cwd = input.cwd?.trim() || this.defaultCwd(ownerId, input.project);
+		const cwd = input.cwd?.trim() || this.defaultCwd(who.workspace, input.project);
 		if (!existsSync(cwd) || !isDirectory(cwd))
 			throw new ChatError(`${cwd} is not a folder on this machine`, 400);
 		return this.store.create({
 			id: crypto.randomUUID(),
-			ownerId,
+			ownerId: who.userId,
+			workspaceId: who.workspace,
 			project: input.project,
 			provider: input.provider,
 			title: "New chat",
@@ -242,14 +249,14 @@ export class ChatHub {
 		});
 	}
 
-	delete(ownerId: string, id: string): void {
-		this.owned(ownerId, id);
+	delete(workspace: string, id: string): void {
+		this.owned(workspace, id);
 		this.park(id);
 		this.store.delete(id);
 	}
 
-	rename(ownerId: string, id: string, title: string): void {
-		this.owned(ownerId, id);
+	rename(workspace: string, id: string, title: string): void {
+		this.owned(workspace, id);
 		this.store.update(id, { title: title.trim().slice(0, 120) || "Chat" });
 	}
 
@@ -259,7 +266,7 @@ export class ChatHub {
 	 * kept. Returns the detach function.
 	 */
 	attach(
-		ownerId: string,
+		workspace: string,
 		id: string,
 		client: ChatClient,
 		resume?: ChatCursor,
@@ -272,7 +279,7 @@ export class ChatHub {
 		cursor: ChatCursor;
 		detach: () => void;
 	} {
-		const session = this.owned(ownerId, id);
+		const session = this.owned(workspace, id);
 		const live = this.liveFor(id);
 		this.flush(id, live);
 		if (!live.running && !live.agent) this.closeStaleTurn(id, live);
@@ -292,8 +299,8 @@ export class ChatHub {
 		};
 	}
 
-	async prompt(ownerId: string, id: string, text: string): Promise<void> {
-		const session = this.owned(ownerId, id);
+	async prompt(workspace: string, id: string, text: string): Promise<void> {
+		const session = this.owned(workspace, id);
 		const live = this.liveFor(id);
 		const message = text.trim();
 		if (!message) return;
@@ -321,22 +328,22 @@ export class ChatHub {
 		this.scheduleIdle(id, live);
 	}
 
-	cancel(ownerId: string, id: string): void {
-		this.owned(ownerId, id);
+	cancel(workspace: string, id: string): void {
+		this.owned(workspace, id);
 		void this.live.get(id)?.agent?.then((agent) => agent.cancel());
 	}
 
-	approve(ownerId: string, id: string, approvalId: string, optionId: string | null): void {
-		this.owned(ownerId, id);
+	approve(workspace: string, id: string, approvalId: string, optionId: string | null): void {
+		this.owned(workspace, id);
 		void this.live.get(id)?.agent?.then((agent) => agent.approve(approvalId, optionId));
 	}
 
 	async configure(
-		ownerId: string,
+		workspace: string,
 		id: string,
 		change: { model?: string; mode?: string; effort?: string },
 	): Promise<void> {
-		const session = this.owned(ownerId, id);
+		const session = this.owned(workspace, id);
 		this.store.update(id, change);
 		const live = this.live.get(id);
 		if (!live?.agent) {
@@ -359,9 +366,10 @@ export class ChatHub {
 		for (const id of this.live.keys()) this.park(id);
 	}
 
-	private owned(ownerId: string, id: string): ChatSessionRow {
+	/** A chat in this workspace; one elsewhere answers like one that does not exist. */
+	private owned(workspace: string, id: string): ChatSessionRow {
 		const session = this.store.get(id);
-		if (!session || session.ownerId !== ownerId)
+		if (!session || session.workspaceId !== workspace)
 			throw new ChatError("That chat does not exist", 404);
 		return session;
 	}

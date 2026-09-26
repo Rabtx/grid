@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "bun:test";
 
+import { signedOut } from "./auth";
 import { ChatHub } from "./chat/hub";
 import { ChatStore } from "./chat/store";
 import { readConfig } from "./config";
@@ -13,7 +14,8 @@ const store = new TerminalStore(config, spawnPty);
 const server = startServer(
 	config,
 	store,
-	async (token) => (token === "good" ? "user-1" : null),
+	async (token) =>
+		token === "good" ? { who: { userId: "user-1", workspace: "ws-1" } } : signedOut,
 	new ChatHub(new ChatStore(":memory:"), new Map()),
 );
 const base = `http://127.0.0.1:${server.port}`;

@@ -84,8 +84,11 @@ describe("ChatHub running threads", () => {
 		};
 		const store = new ChatStore(":memory:");
 		const hub = new ChatHub(store, new Map([["fake", provider]]), root);
-		const mine = hub.create("u1", { project: "shop", provider: "fake" });
-		hub.create("u2", { project: "shop", provider: "fake" });
+		const mine = hub.create(
+			{ userId: "u1", workspace: "u1" },
+			{ project: "shop", provider: "fake" },
+		);
+		hub.create({ userId: "u2", workspace: "u2" }, { project: "shop", provider: "fake" });
 		const turn = hub.prompt("u1", mine.id, "go");
 		await Bun.sleep(5);
 		expect(hub.running("u1")).toEqual([{ id: mine.id, project: "shop" }]);

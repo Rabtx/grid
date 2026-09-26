@@ -75,7 +75,7 @@ describe("CodespacesLink sign-in", () => {
 		expect(mine).toMatchObject({ login: "octo", canManageCodespaces: true, claimedBy: "you" });
 		expect((await github.status("u2")).claimedBy).toBe("someone-else");
 		expect(github.signIn("u2")).rejects.toBeInstanceOf(GitHubError);
-		expect(github.list("u2")).rejects.toThrow("Someone else");
+		expect(github.list("u2", "ws-2")).rejects.toThrow("Someone else");
 	});
 
 	it("runs GitHub's device sign-in, shows its code, and claims it once approved", async () => {
@@ -143,7 +143,7 @@ describe("CodespacesLink Codespaces", () => {
 			{ id: "env-9", label: "Grid", url: "u", codespace: "cs-1", createdAt: "" },
 		]);
 		await github.signIn("u1");
-		const list = await github.list("u1");
+		const list = await github.list("u1", "ws-1");
 		expect(list.map((item) => [item.name, item.environment, item.displayName])).toEqual([
 			["cs-1", "env-9", "Grid"],
 			["cs-2", null, "cs-2"],
@@ -174,7 +174,7 @@ describe("CodespacesLink Codespaces", () => {
 		]);
 		const github = link(gh, [], paired);
 		await github.signIn("u1");
-		github.connect("u1", "cs-1");
+		github.connect("u1", "ws-1", "cs-1");
 		await Bun.sleep(5);
 		expect(calls.find((line) => line.startsWith("codespace ssh"))).toContain(
 			"cd '/workspaces/grid' && GRID_PAIRING=1 bun run grid:pair",
@@ -189,7 +189,7 @@ describe("CodespacesLink Codespaces", () => {
 		const github = link(gh);
 		await github.signIn("u1");
 		expect(github.start("u1", "cs; rm -rf /")).rejects.toThrow("not a Codespace name");
-		expect(() => github.connect("u1", "../x")).toThrow("not a Codespace name");
+		expect(() => github.connect("u1", "ws-1", "../x")).toThrow("not a Codespace name");
 		expect(github.create("u1", { repository: "not a repo" })).rejects.toThrow("owner/name");
 		expect(calls.some((line) => line.includes("rm -rf"))).toBe(false);
 	});

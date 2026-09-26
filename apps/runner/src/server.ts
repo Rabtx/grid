@@ -1,6 +1,7 @@
 import type { Server, ServerWebSocket } from "bun";
 
 import { setupCommand } from "./agents/setup";
+import type { Verified, Verify, Who } from "./auth";
 import { type Channel, type ChannelSink, openChat, openTerminal } from "./channels";
 import { type ChatHub } from "./chat/hub";
 import { chatRequest } from "./chat/routes";
@@ -21,6 +22,8 @@ import { transcribe, TranscribeError } from "./transcribe";
 type Hello = {
 	t: "hello";
 	token: string;
+	/** The workspace (slug) to act in; the person's default one when left out. */
+	workspace?: string;
 	id: string;
 	cols?: number;
 	rows?: number;
@@ -43,7 +46,8 @@ type SocketData = {
 		/** Frames that arrived while the hello was still being checked; sent once linked. */
 		early: (string | Buffer)[] | null;
 	} | null;
-	userId: string | null;
+	/** Who said hello, once they have. */
+	who: Who | null;
 	/** The terminal or chat session this socket carries, once attached. */
 	channel: Channel | null;
 	/** The link's channels, once signed in (kind "link"). */
@@ -65,7 +69,7 @@ export const RUNNER_STARTED_AT = Date.now();
 export function startServer(
 	config: RunnerConfig,
 	store: TerminalStore,
-	verify: (token: string) => Promise<string | null>,
+	verify: Verify,
 	chat: ChatHub,
 	extras: {
 		push?: PushNotifier;
@@ -78,10 +82,17 @@ export function startServer(
 	} = {},
 ): Server<SocketData> {
 	const { push, environments, pairing, github } = extras;
-	async function userFrom(request: Request): Promise<string | null> {
+	/**
+	 * Who a request is from and the workspace it acts in (`X-Grid-Workspace`, a slug; the default
+	 * one without it), or the error to answer with.
+	 */
+	async function whoFrom(request: Request, signIn: string): Promise<Who | Response> {
 		const header = request.headers.get("authorization") ?? "";
 		const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-		return token ? verify(token) : null;
+		if (!token) return error(401, signIn);
+		const verified = await verify(token, request.headers.get("x-grid-workspace"));
+		if ("who" in verified) return verified.who;
+		return error(verified.status, verified.status === 401 ? signIn : verified.message);
 	}
 
 	// The hello deadline per socket, cleared when the socket closes so it never fires late.
@@ -97,8 +108,8 @@ export function startServer(
 				return Response.json({ ok: true, startedAt: RUNNER_STARTED_AT });
 
 			if (url.pathname === "/transcribe" && request.method === "POST") {
-				const userId = await userFrom(request);
-				if (!userId) return error(401, "Sign in to use voice input");
+				const who = await whoFrom(request, "Sign in to use voice input");
+				if (who instanceof Response) return who;
 				const audio = await request.blob();
 				if (audio.size === 0) return error(400, "The recording is empty");
 				if (audio.size > MAX_AUDIO_BYTES) return error(413, "The recording is too long");
@@ -115,7 +126,7 @@ export function startServer(
 				const kind =
 					url.pathname === "/chat" ? "chat" : url.pathname === "/link" ? "link" : "terminal";
 				const upgraded = server.upgrade(request, {
-					data: { kind, relay: null, userId: null, channel: null, link: null },
+					data: { kind, relay: null, who: null, channel: null, link: null },
 				});
 				return upgraded ? undefined : new Response("Expected a WebSocket", { status: 426 });
 			}
@@ -134,58 +145,58 @@ export function startServer(
 						data: {
 							kind: path === "/chat" ? "chat" : path === "/link" ? "link" : "terminal",
 							relay: { environmentId, path, link: null, early: null },
-							userId: null,
+							who: null,
 							channel: null,
 							link: null,
 						},
 					});
 					return upgraded ? undefined : new Response("Expected a WebSocket", { status: 426 });
 				}
-				const userId = await userFrom(request);
-				if (!userId) return error(401, "Sign in to use your environments");
-				const target = environments.store.target(userId, environmentId);
+				const who = await whoFrom(request, "Sign in to use your environments");
+				if (who instanceof Response) return who;
+				const target = environments.store.target(who.workspace, environmentId);
 				if (!target) return error(404, "That environment does not exist");
 				return relayHttp(request, path, url.search, target, environments.fetcher);
 			}
 
 			if (github && (url.pathname === "/github" || url.pathname.startsWith("/github/"))) {
-				const userId = await userFrom(request);
-				if (!userId) return error(401, "Sign in to connect GitHub");
-				const handled = await githubRequest(request, url, userId, github);
+				const who = await whoFrom(request, "Sign in to connect GitHub");
+				if (who instanceof Response) return who;
+				const handled = await githubRequest(request, url, who, github);
 				if (handled) return handled;
 			}
 
 			if (environments && url.pathname.startsWith("/environments")) {
-				const userId = await userFrom(request);
-				if (!userId) return error(401, "Sign in to manage environments");
-				const handled = await environmentRequest(request, url, userId, environments);
+				const who = await whoFrom(request, "Sign in to manage environments");
+				if (who instanceof Response) return who;
+				const handled = await environmentRequest(request, url, who.workspace, environments);
 				if (handled) return handled;
 			}
 
 			if (url.pathname.startsWith("/fs/") || url.pathname.startsWith("/projects/")) {
-				const userId = await userFrom(request);
-				if (!userId) return error(401, "Sign in to browse folders");
-				const handled = await folderRequest(request, url, userId, chat);
+				const who = await whoFrom(request, "Sign in to browse folders");
+				if (who instanceof Response) return who;
+				const handled = await folderRequest(request, url, who.workspace, chat);
 				if (handled) return handled;
 			}
 
 			if (push && url.pathname.startsWith("/push/")) {
-				const userId = await userFrom(request);
-				if (!userId) return error(401, "Sign in to get notifications");
-				const handled = await pushRequest(request, url, userId, push);
+				const who = await whoFrom(request, "Sign in to get notifications");
+				if (who instanceof Response) return who;
+				const handled = await pushRequest(request, url, who.userId, push);
 				if (handled) return handled;
 			}
 
 			// Install or sign in an agent: a terminal here, running the agent's own command.
 			const setup = url.pathname.match(/^\/chat\/providers\/([\w-]+)\/setup$/);
 			if (setup && request.method === "POST") {
-				const userId = await userFrom(request);
-				if (!userId) return error(401, "Sign in to set up agents");
+				const who = await whoFrom(request, "Sign in to set up agents");
+				if (who instanceof Response) return who;
 				const body = (await request.json().catch(() => ({}))) as { step?: unknown };
 				const step = body.step === "install" || body.step === "sign-in" ? body.step : null;
 				const command = step ? setupCommand(setup[1], step) : null;
 				if (!step || !command) return error(404, "Grid cannot do that for this agent");
-				const info = store.open(userId, { cols: 100, rows: 30 }, undefined, {
+				const info = store.open(who.userId, { cols: 100, rows: 30 }, undefined, {
 					command,
 					title: `${step === "install" ? "Install" : "Sign in"} ${setup[1]}`,
 				});
@@ -194,18 +205,18 @@ export function startServer(
 			}
 
 			if (url.pathname.startsWith("/chat/")) {
-				const userId = await userFrom(request);
-				if (!userId) return error(401, "Sign in to chat with agents");
-				const handled = await chatRequest(request, url, userId, chat);
+				const who = await whoFrom(request, "Sign in to chat with agents");
+				if (who instanceof Response) return who;
+				const handled = await chatRequest(request, url, who, chat);
 				if (handled) return handled;
 			}
 
 			if (url.pathname === "/terminals" || url.pathname.startsWith("/terminals/")) {
-				const userId = await userFrom(request);
-				if (!userId) return error(401, "Sign in to use the terminal");
+				const who = await whoFrom(request, "Sign in to use the terminal");
+				if (who instanceof Response) return who;
 				const id = url.pathname.slice("/terminals/".length);
 
-				if (request.method === "GET" && !id) return Response.json({ data: store.list(userId) });
+				if (request.method === "GET" && !id) return Response.json({ data: store.list(who.userId) });
 				if (request.method === "POST" && !id) {
 					const body = (await request.json().catch(() => ({}))) as {
 						cols?: number;
@@ -213,7 +224,7 @@ export function startServer(
 						cwd?: string;
 					};
 					const info = store.open(
-						userId,
+						who.userId,
 						{ cols: body.cols ?? 80, rows: body.rows ?? 24 },
 						typeof body.cwd === "string" ? body.cwd : undefined,
 					);
@@ -221,7 +232,7 @@ export function startServer(
 					return Response.json({ data: info }, { status: 201 });
 				}
 				if (request.method === "DELETE" && id) {
-					return store.close(userId, id)
+					return store.close(who.userId, id)
 						? new Response(null, { status: 204 })
 						: error(404, "That terminal does not exist");
 				}
@@ -237,7 +248,7 @@ export function startServer(
 			maxPayloadLength: 1024 * 1024,
 			open(ws) {
 				const timer = setTimeout(() => {
-					if (!ws.data.userId) ws.close(CLOSE_UNAUTHORIZED, "No hello");
+					if (!ws.data.who) ws.close(CLOSE_UNAUTHORIZED, "No hello");
 				}, HELLO_TIMEOUT_MS);
 				helloTimers.set(ws, timer);
 			},
@@ -250,7 +261,7 @@ export function startServer(
 					} else await relayHello(ws, message);
 					return;
 				}
-				if (!ws.data.userId) {
+				if (!ws.data.who) {
 					await hello(ws, message);
 					return;
 				}
@@ -258,7 +269,7 @@ export function startServer(
 					linkMessage(
 						ws.data.link,
 						{ send: (text) => ws.send(text), sendBinary: (bytes) => ws.sendBinary(bytes) },
-						ws.data.userId,
+						ws.data.who,
 						typeof message === "string" ? message : new Uint8Array(message),
 						{ store, chat },
 					);
@@ -307,17 +318,14 @@ export function startServer(
 			return;
 		}
 		relay.early = [];
-		const userId = await verify(first.token);
-		if (!userId) {
-			ws.close(CLOSE_UNAUTHORIZED, "Sign in again");
-			return;
-		}
-		const target = environments?.store.target(userId, relay.environmentId);
+		const who = signedIn(ws, await verify(first.token, first.workspace));
+		if (!who) return;
+		const target = environments?.store.target(who.workspace, relay.environmentId);
 		if (!target) {
 			ws.close(CLOSE_NOT_FOUND, "That environment does not exist");
 			return;
 		}
-		ws.data.userId = userId;
+		ws.data.who = who;
 		clearTimeout(helloTimers.get(ws));
 		relay.link = new SocketRelay({
 			send: (data) => {
@@ -342,12 +350,9 @@ export function startServer(
 			ws.close(CLOSE_UNAUTHORIZED, "Expected hello");
 			return;
 		}
-		const userId = await verify(first.token);
-		if (!userId) {
-			ws.close(CLOSE_UNAUTHORIZED, "Sign in again");
-			return;
-		}
-		ws.data.userId = userId;
+		const who = signedIn(ws, await verify(first.token, first.workspace));
+		if (!who) return;
+		ws.data.who = who;
 		clearTimeout(helloTimers.get(ws));
 		if (ws.data.kind === "link") {
 			ws.data.link = createLink();
@@ -361,9 +366,19 @@ export function startServer(
 		};
 		ws.data.channel =
 			ws.data.kind === "chat"
-				? openChat(chat, userId, first, sink)
-				: openTerminal(store, userId, first, sink);
+				? openChat(chat, who.workspace, first, sink)
+				: openTerminal(store, who.userId, first, sink);
 	}
+}
+
+/** The person a hello checked out as; otherwise the socket is closed with the reason. */
+function signedIn(ws: ServerWebSocket<SocketData>, verified: Verified): Who | null {
+	if ("who" in verified) return verified.who;
+	ws.close(
+		verified.status === 401 ? CLOSE_UNAUTHORIZED : CLOSE_NOT_FOUND,
+		verified.status === 401 ? "Sign in again" : verified.message,
+	);
+	return null;
 }
 
 function parse<T>(text: string): T | null {

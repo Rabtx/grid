@@ -1,3 +1,4 @@
+import type { Who } from "../auth";
 import { type CodespacesLink, GitHubError } from "./codespaces";
 
 /**
@@ -7,9 +8,11 @@ import { type CodespacesLink, GitHubError } from "./codespaces";
 export async function githubRequest(
 	request: Request,
 	url: URL,
-	userId: string,
+	who: Who,
 	github: CodespacesLink,
 ): Promise<Response | null> {
+	// Signing in to GitHub is the person's; a Codespace connected becomes the workspace's.
+	const { userId, workspace } = who;
 	try {
 		if (url.pathname === "/github" && request.method === "GET") {
 			return Response.json({ data: await github.status(userId) });
@@ -22,7 +25,7 @@ export async function githubRequest(
 			return new Response(null, { status: 204 });
 		}
 		if (url.pathname === "/github/codespaces" && request.method === "GET") {
-			return Response.json({ data: await github.list(userId) });
+			return Response.json({ data: await github.list(userId, workspace) });
 		}
 		if (url.pathname === "/github/codespaces" && request.method === "POST") {
 			const body = (await request.json().catch(() => null)) as {
@@ -42,7 +45,7 @@ export async function githubRequest(
 			const [, name, verb] = action;
 			if (verb === "start") await github.start(userId, name);
 			else if (verb === "stop") await github.stop(userId, name);
-			else github.connect(userId, name);
+			else github.connect(userId, workspace, name);
 			return new Response(null, { status: verb === "connect" ? 202 : 204 });
 		}
 		return url.pathname.startsWith("/github") ? failure(404, "Not found") : null;
