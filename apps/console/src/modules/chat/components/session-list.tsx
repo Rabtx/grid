@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
+import { workspaceHref } from "@/lib/active-workspace";
 import { CloseIcon, PlusIcon } from "@/ui";
 
 import { threadsStore } from "../stores/threads";
@@ -61,7 +62,7 @@ export function SessionTabs(props: {
 						>
 							<a
 								role="tab"
-								href={props.hrefFor(tab.id)}
+								href={workspaceHref(props.hrefFor(tab.id))}
 								aria-selected={props.activeId === tab.id ? "true" : "false"}
 								class="focus-ring flex min-w-0 items-center gap-1.5 rounded-sm text-ui-sm"
 							>

@@ -1,11 +1,10 @@
 import type { JSX } from "@solidjs/web";
 import { For, Loading, Show } from "solid-js";
 
-import { CheckIcon, PlusIcon, Popover, SettingsIcon, UnfoldIcon } from "@/ui";
+import { workspaceHref } from "@/lib/active-workspace";
+import { CheckIcon, PlusIcon, Popover, SettingsIcon, UnfoldIcon, WorkspaceMark } from "@/ui";
 
 import { useWorkspaces } from "../context/workspaces-context";
-
-import { WorkspaceMark } from "./workspace-mark";
 
 const ROW =
 	"focus-ring flex h-row w-full items-center gap-2.5 rounded-md px-2 text-left text-ink/80 text-ui transition-colors duration-fast ease-out-grid hover:bg-ink/6 hover:text-ink pointer-coarse:min-h-12";
@@ -73,7 +72,7 @@ export function WorkspaceSwitcher(): JSX.Element {
 							</span>
 							Create workspace
 						</button>
-						<a href="/settings/appearance" class={ROW} onClick={() => close()}>
+						<a href={workspaceHref("/settings/appearance")} class={ROW} onClick={() => close()}>
 							<span class="grid size-5 shrink-0 place-items-center">
 								<SettingsIcon class="size-4" />
 							</span>

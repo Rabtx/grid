@@ -1,3 +1,4 @@
+export { AuthCard } from "./auth-card";
 export { BrandLogo, BrandMark } from "./brand";
 export { Button, IconButton } from "./button";
 export { ConfirmDialog } from "./confirm-dialog";
@@ -12,3 +13,5 @@ export { Select } from "./select";
 export { Sheet } from "./sheet";
 export { Slider } from "./slider";
 export { toast, Toaster } from "./toast";
+export { WorkspaceMark } from "./workspace-mark";
+export { WorkspacePreview } from "./workspace-preview";

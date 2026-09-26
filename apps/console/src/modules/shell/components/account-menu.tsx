@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For } from "solid-js";
 
+import { workspaceHref } from "@/lib/active-workspace";
 import { appearance, type Theme, updateAppearance } from "@/lib/appearance";
 import { useAuth } from "@/modules/auth";
 import { ComputerIcon, MoonIcon, Popover, SettingsIcon, SignOutIcon, SunIcon } from "@/ui";
@@ -77,7 +78,7 @@ export function AccountMenu(): JSX.Element {
 							</For>
 						</fieldset>
 					</div>
-					<a href="/settings/appearance" class={ROW} onClick={() => close()}>
+					<a href={workspaceHref("/settings/appearance")} class={ROW} onClick={() => close()}>
 						<SettingsIcon class="size-4 shrink-0 text-ink/55" />
 						Settings
 					</a>

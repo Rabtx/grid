@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { Loading, Show } from "solid-js";
 
+import { workspaceHref } from "@/lib/active-workspace";
 import { runnerUp } from "@/lib/runner-health";
 import { useWorkspace } from "@/modules/projects";
 import { FolderIcon, TerminalIcon } from "@/ui";
@@ -46,7 +47,7 @@ export function StatusBar(): JSX.Element {
 					)}
 				</Show>
 			</Loading>
-			<a href="/terminal" class={`${ITEM} ml-auto`}>
+			<a href={workspaceHref("/terminal")} class={`${ITEM} ml-auto`}>
 				<TerminalIcon class="size-3.5 shrink-0" />
 				Terminal
 			</a>

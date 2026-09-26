@@ -2,6 +2,7 @@ import { useMatch } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, onSettled, Show } from "solid-js";
 
+import { workspaceHref } from "@/lib/active-workspace";
 import { useAuth } from "@/modules/auth";
 import {
 	attachContextMenu,
@@ -293,7 +294,7 @@ function NoteCard(props: {
 									<>
 										<span aria-hidden="true">·</span>
 										<a
-											href={`/chat/${props.slug}/${thread()}`}
+											href={workspaceHref(`/chat/${props.slug}/${thread()}`)}
 											class="focus-ring rounded-sm text-link underline-offset-2 hover:underline pointer-coarse:py-2"
 										>
 											Open chat

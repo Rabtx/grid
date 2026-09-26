@@ -58,10 +58,10 @@ export function LoginForm(): JSX.Element {
 	}
 
 	return (
-		<form class="flex w-full max-w-[22rem] flex-col gap-4" onSubmit={submit}>
+		<form class="flex w-full flex-col gap-4" onSubmit={submit}>
 			<header class="flex flex-col gap-1">
-				<h1 class="font-semibold text-title">Sign in to Grid</h1>
-				<p class="text-ink/50 text-ui-sm">Your projects, tasks and agent runs.</p>
+				<h1 class="font-medium text-title">Sign in to Grid</h1>
+				<p class="text-ink/55 text-ui-sm">Welcome back. Your workspaces are where you left them.</p>
 			</header>
 
 			<Field label="Email">

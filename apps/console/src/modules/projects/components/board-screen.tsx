@@ -2,6 +2,7 @@ import { useSearchParams } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, Errored, isPending, Loading, Show } from "solid-js";
 
+import { workspaceHref } from "@/lib/active-workspace";
 import { Button, EmptyState, ErrorNotice } from "@/ui";
 
 import { useWorkspace } from "../context/workspace-context";
@@ -147,7 +148,7 @@ function ProjectNotFound(): JSX.Element {
 			description="It may have been renamed or archived."
 			action={
 				<a
-					href="/board"
+					href={workspaceHref("/board")}
 					class="focus-ring rounded-sm text-link text-ui-sm underline-offset-2 hover:underline"
 				>
 					Open your first project

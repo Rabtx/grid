@@ -35,6 +35,22 @@ export interface InstanceStatus {
 	signupOpen: boolean;
 }
 
+/** A new account; with an invite it joins that workspace straight away. */
+export interface RegisterInput {
+	email: string;
+	username: string;
+	password: string;
+	inviteToken?: string;
+}
+
+/** A new account, and whether its email still needs the code sent to it. */
+export interface RegisterResult {
+	message: string;
+	/** Only when the API runs in development, instead of sending mail. */
+	developmentCode?: string;
+	user: AuthUser & { emailVerified: boolean };
+}
+
 export interface LoginInput {
 	email: string;
 	password: string;

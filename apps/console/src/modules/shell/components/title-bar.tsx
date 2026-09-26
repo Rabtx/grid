@@ -2,6 +2,7 @@ import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { Loading, Show } from "solid-js";
 
+import { workspaceHref } from "@/lib/active-workspace";
 import { useWorkspace } from "@/modules/projects";
 import {
 	BoardIcon,
@@ -86,7 +87,7 @@ function ProjectViews(props: { compact?: boolean }): JSX.Element {
 			{(project) => (
 				<nav aria-label="Project views" class="flex items-center gap-0.5 rounded-lg bg-ink/5 p-0.5">
 					<a
-						href={workspace.projectHref(project())}
+						href={workspaceHref(workspace.projectHref(project()))}
 						aria-current={onBoard() || onFiles() || onNotes() ? undefined : "page"}
 						class={VIEW}
 						title="Threads"
@@ -95,7 +96,7 @@ function ProjectViews(props: { compact?: boolean }): JSX.Element {
 						<span class={props.compact ? "sr-only" : ""}>Threads</span>
 					</a>
 					<a
-						href={`/files/${project()}`}
+						href={workspaceHref(`/files/${project()}`)}
 						aria-current={onFiles() ? "page" : undefined}
 						class={VIEW}
 						title="Files"
@@ -104,7 +105,7 @@ function ProjectViews(props: { compact?: boolean }): JSX.Element {
 						<span class={props.compact ? "sr-only" : ""}>Files</span>
 					</a>
 					<a
-						href={`/notes/${project()}`}
+						href={workspaceHref(`/notes/${project()}`)}
 						aria-current={onNotes() ? "page" : undefined}
 						class={VIEW}
 						title="Notes"
@@ -113,7 +114,7 @@ function ProjectViews(props: { compact?: boolean }): JSX.Element {
 						<span class={props.compact ? "sr-only" : ""}>Notes</span>
 					</a>
 					<a
-						href={`/board/${project()}`}
+						href={workspaceHref(`/board/${project()}`)}
 						aria-current={onBoard() ? "page" : undefined}
 						class={VIEW}
 						title="Board"
