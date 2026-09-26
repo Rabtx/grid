@@ -54,6 +54,20 @@ describe("InteractiveCliScreen", () => {
 		]);
 		screen.dispose();
 	});
+
+	it("records an ad only once when its newline arrives in the next PTY chunk", async () => {
+		const events: { type: string; content?: string }[] = [];
+		const screen = new InteractiveCliScreen(40, 3, (event) => events.push(event));
+		screen.write(bytes("Ad: sponsor"));
+		await settle();
+		screen.write(bytes("\r\nmore"));
+		await settle();
+		expect(screen.ads()).toEqual(["Ad: sponsor"]);
+		expect(events.filter((event) => event.type === "ad")).toEqual([
+			{ type: "ad", content: "Ad: sponsor" },
+		]);
+		screen.dispose();
+	});
 });
 
 describe("spawnInteractiveCli", () => {

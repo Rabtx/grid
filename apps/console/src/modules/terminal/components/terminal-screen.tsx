@@ -504,6 +504,7 @@ export function TerminalScreen(): JSX.Element {
 								onState={(state) => setStates((all) => ({ ...all, [terminal.id]: state }))}
 								onTitle={(title) => setTitles((all) => ({ ...all, [terminal.id]: title }))}
 								onEvent={(event) => onCliEvent(terminal.id, event)}
+								onAdsSnapshot={(ads) => setCliAds((all) => ({ ...all, [terminal.id]: ads }))}
 							/>
 							<Show when={terminal.provider && cliView() === "screen"}>
 								<div class="absolute inset-0 z-10 flex flex-col bg-canvas text-ink">

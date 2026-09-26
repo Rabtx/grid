@@ -26,6 +26,7 @@ export class InteractiveCliScreen {
 	private lastScreen = "";
 	private lastInteraction = "";
 	private lastAd = "";
+	private pendingAd = "";
 	private readonly adHistory: string[] = [];
 	private completedAds = 0;
 
@@ -40,9 +41,12 @@ export class InteractiveCliScreen {
 			const row = buffer.viewportY + Math.max(0, buffer.cursorY - 1);
 			const line = buffer.getLine(row)?.translateToString(true).trim() ?? "";
 			if (/^(?:ad|sponsored|advertisement)\s*:/i.test(line)) {
-				this.recordAd(line);
-				this.completedAds++;
+				if (this.pendingAd !== line) {
+					this.recordAd(line);
+					this.completedAds++;
+				}
 			} else this.lastAd = "";
+			this.pendingAd = "";
 		});
 	}
 
@@ -86,6 +90,12 @@ export class InteractiveCliScreen {
 			if (completedAds === this.completedAds) {
 				for (const line of visible) this.captureAd(line);
 			}
+			const cursorLine = buffer
+				.getLine(buffer.viewportY + buffer.cursorY)
+				?.translateToString(true)
+				.trim();
+			this.pendingAd =
+				cursorLine && /^(?:ad|sponsored|advertisement)\s*:/i.test(cursorLine) ? cursorLine : "";
 			if (!visible.some((line) => /^(?:ad|sponsored|advertisement)\s*:/i.test(line))) {
 				this.lastAd = "";
 			}

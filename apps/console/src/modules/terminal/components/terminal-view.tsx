@@ -54,6 +54,7 @@ export function TerminalView(props: {
 	onState: (state: ConnectionState) => void;
 	onTitle: (title: string) => void;
 	onEvent?: (event: InteractiveCliEvent) => void;
+	onAdsSnapshot?: (ads: string[]) => void;
 }): JSX.Element {
 	const auth = useAuth();
 	let host: HTMLDivElement | undefined;
@@ -246,6 +247,7 @@ export function TerminalView(props: {
 			onState: link.set,
 			onTitle: (title) => props.onTitle(title),
 			onEvent: props.onEvent,
+			onAdsSnapshot: props.onAdsSnapshot,
 			onExit: (code) => {
 				terminal.write(`\r\n\x1b[2m[process exited with code ${code}]\x1b[0m\r\n`);
 			},

@@ -30,6 +30,7 @@ export type TerminalSocketOptions = {
 	onTitle: (title: string) => void;
 	onExit: (code: number) => void;
 	onEvent?: (event: InteractiveCliEvent) => void;
+	onAdsSnapshot?: (ads: string[]) => void;
 	createSocket?: (url: string) => WebSocket;
 	/** How many bytes of output the screen already shows (kept on the device), to get only the rest. */
 	offset?: number | null;
@@ -189,9 +190,7 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 					options.onEvent?.({ type: "screen", content: message.screen });
 				}
 				if (Array.isArray(message.ads)) {
-					for (const ad of message.ads) {
-						if (typeof ad === "string") options.onEvent?.({ type: "ad", content: ad });
-					}
+					options.onAdsSnapshot?.(message.ads.filter((ad): ad is string => typeof ad === "string"));
 				}
 				setState("open");
 				if (pending) {

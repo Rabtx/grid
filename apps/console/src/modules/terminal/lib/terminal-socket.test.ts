@@ -41,6 +41,7 @@ function setup(renew: () => Promise<string | null> = async () => null) {
 	const states: ConnectionState[] = [];
 	const output: string[] = [];
 	const events: string[] = [];
+	const adSnapshots: string[][] = [];
 	let token = "t1";
 	const terminal = connectTerminal({
 		url: "ws://test/runner/terminal",
@@ -59,6 +60,7 @@ function setup(renew: () => Promise<string | null> = async () => null) {
 		onExit: (code) => events.push(`exit:${code}`),
 		onEvent: (event) =>
 			events.push(`${event.type}:${event.type === "screen" ? event.content : ""}`),
+		onAdsSnapshot: (ads) => adSnapshots.push(ads),
 		createSocket: (url) => {
 			const socket = new FakeSocket(url);
 			sockets.push(socket);
@@ -66,14 +68,14 @@ function setup(renew: () => Promise<string | null> = async () => null) {
 		},
 		retryDelaysMs: [100, 500],
 	});
-	return { terminal, sockets, states, output, events };
+	return { terminal, sockets, states, output, events, adSnapshots };
 }
 
 const ready = JSON.stringify({ t: "ready", terminal: { id: "term-1" } });
 
 describe("connectTerminal", () => {
 	it("receives interpreted screen state and interaction events alongside raw output", () => {
-		const { sockets, events, output } = setup();
+		const { sockets, events, output, adSnapshots } = setup();
 		sockets[0].accept();
 		sockets[0].receive(
 			JSON.stringify({
@@ -88,9 +90,29 @@ describe("connectTerminal", () => {
 		);
 		sockets[0].receive(new TextEncoder().encode("Ad: visible").buffer);
 		expect(events).toContain("screen:Freebuff");
-		expect(events).toContain("ad:");
+		expect(adSnapshots).toEqual([["Ad: sponsor"]]);
 		expect(events).toContain("selection:");
 		expect(output).toEqual(["Ad: visible"]);
+	});
+
+	it("replaces ad history on reconnect without replaying old ads as live events", () => {
+		const { sockets, events, adSnapshots } = setup();
+		const message = JSON.stringify({
+			t: "ready",
+			terminal: { id: "term-1" },
+			ads: ["Ad: sponsor", "Ad: sponsor"],
+		});
+		sockets[0].accept();
+		sockets[0].receive(message);
+		sockets[0].drop();
+		vi.advanceTimersByTime(100);
+		sockets[1].accept();
+		sockets[1].receive(message);
+		expect(adSnapshots).toEqual([
+			["Ad: sponsor", "Ad: sponsor"],
+			["Ad: sponsor", "Ad: sponsor"],
+		]);
+		expect(events).not.toContain("ad:");
 	});
 	beforeEach(() => {
 		vi.useFakeTimers();
