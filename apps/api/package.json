@@ -8,7 +8,7 @@
 		"start": "bun src/main.ts",
 		"lint": "oxlint .",
 		"typecheck": "tsc --noEmit",
-		"test": "bun test src",
+		"test": "bun --env-file=../nest-api/.env test src",
 		"test:contract": "bun test test/contract"
 	},
 	"dependencies": {

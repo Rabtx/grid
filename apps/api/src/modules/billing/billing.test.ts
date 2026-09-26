@@ -1,6 +1,4 @@
 import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { createDatabase, type Database, schema } from "@grid/db";
 import { eq } from "drizzle-orm";
@@ -10,36 +8,10 @@ import { createConfig } from "../../config/config";
 import { parseEnv } from "../../config/env";
 import { sessionLookup } from "../../sessions";
 
-function ensureEnvLoaded() {
-	if (process.env.DATABASE_URL) return;
-	const candidates = [
-		path.resolve(import.meta.dir, "../../../nest-api/.env"),
-		path.resolve(process.cwd(), "../nest-api/.env"),
-	];
-	for (const candidate of candidates) {
-		if (fs.existsSync(candidate)) {
-			const lines = fs.readFileSync(candidate, "utf8").split("\n");
-			for (const line of lines) {
-				const trimmed = line.trim();
-				if (!trimmed || trimmed.startsWith("#")) continue;
-				const idx = trimmed.indexOf("=");
-				if (idx > 0) {
-					const key = trimmed.slice(0, idx).trim();
-					const val = trimmed
-						.slice(idx + 1)
-						.trim()
-						.replace(/^["']|["']$/g, "");
-					if (!process.env[key]) {
-						process.env[key] = val;
-					}
-				}
-			}
-			break;
-		}
-	}
-}
+/** Needs a database (the dev one): skipped without DATABASE_URL, e.g. `bun run test` in CI. */
+const suite = process.env.DATABASE_URL ? describe : describe.skip;
 
-describe("billing webhook handling and signatures", () => {
+suite("billing webhook handling and signatures", () => {
 	const STRIPE_TEST_SECRET = "whsec_test_stripe_webhook_secret_key_12345";
 	const STRIPE_TEST_KEY = "sk_test_mock_stripe_key_for_unit_tests";
 	const RAZORPAY_TEST_SECRET = "test_razorpay_webhook_secret_key_12345";
@@ -53,9 +25,7 @@ describe("billing webhook handling and signatures", () => {
 	const createdSubIds: string[] = [];
 
 	beforeAll(async () => {
-		ensureEnvLoaded();
-		const databaseUrl = process.env.DATABASE_URL;
-		if (!databaseUrl) throw new Error("DATABASE_URL must be available for billing unit tests");
+		const databaseUrl = process.env.DATABASE_URL ?? "";
 
 		dbInstance = createDatabase(databaseUrl, { max: 2 });
 		db = dbInstance.db;

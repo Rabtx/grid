@@ -5,7 +5,7 @@ type: feature
 from: human
 to: backend
 priority: normal
-status: review
+status: done
 assignee: backend
 reviewer: human
 parent: .agents/plans/api-on-hono.md
@@ -167,3 +167,11 @@ Ran 24 tests across 2 files. [555.00ms]
 ## Commit
 
 - `15d63303d368e7ec8120fa80352c8c4cfb489be1`
+
+## Review
+
+Reviewed and merged in #95 by the lead agent. Both lanes were combined on main and checked
+together: typecheck 9/9, lint and architecture clean, apps/api unit tests 39 passed, and the
+whole contract suite 48/48 against NestJS and 48/48 against Hono. The only conflict (both lanes
+mounting routes in `app.ts`) was resolved by keeping both, and main's tree is identical to the
+tested one.

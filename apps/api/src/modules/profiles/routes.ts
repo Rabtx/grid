@@ -10,6 +10,7 @@ import type { AppContext, AppEnv } from "../../http/context";
 import { ApiError, badRequest, conflict, unauthorized } from "../../http/errors";
 import { ok } from "../../http/respond";
 import { body } from "../../http/validate";
+import { isUniqueViolation } from "../users/users";
 import { updateProfileSchema } from "./schema";
 
 const maxBytes = 2 * 1024 * 1024;
@@ -34,8 +35,6 @@ const publicUser = (u: schema.UserRecord) => ({
 	hasPassword: u.passwordHash !== null,
 	createdAt: u.createdAt.toISOString(),
 });
-const unique = (error: unknown) =>
-	typeof error === "object" && error !== null && "code" in error && error.code === "23505";
 
 async function current(db: Database, userId: string) {
 	const [[user], [profile]] = await Promise.all([
@@ -110,7 +109,7 @@ export function profileRoutes(deps: {
 				if (!updated)
 					throw unauthorized({ code: "AUTH_SESSION_INVALID", message: "Authentication required" });
 			} catch (error) {
-				if (unique(error))
+				if (isUniqueViolation(error))
 					throw conflict({
 						code: "AUTH_USERNAME_TAKEN",
 						message: "This username is already taken",
