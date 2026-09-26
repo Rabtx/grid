@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: normal
-status: review
+status: done
 assignee: web
 reviewer: human
 parent: .agents/plans/agent-chat.md
@@ -133,3 +133,9 @@ $ vitest run
    Start at  04:23:37
    Duration  10.43s (tests 44%, environment 28%, transform 16%, import 10%, worker 2%)
 ```
+
+## Review
+
+Reviewed and merged in #89 by the lead agent: the combined main passed typecheck, lint,
+architecture, and the console (271), runner (104) and API (26) suites. Checked live: the @ popup
+lists files from the linked project folder.
