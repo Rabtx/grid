@@ -32,7 +32,7 @@
 	/* Light (the base values; dark overrides below). The canvas is where content sits; the
 	   backdrop is the quieter frame around it that the navigation lives on. */
 	--canvas-lightness: 99.6%;
-	--backdrop-lightness: 97.6%;
+	--backdrop-lightness: 98%;
 	--ink-lightness: 16%;
 	--selection-subtle-strength: 5%;
 	--selection-strength: 6%;

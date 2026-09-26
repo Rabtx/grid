@@ -8,7 +8,7 @@ export function Breadcrumbs(props: {
 	items: readonly { label: string; href?: string; icon?: JSX.Element }[];
 }): JSX.Element {
 	return (
-		<nav aria-label="Breadcrumb" class="flex min-w-0 items-center gap-1.5 text-body">
+		<nav aria-label="Breadcrumb" class="flex min-w-0 items-center gap-2 text-body-lg">
 			<For each={props.items}>
 				{(item, index) => (
 					<>
@@ -55,19 +55,21 @@ export function HeaderTabs(props: {
 	newLabel?: string;
 }): JSX.Element {
 	return (
-		<div class="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]">
+		<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
 			<For each={props.tabs}>
 				{(tab) => (
 					<div
 						aria-current={props.current === tab.id ? "page" : undefined}
-						class="group/tab relative flex h-7 max-w-44 shrink-0 items-center rounded-kit text-body text-fg-subtle transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=page]:bg-surface aria-[current=page]:text-fg aria-[current=page]:shadow-[0_0_0_1px_var(--kit-line),0_1px_2px_rgb(0_0_0/0.04)] pointer-coarse:h-10"
+						class="group/tab relative flex h-8 w-40 min-w-24 shrink items-center rounded-kit-md text-body-lg text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=page]:bg-surface aria-[current=page]:text-fg aria-[current=page]:shadow-[0_0_0_1px_var(--kit-line-strong),0_1px_2px_rgb(0_0_0/0.03)] pointer-coarse:h-10"
 					>
 						<a
 							href={tab.href}
-							class="focus-ring flex min-w-0 flex-1 items-center gap-1.5 rounded-kit py-1 pr-1 pl-2.5"
+							class="focus-ring flex min-w-0 flex-1 items-center gap-2 rounded-kit-md py-1 pr-1 pl-3"
 						>
 							<Show when={tab.icon}>
-								<span class="grid size-3.5 shrink-0 place-items-center">{tab.icon}</span>
+								<span class="grid size-4 shrink-0 place-items-center text-fg-subtle">
+									{tab.icon}
+								</span>
 							</Show>
 							<span class="truncate">{tab.label}</span>
 						</a>
@@ -89,7 +91,7 @@ export function HeaderTabs(props: {
 					href={props.newHref}
 					aria-label={props.newLabel ?? "New tab"}
 					title={props.newLabel ?? "New tab"}
-					class="focus-ring grid size-7 shrink-0 place-items-center rounded-kit text-fg-subtle hover:bg-fill hover:text-fg pointer-coarse:size-10"
+					class="focus-ring grid size-8 shrink-0 place-items-center rounded-kit-md text-fg-subtle hover:bg-fill hover:text-fg pointer-coarse:size-10"
 				>
 					<PlusIcon class="size-3.5" />
 				</a>

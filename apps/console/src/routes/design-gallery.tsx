@@ -28,6 +28,7 @@ import {
 	NavSection,
 	Palette,
 	Panel,
+	PROMPT_ADD,
 	PROMPT_CHIP,
 	PROMPT_FIELD,
 	PromptBox,
@@ -227,9 +228,10 @@ const THREADS = ["Fix login redirect loop", "Add billing page", "Speed up the te
 function AppPreview(): JSX.Element {
 	const [view, setView] = createSignal<"home" | "activity">("home");
 	const [draft, setDraft] = createSignal("");
+	const [mode, setMode] = createSignal<"build" | "plan">("build");
 
 	return (
-		<div class="flex h-[40rem] overflow-hidden rounded-kit-xl bg-surface-sunken shadow-float">
+		<div class="flex h-[40rem] overflow-hidden rounded-kit-xl bg-surface-sunken shadow-[0_0_0_1px_var(--kit-line-strong),0_8px_24px_-12px_rgb(0_0_0/0.08)]">
 			<aside class="hidden w-60 shrink-0 flex-col md:flex">
 				<div class="flex h-12 items-center gap-1 px-2">
 					<button
@@ -242,9 +244,6 @@ function AppPreview(): JSX.Element {
 					</button>
 					<IconButton label="Search" size="sm">
 						<SearchIcon class={ICON} />
-					</IconButton>
-					<IconButton label="Hide sidebar" size="sm">
-						<SidebarIcon class={ICON} />
 					</IconButton>
 				</div>
 				<div class="px-2 pb-3">
@@ -264,7 +263,7 @@ function AppPreview(): JSX.Element {
 						onChange={setView}
 					/>
 				</div>
-				<div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2">
+				<div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-2">
 					<div class="flex flex-col gap-px">
 						<NavButton icon={<EditIcon class={ICON} />} label="New chat" current />
 						<NavLink {...demo("1")} icon={<BoardIcon class={ICON} />} label="Board" />
@@ -336,7 +335,7 @@ function AppPreview(): JSX.Element {
 					</button>
 				</div>
 			</aside>
-			<div class="flex min-w-0 flex-1 flex-col bg-surface md:my-2 md:mr-2 md:rounded-kit-lg md:shadow-[0_0_0_1px_var(--kit-line)]">
+			<div class="flex min-w-0 flex-1 flex-col bg-surface md:border-line md:border-l">
 				<header class="flex h-12 shrink-0 items-center gap-1 border-line border-b px-1.5 md:hidden">
 					<IconButton label="Open navigation">
 						<MenuIcon class="size-5" />
@@ -353,7 +352,10 @@ function AppPreview(): JSX.Element {
 						<EditIcon class="size-5" />
 					</IconButton>
 				</header>
-				<header class="hidden h-11 shrink-0 items-center gap-2 border-line border-b px-2 md:flex">
+				<header class="hidden h-12 shrink-0 items-center gap-2 border-line border-b px-2 md:flex">
+					<IconButton label="Hide sidebar" size="sm">
+						<SidebarIcon class={ICON} />
+					</IconButton>
 					<HeaderTabs
 						tabs={[
 							{
@@ -381,7 +383,7 @@ function AppPreview(): JSX.Element {
 				</header>
 				<div class="flex min-h-0 flex-1 flex-col items-center justify-end overflow-y-auto px-4 pb-6 md:justify-center md:pb-16">
 					<div class="flex w-full max-w-2xl flex-col gap-6">
-						<h3 class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-headline text-fg">
+						<h3 class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center font-medium text-fg text-heading">
 							What should we work on in
 							<span class="inline-flex items-center gap-1.5 whitespace-nowrap">
 								<span class="text-accent">
@@ -403,13 +405,20 @@ function AppPreview(): JSX.Element {
 							}
 							tools={
 								<>
-									<button type="button" class={PROMPT_CHIP} aria-label="Add">
+									<button type="button" class={PROMPT_ADD} aria-label="Add">
 										<PlusIcon class={ICON} />
 									</button>
-									<button type="button" class={PROMPT_CHIP}>
-										<ToolIcon class={ICON} />
-										Build
-									</button>
+									<span class="hidden md:inline-flex">
+										<Segmented
+											label="Mode"
+											options={[
+												{ value: "build", label: "Build" },
+												{ value: "plan", label: "Plan" },
+											]}
+											value={mode()}
+											onChange={setMode}
+										/>
+									</span>
 								</>
 							}
 							options={

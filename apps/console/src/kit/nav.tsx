@@ -2,7 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { Show, omit } from "solid-js";
 
 const ROW =
-	"focus-ring group/nav flex h-kit-row w-full min-w-0 items-center gap-2.5 rounded-kit px-2 text-left text-body text-fg-muted transition-colors duration-fast ease-out-grid hover:bg-fill hover:text-fg aria-[current=page]:bg-fill-strong aria-[current=page]:font-medium aria-[current=page]:text-fg";
+	"focus-ring group/nav flex h-kit-row w-full min-w-0 items-center gap-2.5 rounded-kit-md px-2.5 text-left text-nav text-fg-muted transition-colors duration-fast ease-out-grid hover:bg-fill hover:text-fg aria-[current=page]:bg-fill-strong aria-[current=page]:text-fg";
 
 type NavItemProps = {
 	icon?: JSX.Element;
@@ -70,8 +70,8 @@ export function NavSection(props: {
 }): JSX.Element {
 	return (
 		<section class="flex flex-col gap-px">
-			<div class="group/section flex h-7 items-center justify-between px-2 pointer-coarse:h-9">
-				<h3 class="text-caption text-fg-subtle">{props.label}</h3>
+			<div class="group/section flex h-8 items-center justify-between pr-1 pl-2.5 pointer-coarse:h-9">
+				<h3 class="text-body text-fg-subtle">{props.label}</h3>
 				<Show when={props.action}>
 					<span class="opacity-0 transition-opacity duration-fast group-hover/section:opacity-100 group-focus-within/section:opacity-100 pointer-coarse:opacity-100">
 						{props.action}

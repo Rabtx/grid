@@ -12,7 +12,7 @@ export { Menu, MENU_ITEM, type MenuGroup, type MenuItem, MenuList } from "./menu
 export { NavButton, NavLink, NavSection } from "./nav";
 export { Palette, type PaletteItem } from "./palette";
 export { type Placement, Popover } from "./popover";
-export { PROMPT_CHIP, PROMPT_FIELD, PromptBox, SEND_BUTTON } from "./prompt-box";
+export { PROMPT_ADD, PROMPT_CHIP, PROMPT_FIELD, PromptBox, SEND_BUTTON } from "./prompt-box";
 export { Checklist, ChoicePrompt, ProgressRing } from "./prompts";
 export { CodeBlock, type RunStep, RunStatus, RunSteps, type StepStatus } from "./run";
 export { Card, DescriptionList, EmptyState, Panel, Skeleton, Tooltip } from "./surface";

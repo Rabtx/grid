@@ -17,9 +17,9 @@
 	--kit-fg-subtle: color-mix(in srgb, var(--ink) 58%, transparent);
 	--kit-fg-faint: color-mix(in srgb, var(--ink) 38%, transparent);
 	--kit-line: color-mix(in srgb, var(--ink) 7%, transparent);
-	--kit-line-strong: color-mix(in srgb, var(--ink) 12%, transparent);
-	--kit-fill: color-mix(in srgb, var(--ink) 4%, transparent);
-	--kit-fill-strong: color-mix(in srgb, var(--ink) 7%, transparent);
+	--kit-line-strong: color-mix(in srgb, var(--ink) 11%, transparent);
+	--kit-fill: color-mix(in srgb, var(--ink) 3.5%, transparent);
+	--kit-fill-strong: color-mix(in srgb, var(--ink) 6%, transparent);
 	--kit-surface: var(--canvas);
 	--kit-surface-sunken: var(--backdrop);
 	--kit-surface-raised: var(--canvas);
@@ -39,6 +39,9 @@
 	--kit-fs-display: 1.5rem; /* 24 */
 	--kit-fs-field: 1rem; /* 16: iOS zooms smaller inputs */
 
+	/* Navigation labels: a step above body, as the sidebar reads. */
+	--kit-fs-nav: 1rem; /* 16 */
+
 	/* Heights: touch sizes on phones. */
 	--kit-h-row: 2.75rem;
 	--kit-h-control-sm: 2.25rem;
@@ -54,9 +57,10 @@
 		--kit-fs-heading: 1rem; /* 16 */
 		--kit-fs-headline: 1.125rem; /* 18 */
 		--kit-fs-display: 1.5rem; /* 24 */
-		--kit-fs-field: 0.8125rem; /* 13 */
+		--kit-fs-field: 0.875rem; /* 14 */
+		--kit-fs-nav: 0.875rem; /* 14 */
 
-		--kit-h-row: 1.875rem; /* 30 */
+		--kit-h-row: 2rem; /* 32 */
 		--kit-h-control-sm: 1.75rem; /* 28 */
 		--kit-h-control: 2rem; /* 32 */
 		--kit-h-control-lg: 2.5rem; /* 40 */
@@ -117,6 +121,8 @@
 	--text-headline--line-height: 1.3;
 	--text-display: var(--kit-fs-display);
 	--text-display--line-height: 1.25;
+	--text-nav: var(--kit-fs-nav);
+	--text-nav--line-height: 1.3;
 	--text-field: var(--kit-fs-field);
 	--text-field--line-height: 1.4;
 
@@ -125,12 +131,13 @@
 	--spacing-kit-control: var(--kit-h-control);
 	--spacing-kit-control-lg: var(--kit-h-control-lg);
 
-	/* Radius by size: chips 6, controls 8, cards 12, floating surfaces 14, the composer 18. */
+	/* Radius by size: chips 6, controls 8, rows and cards 10–12, floating surfaces 14, composer 16. */
 	--radius-kit-sm: 6px;
 	--radius-kit: 8px;
+	--radius-kit-md: 10px;
 	--radius-kit-lg: 12px;
 	--radius-kit-xl: 14px;
-	--radius-kit-2xl: 18px;
+	--radius-kit-2xl: 16px;
 }
 
 /* Floating surfaces (menus, popovers, dialogs): a hairline and a soft lift. */

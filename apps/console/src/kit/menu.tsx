@@ -19,7 +19,7 @@ export type MenuItem = {
 export type MenuGroup = { label?: string; items: readonly MenuItem[] };
 
 export const MENU_ITEM =
-	"focus-ring flex h-kit-row w-full min-w-0 items-center gap-2.5 rounded-kit px-2 text-left text-body transition-colors duration-fast ease-out-grid disabled:pointer-events-none disabled:opacity-40 pointer-coarse:h-12";
+	"focus-ring flex h-kit-row w-full min-w-0 items-center gap-2.5 rounded-kit-md px-2 text-left text-nav transition-colors duration-fast ease-out-grid disabled:pointer-events-none disabled:opacity-40 pointer-coarse:h-12";
 
 /** The inside of a menu, reusable wherever a list of actions floats (menus, the account panel). */
 export function MenuList(props: {
