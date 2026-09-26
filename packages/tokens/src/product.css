@@ -1,7 +1,8 @@
 /*
  * Grid product tokens (the console). Imported after tokens.css, before base.css.
  *
- * The model: every theme is two colours — a canvas and one ink. Every border, fill, hover,
+ * The model: every theme is two colours — a canvas and one ink (plus the backdrop, the canvas
+ * a step quieter, that frames the content). Every border, fill, hover,
  * selection and secondary text is ink mixed over transparent at a fixed strength, so there is
  * no grey palette to drift. Hierarchy comes from how much ink an element carries, not from
  * colour or size. Colour is reserved for four signals: accent, success, danger, warning.
@@ -28,9 +29,11 @@
 	--hue: 240;
 	--saturation: 0%;
 
-	/* Light (the base values; dark overrides below). */
-	--canvas-lightness: 97%;
-	--ink-lightness: 18%;
+	/* Light (the base values; dark overrides below). The canvas is where content sits; the
+	   backdrop is the quieter frame around it that the navigation lives on. */
+	--canvas-lightness: 99.2%;
+	--backdrop-lightness: 96.6%;
+	--ink-lightness: 16%;
 	--selection-subtle-strength: 5%;
 	--selection-strength: 6%;
 	--selection-strong-strength: 7%;
@@ -50,6 +53,7 @@
 @media (prefers-color-scheme: dark) {
 	:root:not(.light) {
 		--canvas-lightness: var(--dark-lightness, 9%);
+		--backdrop-lightness: max(0%, calc(var(--dark-lightness, 9%) - 3%));
 		--ink-lightness: 92%;
 		--selection-subtle-strength: 8%;
 		--selection-strength: 10%;
@@ -70,6 +74,7 @@
 
 :root.dark {
 	--canvas-lightness: var(--dark-lightness, 9%);
+	--backdrop-lightness: max(0%, calc(var(--dark-lightness, 9%) - 3%));
 	--ink-lightness: 92%;
 	--selection-subtle-strength: 8%;
 	--selection-strength: 10%;
@@ -91,6 +96,7 @@
 
 :root {
 	--canvas: hsl(var(--hue) var(--saturation) var(--canvas-lightness));
+	--backdrop: hsl(var(--hue) var(--saturation) var(--backdrop-lightness));
 	--ink: hsl(var(--hue) var(--saturation) var(--ink-lightness));
 	/* Structural separators only: pane dividers, header underlines, row dividers. */
 	--stroke: color-mix(in srgb, var(--ink) 7%, transparent);
@@ -131,7 +137,7 @@
 	--border: color-mix(in srgb, var(--ink) 10%, transparent);
 	--input: color-mix(in srgb, var(--ink) 12%, transparent);
 	--ring: var(--signal-accent);
-	--sidebar: var(--canvas);
+	--sidebar: var(--backdrop);
 	--sidebar-foreground: var(--ink);
 	--sidebar-border: var(--stroke);
 
@@ -225,6 +231,7 @@
 	--font-mono: var(--font-mono);
 
 	--color-canvas: var(--canvas);
+	--color-backdrop: var(--backdrop);
 	--color-ink: var(--ink);
 	--color-stroke: var(--stroke);
 	--color-selection-subtle: var(--selection-subtle);

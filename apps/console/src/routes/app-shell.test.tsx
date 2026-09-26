@@ -10,6 +10,20 @@ import { useWorkspace } from "@/modules/projects";
 import { AppShell } from "./app-shell";
 import { RequireAuth } from "./require-auth";
 
+const workspaces = [
+	{
+		id: "w1",
+		slug: "demo",
+		name: "Demo",
+		icon: null,
+		color: null,
+		role: "owner",
+		isDefault: true,
+		createdAt: "2026-09-26T00:00:00.000Z",
+		updatedAt: "2026-09-26T00:00:00.000Z",
+	},
+];
+
 const projects = [
 	{ slug: "alpha", name: "Alpha" },
 	{ slug: "beta", name: "Beta" },
@@ -50,6 +64,7 @@ describe("AppShell", () => {
 					});
 				}
 				if (url.endsWith("/projects")) return json(projects);
+				if (url.endsWith("/workspaces")) return json(workspaces);
 				if (url.includes("/tasks")) return json([]);
 				return json(null, 404);
 			}),
@@ -121,6 +136,7 @@ describe("AppShell top bar", () => {
 					});
 				}
 				if (url.endsWith("/projects")) return json(projects);
+				if (url.endsWith("/workspaces")) return json(workspaces);
 				if (url.includes("/tasks")) return json([]);
 				return json(null, 404);
 			}),

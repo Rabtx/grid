@@ -61,9 +61,9 @@ describe("readableInk", () => {
 
 describe("canvasColor", () => {
 	it("matches the default canvases and a custom tint", () => {
-		expect(canvasColor(APPEARANCE_DEFAULTS, false)).toBe("#f7f7f7");
+		expect(canvasColor(APPEARANCE_DEFAULTS, false)).toBe("#fdfdfd");
 		expect(canvasColor(APPEARANCE_DEFAULTS, true)).toBe("#171717");
-		expect(canvasColor({ ...APPEARANCE_DEFAULTS, theme: "light" }, true)).toBe("#f7f7f7");
+		expect(canvasColor({ ...APPEARANCE_DEFAULTS, theme: "light" }, true)).toBe("#fdfdfd");
 		expect(canvasColor({ ...APPEARANCE_DEFAULTS, theme: "dark", darkLightness: 0 }, false)).toBe(
 			"#000000",
 		);
@@ -100,7 +100,7 @@ describe("applyAppearance", () => {
 		applyAppearance({ ...APPEARANCE_DEFAULTS, theme: "dark", darkLightness: 0 });
 		expect(meta.content).toBe("#000000");
 		applyAppearance({ ...APPEARANCE_DEFAULTS, theme: "light" });
-		expect(meta.content).toBe("#f7f7f7");
+		expect(meta.content).toBe("#fdfdfd");
 		meta.remove();
 	});
 });

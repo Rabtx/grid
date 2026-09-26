@@ -2,10 +2,15 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, createUniqueId, Show } from "solid-js";
 
 // Phones: a bottom sheet, full width and safe-area padded, with a grabber. From md it anchors to
-// its trigger — above it, since pickers live in the composer at the bottom — with a JS fallback
-// where CSS anchor positioning is missing.
+// its trigger — above it by default, since pickers live in the composer at the bottom — with a
+// JS fallback where CSS anchor positioning is missing.
 const SURFACE =
-	"fixed inset-x-0 top-auto bottom-0 m-0 max-h-[85dvh] w-full overflow-hidden rounded-t-2xl border border-ink/10 border-b-0 bg-canvas p-0 text-ink shadow-xl pb-[env(safe-area-inset-bottom)] md:inset-auto md:max-h-[min(32rem,70dvh)] md:w-[24rem] md:rounded-xl md:border-b md:pb-0 md:[position-area:block-start_span-inline-end] md:[position-try-fallbacks:flip-block]";
+	"fixed inset-x-0 top-auto bottom-0 m-0 max-h-[85dvh] w-full overflow-hidden rounded-t-2xl border border-ink/10 border-b-0 bg-canvas p-0 text-ink shadow-xl pb-[env(safe-area-inset-bottom)] md:inset-auto md:max-h-[min(32rem,70dvh)] md:rounded-xl md:border-b md:pb-0 md:[position-try-fallbacks:flip-block]";
+
+const SIDE = {
+	above: "md:[position-area:block-start_span-inline-end]",
+	below: "md:[position-area:block-end_span-inline-end]",
+} as const;
 
 function anchorPositioning(): boolean {
 	return (
@@ -25,6 +30,10 @@ export function Popover(props: {
 	trigger: JSX.Element;
 	triggerClass: string;
 	disabled?: boolean;
+	/** Where it opens from md: above the trigger (the default) or below it. */
+	side?: keyof typeof SIDE;
+	/** The panel's width from md; 24rem by default. */
+	panelClass?: string;
 	children: (close: () => void) => JSX.Element;
 }): JSX.Element {
 	const uid = createUniqueId().replace(/[^a-zA-Z0-9_-]/g, "");
@@ -42,7 +51,8 @@ export function Popover(props: {
 		panel.style.position = "fixed";
 		panel.style.margin = "0";
 		panel.style.left = `${Math.min(rect.left, window.innerWidth - panel.offsetWidth - 8)}px`;
-		panel.style.top = `${rect.top - height - 6 > 8 ? rect.top - height - 6 : rect.bottom + 6}px`;
+		const above = rect.top - height - 6;
+		panel.style.top = `${props.side !== "below" && above > 8 ? above : rect.bottom + 6}px`;
 	}
 
 	return (
@@ -79,7 +89,7 @@ export function Popover(props: {
 					if (isOpen) requestAnimationFrame(placeWithoutAnchoring);
 				}}
 				style={anchored ? `position-anchor: ${anchorName}` : undefined}
-				class={SURFACE}
+				class={`${SURFACE} ${SIDE[props.side ?? "above"]} ${props.panelClass ?? "md:w-[24rem]"}`}
 			>
 				<div
 					aria-hidden="true"

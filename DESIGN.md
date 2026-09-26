@@ -81,8 +81,9 @@ outside the scale, one-off durations, and imports from the React UI package. In 
 
 ### Colour
 
-`--hue` and `--saturation` tint the whole UI (0% is neutral). Light: canvas 97%, ink 18%.
-Dark: canvas 9%, ink 92%. The theme follows the OS; `.light` / `.dark` on `<html>` force one
+`--hue` and `--saturation` tint the whole UI (0% is neutral); Settings → Appearance exposes them
+as sliders, with the dark canvas lightness. Light: canvas 99.2%, backdrop 96.6%, ink 16%.
+Dark: canvas 9% (the slider), backdrop 3% below it, ink 92%. The theme follows the OS; `.light` / `.dark` on `<html>` force one
 (`lib/preferences.ts` stores the choice).
 
 | Use | Utility |
@@ -123,6 +124,8 @@ scale (inputs stay ≥ 16px so iOS never zooms); from `md:` the desktop scale ma
 | `text-ui-lg` | 16px | 14px | emphasised single values |
 | `text-title` | 20px | 20px | the one view title |
 
+Icons are Hugeicons at a 1.5 stroke, `text-ink/55` beside nav labels.
+
 Weights: `font-medium` for titles, active labels and buttons; `font-semibold` for view titles and
 captions. Mono for ids, branches, paths and shortcuts.
 
@@ -135,8 +138,10 @@ on `<html>` scales them. Radius by nesting: chips `rounded-sm` (4px), controls `
 
 ### Surfaces
 
-Four levels, no shadows on in-flow content: the canvas; the navigation layer (`glass`: canvas
-at 85%, blurred); raised cards (`bg-ink/5 border-ink/10 rounded-lg`, flat); floating layers
+Four levels, no shadows on in-flow content: the backdrop (`bg-backdrop`), which the desktop
+sidebar sits on; the canvas, the screen itself, drawn on desktop as one panel inset 8px from the
+backdrop (`rounded-xl`, `border-ink/8`) and edge to edge on phones; the phone navigation layer
+(`glass`: canvas at 85%, blurred); raised cards (`bg-ink/5 border-ink/10 rounded-lg`, flat); floating layers
 (sheets, menus, dialogs: solid canvas, `border-ink/10`, the only shadows). Regions are separated
 by 1px `stroke` lines, never gaps or shadows.
 

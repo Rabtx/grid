@@ -3,10 +3,10 @@ import AlertCircleIcon from "@hugeicons/core-free-icons/AlertCircleIcon";
 import ArrowDown01Icon from "@hugeicons/core-free-icons/ArrowDown01Icon";
 import Archive01Icon from "@hugeicons/core-free-icons/Archive01Icon";
 import ArrowLeft01Icon from "@hugeicons/core-free-icons/ArrowLeft01Icon";
-import ArrowRight01Icon from "@hugeicons/core-free-icons/ArrowRight01Icon";
 import ArrowUp02Icon from "@hugeicons/core-free-icons/ArrowUp02Icon";
 import BubbleChatIcon from "@hugeicons/core-free-icons/BubbleChatIcon";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
+import ComputerGlyph from "@hugeicons/core-free-icons/ComputerIcon";
 import ComputerTerminal01Icon from "@hugeicons/core-free-icons/ComputerTerminal01Icon";
 import Copy01Icon from "@hugeicons/core-free-icons/Copy01Icon";
 import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon";
@@ -20,6 +20,7 @@ import Loading03Icon from "@hugeicons/core-free-icons/Loading03Icon";
 import Logout01Icon from "@hugeicons/core-free-icons/Logout01Icon";
 import Menu01Icon from "@hugeicons/core-free-icons/Menu01Icon";
 import Mic01Icon from "@hugeicons/core-free-icons/Mic01Icon";
+import Moon02Icon from "@hugeicons/core-free-icons/Moon02Icon";
 import MoreHorizontalIcon from "@hugeicons/core-free-icons/MoreHorizontalIcon";
 import Note01Icon from "@hugeicons/core-free-icons/Note01Icon";
 import NoteAddGlyph from "@hugeicons/core-free-icons/NoteAddIcon";
@@ -29,15 +30,17 @@ import Search01Icon from "@hugeicons/core-free-icons/Search01Icon";
 import Settings01Icon from "@hugeicons/core-free-icons/Settings01Icon";
 import SidebarLeftIcon from "@hugeicons/core-free-icons/SidebarLeftIcon";
 import StopIcon from "@hugeicons/core-free-icons/StopIcon";
+import Sun03Icon from "@hugeicons/core-free-icons/Sun03Icon";
 import Tick02Icon from "@hugeicons/core-free-icons/Tick02Icon";
+import UnfoldMoreIcon from "@hugeicons/core-free-icons/UnfoldMoreIcon";
 import Wrench01Icon from "@hugeicons/core-free-icons/Wrench01Icon";
 import type { JSX } from "@solidjs/web";
 
 /** An icon from `@hugeicons/core-free-icons`: a list of `[tag, attributes]` SVG children. */
 export type IconData = readonly (readonly [string, { readonly [key: string]: string | number }])[];
 
-// The console draws every glyph at one stroke weight, like the rest of the product chrome.
-const STROKE_WIDTH = 1.75;
+// The console draws every glyph at one light stroke weight, like the rest of the product chrome.
+const STROKE_WIDTH = 1.5;
 
 function kebab(name: string): string {
 	return name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
@@ -185,10 +188,6 @@ export function FolderIcon(props: IconProps): JSX.Element {
 	return <Icon icon={Folder01Icon} class={props.class} />;
 }
 
-export function ForwardIcon(props: IconProps): JSX.Element {
-	return <Icon icon={ArrowRight01Icon} class={props.class} />;
-}
-
 export function SidebarIcon(props: IconProps): JSX.Element {
 	return <Icon icon={SidebarLeftIcon} class={props.class} />;
 }
@@ -218,4 +217,21 @@ export function SpinnerIcon(props: IconProps): JSX.Element {
 	return (
 		<Icon icon={Loading03Icon} class={`motion-safe:animate-spin ${props.class ?? "size-4"}`} />
 	);
+}
+
+/** Up-and-down chevrons: a control that opens a list to pick from. */
+export function UnfoldIcon(props: IconProps): JSX.Element {
+	return <Icon icon={UnfoldMoreIcon} class={props.class} />;
+}
+
+export function SunIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Sun03Icon} class={props.class} />;
+}
+
+export function MoonIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Moon02Icon} class={props.class} />;
+}
+
+export function ComputerIcon(props: IconProps): JSX.Element {
+	return <Icon icon={ComputerGlyph} class={props.class} />;
 }

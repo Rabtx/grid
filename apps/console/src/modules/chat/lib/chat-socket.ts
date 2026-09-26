@@ -1,3 +1,4 @@
+import { workspaceHello } from "@/lib/active-workspace";
 import { onRunnerRecovered, reportRunnerFailure, reportRunnerSuccess } from "@/lib/runner-health";
 
 import type { ChatEvent, ChatSession } from "../types/chat.types";
@@ -127,6 +128,7 @@ export function connectChat(options: ChatSocketOptions) {
 				JSON.stringify({
 					t: "hello",
 					token: options.token() ?? "",
+					...workspaceHello(),
 					id: options.id,
 					visible: options.visible?.() ?? true,
 					...(cursor ? { resume: cursor } : {}),

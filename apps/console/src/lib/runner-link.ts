@@ -9,6 +9,8 @@
  * its sockets quietly fall back to one real WebSocket each, as before.
  */
 
+import { workspaceHeaders, workspaceHello } from "./active-workspace";
+
 type Listener = (event: Event) => void;
 
 /** The part of the WebSocket API the chat and terminal sockets use. */
@@ -187,7 +189,7 @@ export class RunnerLink {
 	 */
 	private supported(): Promise<boolean> {
 		this.support ??= this.fetcher(`${this.options.base}/link`, {
-			headers: { Authorization: `Bearer ${this.options.token() ?? ""}` },
+			headers: { ...workspaceHeaders(), Authorization: `Bearer ${this.options.token() ?? ""}` },
 			cache: "no-store",
 		}).then(
 			(response) => {
@@ -211,7 +213,9 @@ export class RunnerLink {
 		this.wire = ws;
 		this.welcomed = false;
 		ws.addEventListener("open", () => {
-			ws.send(JSON.stringify({ t: "hello", token: this.options.token() ?? "" }));
+			ws.send(
+				JSON.stringify({ t: "hello", token: this.options.token() ?? "", ...workspaceHello() }),
+			);
 		});
 		ws.addEventListener("message", (event: MessageEvent) => {
 			if (this.wire !== ws) return;
