@@ -5,17 +5,18 @@ type: feature
 from: human
 to: backend
 priority: normal
-status: ready
+status: doing
 assignee: backend
 reviewer: human
 parent: .agents/plans/api-on-hono.md
 depends_on: [str-hono-foundation]
-branch: none
-worktree: none
+branch: agent/backend/hono-billing
+worktree: ../grid-worktrees/agent/backend/hono-billing
 scope:
   - apps/api/src/modules/billing/**
   - apps/api/test/contract/billing*
-allowed_shared: []
+allowed_shared:
+  - apps/api/src/app.ts
 created: 2026-09-26
 updated: 2026-09-26
 ---
