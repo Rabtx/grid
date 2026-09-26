@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: normal
-status: review
+status: done
 assignee: web
 reviewer: human
 parent: .agents/plans/agent-chat.md
@@ -103,3 +103,9 @@ $ vitest run
    Start at  04:01:39
    Duration  8.85s (environment 34%, tests 34%, transform 18%, import 12%, worker 2%)
 ```
+
+## Review
+
+Reviewed and merged in #87 by the lead agent: typecheck 7/7 and 233 console tests on the branch,
+then the combined main passed every suite. Follow-ups: keep the task key (TASK-n) in the seeded
+message, and link threads to tasks once the runner records a task id.
