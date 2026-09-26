@@ -34,7 +34,8 @@ The database schema and migrations are in [`packages/db`](../../packages/db) (`@
    codes, guards, throttles), DTOs (zod schemas) and service (behaviour and error messages).
 2. Write the **contract tests first** in `test/contract/<name>.test.ts`, using `call`, `json` and
    `stable` from `test/contract/client.ts`. Run them against NestJS until they pass:
-   `CONTRACT_API_URL=http://127.0.0.1:4010 bun test test/contract`.
+   `CONTRACT_API_URL=http://127.0.0.1:4010 bun run test:contract` (once a minute per server:
+   sign-in is rate limited). Sign in through `demoToken()` from the client, never on your own.
 3. Port the module to `src/modules/<name>/`: a `routes.ts` exporting a function that returns a
    `Hono<AppEnv>`, plus plain functions for the logic and the queries (`@grid/db` and Drizzle).
    No classes or decorators are needed. Mount it in `src/app.ts` next to `healthRoutes()`.
@@ -47,7 +48,7 @@ The database schema and migrations are in [`packages/db`](../../packages/db) (`@
      `VALIDATION_ERROR` with the same field errors
    - signed-in routes behind `requireUser(deps.sessions)`, with the user as `c.get("user")`
    - route throttles with `rateLimit({ limit, windowMs })`, the same numbers as `@Throttle`
-5. Run the contract tests against this API (`CONTRACT_API_URL=http://127.0.0.1:4000`); they must
+5. Run the contract tests against this API (`CONTRACT_API_URL=http://127.0.0.1:4000 bun run test:contract`); they must
    pass on both. Add unit tests with `app.request()` for logic the contract does not reach.
 
 Bun first: `Bun.password`, `Bun.sql` (through `@grid/db`), `Bun.file`/`Bun.write`, WebCrypto.

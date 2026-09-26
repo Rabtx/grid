@@ -1,45 +1,13 @@
 import { beforeAll, describe, expect, it } from "bun:test";
 
-import { call, json, stable } from "./client";
+import { call, demoToken, json, SIGN_IN_TIMEOUT, stable } from "./client";
 
 describe("billing contract", () => {
 	let token = "";
 
 	beforeAll(async () => {
-		let reply = await call(
-			"/api/v1/auth/login",
-			json(
-				{ email: "demo@grid.dev", password: "GridDemo2026!" },
-				{
-					headers: {
-						origin: "http://localhost:3001",
-						"x-requested-with": "XMLHttpRequest",
-					},
-				},
-			),
-		);
-		while (reply.status === 429) {
-			const waitSec = Number.parseInt(reply.headers.get("retry-after") ?? "2", 10) || 2;
-			await new Promise((r) => setTimeout(r, waitSec * 1000));
-			reply = await call(
-				"/api/v1/auth/login",
-				json(
-					{ email: "demo@grid.dev", password: "GridDemo2026!" },
-					{
-						headers: {
-							origin: "http://localhost:3001",
-							"x-requested-with": "XMLHttpRequest",
-						},
-					},
-				),
-			);
-		}
-		const data = (reply.body as { data?: { accessToken?: string } })?.data;
-		if (!data?.accessToken) {
-			throw new Error(`Failed to log in as demo user: ${JSON.stringify(reply.body)}`);
-		}
-		token = data.accessToken;
-	});
+		token = await demoToken();
+	}, SIGN_IN_TIMEOUT);
 
 	describe("GET /api/v1/billing/providers", () => {
 		it("lists configured payment providers without authentication", async () => {

@@ -4,10 +4,11 @@ import { eq } from "drizzle-orm";
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 
-import { call, json, stable } from "./client";
+import { call, demoToken, json, stable } from "./client";
 
-process.loadEnvFile("../nest-api/.env");
-const database = createDatabase(process.env.DATABASE_URL!);
+// These tests set up and clean their own rows. `bun run test:contract` loads DATABASE_URL.
+if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is needed: run bun run test:contract");
+const database = createDatabase(process.env.DATABASE_URL);
 let token: string;
 let user: typeof schema.users.$inferSelect;
 let profile: typeof schema.userProfiles.$inferSelect | undefined;
@@ -16,26 +17,8 @@ const auth = () => ({ authorization: `Bearer ${token}` });
 const data = (reply: Awaited<ReturnType<typeof call>>) =>
 	(stable(reply.body) as { data: Record<string, unknown> }).data;
 
-async function demoLogin() {
-	for (let attempt = 0; attempt < 2; attempt++) {
-		const reply = await call(
-			"/api/v1/auth/login",
-			json(
-				{ email: "demo@grid.dev", password: "GridDemo2026!" },
-				{ headers: { origin: "http://localhost:3001", "x-requested-with": "XMLHttpRequest" } },
-			),
-		);
-		if (reply.status !== 429) return reply;
-		if (attempt === 0)
-			await Bun.sleep((Number(reply.headers.get("retry-after")) || 60) * 1000 + 1000);
-	}
-	throw new Error("Demo login remained throttled after Retry-After");
-}
-
 beforeAll(async () => {
-	const login = await demoLogin();
-	expect(login.status).toBe(200);
-	token = data(login).accessToken as string;
+	token = await demoToken();
 	const [found] = await database.db
 		.select()
 		.from(schema.users)
@@ -62,7 +45,9 @@ afterAll(async () => {
 		else
 			await database.db.delete(schema.userProfiles).where(eq(schema.userProfiles.userId, user.id));
 	}
-	if (avatarFile) await unlink(avatarFile);
+	// The test avatar sits in the server's uploads folder, which is only this checkout's when the
+	// server runs from it; against another server, the file is left for that server to keep.
+	if (avatarFile) await unlink(avatarFile).catch(() => undefined);
 	await database.close();
 });
 
