@@ -38,7 +38,10 @@ Built in four PRs:
    a workspace is a sheet. The chosen workspace is remembered per device; API project calls go
    to `/workspaces/:ws/…`, runner requests carry `X-Grid-Workspace` and socket hellos a
    `workspace`, and the offline cache is kept per workspace. Switching reloads the console.
-2. Home and composer.
+2. **Home and composer.** The composer is a raised card with round mic and send buttons and
+   lighter model and mode pills; the folder and branch sit in a strip tucked under it. New chat
+   titles the project with its icon and offers suggestions that fill the composer: a list under
+   it on desktop, chips above it in thumb reach on phones.
 3. Setup, invite acceptance and workspace URLs.
 4. Members and invites in settings.
 
@@ -46,5 +49,7 @@ Built in four PRs:
 
 - `bun run typecheck`, `bun run lint`, `bun run architecture:check`: pass.
 - Console vitest: all files pass, including the new `active-workspace.test.tsx`.
+- PR 2: console vitest passes (new composer fill test); checked new chat and a conversation on
+  desktop and phone, light and dark.
 - Browser, against a clone of the dev database: created a workspace (moved into it, empty
   project list), switched back to the default one; desktop and phone, light and dark.

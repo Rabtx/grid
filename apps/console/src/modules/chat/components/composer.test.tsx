@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "@/modules/auth";
 import { WorkspaceProvider } from "@/modules/projects";
 
-import { Composer } from "./composer";
+import { Composer, type ComposerControl } from "./composer";
 
 const projects = [{ slug: "alpha", name: "Alpha" }].map((project) => ({
 	...project,
@@ -90,12 +90,15 @@ describe("Composer with file mentions", () => {
 			sentText = text;
 			return true;
 		}),
+		control?: (control: ComposerControl) => void,
 	): void {
 		const Router = createRouter({
 			routes: [
 				{
 					path: "/chat/:project",
-					component: () => <Composer project="alpha" running={false} onSend={onSend} />,
+					component: () => (
+						<Composer project="alpha" running={false} onSend={onSend} control={control} />
+					),
 				},
 			],
 			history: memoryHistory("/chat/alpha"),
@@ -112,6 +115,22 @@ describe("Composer with file mentions", () => {
 			container,
 		);
 	}
+
+	it("takes text from outside, ready to edit and send", async () => {
+		let composer: ComposerControl | undefined;
+		mount(undefined, (control) => {
+			composer = control;
+		});
+		await settle();
+
+		composer?.fill("Find and fix a bug in ");
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		expect(textarea?.value).toBe("Find and fix a bug in ");
+		expect(document.activeElement).toBe(textarea);
+		expect(container.querySelector<HTMLButtonElement>('[aria-label="Send"]')?.disabled).toBe(false);
+	});
 
 	it("opens the file mention popup when typing @", async () => {
 		mount();
