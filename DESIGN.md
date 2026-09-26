@@ -157,6 +157,28 @@ Focus is keyboard-only (`focus-ring`: a 2px accent outline). Secondary row actio
 hover on pointer devices but are always visible on touch. Empty states are one short sentence;
 errors are an inline strip with the concrete reason and a retry.
 
+## Kit (the console rebuild)
+
+The console is being rebuilt screen by screen on a new design system in `apps/console/src/kit`,
+taken closely from the reference designs: light, calm and spacious, with hierarchy from text
+colour rather than size. Tokens live in `@grid/tokens/kit.css`, on top of the same hue,
+saturation and lightness inputs as above. `/design` shows every piece in every state, with an app
+preview composed only of kit parts; new screens use the kit, and `@/ui` goes away as screens move.
+
+- **Font:** Inter (self-hosted), regular and medium only. Sizes: caption 12, body 13 (the base),
+  body-lg 14, heading 16, headline 18, display 24; phones step up (body 15, fields 16).
+- **Text:** `text-fg` strong, `text-fg-muted` default, `text-fg-subtle` metadata and section
+  labels, `text-fg-faint` placeholders only.
+- **Surfaces:** `bg-surface` content, `bg-surface-sunken` the frame and sidebar,
+  `bg-surface-raised` menus and dialogs; `line` / `line-strong` hairlines; `fill` hover,
+  `fill-strong` selected.
+- **Shape:** rows 30px and controls 32px on desktop (44px on touch); radius 6 chips, 8 controls,
+  12 cards, 14 floating surfaces, 18 the composer; `shadow-float` for floating layers,
+  `shadow-raise` for the composer and prompts.
+- **Layout:** the sidebar sits on the sunken frame; the screen is a raised panel beside it; open
+  things are tabs along the top. Phones get a top bar and a drawer; every menu and dialog is a
+  bottom sheet there.
+
 ## Typography
 
 - Use the app's configured sans font for product UI.

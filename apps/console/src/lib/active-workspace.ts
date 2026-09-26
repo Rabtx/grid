@@ -6,8 +6,8 @@
  */
 const STORAGE_KEY = "grid.workspace";
 
-/** Top-level pages that belong to no workspace: signing in, first-run setup, invites. */
-const OUTSIDE = new Set(["login", "setup", "invite", "dev"]);
+/** Top-level pages that belong to no workspace: signing in, first-run setup, invites, the kit. */
+const OUTSIDE = new Set(["login", "setup", "invite", "dev", "design"]);
 /** The console's own sections, as links from before workspaces spelled them. */
 const SECTIONS = new Set(["chat", "board", "files", "notes", "terminal", "settings"]);
 

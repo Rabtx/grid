@@ -1,0 +1,149 @@
+/*
+ * Grid kit tokens: the design system the console is being rebuilt on (apps/console/src/kit).
+ * Imported after product.css. It keeps product.css's theme inputs — one hue and saturation that
+ * tint everything, a canvas and one ink per theme — and names the roles screens use:
+ *
+ *   text      fg (strong) · fg-muted (default) · fg-subtle · fg-faint (placeholder, disabled)
+ *   surfaces  surface (content) · surface-sunken (the frame and sidebar) · surface-raised (menus)
+ *   lines     line (dividers, card edges) · line-strong (inputs, buttons)
+ *   fills     fill (hover) · fill-strong (selected, pressed)
+ *
+ * Every role is ink mixed over transparent, so a tint or the dark theme follows for free.
+ */
+
+:root {
+	--kit-fg: var(--ink);
+	--kit-fg-muted: color-mix(in srgb, var(--ink) 76%, transparent);
+	--kit-fg-subtle: color-mix(in srgb, var(--ink) 58%, transparent);
+	--kit-fg-faint: color-mix(in srgb, var(--ink) 38%, transparent);
+	--kit-line: color-mix(in srgb, var(--ink) 7%, transparent);
+	--kit-line-strong: color-mix(in srgb, var(--ink) 12%, transparent);
+	--kit-fill: color-mix(in srgb, var(--ink) 4%, transparent);
+	--kit-fill-strong: color-mix(in srgb, var(--ink) 7%, transparent);
+	--kit-surface: var(--canvas);
+	--kit-surface-sunken: var(--backdrop);
+	--kit-surface-raised: var(--canvas);
+	--kit-inverse: var(--primary-fill);
+	--kit-inverse-fg: var(--primary-ink);
+	--kit-accent: var(--signal-accent);
+	--kit-shadow-color: 0 0 0;
+	--kit-shadow-strength: 0.1;
+
+	/* Type (phone; the desktop scale starts at md). Inter, regular and medium only. */
+	--kit-font: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+	--kit-fs-caption: 0.75rem; /* 12 */
+	--kit-fs-body: 0.9375rem; /* 15 */
+	--kit-fs-body-lg: 1rem; /* 16 */
+	--kit-fs-heading: 1.0625rem; /* 17 */
+	--kit-fs-headline: 1.25rem; /* 20 */
+	--kit-fs-display: 1.5rem; /* 24 */
+	--kit-fs-field: 1rem; /* 16: iOS zooms smaller inputs */
+
+	/* Heights: touch sizes on phones. */
+	--kit-h-row: 2.75rem;
+	--kit-h-control-sm: 2.25rem;
+	--kit-h-control: 2.75rem;
+	--kit-h-control-lg: 3rem;
+}
+
+@media (width >= 48rem) {
+	:root {
+		--kit-fs-caption: 0.75rem; /* 12 */
+		--kit-fs-body: 0.8125rem; /* 13 */
+		--kit-fs-body-lg: 0.875rem; /* 14 */
+		--kit-fs-heading: 1rem; /* 16 */
+		--kit-fs-headline: 1.125rem; /* 18 */
+		--kit-fs-display: 1.5rem; /* 24 */
+		--kit-fs-field: 0.8125rem; /* 13 */
+
+		--kit-h-row: 1.875rem; /* 30 */
+		--kit-h-control-sm: 1.75rem; /* 28 */
+		--kit-h-control: 2rem; /* 32 */
+		--kit-h-control-lg: 2.5rem; /* 40 */
+	}
+}
+
+/* A coarse pointer keeps touch sizes whatever the width. */
+@media (pointer: coarse) {
+	:root {
+		--kit-h-row: 2.75rem;
+		--kit-h-control-sm: 2.5rem;
+		--kit-h-control: 2.75rem;
+		--kit-h-control-lg: 3rem;
+	}
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not(.light) {
+		--kit-surface-raised: color-mix(in srgb, var(--ink) 5%, var(--canvas));
+		--kit-shadow-strength: 0.45;
+	}
+}
+
+:root.dark {
+	--kit-surface-raised: color-mix(in srgb, var(--ink) 5%, var(--canvas));
+	--kit-shadow-strength: 0.45;
+}
+
+@theme inline {
+	--font-kit: var(--kit-font);
+
+	--color-fg: var(--kit-fg);
+	--color-fg-muted: var(--kit-fg-muted);
+	--color-fg-subtle: var(--kit-fg-subtle);
+	--color-fg-faint: var(--kit-fg-faint);
+	--color-line: var(--kit-line);
+	--color-line-strong: var(--kit-line-strong);
+	--color-fill: var(--kit-fill);
+	--color-fill-strong: var(--kit-fill-strong);
+	--color-surface: var(--kit-surface);
+	--color-surface-sunken: var(--kit-surface-sunken);
+	--color-surface-raised: var(--kit-surface-raised);
+	--color-inverse: var(--kit-inverse);
+	--color-inverse-fg: var(--kit-inverse-fg);
+
+	/* Counts and tiny badges only. */
+	--text-micro: 0.6875rem;
+	--text-micro--line-height: 1;
+	--text-caption: var(--kit-fs-caption);
+	--text-caption--line-height: 1rem;
+	--text-body: var(--kit-fs-body);
+	--text-body--line-height: 1.45;
+	--text-body-lg: var(--kit-fs-body-lg);
+	--text-body-lg--line-height: 1.45;
+	--text-heading: var(--kit-fs-heading);
+	--text-heading--line-height: 1.35;
+	--text-headline: var(--kit-fs-headline);
+	--text-headline--line-height: 1.3;
+	--text-display: var(--kit-fs-display);
+	--text-display--line-height: 1.25;
+	--text-field: var(--kit-fs-field);
+	--text-field--line-height: 1.4;
+
+	--spacing-kit-row: var(--kit-h-row);
+	--spacing-kit-control-sm: var(--kit-h-control-sm);
+	--spacing-kit-control: var(--kit-h-control);
+	--spacing-kit-control-lg: var(--kit-h-control-lg);
+
+	/* Radius by size: chips 6, controls 8, cards 12, floating surfaces 14, the composer 18. */
+	--radius-kit-sm: 6px;
+	--radius-kit: 8px;
+	--radius-kit-lg: 12px;
+	--radius-kit-xl: 14px;
+	--radius-kit-2xl: 18px;
+}
+
+/* Floating surfaces (menus, popovers, dialogs): a hairline and a soft lift. */
+@utility shadow-float {
+	box-shadow:
+		0 0 0 1px var(--kit-line),
+		0 12px 32px -8px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 1.2)),
+		0 2px 6px -2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.5));
+}
+
+/* Raised in-flow cards (the composer, a checklist): barely there. */
+@utility shadow-raise {
+	box-shadow:
+		0 1px 2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.35)),
+		0 6px 20px -10px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.9));
+}

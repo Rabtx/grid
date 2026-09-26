@@ -6,6 +6,7 @@
 	"exports": {
 		"./tokens.css": "./src/tokens.css",
 		"./base.css": "./src/base.css",
-		"./product.css": "./src/product.css"
+		"./product.css": "./src/product.css",
+		"./kit.css": "./src/kit.css"
 	}
 }

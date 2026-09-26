@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "@grid/tokens/tokens.css";
 @import "@grid/tokens/product.css";
+@import "@grid/tokens/kit.css";
+@import "@fontsource-variable/inter/wght.css";
 @import "@grid/tokens/base.css";
 
 /*

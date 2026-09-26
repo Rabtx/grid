@@ -45,6 +45,8 @@ const Router = createRouter({
 		{ path: "/settings/appearance", component: SettingsRoute },
 		{ path: "/settings/agents", component: AgentsRoute },
 		{ path: "/settings/environments", component: EnvironmentsRoute },
+		// The design system, every piece in every state; loads on its own when opened.
+		{ path: "/design", component: DesignRoute },
 		// Development-only primitives gallery; tree-shaken out of production builds.
 		...(import.meta.env.DEV ? [{ path: "/dev/ui", component: DevUiRoute }] : []),
 		{ path: "*", component: NotFoundRoute },
@@ -69,6 +71,16 @@ function LoginRoute(): JSX.Element {
 
 function SetupRoute(): JSX.Element {
 	return <SetupForm />;
+}
+
+const DesignGallery = lazy(() => import("./routes/design-gallery"), { export: "DesignGallery" });
+
+function DesignRoute(): JSX.Element {
+	return (
+		<Loading fallback={null}>
+			<DesignGallery />
+		</Loading>
+	);
 }
 
 function InviteRoute(): JSX.Element {
