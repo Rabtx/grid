@@ -3,7 +3,7 @@ import type { Choice } from "./events";
 
 /**
  * Reading Freebuff's rendered screen. Freebuff is a full-screen terminal UI with no protocol, so
- * the adapter reads what a person would see: the model menu, the session line, and the reply
+ * the adapter reads what a person would see: the model picker, the line under the input, and the reply
  * under the message it sent. Everything here is pure, so it is tested on captured screens.
  */
 
@@ -11,10 +11,15 @@ import type { Choice } from "./events";
 const WORKING = /■ Esc\s*$/;
 /** The line under a finished reply: "⎘ • 7s • △▽". */
 const FOOTER = /⎘ • \d/;
-/** The session line: "DeepSeek V4.1 Flash · 55m left · 13.9K (1%)". */
-const SESSION = /^\s*(.+?) · (?:\d+h ?)?(?:\d+m )?left\b/;
-const REASONING = /Reasoning: (\w+)\*?/;
-/** Freebuff's own levels for `/reasoning`. */
+/**
+ * The line under the input box: "DeepSeek V4.1 Flash • max · ~/app · /model to change · Chat: …",
+ * or without the " • max" for a model with no reasoning levels.
+ */
+const STATUS = /^\s*(.+?)(?: • (\w+))? · .*\/model to change/;
+/** The model picker's hint line, and its reasoning list's. */
+const PICKER = "choose model";
+const EFFORT_PICKER = "Enter save";
+/** Freebuff's reasoning levels, chosen with Tab in the model picker. */
 const REASONING_LEVELS = ["low", "high", "max"];
 
 /** A right-hand scrollbar is drawn into the last column; it is not part of the text. */
@@ -26,7 +31,7 @@ export function isWorking(lines: string[]): boolean {
 	return lines.some((line) => WORKING.test(clean(line)));
 }
 
-/** Freebuff is in a session and taking messages (working or not). */
+/** A session is running: it has time left to end (the first message starts one). */
 export function inSession(lines: string[]): boolean {
 	return lines.some((line) => clean(line).endsWith("End session")) || isWorking(lines);
 }
@@ -48,27 +53,58 @@ export function inputText(lines: string[]): string {
 	return typed === PLACEHOLDER ? "" : typed;
 }
 
-/** Ready for a message: in a session, not working, and the input box drawn and empty. */
+/** The model picker is open (`/model`), or its reasoning list inside it. */
+export function isPicker(lines: string[]): boolean {
+	return lines.some((line) => clean(line).includes(PICKER));
+}
+
+export function isEffortPicker(lines: string[]): boolean {
+	return lines.some((line) => clean(line).includes(EFFORT_PICKER));
+}
+
+/** Ready for a message: its input box drawn and empty, not working, no picker open. */
 export function isIdle(lines: string[]): boolean {
 	return (
-		inSession(lines) && !isWorking(lines) && lines.some((line) => clean(line).includes(PLACEHOLDER))
+		!isWorking(lines) &&
+		!isPicker(lines) &&
+		!isEffortPicker(lines) &&
+		lines.some((line) => clean(line).includes(PLACEHOLDER))
 	);
 }
 
-/** The model of the running session, from the session line. */
-export function sessionModel(lines: string[]): string | null {
+/** The model the next message goes to, and its reasoning level, from the line under the input. */
+export function currentModel(lines: string[]): { model: string; effort: string | null } | null {
 	for (const line of lines) {
-		const match = SESSION.exec(clean(line));
-		if (match) return match[1].trim();
+		const match = STATUS.exec(clean(line));
+		if (match) return { model: match[1].trim(), effort: match[2] ?? null };
 	}
 	return null;
+}
+
+/** Just the model's name. */
+export function sessionModel(lines: string[]): string | null {
+	return currentModel(lines)?.model ?? null;
 }
 
 export type Menu = { models: Choice[]; selected: number; collapsed: boolean };
 
 /**
- * The model menu shown before a session starts: each model is a box of two lines, the name line
- * (`› ` marks the highlighted one) and the cost line.
+ * A model's label in the picker: "DeepSeek V4.1 Flash • max  Smart & Fast · Images · NEW", its name
+ * (with its reasoning level after " • ") then, past a wide gap, what it is good at.
+ */
+function readLabel(label: string): { name: string; effort: string | null; traits: string[] } {
+	const [head, ...rest] = label.split(/\s{2,}/);
+	const [name, effort] = head.split(" • ");
+	const traits = rest
+		.join(" · ")
+		.split(" · ")
+		.filter((part) => part && !/^(?:Images|NEW|TEST)$/.test(part));
+	return { name: name.trim(), effort: effort?.trim() || null, traits };
+}
+
+/**
+ * The model picker: each model is a box of two lines, the label (`› ` marks the highlighted one)
+ * and its cost.
  */
 export function parseMenu(lines: string[]): Menu {
 	const models: Choice[] = [];
@@ -79,42 +115,58 @@ export function parseMenu(lines: string[]): Menu {
 		if (/See all \d* ?models/i.test(line)) collapsed = true;
 		const cost = clean(lines[i + 1] ?? "");
 		if (!line.includes("│") || !cost.includes("Freebucks/hr")) continue;
-		const label = line.split("│")[1]?.trim() ?? "";
-		const highlighted = label.startsWith("›");
-		const [name, ...details] = label.replace(/^›\s*/, "").split(" · ");
+		const raw = line.split("│")[1]?.trim() ?? "";
+		const highlighted = raw.startsWith("›");
+		const { name, effort, traits } = readLabel(raw.replace(/^›\s*/, ""));
 		if (!name) continue;
 		if (highlighted) selected = models.length;
-		const reasoning = REASONING.exec(label)?.[1];
-		const traits = details.filter((part) => !/^(?:Reasoning:|Images$|NEW$|TEST$)/.test(part));
 		const price = cost.replace(/│/g, "").trim();
 		models.push({
-			id: name.trim(),
-			name: name.trim(),
+			id: name,
+			name,
 			description: [...traits, price].join(" · "),
-			...(reasoning
-				? { efforts: effortChoices(REASONING_LEVELS), defaultEffort: reasoning.toLowerCase() }
-				: {}),
+			...(effort ? { efforts: effortChoices(REASONING_LEVELS), defaultEffort: effort } : {}),
 		});
 	}
 	return { models, selected, collapsed };
 }
 
-/** The menu is up and settled (its footer is drawn). */
+/** The picker is up and drawn. */
 export function isMenu(lines: string[]): boolean {
-	return (
-		parseMenu(lines).models.length > 0 && lines.some((line) => clean(line).endsWith("History"))
-	);
+	return parseMenu(lines).models.length > 0 && isPicker(lines);
+}
+
+/** The reasoning list (Tab in the picker): its levels in order, and the highlighted one. */
+export function parseEfforts(lines: string[]): { levels: string[]; selected: number } {
+	const hint = lines.findIndex((line) => clean(line).includes(EFFORT_PICKER));
+	const levels: string[] = [];
+	let selected = -1;
+	if (hint < 0) return { levels, selected };
+	for (const line of lines.slice(hint + 1)) {
+		const match = /^\s*(›)?\s*(\w+)(?: \(default\))?$/.exec(clean(line));
+		if (!match) break;
+		if (match[1]) selected = levels.length;
+		levels.push(match[2]);
+	}
+	return { levels, selected };
 }
 
 /**
- * What Freebuff shows around the menu that is not a model: the daily allowance, the wallet,
+ * What Freebuff shows that is not a model or a message: the daily allowance, the wallet, plan,
  * referral and streak perks. A free tool's own lines are kept, not hidden.
  */
 export function menuNotes(lines: string[]): string[] {
 	return lines
-		.map((line) => clean(line).trim())
+		.map((line) =>
+			clean(line)
+				.replace(/^\s*│/, "")
+				.replace(/│\s*$/, "")
+				.trim(),
+		)
 		.filter((line) =>
-			/Freebucks daily|in wallet|Refer friends|Streak perk|day streak|invite link/i.test(line),
+			/Freebucks (daily|remaining)|in wallet|Refer friends|Streak perk|day streak|invite link|plan$/i.test(
+				line,
+			),
 		);
 }
 
