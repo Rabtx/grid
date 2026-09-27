@@ -188,7 +188,27 @@ describe("TranscriptView - Assistant Message", () => {
 		expect(regenerateBtn).not.toBeNull();
 		expect(regenerateBtn?.disabled).toBe(false);
 		regenerateBtn?.click();
-		expect(onRegenerate).toHaveBeenCalledWith("Write some code");
+		expect(onRegenerate).toHaveBeenCalledWith({ text: "Write some code", attachments: [] });
+	});
+
+	it("regenerates a message sent with only files, sending the files again", () => {
+		const onRegenerate = vi.fn();
+		const file = { id: "a1", name: "shot.png", size: 3, mimeType: "image/png" };
+		const blocks: Block[] = [
+			{ kind: "user", key: "b0", text: "", attachments: [file] },
+			{ kind: "assistant", key: "b1", text: "A login form" },
+		];
+		const root = mount(() => (
+			<TranscriptView
+				blocks={blocks}
+				running={false}
+				onApprove={() => {}}
+				onRegenerate={onRegenerate}
+			/>
+		));
+		flush();
+		root.querySelector<HTMLButtonElement>('button[aria-label="Regenerate response"]')?.click();
+		expect(onRegenerate).toHaveBeenCalledWith({ text: "", attachments: ["a1"] });
 	});
 
 	it("disables regenerate button while running", () => {
@@ -365,7 +385,7 @@ describe("TranscriptView - Try again", () => {
 		expect(button).toBeDefined();
 		expect(button?.disabled).toBe(false);
 		button?.click();
-		expect(onRegenerate).toHaveBeenCalledWith("Ship the build");
+		expect(onRegenerate).toHaveBeenCalledWith({ text: "Ship the build", attachments: [] });
 	});
 
 	it("waits while the agent is working", () => {
@@ -403,4 +423,36 @@ describe("TranscriptView - Try again", () => {
 		flush();
 		expect(retryButton(root)).toBeUndefined();
 	});
+});
+
+it("renders replayed attachments, loads images and offers a retry on failure", async () => {
+	const load = vi
+		.fn()
+		.mockRejectedValueOnce(new Error("offline"))
+		.mockResolvedValue(new Blob(["image"], { type: "image/png" }));
+	const blocks: Block[] = [
+		{
+			kind: "user",
+			key: "b0",
+			text: "Look",
+			attachments: [
+				{ id: "image", name: "screen.png", size: 100, mimeType: "image/png" },
+				{ id: "text", name: "readme.txt", size: 5, mimeType: "application/octet-stream" },
+			],
+		},
+	];
+	const root = mount(() => (
+		<TranscriptView blocks={blocks} running={false} onApprove={() => {}} loadAttachment={load} />
+	));
+	await vi.waitFor(() => expect(root.textContent).toContain("Attachment unavailable"));
+	expect(root.textContent).toContain("readme.txt");
+	const retry = Array.from(root.querySelectorAll("button")).find(
+		(button) => button.textContent === "Retry",
+	)!;
+	retry.click();
+	await vi.waitFor(() =>
+		expect(root.querySelector('a[target="_blank"] img[alt="screen.png"]')).not.toBeNull(),
+	);
+	expect(load).toHaveBeenCalledTimes(2);
+	expect(load.mock.calls.every((call) => call[0] === "image")).toBe(true);
 });

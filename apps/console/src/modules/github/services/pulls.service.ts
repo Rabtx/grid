@@ -3,6 +3,8 @@ import type { FileDiff } from "@/modules/chat/types/chat.types";
 import { placementsStore } from "@/modules/environments/stores/placements";
 
 import type {
+	FixInclude,
+	FixPlan,
 	MergeMethod,
 	PullAction,
 	PullDetail,
@@ -33,5 +35,11 @@ export const pullsService = {
 		runnerCall<void>(`${base(project)}/${number}/comment`, token, {
 			method: "POST",
 			body: JSON.stringify({ body }),
+		}),
+	/** The branch and first message a fix thread on this pull request would start with. */
+	fix: (token: string, project: string, number: number, include: FixInclude) =>
+		runnerCall<FixPlan>(`${base(project)}/${number}/fix`, token, {
+			method: "POST",
+			body: JSON.stringify({ include }),
 		}),
 };

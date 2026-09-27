@@ -1,6 +1,8 @@
+import { tmpdir } from "node:os";
+import { AttachmentFiles, type Attachment } from "./attachments";
 import { Database } from "bun:sqlite";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 import type { ChatEvent, Choice } from "../agents/events";
 
@@ -87,8 +89,16 @@ function toSession(row: Row): ChatSessionRow {
  */
 export class ChatStore {
 	private readonly db: Database;
+	readonly attachmentFiles: AttachmentFiles;
+	private readonly temporary: boolean;
 
 	constructor(path: string) {
+		this.temporary = path === ":memory:";
+		this.attachmentFiles = new AttachmentFiles(
+			this.temporary
+				? mkdtempSync(join(tmpdir(), "grid-attachments-"))
+				: resolve(dirname(path), "attachments"),
+		);
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
 		this.db = new Database(path, { create: true });
 		this.db.exec("PRAGMA journal_mode = WAL");
@@ -115,6 +125,10 @@ export class ChatStore {
 			);
 		`);
 		this.db.exec("PRAGMA foreign_keys = ON");
+		this.db.exec(`CREATE TABLE IF NOT EXISTS attachments (
+			session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+			id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(session_id, id)
+		)`);
 		// Which folder on this machine holds each project's code, per workspace. Per machine by
 		// design: another machine running Grid links its own checkout of the same project.
 		if (!hasColumn(this.db, "project_folders", "owner_id")) {
@@ -296,7 +310,40 @@ export class ChatStore {
 			.run(new Date().toISOString(), id);
 	}
 
+	attachment(session: string, id: string): Attachment | null {
+		const row = this.db
+			.query<{ data: string }, [string, string]>(
+				"SELECT data FROM attachments WHERE session_id = ? AND id = ?",
+			)
+			.get(session, id);
+		return row ? (JSON.parse(row.data) as Attachment) : null;
+	}
+
+	/** How many files a thread keeps, and how many bytes. */
+	attachmentUsage(session: string): { count: number; bytes: number } {
+		const rows = this.db
+			.query<{ data: string }, [string]>("SELECT data FROM attachments WHERE session_id = ?")
+			.all(session);
+		return {
+			count: rows.length,
+			bytes: rows.reduce((sum, row) => sum + ((JSON.parse(row.data) as Attachment).size ?? 0), 0),
+		};
+	}
+
+	addAttachment(session: string, attachment: Attachment, bytes: Uint8Array): void {
+		this.attachmentFiles.write(session, attachment, bytes);
+		try {
+			this.db
+				.query("INSERT INTO attachments (session_id, id, data) VALUES (?, ?, ?)")
+				.run(session, attachment.id, JSON.stringify(attachment));
+		} catch (cause) {
+			this.attachmentFiles.remove(session, attachment);
+			throw cause;
+		}
+	}
+
 	delete(id: string): void {
+		this.attachmentFiles.remove(id);
 		this.db.query("DELETE FROM sessions WHERE id = ?").run(id);
 	}
 
@@ -397,6 +444,7 @@ export class ChatStore {
 
 	close(): void {
 		this.db.close();
+		if (this.temporary) rmSync(this.attachmentFiles.root, { recursive: true, force: true });
 	}
 }
 

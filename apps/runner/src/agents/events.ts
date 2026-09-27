@@ -1,5 +1,8 @@
 import type { FileDiff } from "./diff";
 
+/** A file sent with a message; its bytes stay with the runner that took it. */
+export type ChatAttachment = { id: string; name: string; size: number; mimeType: string };
+
 /**
  * The one stream every agent is translated into. Providers speak different protocols (ACP,
  * Claude's stream-json, Codex's app-server); each adapter maps its own onto these events, and
@@ -29,7 +32,7 @@ export type ApprovalOption = { id: string; label: string; kind: "allow" | "allow
 
 export type ChatEvent =
 	/** What the person sent. */
-	| { type: "user"; text: string }
+	| { type: "user"; text: string; attachments?: ChatAttachment[] }
 	/** A piece of the agent's reply (Markdown). */
 	| { type: "message"; text: string }
 	/** A piece of the agent's visible reasoning. */

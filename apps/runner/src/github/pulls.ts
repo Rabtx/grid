@@ -57,6 +57,18 @@ export type PullDetail = PullSummary & {
 	conversation: PullComment[];
 	files: { path: string; additions: number; deletions: number }[];
 	createdAt: string;
+	/** It comes from a fork: its branch is in another repository, not on `origin`. */
+	fork: boolean;
+};
+
+/** One unresolved review comment on a pull request, with where it hangs. */
+export type PullReviewComment = {
+	author: string;
+	/** The file it is on; empty for a comment that is not on a file. */
+	path: string;
+	/** The line in the file, or null when the comment is on the file as a whole. */
+	line: number | null;
+	body: string;
 };
 
 export type MergeMethod = "merge" | "squash" | "rebase";
@@ -91,7 +103,30 @@ type RawPull = {
 	url: string;
 };
 
+/** One review thread as GitHub's GraphQL answers it. */
+type RawThread = {
+	isResolved?: boolean;
+	comments?: {
+		nodes?: {
+			author?: Person;
+			path?: string;
+			line?: number | null;
+			originalLine?: number | null;
+			body?: string;
+		}[];
+	};
+};
+
+type ThreadsAnswer = {
+	data?: {
+		repository?: {
+			pullRequest?: { reviewThreads?: { nodes?: RawThread[] } | null } | null;
+		} | null;
+	} | null;
+};
+
 type RawDetail = RawPull & {
+	isCrossRepository?: boolean;
 	body: string;
 	state: PullDetail["state"];
 	mergeable: string;
@@ -101,9 +136,26 @@ type RawDetail = RawPull & {
 	reviews: { author: Person; body: string; state: string; submittedAt: string }[];
 };
 
+// Review threads carry whether they are resolved and where each comment hangs; `gh pr view --json`
+// does not, so this is asked of GitHub's GraphQL API.
+const REVIEW_THREADS_QUERY = `query ReviewThreads($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) {
+        nodes {
+          isResolved
+          comments(first: 50) {
+            nodes { author { login } path line originalLine body }
+          }
+        }
+      }
+    }
+  }
+}`;
+
 const LIST_FIELDS =
 	"number,title,author,headRefName,baseRefName,isDraft,reviewDecision,statusCheckRollup,labels,additions,deletions,updatedAt,url";
-const DETAIL_FIELDS = `${LIST_FIELDS},body,state,mergeable,createdAt,files,comments,reviews`;
+const DETAIL_FIELDS = `${LIST_FIELDS},body,state,mergeable,createdAt,files,comments,reviews,isCrossRepository`;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 
 /** One check, whether GitHub Actions (a check run) or a commit status (a status context). */
@@ -197,6 +249,26 @@ export function splitDiff(text: string): FileDiff[] {
 	return files;
 }
 
+/** The unresolved review comments in GitHub's answer, oldest thread first, nothing resolved. */
+export function reviewComments(answer: ThreadsAnswer): PullReviewComment[] {
+	const threads = answer.data?.repository?.pullRequest?.reviewThreads?.nodes ?? [];
+	const found: PullReviewComment[] = [];
+	for (const thread of threads) {
+		if (thread.isResolved) continue;
+		for (const comment of thread.comments?.nodes ?? []) {
+			const body = comment.body?.trim() ?? "";
+			if (!body) continue;
+			found.push({
+				author: comment.author?.login ?? "ghost",
+				path: comment.path ?? "",
+				line: comment.line ?? comment.originalLine ?? null,
+				body,
+			});
+		}
+	}
+	return found;
+}
+
 /** `owner/name` of a GitHub repository URL, or null for anything else. */
 export function repoOf(url: string | null): string | null {
 	const match = url?.match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+?)\/?$/);
@@ -274,6 +346,7 @@ export class PullRequests {
 			conversation: conversation(raw),
 			files: raw.files ?? [],
 			createdAt: raw.createdAt,
+			fork: raw.isCrossRepository === true,
 		};
 	}
 
@@ -281,6 +354,56 @@ export class PullRequests {
 		this.assertOwner(userId);
 		const repo = this.repository(folder);
 		return splitDiff(await this.output(["pr", "diff", String(number), "--repo", repo]));
+	}
+
+	/** A pull request's unresolved review comments, with the file and line they hang on. */
+	async reviewComments(
+		userId: string,
+		folder: string,
+		number: number,
+	): Promise<PullReviewComment[]> {
+		this.assertOwner(userId);
+		const [owner, name] = this.repository(folder).split("/");
+		return reviewComments(
+			await this.json<ThreadsAnswer>([
+				"api",
+				"graphql",
+				"-f",
+				`query=${REVIEW_THREADS_QUERY}`,
+				"-f",
+				`owner=${owner}`,
+				"-f",
+				`name=${name}`,
+				"-F",
+				`number=${number}`,
+			]),
+		);
+	}
+
+	/**
+	 * The failed steps' log of an Actions job (or of a whole run when the job is not known), through
+	 * `gh run view --log-failed`. Empty when there is nothing failed to show or the log cannot be
+	 * read: a missing log is not a failure, but it is said in the runner's log.
+	 */
+	async failedLog(
+		userId: string,
+		folder: string,
+		target: { run: number; job: number | null },
+	): Promise<string> {
+		this.assertOwner(userId);
+		const repo = this.repository(folder);
+		const which = target.job === null ? [String(target.run)] : ["--job", String(target.job)];
+		const result = await this.gh.run(["run", "view", ...which, "--repo", repo, "--log-failed"], {
+			timeoutMs: 60_000,
+		});
+		if (result.code !== 0) {
+			console.warn(
+				`[runner] no failed log for run ${target.run}:`,
+				result.stderr.trim().split("\n")[0] || `gh exited ${result.code}`,
+			);
+			return "";
+		}
+		return result.stdout;
 	}
 
 	async merge(userId: string, folder: string, number: number, method: MergeMethod): Promise<void> {

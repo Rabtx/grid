@@ -272,3 +272,12 @@ describe("turns", () => {
 		).toBe("5 steps, edited 2 files, ran 1 command");
 	});
 });
+
+it("replays attachment metadata on its user turn", () => {
+	const attachments = [{ id: "file", name: "shot.png", mimeType: "image/png", size: 12 }];
+	expect(replay([{ type: "user", text: "see this", attachments }]).blocks[0]).toMatchObject({
+		kind: "user",
+		text: "see this",
+		attachments,
+	});
+});

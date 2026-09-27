@@ -52,7 +52,8 @@ import {
 	toolTag,
 	type Turn,
 } from "../lib/transcript";
-import type { FileDiff, ToolKind } from "../types/chat.types";
+import type { ChatAttachment, FileDiff, ToolKind } from "../types/chat.types";
+import { MessageAttachments, type LoadAttachment } from "./message-attachments";
 
 type ToolBlock = Extract<Block, { kind: "tool" }>;
 
@@ -85,21 +86,19 @@ function toolParts(tool: ToolBlock): [verb: string, target: string] {
 	}
 }
 
-function findPrecedingUserPrompt(blocks: Block[], target: Block): string | null {
-	const index = blocks.indexOf(target);
-	if (index === -1) {
-		const keyIndex = blocks.findIndex((b) => b.key === target.key);
-		if (keyIndex !== -1) {
-			for (let i = keyIndex - 1; i >= 0; i--) {
-				const b = blocks[i];
-				if (b && b.kind === "user") return b.text;
-			}
-		}
-		return null;
-	}
+/** What Regenerate sends again: the message's text and the ids of the files it came with. */
+export type UserPrompt = { text: string; attachments: string[] };
+
+function findPrecedingUserPrompt(blocks: Block[], target: Block): UserPrompt | null {
+	let index = blocks.indexOf(target);
+	if (index === -1) index = blocks.findIndex((b) => b.key === target.key);
+	if (index === -1) return null;
 	for (let i = index - 1; i >= 0; i--) {
 		const b = blocks[i];
-		if (b && b.kind === "user") return b.text;
+		if (b && b.kind === "user") {
+			const attachments = (b.attachments ?? []).map((item) => item.id);
+			return b.text || attachments.length ? { text: b.text, attachments } : null;
+		}
 	}
 	return null;
 }
@@ -124,10 +123,11 @@ function useNow(active: () => boolean): () => number {
  * working (or took), its steps as quiet lines, its reply, and Done when it finished.
  */
 export function TranscriptView(props: {
+	loadAttachment?: LoadAttachment;
 	blocks: Block[];
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
-	onRegenerate?: (prompt: string) => void;
+	onRegenerate?: (prompt: UserPrompt) => void;
 	/** Save a message to the project's notes; no action is shown without it. */
 	onNote?: (text: string) => void;
 }): JSX.Element {
@@ -141,6 +141,7 @@ export function TranscriptView(props: {
 				{(turn, index) => (
 					<TurnView
 						turn={turn()}
+						loadAttachment={props.loadAttachment}
 						live={props.running && index === turns().length - 1}
 						blocks={props.blocks}
 						running={props.running}
@@ -155,13 +156,14 @@ export function TranscriptView(props: {
 }
 
 function TurnView(props: {
+	loadAttachment?: LoadAttachment;
 	turn: Turn;
 	/** The agent is working on this turn now. */
 	live: boolean;
 	blocks: Block[];
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
-	onRegenerate?: (prompt: string) => void;
+	onRegenerate?: (prompt: UserPrompt) => void;
 	onNote?: (text: string) => void;
 }): JSX.Element {
 	const now = useNow(() => props.live);
@@ -176,7 +178,14 @@ function TurnView(props: {
 	return (
 		<section class="flex flex-col gap-3">
 			<Show when={props.turn.user}>
-				{(user) => <UserMessageView text={user().text} onNote={props.onNote} />}
+				{(user) => (
+					<UserMessageView
+						text={user().text}
+						attachments={user().attachments}
+						loadAttachment={props.loadAttachment}
+						onNote={props.onNote}
+					/>
+				)}
 			</Show>
 			<Show when={header()}>{(line) => <TurnHeader live={props.live}>{line()}</TurnHeader>}</Show>
 			<For each={props.turn.rows} keyed={false}>
@@ -218,7 +227,7 @@ function BlockView(props: {
 	blocks: Block[];
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
-	onRegenerate?: (prompt: string) => void;
+	onRegenerate?: (prompt: UserPrompt) => void;
 	onNote?: (text: string) => void;
 }): JSX.Element {
 	const userPrompt = createMemo(() => {
@@ -365,7 +374,12 @@ function TouchMenu(props: {
 }
 
 /** What you sent: a right-aligned bubble, clamped to four lines until opened, with copy & note actions. */
-function UserMessageView(props: { text: string; onNote?: (text: string) => void }): JSX.Element {
+function UserMessageView(props: {
+	text: string;
+	attachments?: ChatAttachment[];
+	loadAttachment?: LoadAttachment;
+	onNote?: (text: string) => void;
+}): JSX.Element {
 	let menu: PopoverControl | undefined;
 	const long = () => props.text.split("\n").length > 4 || props.text.length > 400;
 	return (
@@ -385,6 +399,11 @@ function UserMessageView(props: { text: string; onNote?: (text: string) => void 
 				}}
 			/>
 			<UserMessage
+				attachmentContent={
+					<Show when={props.attachments?.length}>
+						<MessageAttachments attachments={props.attachments ?? []} load={props.loadAttachment} />
+					</Show>
+				}
 				clamp={long()}
 				onMenuAt={(point) => menu?.open(point)}
 				actions={

@@ -26,20 +26,25 @@ import {
 	PaneHeader,
 	Prose,
 	Skeleton,
+	SparklesIcon,
 	SpinnerIcon,
 	Stack,
 	Tabs,
 	Text,
 	Textarea,
+	TextLink,
 } from "@/kit";
 import { useAuth } from "@/modules/auth";
 import { diffRows } from "@/modules/chat/lib/diff";
 import { copyCodeFrom, renderMarkdown } from "@/modules/chat/lib/markdown";
+import { threadsStore } from "@/modules/chat/stores/threads";
 import type { FileDiff } from "@/modules/chat/types/chat.types";
 import { relativeTime } from "@/modules/projects/lib/relative-time";
 
 import { CHECKS, mergeBlocker, reviewLabel, sortChecks, stateLabel } from "../lib/pulls";
 import { pullsService } from "../services/pulls.service";
+
+import { FixWithAgentSheet } from "./fix-with-agent-sheet";
 import type {
 	Check,
 	MergeMethod,
@@ -85,11 +90,23 @@ export function PullDetailPane(props: {
 	const [section, setSection] = createSignal<Section>("conversation");
 	const [busy, setBusy] = createSignal(false);
 	const [merging, setMerging] = createSignal<MergeMethod | null>(null);
+	const [fixing, setFixing] = createSignal(false);
+
+	// Threads whose worktree is this pull request's branch: the ones fixing it.
+	const fixingThreads = createMemo(() => {
+		const branch = pull()?.branch;
+		if (!branch) return [];
+		return threadsStore
+			.threads(props.project)
+			.filter((session) => session.worktree?.branch === branch);
+	});
 
 	async function load(): Promise<void> {
 		const token = auth.token();
 		const { project, number } = props;
 		if (!token) return;
+		// Threads on this branch are shown with the pull request, so read the project's list too.
+		void threadsStore.load(token, project);
 		try {
 			const next = await pullsService.view(token, project, number);
 			if (project !== props.project || number !== props.number) return;
@@ -205,7 +222,28 @@ export function PullDetailPane(props: {
 						<div class="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-5 md:px-6">
 							<Overview pull={current()} />
 							<Show when={current().state === "OPEN"}>
-								<MergeBox pull={current()} busy={busy()} onMerge={(method) => setMerging(method)} />
+								<MergeBox
+									pull={current()}
+									busy={busy()}
+									onMerge={(method) => setMerging(method)}
+									onFix={() => setFixing(true)}
+								/>
+							</Show>
+							<Show when={fixingThreads().length > 0}>
+								<Card padding="md" class="flex flex-col gap-1.5">
+									<Text size="caption" tone="subtle">
+										{fixingThreads().length === 1
+											? "A thread is working on this branch"
+											: `${fixingThreads().length} threads are working on this branch`}
+									</Text>
+									<For each={fixingThreads()}>
+										{(session) => (
+											<TextLink tone="accent" href={`/chat/${props.project}/${session.id}`}>
+												{session.title}
+											</TextLink>
+										)}
+									</For>
+								</Card>
 							</Show>
 							<Tabs
 								label="Pull request sections"
@@ -282,6 +320,13 @@ export function PullDetailPane(props: {
 			>
 				<Text tone="subtle">{pull()?.title}</Text>
 			</Dialog>
+			<FixWithAgentSheet
+				open={fixing()}
+				project={props.project}
+				number={props.number}
+				onClose={() => setFixing(false)}
+				onStarted={() => props.onChanged()}
+			/>
 		</>
 	);
 }
@@ -333,6 +378,7 @@ function MergeBox(props: {
 	pull: PullDetail;
 	busy: boolean;
 	onMerge: (method: MergeMethod) => void;
+	onFix: () => void;
 }): JSX.Element {
 	const blocker = () => mergeBlocker(props.pull);
 	return (
@@ -348,21 +394,27 @@ function MergeBox(props: {
 								: "No conflicts with the base branch.")}
 				</Text>
 			</div>
-			<Show when={!blocker()}>
-				<Menu
-					label="Merge"
-					trigger={
-						<>
-							Merge
-							<ChevronDownIcon size="sm" />
-						</>
-					}
-					triggerClass={button({ variant: "primary", size: "sm" })}
-					placement="bottom-end"
-					groups={[{ items: MERGE_METHODS.map(({ id, label }) => ({ id, label })) }]}
-					onSelect={(id) => props.onMerge(id as MergeMethod)}
-				/>
-			</Show>
+			<div class="flex shrink-0 flex-col gap-2 md:flex-row md:items-center">
+				<Button size="sm" onClick={() => props.onFix()}>
+					<SparklesIcon size="sm" />
+					Fix with an agent
+				</Button>
+				<Show when={!blocker()}>
+					<Menu
+						label="Merge"
+						trigger={
+							<>
+								Merge
+								<ChevronDownIcon size="sm" />
+							</>
+						}
+						triggerClass={button({ variant: "primary", size: "sm" })}
+						placement="bottom-end"
+						groups={[{ items: MERGE_METHODS.map(({ id, label }) => ({ id, label })) }]}
+						onSelect={(id) => props.onMerge(id as MergeMethod)}
+					/>
+				</Show>
+			</div>
 		</Card>
 	);
 }
