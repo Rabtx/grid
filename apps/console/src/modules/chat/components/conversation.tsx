@@ -23,7 +23,7 @@ import { mergeModels } from "../lib/choices";
 import { Composer } from "./composer";
 import { GitControl } from "./git-control";
 import { ModelPicker, ModePicker } from "./pickers";
-import { TranscriptView } from "./transcript-view";
+import { TranscriptView, type UserPrompt } from "./transcript-view";
 
 /** A first message typed on the new-chat screen, sent as soon as the session's socket is up. */
 const firstMessages = new Map<string, { text: string; attachments: string[] }>();
@@ -126,9 +126,9 @@ export function Conversation(props: {
 		}
 	}
 
-	function handleRegenerate(prompt: string): void {
+	function handleRegenerate(prompt: UserPrompt): void {
 		if (running()) return;
-		void send(prompt).catch((cause) =>
+		void send(prompt.text, [], prompt.attachments).catch((cause) =>
 			setError(cause instanceof Error ? cause.message : "Could not send message"),
 		);
 	}
@@ -208,7 +208,8 @@ export function Conversation(props: {
 					// The runner titles a chat from its first message; show that title at once.
 					const current = session();
 					if (event.type === "user" && current?.title === "New chat") {
-						const titled = { ...current, title: event.text.replace(/\s+/g, " ").slice(0, 60) };
+						const title = event.text || event.attachments?.[0]?.name || "Chat";
+						const titled = { ...current, title: title.replace(/\s+/g, " ").slice(0, 60) };
 						setSession(titled);
 						props.onSession(titled);
 					}
@@ -273,7 +274,8 @@ export function Conversation(props: {
 		},
 	);
 
-	async function send(text: string, files: File[] = []): Promise<boolean> {
+	/** Sends a message with new files and, for Regenerate, files the thread already holds. */
+	async function send(text: string, files: File[] = [], existing: string[] = []): Promise<boolean> {
 		const token = auth.token();
 		if (!token || connection() !== "open") {
 			setError("Not connected to the runner right now — your message is still in the box.");
@@ -282,7 +284,8 @@ export function Conversation(props: {
 		const attachments = await chatService.upload(token, props.id, files, props.scope);
 		setError(null);
 		setRestartNotice(null);
-		if (!socket?.send({ t: "prompt", text, attachments: attachments.map((item) => item.id) })) {
+		const ids = [...existing, ...attachments.map((item) => item.id)];
+		if (!socket?.send({ t: "prompt", text, attachments: ids })) {
 			setError("Not connected to the runner right now — your message is still in the box.");
 			return false;
 		}

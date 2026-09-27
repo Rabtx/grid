@@ -1,5 +1,7 @@
-export type ChatAttachment = { id: string; name: string; size: number; mimeType: string };
 import type { FileDiff } from "./diff";
+
+/** A file sent with a message; its bytes stay with the runner that took it. */
+export type ChatAttachment = { id: string; name: string; size: number; mimeType: string };
 
 /**
  * The one stream every agent is translated into. Providers speak different protocols (ACP,

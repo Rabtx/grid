@@ -169,7 +169,10 @@ export function startServer(
 					const mediaType = response.headers.get("Content-Type") ?? "";
 					if (!/^image\/(png|jpeg|gif|webp)$/.test(mediaType)) {
 						response.headers.set("Content-Type", "application/octet-stream");
-						response.headers.set("Content-Disposition", "attachment");
+						// The file's name may come through; never an inline disposition.
+						const disposition = response.headers.get("Content-Disposition") ?? "";
+						if (!disposition.startsWith("attachment"))
+							response.headers.set("Content-Disposition", "attachment");
 					}
 					response.headers.set("X-Content-Type-Options", "nosniff");
 					response.headers.set("Content-Security-Policy", "default-src 'none'; sandbox");

@@ -1,5 +1,3 @@
-import { MessageAttachments, type LoadAttachment } from "./message-attachments";
-import type { ChatAttachment } from "../types/chat.types";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, For, Match, Show, Switch } from "solid-js";
 
@@ -53,7 +51,8 @@ import {
 	toolTag,
 	type Turn,
 } from "../lib/transcript";
-import type { FileDiff, ToolKind } from "../types/chat.types";
+import type { ChatAttachment, FileDiff, ToolKind } from "../types/chat.types";
+import { MessageAttachments, type LoadAttachment } from "./message-attachments";
 
 type ToolBlock = Extract<Block, { kind: "tool" }>;
 
@@ -86,21 +85,19 @@ function toolParts(tool: ToolBlock): [verb: string, target: string] {
 	}
 }
 
-function findPrecedingUserPrompt(blocks: Block[], target: Block): string | null {
-	const index = blocks.indexOf(target);
-	if (index === -1) {
-		const keyIndex = blocks.findIndex((b) => b.key === target.key);
-		if (keyIndex !== -1) {
-			for (let i = keyIndex - 1; i >= 0; i--) {
-				const b = blocks[i];
-				if (b && b.kind === "user") return b.text;
-			}
-		}
-		return null;
-	}
+/** What Regenerate sends again: the message's text and the ids of the files it came with. */
+export type UserPrompt = { text: string; attachments: string[] };
+
+function findPrecedingUserPrompt(blocks: Block[], target: Block): UserPrompt | null {
+	let index = blocks.indexOf(target);
+	if (index === -1) index = blocks.findIndex((b) => b.key === target.key);
+	if (index === -1) return null;
 	for (let i = index - 1; i >= 0; i--) {
 		const b = blocks[i];
-		if (b && b.kind === "user") return b.text;
+		if (b && b.kind === "user") {
+			const attachments = (b.attachments ?? []).map((item) => item.id);
+			return b.text || attachments.length ? { text: b.text, attachments } : null;
+		}
 	}
 	return null;
 }
@@ -129,7 +126,7 @@ export function TranscriptView(props: {
 	blocks: Block[];
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
-	onRegenerate?: (prompt: string) => void;
+	onRegenerate?: (prompt: UserPrompt) => void;
 	/** Save a message to the project's notes; no action is shown without it. */
 	onNote?: (text: string) => void;
 }): JSX.Element {
@@ -165,7 +162,7 @@ function TurnView(props: {
 	blocks: Block[];
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
-	onRegenerate?: (prompt: string) => void;
+	onRegenerate?: (prompt: UserPrompt) => void;
 	onNote?: (text: string) => void;
 }): JSX.Element {
 	const now = useNow(() => props.live);
@@ -229,7 +226,7 @@ function BlockView(props: {
 	blocks: Block[];
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
-	onRegenerate?: (prompt: string) => void;
+	onRegenerate?: (prompt: UserPrompt) => void;
 	onNote?: (text: string) => void;
 }): JSX.Element {
 	const userPrompt = createMemo(() => {

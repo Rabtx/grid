@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { AgentSession, Provider } from "../agents/provider";
-import { MAX_ATTACHMENT_BYTES } from "./attachments";
+import {
+	MAX_ATTACHMENT_BYTES,
+	MAX_IMAGE_BLOCK_BYTES,
+	MAX_SESSION_ATTACHMENTS,
+} from "./attachments";
 import { ChatHub } from "./hub";
 import { chatRequest } from "./routes";
 import { ChatStore } from "./store";
@@ -137,6 +141,34 @@ it("accepts attachment-only turns, twenty files, and refuses symlink substitutio
 	expect(() => hub.attachment("team", session.id, files[0].id)).toThrow("no longer available");
 });
 
+it("keeps the file's extension on disk, and only a safe one", () => {
+	const { hub, session } = setup();
+	const pdf = hub.upload("team", session.id, "Report.PDF", Buffer.from("%PDF"));
+	expect(hub.attachment("team", session.id, pdf.id).path).toEndWith(`${pdf.id}.pdf`);
+	const odd = hub.upload("team", session.id, "notes.t x/t", Buffer.from("x"));
+	expect(hub.attachment("team", session.id, odd.id).path).toEndWith(odd.id);
+});
+
+it("sends an image inline only when a model accepts its size; larger ones go by path", async () => {
+	const { hub, session, prompts } = setup();
+	const large = Buffer.concat([png, Buffer.alloc(MAX_IMAGE_BLOCK_BYTES)]);
+	const big = hub.upload("team", session.id, "big.png", large);
+	const small = hub.upload("team", session.id, "small.png", png);
+	await hub.prompt("team", session.id, "Look", [big.id, small.id]);
+	expect(big.mimeType).toBe("image/png");
+	expect(prompts[0][0]).toContain(hub.attachment("team", session.id, big.id).path);
+	expect(prompts[0][1]).toEqual([{ mimeType: "image/png", data: png.toString("base64") }]);
+});
+
+it("caps how many files one thread keeps", () => {
+	const { hub, session } = setup();
+	for (let i = 0; i < MAX_SESSION_ATTACHMENTS; i++)
+		hub.upload("team", session.id, `${i}.txt`, Buffer.from("x"));
+	expect(() => hub.upload("team", session.id, "one-more.txt", Buffer.from("x"))).toThrow(
+		"as many files",
+	);
+});
+
 it("relays uploads to the project's runner and preserves safe download headers", async () => {
 	const { readConfig } = await import("../config");
 	const { startServer } = await import("../server");
@@ -216,6 +248,13 @@ it("relays uploads to the project's runner and preserves safe download headers",
 		expect(download.headers.get("Content-Type")).toBe("image/png");
 		expect(download.headers.get("X-Content-Type-Options")).toBe("nosniff");
 		expect(Buffer.from(await download.arrayBuffer())).toEqual(png);
+		// A download that is not an image keeps its name through the relay.
+		const notes = remoteHub.upload("team", session.id, "notes.txt", Buffer.from("hi"));
+		const saved = await fetch(`${path}/${notes.id}`, {
+			headers: { Authorization: "Bearer alice" },
+		});
+		expect(saved.headers.get("Content-Type")).toBe("application/octet-stream");
+		expect(saved.headers.get("Content-Disposition")).toBe("attachment; filename*=UTF-8''notes.txt");
 		expect((await fetch(`${path}/${file.id}`)).status).toBe(401);
 	} finally {
 		remoteTerminal.closeAll();

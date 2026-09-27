@@ -11,10 +11,22 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 
+import type { ChatAttachment } from "../agents/events";
+
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_ATTACHMENTS = 20;
+/** What one thread may keep: enough for a long conversation, not a disk-filler. */
+export const MAX_SESSION_ATTACHMENTS = 200;
+export const MAX_SESSION_BYTES = 500 * 1024 * 1024;
+/**
+ * Images sent inline to an agent: models take up to 5 MB per image once base64-encoded (about
+ * 3.75 MB raw) and a request has an overall ceiling, so larger images, or more of them, go by
+ * path instead.
+ */
+export const MAX_IMAGE_BLOCK_BYTES = 3_750_000;
+export const MAX_IMAGE_BLOCKS_BYTES = 15_000_000;
 
-export type Attachment = { id: string; name: string; size: number; mimeType: string };
+export type Attachment = ChatAttachment;
 
 /** Only inert raster formats are served inline or sent as image blocks. Never trust a MIME header. */
 export function imageType(bytes: Uint8Array): string | null {
@@ -27,17 +39,27 @@ export function imageType(bytes: Uint8Array): string | null {
 	return null;
 }
 
-/** Generated ids name directories; the original filename is display metadata only. */
+/**
+ * The extension a file keeps on disk, from its name: agents read files by what they end in (an
+ * image, a PDF). Letters and digits only, or none.
+ */
+export function extensionOf(name: string): string {
+	return name.match(/\.([A-Za-z0-9]{1,10})$/)?.[1]?.toLowerCase() ?? "";
+}
+
+/** Generated ids name the files, with the name's extension; the original name is display only. */
 export class AttachmentFiles {
 	constructor(readonly root: string) {}
 
-	path(session: string, id: string): string {
-		if (!/^[\w-]+$/.test(session) || !/^[\w-]+$/.test(id)) throw new Error("Invalid attachment id");
-		return join(this.root, session, id);
+	path(session: string, attachment: Pick<Attachment, "id" | "name">): string {
+		if (!/^[\w-]+$/.test(session) || !/^[\w-]+$/.test(attachment.id))
+			throw new Error("Invalid attachment id");
+		const extension = extensionOf(attachment.name);
+		return join(this.root, session, extension ? `${attachment.id}.${extension}` : attachment.id);
 	}
 
-	write(session: string, id: string, bytes: Uint8Array): void {
-		const path = this.path(session, id);
+	write(session: string, attachment: Pick<Attachment, "id" | "name">, bytes: Uint8Array): void {
+		const path = this.path(session, attachment);
 		mkdirSync(join(this.root, session), { recursive: true, mode: 0o700 });
 		this.checkDirectory(session);
 		writeFileSync(path, bytes, { flag: "wx", mode: 0o600 });
@@ -66,7 +88,7 @@ export class AttachmentFiles {
 
 	private open(session: string, attachment: Attachment): { path: string; fd: number } {
 		this.checkDirectory(session);
-		const path = resolve(this.path(session, attachment.id));
+		const path = resolve(this.path(session, attachment));
 		const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
 		try {
 			const stat = fstatSync(fd);
@@ -79,8 +101,9 @@ export class AttachmentFiles {
 		}
 	}
 
-	remove(session: string, id?: string): void {
-		rmSync(id ? this.path(session, id) : join(this.root, session), {
+	/** One attachment's file, or with none given the whole thread's. */
+	remove(session: string, attachment?: Pick<Attachment, "id" | "name">): void {
+		rmSync(attachment ? this.path(session, attachment) : join(this.root, session), {
 			recursive: true,
 			force: true,
 		});

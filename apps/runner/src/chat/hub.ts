@@ -1,4 +1,13 @@
-import { imageType, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS, type Attachment } from "./attachments";
+import {
+	type Attachment,
+	imageType,
+	MAX_ATTACHMENT_BYTES,
+	MAX_ATTACHMENTS,
+	MAX_IMAGE_BLOCK_BYTES,
+	MAX_IMAGE_BLOCKS_BYTES,
+	MAX_SESSION_ATTACHMENTS,
+	MAX_SESSION_BYTES,
+} from "./attachments";
 import { existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -488,6 +497,9 @@ export class ChatHub {
 		this.owned(workspace, id);
 		if (bytes.length > MAX_ATTACHMENT_BYTES)
 			throw new ChatError("Each file must be 10 MB or smaller", 413);
+		const usage = this.store.attachmentUsage(id);
+		if (usage.count >= MAX_SESSION_ATTACHMENTS || usage.bytes + bytes.length > MAX_SESSION_BYTES)
+			throw new ChatError("This thread holds as many files as it can; start a new thread", 413);
 		const safeName =
 			name
 				.replaceAll("\\", "/")
@@ -536,20 +548,29 @@ export class ChatHub {
 			const metadata = this.store.attachment(id, attachmentId);
 			if (!metadata) throw new ChatError("Attachment not found", 404);
 			try {
-				const path = this.store.attachmentFiles.verifiedPath(id, metadata);
-				return {
-					metadata,
-					path,
-					bytes: metadata.mimeType.startsWith("image/")
-						? this.store.attachmentFiles.read(id, metadata).bytes
-						: null,
-				};
+				return { metadata, path: this.store.attachmentFiles.verifiedPath(id, metadata) };
 			} catch {
 				throw new ChatError("Attachment is no longer available", 404);
 			}
 		});
 		if (!message && !attachments.length) return;
+		// Before any image is read: a second send while the agent works costs nothing.
 		if (live.running) throw new ChatError("The agent is still working on the last message", 409);
+		// Images the agent can take inline, within what a model accepts; the rest go by path.
+		const images: { mimeType: string; data: string }[] = [];
+		let inline = 0;
+		for (const item of attachments) {
+			const { mimeType, size } = item.metadata;
+			if (!mimeType.startsWith("image/") || size > MAX_IMAGE_BLOCK_BYTES) continue;
+			if (inline + size > MAX_IMAGE_BLOCKS_BYTES) continue;
+			inline += size;
+			try {
+				const { bytes } = this.store.attachmentFiles.read(id, item.metadata);
+				images.push({ mimeType, data: bytes.toString("base64") });
+			} catch {
+				throw new ChatError("Attachment is no longer available", 404);
+			}
+		}
 
 		if (session.title === "New chat") {
 			this.store.update(id, {
@@ -575,15 +596,7 @@ export class ChatHub {
 			const prompt = paths
 				? `${message}\n\nAttached files (absolute paths on this machine):\n${paths}`
 				: message;
-			result = await agent.prompt(
-				prompt,
-				attachments
-					.filter((item) => item.metadata.mimeType.startsWith("image/"))
-					.map((item) => ({
-						mimeType: item.metadata.mimeType,
-						data: item.bytes!.toString("base64"),
-					})),
-			);
+			result = await agent.prompt(prompt, images);
 		} catch (cause) {
 			result = { reason: "error", error: cause instanceof Error ? cause.message : String(cause) };
 			// A failed start leaves nothing to reuse.

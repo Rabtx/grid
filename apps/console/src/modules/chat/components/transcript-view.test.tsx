@@ -188,7 +188,27 @@ describe("TranscriptView - Assistant Message", () => {
 		expect(regenerateBtn).not.toBeNull();
 		expect(regenerateBtn?.disabled).toBe(false);
 		regenerateBtn?.click();
-		expect(onRegenerate).toHaveBeenCalledWith("Write some code");
+		expect(onRegenerate).toHaveBeenCalledWith({ text: "Write some code", attachments: [] });
+	});
+
+	it("regenerates a message sent with only files, sending the files again", () => {
+		const onRegenerate = vi.fn();
+		const file = { id: "a1", name: "shot.png", size: 3, mimeType: "image/png" };
+		const blocks: Block[] = [
+			{ kind: "user", key: "b0", text: "", attachments: [file] },
+			{ kind: "assistant", key: "b1", text: "A login form" },
+		];
+		const root = mount(() => (
+			<TranscriptView
+				blocks={blocks}
+				running={false}
+				onApprove={() => {}}
+				onRegenerate={onRegenerate}
+			/>
+		));
+		flush();
+		root.querySelector<HTMLButtonElement>('button[aria-label="Regenerate response"]')?.click();
+		expect(onRegenerate).toHaveBeenCalledWith({ text: "", attachments: ["a1"] });
 	});
 
 	it("disables regenerate button while running", () => {

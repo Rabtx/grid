@@ -319,14 +319,25 @@ export class ChatStore {
 		return row ? (JSON.parse(row.data) as Attachment) : null;
 	}
 
+	/** How many files a thread keeps, and how many bytes. */
+	attachmentUsage(session: string): { count: number; bytes: number } {
+		const rows = this.db
+			.query<{ data: string }, [string]>("SELECT data FROM attachments WHERE session_id = ?")
+			.all(session);
+		return {
+			count: rows.length,
+			bytes: rows.reduce((sum, row) => sum + ((JSON.parse(row.data) as Attachment).size ?? 0), 0),
+		};
+	}
+
 	addAttachment(session: string, attachment: Attachment, bytes: Uint8Array): void {
-		this.attachmentFiles.write(session, attachment.id, bytes);
+		this.attachmentFiles.write(session, attachment, bytes);
 		try {
 			this.db
 				.query("INSERT INTO attachments (session_id, id, data) VALUES (?, ?, ?)")
 				.run(session, attachment.id, JSON.stringify(attachment));
 		} catch (cause) {
-			this.attachmentFiles.remove(session, attachment.id);
+			this.attachmentFiles.remove(session, attachment);
 			throw cause;
 		}
 	}
