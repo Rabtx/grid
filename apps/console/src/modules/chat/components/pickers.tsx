@@ -10,6 +10,7 @@ import {
 	CheckIcon,
 	ChevronDownIcon,
 	ChoiceRail,
+	EffortSlider,
 	FlagshipMark,
 	Icon,
 	type IconData,
@@ -19,7 +20,6 @@ import {
 	type RailItem,
 	SearchIcon,
 	SearchInput,
-	Segmented,
 	Select,
 	SparklesIcon,
 	StarIcon,
@@ -315,14 +315,11 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 				</div>
 			</div>
 			<Show when={props.efforts.length > 0}>
-				<div class="flex items-center gap-3 overflow-x-auto border-line border-t px-3 py-2 [scrollbar-width:none]">
-					<Text as="span" size="caption" tone="subtle" class="shrink-0">
-						Effort
-					</Text>
-					<Segmented
-						label="Effort"
-						options={props.efforts.map((level) => ({ value: level.id, label: level.name }))}
-						value={props.effort ?? ""}
+				<div class="border-line border-t px-4 pt-2.5 pb-3">
+					<EffortSlider
+						label="Reasoning effort"
+						levels={props.efforts}
+						value={props.effort}
 						onChange={(id) => props.onEffort(id)}
 					/>
 				</div>
