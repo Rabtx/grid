@@ -331,3 +331,35 @@ describe("TranscriptView - Turns", () => {
 		expect(root.textContent).not.toContain("Done");
 	});
 });
+
+it("renders replayed attachments, loads images and offers a retry on failure", async () => {
+	const load = vi
+		.fn()
+		.mockRejectedValueOnce(new Error("offline"))
+		.mockResolvedValue(new Blob(["image"], { type: "image/png" }));
+	const blocks: Block[] = [
+		{
+			kind: "user",
+			key: "b0",
+			text: "Look",
+			attachments: [
+				{ id: "image", name: "screen.png", size: 100, mimeType: "image/png" },
+				{ id: "text", name: "readme.txt", size: 5, mimeType: "application/octet-stream" },
+			],
+		},
+	];
+	const root = mount(() => (
+		<TranscriptView blocks={blocks} running={false} onApprove={() => {}} loadAttachment={load} />
+	));
+	await vi.waitFor(() => expect(root.textContent).toContain("Attachment unavailable"));
+	expect(root.textContent).toContain("readme.txt");
+	const retry = Array.from(root.querySelectorAll("button")).find(
+		(button) => button.textContent === "Retry",
+	)!;
+	retry.click();
+	await vi.waitFor(() =>
+		expect(root.querySelector('a[target="_blank"] img[alt="screen.png"]')).not.toBeNull(),
+	);
+	expect(load).toHaveBeenCalledTimes(2);
+	expect(load.mock.calls.every((call) => call[0] === "image")).toBe(true);
+});

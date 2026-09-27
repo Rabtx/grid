@@ -453,3 +453,56 @@ describe("ChatHub", () => {
 		]);
 	});
 });
+
+describe("attachment content blocks", () => {
+	const images = [{ mimeType: "image/png", data: "aW1hZ2U=" }];
+	it("sends Claude native image blocks beside the path-bearing text", async () => {
+		const fake = fakeSpawn((message, reply) => {
+			if (message.type === "user") reply({ type: "result", subtype: "success" });
+		});
+		const session = await claudeProvider({
+			binary: "claude",
+			available: () => true,
+			spawn: fake.spawn,
+		}).start(collector().context);
+		await session.prompt("Read /data/attachments/file", images);
+		expect(fake.sent.find((message) => message.type === "user")).toMatchObject({
+			message: {
+				content: [
+					{ type: "text", text: "Read /data/attachments/file" },
+					{ type: "image", source: { type: "base64", media_type: "image/png", data: "aW1hZ2U=" } },
+				],
+			},
+		});
+		session.close();
+	});
+	for (const capable of [true, false])
+		it(`respects ACP image capability: ${capable}`, async () => {
+			const fake = fakeSpawn((message, reply) => {
+				const result =
+					message.method === "initialize"
+						? { agentCapabilities: { promptCapabilities: { image: capable } } }
+						: message.method === "session/new"
+							? { sessionId: "images" }
+							: { stopReason: "end_turn" };
+				if (message.id) reply({ jsonrpc: "2.0", id: message.id, result });
+			});
+			const session = await acpProvider({
+				id: "fake",
+				name: "Fake",
+				command: ["fake"],
+				available: () => true,
+				spawn: fake.spawn,
+			}).start(collector().context);
+			await session.prompt("Read /data/attachments/file", images);
+			expect(fake.sent.find((message) => message.method === "session/prompt")).toMatchObject({
+				params: {
+					prompt: [
+						{ type: "text", text: "Read /data/attachments/file" },
+						...(capable ? [{ type: "image", ...images[0] }] : []),
+					],
+				},
+			});
+			session.close();
+		});
+});

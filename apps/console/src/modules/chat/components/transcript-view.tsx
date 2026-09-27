@@ -1,3 +1,5 @@
+import { MessageAttachments, type LoadAttachment } from "./message-attachments";
+import type { ChatAttachment } from "../types/chat.types";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, For, Match, Show, Switch } from "solid-js";
 
@@ -123,6 +125,7 @@ function useNow(active: () => boolean): () => number {
  * working (or took), its steps as quiet lines, its reply, and Done when it finished.
  */
 export function TranscriptView(props: {
+	loadAttachment?: LoadAttachment;
 	blocks: Block[];
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
@@ -140,6 +143,7 @@ export function TranscriptView(props: {
 				{(turn, index) => (
 					<TurnView
 						turn={turn()}
+						loadAttachment={props.loadAttachment}
 						live={props.running && index === turns().length - 1}
 						blocks={props.blocks}
 						running={props.running}
@@ -154,6 +158,7 @@ export function TranscriptView(props: {
 }
 
 function TurnView(props: {
+	loadAttachment?: LoadAttachment;
 	turn: Turn;
 	/** The agent is working on this turn now. */
 	live: boolean;
@@ -175,7 +180,14 @@ function TurnView(props: {
 	return (
 		<section class="flex flex-col gap-3">
 			<Show when={props.turn.user}>
-				{(user) => <UserMessageView text={user().text} onNote={props.onNote} />}
+				{(user) => (
+					<UserMessageView
+						text={user().text}
+						attachments={user().attachments}
+						loadAttachment={props.loadAttachment}
+						onNote={props.onNote}
+					/>
+				)}
 			</Show>
 			<Show when={header()}>{(line) => <TurnHeader live={props.live}>{line()}</TurnHeader>}</Show>
 			<For each={props.turn.rows} keyed={false}>
@@ -338,7 +350,12 @@ function TouchMenu(props: {
 }
 
 /** What you sent: a right-aligned bubble, clamped to four lines until opened, with copy & note actions. */
-function UserMessageView(props: { text: string; onNote?: (text: string) => void }): JSX.Element {
+function UserMessageView(props: {
+	text: string;
+	attachments?: ChatAttachment[];
+	loadAttachment?: LoadAttachment;
+	onNote?: (text: string) => void;
+}): JSX.Element {
 	let menu: PopoverControl | undefined;
 	const long = () => props.text.split("\n").length > 4 || props.text.length > 400;
 	return (
@@ -358,6 +375,11 @@ function UserMessageView(props: { text: string; onNote?: (text: string) => void 
 				}}
 			/>
 			<UserMessage
+				attachmentContent={
+					<Show when={props.attachments?.length}>
+						<MessageAttachments attachments={props.attachments ?? []} load={props.loadAttachment} />
+					</Show>
+				}
 				clamp={long()}
 				onMenuAt={(point) => menu?.open(point)}
 				actions={

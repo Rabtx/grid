@@ -1,3 +1,4 @@
+export type ChatAttachment = { id: string; name: string; size: number; mimeType: string };
 import type { FileDiff } from "./diff";
 
 /**
@@ -29,7 +30,7 @@ export type ApprovalOption = { id: string; label: string; kind: "allow" | "allow
 
 export type ChatEvent =
 	/** What the person sent. */
-	| { type: "user"; text: string }
+	| { type: "user"; text: string; attachments?: ChatAttachment[] }
 	/** A piece of the agent's reply (Markdown). */
 	| { type: "message"; text: string }
 	/** A piece of the agent's visible reasoning. */

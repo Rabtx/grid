@@ -14,7 +14,7 @@ import { Alert, Banner, FolderIcon, notify, Row, Text } from "@/kit";
 
 import { type ChatConnection, connectChat, type ChatSocket } from "../lib/chat-socket";
 import { applyEvent, emptyTranscript, replay, type Transcript } from "../lib/transcript";
-import { chatSocketUrl } from "../services/chat.service";
+import { chatService, chatSocketUrl } from "../services/chat.service";
 import { threadsStore } from "../stores/threads";
 import type { ChatEvent, ChatProvider, ChatSession } from "../types/chat.types";
 
@@ -26,10 +26,14 @@ import { ModelPicker, ModePicker } from "./pickers";
 import { TranscriptView } from "./transcript-view";
 
 /** A first message typed on the new-chat screen, sent as soon as the session's socket is up. */
-const firstMessages = new Map<string, string>();
+const firstMessages = new Map<string, { text: string; attachments: string[] }>();
 
-export function queueFirstMessage(sessionId: string, text: string): void {
-	firstMessages.set(sessionId, text);
+export function queueFirstMessage(
+	sessionId: string,
+	text: string,
+	attachments: string[] = [],
+): void {
+	firstMessages.set(sessionId, { text, attachments });
 }
 
 function shortPath(path: string): string {
@@ -124,7 +128,9 @@ export function Conversation(props: {
 
 	function handleRegenerate(prompt: string): void {
 		if (running()) return;
-		send(prompt);
+		void send(prompt).catch((cause) =>
+			setError(cause instanceof Error ? cause.message : "Could not send message"),
+		);
 	}
 
 	function scrollToEnd(): void {
@@ -192,7 +198,7 @@ export function Conversation(props: {
 					const first = firstMessages.get(props.id);
 					if (first && !ready.missed && ready.history.length === 0) {
 						firstMessages.delete(props.id);
-						chat.send({ t: "prompt", text: first });
+						chat.send({ t: "prompt", ...first });
 					}
 				},
 				onEvent: (event) => {
@@ -267,10 +273,16 @@ export function Conversation(props: {
 		},
 	);
 
-	function send(text: string): boolean {
+	async function send(text: string, files: File[] = []): Promise<boolean> {
+		const token = auth.token();
+		if (!token || connection() !== "open") {
+			setError("Not connected to the runner right now — your message is still in the box.");
+			return false;
+		}
+		const attachments = await chatService.upload(token, props.id, files, props.scope);
 		setError(null);
 		setRestartNotice(null);
-		if (!socket?.send({ t: "prompt", text })) {
+		if (!socket?.send({ t: "prompt", text, attachments: attachments.map((item) => item.id) })) {
 			setError("Not connected to the runner right now — your message is still in the box.");
 			return false;
 		}
@@ -306,6 +318,9 @@ export function Conversation(props: {
 			>
 				<div class="mx-auto w-full max-w-3xl">
 					<TranscriptView
+						loadAttachment={(id, signal) =>
+							chatService.attachment(auth.token() ?? "", props.id, id, props.scope, signal)
+						}
 						blocks={transcript().blocks}
 						running={running()}
 						onRegenerate={handleRegenerate}
