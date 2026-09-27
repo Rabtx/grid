@@ -6,7 +6,7 @@ import { onRunnerRecovered } from "@/lib/runner-health";
 
 import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
-import { ProjectIcon, useWorkspace } from "@/modules/projects";
+import { notesStore, ProjectIcon, useWorkspace } from "@/modules/projects";
 import { ShellSlot, useShell } from "@/modules/shell";
 import {
 	Alert,
@@ -16,12 +16,16 @@ import {
 	FolderIcon,
 	IdeaIcon,
 	LinkButton,
+	notify,
+	type PopoverControl,
 	Stack,
 	Suggestions,
 	Text,
 	ToolIcon,
 } from "@/kit";
 
+import { addBoardTask, runSlashCommand } from "../lib/run-slash-command";
+import { availableCommands, type SlashCommand } from "../lib/slash-commands";
 import { chatService } from "../services/chat.service";
 import { draftsStore } from "../stores/drafts";
 import { offeredProviders, providersStore } from "../stores/providers";
@@ -255,8 +259,11 @@ function NewChat(props: {
 }): JSX.Element {
 	const auth = useAuth();
 	const workspace = useWorkspace();
+	const navigate = useNavigate();
 	const project = () => workspace.projects().find((item) => item.slug === props.project) ?? null;
 	let composer: ComposerControl | undefined;
+	let modelPicker: PopoverControl | undefined;
+	let modePicker: PopoverControl | undefined;
 	// A draft left for this project (a thread started from a task), taken once.
 	const initial = untrack(() => (props.project ? draftsStore.take(props.project) : undefined));
 	// Installed agents that are not turned off in Settings → Agents.
@@ -351,6 +358,54 @@ function NewChat(props: {
 		}
 	}
 
+	// Slash commands: which apply on this screen, and what each one does.
+	const commands = () =>
+		availableCommands({
+			running: false,
+			models: models().length > 0,
+			modes: (chosen()?.modes.length ?? 0) > 0,
+			efforts: efforts().length > 0,
+			project: Boolean(props.project),
+		});
+
+	async function addNote(text: string): Promise<void> {
+		const token = auth.token();
+		const slug = props.project;
+		if (!token || !slug) {
+			notify({ title: "Open a project to add notes", tone: "danger" });
+			return;
+		}
+		try {
+			await notesStore.add(token, slug, { body: text, source: chosen()?.name ?? "Composer" });
+			notify({
+				title: "Added to notes",
+				tone: "success",
+				action: { label: "Open", run: () => navigate(`/notes/${slug}`) },
+			});
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not add the note",
+				tone: "danger",
+			});
+		}
+	}
+
+	function runCommand(command: SlashCommand, argument: string): boolean {
+		const slug = props.project;
+		// No `newThread`: this screen is the new thread already.
+		return runSlashCommand(command, argument, {
+			running: false,
+			openModel: modelPicker?.open,
+			openMode: modePicker?.open,
+			efforts: efforts(),
+			setEffort: setPickedEffort,
+			addTask: slug
+				? (title) => void addBoardTask({ token: auth.token(), project: slug, title, workspace })
+				: undefined,
+			addNote: slug ? (text) => void addNote(text) : undefined,
+		});
+	}
+
 	const ready = () => Boolean(chosen() && props.project && props.folder);
 
 	return (
@@ -413,6 +468,8 @@ function NewChat(props: {
 						<Composer
 							project={props.project}
 							initial={initial}
+							commands={commands()}
+							onCommand={runCommand}
 							control={(control) => {
 								composer = control;
 							}}
@@ -457,6 +514,9 @@ function NewChat(props: {
 												efforts={efforts()}
 												effort={effort()}
 												onEffort={setPickedEffort}
+												control={(control) => {
+													modelPicker = control;
+												}}
 											/>
 											<Show when={provider().modes.length > 0}>
 												<ModePicker
@@ -468,6 +528,9 @@ function NewChat(props: {
 														provider().modes[0].id
 													}
 													onMode={setMode}
+													control={(control) => {
+														modePicker = control;
+													}}
 												/>
 											</Show>
 										</>

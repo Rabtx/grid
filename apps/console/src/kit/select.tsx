@@ -4,7 +4,7 @@ import { For, Show } from "solid-js";
 import { CheckIcon, ChevronDownIcon } from "./icons";
 
 import { MENU_ITEM } from "./menu";
-import { type Placement, Popover } from "./popover";
+import { type Placement, Popover, type PopoverControl } from "./popover";
 
 export type SelectOption<T extends string> = {
 	value: T;
@@ -32,6 +32,8 @@ export function Select<T extends string>(props: {
 	/** `field` looks like an input (forms); `chip` is a quiet toolbar pill (the composer). */
 	look?: "field" | "chip";
 	disabled?: boolean;
+	/** Hands over a way to open it from code, e.g. the composer's `/mode` command. */
+	control?: (control: PopoverControl) => void;
 }): JSX.Element {
 	const current = () =>
 		props.groups.flatMap((group) => group.options).find((option) => option.value === props.value);
@@ -46,6 +48,7 @@ export function Select<T extends string>(props: {
 			placement={props.placement}
 			width={props.width ?? "md:w-72"}
 			disabled={props.disabled}
+			control={props.control}
 			triggerClass={trigger()}
 			trigger={
 				<>

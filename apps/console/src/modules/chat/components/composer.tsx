@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, For, onSettled, Show, untrack } from "solid-js";
+import { createSignal, createUniqueId, For, onSettled, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import { useWorkspace } from "@/modules/projects";
@@ -20,8 +20,10 @@ import {
 	Text,
 } from "@/kit";
 
+import { type SlashCommand, useSlashCommands } from "../lib/slash-commands";
 import { useFileMentions } from "../lib/use-file-mentions";
 import { FileMentionPopup } from "./file-mention-popup";
+import { SlashMenu } from "./slash-menu";
 
 /** Put text in the composer from outside it: a suggestion picked on the new-chat screen. */
 export type ComposerControl = { fill: (text: string) => void };
@@ -51,6 +53,10 @@ export function Composer(props: {
 	initial?: string;
 	/** The project slug, for file mentions autocomplete. */
 	project?: string | null;
+	/** Slash commands that apply here: Grid's, plus the agent's own. */
+	commands?: readonly SlashCommand[];
+	/** Run a picked or typed command; return false to keep the draft so it can be finished. */
+	onCommand?: (command: SlashCommand, argument: string) => boolean;
 	/** Hands over a way to fill the field from outside. */
 	control?: (control: ComposerControl) => void;
 }): JSX.Element {
@@ -96,16 +102,53 @@ export function Composer(props: {
 
 	const projectSlug = () => props.project ?? workspace.currentSlug();
 
+	/** Take the field's new text, growing the box with it. */
+	function accept(next: string): void {
+		setDraft(next);
+		grow();
+	}
+
 	const mentions = useFileMentions({
 		project: projectSlug,
 		token: auth.token,
 		textarea: () => textarea,
 		value: draft,
-		onChange: (next) => {
-			setDraft(next);
-			grow();
+		onChange: accept,
+	});
+
+	/** Empty the box: `/clear`, or a command that has run. */
+	function clearDraft(): void {
+		setDraft("");
+		if (textarea) textarea.value = "";
+		grow();
+	}
+
+	const slash = useSlashCommands({
+		textarea: () => textarea,
+		commands: () => props.commands ?? [],
+		value: draft,
+		onChange: accept,
+		run: (command, argument) => {
+			// `/clear` needs only the field; every other command belongs to the screen.
+			if (command.id === "clear") {
+				clearDraft();
+				return true;
+			}
+			return props.onCommand?.(command, argument) ?? false;
 		},
 	});
+
+	// The open list's ids, so the field can say which item is picked.
+	const listId = createUniqueId();
+	const slashId = `${listId}-commands`;
+	const mentionsId = `${listId}-files`;
+	const openList = (): { id: string; active: number; count: number } | null => {
+		if (mentions.open())
+			return { id: mentionsId, active: mentions.selectedIndex(), count: mentions.files().length };
+		if (slash.open())
+			return { id: slashId, active: slash.selectedIndex(), count: slash.matches().length };
+		return null;
+	};
 
 	// The composer has its own mic next to Send (a floating one would sit on top of it).
 	onSettled(() => {
@@ -140,7 +183,21 @@ export function Composer(props: {
 
 	async function send(): Promise<void> {
 		const text = draft().trim();
-		if ((!text && !files().length) || props.running || props.disabled || sending()) return;
+		if ((!text && !files().length) || props.disabled) return;
+		// A Grid command runs here, rather than going to the agent, even mid-turn.
+		if (text && !files().length && props.onCommand) {
+			const action = slash.handleSend(text);
+			if (action === "handled") {
+				clearDraft();
+				return;
+			}
+			if (action === "keep") {
+				textarea?.focus();
+				return;
+			}
+		}
+		// Only a message for the agent waits for its turn to end.
+		if (props.running || sending()) return;
 		setSending(true);
 		try {
 			if (
@@ -149,11 +206,9 @@ export function Composer(props: {
 					files().map((item) => item.file),
 				)
 			) {
-				setDraft("");
+				clearDraft();
 				clearFiles();
 				setFileError(null);
-				if (textarea) textarea.value = "";
-				grow();
 			}
 		} catch (cause) {
 			setFileError(
@@ -202,15 +257,26 @@ export function Composer(props: {
 			}}
 			onSubmit={() => void send()}
 			overlay={
-				<Show when={mentions.open()}>
-					<FileMentionPopup
-						files={mentions.files()}
-						loading={mentions.loading()}
-						selectedIndex={mentions.selectedIndex()}
-						onSelect={mentions.selectFile}
-						onClose={mentions.close}
-					/>
-				</Show>
+				<>
+					<Show when={mentions.open()}>
+						<FileMentionPopup
+							id={mentionsId}
+							files={mentions.files()}
+							loading={mentions.loading()}
+							selectedIndex={mentions.selectedIndex()}
+							onSelect={mentions.selectFile}
+							onClose={mentions.close}
+						/>
+					</Show>
+					<Show when={slash.open()}>
+						<SlashMenu
+							id={slashId}
+							commands={slash.matches()}
+							selectedIndex={slash.selectedIndex()}
+							onSelect={slash.selectCommand}
+						/>
+					</Show>
+				</>
 			}
 			field={
 				<textarea
@@ -221,12 +287,26 @@ export function Composer(props: {
 					value={draft()}
 					placeholder={props.placeholder ?? PLACEHOLDER}
 					aria-label="Message"
+					aria-controls={openList()?.id}
+					aria-activedescendant={(() => {
+						const list = openList();
+						return list && list.count > 0 ? `${list.id}-${list.active}` : undefined;
+					})()}
 					enterkeyhint="send"
 					disabled={props.disabled || sending()}
 					onInput={(event) => {
 						setDraft(event.currentTarget.value);
 						grow();
 						mentions.handleInput();
+						slash.handleInput();
+					}}
+					onKeyUp={() => {
+						mentions.handleInput();
+						slash.handleInput();
+					}}
+					onClick={() => {
+						mentions.handleInput();
+						slash.handleInput();
 					}}
 					onPaste={(event) => {
 						const images = Array.from(event.clipboardData?.files ?? []).filter((file) =>
@@ -237,10 +317,9 @@ export function Composer(props: {
 							addFiles(images);
 						}
 					}}
-					onKeyUp={mentions.handleCursorMove}
-					onClick={mentions.handleCursorMove}
 					onKeyDown={(event) => {
 						if (mentions.handleKeyDown(event)) return;
+						if (slash.handleKeyDown(event)) return;
 						// A physical keyboard sends on Enter; a phone's Enter makes a new line.
 						if (
 							event.key === "Enter" &&
