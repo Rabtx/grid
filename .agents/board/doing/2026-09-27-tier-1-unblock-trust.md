@@ -130,6 +130,95 @@ authorisation. The human requested this cross-scope work in one pass and is the 
 - Repo: `git worktree list` and `git branch --merged main` show no merged leftovers;
   `grep -r AI_SERVICE_TOKEN` returns nothing; `apps/nest-api` and `scripts/python` are gone.
 
+## Validation run
+
+All from the worktree on Bun 1.4.2, against a throwaway database
+(`grid_t1_contract` on the local Postgres) that was dropped and recreated from scratch, so the dev
+data was never touched.
+
+| Check | Result |
+|---|---|
+| `bun run lint` | pass (oxlint + shellcheck; 4 pre-existing `apps/web` warnings) |
+| `bun run format` | no changes — already clean |
+| `bun run typecheck` | pass, all 9 workspaces, `apps/docs` now included |
+| `bun run architecture:check` | `Architecture checks passed.` + `[naming] OK (634 path(s) checked)` |
+| `bun run naming:check` | `[naming] OK (634 path(s) checked)` |
+| `bun run build` | pass — console, web, docs all `Exited with code 0` |
+| `bun run test:coverage` | web 31, api 45, db 4, logger 3, console 292, runner 110 — 0 failures |
+| `bun run rust:lint` | clippy `-D warnings` clean, `cargo fmt --check` clean |
+| `bun run rust:test` | 1 passed, 0 failed |
+| `bun run ci:test:contract` | **72 pass, 0 fail, 311 assertions** against a freshly migrated + seeded database |
+| `git worktree list` | 4 worktrees: `main`, this card, and the two in-flight backend branches |
+| `git branch --merged main` | nothing left to prune; the 3 remaining branches are all unmerged |
+| `git grep AI_SERVICE_TOKEN` | no matches |
+
+### CI jobs added, and how each was proven before landing
+
+- **`build`** — `bun run ci:build` run locally; all three buildable apps exit 0.
+- **`api-contract`** — the whole recipe run by hand against a clean database: migrate, seed, start
+  the API, poll `/api/v1/health` until healthy, `bun run ci:test:contract`. 72/72. The recipe
+  mirrors the job step for step.
+- **docs typecheck** — `apps/docs` renamed `types:check` to `typecheck`, so root
+  `bun run --filter '*' typecheck` now includes it. Confirmed in the typecheck run above.
+- **`rust:lint` / `rust:test`** — new root scripts, run locally, added to the `test` job and to the
+  CD quality gate.
+- **`preflight`** now includes `build`, so `cd.yml`'s release gate cannot bypass it.
+
+### 2FA, in a real browser
+
+Against a real API with TOTP enabled on the seeded demo account (enabled through
+`/auth/security/totp/setup` + `confirm`, so the API's own TOTP produced the codes). Driven with
+Playwright at 1280x900 and 375x812, light and dark:
+
+- wrong password → inline alert `Invalid email or password`, no crash
+- correct password → the code step replaces the form, headed `Two-factor code`, naming
+  `demo@grid.dev` and mentioning recovery codes
+- wrong code → inline alert `The code is invalid or expired`, the step stays open with the code still
+  in the field so another can be typed
+- a real TOTP code → signed in, landed on `/`
+- the code field is autofocused on arrival (`document.activeElement` is the
+  `one-time-code` input), so a code can be typed straight away
+- no page errors beyond the deliberate 401s from the two wrong-attempt steps
+
+Also confirmed directly against the API with curl: `POST /auth/login` returns
+`{requiresTwoFactor, challengeToken, expiresAt, methods}`, a wrong code is `401 AUTH_OTP_INVALID`,
+and both a fresh TOTP code and a whitespace-padded recovery code (` a9d4cc47-355a4528 `) return a
+session — which is why the console trims before sending and one field takes both.
+
+### Found along the way: `main`'s runner suite was already failing
+
+`apps/runner/src/chat/chat.test.ts` pinned the exact logged event list, but the turn-timing work
+landed in `a9bb1c3` and the runner now stamps `at` on `turn_start` and `turn_end`
+(`apps/runner/src/chat/hub.ts:314,330`). The assertion had not been updated, so
+`bun run test:coverage` failed on `main` — 109 pass, 1 fail — which means CI has been red, and the
+new build and contract gates would have been red too. Fixed by matching `at` with
+`expect.any(String)` (the log's *shape* is what that test is about, not a clock value) and adding
+an explicit assertion that both stamps are real times and correctly ordered.
+
+Worth a follow-up card: the restart-repair path (`closeStaleTurn`,
+`apps/runner/src/chat/hub.ts:502-506`) still synthesises a `turn_end` with no `at`, so a turn cut
+short by a runner restart shows no duration in the console. The console copes — the field is
+optional by type — but the two paths disagree.
+
+## Follow-ups this card surfaced, not done here
+
+1. `DESIGN.md` documents the token layer the console abandoned — `text-ink`, `bg-canvas`,
+   `bg-selection`, `rounded-sm/md/lg` all have zero uses, against a live vocabulary of `text-fg`,
+   `bg-surface`, `rounded-kit*`. It also points at a renamed `lib/preferences.ts` and a deleted
+   `apps/web/src/components/ui`, and omits `kit.css` from the token export list.
+2. `packages/tokens/**`, `packages/logger/**`, `packages/typescript-config/**`, `scripts/**` and
+   every root and CI file are owned by nobody under `deny-unowned-writes`, and no CI job reads
+   `ownership.yaml`. This card had to widen its own scope to touch them.
+3. `apps/runner/src/chat/hub.ts:502-506`: the restart-repair path stamps no `at` on the
+   `turn_end` it synthesises, so a turn cut short by a restart shows no duration.
+4. Enabling TOTP on the seeded `demo@grid.dev` makes `test:contract` unable to sign in. Fine in CI,
+   which builds a fresh database each run, but surprising on a persistent dev database. The seed
+   could refuse to touch an account that already has 2FA, or the contract harness could use its own
+   account.
+5. The docs app still describes three apps and calls `apps/web` the control plane, and
+   `quick-start.mdx` never mentions `bun run grid` — the path `README.md` and `PROJECT.md` both
+   lead with.
+
 ## Resolution
 
 (filled on close)
