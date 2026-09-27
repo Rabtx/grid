@@ -1,12 +1,15 @@
 /**
  * A stand-in for the Freebuff CLI in tests, drawn the way the real one draws: a full-screen UI
- * redrawn in place, a model menu, the session line, echoed messages, a streamed reply and
- * `/export`. Only the parts the adapter reads are imitated.
+ * redrawn in place, a model menu, the session line, echoed messages, a streamed reply and its chat
+ * file. Only the parts the adapter reads are imitated.
  *
  * FAKE_REPLY_LINES sets how many numbered rows a reply has (enough to scroll off a short screen).
+ * FAKE_STATE_DIR is where it keeps its chat file, as the real CLI keeps one under
+ * `~/.config/manicode`. FAKE_NO_ECHO draws replies without the echo of the message, a screen the
+ * adapter cannot follow.
  */
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { basename, join } from "node:path";
 
 const MODELS = [
 	{ name: "Solar Mini 4", traits: "Fast and light · NEW", price: "5 Freebucks/hr" },
@@ -18,6 +21,13 @@ const MODELS = [
 	{ name: "Gemini 3.8 Flash", traits: "1M context · Images", price: "80 Freebucks/hr" },
 ];
 const replyLines = Number(process.env.FAKE_REPLY_LINES ?? 3);
+const stateDir = process.env.FAKE_STATE_DIR;
+const noEcho = Boolean(process.env.FAKE_NO_ECHO);
+const continued = process.argv[process.argv.indexOf("--continue") + 1];
+const chatId =
+	process.argv.includes("--continue") && continued && !continued.startsWith("-")
+		? continued
+		: new Date().toISOString().replace(/:/g, "-");
 const rows = process.stdout.rows || 40;
 
 let screen: "menu" | "chat" = "menu";
@@ -29,6 +39,14 @@ let model = "";
 const log: string[] = [];
 const exported: unknown[] = [];
 let timer: ReturnType<typeof setInterval> | undefined;
+
+/** Keep the conversation where the real CLI does, as the reply is written. */
+function save(): void {
+	if (!stateDir) return;
+	const dir = join(stateDir, "projects", basename(process.cwd()), "chats", chatId);
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(join(dir, "chat-messages.json"), JSON.stringify(exported));
+}
 
 function draw(): void {
 	let lines: string[];
@@ -59,23 +77,22 @@ function draw(): void {
 }
 
 function send(text: string): void {
-	if (text.startsWith("/export ")) {
-		writeFileSync(join(process.cwd(), text.slice(8).trim()), JSON.stringify(exported));
-		log.push("", `  Exported conversation (${exported.length} messages, json)`);
-		return;
-	}
 	if (text === "/end-session") {
 		screen = "menu";
 		return;
 	}
 	const sent = text.split("\n");
-	log.push(
-		"",
-		"   [06:45 PM]",
-		...sent.map((line, i) => `   ${line}${i === sent.length - 1 ? " ⎘" : ""}`),
-		"",
-	);
-	exported.push({ id: `user-${exported.length}`, variant: "user", content: text });
+	if (!noEcho)
+		log.push(
+			"",
+			"   [06:45 PM]",
+			...sent.map((line, i) => `   ${line}${i === sent.length - 1 ? " ⎘" : ""}`),
+			"",
+		);
+	exported.push({ id: `user-${Date.now()}`, variant: "user", content: text });
+	const answer = { id: `ai-${Date.now()}`, variant: "ai", content: "", blocks: [] as unknown[] };
+	exported.push(answer);
+	save();
 	const reply = Array.from({ length: replyLines }, (_, i) => `row ${i + 1}`);
 	let written = 0;
 	status = ` thinking...${" ".repeat(40)}1s  ■ Esc`;
@@ -90,15 +107,12 @@ function send(text: string): void {
 			timer = undefined;
 			log.push(`${" ".repeat(50)}⎘ • 2s • △▽`);
 			status = "";
-			exported.push({
-				id: `ai-${exported.length}`,
-				variant: "ai",
-				content: "",
-				blocks: [
-					{ type: "text", textType: "reasoning", content: "Reading the request." },
-					{ type: "text", content: `**Exact** reply\n\n${reply.join("\n")}` },
-				],
-			});
+			answer.blocks = [
+				{ type: "text", textType: "reasoning", content: "Reading the request." },
+				{ type: "text", content: `**Exact** reply\n\n${reply.join("\n")}` },
+			];
+			Object.assign(answer, { metadata: { isComplete: true } });
+			save();
 		}
 		draw();
 	}, 30);

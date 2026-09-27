@@ -1,4 +1,4 @@
-import { useLocation, useMatch, useNavigate } from "@solidjs/router";
+import { useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
@@ -52,6 +52,7 @@ const PROJECT_MENU: MenuGroup[] = [
 		items: [
 			{ id: "board", label: "Open board", icon: <BoardIcon /> },
 			{ id: "files", label: "Open files", icon: <FileIcon /> },
+			{ id: "pulls", label: "Open pull requests", icon: <PullRequestIcon /> },
 			{ id: "notes", label: "Open notes", icon: <NoteIcon /> },
 		],
 	},
@@ -180,7 +181,6 @@ function ProjectNode(props: {
 	const shell = useShell();
 	const workspace = useWorkspace();
 	const navigate = useNavigate();
-	const location = useLocation();
 	const slug = () => props.project.slug;
 	const current = () => slug() === workspace.currentSlug();
 	const folder = () => workspace.folders()[slug()];
@@ -204,9 +204,8 @@ function ProjectNode(props: {
 		else if (id === "board") navigate(`/board/${slug()}`);
 		else if (id === "files") navigate(`/files/${slug()}`);
 		else if (id === "notes") navigate(`/notes/${slug()}`);
+		else if (id === "pulls") navigate(`/pulls/${slug()}`);
 	}
-
-	const page = (path: string) => location.pathname === `/${path}/${slug()}`;
 
 	return (
 		<div>
@@ -251,34 +250,6 @@ function ProjectNode(props: {
 			/>
 			<Show when={props.open}>
 				<NavGroup>
-					<NavLink
-						level={1}
-						href={workspaceHref(`/board/${slug()}`)}
-						current={workspace.activeSlug() === slug()}
-						icon={<BoardIcon size="sm" />}
-						label="Board"
-					/>
-					<NavLink
-						level={1}
-						href={workspaceHref(`/files/${slug()}`)}
-						current={page("files")}
-						icon={<FileIcon size="sm" />}
-						label="Files"
-					/>
-					<NavLink
-						level={1}
-						href={workspaceHref(`/notes/${slug()}`)}
-						current={page("notes")}
-						icon={<NoteIcon size="sm" />}
-						label="Notes"
-					/>
-					<NavLink
-						level={1}
-						href={workspaceHref(`/pulls/${slug()}`)}
-						current={page("pulls")}
-						icon={<PullRequestIcon size="sm" />}
-						label="Pull requests"
-					/>
 					<Show when={!folder()}>
 						<NavButton
 							level={1}

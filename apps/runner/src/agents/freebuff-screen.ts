@@ -31,6 +31,30 @@ export function inSession(lines: string[]): boolean {
 	return lines.some((line) => clean(line).endsWith("End session")) || isWorking(lines);
 }
 
+/** Shown in the input box while it is empty. */
+const PLACEHOLDER = "Enter a coding task or / for commands";
+
+/** What is typed in the input box (the rows between its borders), or "" while it is empty. */
+export function inputText(lines: string[]): string {
+	const top = lines.findLastIndex((line) => clean(line).trimStart().startsWith("╭"));
+	if (top < 0) return "";
+	const rows: string[] = [];
+	for (const line of lines.slice(top + 1)) {
+		const text = clean(line).trim();
+		if (text.startsWith("╰")) break;
+		rows.push(text.replace(/^│/, "").replace(/│$/, "").replace("▍", "").trim());
+	}
+	const typed = rows.filter(Boolean).join(" ");
+	return typed === PLACEHOLDER ? "" : typed;
+}
+
+/** Ready for a message: in a session, not working, and the input box drawn and empty. */
+export function isIdle(lines: string[]): boolean {
+	return (
+		inSession(lines) && !isWorking(lines) && lines.some((line) => clean(line).includes(PLACEHOLDER))
+	);
+}
+
 /** The model of the running session, from the session line. */
 export function sessionModel(lines: string[]): string | null {
 	for (const line of lines) {
@@ -217,7 +241,8 @@ export function mergeScrolled(previous: string[], visible: string[]): string[] {
  */
 export class ReplyTracker {
 	private rows: string[] = [];
-	private anchored = false;
+	/** The sent message's echo has been seen: the reply is being followed. */
+	anchored = false;
 	finished = false;
 
 	constructor(private readonly prompt: string) {}

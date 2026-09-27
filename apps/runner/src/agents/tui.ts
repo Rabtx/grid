@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+
 import { Terminal } from "@xterm/headless";
 
 /**
@@ -7,7 +9,7 @@ import { Terminal } from "@xterm/headless";
  * applied.
  */
 export type TuiProcess = {
-	/** The visible screen, one string per row, right-trimmed. */
+	/** The visible screen, one string per row, right-trimmed; after exit, the last one shown. */
 	lines: () => string[];
 	write: (keys: string) => void;
 	/** Called soon after the screen changes (at most every READ_MS); pass undefined to stop. */
@@ -37,6 +39,8 @@ export type TuiOptions = {
 const READ_MS = 40;
 
 export function spawnTui(options: TuiOptions): TuiProcess {
+	// Spawning in a missing folder fails as if the program were missing; say what is really wrong.
+	if (!existsSync(options.cwd)) throw new Error(`The folder ${options.cwd} does not exist`);
 	const vt = new Terminal({ cols: options.cols, rows: options.rows, allowProposedApi: true });
 	const decoder = new TextDecoder();
 	let alive = true;
@@ -64,7 +68,17 @@ export function spawnTui(options: TuiOptions): TuiProcess {
 	const terminal = proc.terminal;
 	if (!terminal) throw new Error(`Bun did not attach a terminal to ${options.name}`);
 
+	const read = (): string[] => {
+		const buffer = vt.buffer.active;
+		return Array.from({ length: options.rows }, (_, row) =>
+			(buffer.getLine(buffer.viewportY + row)?.translateToString(true) ?? "").trimEnd(),
+		);
+	};
+	// What it showed as it ended (a crash report, a sign-in prompt), kept for the error.
+	let last: string[] = [];
+
 	const exited = proc.exited.then((code) => {
+		last = read();
 		alive = false;
 		clearTimeout(settle);
 		for (const check of waiters) check();
@@ -73,13 +87,7 @@ export function spawnTui(options: TuiOptions): TuiProcess {
 		return code;
 	});
 
-	const lines = (): string[] => {
-		if (!alive) return [];
-		const buffer = vt.buffer.active;
-		return Array.from({ length: options.rows }, (_, row) =>
-			(buffer.getLine(buffer.viewportY + row)?.translateToString(true) ?? "").trimEnd(),
-		);
-	};
+	const lines = (): string[] => (alive ? read() : last);
 
 	return {
 		lines,

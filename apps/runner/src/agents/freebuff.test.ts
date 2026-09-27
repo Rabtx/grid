@@ -1,10 +1,10 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { ChatEvent } from "./events";
-import { freebuffProvider } from "./freebuff";
+import { exitReason, freebuffProvider } from "./freebuff";
 import { exportedTurn } from "./freebuff-export";
 import {
 	connectionWarning,
@@ -145,6 +145,23 @@ describe("reading Freebuff's screen", () => {
 	});
 });
 
+describe("when Freebuff stops", () => {
+	it("says why in its own words", () => {
+		expect(
+			exitReason([
+				"",
+				"❌ freebuff exited immediately (signal SIGSEGV)",
+				"",
+				"The binary crashed with an access violation.",
+				"System info:",
+			]),
+		).toBe(
+			"Freebuff stopped: freebuff exited immediately (signal SIGSEGV) The binary crashed with an access violation. System info:",
+		);
+		expect(exitReason([])).toBe("Freebuff stopped");
+	});
+});
+
 describe("merging rows that scrolled off", () => {
 	it("joins at the longest overlap", () => {
 		expect(mergeScrolled(["1", "2", "3", "4"], ["3", "4", "5", "6"])).toEqual([
@@ -228,15 +245,18 @@ const FAKE = join(import.meta.dir, "testing", "fake-freebuff-cli.ts");
 describe("driving the CLI", () => {
 	const folders: string[] = [];
 	const sessions: AgentSession[] = [];
+	const stateDir = mkdtempSync(join(tmpdir(), "grid-freebuff-state-"));
+	afterAll(() => rmSync(stateDir, { recursive: true, force: true }));
 	afterEach(() => {
 		for (const session of sessions.splice(0)) session.close();
 		for (const folder of folders.splice(0)) rmSync(folder, { recursive: true, force: true });
 	});
 
-	function provider(rows = 60, replyLines = 3) {
+	function provider(rows = 60, replyLines = 3, extra: Record<string, string> = {}) {
 		return freebuffProvider({
 			binary: "freebuff",
 			available: () => true,
+			stateDir,
 			spawn: (command, cwd) =>
 				spawnTui({
 					command: ["bun", FAKE, ...command.slice(1)],
@@ -244,19 +264,26 @@ describe("driving the CLI", () => {
 					cols: 120,
 					rows,
 					name: "Freebuff",
-					env: { FAKE_REPLY_LINES: String(replyLines) },
+					env: { FAKE_REPLY_LINES: String(replyLines), FAKE_STATE_DIR: stateDir, ...extra },
 				}),
 		});
 	}
 
-	async function start(model: string | undefined, rows?: number, replyLines?: number) {
+	async function start(
+		model: string | undefined,
+		rows?: number,
+		replyLines?: number,
+		extra?: Record<string, string>,
+		resume?: string,
+	) {
 		const cwd = mkdtempSync(join(tmpdir(), "grid-freebuff-test-"));
 		folders.push(cwd);
 		const events: ChatEvent[] = [];
 		const tokens: string[] = [];
-		const session = await provider(rows, replyLines).start({
+		const session = await provider(rows, replyLines, extra).start({
 			cwd,
 			model,
+			resume,
 			emit: (event) => events.push(event),
 			onResumeToken: (token) => tokens.push(token),
 		});
@@ -295,8 +322,10 @@ describe("driving the CLI", () => {
 				{ type: "message", text: "**Exact** reply\n\nrow 1\nrow 2\nrow 3" },
 			],
 		});
-		expect(tokens).toEqual(["latest"]);
-		// The export file is removed once read.
+		// The conversation's own id, to pick it up again after the process is closed.
+		expect(tokens).toHaveLength(1);
+		expect(tokens[0]).toMatch(/^\d{4}-\d\d-\d\dT/);
+		// Nothing is written into the project's folder.
 		expect(readdirSync(cwd)).toEqual([]);
 	}, 20_000);
 
@@ -307,14 +336,70 @@ describe("driving the CLI", () => {
 			.filter((event) => event.type === "message")
 			.map((event) => (event as { text: string }).text)
 			.join("");
-		// Every row streams once and in order; the last, possibly half-drawn one comes with the restatement.
-		expect(streamed.split("\n").filter(Boolean)).toEqual(
-			Array.from({ length: 39 }, (_, i) => `row ${i + 1}`),
-		);
+		// Every row streams once and in order, none lost as it scrolls off; the last rows may only
+		// come with the restatement, when the chat file says the reply is done first.
+		const rows = streamed.split("\n").filter(Boolean);
+		expect(rows.length).toBeGreaterThan(30);
+		expect(rows).toEqual(Array.from({ length: rows.length }, (_, i) => `row ${i + 1}`));
 		const rewrite = events.at(-1) as Extract<ChatEvent, { type: "turn_rewrite" }>;
 		expect(rewrite.events.at(-1)).toMatchObject({
 			text: expect.stringContaining("row 39\nrow 40"),
 		});
+	}, 20_000);
+
+	it("waits for the new reply when the same words are sent again", async () => {
+		const { events, session } = await start(undefined);
+		await session.prompt("hi");
+		const before = events.length;
+		expect(await session.prompt("hi")).toEqual({ reason: "done" });
+		const again = events.slice(before);
+		expect(again.at(-1)?.type).toBe("turn_rewrite");
+		// Its reply streamed anew: the turn did not end on the first reply.
+		expect(again.some((event) => event.type === "message")).toBe(true);
+	}, 20_000);
+
+	it("ends the turn from the chat file when the screen cannot be followed", async () => {
+		const { events, session } = await start(undefined, 60, 3, { FAKE_NO_ECHO: "1" });
+		expect(await session.prompt("Say hello")).toEqual({ reason: "done" });
+		expect(events.at(-1)).toEqual({
+			type: "turn_rewrite",
+			events: [
+				{ type: "reasoning", text: "Reading the request." },
+				{ type: "message", text: "**Exact** reply\n\nrow 1\nrow 2\nrow 3" },
+			],
+		});
+	}, 20_000);
+
+	it("continues the conversation it was in, by its id", async () => {
+		const first = await start(undefined);
+		await first.session.prompt("Remember this");
+		const id = first.tokens[0];
+		first.session.close();
+		const commands: string[][] = [];
+		const again = await freebuffProvider({
+			binary: "freebuff",
+			available: () => true,
+			stateDir,
+			spawn: (command, cwd) => {
+				commands.push(command);
+				return spawnTui({
+					command: ["bun", FAKE, ...command.slice(1)],
+					cwd,
+					cols: 120,
+					rows: 60,
+					name: "Freebuff",
+					env: { FAKE_STATE_DIR: stateDir },
+				});
+			},
+		}).start({
+			cwd: first.cwd,
+			resume: id,
+			emit: () => undefined,
+			onResumeToken: () => undefined,
+		});
+		sessions.push(again);
+		expect(await again.prompt("And now?")).toEqual({ reason: "done" });
+		expect(commands[0]).toEqual(["freebuff", "--continue", id]);
 	}, 20_000);
 
 	it("sends a message with several lines as one", async () => {
