@@ -88,3 +88,14 @@ export function InlineInput(props: {
 		/>
 	);
 }
+
+/** A title you edit in place: a big borderless line, like a document's heading. */
+export function TitleInput(props: JSX.InputHTMLAttributes<HTMLInputElement>): JSX.Element {
+	const rest = omit(props, "class");
+	return (
+		<input
+			{...rest}
+			class={`focus-ring w-full min-w-0 rounded-kit-sm bg-transparent font-medium text-fg text-headline outline-none placeholder:text-fg-faint ${props.class ?? ""}`}
+		/>
+	);
+}

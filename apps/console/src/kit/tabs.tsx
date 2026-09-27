@@ -6,6 +6,10 @@ export type TabOption<T extends string> = {
 	label: string;
 	icon?: JSX.Element;
 	count?: number;
+	/** alert (the default) is the red attention badge; quiet is a plain number, like a lane's size. */
+	countTone?: "alert" | "quiet";
+	/** The element this segment shows, for aria-controls. */
+	controls?: string;
 };
 
 /** Underlined tabs across a panel: sections of one thing (Companies · People · Investors). */
@@ -65,15 +69,32 @@ export function Segmented<T extends string>(props: {
 						type="button"
 						aria-pressed={props.value === option.value ? "true" : "false"}
 						title={props.iconsOnly ? option.label : undefined}
+						aria-controls={option.controls}
 						onClick={() => props.onChange(option.value)}
-						class={`focus-ring flex h-[calc(var(--kit-h-control-sm)-0.25rem)] items-center justify-center gap-1.5 rounded-kit-sm px-2.5 text-body text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid hover:text-fg aria-pressed:bg-surface aria-pressed:font-medium aria-pressed:text-fg aria-pressed:shadow-knob ${props.block ? "flex-1" : ""}`}
+						class={`focus-ring flex h-[calc(var(--kit-h-control-sm)-0.25rem)] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-kit-sm px-2.5 text-body text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid hover:text-fg aria-pressed:bg-surface aria-pressed:font-medium aria-pressed:text-fg aria-pressed:shadow-knob ${props.block ? "flex-1" : ""}`}
 					>
 						{option.icon}
 						<span class={props.iconsOnly ? "sr-only" : ""}>{option.label}</span>
-						<Show when={option.count}>
-							<span class="inline-grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 font-medium text-micro text-white tabular-nums">
-								{option.count}
-							</span>
+						<Show
+							when={
+								option.count !== undefined && (option.count > 0 || option.countTone === "quiet")
+							}
+						>
+							<Show
+								when={option.countTone === "quiet"}
+								fallback={
+									<span
+										data-count
+										class="inline-grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 font-medium text-micro text-white tabular-nums"
+									>
+										{option.count}
+									</span>
+								}
+							>
+								<span data-count class="text-caption text-fg-faint tabular-nums">
+									{String(option.count)}
+								</span>
+							</Show>
 						</Show>
 					</button>
 				)}

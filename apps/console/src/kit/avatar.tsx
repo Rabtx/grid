@@ -14,6 +14,16 @@ const SIZES = {
 	lg: "size-8 text-body",
 };
 
+/** Nobody yet: a dashed ring where an avatar would be, for unassigned work. */
+export function NobodyMark(props: { size?: keyof typeof SIZES }): JSX.Element {
+	return (
+		<span
+			aria-hidden="true"
+			class={`shrink-0 rounded-full border border-line-strong border-dashed ${SIZES[props.size ?? "md"]}`}
+		/>
+	);
+}
+
 /** A person: their initial on a soft tint of their colour. */
 export function Avatar(props: { name: string; size?: keyof typeof SIZES }): JSX.Element {
 	return (

@@ -62,7 +62,22 @@ references very closely, Inter, fix look and feel and navigation/layout, gallery
    `Pre`, `PlanList`, `InlineNotice`, `DecisionCard`, `AutocompleteList`, `IconButton` tooltips,
    a quiet `Banner`; kit `Toasts` mounted at the root beside the old toaster.
 
+5. **Board on the kit (agent/frontend/port-board).** Lanes, cards, stage tabs, toolbar, quick
+   add, card menus (⋯ on hover, right-click and long press), drag and drop, the new-task sheet
+   and the task drawer. New kit pieces: `TaskCard` for real tasks (link, drag source, actions),
+   `BoardColumn` as a drop target, `LaneStrip`, `BoardSkeleton`, `InlineAdd`, `ChoiceChips`,
+   `TitleInput`, `PropertyRow`, `PanelBar`, `CheckboxField`, `NobodyMark`, `LoadingBar`, a
+   danger `IconButton`, `Prose` framed with click delegation, and `Segmented` counts and
+   `aria-controls`. Component tests get a popover polyfill (`kit/test-setup.ts`) so kit menus
+   open in happy-dom the way they do in a browser.
+
 ### Validation
+
+- Board port: console vitest 47 files / 285 tests (board, card and panel tests open the kit menus
+  like a person); the board no longer imports `@/ui`; guard, lint, typecheck, architecture and
+  naming checks pass. Checked in the browser against a throwaway clone of the database (dropped
+  afterwards): quick add, moving a card from its menu, the task drawer, and at 375px the stage
+  tabs, toolbar and new-task sheet.
 
 - typecheck, lint, architecture check pass; console vitest 45 files / 282 tests pass.
 - Thread port: console vitest 47 files / 285 tests (chat tests query by meaning, not old class

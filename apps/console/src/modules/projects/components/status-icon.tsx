@@ -4,7 +4,7 @@ import CircleDotIcon from "@hugeicons/core-free-icons/CircleDotIcon";
 import type { JSX } from "@solidjs/web";
 import { Match, Switch } from "solid-js";
 
-import { Icon } from "@/ui";
+import { Icon } from "@/kit";
 
 import { STATUS_TEXT_CLASS } from "../lib/stage-style";
 import type { TaskStatus } from "../types/project.types";

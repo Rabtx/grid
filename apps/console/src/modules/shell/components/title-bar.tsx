@@ -67,7 +67,13 @@ function Heading(): JSX.Element {
 					<Text as="h1" tone="strong" weight="medium" truncate>
 						{workspace.activeProject()?.name ?? "Board"}
 					</Text>
-					<Text as="span" size="caption" tone="subtle" tabular>
+					<Text
+						as="span"
+						size="caption"
+						tone="subtle"
+						tabular
+						class="hidden shrink-0 whitespace-nowrap sm:inline"
+					>
 						{workspace.tasks().length} task{workspace.tasks().length === 1 ? "" : "s"}
 					</Text>
 				</Row>

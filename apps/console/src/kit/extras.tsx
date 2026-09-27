@@ -143,3 +143,84 @@ export function WorkspacePreview(props: {
 		</div>
 	);
 }
+
+/**
+ * "Add task" at the top of a list: a quiet button that becomes a field. Enter adds and keeps the
+ * field for the next; Escape, or leaving it empty, closes it.
+ */
+export function InlineAdd(props: {
+	label: string;
+	placeholder?: string;
+	onAdd: (value: string) => Promise<void>;
+	icon?: JSX.Element;
+	maxlength?: number;
+}): JSX.Element {
+	const [open, setOpen] = createSignal(false);
+	const [value, setValue] = createSignal("");
+	const [pending, setPending] = createSignal(false);
+	const [error, setError] = createSignal<string | null>(null);
+
+	async function add(): Promise<void> {
+		const text = value().trim();
+		if (!text || pending()) return;
+		setPending(true);
+		setError(null);
+		try {
+			await props.onAdd(text);
+			setValue("");
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : "Could not add it");
+		} finally {
+			setPending(false);
+		}
+	}
+
+	return (
+		<div>
+			<Show
+				when={open()}
+				fallback={
+					<button
+						type="button"
+						onClick={() => setOpen(true)}
+						class="focus-ring flex h-8 w-full items-center gap-1.5 rounded-kit px-2 text-left text-body text-fg-subtle transition-colors duration-fast hover:bg-fill hover:text-fg-muted pointer-coarse:h-11"
+					>
+						{props.icon}
+						{props.label}
+					</button>
+				}
+			>
+				<form
+					onSubmit={(event) => {
+						event.preventDefault();
+						void add();
+					}}
+				>
+					<input
+						ref={(el) => queueMicrotask(() => el.focus())}
+						value={value()}
+						onInput={(event) => setValue(event.currentTarget.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Escape") {
+								setValue("");
+								setOpen(false);
+							}
+						}}
+						onBlur={() => {
+							if (!value().trim()) setOpen(false);
+						}}
+						aria-label={props.label}
+						placeholder={props.placeholder ?? "Title, then Enter"}
+						maxlength={props.maxlength ?? 200}
+						enterkeyhint="done"
+						disabled={pending()}
+						class="surface-field h-9 w-full px-2.5 text-field text-fg outline-none placeholder:text-fg-faint"
+					/>
+				</form>
+				<Show when={error()}>
+					<p class="mt-1 px-1 text-caption text-danger">{error()}</p>
+				</Show>
+			</Show>
+		</div>
+	);
+}

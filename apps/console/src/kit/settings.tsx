@@ -86,3 +86,15 @@ export function CopyField(props: {
 		</div>
 	);
 }
+
+/** A property of a record: its name on the left (above on phones), its control on the right. */
+export function PropertyRow(props: { label: string; children: JSX.Element }): JSX.Element {
+	return (
+		<div class="flex flex-col gap-1 md:flex-row md:items-center md:gap-3">
+			<span class="shrink-0 text-body text-fg-subtle md:w-24">{props.label}</span>
+			<div class="flex min-w-0 flex-1 flex-col gap-2 md:flex-row md:items-center">
+				{props.children}
+			</div>
+		</div>
+	);
+}

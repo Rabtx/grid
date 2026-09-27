@@ -109,6 +109,21 @@ export function Dialog(props: {
 	);
 }
 
+/**
+ * The bar across the top of a bare drawer: what is open (a key, when it changed) on the left,
+ * its actions and the close button on the right.
+ */
+export function PanelBar(props: { children: JSX.Element; actions?: JSX.Element }): JSX.Element {
+	return (
+		<header class="flex min-h-12 shrink-0 items-center gap-2 border-line border-b px-3">
+			<div class="flex min-w-0 flex-1 items-center gap-2">{props.children}</div>
+			<Show when={props.actions}>
+				<div class="flex shrink-0 items-center gap-1">{props.actions}</div>
+			</Show>
+		</header>
+	);
+}
+
 /** Are you sure: what will happen, and a button that says so. Danger in red when it cannot be undone. */
 export function ConfirmDialog(props: {
 	open: boolean;

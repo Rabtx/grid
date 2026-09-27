@@ -196,3 +196,13 @@ export function FloatingNotice(props: {
 		</output>
 	);
 }
+
+/** A hairline across the top of a screen that pulses while its data refreshes. */
+export function LoadingBar(props: { active: boolean }): JSX.Element {
+	return (
+		<div
+			aria-hidden="true"
+			class={`h-0.5 rounded-full ${props.active ? "animate-pulse bg-accent" : "bg-transparent"}`}
+		/>
+	);
+}

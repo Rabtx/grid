@@ -64,3 +64,21 @@ export function Checkbox(props: {
 		</span>
 	);
 }
+
+/** A checkbox with its label beside it, the whole row a target (e.g. "Add another"). */
+export function CheckboxField(props: {
+	label: string;
+	checked: boolean;
+	onChange: (checked: boolean) => void;
+	/** Layout only. */
+	class?: string;
+}): JSX.Element {
+	return (
+		<label
+			class={`flex min-h-10 cursor-pointer items-center gap-2 text-body text-fg-subtle ${props.class ?? ""}`}
+		>
+			<Checkbox label={props.label} checked={props.checked} onChange={props.onChange} />
+			<span aria-hidden="true">{props.label}</span>
+		</label>
+	);
+}
