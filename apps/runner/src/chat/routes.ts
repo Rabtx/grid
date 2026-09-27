@@ -1,3 +1,4 @@
+import { MAX_ATTACHMENT_BYTES } from "./attachments";
 import type { Who } from "../auth";
 import { ChatError, type ChatHub } from "./hub";
 
@@ -51,23 +52,32 @@ export async function chatRequest(
 		if (typeof body.project !== "string" || typeof body.provider !== "string") {
 			return failure(400, "Say which project and which agent");
 		}
-		return run(() =>
-			Response.json(
-				{
-					data: hub.create(who, {
-						project: body.project as string,
-						provider: body.provider as string,
-						cwd: typeof body.cwd === "string" ? body.cwd : undefined,
-						model: typeof body.model === "string" ? body.model : undefined,
-						mode: typeof body.mode === "string" ? body.mode : undefined,
-						effort: typeof body.effort === "string" ? body.effort : undefined,
-						worktree: typeof body.worktree === "boolean" ? body.worktree : undefined,
-						branch: typeof body.branch === "string" ? body.branch : undefined,
-					}),
-				},
-				{ status: 201 },
-			),
-		);
+		const input = {
+			project: body.project,
+			provider: body.provider,
+			cwd: typeof body.cwd === "string" ? body.cwd : undefined,
+			model: typeof body.model === "string" ? body.model : undefined,
+			mode: typeof body.mode === "string" ? body.mode : undefined,
+			effort: typeof body.effort === "string" ? body.effort : undefined,
+			worktree: typeof body.worktree === "boolean" ? body.worktree : undefined,
+			branch: typeof body.branch === "string" ? body.branch : undefined,
+			existing: typeof body.existing === "boolean" ? body.existing : undefined,
+			pull:
+				typeof body.pull === "number" && Number.isInteger(body.pull) && body.pull > 0
+					? body.pull
+					: undefined,
+			fork: body.fork === true,
+		};
+		// An existing branch is fetched first, without blocking the runner while it waits.
+		if (input.worktree && (input.existing || input.pull !== undefined)) {
+			try {
+				await hub.prepareWorktree(who, input);
+			} catch (cause) {
+				if (!(cause instanceof ChatError)) throw cause;
+				return failure(cause.status, cause.message);
+			}
+		}
+		return run(() => Response.json({ data: hub.create(who, input) }, { status: 201 }));
 	}
 	// A project's chat settings on this machine: whether new chats get their own worktree.
 	const settings = url.pathname.match(/^\/chat\/projects\/([a-z0-9-]+)\/settings$/);
@@ -116,6 +126,51 @@ export async function chatRequest(
 			return new Response(null, { status: 204 });
 		});
 	}
+	const attachment = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/attachments(?:\/([\w-]+))?$/);
+	if (attachment) {
+		const [, session, id] = attachment;
+		return runAsync(async () => {
+			hub.checkSession(workspace, session);
+			if (!id && request.method === "POST") {
+				const name = url.searchParams.get("name") ?? "file";
+				const reader = request.body?.getReader();
+				if (!reader) return failure(400, "Send a file");
+				const chunks: Uint8Array[] = [];
+				let size = 0;
+				try {
+					while (true) {
+						const { done, value } = await reader.read();
+						if (done) break;
+						size += value.length;
+						if (size > MAX_ATTACHMENT_BYTES) {
+							await reader.cancel();
+							return failure(413, "Each file must be 10 MB or smaller");
+						}
+						chunks.push(value);
+					}
+				} finally {
+					reader.releaseLock();
+				}
+				return Response.json(
+					{ data: hub.upload(workspace, session, name, Buffer.concat(chunks)) },
+					{ status: 201 },
+				);
+			}
+			if (id && request.method === "GET") {
+				const { metadata, bytes } = hub.attachment(workspace, session, id);
+				return new Response(bytes, {
+					headers: {
+						"Content-Type": metadata.mimeType,
+						"Content-Disposition": `${metadata.mimeType.startsWith("image/") ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(metadata.name)}`,
+						"X-Content-Type-Options": "nosniff",
+						"Content-Security-Policy": "default-src 'none'; sandbox",
+						"Cache-Control": "private, no-store",
+					},
+				});
+			}
+			return failure(405, "Method not allowed");
+		});
+	}
 	const match = url.pathname.match(/^\/chat\/sessions\/([\w-]+)$/);
 	if (match) {
 		const id = match[1];
@@ -140,7 +195,7 @@ export async function chatRequest(
 
 /** What the console sends on a chat socket after hello. */
 export type ChatCommand =
-	| { t: "prompt"; text: string }
+	| { t: "prompt"; text: string; attachments?: string[] }
 	| { t: "cancel" }
 	| { t: "approve"; id: string; optionId: string | null }
 	| { t: "configure"; model?: string; mode?: string; effort?: string };
@@ -156,7 +211,7 @@ export function chatCommand(
 		reportError(cause instanceof Error ? cause.message : String(cause));
 	try {
 		if (command.t === "prompt" && typeof command.text === "string") {
-			hub.prompt(workspace, sessionId, command.text).catch(fail);
+			hub.prompt(workspace, sessionId, command.text, command.attachments).catch(fail);
 		} else if (command.t === "cancel") {
 			hub.cancel(workspace, sessionId);
 		} else if (command.t === "approve" && typeof command.id === "string") {

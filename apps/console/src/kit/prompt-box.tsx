@@ -8,6 +8,9 @@ import { For, Show } from "solid-js";
  */
 export function PromptBox(props: {
 	field: JSX.Element;
+	attachments?: JSX.Element;
+	onDragOver?: (event: DragEvent) => void;
+	onDrop?: (event: DragEvent) => void;
 	/** Left of the toolbar: attach, mode, project. */
 	tools?: JSX.Element;
 	/** Right of the toolbar, before send: the model, the mic. */
@@ -25,8 +28,11 @@ export function PromptBox(props: {
 }): JSX.Element {
 	return (
 		<div class={`relative flex flex-col ${props.class ?? ""}`}>
+			{/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- file drop supplements the keyboard-accessible picker */}
 			<form
 				ref={(el) => props.formRef?.(el)}
+				onDragOver={(event) => props.onDragOver?.(event)}
+				onDrop={(event) => props.onDrop?.(event)}
 				onSubmit={(event) => {
 					event.preventDefault();
 					props.onSubmit?.(event);
@@ -35,6 +41,9 @@ export function PromptBox(props: {
 			>
 				{props.overlay}
 				{props.field}
+				<Show when={props.attachments}>
+					<div class="flex flex-wrap gap-2 px-4 pb-3">{props.attachments}</div>
+				</Show>
 				<div class="flex items-center gap-1.5 px-3 pb-3">
 					<div class="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
 						{props.tools}
