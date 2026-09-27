@@ -123,6 +123,14 @@ export const chatService = {
 			effort?: string;
 			/** Its own git worktree; by default what the project is set to. */
 			worktree?: boolean;
+			/** The worktree's branch; `grid/chat-<id>` when not given. */
+			branch?: string;
+			/** Work on `branch` as it is (one that exists here or on the remote), not a new one. */
+			existing?: boolean;
+			/** The pull request this worktree's branch is. */
+			pull?: number;
+			/** That pull request comes from a fork: its ref is fetched onto `branch`. */
+			fork?: boolean;
 		},
 		scope = "",
 	) =>

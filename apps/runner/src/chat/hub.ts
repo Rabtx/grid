@@ -26,11 +26,13 @@ import type {
 } from "./store";
 import {
 	createWorktree,
+	fetchBranch,
 	leftoverWorktrees,
 	removeWorktree,
 	repoRoot,
 	type Worktree,
 	WorktreeError,
+	type WorktreeRequest,
 	type WorktreeStatus,
 	worktreeStatus,
 } from "./worktrees";
@@ -264,6 +266,12 @@ export class ChatHub {
 			worktree?: boolean;
 			/** The new worktree's branch; `grid/chat-<id>` when not given. */
 			branch?: string;
+			/** Work on `branch` as it is instead of making a new one from what is checked out. */
+			existing?: boolean;
+			/** The pull request this worktree's branch is (see `WorktreeRequest`). */
+			pull?: number;
+			/** That pull request comes from a fork. */
+			fork?: boolean;
 		},
 	): ChatSessionRow {
 		const provider = this.providers.get(input.provider);
@@ -276,7 +284,14 @@ export class ChatHub {
 		const id = crypto.randomUUID();
 		const wanted =
 			input.worktree ?? this.store.projectSettings(who.workspace, input.project).worktrees;
-		const own = wanted ? this.worktreeFor(boundedCwd, id, input.branch) : null;
+		const own = wanted
+			? this.worktreeFor(boundedCwd, id, {
+					branch: input.branch,
+					existing: input.existing,
+					pull: input.pull,
+					fork: input.fork,
+				})
+			: null;
 		return this.store.create({
 			id,
 			ownerId: who.userId,
@@ -292,14 +307,31 @@ export class ChatHub {
 		});
 	}
 
+	/**
+	 * Before `create` puts a chat in a worktree on an existing branch: fetch that branch (or a
+	 * fork's pull request) without blocking, so `create` itself never waits on the network.
+	 */
+	async prepareWorktree(
+		who: Who,
+		input: { project: string; cwd?: string; branch?: string; pull?: number; fork?: boolean },
+	): Promise<void> {
+		const cwd = input.cwd?.trim() || this.defaultCwd(who.workspace, input.project);
+		if (!isDirectory(cwd)) return;
+		await fetchBranch(this.withinProjectsDir(cwd), {
+			branch: input.branch,
+			pull: input.pull,
+			fork: input.fork,
+		});
+	}
+
 	/** A worktree for a new chat, or null when the folder is not in a git repository. */
 	private worktreeFor(
 		folder: string,
 		id: string,
-		branch?: string,
+		request: WorktreeRequest = {},
 	): ReturnType<typeof createWorktree> {
 		try {
-			return createWorktree(folder, id, this.projectsDir, branch);
+			return createWorktree(folder, id, this.projectsDir, request);
 		} catch (cause) {
 			if (cause instanceof WorktreeError) throw new ChatError(cause.message, cause.status);
 			throw cause;

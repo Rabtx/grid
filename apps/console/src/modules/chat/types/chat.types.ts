@@ -107,6 +107,8 @@ export type WorktreeStatus = {
 	changed: number;
 	/** Commits on its branch that are on no remote and not in its base. */
 	unpushed: number;
+	/** The branch was not made for the thread (a pull request's): removing the worktree keeps it. */
+	adopted?: boolean;
 };
 
 /** A project's chat settings on the machine it runs on. */

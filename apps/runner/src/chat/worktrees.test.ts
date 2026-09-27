@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { Provider } from "../agents/provider";
 import { ChatHub } from "./hub";
 import { ChatStore } from "./store";
-import { createWorktree, removeWorktree, repoRoot, worktreeStatus } from "./worktrees";
+import { createWorktree, fetchBranch, removeWorktree, repoRoot, worktreeStatus } from "./worktrees";
 
 const projects = mkdtempSync(join(tmpdir(), "grid-worktrees-"));
 afterAll(() => rmSync(projects, { recursive: true, force: true }));
@@ -62,6 +62,152 @@ describe("chat worktrees", () => {
 		const plain = join(projects, "plain");
 		mkdirSync(plain);
 		expect(createWorktree(plain, "abcdef12", projects)).toBeNull();
+	});
+
+	it("checks out an existing branch as it is instead of making one", () => {
+		const app = repo("existing");
+		git(app, "branch", "feature/login");
+		const made = createWorktree(join(app, "web"), "aaaaaaaa-1111", projects, {
+			branch: "feature/login",
+			existing: true,
+		});
+		expect(made?.worktree.branch).toBe("feature/login");
+		// It did not start from anything local, so there is no base to count against.
+		expect(made?.worktree.base).toBeNull();
+		expect(git(made?.worktree.path ?? "", "rev-parse", "HEAD")).toBe(
+			git(app, "rev-parse", "refs/heads/feature/login"),
+		);
+	});
+
+	it("fetches a branch only the remote has, and tracks it", async () => {
+		const server = join(projects, "origin.git");
+		mkdirSync(server);
+		git(server, "init", "-q", "--bare", "-b", "main");
+		const local = join(projects, "cloned");
+		mkdirSync(join(local, "web"), { recursive: true });
+		git(local, "init", "-q", "-b", "main");
+		writeFileSync(join(local, "web", "app.ts"), "export {};\n");
+		git(local, "add", ".");
+		git(local, "commit", "-q", "-m", "first");
+		git(local, "remote", "add", "origin", server);
+		git(local, "push", "-q", "-u", "origin", "main");
+		git(local, "branch", "remote-only");
+		git(local, "push", "-q", "origin", "remote-only");
+		git(local, "branch", "-D", "remote-only");
+
+		await fetchBranch(join(local, "web"), { branch: "remote-only", existing: true });
+		const made = createWorktree(join(local, "web"), "bbbbbbbb-2222", projects, {
+			branch: "remote-only",
+			existing: true,
+		});
+		expect(made?.worktree.branch).toBe("remote-only");
+		expect(git(made?.worktree.path ?? "", "rev-parse", "HEAD")).toBe(
+			git(local, "rev-parse", "refs/remotes/origin/remote-only"),
+		);
+		expect(git(local, "rev-parse", "--abbrev-ref", "remote-only@{upstream}")).toBe(
+			"origin/remote-only",
+		);
+	});
+
+	it("fetches a fork's pull request onto a branch of its own, even when its name is taken", async () => {
+		const server = join(projects, "fork-origin.git");
+		mkdirSync(server);
+		git(server, "init", "-q", "--bare", "-b", "main");
+		const local = join(projects, "forked");
+		mkdirSync(join(local, "web"), { recursive: true });
+		git(local, "init", "-q", "-b", "main");
+		writeFileSync(join(local, "web", "app.ts"), "export {};\n");
+		git(local, "add", ".");
+		git(local, "commit", "-q", "-m", "first");
+		git(local, "remote", "add", "origin", server);
+		git(local, "push", "-q", "-u", "origin", "main");
+		// The contribution exists only as the pull request's ref, as a fork's would; the fork's
+		// branch was called `main`, like the person's own, which is checked out in their folder.
+		git(local, "checkout", "-q", "-b", "contributed");
+		writeFileSync(join(local, "web", "app.ts"), "export const contributed = true;\n");
+		git(local, "commit", "-q", "-am", "contribute");
+		const contributed = git(local, "rev-parse", "HEAD");
+		git(local, "push", "-q", "origin", "HEAD:refs/pull/7/head");
+		git(local, "checkout", "-q", "main");
+		git(local, "branch", "-D", "contributed");
+		const ownMain = git(local, "rev-parse", "main");
+
+		const request = { branch: "grid/pr-7", existing: true, pull: 7, fork: true };
+		await fetchBranch(join(local, "web"), request);
+		const made = createWorktree(join(local, "web"), "ffffffff-6666", projects, request);
+		expect(made?.worktree).toMatchObject({ branch: "grid/pr-7", adopted: true });
+		expect(git(made?.worktree.path ?? "", "rev-parse", "HEAD")).toBe(contributed);
+		// The person's own `main` was not touched.
+		expect(git(local, "rev-parse", "main")).toBe(ownMain);
+	});
+
+	it("never deletes a branch it did not make, whatever removing asks", () => {
+		const app = repo("adopted");
+		git(app, "branch", "feature/theirs");
+		const made = createWorktree(app, "abababab-7777", projects, {
+			branch: "feature/theirs",
+			existing: true,
+		});
+		if (!made) throw new Error("no worktree");
+		expect(worktreeStatus(made.worktree).adopted).toBe(true);
+		removeWorktree(made.worktree, { deleteBranch: true });
+		expect(existsSync(made.worktree.path)).toBe(false);
+		expect(git(app, "branch", "--list", "feature/theirs")).toContain("feature/theirs");
+	});
+
+	it("takes a pull request's own branch on origin, which tracks it, over its pull ref", async () => {
+		const server = join(projects, "same-repo-origin.git");
+		mkdirSync(server);
+		git(server, "init", "-q", "--bare", "-b", "main");
+		const local = join(projects, "same-repo");
+		mkdirSync(join(local, "web"), { recursive: true });
+		git(local, "init", "-q", "-b", "main");
+		writeFileSync(join(local, "web", "app.ts"), "export {};\n");
+		git(local, "add", ".");
+		git(local, "commit", "-q", "-m", "first");
+		git(local, "remote", "add", "origin", server);
+		git(local, "push", "-q", "-u", "origin", "main");
+		// A pull request from a branch of this repository: both exist on origin.
+		git(local, "checkout", "-q", "-b", "fix/tidy");
+		writeFileSync(join(local, "web", "app.ts"), "export const tidy = true;\n");
+		git(local, "commit", "-q", "-am", "tidy");
+		git(local, "push", "-q", "-u", "origin", "fix/tidy");
+		git(local, "push", "-q", "origin", "HEAD:refs/pull/12/head");
+		git(local, "checkout", "-q", "main");
+		git(local, "branch", "-D", "fix/tidy");
+
+		await fetchBranch(join(local, "web"), { branch: "fix/tidy", existing: true, pull: 12 });
+		const made = createWorktree(join(local, "web"), "eeeeeeee-5555", projects, {
+			branch: "fix/tidy",
+			existing: true,
+			pull: 12,
+		});
+		expect(git(made?.worktree.path ?? "", "rev-parse", "HEAD")).toBe(
+			git(local, "rev-parse", "refs/remotes/origin/fix/tidy"),
+		);
+		// It tracks the branch, so the agent's push goes back to the pull request.
+		expect(git(local, "rev-parse", "--abbrev-ref", "fix/tidy@{upstream}")).toBe("origin/fix/tidy");
+	});
+
+	it("refuses a branch that is already checked out somewhere", () => {
+		const app = repo("checked-out");
+		// The project's own folder has `main`; a worktree cannot take it too.
+		expect(() =>
+			createWorktree(join(app, "web"), "cccccccc-3333", projects, {
+				branch: "main",
+				existing: true,
+			}),
+		).toThrow("already checked out");
+
+		// Neither can another worktree that already has the branch.
+		git(app, "branch", "feature/x");
+		git(app, "worktree", "add", "-q", join(projects, "elsewhere"), "feature/x");
+		expect(() =>
+			createWorktree(join(app, "web"), "dddddddd-4444", projects, {
+				branch: "feature/x",
+				existing: true,
+			}),
+		).toThrow("already checked out");
 	});
 
 	it("says what would be lost, and refuses to lose it without force", () => {
@@ -127,6 +273,23 @@ describe("chats in worktrees", () => {
 		hub.setProjectSettings("w1", "blog", { worktrees: true });
 		const auto = hub.create(who, { project: "blog", provider: "fake" });
 		expect(auto.worktree?.branch).toBe(`grid/chat-${auto.id.slice(0, 8)}`);
+	});
+
+	it("works on an existing branch when the chat asks for it", () => {
+		const api = repo("api");
+		const hub = new ChatHub(new ChatStore(":memory:"), new Map([["fake", provider]]), projects);
+		hub.linkProjectFolder("w1", "api", api);
+		git(api, "branch", "release/2");
+
+		const chat = hub.create(who, {
+			project: "api",
+			provider: "fake",
+			worktree: true,
+			branch: "release/2",
+			existing: true,
+		});
+		expect(chat.worktree?.branch).toBe("release/2");
+		expect(chat.cwd).toBe(join(projects, ".grid-worktrees", "api", "release-2"));
 	});
 
 	it("carries on in the project folder once its worktree is discarded", () => {
