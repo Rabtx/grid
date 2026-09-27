@@ -98,5 +98,7 @@ Validation:
 Contract impact:
 - Runner `POST /chat/sessions/:id/attachments?name=…` and `GET /chat/sessions/:id/attachments/:attachmentId`; chat socket `prompt.attachments` and persistent `user.attachments`. Grid API (`/api/v1`) unchanged.
 
+CI: GitHub Actions jobs on PR #130 did not start. The [lint job annotation](https://github.com/shabirkhan-dev/grid/actions/runs/36348040195/job/108701135365) says recent account payments failed or the spending limit needs to be increased; this is an account billing gate, not a reported code or test failure. Rerun checks after the account is restored.
+
 Review: human, pending independent review on PR #130.
 Commit: `cf9a97b` (implementation); `52b0471` (claim).
