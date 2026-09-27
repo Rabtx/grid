@@ -6,7 +6,13 @@ import { onRunnerRecovered } from "@/lib/runner-health";
 
 import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
-import { ProjectIcon, useWorkspace } from "@/modules/projects";
+import {
+	notesStore,
+	ProjectIcon,
+	projectsService,
+	TASK_STATUS_LABELS,
+	useWorkspace,
+} from "@/modules/projects";
 import { ShellSlot, useShell } from "@/modules/shell";
 import {
 	Alert,
@@ -16,12 +22,15 @@ import {
 	FolderIcon,
 	IdeaIcon,
 	LinkButton,
+	notify,
+	type PopoverControl,
 	Stack,
 	Suggestions,
 	Text,
 	ToolIcon,
 } from "@/kit";
 
+import { availableCommands, type SlashCommand } from "../lib/slash-commands";
 import { chatService } from "../services/chat.service";
 import { draftsStore } from "../stores/drafts";
 import { offeredProviders, providersStore } from "../stores/providers";
@@ -255,8 +264,11 @@ function NewChat(props: {
 }): JSX.Element {
 	const auth = useAuth();
 	const workspace = useWorkspace();
+	const navigate = useNavigate();
 	const project = () => workspace.projects().find((item) => item.slug === props.project) ?? null;
 	let composer: ComposerControl | undefined;
+	let modelPicker: PopoverControl | undefined;
+	let modePicker: PopoverControl | undefined;
 	// A draft left for this project (a thread started from a task), taken once.
 	const initial = untrack(() => (props.project ? draftsStore.take(props.project) : undefined));
 	// Installed agents that are not turned off in Settings → Agents.
@@ -329,6 +341,86 @@ function NewChat(props: {
 		}
 	}
 
+	// Slash commands: which apply on this screen, and what each one does.
+	const commands = () =>
+		availableCommands({
+			running: false,
+			models: models().length > 0,
+			modes: (chosen()?.modes.length ?? 0) > 0,
+			efforts: efforts().length > 0,
+			project: Boolean(props.project),
+		});
+
+	function chooseEffort(argument: string): boolean {
+		const level = efforts().find(
+			(item) =>
+				item.id.toLowerCase() === argument.toLowerCase() ||
+				item.name.toLowerCase() === argument.toLowerCase(),
+		);
+		if (!level) return false;
+		setPickedEffort(level.id);
+		return true;
+	}
+
+	async function addTask(title: string): Promise<void> {
+		const token = auth.token();
+		const slug = props.project;
+		if (!token || !slug) return;
+		try {
+			const task = await projectsService.createTask(token, slug, { title, status: "backlog" });
+			workspace.refreshTasks();
+			notify({
+				title: `Added ${task.key} to ${TASK_STATUS_LABELS[task.status]}`,
+				action: { label: "Open", run: () => workspace.openTask(task.number) },
+			});
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : "Could not add the task");
+		}
+	}
+
+	async function addNote(text: string): Promise<void> {
+		const token = auth.token();
+		const slug = props.project;
+		if (!token || !slug) return;
+		try {
+			await notesStore.add(token, slug, { body: text, source: chosen()?.name ?? "Composer" });
+			notify({
+				title: "Added to notes",
+				tone: "success",
+				action: { label: "Open", run: () => navigate(`/notes/${slug}`) },
+			});
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not add the note",
+				tone: "danger",
+			});
+		}
+	}
+
+	function runCommand(command: SlashCommand, argument: string): boolean {
+		switch (command.id) {
+			case "model":
+				modelPicker?.open();
+				return Boolean(modelPicker);
+			case "mode":
+				modePicker?.open();
+				return Boolean(modePicker);
+			case "effort":
+				return chooseEffort(argument);
+			case "task":
+				if (!argument) return false;
+				void addTask(argument);
+				return true;
+			case "note":
+				if (!argument) return false;
+				void addNote(argument);
+				return true;
+			default:
+				// `/new` is this screen already; the composer clears and stays.
+				return command.id === "new";
+		}
+	}
+
 	const ready = () => Boolean(chosen() && props.project && props.folder);
 
 	return (
@@ -391,6 +483,8 @@ function NewChat(props: {
 						<Composer
 							project={props.project}
 							initial={initial}
+							commands={commands()}
+							onCommand={runCommand}
 							control={(control) => {
 								composer = control;
 							}}
@@ -435,6 +529,9 @@ function NewChat(props: {
 												efforts={efforts()}
 												effort={effort()}
 												onEffort={setPickedEffort}
+												control={(control) => {
+													modelPicker = control;
+												}}
 											/>
 											<Show when={provider().modes.length > 0}>
 												<ModePicker
@@ -446,6 +543,9 @@ function NewChat(props: {
 														provider().modes[0].id
 													}
 													onMode={setMode}
+													control={(control) => {
+														modePicker = control;
+													}}
 												/>
 											</Show>
 										</>

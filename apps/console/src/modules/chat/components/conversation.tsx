@@ -9,8 +9,8 @@ import { quietReconnects } from "@/lib/quiet-reconnects";
 import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
 import { placementsStore } from "@/modules/environments/stores/placements";
-import { notesStore } from "@/modules/projects";
-import { Alert, Banner, FolderIcon, notify, Row, Text } from "@/kit";
+import { notesStore, projectsService, TASK_STATUS_LABELS, useWorkspace } from "@/modules/projects";
+import { Alert, Banner, FolderIcon, notify, type PopoverControl, Row, Text } from "@/kit";
 
 import { type ChatConnection, connectChat, type ChatSocket } from "../lib/chat-socket";
 import { applyEvent, emptyTranscript, replay, type Transcript } from "../lib/transcript";
@@ -19,6 +19,7 @@ import { threadsStore } from "../stores/threads";
 import type { ChatEvent, ChatProvider, ChatSession } from "../types/chat.types";
 
 import { mergeModels } from "../lib/choices";
+import { availableCommands, type SlashCommand } from "../lib/slash-commands";
 
 import { Composer } from "./composer";
 import { GitControl } from "./git-control";
@@ -45,6 +46,7 @@ export function Conversation(props: {
 	onSession: (session: ChatSession) => void;
 }): JSX.Element {
 	const auth = useAuth();
+	const workspace = useWorkspace();
 	const [transcript, setTranscript] = createSignal<Transcript>(emptyTranscript());
 	const [session, setSession] = createSignal<ChatSession | null>(null);
 	const [running, setRunning] = createSignal(false);
@@ -61,6 +63,8 @@ export function Conversation(props: {
 	let lastStartedAt = untrack(runnerStartedAt);
 	let socket: ChatSocket | undefined;
 	let scroller: HTMLDivElement | undefined;
+	let modelPicker: PopoverControl | undefined;
+	let modePicker: PopoverControl | undefined;
 	// Follow new output only while the reader is at the bottom; scrolling up to read stops it.
 	let pinned = true;
 
@@ -119,6 +123,78 @@ export function Conversation(props: {
 				title: cause instanceof Error ? cause.message : "Could not add the note",
 				tone: "danger",
 			});
+		}
+	}
+
+	// Slash commands: which apply here, and what each one does.
+	const commands = () =>
+		availableCommands({
+			running: running(),
+			models: models().length > 0,
+			modes: modes().length > 0,
+			efforts: efforts().length > 0,
+			project: Boolean(session()?.project),
+		});
+
+	async function addTask(title: string): Promise<void> {
+		const token = auth.token();
+		const current = session();
+		if (!token || !current) return;
+		try {
+			const task = await projectsService.createTask(token, current.project, {
+				title,
+				status: "backlog",
+			});
+			workspace.refreshTasks();
+			notify({
+				title: `Added ${task.key} to ${TASK_STATUS_LABELS[task.status]}`,
+				action: { label: "Open", run: () => workspace.openTask(task.number) },
+			});
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not add the task",
+				tone: "danger",
+			});
+		}
+	}
+
+	function runCommand(command: SlashCommand, argument: string): boolean {
+		switch (command.id) {
+			case "new": {
+				const slug = session()?.project;
+				if (!slug) return false;
+				navigate(`/chat/${slug}`);
+				return true;
+			}
+			case "model":
+				modelPicker?.open();
+				return Boolean(modelPicker);
+			case "mode":
+				modePicker?.open();
+				return Boolean(modePicker);
+			case "effort": {
+				const level = efforts().find(
+					(item) =>
+						item.id.toLowerCase() === argument.toLowerCase() ||
+						item.name.toLowerCase() === argument.toLowerCase(),
+				);
+				if (!level) return false;
+				socket?.send({ t: "configure", effort: level.id });
+				return true;
+			}
+			case "stop":
+				socket?.send({ t: "cancel" });
+				return running();
+			case "task":
+				if (!argument) return false;
+				void addTask(argument);
+				return true;
+			case "note":
+				if (!argument) return false;
+				void saveNote(argument);
+				return true;
+			default:
+				return false;
 		}
 	}
 
@@ -333,6 +409,8 @@ export function Conversation(props: {
 					<Composer
 						project={session()?.project}
 						running={running()}
+						commands={commands()}
+						onCommand={runCommand}
 						disabled={connection() === "gone" || connection() === "signed-out"}
 						onSend={send}
 						onStop={() => socket?.send({ t: "cancel" })}
@@ -366,6 +444,9 @@ export function Conversation(props: {
 										efforts={efforts()}
 										effort={effort()}
 										onEffort={(next) => socket?.send({ t: "configure", effort: next })}
+										control={(control) => {
+											modelPicker = control;
+										}}
 									/>
 								</Show>
 								<Show when={modes().length > 0}>
@@ -373,6 +454,9 @@ export function Conversation(props: {
 										modes={modes()}
 										mode={mode()}
 										onMode={(next) => socket?.send({ t: "configure", mode: next })}
+										control={(control) => {
+											modePicker = control;
+										}}
 									/>
 								</Show>
 								<Show when={transcript().usage?.contextWindow}>

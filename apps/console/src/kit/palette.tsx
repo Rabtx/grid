@@ -121,7 +121,14 @@ export function Palette<T extends string>(props: {
 	);
 }
 
-export type AutocompleteItem = { id: string; icon?: JSX.Element; label: string; hint?: string };
+export type AutocompleteItem = {
+	id: string;
+	icon?: JSX.Element;
+	label: string;
+	hint?: string;
+	/** A heading drawn before the first item of each run, e.g. who offers the command. */
+	group?: string;
+};
 
 /**
  * Suggestions floating above a text field while you type: @-mentions, / commands. The field keeps
@@ -139,7 +146,8 @@ export function AutocompleteList(props: {
 	createEffect(
 		() => props.active,
 		(index) => {
-			(list?.children[index] as HTMLElement | undefined)?.scrollIntoView?.({ block: "nearest" });
+			// Groups add heading rows, so match the item by its index rather than its position.
+			list?.querySelector(`[data-index="${index}"]`)?.scrollIntoView({ block: "nearest" });
 		},
 	);
 	return (
@@ -178,28 +186,35 @@ export function AutocompleteList(props: {
 				>
 					<For each={props.items}>
 						{(item, index) => (
-							<li>
-								<button
-									type="button"
-									aria-current={index() === props.active ? "true" : undefined}
-									onMouseDown={(event) => {
-										// Keep the field focused while the pick applies.
-										event.preventDefault();
-										props.onPick(item.id);
-									}}
-									class="flex h-8 w-full items-center gap-2 rounded-kit px-2 text-left text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=true]:bg-fill-strong aria-[current=true]:text-fg pointer-coarse:h-11"
-								>
-									<Show when={item.icon}>
-										<span class="shrink-0 text-fg-subtle">{item.icon}</span>
-									</Show>
-									<span class="truncate font-mono text-caption">{item.label}</span>
-									<Show when={item.hint}>
-										<span class="ml-auto truncate font-mono text-caption text-fg-faint">
-											{item.hint}
-										</span>
-									</Show>
-								</button>
-							</li>
+							<>
+								<Show when={item.group && props.items[index() - 1]?.group !== item.group}>
+									<li role="presentation" class="px-2 pt-2 pb-1 text-caption text-fg-subtle">
+										{item.group}
+									</li>
+								</Show>
+								<li data-index={index()}>
+									<button
+										type="button"
+										aria-current={index() === props.active ? "true" : undefined}
+										onMouseDown={(event) => {
+											// Keep the field focused while the pick applies.
+											event.preventDefault();
+											props.onPick(item.id);
+										}}
+										class="flex h-8 w-full items-center gap-2 rounded-kit px-2 text-left text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=true]:bg-fill-strong aria-[current=true]:text-fg pointer-coarse:h-11"
+									>
+										<Show when={item.icon}>
+											<span class="shrink-0 text-fg-subtle">{item.icon}</span>
+										</Show>
+										<span class="truncate font-mono text-caption">{item.label}</span>
+										<Show when={item.hint}>
+											<span class="ml-auto truncate font-mono text-caption text-fg-faint">
+												{item.hint}
+											</span>
+										</Show>
+									</button>
+								</li>
+							</>
 						)}
 					</For>
 				</ul>

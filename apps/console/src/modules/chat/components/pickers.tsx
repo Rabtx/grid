@@ -16,6 +16,7 @@ import {
 	type IconData,
 	ModelRow,
 	Popover,
+	type PopoverControl,
 	PROMPT_CHIP,
 	type RailItem,
 	SearchIcon,
@@ -66,6 +67,8 @@ type ModelPickerProps = {
 	effort: string | null;
 	onEffort: (id: string) => void;
 	disabled?: boolean;
+	/** Hands over a way to open the panel from code, e.g. the composer's `/model` command. */
+	control?: (control: PopoverControl) => void;
 };
 
 /**
@@ -86,6 +89,7 @@ export function ModelPicker(props: ModelPickerProps): JSX.Element {
 			placement="top-start"
 			width="md:w-xl"
 			disabled={props.disabled}
+			control={props.control}
 			triggerClass={`${PROMPT_CHIP} min-w-0 max-w-64`}
 			trigger={
 				<>
@@ -330,6 +334,8 @@ export function ModePicker(props: {
 	mode: string;
 	onMode: (id: string) => void;
 	disabled?: boolean;
+	/** Hands over a way to open the panel from code, e.g. the composer's `/mode` command. */
+	control?: (control: PopoverControl) => void;
 }): JSX.Element {
 	return (
 		<Select
@@ -338,6 +344,7 @@ export function ModePicker(props: {
 			placement="top-start"
 			width="md:w-72"
 			disabled={props.disabled}
+			control={props.control}
 			value={props.mode}
 			onChange={props.onMode}
 			groups={[

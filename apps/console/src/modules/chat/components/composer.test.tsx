@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "@/modules/auth";
 import { WorkspaceProvider } from "@/modules/projects";
 
+import { GRID_COMMANDS, type SlashCommand } from "../lib/slash-commands";
+
 import { Composer, type ComposerControl } from "./composer";
 
 const projects = [{ slug: "alpha", name: "Alpha" }].map((project) => ({
@@ -48,7 +50,7 @@ function pressKey(element: HTMLElement, key: string, extra: KeyboardEventInit = 
 	);
 }
 
-describe("Composer with file mentions", () => {
+describe("Composer", () => {
 	let container: HTMLElement;
 	let dispose: () => void;
 	let sentText: string | null;
@@ -91,13 +93,24 @@ describe("Composer with file mentions", () => {
 			return true;
 		}),
 		control?: (control: ComposerControl) => void,
+		slash?: {
+			commands?: readonly SlashCommand[];
+			onCommand?: (command: SlashCommand, argument: string) => boolean;
+		},
 	): void {
 		const Router = createRouter({
 			routes: [
 				{
 					path: "/chat/:project",
 					component: () => (
-						<Composer project="alpha" running={false} onSend={onSend} control={control} />
+						<Composer
+							project="alpha"
+							running={false}
+							onSend={onSend}
+							control={control}
+							commands={slash?.commands}
+							onCommand={slash?.onCommand}
+						/>
 					),
 				},
 			],
@@ -250,6 +263,146 @@ describe("Composer with file mentions", () => {
 
 		expect(container.querySelector('[aria-label="File mentions"]')).toBeNull();
 		expect(textarea.value).toBe("Check @README.md ");
+	});
+
+	it("opens the command list when typing / at the start", async () => {
+		mount(undefined, undefined, { commands: GRID_COMMANDS, onCommand: () => true });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+
+		typeInto(textarea, "/");
+		await settle();
+
+		expect(container.querySelector('[aria-label="Commands"]')).not.toBeNull();
+		expect(container.textContent).toContain("/new");
+		expect(container.textContent).toContain("/task");
+	});
+
+	it("filters the commands as the query is typed", async () => {
+		mount(undefined, undefined, { commands: GRID_COMMANDS, onCommand: () => true });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+
+		typeInto(textarea, "/tas");
+		await settle();
+
+		expect(container.textContent).toContain("Commands · 1");
+		expect(container.textContent).toContain("/task");
+		expect(container.textContent).not.toContain("/new");
+	});
+
+	it("runs a command picked with Enter and clears the field", async () => {
+		const onCommand = vi.fn().mockReturnValue(true);
+		mount(undefined, undefined, { commands: GRID_COMMANDS, onCommand });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+
+		typeInto(textarea, "/new");
+		await settle();
+		pressKey(textarea, "Enter");
+		await settle();
+
+		expect(onCommand).toHaveBeenCalledWith(
+			GRID_COMMANDS.find((command) => command.name === "new"),
+			"",
+		);
+		expect(container.querySelector('[aria-label="Commands"]')).toBeNull();
+		expect(textarea.value).toBe("");
+	});
+
+	it("writes out a command that needs an argument, cursor after it", async () => {
+		mount(undefined, undefined, { commands: GRID_COMMANDS, onCommand: () => true });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+
+		typeInto(textarea, "/ta");
+		await settle();
+		pressKey(textarea, "Enter");
+		await settle();
+
+		expect(textarea.value).toBe("/task ");
+		expect(textarea.selectionStart).toBe(6);
+	});
+
+	it("closes the command list with Escape", async () => {
+		mount(undefined, undefined, { commands: GRID_COMMANDS, onCommand: () => true });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+
+		typeInto(textarea, "/");
+		await settle();
+		expect(container.querySelector('[aria-label="Commands"]')).not.toBeNull();
+
+		pressKey(textarea, "Escape");
+		await settle();
+
+		expect(container.querySelector('[aria-label="Commands"]')).toBeNull();
+		expect(textarea.value).toBe("/");
+	});
+
+	it("runs a typed Grid command instead of sending it to the agent", async () => {
+		const onSend = vi.fn().mockReturnValue(true);
+		const onCommand = vi.fn().mockReturnValue(true);
+		mount(onSend, undefined, { commands: GRID_COMMANDS, onCommand });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+
+		typeInto(textarea, "/task buy milk");
+		await settle();
+		container
+			.querySelector("form")
+			?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+		await settle();
+
+		expect(onCommand).toHaveBeenCalledWith(
+			GRID_COMMANDS.find((command) => command.name === "task"),
+			"buy milk",
+		);
+		expect(onSend).not.toHaveBeenCalled();
+		expect(textarea.value).toBe("");
+	});
+
+	it("writes an agent's own command out and sends it as typed", async () => {
+		const onSend = vi.fn().mockReturnValue(true);
+		const onCommand = vi.fn().mockReturnValue(true);
+		const agent: SlashCommand = {
+			id: "claude:compact",
+			name: "compact",
+			description: "Summarise the conversation",
+			group: "Claude",
+			kind: "agent",
+		};
+		mount(onSend, undefined, { commands: [...GRID_COMMANDS, agent], onCommand });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+
+		typeInto(textarea, "/compact");
+		await settle();
+		pressKey(textarea, "Enter");
+		await settle();
+		expect(textarea.value).toBe("/compact ");
+
+		container
+			.querySelector("form")
+			?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+		await settle();
+
+		expect(onCommand).not.toHaveBeenCalled();
+		expect(onSend).toHaveBeenCalledWith("/compact");
 	});
 
 	it("sends plain text containing the mention tokens to the agent", async () => {
