@@ -18,6 +18,7 @@ import { folderRequest } from "./folders/routes";
 import type { CodespacesLink } from "./github/codespaces";
 import type { PullRequests } from "./github/pulls";
 import { githubRequest } from "./github/routes";
+import { type InboxDeps, inboxRequest } from "./inbox/routes";
 import { closeLink, createLink, type LinkObserver, type LinkState, linkMessage } from "./link";
 import type { PushNotifier } from "./push/notifier";
 import { pushRequest } from "./push/routes";
@@ -97,9 +98,11 @@ export function startServer(
 		github?: CodespacesLink;
 		/** Projects' pull requests, through the same `gh`. */
 		pulls?: PullRequests;
+		/** What is waiting on the people in a workspace, and the GitHub half of it. */
+		inbox?: InboxDeps;
 	} = {},
 ): Server<SocketData> {
-	const { push, diagnostics, environments, pairing, github, pulls } = extras;
+	const { push, diagnostics, environments, pairing, github, pulls, inbox } = extras;
 	const diagnosticRoutes = diagnostics ? new DiagnosticRoutes(diagnostics) : null;
 	const recordDiagnostic = (entry: DiagnosticInput): void => {
 		try {
@@ -316,6 +319,13 @@ export function startServer(
 					const who = await whoFrom(request, "Sign in to get notifications");
 					if (who instanceof Response) return who;
 					const handled = await pushRequest(request, url, who.userId, push);
+					if (handled) return handled;
+				}
+
+				if (inbox && url.pathname.startsWith("/inbox")) {
+					const who = await whoFrom(request, "Sign in to see your inbox");
+					if (who instanceof Response) return who;
+					const handled = await inboxRequest(request, url, who, inbox);
 					if (handled) return handled;
 				}
 

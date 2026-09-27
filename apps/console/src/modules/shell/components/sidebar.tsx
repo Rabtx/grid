@@ -1,13 +1,15 @@
 import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { For, Loading, Show } from "solid-js";
+import { createEffect, For, Loading, Show } from "solid-js";
 
 import {
 	BoardIcon,
 	CloseIcon,
+	Count,
 	EditIcon,
 	FileIcon,
 	IconButton,
+	InboxIcon,
 	Kbd,
 	NavButton,
 	NavLink,
@@ -22,6 +24,8 @@ import {
 	TerminalIcon,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
+import { useAuth } from "@/modules/auth";
+import { inboxStore } from "@/modules/inbox";
 import { useWorkspace } from "@/modules/projects";
 import { WorkspaceSwitcher } from "@/modules/workspaces";
 
@@ -47,6 +51,7 @@ const PROJECT_PAGES = [
 export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 	const shell = useShell();
 	const workspace = useWorkspace();
+	const auth = useAuth();
 	const location = useLocation();
 	const newChat = () => {
 		const slug = workspace.currentSlug();
@@ -57,6 +62,14 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 		const slug = workspace.currentSlug();
 		return slug ? `/${path}/${slug}` : "/board";
 	};
+	// The count of what is waiting, which the Inbox and its own actions keep true. Read once per
+	// sign-in: push already tells someone about a new item, and a stale count is not worth a poll.
+	createEffect(
+		() => auth.token(),
+		(token) => {
+			if (token) void inboxStore.count(token);
+		},
+	);
 
 	return (
 		<nav aria-label="Navigation" class="flex h-full min-h-0 flex-col">
@@ -94,6 +107,17 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 						onClick={() => shell.setPaletteOpen(true)}
 					/>
 				</Show>
+				<NavLink
+					href={workspaceHref("/inbox")}
+					icon={<InboxIcon />}
+					label="Inbox"
+					current={location.pathname.startsWith("/inbox")}
+					trailing={
+						<Show when={inboxStore.unread() > 0}>
+							<Count>{inboxStore.unread() > 99 ? "99+" : inboxStore.unread()}</Count>
+						</Show>
+					}
+				/>
 				<For each={PROJECT_PAGES}>
 					{(page) => (
 						<NavLink

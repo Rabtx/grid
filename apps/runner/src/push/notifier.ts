@@ -37,19 +37,36 @@ export function isPushEndpoint(endpoint: string): boolean {
 	}
 }
 
+/** Which kind of wait a moment in a thread is, and the line that says so. */
+export type Attention = { kind: "approval" | "turn_done" | "turn_error"; body: string };
+
 /**
- * The line a finished turn or a waiting approval deserves while nobody is looking, or null when
- * it needs none (a turn the person cancelled themselves).
+ * What a finished turn or a waiting approval deserves while nobody is looking, or null when it
+ * needs none (a turn the person cancelled themselves). The Inbox is fed from the same answer, so
+ * a thread never waits for one thing and goes quiet for the other.
  */
-export function attentionMessage(session: ChatSessionRow, event: ChatEvent): PushMessage | null {
-	const url = `/chat/${encodeURIComponent(session.project)}/${encodeURIComponent(session.id)}`;
-	const base = { title: session.title, url, tag: session.id };
-	if (event.type === "approval") return { ...base, body: `Needs your approval: ${event.title}` };
+export function attention(event: ChatEvent): Attention | null {
+	if (event.type === "approval")
+		return { kind: "approval", body: `Needs your approval: ${event.title}` };
 	if (event.type !== "turn_end") return null;
-	if (event.reason === "done") return { ...base, body: "Finished — tap to see what it did." };
-	if (event.reason === "error")
-		return { ...base, body: `Stopped: ${event.error ?? "the agent hit an error"}` };
+	if (event.reason === "done") {
+		return { kind: "turn_done", body: "Finished — tap to see what it did." };
+	}
+	if (event.reason === "error") {
+		return { kind: "turn_error", body: `Stopped: ${event.error ?? "the agent hit an error"}` };
+	}
 	return null;
+}
+
+/** Where a thread lives, for anything that has to take the person there. */
+export function chatUrl(session: ChatSessionRow): string {
+	return `/chat/${encodeURIComponent(session.project)}/${encodeURIComponent(session.id)}`;
+}
+
+export function attentionMessage(session: ChatSessionRow, event: ChatEvent): PushMessage | null {
+	const what = attention(event);
+	if (!what) return null;
+	return { title: session.title, body: what.body, url: chatUrl(session), tag: session.id };
 }
 
 type SubscriptionRow = {

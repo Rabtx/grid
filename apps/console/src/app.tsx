@@ -7,6 +7,7 @@ import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { EnvironmentsScreen } from "@/modules/environments";
 import { ConnectorsScreen } from "@/modules/github";
+import { InboxScreen } from "@/modules/inbox";
 import {
 	AccountScreen,
 	AgentsScreen,
@@ -34,6 +35,8 @@ const Router = createRouter({
 		{ path: "/setup", component: SetupRoute },
 		// An invite link: join its workspace, signed in or with a new account.
 		{ path: "/invite/:token", component: InviteRoute },
+		// What is waiting on the people in this workspace, across every project.
+		{ path: "/inbox", component: InboxRoute },
 		{ path: "/board", component: RedirectRoute },
 		{ path: "/board/:slug", component: BoardRoute },
 		{ path: "/files/:slug", component: FilesRoute },
@@ -98,6 +101,14 @@ function DesignRoute(): JSX.Element {
 
 function InviteRoute(): JSX.Element {
 	return <InviteScreen />;
+}
+
+function InboxRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<InboxScreen />
+		</RequireAuth>
+	);
 }
 
 function ProjectRoute(): JSX.Element {
