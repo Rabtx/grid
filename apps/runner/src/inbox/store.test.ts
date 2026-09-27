@@ -23,10 +23,10 @@ describe("InboxStore", () => {
 		);
 		// The same event heard twice is still one row, and an agent that restates it is not a new one.
 		store.keep(draft({ title: "Fix the login (again)" }));
-		const { items, unread } = store.list("acme");
+		const { items, unread } = store.list("acme", "me");
 		expect(items.map((item) => item.kind)).toEqual(["approval", "turn_done"]);
 		expect(unread).toBe(2);
-		expect(store.list("acme").items[1]?.title).toBe("Fix the login (again)");
+		expect(store.list("acme", "me").items[1]?.title).toBe("Fix the login (again)");
 		store.close();
 	});
 
@@ -34,9 +34,9 @@ describe("InboxStore", () => {
 		const store = new InboxStore(":memory:");
 		store.keep(draft());
 		store.keep(draft({ id: "turn_done:s2:x", workspaceId: "other" }));
-		expect(store.list("acme").unread).toBe(1);
-		expect(store.unread("other")).toBe(1);
-		expect(store.list("nobody").items).toEqual([]);
+		expect(store.list("acme", "me").unread).toBe(1);
+		expect(store.unread("other", "me")).toBe(1);
+		expect(store.list("nobody", "me").items).toEqual([]);
 		store.close();
 	});
 
@@ -44,15 +44,15 @@ describe("InboxStore", () => {
 		const store = new InboxStore(":memory:");
 		store.keep(draft());
 		store.keep(draft({ id: "pull_review:grid:12", kind: "pull_review", project: "grid" }));
-		expect(store.read("acme", "pull_review:grid:12")).toBe(1);
+		expect(store.read("acme", "me", "pull_review:grid:12")).toBe(1);
 		// Asking again about the same item is not a failure and changes nothing.
-		expect(store.read("acme", "pull_review:grid:12")).toBe(0);
-		expect(store.unread("acme")).toBe(1);
+		expect(store.read("acme", "me", "pull_review:grid:12")).toBe(0);
+		expect(store.unread("acme", "me")).toBe(1);
 		// Another workspace's items are not this one's to clear.
-		expect(store.read("other")).toBe(0);
-		expect(store.read("acme")).toBe(1);
-		expect(store.unread("acme")).toBe(0);
-		expect(store.read("acme")).toBe(0);
+		expect(store.read("other", "me")).toBe(0);
+		expect(store.read("acme", "me")).toBe(1);
+		expect(store.unread("acme", "me")).toBe(0);
+		expect(store.read("acme", "me")).toBe(0);
 		store.close();
 	});
 
@@ -68,20 +68,20 @@ describe("InboxStore", () => {
 				project: "grid",
 			}),
 		);
-		expect(store.readAt("acme", "/chat/grid/s1")).toBe(2);
+		expect(store.readAt("acme", "me", "/chat/grid/s1")).toBe(2);
 		// A page stands for its own pull requests, query and all.
-		expect(store.readAt("acme", "/pulls/grid")).toBe(1);
-		expect(store.unread("acme")).toBe(0);
+		expect(store.readAt("acme", "me", "/pulls/grid")).toBe(1);
+		expect(store.unread("acme", "me")).toBe(0);
 		// Nothing left, so a whole-workspace read changes nothing.
-		expect(store.readAt("acme")).toBe(0);
+		expect(store.readAt("acme", "me")).toBe(0);
 		store.close();
 	});
 
 	it("does not read a page that is only the start of another one's path", () => {
 		const store = new InboxStore(":memory:");
 		store.keep(draft({ url: "/pulls/grid-api?pr=3", project: "grid-api" }));
-		expect(store.readAt("acme", "/pulls/grid")).toBe(0);
-		expect(store.unread("acme")).toBe(1);
+		expect(store.readAt("acme", "me", "/pulls/grid")).toBe(0);
+		expect(store.unread("acme", "me")).toBe(1);
 		store.close();
 	});
 
@@ -89,7 +89,7 @@ describe("InboxStore", () => {
 		const store = new InboxStore(":memory:");
 		store.keep(draft({ id: "pull_checks:grid:12", kind: "pull_checks" }));
 		store.keep(draft({ id: "pull_review:grid:12", kind: "pull_review" }));
-		expect(store.list("acme").items.map((item) => item.id)).toEqual([
+		expect(store.list("acme", "me").items.map((item) => item.id)).toEqual([
 			"pull_review:grid:12",
 			"pull_checks:grid:12",
 		]);
@@ -105,17 +105,17 @@ describe("InboxStore", () => {
 		expect(
 			store.forgetMissing("acme", "grid", ["pull_review", "pull_checks"], ["pull_checks:grid:12"]),
 		).toBe(1);
-		expect(store.list("acme").items.map((item) => item.id)).toEqual([
+		expect(store.list("acme", "me").items.map((item) => item.id)).toEqual([
 			"turn_done:s1:2026-09-28T09:00:00.000Z",
 			"pull_checks:grid:12",
 		]);
 		// A refresh that saw nothing at all clears its kinds, but the finished turn still happened.
 		expect(store.forgetMissing("acme", "grid", ["pull_review", "pull_checks"], [])).toBe(1);
-		expect(store.list("acme").items.map((item) => item.id)).toEqual([
+		expect(store.list("acme", "me").items.map((item) => item.id)).toEqual([
 			"turn_done:s1:2026-09-28T09:00:00.000Z",
 		]);
 		// A read item is history, not something waiting: a refresh leaves it be.
-		store.read("acme");
+		store.read("acme", "me");
 		expect(store.forgetMissing("acme", "grid", ["turn_done"], [])).toBe(0);
 		store.close();
 	});
@@ -123,9 +123,32 @@ describe("InboxStore", () => {
 	it("keeps read items for a month, then lets them go", () => {
 		const store = new InboxStore(":memory:");
 		store.keep(draft());
-		store.read("acme");
-		expect(store.list("acme", 60_000).unread).toBe(0);
-		expect(store.list("acme", 0).items).toEqual([]);
+		store.read("acme", "me");
+		expect(store.list("acme", "me", 60_000).unread).toBe(0);
+		expect(store.list("acme", "me", 0).items).toEqual([]);
+		store.close();
+	});
+
+	it("shows a person's own items only to them, beside the workspace's", () => {
+		const store = new InboxStore(":memory:");
+		store.keep(draft());
+		store.keep(draft({ id: "pull_review:acme:grid:12", kind: "pull_review", ownerId: "me" }));
+		expect(store.list("acme", "me").items).toHaveLength(2);
+		expect(store.list("acme", "teammate").items.map((item) => item.id)).toEqual([draft().id]);
+		expect(store.unread("acme", "teammate")).toBe(1);
+		// Reading everything reads only what the person can see.
+		expect(store.read("acme", "teammate")).toBe(1);
+		expect(store.read("acme", "teammate", "pull_review:acme:grid:12")).toBe(0);
+		expect(store.unread("acme", "me")).toBe(1);
+		store.close();
+	});
+
+	it("answers a bounded list, while the count still counts everything", () => {
+		const store = new InboxStore(":memory:");
+		for (let n = 0; n < 205; n += 1) store.keep(draft({ id: `turn_done:s${n}:x` }));
+		const { items, unread } = store.list("acme", "me");
+		expect(items).toHaveLength(200);
+		expect(unread).toBe(205);
 		store.close();
 	});
 });

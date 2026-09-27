@@ -12,6 +12,11 @@ import type { InboxItem } from "../types/inbox.types";
 
 import { InboxScreen } from "./inbox-screen";
 
+// One moment for every row that does not name its own, so two rows never sort by which millisecond
+// the fixture happened to be built in.
+const NOW = new Date().toISOString();
+const EARLIER = new Date(Date.parse(NOW) - 60_000).toISOString();
+
 const item = (over: Partial<InboxItem> = {}): InboxItem => ({
 	id: "turn_done:s1:2026-09-28T09:00:00.000Z",
 	kind: "turn_done",
@@ -19,7 +24,7 @@ const item = (over: Partial<InboxItem> = {}): InboxItem => ({
 	title: "Fix the login",
 	body: "Finished — tap to see what it did.",
 	url: "/chat/grid/s1",
-	createdAt: new Date().toISOString(),
+	createdAt: NOW,
 	readAt: null,
 	...over,
 });
@@ -32,6 +37,7 @@ const items = [
 		title: "Add the inbox",
 		body: "@sam asked for your review",
 		url: "/pulls/grid?pr=12",
+		createdAt: EARLIER,
 		readAt: "2026-09-28T09:05:00.000Z",
 	}),
 ];
@@ -224,6 +230,9 @@ describe("InboxScreen", () => {
 		await settle();
 
 		expect(container.textContent).toContain("The runner is not running.");
+		// A failed read knows nothing about what is waiting, so it does not claim nothing is.
+		expect(container.textContent).not.toContain("Nothing is waiting on you");
+		expect(container.textContent).not.toContain("Connect GitHub");
 		expect(
 			[...container.querySelectorAll("button")].some((b) => b.textContent === "Try again"),
 		).toBe(true);

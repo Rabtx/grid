@@ -282,13 +282,16 @@ export class PullRequests {
 		private readonly assertOwner: (userId: string) => void,
 	) {}
 
-	private repository(folder: string): string {
-		// Asked of git, so a worktree (whose `.git` is a file) resolves like its main checkout.
-		const origin = Bun.spawnSync(["git", "-C", folder, "remote", "get-url", "origin"], {
+	private async repository(folder: string): Promise<string> {
+		// Asked of git, so a worktree (whose `.git` is a file) resolves like its main checkout. Not
+		// spawned synchronously: the Inbox asks this for every linked project at once, and the
+		// runner's event loop also carries every terminal and chat socket.
+		const origin = Bun.spawn(["git", "-C", folder, "remote", "get-url", "origin"], {
 			stdout: "pipe",
 			stderr: "ignore",
 		});
-		const url = origin.exitCode === 0 ? remoteToUrl(origin.stdout.toString()) : null;
+		const [out, code] = await Promise.all([new Response(origin.stdout).text(), origin.exited]);
+		const url = code === 0 ? remoteToUrl(out) : null;
 		const repo = repoOf(url);
 		if (!repo) {
 			throw new GitHubError("This project's folder has no GitHub repository as its origin", 409);
@@ -316,7 +319,7 @@ export class PullRequests {
 
 	async list(userId: string, folder: string, filter: PullFilter): Promise<PullSummary[]> {
 		this.assertOwner(userId);
-		const repo = this.repository(folder);
+		const repo = await this.repository(folder);
 		const args = ["pr", "list", "--repo", repo, "--state", "open", "--limit", "100"];
 		if (filter === "mine") args.push("--author", "@me");
 		if (filter === "review") args.push("--search", "review-requested:@me");
@@ -326,7 +329,7 @@ export class PullRequests {
 
 	async view(userId: string, folder: string, number: number): Promise<PullDetail> {
 		this.assertOwner(userId);
-		const repo = this.repository(folder);
+		const repo = await this.repository(folder);
 		const raw = await this.json<RawDetail>([
 			"pr",
 			"view",
@@ -352,7 +355,7 @@ export class PullRequests {
 
 	async diff(userId: string, folder: string, number: number): Promise<FileDiff[]> {
 		this.assertOwner(userId);
-		const repo = this.repository(folder);
+		const repo = await this.repository(folder);
 		return splitDiff(await this.output(["pr", "diff", String(number), "--repo", repo]));
 	}
 
@@ -363,7 +366,7 @@ export class PullRequests {
 		number: number,
 	): Promise<PullReviewComment[]> {
 		this.assertOwner(userId);
-		const [owner, name] = this.repository(folder).split("/");
+		const [owner, name] = (await this.repository(folder)).split("/");
 		return reviewComments(
 			await this.json<ThreadsAnswer>([
 				"api",
@@ -391,7 +394,7 @@ export class PullRequests {
 		target: { run: number; job: number | null },
 	): Promise<string> {
 		this.assertOwner(userId);
-		const repo = this.repository(folder);
+		const repo = await this.repository(folder);
 		const which = target.job === null ? [String(target.run)] : ["--job", String(target.job)];
 		const result = await this.gh.run(["run", "view", ...which, "--repo", repo, "--log-failed"], {
 			timeoutMs: 60_000,
@@ -408,14 +411,14 @@ export class PullRequests {
 
 	async merge(userId: string, folder: string, number: number, method: MergeMethod): Promise<void> {
 		this.assertOwner(userId);
-		const repo = this.repository(folder);
+		const repo = await this.repository(folder);
 		await this.output(["pr", "merge", String(number), "--repo", repo, `--${method}`]);
 	}
 
 	/** Ready for review, or back to draft. */
 	async ready(userId: string, folder: string, number: number, ready: boolean): Promise<void> {
 		this.assertOwner(userId);
-		const repo = this.repository(folder);
+		const repo = await this.repository(folder);
 		await this.output([
 			"pr",
 			"ready",
@@ -428,13 +431,13 @@ export class PullRequests {
 
 	async close(userId: string, folder: string, number: number): Promise<void> {
 		this.assertOwner(userId);
-		const repo = this.repository(folder);
+		const repo = await this.repository(folder);
 		await this.output(["pr", "close", String(number), "--repo", repo]);
 	}
 
 	async comment(userId: string, folder: string, number: number, body: string): Promise<void> {
 		this.assertOwner(userId);
-		const repo = this.repository(folder);
+		const repo = await this.repository(folder);
 		await this.output(["pr", "comment", String(number), "--repo", repo, "--body", body]);
 	}
 }

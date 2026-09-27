@@ -13,6 +13,8 @@ export type GithubDeps = {
 	foldersOf: (workspaceId: string) => Record<string, string>;
 	/** How long a refresh is worth, so opening the inbox twice does not ask `gh` twice. */
 	freshForMs?: number;
+	/** How soon the page's own Refresh may ask again, so a pressed button cannot hammer `gh`. */
+	refreshFloorMs?: number;
 	/** Now, injectable for tests. */
 	now?: () => number;
 };
@@ -46,27 +48,38 @@ export function linkedFolders(
 	return inside;
 }
 
-/** One project's waiting pull requests, as the rows to keep. */
-function draftsFor(project: string, reviews: PullSummary[], open: PullSummary[]): InboxDraft[] {
+/**
+ * One project's waiting pull requests, as the rows to keep: the reviews asked of the person, and
+ * the failing checks on their own pull requests. The rows are the person's alone (it is their
+ * GitHub that answered), and the workspace is in the id so two workspaces with a project of the
+ * same name never share one.
+ */
+function draftsFor(
+	owner: { userId: string; workspaceId: string },
+	project: string,
+	reviews: PullSummary[],
+	mine: PullSummary[],
+): InboxDraft[] {
 	const now = new Date().toISOString();
 	const url = (number: number) => `/pulls/${encodeURIComponent(project)}?pr=${number}`;
+	const base = { workspaceId: owner.workspaceId, ownerId: owner.userId, project };
+	const key = (kind: InboxKind, number: number) =>
+		`${kind}:${owner.workspaceId}:${project}:${number}`;
 	const drafts: InboxDraft[] = reviews.map((pull) => ({
-		id: `pull_review:${project}:${pull.number}`,
-		workspaceId: "",
+		...base,
+		id: key("pull_review", pull.number),
 		kind: "pull_review",
-		project,
 		title: pull.title,
 		body: `@${pull.author} asked for your review`,
 		url: url(pull.number),
 		createdAt: pull.updatedAt || now,
 	}));
-	for (const pull of open) {
+	for (const pull of mine) {
 		if (pull.checks !== "failing") continue;
 		drafts.push({
-			id: `pull_checks:${project}:${pull.number}`,
-			workspaceId: "",
+			...base,
+			id: key("pull_checks", pull.number),
 			kind: "pull_checks",
-			project,
 			title: pull.title,
 			body: "Checks are failing",
 			url: url(pull.number),
@@ -84,7 +97,10 @@ function draftsFor(project: string, reviews: PullSummary[], open: PullSummary[])
  */
 export class GithubInbox {
 	private syncedAt = new Map<string, number>();
+	/** A refresh under way per workspace, so two tabs opening the page share one set of `gh` calls. */
+	private inFlight = new Map<string, Promise<boolean>>();
 	private readonly freshForMs: number;
+	private readonly refreshFloorMs: number;
 	private readonly now: () => number;
 
 	constructor(
@@ -92,6 +108,7 @@ export class GithubInbox {
 		private readonly deps: GithubDeps,
 	) {
 		this.freshForMs = deps.freshForMs ?? 60_000;
+		this.refreshFloorMs = deps.refreshFloorMs ?? 10_000;
 		this.now = deps.now ?? Date.now;
 	}
 
@@ -100,10 +117,14 @@ export class GithubInbox {
 		return this.deps.isOwner(userId);
 	}
 
-	/** Whether the last refresh is old enough that asking GitHub again is worth it. */
-	stale(workspaceId: string): boolean {
+	/**
+	 * Whether the last refresh is old enough that asking GitHub again is worth it. `forced` is the
+	 * page's own Refresh, which only has to clear the shorter floor.
+	 */
+	stale(workspaceId: string, forced = false): boolean {
 		const last = this.syncedAt.get(workspaceId);
-		return last === undefined || this.now() - last >= this.freshForMs;
+		const wait = forced ? this.refreshFloorMs : this.freshForMs;
+		return last === undefined || this.now() - last >= wait;
 	}
 
 	/**
@@ -111,8 +132,22 @@ export class GithubInbox {
 	 * look: false when GitHub is not this person's to ask, which the page shows as a hint rather
 	 * than an error.
 	 */
-	async sync(userId: string, workspaceId: string, projectsDir: string): Promise<boolean> {
-		if (!this.available(userId)) return false;
+	sync(userId: string, workspaceId: string, projectsDir: string): Promise<boolean> {
+		if (!this.available(userId)) return Promise.resolve(false);
+		const running = this.inFlight.get(workspaceId);
+		if (running) return running;
+		const run = this.syncAll(userId, workspaceId, projectsDir).finally(() => {
+			this.inFlight.delete(workspaceId);
+		});
+		this.inFlight.set(workspaceId, run);
+		return run;
+	}
+
+	private async syncAll(
+		userId: string,
+		workspaceId: string,
+		projectsDir: string,
+	): Promise<boolean> {
 		const folders = Object.entries(
 			linkedFolders(this.deps.foldersOf(workspaceId), projectsDir),
 		).slice(0, MAX_PROJECTS);
@@ -140,12 +175,10 @@ export class GithubInbox {
 		folder: string,
 	): Promise<void> {
 		const { pulls } = this.deps;
+		// One after the other: the projects already run side by side, and that is enough `gh`.
 		const reviews = await pulls.list(userId, folder, "review");
-		const open = await pulls.list(userId, folder, "open");
-		const drafts = draftsFor(project, reviews, open).map((draft) => ({
-			...draft,
-			workspaceId,
-		}));
+		const mine = await pulls.list(userId, folder, "mine");
+		const drafts = draftsFor({ userId, workspaceId }, project, reviews, mine);
 		for (const draft of drafts) this.store.keep(draft);
 		this.store.forgetMissing(
 			workspaceId,

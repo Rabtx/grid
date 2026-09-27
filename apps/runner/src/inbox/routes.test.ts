@@ -24,7 +24,9 @@ const draft = (over: Partial<InboxDraft> = {}): InboxDraft => ({
 });
 
 /** A stand-in for the GitHub half that records what it was asked and when. */
-function fakeGithub(worth: { stale: () => boolean } = { stale: () => false }) {
+function fakeGithub(
+	worth: { stale: (workspace: string, forced: boolean) => boolean } = { stale: () => false },
+) {
 	const asked: { userId: string; workspace: string }[] = [];
 	const github = {
 		available: (userId: string) => userId === "me",
@@ -67,7 +69,8 @@ describe("inboxRequest", () => {
 
 	it("does not ask GitHub again until it is worth it, and does when asked to refresh", async () => {
 		let stale = false;
-		const { github, asked } = fakeGithub({ stale: () => stale });
+		// Refresh clears a shorter floor than a plain visit; the GitHub half decides both.
+		const { github, asked } = fakeGithub({ stale: (_workspace, forced) => stale || forced });
 		const { store, deps: d } = deps(github);
 		const list = (path: string) =>
 			inboxRequest(get(path), new URL(`http://runner.test${path}`), me, d);
@@ -94,7 +97,7 @@ describe("inboxRequest", () => {
 		const { store, deps: d } = deps(github);
 		store.keep(draft());
 		store.keep(draft({ id: "approval:s1:a1", kind: "approval" }));
-		store.read("acme", "approval:s1:a1");
+		store.read("acme", "me", "approval:s1:a1");
 		const response = await inboxRequest(
 			get("/inbox/unread"),
 			new URL("http://runner.test/inbox/unread"),
@@ -140,7 +143,10 @@ describe("inboxRequest", () => {
 	it("answers 405 on its own paths with the wrong method, and 404 on the rest", async () => {
 		const { store, deps: d } = deps();
 		const url = new URL("http://runner.test/inbox");
-		expect((await inboxRequest(post("/inbox", {}), url, me, d))?.status).toBe(404);
+		expect((await inboxRequest(post("/inbox", {}), url, me, d))?.status).toBe(405);
+		expect((await inboxRequest(get("/inbox/read"), new URL(url + "/read"), me, d))?.status).toBe(
+			405,
+		);
 		expect(
 			(await inboxRequest(get("/inbox/nothing"), new URL(url + "/nothing"), me, d))?.status,
 		).toBe(404);

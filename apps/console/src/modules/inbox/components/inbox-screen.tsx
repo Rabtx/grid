@@ -47,8 +47,9 @@ function trailing(item: InboxItem): JSX.Element {
 	);
 }
 
-function detail(unread: number, total: number): string {
-	if (total === 0) return "Nothing waiting";
+function detail(unread: number, total: number, failed: boolean): string | undefined {
+	// A read that failed knows nothing about what is waiting, so it does not say "nothing".
+	if (total === 0) return failed ? undefined : "Nothing waiting";
 	return unread === 0 ? "All read" : `${unread} waiting`;
 }
 
@@ -88,7 +89,7 @@ export function InboxScreen(): JSX.Element {
 		<div class="flex min-h-0 flex-1 flex-col">
 			<PaneHeader
 				title="Inbox"
-				detail={detail(inboxStore.unread(), inboxStore.items().length)}
+				detail={detail(inboxStore.unread(), inboxStore.items().length, inboxStore.error() !== null)}
 				actions={
 					<>
 						<Show when={inboxStore.unread() > 0}>
@@ -140,11 +141,13 @@ export function InboxScreen(): JSX.Element {
 					<Show
 						when={inboxStore.items().length > 0}
 						fallback={
-							<EmptyState
-								icon={<InboxIcon size="md" />}
-								title="Nothing is waiting on you"
-								description="An agent asking for approval, a turn that ended while you were away, or a pull request wanting your review shows up here."
-							/>
+							<Show when={!inboxStore.error()}>
+								<EmptyState
+									icon={<InboxIcon size="md" />}
+									title="Nothing is waiting on you"
+									description="An agent asking for approval, a turn that ended while you were away, or a pull request wanting your review shows up here."
+								/>
+							</Show>
 						}
 					>
 						<For each={inboxStore.items()}>
@@ -161,7 +164,7 @@ export function InboxScreen(): JSX.Element {
 					</Show>
 				</Show>
 
-				<Show when={inboxStore.loaded() && !inboxStore.github()}>
+				<Show when={inboxStore.loaded() && !inboxStore.error() && !inboxStore.github()}>
 					<Text tone="faint" class="block px-2.5 pt-3">
 						Connect GitHub to see the review requests and failing checks on your pull requests.
 					</Text>
