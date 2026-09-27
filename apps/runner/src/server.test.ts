@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -175,6 +175,47 @@ describe("folders and project links", () => {
 		expect(searchRes.status).toBe(200);
 		const searchBody = (await searchRes.json()) as { data: string[] };
 		expect(searchBody.data).toContain("notes.md");
+	});
+
+	it("saves a file onto the version that was read, and refuses a stale save", async () => {
+		const root = mkdtempSync(join(projectsDir, "grid-write-route-"));
+		await fetch(`${base}/projects/folders/demo`, {
+			method: "PUT",
+			headers: { ...auth, "Content-Type": "application/json" },
+			body: JSON.stringify({ path: root }),
+		});
+		writeFileSync(join(root, "notes.md"), "first");
+		const contentUrl = `${base}/projects/files/demo/content`;
+		const read = async () =>
+			(
+				(await (await fetch(`${contentUrl}?path=notes.md`, { headers: auth })).json()) as {
+					data: { hash: string };
+				}
+			).data;
+		const put = (body: unknown) =>
+			fetch(contentUrl, {
+				method: "PUT",
+				headers: { ...auth, "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+
+		const first = await read();
+		const saved = await put({ path: "notes.md", text: "second", base: first.hash });
+		expect(saved.status).toBe(200);
+		expect(readFileSync(join(root, "notes.md"), "utf8")).toBe("second");
+
+		// The version read before the save is now stale, and is refused.
+		const stale = await put({ path: "notes.md", text: "mine", base: first.hash });
+		expect(stale.status).toBe(409);
+		expect(readFileSync(join(root, "notes.md"), "utf8")).toBe("second");
+
+		expect((await put({ path: "notes.md", text: "mine" })).status).toBe(400);
+		expect(
+			(await put({ path: "../escape.md", text: "mine", base: (await read()).hash })).status,
+		).toBe(400);
+		const escaped = await put({ path: "/tmp/escape.md", text: "mine", base: (await read()).hash });
+		expect([400, 403, 404]).toContain(escaped.status);
+		expect(existsSync("/tmp/escape.md")).toBe(false);
 	});
 	it("browses folders, reads a folder's details and links a project to it", async () => {
 		const folder = mkdtempSync(join(projectsDir, "grid-folder-route-"));

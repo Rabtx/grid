@@ -5,8 +5,10 @@ import { checkout, GitError, gitInfo } from "./git";
 import {
 	createProjectFile,
 	listProjectFiles,
+	type ProjectFileWrite,
 	readProjectFile,
 	searchProjectFiles,
+	writeProjectFile,
 } from "./project-files";
 
 /**
@@ -27,11 +29,24 @@ export async function folderRequest(
 			if (root instanceof Response) return root;
 			return Response.json({ data: searchProjectFiles(root, url.searchParams.get("q") ?? "") });
 		}
+		// One file's contents: GET reads it, PUT saves an edit onto the version that was read.
 		const content = url.pathname.match(/^\/projects\/files\/([a-z0-9-]+)\/content$/);
-		if (content && request.method === "GET") {
+		if (content && (request.method === "GET" || request.method === "PUT")) {
 			const root = linkedRoot(hub, userId, content[1], projectsDir);
 			if (root instanceof Response) return root;
-			return Response.json({ data: readProjectFile(root, url.searchParams.get("path") ?? "") });
+			if (request.method === "GET")
+				return Response.json({
+					data: readProjectFile(root, url.searchParams.get("path") ?? ""),
+				});
+			const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+			if (
+				typeof body.path !== "string" ||
+				typeof body.text !== "string" ||
+				typeof body.base !== "string"
+			)
+				return failure(400, "Say which file, what to write and which version you read");
+			const write: ProjectFileWrite = { path: body.path, text: body.text, base: body.base };
+			return Response.json({ data: writeProjectFile(root, write) });
 		}
 		const files = url.pathname.match(/^\/projects\/files\/([a-z0-9-]+)$/);
 		if (files && (request.method === "GET" || request.method === "POST")) {

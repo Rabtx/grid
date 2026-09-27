@@ -1,6 +1,6 @@
 import { useMatch, useSearchParams } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, Loading, Show } from "solid-js";
+import { createEffect, createSignal, Loading, Show, untrack } from "solid-js";
 
 import {
 	Alert,
@@ -8,6 +8,7 @@ import {
 	CodeView,
 	CopyIcon,
 	Dialog,
+	EditIcon,
 	EmptyState,
 	Field,
 	FileIcon,
@@ -27,11 +28,14 @@ import {
 	type PopoverControl,
 	Skeleton,
 	Stack,
+	StatusDot,
 } from "@/kit";
 import { useAuth } from "@/modules/auth";
 
 import { useWorkspace } from "../context/workspace-context";
 import { filesService, type ProjectFile, type ProjectFileContent } from "../services/files.service";
+
+import { FileEditor } from "./file-editor";
 
 const NEEDS_FOLDER = "Choose this project's folder";
 
@@ -88,11 +92,18 @@ function FilesView(): JSX.Element {
 	);
 	// Bumped to read the tree again from the root: after linking a folder, or "Try again".
 	const [revision, setRevision] = createSignal(0);
+	/** The file being edited with unsaved changes, so its row carries a dirty dot. */
+	const [dirtyPath, setDirtyPath] = createSignal<string | null>(null);
+	/** The file whose editor should open as soon as it is read: a file just created. */
+	const [editOnOpen, setEditOnOpen] = createSignal<string | null>(null);
 
-	async function load(path: string): Promise<void> {
-		const token = auth.token();
-		if (!token || !slug()) return;
-		const project = slug();
+	/**
+	 * The token and project are passed in rather than read here: this runs from the effect below,
+	 * which already tracks both, and reading them again inside it would be a read that cannot
+	 * update. A listing for another project than the one on screen is dropped.
+	 */
+	async function load(path: string, token: string | null, project: string | null): Promise<void> {
+		if (!token || !project) return;
 		try {
 			const listing = await filesService.list(token, project, path);
 			if (project !== slug()) return;
@@ -113,10 +124,10 @@ function FilesView(): JSX.Element {
 	// A new project, a newly linked folder or a retry starts the tree over from its root.
 	createEffect(
 		() => [auth.token(), slug(), workspace.folders()[slug()], revision()] as const,
-		() => {
+		([token, project]) => {
 			setListings(new Map());
 			setErrors(new Map());
-			void load("");
+			void load("", token, project);
 		},
 	);
 
@@ -131,7 +142,7 @@ function FilesView(): JSX.Element {
 			next.delete(path);
 			return next;
 		});
-		void load(path);
+		void load(path, auth.token(), slug());
 	}
 
 	const rootError = () => errors().get("") ?? null;
@@ -174,10 +185,17 @@ function FilesView(): JSX.Element {
 										entries={(path) => listings().get(path)}
 										error={(path) => (path === "" ? null : (errors().get(path) ?? null))}
 										onExpand={(path) => {
-											if (!listings().has(path)) void load(path);
+											if (!listings().has(path)) void load(path, auth.token(), slug());
 										}}
 										selected={file()}
 										onSelect={(entry) => open(entry.path)}
+										mark={(entry) =>
+											dirtyPath() === entry.path ? (
+												<StatusDot status="busy" size="sm" label="Unsaved changes" />
+											) : (
+												<></>
+											)
+										}
 										actions={(entry) => (
 											<EntryMenu entry={entry} onCreate={setCreating} onRefresh={refresh} />
 										)}
@@ -221,7 +239,16 @@ function FilesView(): JSX.Element {
 						/>
 					}
 				>
-					{(path) => <FilePane path={path()} slug={slug()} onBack={() => open(null)} />}
+					{(path) => (
+						<FilePane
+							path={path()}
+							slug={slug()}
+							openInEditor={editOnOpen() === path()}
+							onOpened={() => setEditOnOpen(null)}
+							onDirty={(dirty) => setDirtyPath(dirty ? path() : null)}
+							onBack={() => open(null)}
+						/>
+					)}
 				</Show>
 			</ListDetail>
 			<CreateDialog
@@ -230,7 +257,11 @@ function FilesView(): JSX.Element {
 				onClose={() => setCreating(null)}
 				onCreated={(item) => {
 					refresh(parent(item.path));
-					if (item.kind === "file") open(item.path);
+					if (item.kind === "file") {
+						// A file made to be written in, so it opens in the editor.
+						setEditOnOpen(item.path);
+						open(item.path);
+					}
 				}}
 			/>
 		</Show>
@@ -286,23 +317,47 @@ function EntryMenu(props: {
 	);
 }
 
-/** The open file: its name and folder over its numbered lines, or why it cannot be shown. */
-function FilePane(props: { path: string; slug: string; onBack: () => void }): JSX.Element {
+/**
+ * The open file: its name and folder over its numbered lines, or the editor once someone asks to
+ * change it. Reading is the default everywhere, so a phone opens a file to read it and edits it
+ * only when it says so; the editor is loaded at that point and not before.
+ */
+function FilePane(props: {
+	path: string;
+	slug: string;
+	/** Open straight into the editor: a file just created to be written in. */
+	openInEditor?: boolean;
+	onOpened?: () => void;
+	/** This file has unsaved changes (or no longer does). */
+	onDirty?: (dirty: boolean) => void;
+	onBack: () => void;
+}): JSX.Element {
 	const auth = useAuth();
 	const [content, setContent] = createSignal<ProjectFileContent | null>(null);
 	const [error, setError] = createSignal<string | null>(null);
+	const [editing, setEditing] = createSignal(false);
 	let request = 0;
 
 	createEffect(
 		() => [auth.token(), props.slug, props.path] as const,
 		([token, slug, path]) => {
+			// Read untracked: the flag is consumed here and cleared by `onOpened`, which must not
+			// send this effect round again and close the editor it just opened.
+			const openInEditor = untrack(() => props.openInEditor);
 			const current = ++request;
 			setContent(null);
 			setError(null);
+			setEditing(false);
 			if (!token) return;
 			void filesService.read(token, slug, path).then(
 				(value) => {
-					if (current === request) setContent(value);
+					if (current !== request) return;
+					setContent(value);
+					// A file made to be written in opens in the editor rather than the reader.
+					if (openInEditor && value.text !== null) {
+						setEditing(true);
+						props.onOpened?.();
+					}
 				},
 				(cause) => {
 					if (current === request) setError(message(cause, "Could not read this file"));
@@ -312,6 +367,14 @@ function FilePane(props: { path: string; slug: string; onBack: () => void }): JS
 	);
 
 	const name = () => props.path.split("/").pop() ?? props.path;
+	/**
+	 * Only a text file small enough to hold in the browser, and with the version a save needs, can
+	 * be edited here.
+	 */
+	const editable = () => {
+		const file = content();
+		return file !== null && file.text !== null && file.hash !== null;
+	};
 
 	return (
 		<>
@@ -321,62 +384,98 @@ function FilePane(props: { path: string; slug: string; onBack: () => void }): JS
 				onBack={props.onBack}
 				backLabel="Back to files"
 				actions={
-					<IconButton size="sm" label="Copy path" onClick={() => void copy(props.path, "the path")}>
-						<CopyIcon />
-					</IconButton>
+					<>
+						<Show when={!editing() && editable()}>
+							<Button size="sm" icon={<EditIcon size="sm" />} onClick={() => setEditing(true)}>
+								Edit
+							</Button>
+						</Show>
+						<IconButton
+							size="sm"
+							label="Copy path"
+							onClick={() => void copy(props.path, "the path")}
+						>
+							<CopyIcon />
+						</IconButton>
+					</>
 				}
 			/>
-			<div class="min-h-0 flex-1 overflow-auto overscroll-contain pb-safe">
-				<Show
-					when={content()}
-					fallback={
+			<Show
+				when={editing() && content()}
+				fallback={
+					<div class="min-h-0 flex-1 overflow-auto overscroll-contain pb-safe">
 						<Show
-							when={error()}
+							when={content()}
 							fallback={
-								<Stack gap={2} class="p-4">
-									<Skeleton class="h-4 w-2/3" />
-									<Skeleton class="h-4 w-1/2" />
-									<Skeleton class="h-4 w-3/4" />
-								</Stack>
-							}
-						>
-							{(text) => (
-								<div class="p-4">
-									<Alert tone="danger" title={text()} />
-								</div>
-							)}
-						</Show>
-					}
-				>
-					{(file) => (
-						<Show
-							when={file().text}
-							fallback={
-								<EmptyState
-									icon={<FileIcon size="lg" />}
-									title={file().binary ? "Not a text file" : "Too large to show"}
-									description={
-										file().binary
-											? "This file is binary, so there is nothing to read here."
-											: `This file is ${Math.round(file().size / 1024)} KB; files over 512 KB are not shown.`
-									}
-								/>
-							}
-						>
-							{(text) => (
 								<Show
-									when={text().length > 0}
+									when={error()}
 									fallback={
-										<EmptyState title="Empty file" description="There is nothing in it yet." />
+										<Stack gap={2} class="p-4">
+											<Skeleton class="h-4 w-2/3" />
+											<Skeleton class="h-4 w-1/2" />
+											<Skeleton class="h-4 w-3/4" />
+										</Stack>
 									}
 								>
-									<CodeView text={text()} />
+									{(text) => (
+										<div class="p-4">
+											<Alert tone="danger" title={text()} />
+										</div>
+									)}
+								</Show>
+							}
+						>
+							{(file) => (
+								<Show
+									when={file().text}
+									fallback={
+										<EmptyState
+											icon={<FileIcon size="lg" />}
+											title={file().binary ? "Not a text file" : "Too large to show"}
+											description={
+												file().binary
+													? "This file is binary, so there is nothing to read here."
+													: `This file is ${Math.round(file().size / 1024)} KB; files over 512 KB are not shown.`
+											}
+										/>
+									}
+								>
+									{(text) => (
+										<Show
+											when={text().length > 0}
+											fallback={
+												<EmptyState
+													title="Empty file"
+													description="There is nothing in it yet."
+													action={
+														<Button variant="primary" onClick={() => setEditing(true)}>
+															Write in it
+														</Button>
+													}
+												/>
+											}
+										>
+											<CodeView text={text()} />
+										</Show>
+									)}
 								</Show>
 							)}
 						</Show>
-					)}
-				</Show>
-			</div>
+					</div>
+				}
+			>
+				{(file) => (
+					<FileEditor
+						slug={props.slug}
+						file={file()}
+						onDirty={(dirty) => props.onDirty?.(dirty)}
+						onClose={() => {
+							props.onDirty?.(false);
+							setEditing(false);
+						}}
+					/>
+				)}
+			</Show>
 		</>
 	);
 }
