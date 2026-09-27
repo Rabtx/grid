@@ -5,6 +5,7 @@ import { createEffect, Show } from "solid-js";
 import { AppFrame, AuthFrame, FloatingNotice } from "@/kit";
 import { runnerUp } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
+import { inboxStore, waitedOn } from "@/modules/inbox";
 import {
 	AddProjectSheet,
 	ChooseFolderSheet,
@@ -36,7 +37,7 @@ const OUTSIDE = /^\/(login|setup|invite)(\/|$)/;
 const STANDALONE = /^\/design(\/|$)/;
 
 // Screens that fill the frame edge to edge and scroll inside themselves.
-const FULL_BLEED = /^\/(chat|terminal|files|notes|pulls|board|settings)(\/|$)/;
+const FULL_BLEED = /^\/(chat|terminal|files|notes|pulls|board|inbox|settings)(\/|$)/;
 const SETTINGS = /^\/settings(\/|$)/;
 
 /**
@@ -75,6 +76,7 @@ export function AppShell(props: { children: JSX.Element }): JSX.Element {
  */
 function SignedIn(props: { children: JSX.Element }): JSX.Element {
 	const shell = useShell();
+	const auth = useAuth();
 	const location = useLocation();
 	const inSettings = () => SETTINGS.test(location.pathname);
 
@@ -83,6 +85,18 @@ function SignedIn(props: { children: JSX.Element }): JSX.Element {
 		() => location.pathname + location.search,
 		(path) => {
 			settingsReturn.remember(path);
+		},
+	);
+
+	// Opening the thread or the pull request an item waits on deals with it, however the person
+	// got there: from the Inbox, from a push notification, or from a link somebody sent. The
+	// router's own paths carry no workspace (`lib/workspace-history.ts`), which is what the inbox
+	// stores its urls as.
+	createEffect(
+		() => [location.pathname, auth.token()] as const,
+		([path, token]) => {
+			const page = waitedOn(path);
+			if (token && page) void inboxStore.readPage(token, page);
 		},
 	);
 

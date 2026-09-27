@@ -10,6 +10,9 @@ import { type EnvironmentDeps, pairEnvironment } from "./environments/routes";
 import { CodespacesLink } from "./github/codespaces";
 import { createGh } from "./github/gh";
 import { PullRequests } from "./github/pulls";
+import { inboxItem } from "./inbox/attention";
+import { GithubInbox } from "./inbox/github";
+import { InboxStore } from "./inbox/store";
 import { attentionMessage, PushNotifier } from "./push/notifier";
 import { spawnPty } from "./pty";
 import { startServer } from "./server";
@@ -21,11 +24,16 @@ process.env.PATH = withAgentBins(process.env.PATH);
 const config = readConfig();
 const store = new TerminalStore(config, spawnPty);
 const chat = new ChatHub(new ChatStore(config.chatDb), providerRegistry(), config.projectsDir);
-// A turn that ends, or an approval that waits, while no device is looking becomes a notification.
+// Everything waiting on the people in a workspace, kept in the same database as their chats.
+const inbox = new InboxStore(config.chatDb);
+// A turn that ends, or an approval that waits, while no device is looking becomes a notification
+// and a row on the Inbox: one decision about what deserves attention, two things done with it.
 const push = new PushNotifier(config.chatDb);
 chat.onUnwatchedAttention((session, event) => {
 	const message = attentionMessage(session, event);
 	if (message) void push.notify(session.ownerId, message);
+	const item = inboxItem(session, event);
+	if (item) inbox.keep(item);
 });
 
 // Another Grid may drive this one as an environment, with a token only it holds; everyone else
@@ -55,6 +63,20 @@ const github = new CodespacesLink(config.chatDb, gh, {
 });
 
 const pulls = new PullRequests(gh, (userId) => github.assertOwner(userId));
+const githubInbox = new GithubInbox(inbox, {
+	pulls,
+	// The same claim the pull request routes make, asked without throwing so one person's GitHub
+	// sign-in is not read as a failure on the page.
+	isOwner: (userId) => {
+		try {
+			github.assertOwner(userId);
+			return true;
+		} catch {
+			return false;
+		}
+	},
+	foldersOf: (workspaceId) => chat.projectFolders(workspaceId),
+});
 
 const server = startServer(config, store, verify, chat, {
 	push,
@@ -62,6 +84,7 @@ const server = startServer(config, store, verify, chat, {
 	environments,
 	github,
 	pulls,
+	inbox: { store: inbox, github: githubInbox, projectsDir: config.projectsDir },
 });
 
 console.log(
