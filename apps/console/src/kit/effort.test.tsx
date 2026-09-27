@@ -53,26 +53,23 @@ describe("EffortSlider", () => {
 		expect(document.querySelector("label")?.textContent).toBe("Reasoning effort");
 	});
 
-	it("bursts sparks going up, more at the top, and none coming down", async () => {
+	it("rolls the level and its meaning in from the side it moved, sweeping the fill", async () => {
 		const { value, input } = mount("low");
+		expect(document.body.textContent).toContain("Quick, light thinking");
+		await slide(input, 2);
+		expect(value()).toBe("high");
+		expect(document.body.textContent).toContain("Thinks it through");
+		expect(document.querySelector(".kit-effort-roll-up")).not.toBeNull();
+		expect(document.querySelector(".kit-effort-sweep")).not.toBeNull();
 		await slide(input, 1);
-		expect(value()).toBe("medium");
-		const small = document.querySelectorAll(".kit-effort-spark").length;
-		expect(small).toBeGreaterThan(0);
-		await slide(input, 3);
-		expect(value()).toBe("max");
-		expect(document.querySelectorAll(".kit-effort-spark").length - small).toBeGreaterThan(small);
-		const before = document.querySelectorAll(".kit-effort-spark").length;
-		await slide(input, 0);
-		expect(value()).toBe("low");
-		expect(document.querySelectorAll(".kit-effort-spark").length).toBe(before);
+		expect(document.querySelector(".kit-effort-roll-down")).not.toBeNull();
 	});
 
-	it("runs hot only at the top level", async () => {
+	it("glows only at the top level", async () => {
 		const { input } = mount("high");
-		expect(document.querySelector(".kit-effort-hot")).toBeNull();
+		expect(document.querySelector(".kit-effort-glow")).toBeNull();
 		await slide(input, 3);
-		expect(document.querySelector(".kit-effort-hot")).not.toBeNull();
+		expect(document.querySelector(".kit-effort-glow")).not.toBeNull();
 	});
 
 	it("picks a level from its name under the track", async () => {

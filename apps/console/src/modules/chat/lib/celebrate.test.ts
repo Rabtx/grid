@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isFlagship } from "./celebrate";
+import { isFlagship, labOf } from "./celebrate";
 
 const model = (name: string, id = name.toLowerCase().replaceAll(" ", "-")) => ({ id, name });
 
@@ -34,5 +34,15 @@ describe("isFlagship", () => {
 
 	it("reads the id too, for agents that name models by id", () => {
 		expect(isFlagship({ id: "claude-opus-5-5", name: "Default" })).toBe(true);
+	});
+});
+
+describe("labOf", () => {
+	it("gives each lab its own colours and name", () => {
+		expect(labOf(model("Opus 5.5")).lab).toBe("Anthropic");
+		expect(labOf(model("GPT-5.5")).lab).toBe("OpenAI");
+		expect(labOf(model("Astra")).lab).toBe("OpenAI");
+		expect(labOf(model("Gemini 3.8 Pro")).hues).toEqual([214, 282]);
+		expect(labOf({ id: "x", name: "Mystery", group: "Acme" }).lab).toBe("Acme");
 	});
 });

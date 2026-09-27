@@ -137,7 +137,6 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 	const [query, setQuery] = createSignal("");
 	const [active, setActive] = createSignal(0);
 	let list: HTMLDivElement | undefined;
-	let search: HTMLInputElement | undefined;
 
 	const rail = (): RailItem[] => [
 		...(favorites().length > 0
@@ -178,10 +177,10 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 		return [...byGroup.entries()].map(([group, entries]) => ({ group, entries }));
 	});
 
-	function pick(entry: Entry, from: { x: number; y: number }): void {
+	function pick(entry: Entry): void {
 		if (entry.agent !== current()) props.onAgent?.(entry.agent);
 		props.onModel(entry.choice.id);
-		celebrateModel(entry.choice, from);
+		celebrateModel(entry.choice);
 		props.close();
 	}
 
@@ -212,7 +211,6 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 					spellcheck={false}
 					enterkeyhint="done"
 					ref={(el: HTMLInputElement) => {
-						search = el;
 						// A physical keyboard types into the search at once; on phones it would pop
 						// the keyboard over the list, so wait for a tap.
 						if (matchMedia("(pointer: fine)").matches) requestAnimationFrame(() => el.focus());
@@ -231,9 +229,7 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 						} else if (event.key === "Enter") {
 							event.preventDefault();
 							const entry = shown()[active()];
-							const box = (rowAt(active()) ?? search)?.getBoundingClientRect();
-							if (entry && box)
-								pick(entry, { x: box.left + box.width / 2, y: box.top + box.height / 2 });
+							if (entry) pick(entry);
 						}
 					}}
 				/>
@@ -303,7 +299,7 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 													favorite={favoritesStore.has(entry.agent, entry.choice.id)}
 													onFavorite={() => favoritesStore.toggle(entry.agent, entry.choice.id)}
 													onHover={() => setActive(index())}
-													onPick={(event) => pick(entry, { x: event.clientX, y: event.clientY })}
+													onPick={() => pick(entry)}
 												/>
 											);
 										}}

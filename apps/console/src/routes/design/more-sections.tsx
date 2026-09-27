@@ -58,6 +58,8 @@ import {
 	UsageBar,
 	UserIcon,
 	UserMessage,
+	EffortSlider,
+	playArrival,
 } from "@/kit";
 
 function Specimen(props: { label: string; children: JSX.Element; class?: string }): JSX.Element {
@@ -202,8 +204,39 @@ export function FormsSection(): JSX.Element {
 	const [scale, setScale] = createSignal(100);
 	const [notifications, setNotifications] = createSignal(true);
 	const [step, setStep] = createSignal(1);
+	const [effort, setEffort] = createSignal("high");
 	return (
 		<div class="grid gap-4 md:grid-cols-2">
+			<Specimen label="Effort slider · and the flagship arrival">
+				<Stack gap={3}>
+					<EffortSlider
+						label="Reasoning effort"
+						levels={[
+							{ id: "low", name: "Low" },
+							{ id: "medium", name: "Medium" },
+							{ id: "high", name: "High" },
+							{ id: "max", name: "Max" },
+						]}
+						value={effort()}
+						onChange={setEffort}
+					/>
+					<div>
+						<Button
+							size="sm"
+							onClick={() =>
+								playArrival({
+									title: "Opus 5.5",
+									caption: "Flagship model · Anthropic",
+									hues: [16, 34],
+									saturation: 85,
+								})
+							}
+						>
+							Play the arrival
+						</Button>
+					</div>
+				</Stack>
+			</Specimen>
 			<Specimen label="Select">
 				<Field label="Role">
 					{() => (

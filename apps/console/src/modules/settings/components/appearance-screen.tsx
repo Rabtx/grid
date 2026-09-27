@@ -4,7 +4,7 @@ import {
 	Badge,
 	Button,
 	ColorSwatches,
-	igniteGrid,
+	playArrival,
 	Input,
 	RestoreIcon,
 	Row,
@@ -227,21 +227,19 @@ export function AppearanceScreen(): JSX.Element {
 				<SettingsRow
 					inline
 					label="Celebrations"
-					description="Light up the grid when you pick a flagship model. Desktop only, and never with reduced motion."
+					description="A warp arrival when you pick a flagship model. Desktop only, and never with reduced motion."
 				>
 					<Button
 						variant="ghost"
 						size="sm"
 						icon={<SparklesIcon size="sm" />}
-						onClick={(event) => {
-							const box = event.currentTarget.getBoundingClientRect();
-							igniteGrid({
-								x: box.left + box.width / 2,
-								y: box.top + box.height / 2,
-								label: "GRID",
-								hue: appearance().hue,
-							});
-						}}
+						onClick={() =>
+							playArrival({
+								title: "Grid",
+								caption: "Celebrations look like this",
+								hues: [appearance().hue, (appearance().hue + 50) % 360],
+							})
+						}
 					>
 						Try it
 					</Button>
