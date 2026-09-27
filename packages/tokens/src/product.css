@@ -288,16 +288,6 @@
 	--ease-sheet: var(--ease-sheet);
 }
 
-/* Navigation layer: the canvas at the glass opacity (default 85%) over what is behind, blurred. */
-@utility glass {
-	background: color-mix(
-		in srgb,
-		var(--canvas) calc(var(--glass-opacity, 0.85) * 100%),
-		transparent
-	);
-	backdrop-filter: blur(var(--glass-blur, 24px)) saturate(140%);
-}
-
 /* Keyboard-only focus, the one place the accent outlines something. */
 @utility focus-ring {
 	outline: none;

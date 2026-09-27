@@ -2,6 +2,7 @@ import { createRouter } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { lazy, Loading } from "solid-js";
 
+import { EmptyState, SplitLayout, Text, TextLink } from "@/kit";
 import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { EnvironmentsScreen } from "@/modules/environments";
@@ -13,12 +14,10 @@ import {
 	SettingsIndexScreen,
 } from "@/modules/settings";
 import { InviteScreen } from "@/modules/workspaces";
-import { AuthCard, EmptyState } from "@/ui";
 
 import { workspaceHistory } from "./lib/workspace-history";
 
 import { AppShell } from "./routes/app-shell";
-import { DevUiRoute } from "./routes/dev-ui";
 import { RequireAuth } from "./routes/require-auth";
 
 // The console has no landing page of its own — that still lives in the marketing site — so "/"
@@ -55,8 +54,6 @@ const Router = createRouter({
 		{ path: "/settings/account", component: () => <Authed screen={AccountScreen} /> },
 		// The design system, every piece in every state; loads on its own when opened.
 		{ path: "/design", component: DesignRoute },
-		// Development-only primitives gallery; tree-shaken out of production builds.
-		...(import.meta.env.DEV ? [{ path: "/dev/ui", component: DevUiRoute }] : []),
 		{ path: "*", component: NotFoundRoute },
 	],
 });
@@ -71,9 +68,9 @@ export function App(): JSX.Element {
 
 function LoginRoute(): JSX.Element {
 	return (
-		<AuthCard>
+		<SplitLayout>
 			<LoginForm />
-		</AuthCard>
+		</SplitLayout>
 	);
 }
 
@@ -123,7 +120,7 @@ function BoardRoute(): JSX.Element {
 function FilesRoute(): JSX.Element {
 	return (
 		<RequireAuth>
-			<Loading fallback={<p class="p-4 text-ink/45 text-ui-sm">Opening files…</p>}>
+			<Loading fallback={<Opening>Opening files…</Opening>}>
 				<FilesScreen />
 			</Loading>
 		</RequireAuth>
@@ -137,7 +134,7 @@ const FilesScreen = lazy(() => import("@/modules/projects/components/files-scree
 function NotesRoute(): JSX.Element {
 	return (
 		<RequireAuth>
-			<Loading fallback={<p class="p-4 text-ink/45 text-ui-sm">Opening notes…</p>}>
+			<Loading fallback={<Opening>Opening notes…</Opening>}>
 				<NotesScreen />
 			</Loading>
 		</RequireAuth>
@@ -154,7 +151,7 @@ const ChatScreen = lazy(() => import("@/modules/chat"), { export: "ChatScreen" }
 function ChatRoute(): JSX.Element {
 	return (
 		<RequireAuth>
-			<Loading fallback={<p class="p-4 text-ink/45 text-ui-sm">Opening chat…</p>}>
+			<Loading fallback={<Opening>Opening chat…</Opening>}>
 				<ChatScreen />
 			</Loading>
 		</RequireAuth>
@@ -167,7 +164,7 @@ const TerminalScreen = lazy(() => import("@/modules/terminal"), { export: "Termi
 function TerminalRoute(): JSX.Element {
 	return (
 		<RequireAuth>
-			<Loading fallback={<p class="p-4 text-ink/45 text-ui-sm">Opening the terminal…</p>}>
+			<Loading fallback={<Opening>Opening the terminal…</Opening>}>
 				<TerminalScreen />
 			</Loading>
 		</RequireAuth>
@@ -184,13 +181,19 @@ function NotFoundRoute(): JSX.Element {
 		<EmptyState
 			title="That page does not exist"
 			action={
-				<a
-					href="/"
-					class="focus-ring rounded-sm text-link text-ui-sm underline-offset-2 hover:underline"
-				>
+				<TextLink tone="accent" href="/">
 					Go to your board
-				</a>
+				</TextLink>
 			}
 		/>
+	);
+}
+
+/** What a screen shows while its code loads: a quiet line, rarely seen for long. */
+function Opening(props: { children: JSX.Element }): JSX.Element {
+	return (
+		<Text tone="faint" class="p-4">
+			{props.children}
+		</Text>
 	);
 }

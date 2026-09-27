@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js";
 
 /**
- * How the console looks on this device: theme, tint, accent, glass and scale. Settings →
+ * How the console looks on this device: theme, tint, accent, shape and scale. Settings →
  * Appearance edits it; `restoreAppearance()` applies it before the first render. It is stored
  * per device in localStorage — like a browser zoom level, not an account setting.
  */
@@ -18,10 +18,6 @@ export type Appearance = {
 	saturation: number;
 	/** Canvas lightness of the dark theme in percent, 0–30; 0 is true black. */
 	darkLightness: number;
-	/** Opacity of glass surfaces (sidebar, phone top bar), 0.15–1. */
-	glassOpacity: number;
-	/** Backdrop blur behind glass surfaces in px, 1–64. */
-	glassBlur: number;
 	/** Interface scale, 0.5–2 in steps of 0.1. */
 	uiScale: number;
 	density: Density;
@@ -41,8 +37,6 @@ export const APPEARANCE_DEFAULTS: Appearance = {
 	hue: 240,
 	saturation: 0,
 	darkLightness: 9,
-	glassOpacity: 0.85,
-	glassBlur: 24,
 	uiScale: 1,
 	density: "comfortable",
 	radius: 1,
@@ -55,8 +49,6 @@ export const APPEARANCE_LIMITS = {
 	hue: { min: 0, max: 360, step: 1 },
 	saturation: { min: 0, max: 100, step: 1 },
 	darkLightness: { min: 0, max: 30, step: 1 },
-	glassOpacity: { min: 0.15, max: 1, step: 0.01 },
-	glassBlur: { min: 1, max: 64, step: 1 },
 	uiScale: { min: 0.5, max: 2, step: 0.1 },
 	radius: { min: 0, max: 2, step: 0.05 },
 	spacing: { min: 0.85, max: 1.2, step: 0.01 },
@@ -105,11 +97,6 @@ export function normalizeAppearance(input: unknown): Appearance {
 		darkLightness: Math.round(
 			clamp(raw.darkLightness, l.darkLightness.min, l.darkLightness.max, d.darkLightness),
 		),
-		glassOpacity:
-			Math.round(
-				clamp(raw.glassOpacity, l.glassOpacity.min, l.glassOpacity.max, d.glassOpacity) * 100,
-			) / 100,
-		glassBlur: Math.round(clamp(raw.glassBlur, l.glassBlur.min, l.glassBlur.max, d.glassBlur)),
 		uiScale: Math.round(clamp(raw.uiScale, l.uiScale.min, l.uiScale.max, d.uiScale) * 10) / 10,
 		density: oneOf(raw.density, ["compact", "comfortable", "spacious"], d.density),
 		radius: Math.round(clamp(raw.radius, l.radius.min, l.radius.max, d.radius) * 100) / 100,
@@ -161,8 +148,6 @@ export function applyAppearance(
 	style.setProperty("--hue", String(value.hue));
 	style.setProperty("--saturation", `${value.saturation}%`);
 	style.setProperty("--dark-lightness", `${value.darkLightness}%`);
-	style.setProperty("--glass-opacity", String(value.glassOpacity));
-	style.setProperty("--glass-blur", `${value.glassBlur}px`);
 	style.setProperty("--ui-scale", String(value.uiScale));
 	style.setProperty("--kit-radius-scale", String(value.radius));
 	style.setProperty("--kit-density", String(value.spacing));

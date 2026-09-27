@@ -124,7 +124,19 @@ references very closely, Inter, fix look and feel and navigation/layout, gallery
     Environments (machines, Codespaces, pairing) and Account. New kit pieces: `Code`, and
     `labelHidden` on `Slider` and `ColorSwatches`.
 
+12. **The old primitives removed (agent/frontend/remove-old-ui).** Sign-in, setup and the invite
+    screen move to the kit (`SplitLayout`, `WorkspacePreview`, a new `PasswordInput` with a
+    show/hide eye), as do the route shells (not found, the loading lines, the session check) and
+    the root (the old toaster goes). `apps/console/src/ui` is deleted with the dev-only `/dev/ui`
+    gallery (`/design` replaces it), and so is the translucency setting, which nothing in the kit
+    drew any more, with its `glass` utility. The kit guard now covers every screen, not only files
+    importing the kit, and still refuses `@/ui`. Danger alerts announce as alerts.
+
 ### Validation
+
+- Old UI removed: console vitest 47 files / 278 tests (the old folder's own tests went with it);
+  the guard passes on every screen; lint, typecheck, architecture, naming and a production build
+  pass. Checked setup (with and without a code) and an invalid invite in the browser.
 
 - Settings: console vitest 50 files / 295 tests (appearance: the shape controls, roundness
   reaching the kit); guard, lint, typecheck, architecture and naming pass; settings,

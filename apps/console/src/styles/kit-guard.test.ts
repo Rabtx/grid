@@ -3,10 +3,10 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * Screens built on the kit only compose it. Any .tsx file outside `src/kit` that imports `@/kit`
- * is held to this: no inline styles, no one-off values, no raw colours, and no radii or shadows
- * of its own — those live in the kit's tokens and components, so a design tweak is made once.
- * Screens still on `@/ui` join automatically when they move to the kit.
+ * Screens only compose the kit. Every .tsx file outside `src/kit` (tests aside) is held to this:
+ * no inline styles, no one-off values, no raw colours, and no radii or shadows of its own —
+ * those live in the kit's tokens and components, so a design tweak is made once. The old `@/ui`
+ * primitives are gone; the last rule keeps them from coming back.
  */
 const RULES: { pattern: RegExp; why: string }[] = [
 	{ pattern: /\sstyle=/, why: "inline style (put it in a kit component or token)" },
@@ -34,7 +34,7 @@ const RULES: { pattern: RegExp; why: string }[] = [
 	},
 	{
 		pattern: /from\s+["']@\/ui(?:\/[^"']*)?["']/,
-		why: "old @/ui import (the kit has it, icons included)",
+		why: "import from the removed @/ui (the kit has it, icons included)",
 	},
 ];
 
@@ -49,9 +49,8 @@ function tsxFiles(dir: string): string[] {
 describe("kit guard", () => {
 	it("keeps screens built on the kit free of their own styling", () => {
 		const src = join(__dirname, "..");
-		const screens = tsxFiles(src).filter((file) =>
-			/from\s+["']@\/kit["']/.test(readFileSync(file, "utf8")),
-		);
+		// Tests build fixtures, not screens.
+		const screens = tsxFiles(src).filter((file) => !file.endsWith(".test.tsx"));
 		expect(screens.length).toBeGreaterThan(0);
 
 		const violations: string[] = [];

@@ -74,7 +74,6 @@ describe("AppearanceScreen", () => {
 		expect(text).toContain("Appearance");
 		expect(text).toContain("Theme");
 		expect(text).toContain("Colour");
-		expect(text).toContain("Translucency");
 		expect(text).toContain("Shape and density");
 		expect(text).toContain("Motion and fun");
 		for (const name of ["Corner roundness", "Spacing", "Line strength", "Interface scale"])

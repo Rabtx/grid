@@ -64,7 +64,7 @@ function RowSlider(props: {
 /**
  * Settings → Appearance: how the console looks on this device. Theme and accent, the tint every
  * surface takes, the kit's shape — corners, spacing, hairlines, density and scale — with a live
- * preview, the glass, and the celebrations. Saved on this device, like a zoom level.
+ * preview, and the celebrations. Saved on this device, like a zoom level.
  */
 export function AppearanceScreen(): JSX.Element {
 	return (
@@ -219,30 +219,6 @@ export function AppearanceScreen(): JSX.Element {
 						value={appearance().uiScale}
 						onChange={(uiScale) => updateAppearance({ uiScale })}
 						format={percent}
-					/>
-				</SettingsRow>
-			</SettingsGroup>
-
-			<SettingsGroup
-				title="Translucency"
-				description="How much shows through the glass surfaces. Blur costs more to draw the higher it goes."
-			>
-				<SettingsRow label="Sidebar opacity" description="The sidebar and the phone top bar.">
-					<RowSlider
-						label="Sidebar opacity"
-						limits={APPEARANCE_LIMITS.glassOpacity}
-						value={appearance().glassOpacity}
-						onChange={(glassOpacity) => updateAppearance({ glassOpacity })}
-						format={percent}
-					/>
-				</SettingsRow>
-				<SettingsRow label="Blur radius" description="Blur behind the glass surfaces.">
-					<RowSlider
-						label="Blur radius"
-						limits={APPEARANCE_LIMITS.glassBlur}
-						value={appearance().glassBlur}
-						onChange={(glassBlur) => updateAppearance({ glassBlur })}
-						format={(value) => `${value}px`}
 					/>
 				</SettingsRow>
 			</SettingsGroup>

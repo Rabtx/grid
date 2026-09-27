@@ -33,16 +33,12 @@ describe("normalizeAppearance", () => {
 			hue: 400,
 			saturation: -5,
 			darkLightness: 12.6,
-			glassOpacity: 0.05,
-			glassBlur: 100,
 			uiScale: 1.26,
 		});
 		expect(value).toMatchObject({
 			hue: 360,
 			saturation: 0,
 			darkLightness: 13,
-			glassOpacity: 0.15,
-			glassBlur: 64,
 			uiScale: 1.3,
 		});
 	});
