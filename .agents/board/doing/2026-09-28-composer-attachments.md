@@ -76,3 +76,27 @@ store, routes and agent adapters.
 - Reviewer: human (independent review requested with PR). Preview ports: console 3118, runner 4118.
 
 ## Resolution
+
+Implementation ready in [PR #130](https://github.com/shabirkhan-dev/grid/pull/130). Awaiting independent human review; this card stays in `doing` and the PR stays unmerged.
+
+Changed:
+- `apps/console/src/modules/chat/**`: picker, clipboard images, drop, limits, removable previews, uploads to the project's machine, and attachment replay on user messages.
+- `apps/console/src/kit/**`: shared attachment and prompt recipes; no screen inline styling.
+- `apps/runner/src/chat/**`, `apps/runner/src/agents/**`, `apps/runner/src/server.ts`: bounded authenticated upload/download, thread data storage and cleanup, persistent user events, and Claude/ACP image blocks with file paths for every attachment. Remote relay responses retain safe download headers.
+
+Validation:
+- `bun run format`: pass.
+- `bun run lint`: pass (existing unrelated warnings only).
+- `bun run typecheck`: pass.
+- `bun run test`: pass: console 311, runner 169, web 31, API 28 passed / 20 skipped, plus other workspace suites. The console kit guard passed.
+- `bun run architecture:check`: pass; naming passed.
+- `bun --cwd=apps/console run build`: pass.
+- Runner attachment tests: 5 passed (including remote runner upload, authorization, 10 MB stream boundary, replay from reopened store, and symlink rejection). Fake Claude and ACP adapter content-block tests: 3 passed.
+- Live Claude and OpenCode ACP vision model: each read `ORBIT-472` from a test screenshot and `FILE-CHECK-819` from a text file and replied with both tokens. The ACP test used `opencode/mimo-v2.6-flash-free`; another vision model required an inactive subscription, so it was not used for the final proof.
+- Chromium: attachment pick/send at 375 px; no horizontal overflow at 320, 375, 768, or 1280 px; no page errors. Image and file rendered after reload and in a fresh independent browser context. Local screenshots: `/tmp/composer-phone-375-final.png`, `/tmp/composer-replay-phone.png`, `/tmp/composer-second-device.png`. This validates a separate browser context, not a physical second device.
+
+Contract impact:
+- Runner `POST /chat/sessions/:id/attachments?name=…` and `GET /chat/sessions/:id/attachments/:attachmentId`; chat socket `prompt.attachments` and persistent `user.attachments`. Grid API (`/api/v1`) unchanged.
+
+Review: human, pending independent review on PR #130.
+Commit: `cf9a97b` (implementation); `52b0471` (claim).
