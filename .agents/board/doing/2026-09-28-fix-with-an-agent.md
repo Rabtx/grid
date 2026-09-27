@@ -126,6 +126,7 @@ thread working in a worktree on its branch with the failure in its first message
 runner route was added; neither is part of the Grid API documented in
 `apps/docs/content/docs/backend-api.mdx` (that document covers `apps/api`, not the runner).
 
-**Review:** requested — human reviewer per the card.
+**Review:** requested — human reviewer per the card; pull request #131
+(`agent/backend/fix-with-an-agent` → `main`).
 
-**Commit:** see this branch's commits.
+**Commit:** `dbb3232`
