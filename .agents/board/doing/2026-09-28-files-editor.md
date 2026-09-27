@@ -155,6 +155,9 @@ Decisions worth knowing:
   text, the size limit, and no temporary file left behind; 1 new route test over real HTTP).
 - `bun run architecture:check` — boundaries and kebab-case naming pass.
 - `bun --cwd=apps/console run build` — builds; the editor is its own chunk.
+- GitHub CI on PR #134 did not run: every job on every branch failed to start with "recent account
+  payments have failed or your spending limit needs to be increased" (the same on other agents'
+  branches today), so CI evidence for this card is the local runs above, not a green check.
 - Browser (this worktree's runner on 4111 and console on 3012, demo account, a scratch project
   folder): opened a file read-only, pressed Edit, typed, saw the dirty dot on the tree row and the
   Changes view, saved (the file on disk changed), then had the file written from outside and saved
