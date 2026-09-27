@@ -340,3 +340,84 @@
 @utility pb-safe {
 	padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
+
+/*
+ * The effort slider: sparks rise from the thumb and a ring pulses out when the level goes up,
+ * the level's name rolls in from the direction it moved, and the top level's fill runs hot.
+ * Reduced motion keeps the colours and drops the movement.
+ */
+@layer components {
+	@keyframes kit-effort-spark {
+		from {
+			transform: translate(-50%, -50%) scale(1);
+			opacity: 1;
+		}
+		to {
+			transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% - var(--rise, 26px))) scale(0.2);
+			opacity: 0;
+		}
+	}
+	@keyframes kit-effort-ring {
+		from {
+			transform: translate(-50%, -50%) scale(0.6);
+			opacity: 0.75;
+		}
+		to {
+			transform: translate(-50%, -50%) scale(2.8);
+			opacity: 0;
+		}
+	}
+	@keyframes kit-effort-roll-up {
+		from {
+			transform: translateY(70%);
+			opacity: 0;
+		}
+	}
+	@keyframes kit-effort-roll-down {
+		from {
+			transform: translateY(-70%);
+			opacity: 0;
+		}
+	}
+	@keyframes kit-effort-heat {
+		to {
+			background-position: 200% 0;
+		}
+	}
+	@keyframes kit-effort-pop {
+		50% {
+			transform: translate(-50%, -50%) scale(1.8);
+		}
+	}
+	.kit-effort-spark {
+		animation: kit-effort-spark 700ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+	}
+	.kit-effort-ring {
+		animation: kit-effort-ring 560ms ease-out forwards;
+	}
+	.kit-effort-roll-up {
+		animation: kit-effort-roll-up 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+	}
+	.kit-effort-roll-down {
+		animation: kit-effort-roll-down 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+	}
+	.kit-effort-hot {
+		background-size: 200% 100%;
+		animation: kit-effort-heat 1.4s linear infinite;
+	}
+	.kit-effort-pop {
+		animation: kit-effort-pop 320ms ease-out;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.kit-effort-spark,
+		.kit-effort-ring {
+			display: none;
+		}
+		.kit-effort-roll-up,
+		.kit-effort-roll-down,
+		.kit-effort-hot,
+		.kit-effort-pop {
+			animation: none;
+		}
+	}
+}
