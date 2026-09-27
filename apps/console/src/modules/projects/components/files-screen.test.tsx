@@ -422,4 +422,56 @@ describe("editing a file", () => {
 		expect(container.textContent).not.toContain("Leave without saving?");
 		expect(button(container, "Edit")).toBeDefined();
 	});
+
+	it("edits again after a save, based on the version it just saved", async () => {
+		await settle();
+		button(container, "Edit")?.click();
+		await settleEditor();
+		await type(container, "one\ntwo\nthree\nfour");
+		button(container, "Save")?.click();
+		await settle();
+		button(container, "Close the editor")?.click();
+		await settle();
+		// The reader shows the saved text, and the next edit starts from it.
+		expect(container.textContent).toContain("four");
+		button(container, "Edit")?.click();
+		await settleEditor();
+		expect(container.querySelector(".cm-content")?.textContent).toContain("four");
+		await type(container, "one\ntwo\nthree\nfour\nfive");
+		button(container, "Save")?.click();
+		await settle();
+		expect(saves).toHaveLength(2);
+		expect(saves[1].base).toBe(hash("one\ntwo\nthree\nfour"));
+		expect(container.textContent).not.toContain("This file changed on disk");
+		expect(disk.get("notes.md")).toBe("one\ntwo\nthree\nfour\nfive");
+	});
+
+	it("asks before opening another file with unsaved changes", async () => {
+		await settle();
+		button(container, "Edit")?.click();
+		await settleEditor();
+		await type(container, "mine");
+		button(container, "readme.md")?.click();
+		await settle();
+		expect(container.textContent).toContain("Leave without saving?");
+		button(container, "Cancel")?.click();
+		await settle();
+		// Still on the edit, untouched.
+		expect(container.querySelector(".cm-content")?.textContent).toContain("mine");
+		expect(calls.some((url) => url.endsWith("content?path=readme.md"))).toBe(false);
+		button(container, "Back to files")?.click();
+		await settle();
+		expect(container.textContent).toContain("Leave without saving?");
+		button(container, "Cancel")?.click();
+		await settle();
+		button(container, "readme.md")?.click();
+		await settle();
+		button(container, "Discard changes")?.click();
+		await settle();
+		expect(calls.some((url) => url.endsWith("content?path=readme.md"))).toBe(true);
+		expect(container.querySelector(".cm-content")).toBeNull();
+		expect(container.textContent).toContain("hello");
+		expect(container.querySelector('[aria-label="Unsaved changes"]')).toBeNull();
+		expect(disk.get("notes.md")).toBe("one\ntwo\nthree");
+	});
 });

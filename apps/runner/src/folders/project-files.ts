@@ -1,6 +1,8 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
 	closeSync,
+	fchmodSync,
+	fsyncSync,
 	mkdirSync,
 	openSync,
 	readdirSync,
@@ -9,7 +11,7 @@ import {
 	renameSync,
 	statSync,
 	unlinkSync,
-	writeFileSync,
+	writeSync,
 } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 
@@ -48,6 +50,14 @@ export function textHash(text: string): string {
 }
 
 const SKIP = new Set([".git", "node_modules", ".next", "dist", "build", "target", "coverage"]);
+/**
+ * Never read or written through the console, whatever the path: the git folder is git's own
+ * state, and hooks or config written there run code on the next git command.
+ */
+const REFUSED = new Set([".git"]);
+
+/** Strict, so a file that is not UTF-8 is named rather than decoded lossily and saved corrupted. */
+const utf8 = new TextDecoder("utf-8", { fatal: true });
 
 function within(root: string, target: string): boolean {
 	const path = relative(root, target);
@@ -60,6 +70,8 @@ type Resolved = { base: string; target: string; relative: string };
 function inside(root: string, path: string, missing: string): Resolved {
 	if (path.startsWith("/") || path.split(/[\\/]/).includes("..") || path.includes("\\"))
 		throw new FolderError("That path is outside the project", 400);
+	if (path.split("/").some((segment) => REFUSED.has(segment)))
+		throw new FolderError("Grid does not open files in the git folder", 403);
 	let base: string;
 	let target: string;
 	try {
@@ -69,7 +81,11 @@ function inside(root: string, path: string, missing: string): Resolved {
 		throw new FolderError(missing, 404);
 	}
 	if (!within(base, target)) throw new FolderError("That path is outside the project", 403);
-	return { base, target, relative: relative(base, target).split(sep).join("/") };
+	const inner = relative(base, target).split(sep).join("/");
+	// Again after symlinks are followed, so a link into the git folder is refused too.
+	if (inner.split("/").some((segment) => REFUSED.has(segment)))
+		throw new FolderError("Grid does not open files in the git folder", 403);
+	return { base, target, relative: inner };
 }
 
 function directory(root: string, path: string): Resolved {
@@ -95,7 +111,13 @@ export function readProjectFile(root: string, path: string): ProjectFileContent 
 	}
 	// A NUL byte near the start is the usual sign of a binary file.
 	if (bytes.subarray(0, 8000).includes(0)) return { ...empty, binary: true, tooLarge: false };
-	const text = bytes.toString("utf8");
+	let text: string;
+	try {
+		text = utf8.decode(bytes);
+	} catch {
+		// Not UTF-8 (Latin-1, UTF-16, …): shown as not editable, like a binary file.
+		return { ...empty, binary: true, tooLarge: false };
+	}
 	return { ...empty, text, binary: false, tooLarge: false, hash: textHash(text) };
 }
 
@@ -118,17 +140,32 @@ export function writeProjectFile(root: string, write: ProjectFileWrite): Project
 	if (current.tooLarge) throw new FolderError("This file is too large to save", 413);
 	if (current.hash !== base)
 		throw new FolderError("This file changed on disk since you opened it", 409);
-	// Beside the file it replaces, so the rename is the same filesystem and therefore atomic.
-	const temporary = join(dirname(file.target), `.grid-${textHash(text)}-${process.pid}.tmp`);
+	// Between the check above and the rename below another writer could still land; that window
+	// is a few milliseconds and the rename keeps the file whole, so it is accepted.
+	// Beside the file it replaces, so the rename is the same filesystem and therefore atomic. The
+	// name is random and opened with "wx", so it never follows a symlink planted at that name.
+	const temporary = join(dirname(file.target), `.grid-${randomUUID()}.tmp`);
+	let created = false;
 	try {
-		writeFileSync(temporary, text, "utf8");
+		const mode = statSync(file.target).mode & 0o7777;
+		const descriptor = openSync(temporary, "wx", mode);
+		created = true;
+		try {
+			// Again after opening, since the umask narrows the mode open was given.
+			fchmodSync(descriptor, mode);
+			writeSync(descriptor, text, null, "utf8");
+			fsyncSync(descriptor);
+		} finally {
+			closeSync(descriptor);
+		}
 		renameSync(temporary, file.target);
 	} catch {
-		try {
-			unlinkSync(temporary);
-		} catch {
-			// The write never landed, so there is nothing to clean up.
-		}
+		if (created)
+			try {
+				unlinkSync(temporary);
+			} catch {
+				// Already gone: the rename may have moved it before failing.
+			}
 		throw new FolderError("Grid cannot write to this file", 403);
 	}
 	return { ...readProjectFile(root, file.relative), text, hash: textHash(text) };

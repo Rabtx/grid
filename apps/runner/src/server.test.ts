@@ -216,6 +216,17 @@ describe("folders and project links", () => {
 		const escaped = await put({ path: "/tmp/escape.md", text: "mine", base: (await read()).hash });
 		expect([400, 403, 404]).toContain(escaped.status);
 		expect(existsSync("/tmp/escape.md")).toBe(false);
+
+		// A body over the cap is refused before it is parsed, with or without a Content-Length.
+		const huge = JSON.stringify({ path: "notes.md", text: "x".repeat(1024 * 1024), base: "" });
+		expect((await put(JSON.parse(huge))).status).toBe(413);
+		const streamed = await fetch(contentUrl, {
+			method: "PUT",
+			headers: { ...auth, "Content-Type": "application/json" },
+			body: new Blob([huge]).stream(),
+		});
+		expect(streamed.status).toBe(413);
+		expect(readFileSync(join(root, "notes.md"), "utf8")).toBe("second");
 	});
 	it("browses folders, reads a folder's details and links a project to it", async () => {
 		const folder = mkdtempSync(join(projectsDir, "grid-folder-route-"));

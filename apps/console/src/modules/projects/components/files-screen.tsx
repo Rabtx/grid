@@ -1,4 +1,4 @@
-import { useMatch, useSearchParams } from "@solidjs/router";
+import { useBeforeLeave, useMatch, useSearchParams } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, Loading, Show, untrack } from "solid-js";
 
@@ -6,6 +6,7 @@ import {
 	Alert,
 	Button,
 	CodeView,
+	ConfirmDialog,
 	CopyIcon,
 	Dialog,
 	EditIcon,
@@ -94,6 +95,12 @@ function FilesView(): JSX.Element {
 	const [revision, setRevision] = createSignal(0);
 	/** The file being edited with unsaved changes, so its row carries a dirty dot. */
 	const [dirtyPath, setDirtyPath] = createSignal<string | null>(null);
+	/** Where to go once unsaved changes are confirmed away; wrapped, as a signal cannot hold a bare function. */
+	const [leaving, setLeaving] = createSignal<{ go: () => void } | null>(null);
+	// Set once changes are confirmed away, so the navigation that follows is not asked about again
+	// before the cleared dirty path has reached the signal.
+	let discarded = false;
+	const unsaved = () => !discarded && dirtyPath() !== null;
 	/** The file whose editor should open as soon as it is read: a file just created. */
 	const [editOnOpen, setEditOnOpen] = createSignal<string | null>(null);
 
@@ -131,9 +138,23 @@ function FilesView(): JSX.Element {
 		},
 	);
 
-	function open(path: string | null): void {
-		setSearch({ file: path ?? undefined });
+	/** Run `go` now, or once unsaved changes in the open file are confirmed away. */
+	function leave(go: () => void): void {
+		if (unsaved()) setLeaving({ go });
+		else go();
 	}
+
+	function open(path: string | null): void {
+		if ((path ?? "") === file()) return;
+		leave(() => setSearch({ file: path ?? undefined }));
+	}
+
+	// Any other way out (a link, the sidebar, the browser's back) asks too.
+	useBeforeLeave((event) => {
+		if (!unsaved() || event.defaultPrevented) return;
+		event.preventDefault();
+		setLeaving({ go: () => event.retry(true) });
+	});
 
 	/** Read one folder again, keeping the rest of the tree as it is. */
 	function refresh(path: string): void {
@@ -245,12 +266,32 @@ function FilesView(): JSX.Element {
 							slug={slug()}
 							openInEditor={editOnOpen() === path()}
 							onOpened={() => setEditOnOpen(null)}
-							onDirty={(dirty) => setDirtyPath(dirty ? path() : null)}
+							onDirty={(dirty) => {
+								if (dirty) discarded = false;
+								setDirtyPath(dirty ? path() : null);
+							}}
 							onBack={() => open(null)}
 						/>
 					)}
 				</Show>
 			</ListDetail>
+			<Show when={leaving()}>
+				<ConfirmDialog
+					open
+					onClose={() => setLeaving(null)}
+					onConfirm={() => {
+						const next = leaving();
+						setLeaving(null);
+						discarded = true;
+						setDirtyPath(null);
+						next?.go();
+					}}
+					title="Leave without saving?"
+					description={`${dirtyPath()?.split("/").pop() ?? "This file"} has changes that are not saved. Leaving now throws them away.`}
+					confirm="Discard changes"
+					danger
+				/>
+			</Show>
 			<CreateDialog
 				request={creating()}
 				slug={slug()}
@@ -469,6 +510,7 @@ function FilePane(props: {
 						slug={props.slug}
 						file={file()}
 						onDirty={(dirty) => props.onDirty?.(dirty)}
+						onSaved={setContent}
 						onClose={() => {
 							props.onDirty?.(false);
 							setEditing(false);

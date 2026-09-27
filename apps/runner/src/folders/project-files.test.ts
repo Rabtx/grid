@@ -1,11 +1,13 @@
 import { afterAll, describe, expect, it } from "bun:test";
 import {
 	existsSync,
+	chmodSync,
 	mkdirSync,
 	mkdtempSync,
 	readdirSync,
 	readFileSync,
 	rmSync,
+	statSync,
 	symlinkSync,
 	writeFileSync,
 } from "node:fs";
@@ -182,5 +184,49 @@ describe("writing a project file", () => {
 		).toThrow(FolderError);
 		// None of those refusals changed the file.
 		expect(readFileSync(join(base, "notes.md"), "utf8")).toBe("mine");
+	});
+
+	it("refuses the git folder, and a symlinked file that points outside, for reading and writing", () => {
+		const git = mkdtempSync(join(tmpdir(), "grid-project-git-"));
+		mkdirSync(join(git, ".git", "hooks"), { recursive: true });
+		writeFileSync(join(git, ".git", "config"), "[core]");
+		writeFileSync(join(git, ".git", "hooks", "pre-commit"), "");
+		symlinkSync(join(git, ".git"), join(git, "linked"));
+		symlinkSync(join(outside, "secret.txt"), join(git, "secret.txt"));
+		const hash = textHash("[core]");
+		try {
+			for (const path of [".git/config", "src/../.git/config", "linked/config", "secret.txt"]) {
+				expect(() => readProjectFile(git, path)).toThrow(FolderError);
+				expect(() => writeProjectFile(git, { path, text: "x", base: hash })).toThrow(FolderError);
+			}
+			expect(() =>
+				writeProjectFile(git, { path: ".git/hooks/pre-commit", text: "x", base: textHash("") }),
+			).toThrow(FolderError);
+			expect(readFileSync(join(git, ".git", "config"), "utf8")).toBe("[core]");
+			expect(readFileSync(join(outside, "secret.txt"), "utf8")).toBe("nope");
+		} finally {
+			rmSync(git, { recursive: true, force: true });
+		}
+	});
+
+	it("keeps the file's mode when it saves", () => {
+		writeFileSync(join(base, "run.sh"), "echo one");
+		chmodSync(join(base, "run.sh"), 0o775);
+		writeProjectFile(base, { path: "run.sh", text: "echo two", base: textHash("echo one") });
+		expect(statSync(join(base, "run.sh")).mode & 0o7777).toBe(0o775);
+		expect(readFileSync(join(base, "run.sh"), "utf8")).toBe("echo two");
+	});
+
+	it("names a file that is not UTF-8 as not editable rather than decoding it lossily", () => {
+		writeFileSync(join(base, "latin.txt"), Buffer.from([0x63, 0x61, 0x66, 0xe9]));
+		expect(readProjectFile(base, "latin.txt")).toMatchObject({
+			text: null,
+			binary: true,
+			hash: null,
+		});
+		expect(() =>
+			writeProjectFile(base, { path: "latin.txt", text: "café", base: textHash("caf\uFFFD") }),
+		).toThrow(FolderError);
+		expect([...readFileSync(join(base, "latin.txt"))]).toEqual([0x63, 0x61, 0x66, 0xe9]);
 	});
 });

@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import {
@@ -40,6 +40,8 @@ export function FileEditor(props: {
 	file: ProjectFileContent;
 	/** Tell the tree this file has unsaved changes, so its row carries a dirty dot. */
 	onDirty: (dirty: boolean) => void;
+	/** The file as a save or a reload left it, so the reader (and the next edit) starts from it. */
+	onSaved?: (file: ProjectFileContent) => void;
 	/** Leave editing. */
 	onClose: () => void;
 }): JSX.Element {
@@ -65,11 +67,15 @@ export function FileEditor(props: {
 	// A memo, so the diff is worked out in a tracking scope rather than while the view is drawn.
 	const changes = createMemo(() => diffLines(onDisk(), draft()));
 
-	// Another file (or a re-read) arrives: the draft follows it rather than the other way round.
+	// Another file arrives, or a re-read while nothing is unsaved: the draft follows it. A re-read
+	// of the same file never replaces an edit still being made.
+	let shown = untrack(() => props.file.path);
 	createEffect(
-		() => [props.file.text, props.file.hash] as const,
-		([text, hash]) => {
+		() => [props.file.path, props.file.text, props.file.hash] as const,
+		([path, text, hash]) => {
 			if (text === null) return;
+			if (path === shown && untrack(dirty)) return;
+			shown = path;
 			setOnDisk(text);
 			setDraft(text);
 			setBase(hash);
@@ -86,6 +92,9 @@ export function FileEditor(props: {
 			return () => window.removeEventListener("beforeunload", warn);
 		},
 	);
+
+	// Unmounted with a draft (another file, a route change): the tree's dirty dot goes with it.
+	onSettled(() => () => props.onDirty(false));
 
 	function change(text: string): void {
 		setDraft(text);
@@ -118,6 +127,7 @@ export function FileEditor(props: {
 			setBase(saved.hash);
 			setRevision((count) => count + 1);
 			props.onDirty(false);
+			props.onSaved?.({ ...saved, text: written });
 			notify({ title: `Saved ${props.file.name}` });
 			return true;
 		} catch (cause) {
@@ -145,6 +155,7 @@ export function FileEditor(props: {
 			setBase(fresh.hash);
 			setRevision((count) => count + 1);
 			props.onDirty(false);
+			props.onSaved?.(fresh);
 			notify({ title: `Reloaded ${props.file.name}` });
 		} finally {
 			setSaving(false);
@@ -159,7 +170,8 @@ export function FileEditor(props: {
 	async function overwrite(): Promise<void> {
 		const fresh = await current();
 		if (!fresh?.hash) {
-			if (!fresh) setError("This file is no longer a text file");
+			// No file means `current` already said why; a file without a hash is not text any more.
+			if (fresh) setError("This file is no longer a text file");
 			return;
 		}
 		setConflict(null);
@@ -227,8 +239,8 @@ export function FileEditor(props: {
 						when={dirty()}
 						fallback={
 							<EmptyState
-								title="No changes yet"
-								description="What you type shows up here, against the file as it was opened."
+								title="No unsaved changes"
+								description="What you type shows up here, against the file as it is on disk."
 							/>
 						}
 					>
@@ -236,15 +248,17 @@ export function FileEditor(props: {
 					</Show>
 				</div>
 			</Show>
-			<ConfirmDialog
-				open={leaving()}
-				onClose={() => setLeaving(false)}
-				onConfirm={props.onClose}
-				title="Leave without saving?"
-				description={`${props.file.name} has changes that are not saved. Leaving now throws them away.`}
-				confirm="Discard changes"
-				danger
-			/>
+			<Show when={leaving()}>
+				<ConfirmDialog
+					open
+					onClose={() => setLeaving(false)}
+					onConfirm={props.onClose}
+					title="Leave without saving?"
+					description={`${props.file.name} has changes that are not saved. Leaving now throws them away.`}
+					confirm="Discard changes"
+					danger
+				/>
+			</Show>
 			<Show when={conflict()}>
 				{(text) => (
 					<Dialog

@@ -65,7 +65,7 @@ const HIGHLIGHT = HighlightStyle.define([
 	{
 		tag: [tags.heading, tags.heading1, tags.heading2, tags.heading3],
 		color: "var(--color-accent)",
-		fontWeight: "medium",
+		fontWeight: 500,
 	},
 	{ tag: [tags.link, tags.url], color: "var(--color-link)", textDecoration: "underline" },
 	{ tag: [tags.meta, tags.processingInstruction], color: "var(--kit-fg-subtle)" },
