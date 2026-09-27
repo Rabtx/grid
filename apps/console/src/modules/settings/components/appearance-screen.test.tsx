@@ -67,7 +67,7 @@ describe("AppearanceScreen", () => {
 		localStorage.clear();
 	});
 
-	it("renders the four groups and the device note", async () => {
+	it("renders its groups, the shape controls and the device note", async () => {
 		await settle();
 
 		const text = container.textContent ?? "";
@@ -75,7 +75,10 @@ describe("AppearanceScreen", () => {
 		expect(text).toContain("Theme");
 		expect(text).toContain("Colour");
 		expect(text).toContain("Translucency");
-		expect(text).toContain("Layout");
+		expect(text).toContain("Shape and density");
+		expect(text).toContain("Motion and fun");
+		for (const name of ["Corner roundness", "Spacing", "Line strength", "Interface scale"])
+			expect(container.querySelector(`input[aria-label="${name}"]`), name).not.toBeNull();
 		expect(text).toContain("These settings are saved on this device.");
 	});
 
@@ -93,10 +96,26 @@ describe("AppearanceScreen", () => {
 		expect(document.documentElement.style.getPropertyValue("--hue")).toBe("120");
 	});
 
+	it("reshapes the whole kit from the corner roundness slider", async () => {
+		await settle();
+
+		const radius = container.querySelector<HTMLInputElement>(
+			'input[aria-label="Corner roundness"]',
+		);
+		expect(radius).not.toBeNull();
+		if (radius) {
+			radius.value = "0";
+			radius.dispatchEvent(new Event("input", { bubbles: true }));
+		}
+		await settle();
+
+		expect(document.documentElement.style.getPropertyValue("--kit-radius-scale")).toBe("0");
+	});
+
 	it("sets the accent from a preset swatch", async () => {
 		await settle();
 
-		const swatch = container.querySelector<HTMLButtonElement>('button[aria-label="#4da3f5"]');
+		const swatch = container.querySelector<HTMLButtonElement>('button[aria-label="Blue"]');
 		expect(swatch).not.toBeNull();
 		swatch?.click();
 		await settle();

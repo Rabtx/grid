@@ -1,11 +1,17 @@
-import { createRouter, useNavigate } from "@solidjs/router";
+import { createRouter } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, lazy, Loading } from "solid-js";
+import { lazy, Loading } from "solid-js";
 
 import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { EnvironmentsScreen } from "@/modules/environments";
-import { AgentsScreen, AppearanceScreen } from "@/modules/settings";
+import {
+	AccountScreen,
+	AgentsScreen,
+	AppearanceScreen,
+	NotificationsScreen,
+	SettingsIndexScreen,
+} from "@/modules/settings";
 import { InviteScreen } from "@/modules/workspaces";
 import { AuthCard, EmptyState } from "@/ui";
 
@@ -40,11 +46,13 @@ const Router = createRouter({
 		// Terminals on this machine; the id keeps a tab linkable and survives a reload.
 		{ path: "/terminal", component: TerminalRoute },
 		{ path: "/terminal/:id", component: TerminalRoute },
-		// Settings is a section of its own: appearance, and the coding agents.
-		{ path: "/settings", component: SettingsRedirectRoute },
-		{ path: "/settings/appearance", component: SettingsRoute },
-		{ path: "/settings/agents", component: AgentsRoute },
-		{ path: "/settings/environments", component: EnvironmentsRoute },
+		// Settings is a section of its own, with its own sidebar: a list on phones, then each page.
+		{ path: "/settings", component: () => <Authed screen={SettingsIndexScreen} /> },
+		{ path: "/settings/appearance", component: () => <Authed screen={AppearanceScreen} /> },
+		{ path: "/settings/notifications", component: () => <Authed screen={NotificationsScreen} /> },
+		{ path: "/settings/agents", component: () => <Authed screen={AgentsScreen} /> },
+		{ path: "/settings/environments", component: () => <Authed screen={EnvironmentsScreen} /> },
+		{ path: "/settings/account", component: () => <Authed screen={AccountScreen} /> },
 		// The design system, every piece in every state; loads on its own when opened.
 		{ path: "/design", component: DesignRoute },
 		// Development-only primitives gallery; tree-shaken out of production builds.
@@ -166,39 +174,9 @@ function TerminalRoute(): JSX.Element {
 	);
 }
 
-function SettingsRoute(): JSX.Element {
-	return (
-		<RequireAuth>
-			<AppearanceScreen />
-		</RequireAuth>
-	);
-}
-
-function AgentsRoute(): JSX.Element {
-	return (
-		<RequireAuth>
-			<AgentsScreen />
-		</RequireAuth>
-	);
-}
-
-function EnvironmentsRoute(): JSX.Element {
-	return (
-		<RequireAuth>
-			<EnvironmentsScreen />
-		</RequireAuth>
-	);
-}
-
-function SettingsRedirectRoute(): JSX.Element {
-	const navigate = useNavigate();
-
-	createEffect(
-		() => true,
-		() => navigate("/settings/appearance", { replace: true }),
-	);
-
-	return <></>;
+/** A signed-in screen that needs nothing from its route. */
+function Authed(props: { screen: () => JSX.Element }): JSX.Element {
+	return <RequireAuth>{props.screen()}</RequireAuth>;
 }
 
 function NotFoundRoute(): JSX.Element {

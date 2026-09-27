@@ -8,8 +8,11 @@ import { useShell } from "../context/shell-context";
 
 import { Sidebar } from "./sidebar";
 
-/** Phone navigation: the sidebar in a drawer from the left that closes itself after navigating. */
-export function NavDrawer(): JSX.Element {
+/**
+ * Phone navigation: the sidebar in a drawer from the left that closes itself after navigating.
+ * A section with a sidebar of its own (settings) passes it as `content`.
+ */
+export function NavDrawer(props: { content?: () => JSX.Element }): JSX.Element {
 	const shell = useShell();
 	const location = useLocation();
 	const close = () => shell.setDrawerOpen(false);
@@ -25,7 +28,7 @@ export function NavDrawer(): JSX.Element {
 		<Dialog open={shell.drawerOpen()} onClose={close} title="Navigation" kind="sidebar" bare>
 			{/* Phones only, so the sidebar never draws twice. */}
 			<Show when={!shell.desktop()}>
-				<Sidebar onClose={close} />
+				{props.content ? props.content() : <Sidebar onClose={close} />}
 			</Show>
 		</Dialog>
 	);

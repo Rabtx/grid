@@ -1,8 +1,8 @@
 import type { JSX } from "@solidjs/web";
 import { createEffect, Show } from "solid-js";
 
+import { Select } from "@/kit";
 import { useAuth } from "@/modules/auth";
-import { Select } from "@/ui";
 
 import { environmentsStore } from "../stores/environments";
 
@@ -27,23 +27,23 @@ export function MachinePicker(props: {
 
 	return (
 		<Show when={environmentsStore.environments().length > 0}>
-			<div class="flex flex-col gap-1.5">
-				<span aria-hidden="true" class="font-medium text-ink/80 text-ui-sm">
-					Machine
-				</span>
-				<Select
-					aria-label="Machine"
-					disabled={props.disabled}
-					value={props.value ?? ""}
-					onChange={(value) => props.onChange(value || null)}
-					options={[
-						{ value: "", label: "This machine" },
-						...environmentsStore
-							.environments()
-							.map((environment) => ({ value: environment.id, label: environment.label })),
-					]}
-				/>
-			</div>
+			<Select
+				label="Machine"
+				disabled={props.disabled}
+				value={props.value ?? ""}
+				onChange={(value) => props.onChange(value || null)}
+				groups={[
+					{
+						label: "Machine",
+						options: [
+							{ value: "", label: "This machine" },
+							...environmentsStore
+								.environments()
+								.map((environment) => ({ value: environment.id, label: environment.label })),
+						],
+					},
+				]}
+			/>
 		</Show>
 	);
 }

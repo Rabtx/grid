@@ -115,7 +115,7 @@ export {
 	TouchScrollbar,
 } from "./terminal";
 export { Segmented, type TabOption, Tabs } from "./tabs";
-export { Heading, Text, type TextSize, type TextTone } from "./text";
+export { Code, Heading, Text, type TextSize, type TextTone } from "./text";
 export { notify, Toasts } from "./toast";
 export { FilterChip, Toolbar, ToolbarButton } from "./toolbar";
 export { type FolderEntry, FileTree, FolderTree, type TreeNode } from "./tree";

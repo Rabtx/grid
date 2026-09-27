@@ -108,7 +108,21 @@ references very closely, Inter, fix look and feel and navigation/layout, gallery
    and under Settings → Appearance → Celebrations. New kit pieces: `ChoiceRail`, `ModelRow`,
    `FlagshipMark`, `igniteGrid`, `StarIcon`, `SparklesIcon`.
 
+11. **Settings with their own sidebar (agent/frontend/settings).** On `/settings/*` the app's
+    sidebar gives way to a settings one (Back to app, then App, Agents, Workspace, Account);
+    phones open `/settings` as a grouped list and each page has a way back. Every page is a kit
+    page header over cards of rows: Appearance (theme, accent, tint, a new Shape and density
+    group — corner roundness, spacing, line strength, density, scale — with a live preview,
+    translucency, and celebrations with a "Try it"), Notifications (its own page now), Agents,
+    Environments (machines, Codespaces, pairing) and Account. New kit pieces: `Code`, and
+    `labelHidden` on `Slider` and `ColorSwatches`.
+
 ### Validation
+
+- Settings: console vitest 50 files / 295 tests (appearance: the shape controls, roundness
+  reaching the kit); guard, lint, typecheck, architecture and naming pass; settings,
+  environments and the shell no longer import `@/ui`. Checked at 1280px (every page, roundness
+  at 0% and 200%) and 375px (the list and a page).
 
 - Model picker: console vitest 49 files / 294 tests (picker: rail, cross-agent pick,
   favourites; flagship rules); guard, lint, typecheck, architecture and naming pass. Checked in
