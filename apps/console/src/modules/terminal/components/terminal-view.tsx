@@ -11,7 +11,7 @@ import { linkFor } from "@/lib/runner-link";
 import { quietReconnects } from "@/lib/quiet-reconnects";
 import { useAuth } from "@/modules/auth";
 import { registerDictationTarget } from "@/modules/voice";
-import { ChevronDownIcon, CopyIcon } from "@/ui";
+import { CopyIcon, JumpToLatest, SelectionBar, SelectionHandle, TouchScrollbar } from "@/kit";
 
 import { applyModifiers, type Arrow, arrowSequence, type Modifiers } from "../lib/keys";
 import { lineForThumb, type ScrollState, thumbGeometry } from "../lib/scrollbar";
@@ -481,108 +481,55 @@ export function TerminalView(props: {
 				data-terminal={props.id}
 			/>
 
-			{/* Floating selection action bar */}
 			<Show when={selectionGeometry()?.actionBar.visible}>
-				<div
-					style={{
-						left: `${selectionGeometry()?.actionBar.x ?? 0}px`,
-						top: `${selectionGeometry()?.actionBar.y ?? 0}px`,
-					}}
-					role="toolbar"
-					aria-label="Selection actions"
-					class="pointer-events-auto absolute z-30 flex items-center gap-1 rounded-md border border-stroke bg-canvas/95 px-1 py-0.5 shadow-lg backdrop-blur-sm"
-				>
-					<button
-						type="button"
-						onClick={() => void copySelection()}
-						class="focus-ring flex h-8 items-center gap-1 rounded px-2 text-ink text-ui-xs hover:bg-ink/10 active:bg-ink/15"
-					>
-						<CopyIcon class="size-3.5" />
-						<span>Copy</span>
-					</button>
-					<button
-						type="button"
-						onClick={() => void pasteFromClipboard()}
-						class="focus-ring flex h-8 items-center gap-1 rounded px-2 text-ink text-ui-xs hover:bg-ink/10 active:bg-ink/15"
-					>
-						<span>Paste</span>
-					</button>
-					<button
-						type="button"
-						onClick={selectAllText}
-						class="focus-ring flex h-8 items-center gap-1 rounded px-2 text-ink text-ui-xs hover:bg-ink/10 active:bg-ink/15"
-					>
-						<span>Select all</span>
-					</button>
-				</div>
+				<SelectionBar
+					x={selectionGeometry()?.actionBar.x ?? 0}
+					y={selectionGeometry()?.actionBar.y ?? 0}
+					actions={[
+						{ label: "Copy", icon: <CopyIcon size="xs" />, run: () => void copySelection() },
+						{ label: "Paste", run: () => void pasteFromClipboard() },
+						{ label: "Select all", run: selectAllText },
+					]}
+				/>
 			</Show>
 
 			{/* Selection drag handles for touch devices */}
 			<Show when={selectionGeometry()?.startHandle.visible}>
-				<div
-					style={{
-						left: `${selectionGeometry()?.startHandle.x ?? 0}px`,
-						top: `${selectionGeometry()?.startHandle.y ?? 0}px`,
-					}}
-					aria-label="Selection start handle"
-					class="pointer-events-auto absolute z-30 -translate-x-1/2 -translate-y-full touch-none select-none"
-					onPointerDown={(e) => onHandlePointerDown("start", e)}
-				>
-					<div class="grid size-11 place-items-center">
-						<div class="size-3 rounded-full bg-primary shadow ring-2 ring-canvas" />
-					</div>
-				</div>
+				<SelectionHandle
+					edge="start"
+					x={selectionGeometry()?.startHandle.x ?? 0}
+					y={selectionGeometry()?.startHandle.y ?? 0}
+					onPointerDown={(event) => onHandlePointerDown("start", event)}
+				/>
 			</Show>
-
 			<Show when={selectionGeometry()?.endHandle.visible}>
-				<div
-					style={{
-						left: `${selectionGeometry()?.endHandle.x ?? 0}px`,
-						top: `${selectionGeometry()?.endHandle.y ?? 0}px`,
-					}}
-					aria-label="Selection end handle"
-					class="pointer-events-auto absolute z-30 -translate-x-1/2 touch-none select-none"
-					onPointerDown={(e) => onHandlePointerDown("end", e)}
-				>
-					<div class="grid size-11 place-items-center">
-						<div class="size-3 rounded-full bg-primary shadow ring-2 ring-canvas" />
-					</div>
-				</div>
+				<SelectionHandle
+					edge="end"
+					x={selectionGeometry()?.endHandle.x ?? 0}
+					y={selectionGeometry()?.endHandle.y ?? 0}
+					onPointerDown={(event) => onHandlePointerDown("end", event)}
+				/>
 			</Show>
 
-			{/* Floating "jump to bottom" pill when scrolled up while output arrives */}
+			{/* Scrolled up while output arrives: a way back to the newest. */}
 			<Show when={scrolledUp() && hasUnreadOutput()}>
-				<button
-					type="button"
-					aria-label="Jump to latest output"
+				<JumpToLatest
 					onClick={() => {
 						hapticTick(14);
 						term?.scrollToBottom();
 						setHasUnreadOutput(false);
 					}}
-					class="focus-ring absolute right-6 bottom-4 z-20 flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 font-sans text-canvas text-ui-xs shadow-lg transition-transform duration-fast ease-out-grid active:scale-95"
-				>
-					<ChevronDownIcon class="size-3.5" />
-					<span>Latest output</span>
-				</button>
+				/>
 			</Show>
 
-			{/* A wide, invisible grab strip; the visible thumb inside it is thin, like a native one. */}
-			<div
-				ref={(el) => {
+			<TouchScrollbar
+				track={(el) => {
 					track = el;
 				}}
-				aria-hidden="true"
-				data-no-swipe
-				class="absolute inset-y-1 right-0 z-10 hidden w-5 touch-none pointer-coarse:block"
-			>
-				<div
-					ref={(el) => {
-						thumb = el;
-					}}
-					class="absolute right-1 hidden w-1 rounded-full bg-ink/25 transition-[width,background-color] duration-fast ease-out-grid data-[dragging]:w-1.5 data-[dragging]:bg-ink/60"
-				/>
-			</div>
+				thumb={(el) => {
+					thumb = el;
+				}}
+			/>
 		</div>
 	);
 }

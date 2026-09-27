@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, For, Show } from "solid-js";
 
+import { KeyStrip, PageDots, terminalKey } from "@/kit";
 import { type DictationTarget, MicButton } from "@/modules/voice";
 
 import { type Arrow, BACK_TAB, KEY_SEQUENCES, type Modifiers } from "../lib/keys";
@@ -61,9 +62,6 @@ const EXTRA_KEYS: Key[] = [
 	{ kind: "send", label: "del", name: "Delete", data: KEY_SEQUENCES.delete },
 ];
 
-const KEY =
-	"grid min-h-11 min-w-11 shrink-0 select-none place-items-center rounded-md px-2.5 font-mono text-ink/80 text-ui-sm transition-colors duration-fast ease-out-grid active:bg-ink/15 aria-pressed:bg-ink aria-pressed:text-canvas";
-
 /**
  * The keys a phone keyboard does not have, above it. Ctrl and Alt arm for the next key, typed
  * here or on the keyboard. Buttons never take focus, so the keyboard stays open while tapping.
@@ -116,13 +114,7 @@ export function KeyBar(props: {
 	};
 
 	return (
-		<div
-			role="toolbar"
-			aria-label="Terminal keys"
-			onTouchStart={onTouchStart}
-			onTouchEnd={onTouchEnd}
-			class="hidden shrink-0 items-center gap-1 overflow-x-auto border-stroke border-t px-1 py-1 [scrollbar-width:none] pointer-coarse:flex"
-		>
+		<KeyStrip label="Terminal keys" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
 			<For each={currentKeys()}>
 				{(key) => (
 					<button
@@ -138,7 +130,7 @@ export function KeyBar(props: {
 						// Keep focus (and the soft keyboard) on the terminal.
 						onPointerDown={(event) => event.preventDefault()}
 						onClick={() => press(key)}
-						class={KEY}
+						class={terminalKey()}
 					>
 						{key.label}
 					</button>
@@ -146,10 +138,7 @@ export function KeyBar(props: {
 			</For>
 
 			<Show when={page() === 0}>
-				<MicButton
-					target={props.dictationTarget}
-					class={`${KEY} aria-pressed:bg-danger aria-pressed:text-canvas`}
-				/>
+				<MicButton target={props.dictationTarget} class={terminalKey({ kind: "record" })} />
 				<button
 					type="button"
 					aria-label="Paste"
@@ -158,13 +147,13 @@ export function KeyBar(props: {
 						hapticTick();
 						props.onPaste();
 					}}
-					class={KEY}
+					class={terminalKey()}
 				>
 					paste
 				</button>
 			</Show>
 
-			{/* Page toggle button / indicator */}
+			{/* Flips between the main keys and the function keys; the dots say which is showing. */}
 			<button
 				type="button"
 				aria-label={page() === 0 ? "Show function and extra keys" : "Show main keys"}
@@ -173,16 +162,13 @@ export function KeyBar(props: {
 					hapticTick();
 					setPage((p) => (p === 0 ? 1 : 0));
 				}}
-				class={`${KEY} bg-ink/5 font-sans font-medium text-ui-xs`}
+				class={terminalKey({ kind: "page" })}
 			>
 				<span class="flex items-center gap-1">
 					<span>{page() === 0 ? "Fn" : "123"}</span>
-					<span class="flex gap-0.5" aria-hidden="true">
-						<span class={`size-1 rounded-full ${page() === 0 ? "bg-ink" : "bg-ink/30"}`} />
-						<span class={`size-1 rounded-full ${page() === 1 ? "bg-ink" : "bg-ink/30"}`} />
-					</span>
+					<PageDots count={2} current={page()} />
 				</span>
 			</button>
-		</div>
+		</KeyStrip>
 	);
 }

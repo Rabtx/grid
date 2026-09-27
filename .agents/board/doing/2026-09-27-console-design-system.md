@@ -90,7 +90,21 @@ references very closely, Inter, fix look and feel and navigation/layout, gallery
    its first line, the model chip shows the short model name, and thread tabs size to their
    titles.
 
+8. **Terminal on the kit (agent/frontend/port-terminal).** Terminals are the title bar's tabs on
+   desktop, as threads are (status dot, machine or "ended" badge, close), with the new-terminal
+   button or machine menu and the text size beside them; phones switch, open and close from a
+   menu on the title. The selection bar, drag handles, "latest output" pill, touch scrollbar and
+   key bar, and the floating dictation mic, status and error, are kit pieces. New kit pieces:
+   `SelectionBar`, `SelectionHandle`, `JumpToLatest`, `TouchScrollbar`, `terminalKey`,
+   `KeyStrip`, `PageDots`, `VoiceDock`, `VoiceStatus`, `VoiceError`, `FLOATING_MIC`, and
+   `HeaderTabs` badges and a `newAction` slot.
+
 ### Validation
+
+- Terminal port: console vitest 47 files / 288 tests; guard, lint, typecheck, architecture and
+  naming pass. Checked in the browser against this machine's runner: the header tab with its
+  live dot, text size, and at 375px the terminal menu (switch, new on this machine or an
+  environment, close) and the key bar.
 
 - Prototype match: console vitest 47 files / 288 tests (top-bar tests cover the phone action);
   guard, lint, typecheck, architecture and naming pass. Compared against /design at 1280px and

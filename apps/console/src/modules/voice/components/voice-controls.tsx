@@ -1,8 +1,8 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, onSettled, Show } from "solid-js";
 
+import { FLOATING_MIC, MicIcon, VoiceDock, VoiceError, VoiceStatus } from "@/kit";
 import { useAuth } from "@/modules/auth";
-import { Button, MicIcon } from "@/ui";
 
 import { dictation, configureTranscription } from "../lib/dictation";
 import { type DictationTarget, lastTarget, trackFocus } from "../lib/dictation-target";
@@ -65,45 +65,24 @@ export function VoiceControls(): JSX.Element {
 	});
 
 	return (
-		<div
-			class="pointer-events-none fixed right-3 z-40 flex flex-col items-end gap-2"
-			style={{ bottom: `calc(${bottom()}px + env(safe-area-inset-bottom))` }}
-		>
+		<VoiceDock bottom={bottom()}>
 			<Show when={active()}>
-				<output
-					aria-live="polite"
-					class="glass block max-w-[min(20rem,calc(100vw-5rem))] rounded-lg border border-stroke px-3 py-2 text-ink text-ui-sm shadow-lg"
-				>
-					<span class="block text-ink/45 text-ui-xs">
-						{dictation.status() === "transcribing"
+				<VoiceStatus
+					label={
+						dictation.status() === "transcribing"
 							? "Transcribing…"
-							: `Listening · into ${dictation.targetLabel() ?? "the cursor"}`}
-					</span>
-					<Show when={dictation.interim()}>
-						<span class="mt-0.5 block">{dictation.interim()}</span>
-					</Show>
-				</output>
+							: `Listening · into ${dictation.targetLabel() ?? "the cursor"}`
+					}
+					heard={dictation.interim()}
+				/>
 			</Show>
 			<Show when={dictation.error()}>
-				<div
-					role="alert"
-					class="pointer-events-auto flex max-w-[min(20rem,calc(100vw-1.5rem))] items-center gap-2 rounded-lg bg-danger px-3 py-2 text-canvas text-ui-sm shadow-lg"
-				>
-					<span class="min-w-0 flex-1">{dictation.error()}</span>
-					<Button
-						size="sm"
-						variant="ghost"
-						class="text-canvas"
-						onClick={() => dictation.dismissError()}
-					>
-						OK
-					</Button>
-				</div>
+				{(message) => <VoiceError message={message()} onDismiss={() => dictation.dismissError()} />}
 			</Show>
 			<Show when={showMic()}>
 				<MicButton />
 			</Show>
-		</div>
+		</VoiceDock>
 	);
 }
 
@@ -125,12 +104,9 @@ export function MicButton(props: {
 			disabled={busy()}
 			onPointerDown={(event) => event.preventDefault()}
 			onClick={() => dictation.toggle(props.target ? props.target() : lastTarget())}
-			class={
-				props.class ??
-				"focus-ring pointer-events-auto grid size-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition-[transform,background-color] duration-fast ease-out-grid active:scale-95 disabled:opacity-60 aria-pressed:bg-danger aria-pressed:text-canvas"
-			}
+			class={props.class ?? FLOATING_MIC}
 		>
-			<MicIcon class={`size-5 ${listening() ? "motion-safe:animate-pulse" : ""}`} />
+			<MicIcon size="md" class={listening() ? "motion-safe:animate-pulse" : ""} />
 		</button>
 	);
 }
