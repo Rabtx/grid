@@ -81,6 +81,9 @@ times, with codes.
   src/modules/settings/components/diagnostics-screen.test.tsx src/styles/kit-guard.test.ts` —
   passed: 3 files, 5 tests, including the kit guard.
 - `git diff --check` — passed.
+- GitHub Actions for PR #133 did not start jobs because GitHub reports failed recent account
+  payments or a spending-limit block. Lint, typecheck, dependency review, and CodeQL are marked
+  failed before execution; test, build, API contract, and web E2E are skipped.
 
 ## Resolution
 
