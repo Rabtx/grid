@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { attachContextMenu, type MenuPoint } from "./context-menu";
 import { CloseIcon, FileIcon } from "./icons";
@@ -230,6 +230,12 @@ export function DiffCard(props: {
 	const [all, setAll] = createSignal(false);
 	const limit = () => props.limit ?? 80;
 	const shown = createMemo(() => (all() ? props.lines : props.lines.slice(0, limit())));
+	/**
+	 * Whether the rows carry their line numbers, taken once here: `<Show>` reads its condition
+	 * outside a tracking scope, so reading the prop inside the row loop warns in development. The
+	 * callers pass a constant either way, so nothing that changes re-renders.
+	 */
+	const showNumbers = untrack(() => props.numbered !== false);
 	const added = () => props.added ?? props.lines.filter((line) => line.kind === "add").length;
 	const removed = () => props.removed ?? props.lines.filter((line) => line.kind === "del").length;
 	return (
@@ -251,44 +257,45 @@ export function DiffCard(props: {
 							<For each={shown()}>
 								{(line) => (
 									<Show
-										when={line.kind !== "hunk" && line}
+										when={line.kind !== "hunk" ? line : null}
+										keyed
 										fallback={
 											<tr class="bg-fill text-fg-faint">
 												<td colspan={4} class="px-3 py-0.5">
-													{props.numbered === false ? "···" : (line as { text: string }).text}
+													{showNumbers ? (line as { text: string }).text : "···"}
 												</td>
 											</tr>
 										}
 									>
-										{(code) => {
-											const row = code() as Exclude<DiffLine, { kind: "hunk" }>;
+										{(row) => {
+											const code = row as Exclude<DiffLine, { kind: "hunk" }>;
 											return (
-												<tr data-kind={row.kind} class={LINE_TONE[row.kind]}>
-													<Show when={props.numbered !== false}>
+												<tr data-kind={code.kind} class={LINE_TONE[code.kind]}>
+													<Show when={showNumbers}>
 														<td class="hidden w-px select-none whitespace-nowrap px-1.5 text-right text-fg-faint md:table-cell">
-															{row.old ?? ""}
+															{code.old ?? ""}
 														</td>
 														<td class="w-px select-none whitespace-nowrap px-1.5 text-right text-fg-faint">
-															{row.new ?? row.old ?? ""}
+															{code.new ?? code.old ?? ""}
 														</td>
 													</Show>
 													<td
-														class={`w-px select-none pl-2 ${row.kind === "add" ? "text-success" : "text-danger"}`}
+														class={`w-px select-none pl-2 ${code.kind === "add" ? "text-success" : "text-danger"}`}
 													>
-														{LINE_MARK[row.kind]}
+														{LINE_MARK[code.kind]}
 													</td>
 													<Show
-														when={row.html}
+														when={code.html}
 														fallback={
 															<td class="whitespace-pre pr-3 pl-1 text-fg-muted">
-																{row.text || " "}
+																{code.text || " "}
 															</td>
 														}
 													>
 														{/* oxlint-disable-next-line jsx-a11y/control-has-associated-label -- a table cell of code, set as highlighted HTML */}
 														<td
 															class="whitespace-pre pr-3 pl-1 text-fg-muted"
-															innerHTML={row.html}
+															innerHTML={code.html}
 														/>
 													</Show>
 												</tr>

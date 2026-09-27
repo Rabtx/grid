@@ -4,6 +4,8 @@ import { createTokenVerifier, signedOut, type Verify } from "./auth";
 import { ChatHub } from "./chat/hub";
 import { ChatStore } from "./chat/store";
 import { readConfig } from "./config";
+import { DiagnosticJournal } from "./diagnostics/journal";
+import { installProcessDiagnostics } from "./diagnostics/runtime";
 import { isEnvironmentToken, PairingStore } from "./environments/pairing";
 import { checkEnvironmentUrl, EnvironmentStore } from "./environments/registry";
 import { type EnvironmentDeps, pairEnvironment } from "./environments/routes";
@@ -22,6 +24,8 @@ import { TerminalStore } from "./terminals";
 process.env.PATH = withAgentBins(process.env.PATH);
 
 const config = readConfig();
+const diagnostics = new DiagnosticJournal(config.chatDb);
+installProcessDiagnostics(diagnostics);
 const store = new TerminalStore(config, spawnPty);
 const chat = new ChatHub(new ChatStore(config.chatDb), providerRegistry(), config.projectsDir);
 // Everything waiting on the people in a workspace, kept in the same database as their chats.
@@ -29,6 +33,19 @@ const inbox = new InboxStore(config.chatDb);
 // A turn that ends, or an approval that waits, while no device is looking becomes a notification
 // and a row on the Inbox: one decision about what deserves attention, two things done with it.
 const push = new PushNotifier(config.chatDb);
+chat.onTurnFailed((session) => {
+	try {
+		diagnostics.record({
+			kind: "error",
+			source: "agent",
+			workspace: session.workspaceId,
+			message: "Agent turn ended with an error",
+			details: { sessionId: session.id },
+		});
+	} catch {
+		console.error("[runner] could not write an agent diagnostic event");
+	}
+});
 chat.onUnwatchedAttention((session, event) => {
 	const message = attentionMessage(session, event);
 	if (message) void push.notify(session.ownerId, message);
@@ -80,6 +97,7 @@ const githubInbox = new GithubInbox(inbox, {
 
 const server = startServer(config, store, verify, chat, {
 	push,
+	diagnostics,
 	pairing,
 	environments,
 	github,

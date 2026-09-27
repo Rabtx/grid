@@ -1,4 +1,4 @@
-import { runnerCall } from "@/lib/runner-client";
+import { runnerCall, RunnerError } from "@/lib/runner-client";
 import { placementsStore } from "@/modules/environments";
 
 export type ProjectFile = { name: string; path: string; kind: "file" | "folder" };
@@ -11,6 +11,8 @@ export type ProjectFileContent = {
 	text: string | null;
 	binary: boolean;
 	tooLarge: boolean;
+	/** Of `text`, the version a save is based on; null when there is no text. */
+	hash: string | null;
 };
 
 /** A project's files, on whichever machine the project runs. */
@@ -39,4 +41,35 @@ export const filesService = {
 			`${placementsStore.scopeOf(project)}/projects/files/${project}/search?q=${encodeURIComponent(query)}`,
 			token,
 		),
+	/**
+	 * Saves an edit onto the version of the file that was read. A refusal because the file
+	 * changed on disk since comes back as a `FileConflictError`, so the console can offer a
+	 * reload or an overwrite instead of quietly losing someone's work.
+	 */
+	save: (token: string, project: string, path: string, text: string, base: string) =>
+		runnerCall<ProjectFileContent>(
+			`${placementsStore.scopeOf(project)}/projects/files/${project}/content`,
+			token,
+			{ method: "PUT", body: JSON.stringify({ path, text, base }) },
+		).catch((cause: unknown) => {
+			throw cause instanceof RunnerError && cause.status === STALE_SAVE
+				? new FileConflictError(cause.message)
+				: cause;
+		}),
 };
+
+/** The runner's status for "this file is no longer the version you read". */
+const STALE_SAVE = 409;
+
+/** A save refused because the file on disk is no longer the version the edit was based on. */
+export class FileConflictError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "FileConflictError";
+	}
+}
+
+/** Whether a save failed because the file changed underneath it. */
+export function isFileConflict(cause: unknown): cause is FileConflictError {
+	return cause instanceof FileConflictError;
+}

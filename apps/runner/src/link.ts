@@ -25,6 +25,15 @@ export type LinkSocket = {
 	sendBinary: (bytes: Uint8Array) => void;
 };
 
+/**
+ * Hears channels open and end, from the frames this module already reads and writes. `closed`
+ * may name a channel that was never opened or already ended.
+ */
+export type LinkObserver = {
+	opened: (ch: number, kind: "chat" | "terminal", id: string) => void;
+	closed: (ch: number, code: number, reason: string) => void;
+};
+
 const MAX_CHANNELS = 256;
 
 function frame(ch: number, bytes: Uint8Array): Uint8Array {
@@ -58,6 +67,7 @@ export function linkMessage(
 	who: Who,
 	message: string | Uint8Array,
 	deps: { store: TerminalStore; chat: ChatHub },
+	observer?: LinkObserver,
 ): void {
 	if (typeof message !== "string") {
 		if (message.byteLength < 2) return;
@@ -84,6 +94,7 @@ export function linkMessage(
 		return;
 	}
 	if (control.t === "close") {
+		observer?.closed(ch, 1000, "Client detached");
 		link.channels.get(ch)?.detach();
 		link.channels.delete(ch);
 		return;
@@ -91,6 +102,7 @@ export function linkMessage(
 	if (control.t !== "open" || typeof control.id !== "string") return;
 
 	// Opening a channel number again replaces what was on it.
+	observer?.closed(ch, 1000, "Replaced");
 	link.channels.get(ch)?.detach();
 	link.channels.delete(ch);
 	let ended = false;
@@ -105,6 +117,7 @@ export function linkMessage(
 			if (ended) return;
 			ended = true;
 			socket.send(JSON.stringify({ t: "closed", ch, code, reason }));
+			observer?.closed(ch, code, reason);
 			link.channels.delete(ch);
 		},
 	};
@@ -112,6 +125,8 @@ export function linkMessage(
 		sink.close(1013, "Too many open terminals and chats on one connection");
 		return;
 	}
+	if (control.kind === "chat" || control.kind === "terminal")
+		observer?.opened(ch, control.kind, control.id);
 	const hello = { ...control, id: control.id };
 	const channel =
 		control.kind === "chat"

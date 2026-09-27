@@ -12,6 +12,7 @@ import {
 	AccountScreen,
 	AgentsScreen,
 	AppearanceScreen,
+	DiagnosticsScreen,
 	NotificationsScreen,
 	SettingsIndexScreen,
 	WorktreesScreen,
@@ -60,6 +61,7 @@ const Router = createRouter({
 		{ path: "/settings/environments", component: () => <Authed screen={EnvironmentsScreen} /> },
 		{ path: "/settings/connectors", component: () => <Authed screen={ConnectorsScreen} /> },
 		{ path: "/settings/worktrees", component: () => <Authed screen={WorktreesScreen} /> },
+		{ path: "/settings/diagnostics", component: () => <Authed screen={DiagnosticsScreen} /> },
 		{ path: "/settings/account", component: () => <Authed screen={AccountScreen} /> },
 		// The design system, every piece in every state; loads on its own when opened.
 		{ path: "/design", component: DesignRoute },

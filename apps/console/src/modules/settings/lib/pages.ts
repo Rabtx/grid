@@ -41,6 +41,11 @@ export const SETTINGS_SECTIONS = [
 				description: "Separate checkouts threads work in",
 			},
 			{
+				href: "/settings/diagnostics",
+				label: "Diagnostics",
+				description: "Runner errors and connection events",
+			},
+			{
 				href: "/settings/connectors",
 				label: "Connectors",
 				description: "GitHub and other services",

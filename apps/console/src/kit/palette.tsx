@@ -121,13 +121,22 @@ export function Palette<T extends string>(props: {
 	);
 }
 
-export type AutocompleteItem = { id: string; icon?: JSX.Element; label: string; hint?: string };
+export type AutocompleteItem = {
+	id: string;
+	icon?: JSX.Element;
+	label: string;
+	hint?: string;
+	/** A heading drawn before the first item of each run, e.g. who offers the command. */
+	group?: string;
+};
 
 /**
  * Suggestions floating above a text field while you type: @-mentions, / commands. The field keeps
  * the keyboard (arrows and Enter are the caller's); a pointer picks without blurring the field.
  */
 export function AutocompleteList(props: {
+	/** The list's id; each item's is `<id>-<index>`, for the field's `aria-activedescendant`. */
+	id: string;
 	label: string;
 	items: readonly AutocompleteItem[];
 	active: number;
@@ -139,7 +148,8 @@ export function AutocompleteList(props: {
 	createEffect(
 		() => props.active,
 		(index) => {
-			(list?.children[index] as HTMLElement | undefined)?.scrollIntoView?.({ block: "nearest" });
+			// Groups add heading rows, so match the item by its index rather than its position.
+			list?.querySelector(`[data-index="${index}"]`)?.scrollIntoView({ block: "nearest" });
 		},
 	);
 	return (
@@ -174,20 +184,33 @@ export function AutocompleteList(props: {
 					ref={(el) => {
 						list = el;
 					}}
+					id={props.id}
+					// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a native select cannot float suggestions while the field keeps the keyboard
+					role="listbox"
+					aria-label={props.label}
 					class="flex min-h-0 flex-1 flex-col overflow-y-auto p-1"
 				>
 					<For each={props.items}>
 						{(item, index) => (
-							<li>
-								<button
-									type="button"
-									aria-current={index() === props.active ? "true" : undefined}
+							<>
+								<Show when={item.group && props.items[index() - 1]?.group !== item.group}>
+									<li role="presentation" class="px-2 pt-2 pb-1 text-caption text-fg-subtle">
+										{item.group}
+									</li>
+								</Show>
+								{/* The field keeps the keyboard, so an option is picked by pointer only. */}
+								<li
+									data-index={index()}
+									id={`${props.id}-${index()}`}
+									// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- an option of the listbox above; a native option cannot hold icons and hints
+									role="option"
+									aria-selected={index() === props.active ? "true" : "false"}
 									onMouseDown={(event) => {
 										// Keep the field focused while the pick applies.
 										event.preventDefault();
 										props.onPick(item.id);
 									}}
-									class="flex h-8 w-full items-center gap-2 rounded-kit px-2 text-left text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=true]:bg-fill-strong aria-[current=true]:text-fg pointer-coarse:h-11"
+									class="flex h-8 w-full cursor-pointer items-center gap-2 rounded-kit px-2 text-left text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-selected:bg-fill-strong aria-selected:text-fg pointer-coarse:h-11"
 								>
 									<Show when={item.icon}>
 										<span class="shrink-0 text-fg-subtle">{item.icon}</span>
@@ -198,8 +221,8 @@ export function AutocompleteList(props: {
 											{item.hint}
 										</span>
 									</Show>
-								</button>
-							</li>
+								</li>
+							</>
 						)}
 					</For>
 				</ul>

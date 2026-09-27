@@ -191,7 +191,7 @@ export function useFileMentions(options: UseFileMentionsOptions): UseFileMention
 			return true;
 		}
 
-		if (event.key === "Enter" || event.key === "Tab") {
+		if ((event.key === "Enter" || event.key === "Tab") && !event.isComposing) {
 			event.preventDefault();
 			event.stopPropagation();
 			const selected = list[selectedIndex()];

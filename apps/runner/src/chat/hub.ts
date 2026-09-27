@@ -17,6 +17,13 @@ import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
 import type { Who } from "../auth";
 import { insideProjectsDir } from "../folders/folders";
+import {
+	isRetiredNotice,
+	type TurnErrorKind,
+	turnErrorKind,
+	turnErrorMessage,
+	turnRetryable,
+} from "./errors";
 import type {
 	ChatSessionRow,
 	ChatStore,
@@ -145,6 +152,7 @@ function isDirectory(path: string): boolean {
 export class ChatHub {
 	private readonly live = new Map<string, Live>();
 	private attention: AttentionListener | null = null;
+	private failedTurn: ((session: ChatSessionRow) => void) | null = null;
 
 	constructor(
 		private readonly store: ChatStore,
@@ -211,6 +219,11 @@ export class ChatHub {
 	/** Hear about turns that end, and approvals that wait, while nobody is watching the chat. */
 	onUnwatchedAttention(listener: AttentionListener): void {
 		this.attention = listener;
+	}
+
+	/** Hear about every turn that ends in an error, once per turn, watched or not. */
+	onTurnFailed(listener: (session: ChatSessionRow) => void): void {
+		this.failedTurn = listener;
 	}
 
 	/** The workspace's threads with an agent working right now, for the "running" indicators. */
@@ -634,15 +647,86 @@ export class ChatHub {
 			// A failed start leaves nothing to reuse.
 			live.agent = null;
 		}
+		const failure =
+			result.reason === "error" && result.error ? this.explainFailure(session, result.error) : null;
 		this.record(id, {
 			type: "turn_end",
 			reason: result.reason,
-			error: result.error,
+			error: failure?.error ?? result.error,
+			...(failure ? { retryable: failure.retryable } : {}),
 			at: new Date().toISOString(),
 		});
 		this.setRunning(id, live, false);
 		this.store.touch(id);
 		this.scheduleIdle(id, live);
+		// The model list can take a while (agy's does): the turn has ended by now, not after it.
+		if (failure?.kind === "model-gone" && failure.model) {
+			const model = failure.model;
+			void this.forgetGoneModel(session, model, result.error ?? "").catch((cause: unknown) => {
+				console.warn(
+					`[runner] Could not settle the model ${model} after it was refused:`,
+					cause instanceof Error ? cause.message : cause,
+				);
+			});
+		}
+	}
+
+	/**
+	 * A turn the agent failed, in words that say what to do about it: the model is gone, or the
+	 * provider is too busy, and whose side that is on. The agent's own text always stays, under
+	 * the plain line; any other failure is left exactly as it was said.
+	 */
+	private explainFailure(
+		session: ChatSessionRow,
+		error: string,
+	): { error: string; retryable: boolean; kind: TurnErrorKind | null; model: string | null } {
+		const kind = turnErrorKind(error);
+		const model = this.store.get(session.id)?.model ?? session.model;
+		if (!kind) return { error, retryable: false, kind, model };
+		const name = this.providers.get(session.provider)?.info().name ?? session.provider;
+		return {
+			error: turnErrorMessage(kind, name, model, error),
+			retryable: turnRetryable(kind),
+			kind,
+			model,
+		};
+	}
+
+	/**
+	 * After the agent said a model is gone: ask it for its models again (what "refresh models"
+	 * does), and only when its fresh list no longer has the model take it out of this chat. An
+	 * agent that still lists a model it retired (opencode's notice) has it dropped from the kept
+	 * list too; any other refusal of a model it still lists is left alone.
+	 */
+	private async forgetGoneModel(
+		session: ChatSessionRow,
+		model: string,
+		error: string,
+	): Promise<void> {
+		const info = await this.providerInfo(session.provider, true);
+		const listed = info.models.some((entry) => entry.id === model);
+		if (listed) {
+			if (!isRetiredNotice(error)) return;
+			this.store.dropCatalogModel(session.provider, model);
+		}
+		// Someone may have picked another model meanwhile: leave their choice alone.
+		if (this.store.get(session.id)?.model !== model) return;
+		this.store.update(session.id, { model: null });
+		// An idle agent still holds that model: close it, so the next message starts one without a
+		// model of its own instead of failing the same way again.
+		const live = this.live.get(session.id);
+		const opened = live?.agent;
+		if (live && opened && !live.running) {
+			live.agent = null;
+			opened
+				.then((agent) => agent.close())
+				.catch((cause: unknown) => {
+					console.warn(
+						"[runner] Could not close the agent after its model was refused:",
+						cause instanceof Error ? cause.message : cause,
+					);
+				});
+		}
 	}
 
 	cancel(workspace: string, id: string): void {
@@ -750,6 +834,10 @@ export class ChatHub {
 		) {
 			const session = this.store.get(id);
 			if (session) this.attention?.(session, event);
+		}
+		if (event.type === "turn_end" && event.reason === "error" && this.failedTurn) {
+			const session = this.store.get(id);
+			if (session) this.failedTurn(session);
 		}
 
 		if (event.type === "message" || event.type === "reasoning") {
