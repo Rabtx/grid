@@ -175,9 +175,11 @@ Decisions worth knowing:
 
 ### Review
 
-- human — requested on the PR for `agent/web/files-editor`; not merged, not self-approved.
+- human — requested on PR #134 (`agent/web/files-editor` → `main`); not merged, not self-approved.
+  The card moves to `done/` when that PR is reviewed and merged.
 
 ### Commit
 
 - `b1d61ff` — feat(files): edit project files in the browser, saved only onto the version read
-  (this card's update of the commit field is the only commit after it).
+  (fbb99b5 is this card's own record of the commit and validation).
+- PR #134: https://github.com/shabirkhan-dev/grid/pull/134
