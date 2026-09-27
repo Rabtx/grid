@@ -2,21 +2,26 @@ import { useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
 
-import { useAuth } from "@/modules/auth";
-import { MachinePicker, placementsStore, scopeFor } from "@/modules/environments";
 import {
+	Alert,
 	Button,
-	CloseIcon,
+	ColorSwatches,
 	ConfirmDialog,
-	ErrorNotice,
+	Dialog,
+	Disclosure,
 	Field,
 	FolderIcon,
-	IconButton,
+	GlyphChoices,
 	Icon,
 	Input,
-	SegmentedControl,
-	Sheet,
-} from "@/ui";
+	LinkButton,
+	Row,
+	Segmented,
+	Stack,
+	Text,
+} from "@/kit";
+import { useAuth } from "@/modules/auth";
+import { MachinePicker, placementsStore, scopeFor } from "@/modules/environments";
 
 import { useWorkspace } from "../context/workspace-context";
 import {
@@ -31,17 +36,6 @@ import { projectsService } from "../services/projects.service";
 
 import { FolderBrowser } from "./folder-browser";
 import { Mascot, ProjectIcon, SYMBOL_ICONS } from "./project-icon";
-
-function SheetHeader(props: { title: string; onClose: () => void }): JSX.Element {
-	return (
-		<header class="flex shrink-0 items-center gap-2 border-stroke border-b px-4 py-2.5">
-			<h2 class="min-w-0 flex-1 truncate font-semibold text-ui">{props.title}</h2>
-			<IconButton label="Close" onClick={props.onClose}>
-				<CloseIcon />
-			</IconButton>
-		</header>
-	);
-}
 
 /**
  * Add a project from a folder on this machine: pick the folder, then check the name and
@@ -121,97 +115,109 @@ export function AddProjectSheet(): JSX.Element {
 	}
 
 	return (
-		<Sheet placement="panel" open={workspace.addProjectOpen()} onClose={close} label="Add project">
-			<div class="flex h-full flex-col">
-				<SheetHeader
-					title={folder() ? "Add project" : "Choose the project's folder"}
-					onClose={close}
-				/>
-				<div class="flex min-h-0 flex-1 flex-col gap-3 p-4">
-					<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
-					<Switch>
-						<Match when={!folder()}>
-							<p class="text-ink/55 text-ui-sm">
-								The folder with the project's code. The project runs on the machine it is on: its
-								chats, agents, files and terminals.
-							</p>
-							<MachinePicker value={machine()} onChange={setMachine} />
-							{/* Mounted only while open, and again per machine: it lists folders on mount. */}
-							<Show when={workspace.addProjectOpen()}>
-								<For each={[scopeFor(machine())]}>
-									{(scope) => (
-										<FolderBrowser
-											scope={scope}
-											actionLabel="Use"
-											onPick={(path) => void pick(path)}
-										/>
-									)}
-								</For>
-							</Show>
-						</Match>
-						<Match when={folder()}>
-							{(path) => (
-								<form class="flex flex-col gap-4" onSubmit={(event) => void create(event)}>
-									<p class="flex items-center gap-2 rounded-lg bg-ink/5 px-3 py-2 font-mono text-ink/70 text-ui-xs">
-										<FolderIcon class="size-4 shrink-0" />
-										<span class="min-w-0 flex-1 truncate">{path()}</span>
-										<button
-											type="button"
-											class="focus-ring shrink-0 font-sans text-link text-ui-xs underline-offset-2 hover:underline"
-											onClick={() => setFolder(null)}
-										>
+		<Dialog
+			kind="drawer"
+			width="30rem"
+			open={workspace.addProjectOpen()}
+			onClose={close}
+			title={folder() ? "Add project" : "Choose the project's folder"}
+		>
+			<Stack gap={3} class="h-full min-h-0">
+				<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
+				<Switch>
+					<Match when={!folder()}>
+						<Text tone="subtle">
+							The folder with the project's code. The project runs on the machine it is on: its
+							chats, agents, files and terminals.
+						</Text>
+						<MachinePicker value={machine()} onChange={setMachine} />
+						{/* Mounted only while open, and again per machine: it lists folders on mount. */}
+						<Show when={workspace.addProjectOpen()}>
+							<For each={[scopeFor(machine())]}>
+								{(scope) => (
+									<FolderBrowser
+										scope={scope}
+										actionLabel="Use"
+										onPick={(path) => void pick(path)}
+									/>
+								)}
+							</For>
+						</Show>
+					</Match>
+					<Match when={folder()}>
+						{(path) => (
+							<form onSubmit={(event) => void create(event)}>
+								<Stack gap={4}>
+									<div class="surface-well flex min-w-0 items-center gap-2 px-3 py-2">
+										<FolderIcon size="sm" class="text-fg-subtle" />
+										<Text as="span" size="caption" tone="default" mono truncate class="flex-1">
+											{path()}
+										</Text>
+										<LinkButton tone="accent" onClick={() => setFolder(null)}>
 											Change
-										</button>
-									</p>
+										</LinkButton>
+									</div>
 									<Field label="Name">
-										<Input
-											value={name()}
-											required
-											maxlength={120}
-											onInput={(event) => {
-												setName(event.currentTarget.value);
-												if (!slugEdited()) setSlug(uniqueSlug(event.currentTarget.value));
-											}}
-										/>
+										{(id) => (
+											<Input
+												id={id}
+												value={name()}
+												required
+												maxlength={120}
+												onInput={(event) => {
+													setName(event.currentTarget.value);
+													if (!slugEdited()) setSlug(uniqueSlug(event.currentTarget.value));
+												}}
+											/>
+										)}
 									</Field>
 									{/* The name is all most projects need; the rest is filled in from the folder. */}
-									<details class="group/more">
-										<summary class="focus-ring w-fit cursor-pointer list-none rounded-sm text-ink/55 text-ui-sm hover:text-ink [&::-webkit-details-marker]:hidden">
-											More: short name <span class="font-mono">{slug()}</span>
-											{repoUrl() ? " · repository" : ""}
-										</summary>
-										<div class="mt-3 flex flex-col gap-4">
+									<Disclosure
+										summary={
+											<>
+												More: short name <span class="font-mono">{slug()}</span>
+												{repoUrl() ? " · repository" : ""}
+											</>
+										}
+									>
+										<Stack gap={4} class="pt-2">
 											<Field
 												label="Short name"
 												hint="Used in links: lowercase letters, numbers and dashes."
 											>
-												<Input
-													value={slug()}
-													required
-													minlength={2}
-													maxlength={64}
-													pattern="[a-z0-9]([a-z0-9\-]*[a-z0-9])?"
-													autocapitalize="off"
-													spellcheck={false}
-													class="font-mono"
-													onInput={(event) => {
-														setSlugEdited(true);
-														setSlug(event.currentTarget.value.toLowerCase());
-													}}
-												/>
+												{(id) => (
+													<Input
+														id={id}
+														value={slug()}
+														required
+														minlength={2}
+														maxlength={64}
+														pattern="[a-z0-9]([a-z0-9\-]*[a-z0-9])?"
+														autocapitalize="off"
+														spellcheck={false}
+														class="font-mono"
+														onInput={(event) => {
+															setSlugEdited(true);
+															setSlug(event.currentTarget.value.toLowerCase());
+														}}
+													/>
+												)}
 											</Field>
 											<Field label="Repository" hint="Read from the folder's git remote; optional.">
-												<Input
-													type="url"
-													value={repoUrl()}
-													placeholder="https://github.com/you/project"
-													autocapitalize="off"
-													spellcheck={false}
-													onInput={(event) => setRepoUrl(event.currentTarget.value)}
-												/>
+												{(id) => (
+													<Input
+														id={id}
+														type="url"
+														value={repoUrl()}
+														placeholder="https://github.com/you/project"
+														autocapitalize="off"
+														spellcheck={false}
+														onInput={(event) => setRepoUrl(event.currentTarget.value)}
+													/>
+												)}
 											</Field>
-										</div>
-									</details>
+										</Stack>
+									</Disclosure>
 									<Button
 										type="submit"
 										variant="primary"
@@ -220,13 +226,13 @@ export function AddProjectSheet(): JSX.Element {
 									>
 										{saving() ? "Adding…" : "Add project"}
 									</Button>
-								</form>
-							)}
-						</Match>
-					</Switch>
-				</div>
-			</div>
-		</Sheet>
+								</Stack>
+							</form>
+						)}
+					</Match>
+				</Switch>
+			</Stack>
+		</Dialog>
 	);
 }
 
@@ -270,36 +276,34 @@ export function ChooseFolderSheet(): JSX.Element {
 	}
 
 	return (
-		<Sheet
-			placement="panel"
+		<Dialog
+			kind="drawer"
+			width="30rem"
 			open={workspace.choosingFolderFor() !== null}
 			onClose={close}
-			label="Choose folder"
+			title={`Folder for ${project()?.name ?? "this project"}`}
 		>
-			<div class="flex h-full flex-col">
-				<SheetHeader title={`Folder for ${project()?.name ?? "this project"}`} onClose={close} />
-				<div class="flex min-h-0 flex-1 flex-col gap-3 p-4">
-					<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
-					<MachinePicker value={machine()} onChange={setMachine} />
-					<Show when={workspace.choosingFolderFor()}>
-						<For each={[scopeFor(machine())]}>
-							{(scope) => (
-								<FolderBrowser
-									scope={scope}
-									start={
-										machine() === placementsStore.environmentOf(workspace.choosingFolderFor())
-											? workspace.folders()[workspace.choosingFolderFor() ?? ""]
-											: undefined
-									}
-									actionLabel="Use"
-									onPick={(path) => void link(path)}
-								/>
-							)}
-						</For>
-					</Show>
-				</div>
-			</div>
-		</Sheet>
+			<Stack gap={3} class="h-full min-h-0">
+				<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
+				<MachinePicker value={machine()} onChange={setMachine} />
+				<Show when={workspace.choosingFolderFor()}>
+					<For each={[scopeFor(machine())]}>
+						{(scope) => (
+							<FolderBrowser
+								scope={scope}
+								start={
+									machine() === placementsStore.environmentOf(workspace.choosingFolderFor())
+										? workspace.folders()[workspace.choosingFolderFor() ?? ""]
+										: undefined
+								}
+								actionLabel="Use"
+								onPick={(path) => void link(path)}
+							/>
+						)}
+					</For>
+				</Show>
+			</Stack>
+		</Dialog>
 	);
 }
 
@@ -340,9 +344,29 @@ export function ProjectActionDialogs(): JSX.Element {
 
 	return (
 		<>
-			<Sheet open={action()?.kind === "rename"} onClose={close} label="Rename project">
+			<Dialog
+				open={action()?.kind === "rename"}
+				onClose={close}
+				title="Rename project"
+				width="26rem"
+				footer={
+					<>
+						<Button variant="ghost" onClick={close}>
+							Cancel
+						</Button>
+						<Button
+							type="submit"
+							form="rename-project-form"
+							variant="primary"
+							disabled={pending() || !name().trim()}
+						>
+							{pending() ? "Saving…" : "Save"}
+						</Button>
+					</>
+				}
+			>
 				<form
-					class="flex flex-col gap-4 p-4"
+					id="rename-project-form"
 					onSubmit={(event) => {
 						event.preventDefault();
 						const slug = action()?.slug;
@@ -350,38 +374,35 @@ export function ProjectActionDialogs(): JSX.Element {
 						if (slug && next) void run(() => workspace.renameProject(slug, next));
 					}}
 				>
-					<h2 class="font-semibold text-ui">Rename project</h2>
-					<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
-					<Field label="Name">
-						<Input
-							value={name()}
-							required
-							maxlength={120}
-							onInput={(event) => setName(event.currentTarget.value)}
-						/>
-					</Field>
-					<div class="flex justify-end gap-2">
-						<Button type="button" variant="ghost" onClick={close}>
-							Cancel
-						</Button>
-						<Button type="submit" variant="primary" disabled={pending() || !name().trim()}>
-							{pending() ? "Saving…" : "Save"}
-						</Button>
-					</div>
+					<Stack gap={4}>
+						<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
+						<Field label="Name">
+							{(id) => (
+								<Input
+									id={id}
+									value={name()}
+									required
+									maxlength={120}
+									onInput={(event) => setName(event.currentTarget.value)}
+								/>
+							)}
+						</Field>
+					</Stack>
 				</form>
-			</Sheet>
+			</Dialog>
 			<ConfirmDialog
 				open={action()?.kind === "remove"}
 				title={`Remove ${project()?.name ?? "this project"}?`}
 				description={`It leaves Grid; the folder on this machine and its chats stay as they are.${error() ? ` ${error()}` : ""}`}
-				confirmLabel="Remove"
-				tone="danger"
+				confirm="Remove"
+				danger
 				pending={pending()}
+				stayOpen
 				onConfirm={() => {
 					const slug = action()?.slug;
 					if (slug) void run(() => workspace.removeProject(slug));
 				}}
-				onCancel={close}
+				onClose={close}
 			/>
 		</>
 	);
@@ -445,72 +466,52 @@ export function ProjectLookSheet(): JSX.Element {
 		}
 	}
 
-	const choice =
-		"focus-ring grid size-9 place-items-center rounded-lg text-ink/70 hover:bg-ink/8 aria-pressed:bg-selection-strong aria-pressed:text-ink aria-pressed:ring-1 aria-pressed:ring-ink/20 pointer-coarse:size-11";
-
 	return (
-		<Sheet open={open()} onClose={close} label="Customize project">
-			<div class="flex max-h-[85dvh] flex-col gap-4 overflow-y-auto p-4 md:max-h-[75dvh]">
-				<div class="flex items-center gap-3">
-					<div class="grid size-12 place-items-center rounded-xl bg-ink/5">
+		<Dialog
+			open={open()}
+			onClose={close}
+			title="Customize project"
+			width="30rem"
+			footer={
+				<>
+					<Button variant="ghost" onClick={close}>
+						Cancel
+					</Button>
+					<Button variant="primary" disabled={pending()} onClick={() => void save()}>
+						{pending() ? "Saving…" : "Save"}
+					</Button>
+				</>
+			}
+		>
+			<Stack gap={5}>
+				<Row gap={3}>
+					<div class="surface-well grid size-12 shrink-0 place-items-center">
 						<ProjectIcon project={preview()} running class="size-7" />
 					</div>
 					<div class="min-w-0">
-						<h2 class="truncate font-semibold text-ui">{project()?.name ?? "Project"}</h2>
-						<p class="text-ink/45 text-ui-xs">Shown moving while one of its threads works.</p>
+						<Text tone="strong" weight="medium" truncate>
+							{project()?.name ?? "Project"}
+						</Text>
+						<Text size="caption" tone="subtle">
+							Shown moving while one of its threads works.
+						</Text>
 					</div>
-				</div>
-				<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
+				</Row>
+				<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
 
-				<fieldset class="flex flex-col gap-2 border-0 p-0">
-					<legend class="mb-2 font-medium text-ink/70 text-ui-sm">Colour</legend>
-					<div class="flex flex-wrap items-center gap-2">
-						<button
-							type="button"
-							aria-pressed={color() === null ? "true" : "false"}
-							title="Automatic"
-							onClick={() => setColor(null)}
-							class="focus-ring grid size-7 place-items-center rounded-full border border-ink/20 border-dashed text-ink/50 text-ui-caption aria-pressed:ring-2 aria-pressed:ring-ink/60 pointer-coarse:size-9"
-						>
-							A
-						</button>
-						<For each={PROJECT_COLORS}>
-							{(swatch) => (
-								<button
-									type="button"
-									aria-label={swatch.id}
-									title={swatch.id}
-									aria-pressed={color() === swatch.id ? "true" : "false"}
-									onClick={() => setColor(swatch.id)}
-									class="focus-ring size-7 rounded-full aria-pressed:ring-2 aria-pressed:ring-ink/70 aria-pressed:ring-offset-2 aria-pressed:ring-offset-canvas pointer-coarse:size-9"
-									style={{ background: swatch.value }}
-								/>
-							)}
-						</For>
-						<label
-							class="focus-within:ring-2 relative grid size-7 cursor-pointer place-items-center overflow-hidden rounded-full border border-ink/20 pointer-coarse:size-9"
-							title="Custom colour"
-							style={{
-								background: color()?.startsWith("#")
-									? (color() ?? undefined)
-									: "conic-gradient(from 90deg, #ef4444, #f59e0b, #10b981, #3b82f6, #8b5cf6, #ef4444)",
-							}}
-						>
-							<input
-								type="color"
-								aria-label="Custom colour"
-								value={color()?.startsWith("#") ? (color() ?? "#4d9ef5") : "#4d9ef5"}
-								onInput={(event) => setColor(event.currentTarget.value)}
-								class="absolute inset-0 cursor-pointer opacity-0"
-							/>
-						</label>
-					</div>
-				</fieldset>
+				<ColorSwatches
+					label="Colour"
+					options={PROJECT_COLORS}
+					value={color()}
+					onChange={setColor}
+				/>
 
-				<div class="flex flex-col gap-2">
-					<div class="flex items-center justify-between gap-2">
-						<span class="font-medium text-ink/70 text-ui-sm">Icon</span>
-						<SegmentedControl
+				<Stack gap={2}>
+					<Row gap={2} justify="between">
+						<Text as="span" tone="strong" weight="medium">
+							Icon
+						</Text>
+						<Segmented<LookTab>
 							label="Icon kind"
 							options={[
 								{ value: "symbols", label: "Symbols" },
@@ -520,78 +521,54 @@ export function ProjectLookSheet(): JSX.Element {
 							value={tab()}
 							onChange={setTab}
 						/>
-					</div>
-					<div class="flex flex-wrap gap-1" style={{ color: projectColor(preview()) }}>
-						<Switch>
-							<Match when={tab() === "symbols"}>
-								<For each={PROJECT_SYMBOLS}>
-									{(id) => (
-										<button
-											type="button"
-											aria-label={id}
-											title={id}
-											aria-pressed={icon() === `symbol:${id}` ? "true" : "false"}
-											onClick={() => setIcon(`symbol:${id}`)}
-											class={choice}
-											style={{ color: "inherit" }}
-										>
-											<Icon icon={SYMBOL_ICONS[id]} class="size-4.5" />
-										</button>
-									)}
-								</For>
-							</Match>
-							<Match when={tab() === "mascots"}>
-								<For each={Object.keys(PROJECT_MASCOTS)}>
-									{(id) => (
-										<button
-											type="button"
-											aria-label={id}
-											title={id}
-											aria-pressed={icon() === `mascot:${id}` ? "true" : "false"}
-											onClick={() => setIcon(`mascot:${id}`)}
-											class={choice}
-											style={{ color: "inherit" }}
-										>
-											<Mascot id={id} busy={icon() === `mascot:${id}`} class="size-5" />
-										</button>
-									)}
-								</For>
-							</Match>
-							<Match when={tab() === "simple"}>
-								<button
-									type="button"
-									aria-pressed={icon() === null || icon() === "folder" ? "true" : "false"}
-									onClick={() => setIcon(null)}
-									class={`${choice} w-auto gap-1.5 px-3 text-ui-sm`}
-									style={{ color: "inherit" }}
-								>
-									<FolderIcon class="size-4" />
-									Folder
-								</button>
-								<button
-									type="button"
-									aria-pressed={icon() === "letter" ? "true" : "false"}
-									onClick={() => setIcon("letter")}
-									class={`${choice} w-auto gap-1.5 px-3 text-ui-sm`}
-									style={{ color: "inherit" }}
-								>
-									<ProjectIcon project={{ ...preview(), icon: "letter" }} />
-									Letter
-								</button>
-							</Match>
-						</Switch>
-					</div>
-				</div>
-
-				<div class="flex flex-col-reverse gap-2 md:flex-row md:justify-end">
-					<Button variant="ghost" onClick={close}>
-						Cancel
-					</Button>
-					<Button variant="primary" disabled={pending()} onClick={() => void save()}>
-						{pending() ? "Saving…" : "Save"}
-					</Button>
-				</div>
-			</div>
-		</Sheet>
+					</Row>
+					<Switch>
+						<Match when={tab() === "symbols"}>
+							<GlyphChoices
+								label="Symbols"
+								color={projectColor(preview())}
+								value={icon()}
+								onChange={setIcon}
+								options={PROJECT_SYMBOLS.map((id) => ({
+									value: `symbol:${id}`,
+									label: id,
+									glyph: <Icon icon={SYMBOL_ICONS[id]} size="md" />,
+								}))}
+							/>
+						</Match>
+						<Match when={tab() === "mascots"}>
+							<GlyphChoices
+								label="Mascots"
+								color={projectColor(preview())}
+								value={icon()}
+								onChange={setIcon}
+								options={Object.keys(PROJECT_MASCOTS).map((id) => ({
+									value: `mascot:${id}`,
+									label: id,
+									glyph: <Mascot id={id} busy={icon() === `mascot:${id}`} class="size-5" />,
+								}))}
+							/>
+						</Match>
+						<Match when={tab() === "simple"}>
+							<GlyphChoices
+								label="Simple"
+								wide
+								color={projectColor(preview())}
+								value={icon() === null ? "folder" : icon()}
+								onChange={(value) => setIcon(value === "folder" ? null : value)}
+								options={[
+									{ value: "folder", label: "Folder", glyph: <FolderIcon size="sm" /> },
+									{
+										value: "letter",
+										label: "Letter",
+										glyph: <ProjectIcon project={{ ...preview(), icon: "letter" }} />,
+									},
+								]}
+							/>
+						</Match>
+					</Switch>
+				</Stack>
+			</Stack>
+		</Dialog>
 	);
 }

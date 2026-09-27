@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 
 import { AlertIcon, CheckIcon, ChevronDownIcon, SpinnerIcon } from "./icons";
 
@@ -136,6 +136,30 @@ export function CodeBlock(props: { label: string; code: string }): JSX.Element {
 			</div>
 			<pre class="overflow-x-auto px-3 pb-3 font-mono text-caption text-fg-muted leading-5">
 				{props.code}
+			</pre>
+		</div>
+	);
+}
+
+/**
+ * A file to read: its lines numbered in a gutter, long lines scrolling sideways, the text
+ * selectable without the numbers. For files the console shows rather than edits.
+ */
+export function CodeView(props: { text: string }): JSX.Element {
+	const lines = createMemo(() => {
+		const count = props.text.split("\n").length - (props.text.endsWith("\n") ? 1 : 0);
+		return Array.from({ length: Math.max(count, 1) }, (_, index) => index + 1).join("\n");
+	});
+	return (
+		<div class="flex min-w-0 font-mono text-caption leading-5">
+			<pre
+				aria-hidden="true"
+				class="shrink-0 select-none border-line border-r px-3 py-3 text-right text-fg-faint tabular-nums"
+			>
+				{lines()}
+			</pre>
+			<pre class="min-w-0 flex-1 overflow-x-auto px-4 py-3 text-fg-muted" style={{ "tab-size": 4 }}>
+				{props.text}
 			</pre>
 		</div>
 	);

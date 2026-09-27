@@ -121,3 +121,19 @@ export function LinkButton(
 		</button>
 	);
 }
+
+/** A link that reads like `LinkButton`: going somewhere (an open chat) rather than doing something. */
+export function TextLink(
+	props: JSX.AnchorHTMLAttributes<HTMLAnchorElement> & {
+		tone?: "subtle" | "accent";
+		icon?: JSX.Element;
+	},
+): JSX.Element {
+	const rest = omit(props, "tone", "icon", "class", "children");
+	return (
+		<a {...rest} class={linkButton({ tone: props.tone, class: props.class })}>
+			{props.icon}
+			<span class="min-w-0 truncate">{props.children}</span>
+		</a>
+	);
+}

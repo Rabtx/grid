@@ -54,6 +54,17 @@ describe("FilesScreen", () => {
 					});
 				if (url.endsWith("/projects")) return json([project]);
 				if (url.endsWith("/projects/folders")) return json({ alpha: "/tmp/alpha" });
+				if (url.includes("/projects/files/alpha/content")) {
+					const path = new URL(url).searchParams.get("path") ?? "";
+					return json({
+						path,
+						name: path.split("/").pop(),
+						size: 12,
+						text: "# Alpha\nhello",
+						binary: false,
+						tooLarge: false,
+					});
+				}
 				if (url.includes("/projects/files/alpha")) {
 					if (init?.method === "POST") {
 						created = JSON.parse(String(init.body)) as typeof created;
@@ -108,14 +119,29 @@ describe("FilesScreen", () => {
 		folder?.click();
 		await settle();
 		expect(calls.some((url) => url.endsWith("/projects/files/alpha?path=src"))).toBe(true);
-		expect(container.textContent).toContain("This folder is empty");
+		expect(folder?.getAttribute("aria-expanded")).toBe("true");
+		expect(container.textContent).toContain("Empty");
+	});
+
+	it("opens a file beside the tree with its lines numbered", async () => {
+		await settle();
+		const file = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+			(button) => button.textContent?.trim() === "readme.md",
+		);
+		file?.click();
+		await settle();
+		expect(calls.some((url) => url.endsWith("/projects/files/alpha/content?path=readme.md"))).toBe(
+			true,
+		);
+		expect(file?.getAttribute("aria-current")).toBe("true");
+		const [gutter, code] = [...container.querySelectorAll("pre")];
+		expect(gutter?.textContent).toBe("1\n2");
+		expect(code?.textContent).toBe("# Alpha\nhello");
 	});
 
 	it("creates a file in the current directory", async () => {
 		await settle();
-		const add = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
-			(button) => button.textContent?.trim() === "File",
-		);
+		const add = container.querySelector<HTMLButtonElement>('button[aria-label="New file"]');
 		expect(add).toBeDefined();
 		add?.click();
 		await settle();
@@ -126,7 +152,7 @@ describe("FilesScreen", () => {
 			input.dispatchEvent(new Event("input", { bubbles: true }));
 		}
 		await settle();
-		container.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+		input?.form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 		await settle();
 		expect(created).toEqual({ path: "", name: "notes.md", kind: "file" });
 		expect(container.textContent).toContain("notes.md");

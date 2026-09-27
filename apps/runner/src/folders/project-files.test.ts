@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { FolderError } from "./folders";
-import { createProjectFile, listProjectFiles, searchProjectFiles } from "./project-files";
+import {
+	createProjectFile,
+	listProjectFiles,
+	MAX_READ_BYTES,
+	readProjectFile,
+	searchProjectFiles,
+} from "./project-files";
 
 const root = mkdtempSync(join(tmpdir(), "grid-project-files-"));
 const outside = mkdtempSync(join(tmpdir(), "grid-other-files-"));
@@ -12,6 +18,7 @@ mkdirSync(join(root, "src"));
 mkdirSync(join(root, "node_modules"));
 writeFileSync(join(root, "readme.md"), "hello");
 symlinkSync(outside, join(root, "outside"));
+writeFileSync(join(outside, "secret.txt"), "nope");
 
 afterAll(() => {
 	rmSync(root, { recursive: true, force: true });
@@ -61,5 +68,25 @@ describe("project files", () => {
 
 		const fuzzy = searchProjectFiles(root, "sat");
 		expect(fuzzy).toContain("src/app.test.ts");
+	});
+
+	it("reads a text file, and names binary and oversized files without their contents", () => {
+		expect(readProjectFile(root, "readme.md")).toEqual({
+			path: "readme.md",
+			name: "readme.md",
+			size: 5,
+			text: "hello",
+			binary: false,
+			tooLarge: false,
+		});
+		writeFileSync(join(root, "logo.png"), Buffer.from([0x89, 0x50, 0x00, 0x47]));
+		expect(readProjectFile(root, "logo.png")).toMatchObject({ text: null, binary: true });
+		writeFileSync(join(root, "big.log"), "x".repeat(MAX_READ_BYTES + 1));
+		expect(readProjectFile(root, "big.log")).toMatchObject({ text: null, tooLarge: true });
+	});
+
+	it("refuses to read folders, missing files and anything outside the project", () => {
+		for (const path of ["src", "missing.txt", "../x", "/etc/hosts", "outside/secret.txt"])
+			expect(() => readProjectFile(root, path)).toThrow(FolderError);
 	});
 });
