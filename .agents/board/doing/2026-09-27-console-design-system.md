@@ -81,7 +81,20 @@ references very closely, Inter, fix look and feel and navigation/layout, gallery
    `PaneHeader`, `ListRow`, `FolderTree`, `CodeView`, `ProjectMark`/`PixelMark`,
    `ColorSwatches`, `GlyphChoices`, `TextLink`.
 
+7. **Shell and board matched to the /design prototype (agent/frontend/match-prototype).** The
+   desktop title bar is the sidebar toggle and the tabs (or the screen's name) only: the
+   project-views switcher repeated the sidebar and is gone, and "New task" moved into the board's
+   toolbar. The phone bar centres the title with one action (New task on the board, New chat
+   elsewhere). The board is full-bleed with lanes running to the bottom and scrolling their own
+   cards; the toolbar reads search, view, owner, then New task. The home heading keeps "in" on
+   its first line, the model chip shows the short model name, and thread tabs size to their
+   titles.
+
 ### Validation
+
+- Prototype match: console vitest 47 files / 288 tests (top-bar tests cover the phone action);
+  guard, lint, typecheck, architecture and naming pass. Compared against /design at 1280px and
+  375px on home, a thread and the board, signed in as the demo account.
 
 - Files port: console vitest 47 files / 286 tests, runner 110 tests (file reads: text, binary,
   oversized, traversal and symlink escapes refused); guard, lint, typecheck, architecture and

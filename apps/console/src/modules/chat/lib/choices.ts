@@ -86,3 +86,16 @@ export function mergeModels(catalog: readonly Choice[], live: readonly Choice[])
 	const known = new Set(catalog.map((model) => model.id));
 	return [...catalog, ...live.filter((model) => !known.has(model.id))];
 }
+
+/**
+ * A model's name for the composer chip: the agent's "Default · " prefix and any trailing
+ * detail in brackets are dropped, so "Default · Opus 5.5 (1M context)" reads "Opus 5.5". The
+ * picker itself shows the full name.
+ */
+export function shortModelName(name: string): string {
+	const short = name
+		.replace(/^[^·]*·\s*/, "")
+		.replace(/\s*\([^)]*\)\s*$/, "")
+		.trim();
+	return short || name;
+}

@@ -183,7 +183,7 @@ export function BoardLanes(props: {
 		<>
 			<Show when={moveError()}>
 				{(message) => (
-					<div class="mb-2">
+					<div class="mb-2 shrink-0">
 						<Alert tone="danger" title={message()} onDismiss={clearMoveError} />
 					</div>
 				)}

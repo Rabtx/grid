@@ -7,6 +7,7 @@ import {
 	mergeModels,
 	modeDescription,
 	modeGlyph,
+	shortModelName,
 } from "./choices";
 
 const models = [
@@ -104,5 +105,13 @@ describe("modeDescription", () => {
 			"Allow commands and edits without asking",
 		);
 		expect(modeDescription({ id: "custom", name: "Custom" })).toBeNull();
+	});
+});
+
+describe("shortModelName", () => {
+	it("drops the agent's default prefix and bracketed detail for the chip", () => {
+		expect(shortModelName("Default · Opus 5.5 (1M context)")).toBe("Opus 5.5");
+		expect(shortModelName("MiMo-V2.6-Flash Free")).toBe("MiMo-V2.6-Flash Free");
+		expect(shortModelName("(beta)")).toBe("(beta)");
 	});
 });

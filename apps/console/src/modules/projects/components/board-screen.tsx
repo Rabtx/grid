@@ -25,13 +25,19 @@ import { BoardToolbar, type BoardView } from "./board-toolbar";
 import { StageTabs } from "./stage-tabs";
 import { StatusIcon } from "./status-icon";
 
+/**
+ * A project's board, edge to edge like the prototype: the toolbar, then lanes that run to the
+ * bottom of the screen, each scrolling its own cards.
+ */
 export function BoardScreen(): JSX.Element {
 	return (
-		<Loading fallback={<BoardSkeleton />}>
-			<Errored fallback={(error, reset) => <BoardError error={error()} onRetry={reset} />}>
-				<Board />
-			</Errored>
-		</Loading>
+		<div class="flex min-h-0 flex-1 flex-col px-4 pt-3 md:px-6 md:pt-4">
+			<Loading fallback={<BoardSkeleton />}>
+				<Errored fallback={(error, reset) => <BoardError error={error()} onRetry={reset} />}>
+					<Board />
+				</Errored>
+			</Loading>
+		</div>
 	);
 }
 
@@ -105,10 +111,11 @@ function Board(): JSX.Element {
 				owner={owner()}
 				ownerOptions={options()}
 				onOwnerChange={(next) => setSearchParams({ owner: next === "all" ? undefined : next })}
+				onNewTask={() => workspace.setNewTaskOpen(true)}
 			/>
 			{/* The bar already shows the total; only a filter makes a count worth repeating. */}
 			<Show when={isFiltered()}>
-				<Text tone="subtle" tabular class="mb-2">
+				<Text tone="subtle" tabular class="mb-2 shrink-0">
 					{filteredTasks().length} of {workspace.tasks().length} tasks
 				</Text>
 			</Show>
