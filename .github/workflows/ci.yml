@@ -66,6 +66,31 @@ jobs:
       - name: Typecheck
         run: bun run ci:typecheck
 
+  build:
+    needs: [lint, typecheck]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Cache Bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock', '**/package.json') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run ci:build
+
   test:
     needs: [lint, typecheck]
     runs-on: ubuntu-latest
@@ -104,6 +129,18 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock', '**/package.json') }}
           restore-keys: ${{ runner.os }}-bun-
 
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            packages/logger/rust/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('packages/logger/rust/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
@@ -117,6 +154,12 @@ jobs:
         env:
           DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
 
+      - name: Rust lint
+        run: bun run rust:lint
+
+      - name: Rust test
+        run: bun run rust:test
+
       - name: Upload coverage artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -126,6 +169,78 @@ jobs:
             apps/web/coverage
             packages/logger/coverage
           if-no-files-found: warn
+
+  api-contract:
+    needs: [lint, typecheck]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      CONTRACT_API_URL: http://127.0.0.1:4000
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Cache Bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock', '**/package.json') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Migrate the database
+        run: bun packages/db/src/migrate.ts
+
+      # The suite signs in as the seeded demo account, so the database has to be seeded.
+      - name: Seed the database
+        run: bun run --cwd=packages/db seed
+
+      - name: Start the API
+        run: |
+          bun apps/api/src/main.ts > /tmp/grid-api.log 2>&1 &
+          echo "$!" > /tmp/grid-api.pid
+          for _ in $(seq 1 60); do
+            if curl --fail --silent "$CONTRACT_API_URL/api/v1/health" > /dev/null; then
+              echo "api healthy"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "api did not become healthy" >&2
+          cat /tmp/grid-api.log >&2 || true
+          exit 1
+
+      - name: Contract tests
+        run: bun run ci:test:contract
+
+      - name: API log
+        if: failure()
+        run: cat /tmp/grid-api.log
+
+      - name: Stop the API
+        if: always()
+        run: kill "$(cat /tmp/grid-api.pid)" 2>/dev/null || true
 
   e2e-web:
     needs: [test]
