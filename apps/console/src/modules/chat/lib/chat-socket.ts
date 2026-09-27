@@ -6,7 +6,7 @@ import type { ChatEvent, ChatSession } from "../types/chat.types";
 export type ChatConnection = "connecting" | "open" | "reconnecting" | "gone" | "signed-out";
 
 export type ChatCommand =
-	| { t: "prompt"; text: string }
+	| { t: "prompt"; text: string; attachments?: string[] }
 	| { t: "cancel" }
 	| { t: "approve"; id: string; optionId: string | null }
 	| { t: "configure"; model?: string; mode?: string; effort?: string };

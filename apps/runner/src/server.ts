@@ -163,7 +163,25 @@ export function startServer(
 				if (who instanceof Response) return who;
 				const target = environments.store.target(who.workspace, environmentId);
 				if (!target) return error(404, "That environment does not exist");
-				return relayHttp(request, path, url.search, target, environments.fetcher);
+				const response = await relayHttp(request, path, url.search, target, environments.fetcher);
+				if (
+					request.method === "GET" &&
+					/^\/chat\/sessions\/[\w-]+\/attachments\/[\w-]+$/.test(path) &&
+					response.ok
+				) {
+					const mediaType = response.headers.get("Content-Type") ?? "";
+					if (!/^image\/(png|jpeg|gif|webp)$/.test(mediaType)) {
+						response.headers.set("Content-Type", "application/octet-stream");
+						// The file's name may come through; never an inline disposition.
+						const disposition = response.headers.get("Content-Disposition") ?? "";
+						if (!disposition.startsWith("attachment"))
+							response.headers.set("Content-Disposition", "attachment");
+					}
+					response.headers.set("X-Content-Type-Options", "nosniff");
+					response.headers.set("Content-Security-Policy", "default-src 'none'; sandbox");
+					response.headers.set("Cache-Control", "private, no-store");
+				}
+				return response;
 			}
 
 			if (github && (url.pathname === "/github" || url.pathname.startsWith("/github/"))) {

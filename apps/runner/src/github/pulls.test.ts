@@ -5,7 +5,15 @@ import { join } from "node:path";
 
 import { GitHubError } from "./codespaces";
 import type { Gh, GhResult } from "./gh";
-import { checksState, conversation, PullRequests, readCheck, repoOf, splitDiff } from "./pulls";
+import {
+	checksState,
+	conversation,
+	PullRequests,
+	readCheck,
+	repoOf,
+	reviewComments,
+	splitDiff,
+} from "./pulls";
 
 const folders: string[] = [];
 afterAll(() => {
@@ -148,6 +156,65 @@ describe("reading GitHub's answers", () => {
 		expect(files[0].patch).toBe("@@ -1,2 +1,2 @@\n keep\n-old\n+new");
 	});
 
+	it("keeps only the unresolved review comments, with where they hang", () => {
+		const found = reviewComments({
+			data: {
+				repository: {
+					pullRequest: {
+						reviewThreads: {
+							nodes: [
+								{
+									isResolved: false,
+									comments: {
+										nodes: [
+											{
+												author: { login: "bo" },
+												path: "src/a.ts",
+												line: 12,
+												originalLine: 9,
+												body: "Rename",
+											},
+											{
+												author: null,
+												path: "src/a.ts",
+												line: null,
+												body: "  ",
+											},
+										],
+									},
+								},
+								{
+									isResolved: true,
+									comments: {
+										nodes: [{ author: { login: "cy" }, path: "src/b.ts", line: 3, body: "Done" }],
+									},
+								},
+								// A thread GitHub did not mark: treated as unresolved, at its original line.
+								{
+									comments: {
+										nodes: [
+											{
+												author: { login: "di" },
+												path: "src/c.ts",
+												line: null,
+												originalLine: 5,
+												body: "File note",
+											},
+										],
+									},
+								},
+							],
+						},
+					},
+				},
+			},
+		});
+		expect(found).toEqual([
+			{ author: "bo", path: "src/a.ts", line: 12, body: "Rename" },
+			{ author: "di", path: "src/c.ts", line: 5, body: "File note" },
+		]);
+	});
+
 	it("knows a GitHub repository from any other remote", () => {
 		expect(repoOf("https://github.com/acme/app")).toBe("acme/app");
 		expect(repoOf("https://gitlab.com/acme/app")).toBeNull();
@@ -208,6 +275,37 @@ describe("pull requests through gh", () => {
 			"--search",
 		]);
 		expect(calls[0]).toContain("review-requested:@me");
+	});
+
+	it("asks GitHub for a pull request's review threads", async () => {
+		const { gh, calls } = fakeGh(() => ({
+			stdout: JSON.stringify({
+				data: { repository: { pullRequest: { reviewThreads: { nodes: [] } } } },
+			}),
+		}));
+		const pulls = new PullRequests(gh, owner);
+		const folder = repoFolder("https://github.com/acme/app.git");
+		await expect(pulls.reviewComments("me", folder, 7)).resolves.toEqual([]);
+		expect(calls[0].slice(0, 2)).toEqual(["api", "graphql"]);
+		expect(calls[0]).toContain("owner=acme");
+		expect(calls[0]).toContain("name=app");
+		expect(calls[0]).toContain("number=7");
+	});
+
+	it("reads a failed run's log through gh, and nothing when there is none", async () => {
+		const { gh, calls } = fakeGh(() => ({ stdout: "error: boom\n" }));
+		const pulls = new PullRequests(gh, owner);
+		const folder = repoFolder("https://github.com/acme/app.git");
+		await expect(pulls.failedLog("me", folder, { run: 42, job: null })).resolves.toBe(
+			"error: boom\n",
+		);
+		expect(calls[0]).toEqual(["run", "view", "42", "--repo", "acme/app", "--log-failed"]);
+		// One job of a run: that job's log only.
+		await pulls.failedLog("me", folder, { run: 42, job: 7 });
+		expect(calls[1]).toEqual(["run", "view", "--job", "7", "--repo", "acme/app", "--log-failed"]);
+
+		const none = new PullRequests(fakeGh(() => ({ code: 1, stderr: "no failed jobs" })).gh, owner);
+		await expect(none.failedLog("me", folder, { run: 42, job: null })).resolves.toBe("");
 	});
 
 	it("acts with gh's own commands", async () => {

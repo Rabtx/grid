@@ -1,5 +1,6 @@
 import type {
 	ApprovalOption,
+	ChatAttachment,
 	ChatEvent,
 	Choice,
 	FileDiff,
@@ -12,6 +13,7 @@ import type {
 export type Block =
 	| {
 			kind: "user";
+			attachments?: ChatAttachment[];
 			key: string;
 			text: string;
 			/** When the turn this message started began and ended (ISO times, when logged). */
@@ -84,7 +86,18 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 
 	switch (event.type) {
 		case "user":
-			return { ...transcript, blocks: [...blocks, { kind: "user", key, text: event.text }] };
+			return {
+				...transcript,
+				blocks: [
+					...blocks,
+					{
+						kind: "user",
+						key,
+						text: event.text,
+						...(event.attachments ? { attachments: event.attachments } : {}),
+					},
+				],
+			};
 		case "message":
 		case "reasoning": {
 			const kind = event.type === "message" ? "assistant" : "reasoning";
