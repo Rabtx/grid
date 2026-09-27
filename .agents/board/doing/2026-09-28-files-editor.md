@@ -179,4 +179,5 @@ Decisions worth knowing:
 
 ### Commit
 
-- see the PR's single commit for this card.
+- `b1d61ff` — feat(files): edit project files in the browser, saved only onto the version read
+  (this card's update of the commit field is the only commit after it).
