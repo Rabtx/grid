@@ -125,4 +125,4 @@ follow-up runner card is needed to put `available_commands` into `info`.
 
 **Review:** pending — `human`.
 
-**Commit:** this card's commit on `agent/web/slash-commands`.
+**Commit:** `53f7007` on `agent/web/slash-commands`.
