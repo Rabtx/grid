@@ -7,38 +7,36 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 
 import {
 	AgentMark,
-	BackIcon,
 	CheckIcon,
 	ChevronDownIcon,
-	ChevronRightIcon,
+	ChoiceRail,
+	FlagshipMark,
 	Icon,
 	type IconData,
-	MENU_ITEM,
+	ModelRow,
 	Popover,
 	PROMPT_CHIP,
+	type RailItem,
 	SearchIcon,
 	SearchInput,
 	Segmented,
 	Select,
-	Stack,
+	SparklesIcon,
+	StarIcon,
 	Text,
 } from "@/kit";
 
 import {
 	filterChoices,
 	findChoice,
-	groupChoices,
 	modeDescription,
 	modeGlyph,
 	type ModeGlyph,
 	shortModelName,
 } from "../lib/choices";
+import { celebrateModel, isFlagship } from "../lib/celebrate";
+import { favoritesStore } from "../stores/favorites";
 import type { ChatProvider, Choice } from "../types/chat.types";
-
-/** A panel row: selected on the fill, the keyboard's row lit, the rest on hover. */
-function row(selected: boolean, active = false): string {
-	return `${MENU_ITEM} h-auto min-h-kit-row py-1.5 text-fg ${selected ? "bg-fill-strong" : active ? "bg-fill" : "hover:bg-fill"}`;
-}
 
 const MODE_ICONS: Record<ModeGlyph, IconData> = {
 	lock: LockKeyholeIcon,
@@ -52,41 +50,12 @@ function modelMark(models: readonly Choice[], id: string, agent?: string): strin
 	return findChoice(models, id)?.group || agent || id || "model";
 }
 
-/** One panel row: its label on the left, the value and a chevron on the right. */
-function LinkRow(props: {
-	label: string;
-	onClick: () => void;
-	children?: JSX.Element;
-}): JSX.Element {
-	return (
-		<button type="button" onClick={props.onClick} class={row(false)}>
-			<Text as="span" size="inherit" tone="strong">
-				{props.label}
-			</Text>
-			<span class="ml-auto flex min-w-0 items-center gap-1.5 text-fg-subtle">{props.children}</span>
-			<ChevronRightIcon size="xs" class="text-fg-faint" />
-		</button>
-	);
-}
+const FAVORITES = "favorites";
 
-/** The way back to the panel's first view, named after the view you left. */
-function BackRow(props: { label: string; onClick: () => void }): JSX.Element {
-	return (
-		<button type="button" onClick={props.onClick} class={row(false)}>
-			<BackIcon class="text-fg-subtle" />
-			<Text as="span" size="inherit" tone="strong">
-				{props.label}
-			</Text>
-		</button>
-	);
-}
+/** A model and the agent that offers it: favourites mix agents, so each carries its own. */
+type Entry = { agent: string; agentName: string; choice: Choice };
 
-/**
- * The model chip and its panel: how hard the model thinks, and a searchable list of the agent's
- * models grouped by the provider each belongs to — switching the agent lives in that list. A
- * bottom sheet on phones, a panel above the chip on desktop; never the platform's own picker.
- */
-export function ModelPicker(props: {
+type ModelPickerProps = {
 	agents?: readonly ChatProvider[];
 	agent?: string;
 	onAgent?: (id: string) => void;
@@ -97,7 +66,16 @@ export function ModelPicker(props: {
 	effort: string | null;
 	onEffort: (id: string) => void;
 	disabled?: boolean;
-}): JSX.Element {
+};
+
+/**
+ * The model chip and its panel. A rail picks what the list shows — your favourites, or one of the
+ * agents on this machine — and the list is that agent's models, grouped by the lab behind them and
+ * searchable, with the chosen model's effort along the bottom. Picking a model of another agent
+ * switches to it. A panel above the chip on desktop, a bottom sheet on phones. A flagship pick
+ * lights the grid.
+ */
+export function ModelPicker(props: ModelPickerProps): JSX.Element {
 	const model = () => findChoice(props.models, props.model);
 	const effort = () => findChoice(props.efforts, props.effort);
 	const name = () => shortModelName(model()?.name || props.model || "Model");
@@ -106,15 +84,18 @@ export function ModelPicker(props: {
 		<Popover
 			label="Model"
 			placement="top-start"
-			width="md:w-72"
+			width="md:w-xl"
 			disabled={props.disabled}
-			triggerClass={`${PROMPT_CHIP} min-w-0 max-w-60`}
+			triggerClass={`${PROMPT_CHIP} min-w-0 max-w-64`}
 			trigger={
 				<>
 					<AgentMark name={modelMark(props.models, props.model, props.agent)} size="md" />
 					<Text as="span" size="inherit" tone="strong" truncate>
 						{name()}
 					</Text>
+					<Show when={model() && isFlagship(model() as Choice)}>
+						<SparklesIcon size="xs" class="shrink-0 text-accent" />
+					</Show>
 					<Show when={effort()}>
 						{(level) => (
 							<Text as="span" size="inherit" tone="subtle" class="shrink-0">
@@ -131,21 +112,81 @@ export function ModelPicker(props: {
 	);
 }
 
-type ModelView = "root" | "effort" | "models";
-
-function ModelPanel(props: Parameters<typeof ModelPicker>[0] & { close: () => void }): JSX.Element {
-	const [view, setView] = createSignal<ModelView>("root");
+function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Element {
+	const current = () => props.agent ?? "agent";
+	const agents = () => (props.agents && props.agents.length > 0 ? props.agents : null);
+	const agentName = (id: string) => agents()?.find((agent) => agent.id === id)?.name ?? id;
+	const modelsOf = (id: string): readonly Choice[] =>
+		id === current() || !agents()
+			? props.models
+			: (agents()?.find((a) => a.id === id)?.models ?? []);
+	const everyEntry = createMemo<Entry[]>(() =>
+		(agents() ?? [{ id: current(), name: agentName(current()), models: props.models }]).flatMap(
+			(agent) =>
+				(agent.id === current() ? props.models : agent.models).map((choice) => ({
+					agent: agent.id,
+					agentName: agent.name,
+					choice,
+				})),
+		),
+	);
+	const favorites = createMemo(() =>
+		everyEntry().filter((entry) => favoritesStore.has(entry.agent, entry.choice.id)),
+	);
+	const [view, setView] = createSignal(current());
 	const [query, setQuery] = createSignal("");
 	const [active, setActive] = createSignal(0);
-	const shown = createMemo(() => filterChoices(props.models, query()));
-	const groups = createMemo(() => groupChoices(shown()));
-	const effort = () => findChoice(props.efforts, props.effort);
-	const model = () => findChoice(props.models, props.model);
 	let list: HTMLDivElement | undefined;
+	let search: HTMLInputElement | undefined;
 
-	function choose(choice: Choice): void {
-		props.onModel(choice.id);
+	const rail = (): RailItem[] => [
+		...(favorites().length > 0
+			? [{ id: FAVORITES, label: "Favourites", icon: <StarIcon size="sm" class="text-warning" /> }]
+			: []),
+		...(agents() ?? []).map((agent) => ({
+			id: agent.id,
+			label: agent.name,
+			icon: <AgentMark name={agent.name} size="md" />,
+		})),
+	];
+	const showRail = () => rail().length > 1 || (rail().length === 1 && favorites().length > 0);
+
+	const shown = createMemo<Entry[]>(() => {
+		const source =
+			view() === FAVORITES
+				? favorites()
+				: modelsOf(view()).map((choice) => ({
+						agent: view(),
+						agentName: agentName(view()),
+						choice,
+					}));
+		const matches = new Set(
+			filterChoices(
+				source.map((entry) => entry.choice),
+				query(),
+			),
+		);
+		return source.filter((entry) => matches.has(entry.choice));
+	});
+	// Favourites group by agent; an agent's own list by the lab behind each model.
+	const groups = createMemo(() => {
+		const byGroup = new Map<string, Entry[]>();
+		for (const entry of shown()) {
+			const key = view() === FAVORITES ? entry.agentName : (entry.choice.group ?? "");
+			byGroup.set(key, [...(byGroup.get(key) ?? []), entry]);
+		}
+		return [...byGroup.entries()].map(([group, entries]) => ({ group, entries }));
+	});
+
+	function pick(entry: Entry, from: { x: number; y: number }): void {
+		if (entry.agent !== current()) props.onAgent?.(entry.agent);
+		props.onModel(entry.choice.id);
+		celebrateModel(entry.choice, from);
 		props.close();
+	}
+
+	function rowAt(index: number): HTMLElement | null {
+		return list?.querySelector<HTMLElement>(`[data-index="${index}"]`) ?? null;
 	}
 
 	function move(delta: number): void {
@@ -153,167 +194,137 @@ function ModelPanel(props: Parameters<typeof ModelPicker>[0] & { close: () => vo
 		if (count === 0) return;
 		const next = (active() + delta + count) % count;
 		setActive(next);
-		list?.querySelector(`[data-index="${next}"]`)?.scrollIntoView({ block: "nearest" });
+		rowAt(next)?.scrollIntoView({ block: "nearest" });
 	}
 
 	return (
 		<div class="flex min-h-0 flex-col">
-			<Show when={view() === "root"}>
-				<Stack gap={0.5} class="p-1.5 md:p-1">
-					<Show when={props.efforts.length > 0}>
-						<LinkRow label="Effort" onClick={() => setView("effort")}>
-							<Text as="span" size="inherit" tone="inherit" truncate>
-								{effort()?.name ?? "Default"}
-							</Text>
-						</LinkRow>
-					</Show>
-					<LinkRow label="Model" onClick={() => setView("models")}>
-						<AgentMark name={modelMark(props.models, props.model, props.agent)} size="md" />
-						<Text as="span" size="inherit" tone="inherit" truncate>
-							{model()?.name || props.model}
-						</Text>
-					</LinkRow>
-				</Stack>
-			</Show>
-			<Show when={view() === "effort"}>
-				<Stack gap={0.5} class="p-1.5 md:p-1">
-					<BackRow label="Effort" onClick={() => setView("root")} />
-					<For each={props.efforts}>
-						{(level) => (
-							<button
-								type="button"
-								aria-pressed={props.effort === level.id ? "true" : "false"}
-								onClick={() => {
-									props.onEffort(level.id);
-									setView("root");
-								}}
-								class={row(props.effort === level.id)}
-							>
-								<Text as="span" size="inherit" tone="inherit" truncate class="flex-1">
-									{level.name}
-								</Text>
-								<Show when={props.effort === level.id}>
-									<CheckIcon />
-								</Show>
-							</button>
-						)}
-					</For>
-				</Stack>
-			</Show>
-			<Show when={view() === "models"}>
-				<div class="flex min-h-0 flex-1 flex-col">
-					<div class="p-1.5 pb-0 md:p-1 md:pb-0">
-						<BackRow label="Model" onClick={() => setView("root")} />
-					</div>
-					<Show when={props.agents && props.agents.length > 1}>
-						<div class="px-3 pt-2">
-							<Segmented
-								label="Agent"
-								block
-								options={(props.agents ?? []).map((agent) => ({
-									value: agent.id,
-									label: agent.name,
-								}))}
-								value={props.agent ?? ""}
-								onChange={(id) => props.onAgent?.(id)}
-							/>
-						</div>
-					</Show>
-					<SearchInput
-						icon={<SearchIcon />}
-						class="mx-3 mt-2.5"
-						value={query()}
-						placeholder={`Search ${props.models.length} models`}
-						aria-label="Search models"
-						autocomplete="off"
-						autocapitalize="off"
-						spellcheck={false}
-						enterkeyhint="done"
-						ref={(el: HTMLInputElement) => {
-							// A physical keyboard types into the search at once; on phones it would pop
-							// the keyboard over the list, so wait for a tap.
-							if (matchMedia("(pointer: fine)").matches) requestAnimationFrame(() => el.focus());
-						}}
-						onInput={(event) => {
-							setQuery(event.currentTarget.value);
+			<div class="border-line border-b p-2">
+				<SearchInput
+					icon={<SearchIcon />}
+					value={query()}
+					placeholder={
+						view() === FAVORITES ? "Search favourites" : `Search ${modelsOf(view()).length} models`
+					}
+					aria-label="Search models"
+					autocomplete="off"
+					autocapitalize="off"
+					spellcheck={false}
+					enterkeyhint="done"
+					ref={(el: HTMLInputElement) => {
+						search = el;
+						// A physical keyboard types into the search at once; on phones it would pop
+						// the keyboard over the list, so wait for a tap.
+						if (matchMedia("(pointer: fine)").matches) requestAnimationFrame(() => el.focus());
+					}}
+					onInput={(event) => {
+						setQuery(event.currentTarget.value);
+						setActive(0);
+					}}
+					onKeyDown={(event) => {
+						if (event.key === "ArrowDown") {
+							event.preventDefault();
+							move(1);
+						} else if (event.key === "ArrowUp") {
+							event.preventDefault();
+							move(-1);
+						} else if (event.key === "Enter") {
+							event.preventDefault();
+							const entry = shown()[active()];
+							const box = (rowAt(active()) ?? search)?.getBoundingClientRect();
+							if (entry && box)
+								pick(entry, { x: box.left + box.width / 2, y: box.top + box.height / 2 });
+						}
+					}}
+				/>
+			</div>
+			<div class="flex min-h-0 flex-1 flex-col md:flex-row">
+				<Show when={showRail()}>
+					<ChoiceRail
+						label="Show models from"
+						items={rail()}
+						value={view()}
+						onChange={(id) => {
+							setView(id);
 							setActive(0);
-						}}
-						onKeyDown={(event) => {
-							if (event.key === "ArrowDown") {
-								event.preventDefault();
-								move(1);
-							} else if (event.key === "ArrowUp") {
-								event.preventDefault();
-								move(-1);
-							} else if (event.key === "Enter") {
-								event.preventDefault();
-								const choice = shown()[active()];
-								if (choice) choose(choice);
-							}
+							if (list) list.scrollTop = 0;
 						}}
 					/>
-					<div
-						ref={(el) => {
-							list = el;
-						}}
-						data-model-list
-						class="mt-1.5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-2 max-h-80"
+				</Show>
+				<div
+					ref={(el) => {
+						list = el;
+					}}
+					data-model-list
+					class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5 max-h-96 md:max-h-80"
+				>
+					<Show
+						when={shown().length > 0}
+						fallback={
+							<Text tone="subtle" class="px-3 py-8 text-center">
+								{query() ? `No model matches “${query()}”.` : "No models here yet."}
+							</Text>
+						}
 					>
-						<Show
-							when={shown().length > 0}
-							fallback={
-								<Text tone="subtle" class="px-3 py-6 text-center">
-									No model matches “{query()}”.
-								</Text>
-							}
-						>
-							<For each={groups()}>
-								{(group) => (
-									<section aria-label={group.group ?? "Models"}>
-										<Show when={group.group}>
-											<p class="sticky top-0 z-10 bg-surface-raised px-2 pt-2 pb-1 text-caption text-fg-subtle">
-												{group.group}
-											</p>
-										</Show>
-										<For each={group.choices}>
-											{(choice) => {
-												const index = () => shown().indexOf(choice);
-												return (
-													<button
-														type="button"
-														aria-pressed={choice.id === props.model ? "true" : "false"}
-														data-index={index()}
-														onMouseEnter={() => setActive(index())}
-														onClick={() => choose(choice)}
-														class={row(choice.id === props.model, index() === active())}
-													>
-														<span class="flex min-w-0 flex-1 flex-col">
-															<Text as="span" size="inherit" tone="strong" truncate>
-																{choice.name}
-															</Text>
-															<Show when={choice.description}>
-																<Text as="span" size="caption" tone="subtle" truncate>
-																	{choice.description}
-																</Text>
-															</Show>
-														</span>
-														<Show when={choice.efforts?.length}>
-															<Text as="span" size="caption" tone="faint" class="shrink-0">
-																{choice.efforts?.length} efforts
-															</Text>
-														</Show>
-														<Show when={choice.id === props.model}>
-															<CheckIcon />
-														</Show>
-													</button>
-												);
-											}}
-										</For>
-									</section>
-								)}
-							</For>
-						</Show>
-					</div>
+						<For each={groups()}>
+							{(group) => (
+								<section aria-label={group.group || "Models"}>
+									<Show when={group.group}>
+										<p class="sticky top-0 z-10 bg-surface-raised px-2.5 pt-2 pb-1 text-caption text-fg-subtle">
+											{group.group}
+										</p>
+									</Show>
+									<For each={group.entries}>
+										{(entry) => {
+											const index = () => shown().indexOf(entry);
+											const chosen = () =>
+												entry.agent === current() && entry.choice.id === props.model;
+											return (
+												<ModelRow
+													index={index()}
+													name={entry.choice.name}
+													description={entry.choice.description}
+													badge={
+														isFlagship(entry.choice) ? (
+															<FlagshipMark>
+																<SparklesIcon size="xs" />
+															</FlagshipMark>
+														) : undefined
+													}
+													detail={
+														chosen() ? (
+															<CheckIcon size="sm" class="text-fg" />
+														) : entry.choice.efforts?.length ? (
+															`${entry.choice.efforts.length} efforts`
+														) : undefined
+													}
+													selected={chosen()}
+													active={index() === active()}
+													favorite={favoritesStore.has(entry.agent, entry.choice.id)}
+													onFavorite={() => favoritesStore.toggle(entry.agent, entry.choice.id)}
+													onHover={() => setActive(index())}
+													onPick={(event) => pick(entry, { x: event.clientX, y: event.clientY })}
+												/>
+											);
+										}}
+									</For>
+								</section>
+							)}
+						</For>
+					</Show>
+				</div>
+			</div>
+			<Show when={props.efforts.length > 0}>
+				<div class="flex items-center gap-3 overflow-x-auto border-line border-t px-3 py-2 [scrollbar-width:none]">
+					<Text as="span" size="caption" tone="subtle" class="shrink-0">
+						Effort
+					</Text>
+					<Segmented
+						label="Effort"
+						options={props.efforts.map((level) => ({ value: level.id, label: level.name }))}
+						value={props.effort ?? ""}
+						onChange={(id) => props.onEffort(id)}
+					/>
 				</div>
 			</Show>
 		</div>

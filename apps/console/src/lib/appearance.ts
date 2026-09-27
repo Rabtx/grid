@@ -31,6 +31,8 @@ export type Appearance = {
 	spacing: number;
 	/** Kit hairline strength, 0.5–2. */
 	lines: number;
+	/** Play the grid ignition when a flagship model is picked (desktop, motion allowed). */
+	celebrations: boolean;
 };
 
 export const APPEARANCE_DEFAULTS: Appearance = {
@@ -46,6 +48,7 @@ export const APPEARANCE_DEFAULTS: Appearance = {
 	radius: 1,
 	spacing: 1,
 	lines: 1,
+	celebrations: true,
 };
 
 export const APPEARANCE_LIMITS = {
@@ -112,6 +115,7 @@ export function normalizeAppearance(input: unknown): Appearance {
 		radius: Math.round(clamp(raw.radius, l.radius.min, l.radius.max, d.radius) * 100) / 100,
 		spacing: Math.round(clamp(raw.spacing, l.spacing.min, l.spacing.max, d.spacing) * 100) / 100,
 		lines: Math.round(clamp(raw.lines, l.lines.min, l.lines.max, d.lines) * 100) / 100,
+		celebrations: typeof raw.celebrations === "boolean" ? raw.celebrations : d.celebrations,
 	};
 }
 
