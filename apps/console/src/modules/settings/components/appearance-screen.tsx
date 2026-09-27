@@ -1,49 +1,88 @@
 import type { JSX } from "@solidjs/web";
-import { For } from "solid-js";
 
+import {
+	Badge,
+	Button,
+	ColorSwatches,
+	igniteGrid,
+	Input,
+	RestoreIcon,
+	Row,
+	Segmented,
+	SettingsGroup,
+	SettingsRow,
+	Slider,
+	SparklesIcon,
+	Stack,
+	Switch,
+	Text,
+} from "@/kit";
 import {
 	ACCENT_PRESETS,
 	APPEARANCE_LIMITS,
 	appearance,
+	type Density,
 	resetAppearance,
+	type Theme,
 	updateAppearance,
 } from "@/lib/appearance";
-import { useAuth } from "@/modules/auth";
-import { Button, RestoreIcon, SegmentedControl, SignOutIcon, Slider } from "@/ui";
 
-import { SettingsNav } from "./settings-nav";
+import { SettingsPage } from "./settings-page";
 
-// The presets without the leading `null`, which is the split default swatch drawn first.
-const COLOR_PRESETS = ACCENT_PRESETS.filter((color): color is string => color !== null);
-const CUSTOM_GRADIENT =
-	"conic-gradient(from 140deg, #ef4444, #f59e0b, #10b981, #4da3f5, #8b5cf6, #ec4899, #ef4444)";
+// The presets without the leading `null` (the default, which the swatches draw first).
+const ACCENT_NAMES = ["Blue", "Violet", "Pink", "Red", "Amber", "Green"];
+const ACCENTS = ACCENT_PRESETS.filter((color): color is string => color !== null).map(
+	(value, index) => ({ id: ACCENT_NAMES[index] ?? value, value }),
+);
 
-/** Settings → Appearance: theme, accent, tint, translucency and interface scale. */
-export function AppearanceScreen(): JSX.Element {
-	const auth = useAuth();
+const percent = (value: number) => `${Math.round(value * 100)}%`;
 
+/** A slider in a settings row, wide enough to drag on a phone and on the right on desktop. */
+function RowSlider(props: {
+	label: string;
+	limits: { min: number; max: number; step: number };
+	value: number;
+	onChange: (value: number) => void;
+	format: (value: number) => string;
+}): JSX.Element {
 	return (
-		<div class="mx-auto flex w-full max-w-[60rem] flex-col py-6 md:py-10">
-			<SettingsNav />
-			<header class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-				<div class="min-w-0">
-					{/* The tab above names the page; the heading stays for screen readers. */}
-					<h1 class="sr-only">Appearance</h1>
-					<p class="text-ink/50 text-ui-sm">Theme, tint, translucency and interface scale.</p>
-					<p class="mt-1 text-ink/40 text-ui-xs">These settings are saved on this device.</p>
-				</div>
-				<Button variant="ghost" class="self-start" onClick={() => resetAppearance()}>
-					<RestoreIcon class="size-4" />
+		<div class="w-full md:w-64">
+			<Slider
+				label={props.label}
+				min={props.limits.min}
+				max={props.limits.max}
+				step={props.limits.step}
+				value={props.value}
+				onChange={props.onChange}
+				format={props.format}
+				labelHidden
+			/>
+		</div>
+	);
+}
+
+/**
+ * Settings → Appearance: how the console looks on this device. Theme and accent, the tint every
+ * surface takes, the kit's shape — corners, spacing, hairlines, density and scale — with a live
+ * preview, the glass, and the celebrations. Saved on this device, like a zoom level.
+ */
+export function AppearanceScreen(): JSX.Element {
+	return (
+		<SettingsPage
+			title="Appearance"
+			description="These settings are saved on this device."
+			actions={
+				<Button variant="ghost" icon={<RestoreIcon size="sm" />} onClick={() => resetAppearance()}>
 					Restore defaults
 				</Button>
-			</header>
-
-			<Group
+			}
+		>
+			<SettingsGroup
 				title="Theme"
 				description="Dark and light share the same tint, so the colour settings below apply to both."
 			>
-				<Row label="Theme" description="System follows your device's appearance.">
-					<SegmentedControl
+				<SettingsRow label="Theme" description="System follows your device's appearance.">
+					<Segmented<Theme>
 						label="Theme"
 						options={[
 							{ value: "system", label: "System" },
@@ -53,202 +92,229 @@ export function AppearanceScreen(): JSX.Element {
 						value={appearance().theme}
 						onChange={(theme) => updateAppearance({ theme })}
 					/>
-				</Row>
-				<Row
+				</SettingsRow>
+				<SettingsRow
 					label="Accent colour"
-					description="Used for primary actions such as New task and Sign in."
+					description="Primary actions, focus rings and the celebration's glow."
 				>
-					<AccentSwatches />
-				</Row>
-			</Group>
+					<ColorSwatches
+						label="Accent colour"
+						labelHidden
+						options={ACCENTS}
+						value={
+							ACCENTS.find((accent) => accent.value === appearance().accent)?.id ??
+							appearance().accent
+						}
+						onChange={(id) =>
+							updateAppearance({
+								accent:
+									id === null ? null : (ACCENTS.find((accent) => accent.id === id)?.value ?? id),
+							})
+						}
+					/>
+				</SettingsRow>
+			</SettingsGroup>
 
-			<Group
+			<SettingsGroup
 				title="Colour"
 				description="Hue and saturation tint every surface. Lightness only moves the dark theme."
 			>
-				<Row label="Hue" description="Base hue for tinted surfaces.">
-					<Slider
+				<SettingsRow label="Hue" description="Base hue for tinted surfaces.">
+					<RowSlider
 						label="Hue"
-						{...APPEARANCE_LIMITS.hue}
+						limits={APPEARANCE_LIMITS.hue}
 						value={appearance().hue}
-						onInput={(hue) => updateAppearance({ hue })}
+						onChange={(hue) => updateAppearance({ hue })}
 						format={(value) => `${value}°`}
 					/>
-				</Row>
-				<Row
+				</SettingsRow>
+				<SettingsRow
 					label="Saturation"
 					description="How strongly the hue tints the interface. Zero keeps it neutral."
 				>
-					<Slider
+					<RowSlider
 						label="Saturation"
-						{...APPEARANCE_LIMITS.saturation}
+						limits={APPEARANCE_LIMITS.saturation}
 						value={appearance().saturation}
-						onInput={(saturation) => updateAppearance({ saturation })}
+						onChange={(saturation) => updateAppearance({ saturation })}
 						format={(value) => `${value}%`}
 					/>
-				</Row>
-				<Row
+				</SettingsRow>
+				<SettingsRow
 					label="Dark-mode lightness"
 					description="Base brightness of the dark theme. Lower is darker; zero is true black."
 				>
-					<Slider
+					<RowSlider
 						label="Dark-mode lightness"
-						{...APPEARANCE_LIMITS.darkLightness}
+						limits={APPEARANCE_LIMITS.darkLightness}
 						value={appearance().darkLightness}
-						onInput={(darkLightness) => updateAppearance({ darkLightness })}
+						onChange={(darkLightness) => updateAppearance({ darkLightness })}
 						format={(value) => `${value}%`}
 					/>
-				</Row>
-			</Group>
+				</SettingsRow>
+			</SettingsGroup>
 
-			<Group
+			<SettingsGroup
+				title="Shape and density"
+				description="The kit's corners, spacing and lines, everywhere at once. The preview follows as you drag."
+			>
+				<div class="px-4 py-4">
+					<ShapePreview />
+				</div>
+				<SettingsRow
+					label="Corner roundness"
+					description="From square to soft. 100% is the design."
+				>
+					<RowSlider
+						label="Corner roundness"
+						limits={APPEARANCE_LIMITS.radius}
+						value={appearance().radius}
+						onChange={(radius) => updateAppearance({ radius })}
+						format={percent}
+					/>
+				</SettingsRow>
+				<SettingsRow
+					label="Spacing"
+					description="Heights of rows and controls. Touch targets never drop below 44px."
+				>
+					<RowSlider
+						label="Spacing"
+						limits={APPEARANCE_LIMITS.spacing}
+						value={appearance().spacing}
+						onChange={(spacing) => updateAppearance({ spacing })}
+						format={percent}
+					/>
+				</SettingsRow>
+				<SettingsRow label="Line strength" description="How visible hairlines and outlines are.">
+					<RowSlider
+						label="Line strength"
+						limits={APPEARANCE_LIMITS.lines}
+						value={appearance().lines}
+						onChange={(lines) => updateAppearance({ lines })}
+						format={percent}
+					/>
+				</SettingsRow>
+				<SettingsRow
+					label="Density"
+					description="How much the lists and transcripts fit on a screen."
+				>
+					<Segmented<Density>
+						label="Density"
+						options={[
+							{ value: "compact", label: "Compact" },
+							{ value: "comfortable", label: "Comfortable" },
+							{ value: "spacious", label: "Spacious" },
+						]}
+						value={appearance().density}
+						onChange={(density) => updateAppearance({ density })}
+					/>
+				</SettingsRow>
+				<SettingsRow
+					label="Interface scale"
+					description="Zoom the whole interface. Ctrl+=, Ctrl+- and Ctrl+0 work too (⌘ on macOS)."
+				>
+					<RowSlider
+						label="Interface scale"
+						limits={APPEARANCE_LIMITS.uiScale}
+						value={appearance().uiScale}
+						onChange={(uiScale) => updateAppearance({ uiScale })}
+						format={percent}
+					/>
+				</SettingsRow>
+			</SettingsGroup>
+
+			<SettingsGroup
 				title="Translucency"
 				description="How much shows through the glass surfaces. Blur costs more to draw the higher it goes."
 			>
-				<Row label="Sidebar opacity" description="Applies to the sidebar and the phone top bar.">
-					<Slider
+				<SettingsRow label="Sidebar opacity" description="The sidebar and the phone top bar.">
+					<RowSlider
 						label="Sidebar opacity"
-						{...APPEARANCE_LIMITS.glassOpacity}
+						limits={APPEARANCE_LIMITS.glassOpacity}
 						value={appearance().glassOpacity}
-						onInput={(glassOpacity) => updateAppearance({ glassOpacity })}
-						format={(value) => `${Math.round(value * 100)}%`}
+						onChange={(glassOpacity) => updateAppearance({ glassOpacity })}
+						format={percent}
 					/>
-				</Row>
-				<Row label="Blur radius" description="Blur behind the glass surfaces.">
-					<Slider
+				</SettingsRow>
+				<SettingsRow label="Blur radius" description="Blur behind the glass surfaces.">
+					<RowSlider
 						label="Blur radius"
-						{...APPEARANCE_LIMITS.glassBlur}
+						limits={APPEARANCE_LIMITS.glassBlur}
 						value={appearance().glassBlur}
-						onInput={(glassBlur) => updateAppearance({ glassBlur })}
-						format={(value) => `${value}`}
+						onChange={(glassBlur) => updateAppearance({ glassBlur })}
+						format={(value) => `${value}px`}
 					/>
-				</Row>
-			</Group>
+				</SettingsRow>
+			</SettingsGroup>
 
-			<Group title="Layout" description="Size of the interface on this device.">
-				<Row
-					label="Interface scale"
-					description="Zoom the whole interface. You can also use Ctrl+=, Ctrl+- and Ctrl+0 (⌘ on macOS)."
-				>
-					<Slider
-						label="Interface scale"
-						{...APPEARANCE_LIMITS.uiScale}
-						value={appearance().uiScale}
-						onInput={(uiScale) => updateAppearance({ uiScale })}
-						format={(value) => `${Math.round(value * 100)}%`}
-					/>
-				</Row>
-			</Group>
-
-			<Group title="Fun" description="Small moments of delight, on this device.">
-				<Row
+			<SettingsGroup title="Motion and fun" description="Small moments of delight, on this device.">
+				<SettingsRow
+					inline
 					label="Celebrations"
 					description="Light up the grid when you pick a flagship model. Desktop only, and never with reduced motion."
 				>
-					<SegmentedControl
-						label="Celebrations"
-						options={[
-							{ value: "on", label: "On" },
-							{ value: "off", label: "Off" },
-						]}
-						value={appearance().celebrations ? "on" : "off"}
-						onChange={(value) => updateAppearance({ celebrations: value === "on" })}
-					/>
-				</Row>
-			</Group>
-
-			<Group title="Account" description="Who is signed in to this console.">
-				<Row label={auth.user()?.email ?? "Signed in"} description="Signing out ends this session.">
-					<Button variant="secondary" onClick={() => void auth.logout()}>
-						<SignOutIcon class="size-4" />
-						Sign out
+					<Button
+						variant="ghost"
+						size="sm"
+						icon={<SparklesIcon size="sm" />}
+						onClick={(event) => {
+							const box = event.currentTarget.getBoundingClientRect();
+							igniteGrid({
+								x: box.left + box.width / 2,
+								y: box.top + box.height / 2,
+								label: "GRID",
+								hue: appearance().hue,
+							});
+						}}
+					>
+						Try it
 					</Button>
-				</Row>
-			</Group>
-		</div>
-	);
-}
-
-/** A titled block of rows, separated by hairlines inside one raised card. */
-function Group(props: { title: string; description: string; children: JSX.Element }): JSX.Element {
-	return (
-		<section class="mt-8">
-			<h2 class="font-semibold text-ui">{props.title}</h2>
-			<p class="mt-0.5 mb-2 text-ink/45 text-ui-sm">{props.description}</p>
-			<div class="@container divide-y divide-ink/5 rounded-xl border border-ink/10 bg-ink/3">
-				{props.children}
-			</div>
-		</section>
+					<Switch
+						label="Celebrations"
+						checked={appearance().celebrations}
+						onChange={(celebrations) => updateAppearance({ celebrations })}
+					/>
+				</SettingsRow>
+			</SettingsGroup>
+		</SettingsPage>
 	);
 }
 
 /**
- * A label on the left and its control on the right. The card is a container, so below 35rem the
- * row stacks — label above, full-width control — and from 35rem the control sits beside the label.
+ * The kit in miniature, drawn with the real components, so each shape setting shows what it does
+ * the moment it moves: corners, row heights, hairlines.
  */
-function Row(props: { label: string; description: string; children: JSX.Element }): JSX.Element {
+function ShapePreview(): JSX.Element {
 	return (
-		<div class="flex flex-col gap-2 px-4 py-3.5 @[35rem]:flex-row @[35rem]:items-center @[35rem]:justify-between @[35rem]:gap-6">
-			<div class="min-w-0">
-				<p class="font-medium text-ui">{props.label}</p>
-				<p class="text-ink/45 text-ui-sm">{props.description}</p>
+		<div class="surface-well flex flex-col gap-3 p-4" aria-hidden="true">
+			<Row gap={2} wrap>
+				<Button variant="primary" size="sm">
+					New task
+				</Button>
+				<Button size="sm">Secondary</Button>
+				<Badge tone="accent">Flagship</Badge>
+				<Badge>3 open</Badge>
+			</Row>
+			<Row gap={2}>
+				<div class="min-w-0 flex-1">
+					<Input aria-label="Preview field" placeholder="Search tasks" />
+				</div>
+				<Switch label="Preview switch" checked={true} onChange={() => {}} />
+			</Row>
+			<div class="surface-card flex flex-col divide-y divide-line">
+				<Stack gap={0.5} class="px-3 py-2.5">
+					<Text tone="strong">Fix the login redirect loop</Text>
+					<Text size="caption" tone="subtle">
+						TASK-12 · In review
+					</Text>
+				</Stack>
+				<Stack gap={0.5} class="px-3 py-2.5">
+					<Text tone="strong">Speed up the test suite</Text>
+					<Text size="caption" tone="subtle">
+						TASK-9 · Done
+					</Text>
+				</Stack>
 			</div>
-			<div class="flex w-full @[35rem]:w-auto @[35rem]:max-w-[60%] @[35rem]:shrink-0 @[35rem]:justify-end">
-				{props.children}
-			</div>
-		</div>
-	);
-}
-
-const SWATCH = "size-5 shrink-0 rounded-full focus-ring";
-const SWATCH_SELECTED = "ring-2 ring-ink/60 ring-offset-2 ring-offset-canvas";
-
-/** Default, the preset colours, then a native colour picker behind a custom swatch. */
-function AccentSwatches(): JSX.Element {
-	const accent = () => appearance().accent;
-	const isPreset = (color: string) => accent() === color;
-	const isCustom = () => {
-		const current = accent();
-		return current !== null && !COLOR_PRESETS.includes(current);
-	};
-
-	return (
-		<div class="flex flex-wrap items-center gap-2.5">
-			<button
-				type="button"
-				aria-label="Default"
-				aria-pressed={accent() === null ? "true" : "false"}
-				onClick={() => updateAppearance({ accent: null })}
-				class={`${SWATCH} border border-ink/15 ${accent() === null ? SWATCH_SELECTED : ""}`}
-				style={{
-					"background-image": "linear-gradient(135deg, var(--canvas) 0 50%, var(--ink) 50% 100%)",
-				}}
-			/>
-			<For each={COLOR_PRESETS}>
-				{(color) => (
-					<button
-						type="button"
-						aria-label={color}
-						aria-pressed={isPreset(color) ? "true" : "false"}
-						onClick={() => updateAppearance({ accent: color })}
-						class={`${SWATCH} ${isPreset(color) ? SWATCH_SELECTED : ""}`}
-						style={{ "background-color": color }}
-					/>
-				)}
-			</For>
-			<label
-				class={`${SWATCH} cursor-pointer ${isCustom() ? SWATCH_SELECTED : ""}`}
-				style={{ "background-image": CUSTOM_GRADIENT }}
-			>
-				<span class="sr-only">Custom</span>
-				<input
-					type="color"
-					aria-label="Custom colour"
-					value={accent() ?? "#4da3f5"}
-					onInput={(event) => updateAppearance({ accent: event.currentTarget.value })}
-					class="sr-only"
-				/>
-			</label>
 		</div>
 	);
 }

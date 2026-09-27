@@ -115,8 +115,21 @@ references very closely, Inter, fix look and feel and navigation/layout, gallery
     with a haptic tick on phones; the top level runs hot. A native range underneath carries the
     drag, keys and screen reader; reduced motion keeps the colour and drops the movement.
 
+11. **Settings with their own sidebar (agent/frontend/settings).** On `/settings/*` the app's
+    sidebar gives way to a settings one (Back to app, then App, Agents, Workspace, Account);
+    phones open `/settings` as a grouped list and each page has a way back. Every page is a kit
+    page header over cards of rows: Appearance (theme, accent, tint, a new Shape and density
+    group — corner roundness, spacing, line strength, density, scale — with a live preview,
+    translucency, and celebrations with a "Try it"), Notifications (its own page now), Agents,
+    Environments (machines, Codespaces, pairing) and Account. New kit pieces: `Code`, and
+    `labelHidden` on `Slider` and `ColorSwatches`.
+
 ### Validation
 
+- Settings: console vitest 50 files / 295 tests (appearance: the shape controls, roundness
+  reaching the kit); guard, lint, typecheck, architecture and naming pass; settings,
+  environments and the shell no longer import `@/ui`. Checked at 1280px (every page, roundness
+  at 0% and 200%) and 375px (the list and a page).
 - Effort slider: console vitest 50 files / 298 tests (steps, sparks only going up, hot at the
   top, picking by name); guard, lint, typecheck, architecture and naming pass. Checked at 1280px
   with the arrow keys up to Max and back, and at 375px.

@@ -1,6 +1,6 @@
 import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { Show } from "solid-js";
+import { createEffect, Show } from "solid-js";
 
 import { AppFrame, AuthFrame, FloatingNotice } from "@/kit";
 import { runnerUp } from "@/lib/runner-health";
@@ -25,6 +25,7 @@ import {
 	UpdateBanner,
 	useShell,
 } from "@/modules/shell";
+import { SettingsSidebar, settingsReturn } from "@/modules/settings";
 import { VoiceControls } from "@/modules/voice";
 import { CreateWorkspaceSheet, WorkspacesProvider } from "@/modules/workspaces";
 
@@ -35,7 +36,8 @@ const OUTSIDE = /^\/(login|setup|invite)(\/|$)/;
 const STANDALONE = /^\/design(\/|$)/;
 
 // Screens that fill the frame edge to edge and scroll inside themselves.
-const FULL_BLEED = /^\/(chat|terminal|files|notes|board)(\/|$)/;
+const FULL_BLEED = /^\/(chat|terminal|files|notes|board|settings)(\/|$)/;
+const SETTINGS = /^\/settings(\/|$)/;
 
 /**
  * Frame shared by every route. Signed out it is the brand over a card; signed in it is one
@@ -74,10 +76,25 @@ export function AppShell(props: { children: JSX.Element }): JSX.Element {
 function SignedIn(props: { children: JSX.Element }): JSX.Element {
 	const shell = useShell();
 	const location = useLocation();
+	const inSettings = () => SETTINGS.test(location.pathname);
+
+	// "Back to app" in settings returns to the last screen outside them.
+	createEffect(
+		() => location.pathname + location.search,
+		(path) => {
+			settingsReturn.remember(path);
+		},
+	);
 
 	return (
 		<AppFrame
-			sidebar={shell.desktop() && !shell.collapsed() ? <Sidebar /> : undefined}
+			sidebar={
+				shell.desktop() && !shell.collapsed() ? (
+					<Show when={inSettings()} fallback={<Sidebar />}>
+						<SettingsSidebar />
+					</Show>
+				) : undefined
+			}
 			header={
 				<Show when={shell.desktop()} fallback={<TopBar />}>
 					<TitleBar />
@@ -86,7 +103,7 @@ function SignedIn(props: { children: JSX.Element }): JSX.Element {
 			bleed={FULL_BLEED.test(location.pathname)}
 			overlays={
 				<>
-					<NavDrawer />
+					<NavDrawer content={inSettings() ? () => <SettingsSidebar /> : undefined} />
 					<CommandPalette />
 					<NewTaskDialog />
 					<AddProjectSheet />

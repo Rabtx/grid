@@ -106,3 +106,12 @@ export function Heading(props: {
 		</Text>
 	);
 }
+
+/** A command, a key or a path inside a sentence, set in mono on a soft chip. */
+export function Code(props: { children: JSX.Element }): JSX.Element {
+	return (
+		<code class="rounded-kit-sm bg-fill px-1 py-0.5 font-mono text-caption text-fg-muted">
+			{props.children}
+		</code>
+	);
+}

@@ -1,28 +1,34 @@
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, Show } from "solid-js";
 
-import { useAuth } from "@/modules/auth";
-import { SettingsNav } from "@/modules/settings/components/settings-nav";
 import {
+	Alert,
 	Button,
+	Code,
 	ConfirmDialog,
-	ErrorNotice,
 	Field,
 	IconButton,
 	Input,
-	toast,
+	notify,
+	SettingsGroup,
+	Stack,
+	StatusDot,
+	Text,
 	TrashIcon,
-} from "@/ui";
+} from "@/kit";
+import { useAuth } from "@/modules/auth";
+import { SettingsPage } from "@/modules/settings/components/settings-page";
 
 import { type Environment, environmentsService } from "../services/environments.service";
+import { environmentsStore } from "../stores/environments";
 
 import { CodespacesPanel } from "./codespaces-panel";
-import { environmentsStore } from "../stores/environments";
 
 /**
  * Settings → Environments: other machines running Grid (a Codespace, a VPS) that this Grid
  * drives. Pairing takes the address and a one-time code shown on the environment; after that,
- * their terminals open from here. They meet over your tailnet, and your sign-in stays here.
+ * their terminals and agents open from here. They meet over your tailnet, and your sign-in stays
+ * here.
  */
 export function EnvironmentsScreen(): JSX.Element {
 	const auth = useAuth();
@@ -45,8 +51,9 @@ export function EnvironmentsScreen(): JSX.Element {
 			await environmentsStore.remove(token, target.id);
 			setRemoving(null);
 		} catch (cause) {
-			toast({
-				message: cause instanceof Error ? cause.message : "Could not remove it",
+			setRemoving(null);
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not remove it",
 				tone: "danger",
 			});
 		} finally {
@@ -55,47 +62,54 @@ export function EnvironmentsScreen(): JSX.Element {
 	}
 
 	return (
-		<div class="mx-auto flex w-full max-w-[60rem] flex-col py-6 md:py-10">
-			<SettingsNav />
-			<header class="mb-2">
-				<h1 class="sr-only">Environments</h1>
-				<p class="text-ink/50 text-ui-sm">
-					Other machines running Grid, such as a Codespace or a VPS. Open terminals on them from
-					here. They connect over your Tailscale network, and your sign-in never leaves this Grid.
-				</p>
-			</header>
+		<SettingsPage
+			title="Environments"
+			description="Other machines running Grid, such as a Codespace or a VPS. They connect over your Tailscale network, and your sign-in never leaves this Grid."
+		>
 			<Show when={environmentsStore.error()}>
-				{(message) => (
-					<div class="mt-4">
-						<ErrorNotice message={message()} />
-					</div>
-				)}
+				{(message) => <Alert tone="danger" title={message()} />}
 			</Show>
-			<CodespacesPanel />
-			<Show when={environmentsStore.environments().length > 0}>
-				<ul class="mt-6 flex flex-col divide-y divide-ink/5 rounded-xl border border-ink/10 bg-ink/3">
+
+			<SettingsGroup
+				title="Machines"
+				description="Paired with this Grid. Their terminals and agents open from here."
+			>
+				<Show
+					when={environmentsStore.environments().length > 0}
+					fallback={
+						<div class="px-4 py-3.5">
+							<Text tone="subtle">None yet. Connect a Codespace or add a machine below.</Text>
+						</div>
+					}
+				>
 					<For each={environmentsStore.environments()}>
 						{(environment) => (
 							<EnvironmentRow environment={environment} onRemove={() => setRemoving(environment)} />
 						)}
 					</For>
-				</ul>
-			</Show>
+				</Show>
+			</SettingsGroup>
+
+			<CodespacesPanel />
+
 			<AddEnvironment />
+
 			<ConfirmDialog
 				open={removing() !== null}
 				title={`Remove ${removing()?.label ?? "this environment"}?`}
 				description="Its terminals close here, and its pairing is revoked on both sides. Pair it again with a new code to bring it back."
-				confirmLabel="Remove"
-				tone="danger"
+				confirm="Remove"
+				danger
 				pending={pending()}
+				stayOpen
 				onConfirm={() => void remove()}
-				onCancel={() => setRemoving(null)}
+				onClose={() => setRemoving(null)}
 			/>
-		</div>
+		</SettingsPage>
 	);
 }
 
+/** A paired machine: whether it answers right now, its name and address, and removing it. */
 function EnvironmentRow(props: { environment: Environment; onRemove: () => void }): JSX.Element {
 	const auth = useAuth();
 	const [reachable, setReachable] = createSignal<boolean | null>(null);
@@ -111,27 +125,32 @@ function EnvironmentRow(props: { environment: Environment; onRemove: () => void 
 	);
 
 	return (
-		<li class="flex items-center gap-3 px-4 py-3">
-			<span
-				aria-hidden="true"
-				class={`size-2 shrink-0 rounded-full ${reachable() === null ? "bg-ink/20" : reachable() ? "bg-success" : "bg-danger"}`}
+		<div class="flex items-center gap-3 px-4 py-3">
+			<StatusDot
+				status={reachable() === null ? "offline" : reachable() ? "online" : "error"}
+				label={reachable() === null ? "Checking" : reachable() ? "Reachable" : "Not reachable"}
 			/>
-			<div class="min-w-0 flex-1">
-				<p class="truncate font-medium text-ui">{props.environment.label}</p>
-				<p class="truncate text-ink/45 text-ui-xs">
+			<Stack gap={0.5} class="min-w-0 flex-1">
+				<Text tone="strong" truncate>
+					{props.environment.label}
+				</Text>
+				<Text size="caption" tone="subtle" mono truncate>
 					{props.environment.url}
-					<span class="sr-only">
-						{reachable() === null ? ", checking" : reachable() ? ", reachable" : ", not reachable"}
-					</span>
-				</p>
-			</div>
-			<IconButton label={`Remove ${props.environment.label}`} onClick={props.onRemove}>
-				<TrashIcon class="size-4" />
+				</Text>
+			</Stack>
+			<IconButton
+				size="sm"
+				variant="danger"
+				label={`Remove ${props.environment.label}`}
+				onClick={props.onRemove}
+			>
+				<TrashIcon size="sm" />
 			</IconButton>
-		</li>
+		</div>
 	);
 }
 
+/** Pair a machine by its address and the one-time code it prints. */
 function AddEnvironment(): JSX.Element {
 	const auth = useAuth();
 	const [url, setUrl] = createSignal("");
@@ -155,6 +174,7 @@ function AddEnvironment(): JSX.Element {
 			setUrl("");
 			setCode("");
 			setLabel("");
+			notify({ title: "Paired", tone: "success" });
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : "Could not pair");
 		} finally {
@@ -163,55 +183,67 @@ function AddEnvironment(): JSX.Element {
 	}
 
 	return (
-		<section aria-labelledby="add-environment" class="mt-8">
-			<h2 id="add-environment" class="font-semibold text-ui">
-				Add a machine by address
-			</h2>
-			<p class="mt-1 text-ink/50 text-ui-sm">
-				For a VPS or another laptop, or a Codespace without GitHub here: on it, run{" "}
-				<code class="font-mono text-ui-xs">bun run grid:pair</code>. It prints the address and a
-				code that works once, for ten minutes. A Codespace joins your tailnet when it has a{" "}
-				<code class="font-mono text-ui-xs">TS_AUTH_KEY</code> secret; see the dev container's
-				README.
-			</p>
-			<form class="mt-4 flex flex-col gap-4 md:max-w-md" onSubmit={(event) => void submit(event)}>
-				<Field label="Address" hint="Like http://codespace-name.your-tailnet.ts.net:4100">
-					<Input
-						value={url()}
-						onInput={(event) => setUrl(event.currentTarget.value)}
-						placeholder="http://….ts.net:4100"
-						inputmode="url"
-						autocomplete="off"
-						autocapitalize="off"
-						spellcheck={false}
-						required
-					/>
-				</Field>
-				<Field label="Pairing code">
-					<Input
-						value={code()}
-						onInput={(event) => setCode(event.currentTarget.value)}
-						placeholder="ABCD-EF23"
-						autocomplete="one-time-code"
-						autocapitalize="characters"
-						spellcheck={false}
-						required
-					/>
-				</Field>
-				<Field label="Name" hint="Optional: how it shows in the terminal.">
-					<Input
-						value={label()}
-						onInput={(event) => setLabel(event.currentTarget.value)}
-						placeholder="My Codespace"
-					/>
-				</Field>
-				<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
-				<div>
-					<Button type="submit" variant="primary" disabled={busy()}>
-						{busy() ? "Pairing…" : "Pair"}
-					</Button>
-				</div>
+		<SettingsGroup
+			title="Add a machine by address"
+			description="For a VPS, another laptop, or a Codespace without GitHub here."
+		>
+			<form class="px-4 py-4" onSubmit={(event) => void submit(event)}>
+				<Stack gap={4}>
+					<Text tone="subtle">
+						On it, run <Code>bun run grid:pair</Code>. It prints the address and a code that works
+						once, for ten minutes. A Codespace joins your tailnet when it has a{" "}
+						<Code>TS_AUTH_KEY</Code> secret; see the dev container's README.
+					</Text>
+					<div class="grid gap-4 md:grid-cols-2">
+						<Field label="Address" hint="Like http://codespace-name.your-tailnet.ts.net:4100">
+							{(id) => (
+								<Input
+									id={id}
+									value={url()}
+									onInput={(event) => setUrl(event.currentTarget.value)}
+									placeholder="http://….ts.net:4100"
+									inputmode="url"
+									autocomplete="off"
+									autocapitalize="off"
+									spellcheck={false}
+									required
+								/>
+							)}
+						</Field>
+						<Field label="Pairing code">
+							{(id) => (
+								<Input
+									id={id}
+									value={code()}
+									onInput={(event) => setCode(event.currentTarget.value)}
+									placeholder="ABCD-EF23"
+									autocomplete="one-time-code"
+									autocapitalize="characters"
+									spellcheck={false}
+									class="font-mono"
+									required
+								/>
+							)}
+						</Field>
+						<Field label="Name" hint="Optional: how it shows in the terminal.">
+							{(id) => (
+								<Input
+									id={id}
+									value={label()}
+									onInput={(event) => setLabel(event.currentTarget.value)}
+									placeholder="My Codespace"
+								/>
+							)}
+						</Field>
+					</div>
+					<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
+					<div>
+						<Button type="submit" variant="primary" disabled={busy()}>
+							{busy() ? "Pairing…" : "Pair"}
+						</Button>
+					</div>
+				</Stack>
 			</form>
-		</section>
+		</SettingsGroup>
 	);
 }

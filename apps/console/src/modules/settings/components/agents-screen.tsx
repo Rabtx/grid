@@ -2,16 +2,29 @@ import { useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, Show } from "solid-js";
 
+import {
+	Alert,
+	Button,
+	Code,
+	IconButton,
+	RestoreIcon,
+	SettingsGroup,
+	SettingsRow,
+	Skeleton,
+	SpinnerIcon,
+	Stack,
+	Switch,
+	Text,
+	TextLink,
+} from "@/kit";
 import { useAuth } from "@/modules/auth";
 import { ModelPicker, ModePicker } from "@/modules/chat/components/pickers";
 import { chatService } from "@/modules/chat/services/chat.service";
 import { providersStore } from "@/modules/chat/stores/providers";
-import { environmentsStore, MachinePicker, scopeFor } from "@/modules/environments";
 import type { ChatProvider, ProviderSettings } from "@/modules/chat/types/chat.types";
-import { Button, ErrorNotice, RestoreIcon, Skeleton, SpinnerIcon } from "@/ui";
+import { environmentsStore, MachinePicker, scopeFor } from "@/modules/environments";
 
-import { NotificationsCard } from "./notifications-card";
-import { SettingsNav } from "./settings-nav";
+import { SettingsPage } from "./settings-page";
 
 function ago(iso: string | null | undefined): string {
 	if (!iso) return "never";
@@ -44,47 +57,34 @@ export function AgentsScreen(): JSX.Element {
 		machine() ? (environmentsStore.labelOf(machine()) ?? "that machine") : "this machine";
 
 	return (
-		<div class="mx-auto flex w-full max-w-[60rem] flex-col py-6 md:py-10">
-			<SettingsNav />
-			<header class="mb-2">
-				{/* The tab above names the page; the heading stays for screen readers. */}
-				<h1 class="sr-only">Agents</h1>
-				<p class="text-ink/50 text-ui-sm">
-					The coding agents installed on this machine. Model lists are kept; refresh one when an
-					agent gains models.
-				</p>
-			</header>
-			<div class="mt-4 md:max-w-xs">
-				<MachinePicker value={machine()} onChange={setMachine} />
-			</div>
+		<SettingsPage
+			title="Agents"
+			description="The coding agents on this machine, and what new threads start with. Model lists are kept; refresh one when an agent gains models."
+			actions={
+				<div class="w-full md:w-56">
+					<MachinePicker value={machine()} onChange={setMachine} />
+				</div>
+			}
+		>
 			<Show when={providersStore.error(scope())}>
-				{(message) => (
-					<div class="mt-4">
-						<ErrorNotice message={message()} />
-					</div>
-				)}
+				{(message) => <Alert tone="danger" title={message()} />}
 			</Show>
 			<Show
 				when={providersStore.providers(scope()).length > 0}
 				fallback={
-					<div class="mt-6 flex flex-col gap-3" aria-hidden="true">
+					<Stack gap={3}>
 						<Skeleton class="h-28" />
 						<Skeleton class="h-28" />
-					</div>
+					</Stack>
 				}
 			>
-				<div class="mt-6 flex flex-col gap-4">
-					<For each={providersStore.providers(scope())}>
-						{(provider) => (
-							<AgentCard provider={provider} scope={scope()} machineLabel={machineLabel()} />
-						)}
-					</For>
-				</div>
+				<For each={providersStore.providers(scope())}>
+					{(provider) => (
+						<AgentCard provider={provider} scope={scope()} machineLabel={machineLabel()} />
+					)}
+				</For>
 			</Show>
-			<div class="mt-4">
-				<NotificationsCard />
-			</div>
-		</div>
+		</SettingsPage>
 	);
 }
 
@@ -154,41 +154,35 @@ function AgentCard(props: {
 	}
 
 	return (
-		<section
-			aria-label={props.provider.name}
-			class={`rounded-xl border border-ink/10 bg-ink/3 ${props.provider.available ? "" : "opacity-70"}`}
-		>
-			<header class="flex flex-wrap items-center gap-3 px-4 py-3">
-				<div class="min-w-0 flex-1">
-					<h2 class="font-semibold text-ui">{props.provider.name}</h2>
-					<p class="text-ink/45 text-ui-xs">
-						{props.provider.available
-							? `${props.provider.models.length} model${props.provider.models.length === 1 ? "" : "s"} · updated ${ago(props.provider.refreshedAt)}`
-							: `Not installed on ${props.machineLabel}`}
-					</p>
-				</div>
+		<SettingsGroup
+			title={props.provider.name}
+			description={
+				props.provider.available
+					? `${props.provider.models.length} model${props.provider.models.length === 1 ? "" : "s"} · updated ${ago(props.provider.refreshedAt)}`
+					: `Not installed on ${props.machineLabel}`
+			}
+			action={
 				<Show when={props.provider.available}>
-					<Button variant="ghost" disabled={refreshing()} onClick={() => void refresh()}>
-						<Show when={refreshing()} fallback={<RestoreIcon class="size-4" />}>
-							<SpinnerIcon class="size-4" />
-						</Show>
-						<span class="hidden sm:inline">{refreshing() ? "Refreshing…" : "Refresh models"}</span>
-						<span class="sr-only sm:hidden">Refresh models</span>
-					</Button>
-					<button
-						type="button"
-						aria-pressed={enabled() ? "true" : "false"}
-						aria-label={`Offer ${props.provider.name} in new threads`}
-						title={enabled() ? "Offered in new threads" : "Hidden from new threads"}
-						onClick={() => void save({ enabled: !enabled() })}
-						class="focus-ring relative h-5 w-9 shrink-0 rounded-full bg-ink/15 p-0 transition-colors duration-fast aria-pressed:bg-accent pointer-coarse:h-7 pointer-coarse:w-12"
-					>
-						<span
-							class={`absolute top-0.5 left-0 size-4 rounded-full bg-canvas shadow-sm transition-transform duration-fast pointer-coarse:size-6 ${enabled() ? "translate-x-4.5 pointer-coarse:translate-x-5.5" : "translate-x-0.5"}`}
+					<div class="flex items-center gap-2">
+						<IconButton
+							size="sm"
+							label={refreshing() ? "Refreshing models" : "Refresh models"}
+							disabled={refreshing()}
+							onClick={() => void refresh()}
+						>
+							<Show when={refreshing()} fallback={<RestoreIcon size="sm" />}>
+								<SpinnerIcon size="sm" />
+							</Show>
+						</IconButton>
+						<Switch
+							label={`Offer ${props.provider.name} in new threads`}
+							checked={enabled()}
+							onChange={(on) => void save({ enabled: on })}
 						/>
-					</button>
+					</div>
 				</Show>
-			</header>
+			}
+		>
 			<SetupRow
 				provider={props.provider}
 				machineLabel={props.machineLabel}
@@ -197,44 +191,55 @@ function AgentCard(props: {
 			/>
 			<Show when={error()}>
 				{(message) => (
-					<div class="px-4 pb-3">
-						<ErrorNotice message={message()} />
+					<div class="px-4 py-3">
+						<Alert tone="danger" title={message()} />
 					</div>
 				)}
 			</Show>
-			<Show when={props.provider.available && enabled()}>
-				<div class="flex flex-col gap-3 border-ink/5 border-t px-4 py-3 sm:flex-row sm:items-center">
-					<p class="shrink-0 text-ink/55 text-ui-sm sm:w-40">New threads start with</p>
-					<div class="flex min-w-0 flex-wrap items-center gap-1.5">
-						<Show when={props.provider.models.length > 0}>
-							<ModelPicker
-								models={props.provider.models}
-								model={model()}
-								onModel={(id) => {
-									// Keep the effort when the new model has that level too.
-									const levels =
-										props.provider.models.find((item) => item.id === id)?.efforts ?? [];
-									const effort = levels.some((level) => level.id === settings().effort)
-										? settings().effort
-										: undefined;
-									void save({ model: id, effort });
-								}}
-								efforts={efforts()}
-								effort={settings().effort ?? currentModel()?.defaultEffort ?? null}
-								onEffort={(id) => void save({ effort: id })}
-							/>
-						</Show>
-						<Show when={props.provider.modes.length > 0}>
-							<ModePicker
-								modes={props.provider.modes}
-								mode={settings().mode ?? props.provider.defaultMode ?? props.provider.modes[0].id}
-								onMode={(id) => void save({ mode: id })}
-							/>
-						</Show>
-					</div>
-				</div>
+			<Show
+				when={props.provider.available && enabled()}
+				fallback={
+					<Show when={props.provider.available}>
+						<SettingsRow
+							label="Hidden from new threads"
+							description="Turn it on to offer it in the model picker again."
+						>
+							{null}
+						</SettingsRow>
+					</Show>
+				}
+			>
+				<SettingsRow
+					label="New threads start with"
+					description="The model, effort and access it opens with."
+				>
+					<Show when={props.provider.models.length > 0}>
+						<ModelPicker
+							models={props.provider.models}
+							model={model()}
+							onModel={(id) => {
+								// Keep the effort when the new model has that level too.
+								const levels = props.provider.models.find((item) => item.id === id)?.efforts ?? [];
+								const effort = levels.some((level) => level.id === settings().effort)
+									? settings().effort
+									: undefined;
+								void save({ model: id, effort });
+							}}
+							efforts={efforts()}
+							effort={settings().effort ?? currentModel()?.defaultEffort ?? null}
+							onEffort={(id) => void save({ effort: id })}
+						/>
+					</Show>
+					<Show when={props.provider.modes.length > 0}>
+						<ModePicker
+							modes={props.provider.modes}
+							mode={settings().mode ?? props.provider.defaultMode ?? props.provider.modes[0].id}
+							onMode={(id) => void save({ mode: id })}
+						/>
+					</Show>
+				</SettingsRow>
 			</Show>
-		</section>
+		</SettingsGroup>
 	);
 }
 
@@ -260,11 +265,13 @@ function SetupRow(props: {
 			fallback={
 				// A machine whose Grid predates installing from here sends no setup details.
 				<Show when={!props.provider.available}>
-					<p class="border-ink/5 border-t px-4 py-3 text-ink/55 text-ui-sm">
-						Grid on {props.machineLabel} is too old to install agents from here. Update it (in a
-						terminal there: <code class="font-mono text-ui-xs">git pull</code> in its Grid folder,
-						then restart Grid, or rebuild the Codespace), and Install appears.
-					</p>
+					<div class="px-4 py-3.5">
+						<Text tone="subtle">
+							Grid on {props.machineLabel} is too old to install agents from here. Update it (in a
+							terminal there: <Code>git pull</Code> in its Grid folder, then restart Grid, or
+							rebuild the Codespace), and Install appears.
+						</Text>
+					</div>
 				</Show>
 			}
 		>
@@ -272,29 +279,28 @@ function SetupRow(props: {
 				<Show
 					when={props.provider.available}
 					fallback={
-						<div class="flex flex-wrap items-center gap-3 border-ink/5 border-t px-4 py-3">
-							<p class="min-w-0 flex-1 text-ink/55 text-ui-sm">
-								<Show
-									when={current().canInstall}
-									fallback={`Grid cannot install ${props.provider.name} for you.`}
-								>
-									Runs {props.provider.name}'s official installer in a terminal on{" "}
-									{props.machineLabel}.
-								</Show>
-							</p>
+						<SettingsRow
+							inline
+							label="Install"
+							description={
+								current().canInstall
+									? `Runs ${props.provider.name}'s official installer in a terminal on ${props.machineLabel}.`
+									: `Grid cannot install ${props.provider.name} for you.`
+							}
+						>
 							<Show
 								when={current().canInstall}
 								fallback={
 									<Show when={current().docs}>
 										{(docs) => (
-											<a
+											<TextLink
+												tone="accent"
 												href={docs()}
 												target="_blank"
 												rel="noopener noreferrer"
-												class="focus-ring rounded-sm text-accent text-ui-sm underline-offset-2 hover:underline"
 											>
 												How to install
-											</a>
+											</TextLink>
 										)}
 									</Show>
 								}
@@ -308,16 +314,15 @@ function SetupRow(props: {
 									Install
 								</Button>
 							</Show>
-						</div>
+						</SettingsRow>
 					}
 				>
 					<Show when={current().canSignIn}>
-						<div class="flex flex-wrap items-center gap-3 border-ink/5 border-t px-4 py-3">
-							<p class="min-w-0 flex-1 text-ui-sm">
-								<span class={current().signedIn === false ? "text-ink/70" : "text-ink/55"}>
-									{status() ?? "Sign in to use your own account."}
-								</span>
-							</p>
+						<SettingsRow
+							inline
+							label={status() ?? "Sign in"}
+							description="Uses your own account with the agent's vendor."
+						>
 							<Button
 								variant={
 									current().signedIn === false && !current().signInOptional ? "primary" : "ghost"
@@ -328,7 +333,7 @@ function SetupRow(props: {
 							>
 								{current().signedIn === true ? "Sign in again" : "Sign in"}
 							</Button>
-						</div>
+						</SettingsRow>
 					</Show>
 				</Show>
 			)}

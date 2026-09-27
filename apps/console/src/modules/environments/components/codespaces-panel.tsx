@@ -1,8 +1,23 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, For, onSettled, Show } from "solid-js";
 
+import {
+	Alert,
+	Button,
+	button,
+	Code,
+	CopyField,
+	Disclosure,
+	Field,
+	Input,
+	notify,
+	SettingsGroup,
+	Spinner,
+	Stack,
+	StatusDot,
+	Text,
+} from "@/kit";
 import { useAuth } from "@/modules/auth";
-import { Button, CopyIcon, ErrorNotice, Field, IconButton, Input, SpinnerIcon, toast } from "@/ui";
 
 import { type Codespace, type GitHubStatus, githubService } from "../services/github.service";
 import { environmentsStore } from "../stores/environments";
@@ -90,21 +105,14 @@ export function CodespacesPanel(): JSX.Element {
 	}
 
 	return (
-		<section
-			aria-labelledby="codespaces-heading"
-			class="mt-6 rounded-xl border border-ink/10 bg-ink/3"
-		>
-			<header class="flex flex-wrap items-center gap-3 px-4 py-3">
-				<div class="min-w-0 flex-1">
-					<h2 id="codespaces-heading" class="font-semibold text-ui">
-						GitHub Codespaces
-					</h2>
-					<p class="text-ink/45 text-ui-xs">
-						<Show when={connected()} fallback="Start, stop and connect your Codespaces from here.">
-							Signed in as @{status()?.login}
-						</Show>
-					</p>
-				</div>
+		<SettingsGroup
+			title="GitHub Codespaces"
+			description={
+				connected()
+					? `Signed in as @${status()?.login}`
+					: "Start, stop and connect your Codespaces from here."
+			}
+			action={
 				<Show when={connected()}>
 					<Button
 						variant="ghost"
@@ -115,132 +123,125 @@ export function CodespacesPanel(): JSX.Element {
 						Disconnect
 					</Button>
 				</Show>
-			</header>
-
+			}
+		>
 			<Show when={error()}>
 				{(message) => (
-					<div class="px-4 pb-3">
-						<ErrorNotice message={message()} />
+					<div class="px-4 py-3">
+						<Alert tone="danger" title={message()} />
 					</div>
 				)}
 			</Show>
-
-			<div class="border-ink/5 border-t px-4 py-3">
-				<Show when={loaded()} fallback={<SpinnerIcon class="size-4 text-ink/40" />}>
-					<Show when={status()}>
-						{(current) => (
-							<Show
-								when={connected()}
-								fallback={
+			<Show
+				when={loaded()}
+				fallback={
+					<div class="px-4 py-3.5">
+						<Spinner label="Checking GitHub" />
+					</div>
+				}
+			>
+				<Show when={status()}>
+					{(current) => (
+						<Show
+							when={connected()}
+							fallback={
+								<div class="px-4 py-4">
 									<SignIn
 										status={current()}
 										busy={busy() !== null}
 										onSignIn={() => void run("signin", githubService.signIn)}
 									/>
+								</div>
+							}
+						>
+							<CodespaceList
+								codespaces={codespaces()}
+								busy={busy()}
+								onAct={(name, action) =>
+									void run(`${action}:${name}`, (token) => githubService.act(token, name, action))
 								}
-							>
-								<CodespaceList
-									codespaces={codespaces()}
-									busy={busy()}
-									onAct={(name, action) =>
-										void run(`${action}:${name}`, (token) => githubService.act(token, name, action))
-									}
-								/>
+							/>
+							<div class="px-4 py-3">
 								<NewCodespace
 									login={current().login}
 									busy={busy() !== null}
 									onCreate={(input) =>
 										void run("create", async (token) => {
 											const made = await githubService.create(token, input);
-											toast({ message: `Created ${made.name}` });
+											notify({ title: `Created ${made.name}`, tone: "success" });
 										})
 									}
 								/>
-							</Show>
-						)}
-					</Show>
+							</div>
+						</Show>
+					)}
 				</Show>
-			</div>
-		</section>
+			</Show>
+		</SettingsGroup>
 	);
 }
 
 function SignIn(props: { status: GitHubStatus; busy: boolean; onSignIn: () => void }): JSX.Element {
-	async function copy(code: string): Promise<void> {
-		try {
-			await navigator.clipboard.writeText(code);
-			toast({ message: "Code copied" });
-		} catch {
-			// Clipboard refused; the code is on screen to type.
-		}
-	}
-
 	return (
 		<Show
 			when={props.status.installed}
 			fallback={
-				<p class="text-ink/55 text-ui-sm">
-					Install the GitHub CLI (<code class="font-mono text-ui-xs">gh</code>) on the machine Grid
-					runs on to manage Codespaces here.
-				</p>
+				<Text tone="subtle">
+					Install the GitHub CLI (<Code>gh</Code>) on the machine Grid runs on to manage Codespaces
+					here.
+				</Text>
 			}
 		>
 			<Show
 				when={props.status.claimedBy !== "someone-else"}
-				fallback={
-					<p class="text-ink/55 text-ui-sm">Someone else in this Grid has connected GitHub here.</p>
-				}
+				fallback={<Text tone="subtle">Someone else in this Grid has connected GitHub here.</Text>}
 			>
 				<Show
 					when={props.status.pending}
 					fallback={
-						<div class="flex flex-col items-start gap-2">
-							<p class="text-ink/55 text-ui-sm">
+						<Stack gap={3} align="start">
+							<Text tone="subtle">
 								<Show
 									when={props.status.login && props.status.canManageCodespaces}
 									fallback="Sign in once; GitHub gives you a code to approve. Grid never stores your GitHub token."
 								>
 									This machine is already signed in to GitHub as @{props.status.login}.
 								</Show>
-							</p>
+							</Text>
 							<Show when={props.status.error}>
-								{(message) => <ErrorNotice message={message()} />}
+								{(message) => <Alert tone="danger" title={message()} />}
 							</Show>
 							<Button variant="primary" disabled={props.busy} onClick={props.onSignIn}>
 								{props.status.login && props.status.canManageCodespaces
 									? `Use @${props.status.login}`
 									: "Sign in with GitHub"}
 							</Button>
-						</div>
+						</Stack>
 					}
 				>
 					{(pending) => (
-						<div class="flex flex-col gap-3">
-							<p class="text-ink/55 text-ui-sm">
+						<Stack gap={3}>
+							<Text tone="subtle">
 								Open GitHub, enter this code and approve. This page carries on by itself.
-							</p>
-							<div class="flex items-center gap-2">
-								<span class="rounded-lg bg-ink/8 px-3 py-2 font-mono font-semibold text-title tracking-widest">
-									{pending().code}
-								</span>
-								<IconButton label="Copy code" onClick={() => void copy(pending().code)}>
-									<CopyIcon class="size-4" />
-								</IconButton>
+							</Text>
+							<div class="md:max-w-64">
+								<CopyField label="GitHub code" value={pending().code} mono />
 							</div>
 							<div class="flex flex-wrap items-center gap-3">
 								<a
 									href={pending().url}
 									target="_blank"
 									rel="noopener noreferrer"
-									class="focus-ring inline-flex h-control items-center rounded-md bg-accent px-3 font-medium text-canvas text-ui-sm pointer-coarse:min-h-11"
+									class={button({ variant: "primary" })}
 								>
 									Open github.com/login/device
 								</a>
-								<span class="flex items-center gap-1.5 text-ink/45 text-ui-xs">
-									<SpinnerIcon class="size-3.5" /> Waiting for approval…
-								</span>
+								<Spinner label="Waiting for approval" />
+								<Text as="span" size="caption" tone="subtle">
+									Waiting for approval…
+								</Text>
 							</div>
-						</div>
+						</Stack>
 					)}
 				</Show>
 			</Show>
@@ -256,68 +257,78 @@ function CodespaceList(props: {
 	return (
 		<Show
 			when={props.codespaces.length > 0}
-			fallback={<p class="text-ink/55 text-ui-sm">No Codespaces yet. Create one below.</p>}
+			fallback={
+				<div class="px-4 py-3.5">
+					<Text tone="subtle">No Codespaces yet. Create one below.</Text>
+				</div>
+			}
 		>
-			<ul class="-mx-1 flex flex-col divide-y divide-ink/5">
-				<For each={props.codespaces}>
-					{(codespace) => (
-						<li class="flex flex-wrap items-center gap-x-3 gap-y-2 px-1 py-2.5">
-							<span
-								aria-hidden="true"
-								class={`size-2 shrink-0 rounded-full ${codespace.state === "Available" ? "bg-success" : SETTLED.has(codespace.state) ? "bg-ink/25" : "animate-pulse bg-accent"}`}
-							/>
-							<div class="min-w-0 flex-1">
-								<p class="truncate font-medium text-ui">{codespace.displayName}</p>
-								<p class="truncate text-ink/45 text-ui-xs">
-									{codespace.repository} · {codespace.state}
-									<Show when={codespace.environment}> · connected</Show>
-								</p>
-								<Show when={codespace.connecting}>
-									{(job) => (
-										<p class={`text-ui-xs ${job().error ? "text-danger" : "text-ink/55"}`}>
-											{job().error ?? job().step}
-										</p>
-									)}
-								</Show>
-							</div>
-							<div class="flex items-center gap-1.5">
-								<Show
-									when={
-										!codespace.environment && !(codespace.connecting && !codespace.connecting.error)
-									}
+			<For each={props.codespaces}>
+				{(codespace) => (
+					<div class="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
+						<StatusDot
+							status={
+								codespace.state === "Available"
+									? "online"
+									: SETTLED.has(codespace.state)
+										? "offline"
+										: "running"
+							}
+							label={codespace.state}
+						/>
+						<Stack gap={0.5} class="min-w-0 flex-1">
+							<Text tone="strong" truncate>
+								{codespace.displayName}
+							</Text>
+							<Text size="caption" tone="subtle" truncate>
+								{codespace.repository} · {codespace.state}
+								{codespace.environment ? " · connected" : ""}
+							</Text>
+							<Show when={codespace.connecting}>
+								{(job) => (
+									<Text size="caption" tone={job().error ? "danger" : "subtle"}>
+										{job().error ?? job().step}
+									</Text>
+								)}
+							</Show>
+						</Stack>
+						<div class="flex items-center gap-1.5">
+							<Show
+								when={
+									!codespace.environment && !(codespace.connecting && !codespace.connecting.error)
+								}
+							>
+								<Button
+									size="sm"
+									variant="primary"
+									disabled={props.busy !== null}
+									onClick={() => props.onAct(codespace.name, "connect")}
 								>
-									<Button
-										size="sm"
-										variant="primary"
-										disabled={props.busy !== null}
-										onClick={() => props.onAct(codespace.name, "connect")}
-									>
-										Connect
-									</Button>
-								</Show>
-								<Show when={codespace.state === "Available"}>
-									<Button
-										size="sm"
-										disabled={props.busy !== null}
-										onClick={() => props.onAct(codespace.name, "stop")}
-									>
-										Stop
-									</Button>
-								</Show>
-								<Show when={codespace.state === "Shutdown"}>
-									<Button
-										size="sm"
-										disabled={props.busy !== null}
-										onClick={() => props.onAct(codespace.name, "start")}
-									>
-										Start
-									</Button>
-								</Show>
-							</div>
-						</li>
-					)}
-				</For>
-			</ul>
+									Connect
+								</Button>
+							</Show>
+							<Show when={codespace.state === "Available"}>
+								<Button
+									size="sm"
+									disabled={props.busy !== null}
+									onClick={() => props.onAct(codespace.name, "stop")}
+								>
+									Stop
+								</Button>
+							</Show>
+							<Show when={codespace.state === "Shutdown"}>
+								<Button
+									size="sm"
+									disabled={props.busy !== null}
+									onClick={() => props.onAct(codespace.name, "start")}
+								>
+									Start
+								</Button>
+							</Show>
+						</div>
+					</div>
+				)}
+			</For>
 		</Show>
 	);
 }
@@ -331,43 +342,50 @@ function NewCodespace(props: {
 	const [branch, setBranch] = createSignal("");
 
 	return (
-		<details class="mt-3">
-			<summary class="focus-ring cursor-pointer select-none text-ink/60 text-ui-sm hover:text-ink">
-				New Codespace
-			</summary>
+		<Disclosure summary="New Codespace">
 			<form
-				class="mt-3 flex flex-col gap-3 md:max-w-md"
+				class="pt-2"
 				onSubmit={(event) => {
 					event.preventDefault();
 					props.onCreate({ repository: repository().trim(), branch: branch().trim() || undefined });
 				}}
 			>
-				<Field
-					label="Repository"
-					hint="owner/name. Open it on the Grid repository to connect it as an environment."
-				>
-					<Input
-						value={repository()}
-						onInput={(event) => setRepository(event.currentTarget.value)}
-						autocapitalize="off"
-						spellcheck={false}
-						required
-					/>
-				</Field>
-				<Field label="Branch" hint="Optional: the default branch otherwise.">
-					<Input
-						value={branch()}
-						onInput={(event) => setBranch(event.currentTarget.value)}
-						autocapitalize="off"
-						spellcheck={false}
-					/>
-				</Field>
-				<div>
-					<Button type="submit" variant="primary" disabled={props.busy}>
-						{props.busy ? "Working…" : "Create"}
-					</Button>
-				</div>
+				<Stack gap={3}>
+					<div class="grid gap-3 md:grid-cols-2">
+						<Field
+							label="Repository"
+							hint="owner/name. Open it on the Grid repository to connect it as an environment."
+						>
+							{(id) => (
+								<Input
+									id={id}
+									value={repository()}
+									onInput={(event) => setRepository(event.currentTarget.value)}
+									autocapitalize="off"
+									spellcheck={false}
+									required
+								/>
+							)}
+						</Field>
+						<Field label="Branch" hint="Optional: the default branch otherwise.">
+							{(id) => (
+								<Input
+									id={id}
+									value={branch()}
+									onInput={(event) => setBranch(event.currentTarget.value)}
+									autocapitalize="off"
+									spellcheck={false}
+								/>
+							)}
+						</Field>
+					</div>
+					<div>
+						<Button type="submit" variant="primary" disabled={props.busy}>
+							{props.busy ? "Working…" : "Create"}
+						</Button>
+					</div>
+				</Stack>
 			</form>
-		</details>
+		</Disclosure>
 	);
 }
