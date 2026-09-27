@@ -5,6 +5,7 @@ import {
 	AgentMessage,
 	AlertIcon,
 	Badge,
+	Button,
 	CheckIcon,
 	CloseIcon,
 	CopyIcon,
@@ -230,8 +231,20 @@ function BlockView(props: {
 	onNote?: (text: string) => void;
 }): JSX.Element {
 	const userPrompt = createMemo(() => {
-		if (props.block.kind !== "assistant") return null;
-		return findPrecedingUserPrompt(props.blocks, props.block);
+		const block = props.block;
+		if (block.kind !== "assistant" && block.kind !== "notice") return null;
+		return findPrecedingUserPrompt(props.blocks, block);
+	});
+
+	/**
+	 * A failed turn offered its way out: the message again, once the agent has stopped. Only the
+	 * chat's last word gets it; an older failure has been moved past.
+	 */
+	const retry = createMemo(() => {
+		const block = props.block;
+		if (block.kind !== "notice" || !block.retry || !props.onRegenerate) return null;
+		if (props.blocks.at(-1)?.key !== block.key) return null;
+		return userPrompt();
 	});
 
 	return (
@@ -296,7 +309,25 @@ function BlockView(props: {
 					>
 						<Stack gap={2}>
 							<RunStatus status="error">Needs a fix</RunStatus>
-							<NoticeCard title="The agent stopped">{notice().text}</NoticeCard>
+							<NoticeCard
+								title="The agent stopped"
+								actions={
+									retry() ? (
+										<Button
+											size="sm"
+											disabled={props.running}
+											onClick={() => {
+												const prompt = retry();
+												if (prompt) props.onRegenerate?.(prompt);
+											}}
+										>
+											Try again
+										</Button>
+									) : undefined
+								}
+							>
+								{notice().text}
+							</NoticeCard>
 						</Stack>
 					</Show>
 				)}

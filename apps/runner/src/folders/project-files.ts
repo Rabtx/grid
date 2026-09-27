@@ -1,13 +1,19 @@
+import { createHash, randomUUID } from "node:crypto";
 import {
 	closeSync,
+	fchmodSync,
+	fsyncSync,
 	mkdirSync,
 	openSync,
 	readdirSync,
 	readFileSync,
 	realpathSync,
+	renameSync,
 	statSync,
+	unlinkSync,
+	writeSync,
 } from "node:fs";
-import { basename, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 
 import { FolderError } from "./folders";
 
@@ -15,7 +21,8 @@ export type ProjectFile = { name: string; path: string; kind: "file" | "folder" 
 export type ProjectFileListing = { path: string; entries: ProjectFile[] };
 /**
  * One file's contents for reading in the console. `text` is null for a binary file or one over
- * the size limit, which the console names rather than shows.
+ * the size limit, which the console names rather than shows. `hash` is the text as it was read,
+ * and is what a save sends back as the version it is based on.
  */
 export type ProjectFileContent = {
 	path: string;
@@ -24,12 +31,33 @@ export type ProjectFileContent = {
 	text: string | null;
 	binary: boolean;
 	tooLarge: boolean;
+	/** Of `text`, or null when there is no text to base a save on. */
+	hash: string | null;
 };
 
 /** Files larger than this are named, not sent: the console is for reading, not a download. */
 export const MAX_READ_BYTES = 512 * 1024;
 
+/**
+ * What the console sends back when it saves: the text it had when the file was opened, so a
+ * file changed underneath it (by an agent, or another tab) is refused rather than overwritten.
+ */
+export type ProjectFileWrite = { path: string; text: string; base: string };
+
+/** Short enough to read in a log, long enough that a stale save is not a coin flip. */
+export function textHash(text: string): string {
+	return createHash("sha256").update(text, "utf8").digest("hex").slice(0, 16);
+}
+
 const SKIP = new Set([".git", "node_modules", ".next", "dist", "build", "target", "coverage"]);
+/**
+ * Never read or written through the console, whatever the path: the git folder is git's own
+ * state, and hooks or config written there run code on the next git command.
+ */
+const REFUSED = new Set([".git"]);
+
+/** Strict, so a file that is not UTF-8 is named rather than decoded lossily and saved corrupted. */
+const utf8 = new TextDecoder("utf-8", { fatal: true });
 
 function within(root: string, target: string): boolean {
 	const path = relative(root, target);
@@ -42,6 +70,8 @@ type Resolved = { base: string; target: string; relative: string };
 function inside(root: string, path: string, missing: string): Resolved {
 	if (path.startsWith("/") || path.split(/[\\/]/).includes("..") || path.includes("\\"))
 		throw new FolderError("That path is outside the project", 400);
+	if (path.split("/").some((segment) => REFUSED.has(segment)))
+		throw new FolderError("Grid does not open files in the git folder", 403);
 	let base: string;
 	let target: string;
 	try {
@@ -51,7 +81,11 @@ function inside(root: string, path: string, missing: string): Resolved {
 		throw new FolderError(missing, 404);
 	}
 	if (!within(base, target)) throw new FolderError("That path is outside the project", 403);
-	return { base, target, relative: relative(base, target).split(sep).join("/") };
+	const inner = relative(base, target).split(sep).join("/");
+	// Again after symlinks are followed, so a link into the git folder is refused too.
+	if (inner.split("/").some((segment) => REFUSED.has(segment)))
+		throw new FolderError("Grid does not open files in the git folder", 403);
+	return { base, target, relative: inner };
 }
 
 function directory(root: string, path: string): Resolved {
@@ -67,7 +101,7 @@ export function readProjectFile(root: string, path: string): ProjectFileContent 
 	const stats = statSync(file.target);
 	if (!stats.isFile()) throw new FolderError("That path is not a file", 400);
 	const name = basename(file.target);
-	const empty = { path: file.relative, name, size: stats.size, text: null };
+	const empty = { path: file.relative, name, size: stats.size, text: null, hash: null };
 	if (stats.size > MAX_READ_BYTES) return { ...empty, binary: false, tooLarge: true };
 	let bytes: Buffer;
 	try {
@@ -77,7 +111,64 @@ export function readProjectFile(root: string, path: string): ProjectFileContent 
 	}
 	// A NUL byte near the start is the usual sign of a binary file.
 	if (bytes.subarray(0, 8000).includes(0)) return { ...empty, binary: true, tooLarge: false };
-	return { ...empty, text: bytes.toString("utf8"), binary: false, tooLarge: false };
+	let text: string;
+	try {
+		text = utf8.decode(bytes);
+	} catch {
+		// Not UTF-8 (Latin-1, UTF-16, …): shown as not editable, like a binary file.
+		return { ...empty, binary: true, tooLarge: false };
+	}
+	return { ...empty, text, binary: false, tooLarge: false, hash: textHash(text) };
+}
+
+/**
+ * Writes a file's text, but only onto the version the caller last read: if the file changed on
+ * disk since, this refuses with 409 and the console asks what to do. The write goes to a
+ * temporary name in the same folder and is renamed over the file, so a reader never sees half
+ * a file and a failed write leaves the old one alone.
+ */
+export function writeProjectFile(root: string, write: ProjectFileWrite): ProjectFileContent {
+	const { text, base } = write;
+	if (typeof text !== "string" || typeof base !== "string")
+		throw new FolderError("Say what to write and which version you read", 400);
+	if (text.includes("\0")) throw new FolderError("Grid cannot write a binary file", 400);
+	if (Buffer.byteLength(text, "utf8") > MAX_READ_BYTES)
+		throw new FolderError("This file would be too large to save", 413);
+	const file = inside(root, write.path, "That file is not available");
+	const current = readProjectFile(root, file.relative);
+	if (current.binary) throw new FolderError("This file is not a text file", 400);
+	if (current.tooLarge) throw new FolderError("This file is too large to save", 413);
+	if (current.hash !== base)
+		throw new FolderError("This file changed on disk since you opened it", 409);
+	// Between the check above and the rename below another writer could still land; that window
+	// is a few milliseconds and the rename keeps the file whole, so it is accepted.
+	// Beside the file it replaces, so the rename is the same filesystem and therefore atomic. The
+	// name is random and opened with "wx", so it never follows a symlink planted at that name.
+	const temporary = join(dirname(file.target), `.grid-${randomUUID()}.tmp`);
+	let created = false;
+	try {
+		const mode = statSync(file.target).mode & 0o7777;
+		const descriptor = openSync(temporary, "wx", mode);
+		created = true;
+		try {
+			// Again after opening, since the umask narrows the mode open was given.
+			fchmodSync(descriptor, mode);
+			writeSync(descriptor, text, null, "utf8");
+			fsyncSync(descriptor);
+		} finally {
+			closeSync(descriptor);
+		}
+		renameSync(temporary, file.target);
+	} catch {
+		if (created)
+			try {
+				unlinkSync(temporary);
+			} catch {
+				// Already gone: the rename may have moved it before failing.
+			}
+		throw new FolderError("Grid cannot write to this file", 403);
+	}
+	return { ...readProjectFile(root, file.relative), text, hash: textHash(text) };
 }
 
 export function listProjectFiles(root: string, path = ""): ProjectFileListing {
