@@ -50,6 +50,8 @@ export type HeaderTab = {
 	running?: boolean;
 	/** False for a tab that is a place rather than a document (a new chat). */
 	closable?: boolean;
+	/** A quiet word after the label: where it runs, or that it ended. */
+	badge?: string;
 };
 
 /**
@@ -62,6 +64,8 @@ export function HeaderTabs(props: {
 	onClose?: (id: string) => void;
 	newHref?: string;
 	newLabel?: string;
+	/** In place of the plus link: a button or a menu that opens the new tab. */
+	newAction?: JSX.Element;
 }): JSX.Element {
 	return (
 		<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
@@ -81,6 +85,11 @@ export function HeaderTabs(props: {
 								</span>
 							</Show>
 							<span class={`truncate ${tab.running ? "thread-running" : ""}`}>{tab.label}</span>
+							<Show when={tab.badge}>
+								<span class="max-w-24 shrink-0 truncate rounded-kit-sm bg-fill-strong px-1 text-caption text-fg-subtle">
+									{tab.badge}
+								</span>
+							</Show>
 						</a>
 						<Show when={props.onClose && tab.closable !== false}>
 							<button
@@ -95,7 +104,8 @@ export function HeaderTabs(props: {
 					</div>
 				)}
 			</For>
-			<Show when={props.newHref}>
+			{props.newAction}
+			<Show when={!props.newAction && props.newHref}>
 				<a
 					href={props.newHref}
 					aria-label={props.newLabel ?? "New tab"}

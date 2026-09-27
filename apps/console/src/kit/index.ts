@@ -94,13 +94,24 @@ export {
 } from "./run";
 export { ListDetail, ListRow, PaneHeader } from "./pane";
 export { PixelMark, ProjectMark, type ProjectMarkShape } from "./project-mark";
+export { FLOATING_MIC, VoiceDock, VoiceError, VoiceStatus } from "./voice";
 export { Select, type SelectGroup, type SelectOption } from "./select";
 export { CopyField, PropertyRow, SettingsGroup, SettingsRow } from "./settings";
 export { Pagination, Stepper } from "./steps";
 export { Card, DescriptionList, EmptyState, ListCard, Panel, Skeleton, Tooltip } from "./surface";
 export { Checkbox, CheckboxField, Switch } from "./switch";
 export { Table, Td, Th, Tr } from "./table";
-export { Terminal, TermText } from "./terminal";
+export {
+	JumpToLatest,
+	KeyStrip,
+	PageDots,
+	SelectionBar,
+	SelectionHandle,
+	Terminal,
+	terminalKey,
+	TermText,
+	TouchScrollbar,
+} from "./terminal";
 export { Segmented, type TabOption, Tabs } from "./tabs";
 export { Heading, Text, type TextSize, type TextTone } from "./text";
 export { notify, Toasts } from "./toast";

@@ -6,17 +6,29 @@ import { workspaceHref } from "@/lib/active-workspace";
 import { useAuth } from "@/modules/auth";
 import { environmentsStore, placementsStore } from "@/modules/environments";
 import { useWorkspace } from "@/modules/projects";
+import { ShellSlot, useShell } from "@/modules/shell";
 import {
+	Alert,
+	Banner,
 	Button,
-	CloseIcon,
-	ErrorNotice,
+	CheckIcon,
+	ChevronDownIcon,
+	EmptyState,
 	GlobeIcon,
+	HeaderTabs,
 	IconButton,
+	iconButton,
 	Menu,
+	type MenuGroup,
+	menuTrigger,
 	PlusIcon,
+	Row,
 	Skeleton,
+	Stack,
+	StatusDot,
 	TerminalIcon,
-} from "@/ui";
+	Text,
+} from "@/kit";
 
 import { type Modifiers, NO_MODIFIERS } from "../lib/keys";
 import type { ConnectionState } from "../lib/terminal-socket";
@@ -56,6 +68,7 @@ type Load = { status: "loading" } | { status: "ready" } | { status: "error"; mes
 export function TerminalScreen(): JSX.Element {
 	const auth = useAuth();
 	const workspace = useWorkspace();
+	const shell = useShell();
 	const navigate = useNavigate();
 	const match = useMatch(() => "/terminal/:id");
 	const routeId = createMemo(() => match()?.params.id ?? null);
@@ -246,90 +259,73 @@ export function TerminalScreen(): JSX.Element {
 		},
 	);
 
+	/** Where a terminal runs, or that it ended, beside its name. */
+	function badgeOf(terminal: TerminalInfo): string | undefined {
+		if (states()[terminal.id] === "gone") return "ended";
+		return environmentsStore.labelOf(terminal.environment) ?? undefined;
+	}
+
+	const newTerminal = () => (
+		<NewTerminal
+			busy={busy()}
+			environments={environmentsStore.environments()}
+			onOpen={(machine) => void openTerminal(machine)}
+		/>
+	);
+
 	return (
 		<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-			<div class="flex h-10 shrink-0 items-center gap-1 border-stroke border-b pr-1 pl-2">
-				<div
-					role="tablist"
-					aria-label="Terminals"
-					class="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]"
-				>
-					<For each={terminals()}>
-						{(terminal) => (
-							<div
-								class="group flex h-8 shrink-0 items-center gap-1 rounded-md pr-0.5 pl-2 text-ink/60 aria-selected:bg-selection aria-selected:text-ink"
-								aria-selected={activeId() === terminal.id ? "true" : "false"}
-							>
-								<a
-									role="tab"
-									href={workspaceHref(`/terminal/${terminal.id}`)}
-									aria-selected={activeId() === terminal.id ? "true" : "false"}
-									class="focus-ring flex max-w-44 items-center gap-1.5 rounded-sm text-ui-sm"
-								>
-									<StatusDot state={states()[terminal.id]} exited={terminal.exitCode !== null} />
-									<span class="truncate">{titleOf(terminal)}</span>
-									<Show when={environmentsStore.labelOf(terminal.environment)}>
-										{(label) => (
-											<span class="max-w-24 truncate rounded bg-ink/10 px-1 py-0.5 text-ink/55 text-ui-caption">
-												{label()}
-											</span>
-										)}
-									</Show>
-									<Show when={states()[terminal.id] === "gone"}>
-										<span class="rounded bg-ink/10 px-1 py-0.5 text-ink/50 text-ui-caption">
-											ended
-										</span>
-									</Show>
-								</a>
-								<IconButton
-									size="sm"
-									label={`Close ${titleOf(terminal)}`}
-									onClick={() => void closeTerminal(terminal.id)}
-								>
-									<CloseIcon class="size-3.5" />
-								</IconButton>
-							</div>
-						)}
-					</For>
-				</div>
+			{/* The terminals are the title bar's tabs, as threads are; phones switch from the title. */}
+			<ShellSlot name="tabs">
 				<Show
-					when={environmentsStore.environments().length > 0}
+					when={shell.desktop()}
 					fallback={
-						<IconButton label="New terminal" disabled={busy()} onClick={() => void openTerminal()}>
-							<PlusIcon class="size-4" />
-						</IconButton>
+						<TerminalSwitcher
+							terminals={terminals()}
+							activeId={activeId()}
+							titleOf={titleOf}
+							stateOf={(id) => states()[id]}
+							environments={environmentsStore.environments()}
+							onPick={(id) => navigate(`/terminal/${id}`)}
+							onOpen={(machine) => void openTerminal(machine)}
+							onClose={(id) => void closeTerminal(id)}
+						/>
 					}
 				>
-					<Menu
-						label="New terminal on…"
-						trigger={<PlusIcon class="size-4" />}
-						disabled={busy()}
-						items={[
-							{ id: THIS_MACHINE, label: "This machine", icon: <TerminalIcon class="size-4" /> },
-							...environmentsStore.environments().map((environment) => ({
-								id: environment.id,
-								label: environment.label,
-								icon: <GlobeIcon class="size-4" />,
-							})),
-						]}
-						onSelect={(id) => void openTerminal(id === THIS_MACHINE ? null : id)}
-					/>
+					<Row gap={1} class="min-w-0 flex-1">
+						<HeaderTabs
+							tabs={terminals().map((terminal) => ({
+								id: terminal.id,
+								label: titleOf(terminal),
+								href: workspaceHref(`/terminal/${terminal.id}`),
+								icon: (
+									<StatusDot
+										size="sm"
+										status={dotOf(states()[terminal.id], terminal.exitCode !== null)}
+									/>
+								),
+								badge: badgeOf(terminal),
+							}))}
+							current={activeId()}
+							onClose={(id) => void closeTerminal(id)}
+							newAction={newTerminal()}
+						/>
+						<IconButton size="sm" label="Smaller text" onClick={() => changeFontSize(-1)}>
+							<span class="font-mono text-caption">A−</span>
+						</IconButton>
+						<IconButton size="sm" label="Larger text" onClick={() => changeFontSize(1)}>
+							<span class="font-mono text-body">A+</span>
+						</IconButton>
+					</Row>
 				</Show>
-				<div class="hidden items-center pointer-fine:flex">
-					<IconButton label="Smaller text" size="sm" onClick={() => changeFontSize(-1)}>
-						<span class="font-mono text-ui-xs">A−</span>
-					</IconButton>
-					<IconButton label="Larger text" size="sm" onClick={() => changeFontSize(1)}>
-						<span class="font-mono text-ui-sm">A+</span>
-					</IconButton>
-				</div>
-			</div>
+			</ShellSlot>
 
 			<Show when={errorMessage()}>
 				{(message) => (
-					<div class="p-2">
-						<ErrorNotice
-							message={message()}
+					<div class="shrink-0 p-2">
+						<Alert
+							tone="danger"
+							title={message()}
 							action={
 								<Button size="sm" onClick={() => void refresh()}>
 									Try again
@@ -341,54 +337,55 @@ export function TerminalScreen(): JSX.Element {
 			</Show>
 
 			<Show when={activeState() === "reconnecting" || activeState() === "signed-out"}>
-				<output
-					aria-live="polite"
-					class="block shrink-0 bg-ink/5 px-3 py-1.5 text-ink/60 text-ui-xs"
-				>
+				<Banner tone="quiet">
 					{activeState() === "reconnecting"
 						? "Connection lost — reconnecting…"
 						: "Your session ended. Sign in again to keep using the terminal."}
-				</output>
+				</Banner>
 			</Show>
 
 			<Show when={activeState() === "gone"}>
-				<div class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-stroke border-b bg-ink/5 px-3 py-1.5 text-ui-xs">
-					<span class="text-ink/70">
-						This terminal ended — its shell exited or the runner restarted.
-					</span>
-					<div class="flex items-center gap-2">
-						<Button size="sm" variant="primary" onClick={() => void restartActiveTerminal()}>
-							Start again
-						</Button>
-						<Button
-							size="sm"
-							onClick={() => {
-								const id = activeId();
-								if (id) void closeTerminal(id);
-							}}
-						>
-							Close
-						</Button>
-					</div>
-				</div>
+				<Banner
+					tone="quiet"
+					action={
+						<Row gap={2}>
+							<Button size="sm" variant="primary" onClick={() => void restartActiveTerminal()}>
+								Start again
+							</Button>
+							<Button
+								size="sm"
+								onClick={() => {
+									const id = activeId();
+									if (id) void closeTerminal(id);
+								}}
+							>
+								Close
+							</Button>
+						</Row>
+					}
+				>
+					This terminal ended — its shell exited or the runner restarted.
+				</Banner>
 			</Show>
 
-			<div class="relative min-h-0 flex-1 bg-canvas">
+			<div class="relative min-h-0 flex-1 bg-surface">
 				<Show when={load().status === "loading"}>
-					<div class="flex flex-col gap-2 p-3">
+					<Stack gap={2} class="p-3">
 						<Skeleton class="h-3 w-2/3" />
 						<Skeleton class="h-3 w-1/2" />
-					</div>
+					</Stack>
 				</Show>
 				<Show when={load().status === "ready" && terminals().length === 0 && !busy()}>
-					<div class="grid h-full place-items-center p-6 text-center">
-						<div class="flex flex-col items-center gap-3">
-							<TerminalIcon class="size-6 text-ink/40" />
-							<p class="text-ink/60 text-ui-sm">No terminal is open.</p>
-							<Button variant="primary" onClick={() => void openTerminal()}>
-								New terminal
-							</Button>
-						</div>
+					<div class="grid h-full place-items-center">
+						<EmptyState
+							icon={<TerminalIcon size="lg" />}
+							title="No terminal is open"
+							action={
+								<Button variant="primary" onClick={() => void openTerminal()}>
+									New terminal
+								</Button>
+							}
+						/>
 					</div>
 				</Show>
 				<For each={terminals()}>
@@ -431,13 +428,121 @@ export function TerminalScreen(): JSX.Element {
 	);
 }
 
-function StatusDot(props: { state: ConnectionState | undefined; exited: boolean }): JSX.Element {
-	const tone = () => {
-		if (props.exited || props.state === "exited" || props.state === "gone") return "bg-ink/25";
-		if (props.state === "open") return "bg-success";
-		return "bg-warning motion-safe:animate-pulse";
-	};
-	return <span class={`size-1.5 shrink-0 rounded-full ${tone()}`} aria-hidden="true" />;
+/** A terminal's connection as a dot: live, on its way, or finished. */
+function dotOf(state: ConnectionState | undefined, exited: boolean): "online" | "busy" | "offline" {
+	if (exited || state === "exited" || state === "gone") return "offline";
+	return state === "open" ? "online" : "busy";
+}
+
+type Environment = { id: string; label: string };
+
+function newTerminalGroups(environments: readonly Environment[]): MenuGroup[] {
+	return [
+		{
+			label: "New terminal on",
+			items: [
+				{ id: THIS_MACHINE, label: "This machine", icon: <TerminalIcon size="sm" /> },
+				...environments.map((environment) => ({
+					id: environment.id,
+					label: environment.label,
+					icon: <GlobeIcon size="sm" />,
+				})),
+			],
+		},
+	];
+}
+
+/** The plus after the tabs: a new shell here, or a menu of machines once there are others. */
+function NewTerminal(props: {
+	busy: boolean;
+	environments: readonly Environment[];
+	onOpen: (machine?: string | null) => void;
+}): JSX.Element {
+	return (
+		<Show
+			when={props.environments.length > 0}
+			fallback={
+				<IconButton
+					size="sm"
+					label="New terminal"
+					disabled={props.busy}
+					onClick={() => props.onOpen()}
+				>
+					<PlusIcon size="sm" />
+				</IconButton>
+			}
+		>
+			<Menu
+				label="New terminal on…"
+				trigger={<PlusIcon size="sm" />}
+				triggerClass={iconButton({ size: "sm" })}
+				groups={newTerminalGroups(props.environments)}
+				onSelect={(id) => props.onOpen(id === THIS_MACHINE ? null : id)}
+			/>
+		</Show>
+	);
+}
+
+/**
+ * Phones: the title bar names the terminal showing, and tapping it lists the others, a new one
+ * and closing this one — tabs would not fit.
+ */
+function TerminalSwitcher(props: {
+	terminals: readonly TerminalInfo[];
+	activeId: string | null;
+	titleOf: (terminal: TerminalInfo) => string;
+	stateOf: (id: string) => ConnectionState | undefined;
+	environments: readonly Environment[];
+	onPick: (id: string) => void;
+	onOpen: (machine?: string | null) => void;
+	onClose: (id: string) => void;
+}): JSX.Element {
+	const active = () => props.terminals.find((terminal) => terminal.id === props.activeId);
+	const groups = (): MenuGroup[] => [
+		...(props.terminals.length > 0
+			? [
+					{
+						label: "Terminals",
+						items: props.terminals.map((terminal) => ({
+							id: `open:${terminal.id}`,
+							label: props.titleOf(terminal),
+							icon: (
+								<StatusDot
+									size="sm"
+									status={dotOf(props.stateOf(terminal.id), terminal.exitCode !== null)}
+								/>
+							),
+							trailing: terminal.id === props.activeId ? <CheckIcon size="sm" /> : undefined,
+						})),
+					},
+				]
+			: []),
+		...newTerminalGroups(props.environments),
+		...(props.activeId
+			? [{ items: [{ id: "close", label: "Close this terminal", danger: true }] }]
+			: []),
+	];
+	return (
+		<Menu
+			label="Terminals"
+			triggerClass={menuTrigger({})}
+			trigger={
+				<>
+					<Text as="span" tone="strong" weight="medium" truncate>
+						{active() ? props.titleOf(active() as TerminalInfo) : "Terminal"}
+					</Text>
+					<ChevronDownIcon size="xs" class="text-fg-faint" />
+				</>
+			}
+			groups={groups()}
+			onSelect={(id) => {
+				if (id.startsWith("open:")) props.onPick(id.slice(5));
+				else if (id === "close") {
+					if (props.activeId) props.onClose(props.activeId);
+				} else props.onOpen(id === THIS_MACHINE ? null : id);
+			}}
+		/>
+	);
 }
 
 function describe(cause: unknown): string {
