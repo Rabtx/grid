@@ -152,6 +152,7 @@ function isDirectory(path: string): boolean {
 export class ChatHub {
 	private readonly live = new Map<string, Live>();
 	private attention: AttentionListener | null = null;
+	private failedTurn: ((session: ChatSessionRow) => void) | null = null;
 
 	constructor(
 		private readonly store: ChatStore,
@@ -218,6 +219,11 @@ export class ChatHub {
 	/** Hear about turns that end, and approvals that wait, while nobody is watching the chat. */
 	onUnwatchedAttention(listener: AttentionListener): void {
 		this.attention = listener;
+	}
+
+	/** Hear about every turn that ends in an error, once per turn, watched or not. */
+	onTurnFailed(listener: (session: ChatSessionRow) => void): void {
+		this.failedTurn = listener;
 	}
 
 	/** The workspace's threads with an agent working right now, for the "running" indicators. */
@@ -828,6 +834,10 @@ export class ChatHub {
 		) {
 			const session = this.store.get(id);
 			if (session) this.attention?.(session, event);
+		}
+		if (event.type === "turn_end" && event.reason === "error" && this.failedTurn) {
+			const session = this.store.get(id);
+			if (session) this.failedTurn(session);
 		}
 
 		if (event.type === "message" || event.type === "reasoning") {

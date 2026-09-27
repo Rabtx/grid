@@ -7,6 +7,7 @@ import {
 	BellIcon,
 	BranchIcon,
 	GlobeIcon,
+	InfoIcon,
 	LinkIcon,
 	NavLink,
 	NavSection,
@@ -26,6 +27,7 @@ const ICONS: Record<SettingsHref, () => JSX.Element> = {
 	"/settings/environments": () => <GlobeIcon />,
 	"/settings/connectors": () => <LinkIcon />,
 	"/settings/worktrees": () => <BranchIcon />,
+	"/settings/diagnostics": () => <InfoIcon />,
 	"/settings/account": () => <UserIcon />,
 };
 

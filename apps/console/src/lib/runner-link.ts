@@ -10,6 +10,7 @@
  */
 
 import { workspaceHeaders, workspaceHello } from "./active-workspace";
+import { reportClientDiagnostic } from "./runner-health";
 
 type Listener = (event: Event) => void;
 
@@ -56,6 +57,7 @@ class LinkedSocket extends EventTarget implements SocketLike {
 	readyState = CONNECTING;
 	binaryType: BinaryType = "blob";
 	ch = 0;
+	sessionId: string | null = null;
 	/** Set when this machine has no link: the real WebSocket this one stands in for. */
 	fallback: WebSocket | null = null;
 
@@ -84,6 +86,7 @@ class LinkedSocket extends EventTarget implements SocketLike {
 			return;
 		}
 		if (message.t === "hello") {
+			if (typeof message.id === "string") this.sessionId = message.id;
 			// The link is already signed in; the rest of the hello says what to attach and from where.
 			const { t: _t, token: _token, ...rest } = message;
 			this.link.openChannel(this, rest);
@@ -128,6 +131,7 @@ class LinkedSocket extends EventTarget implements SocketLike {
 	/** Stand in for a real WebSocket: forward its events as this one's. */
 	useFallback(socket: WebSocket): void {
 		this.fallback = socket;
+		this.link.reportFallback(this);
 		socket.binaryType = this.binaryType;
 		socket.addEventListener("open", () => {
 			this.readyState = OPEN;
@@ -147,6 +151,7 @@ class LinkedSocket extends EventTarget implements SocketLike {
 
 export class RunnerLink {
 	private wire: WebSocket | null = null;
+	private wireOpenedAt: number | null = null;
 	private welcomed = false;
 	private support: Promise<boolean> | null = null;
 	private readonly channels = new Map<number, LinkedSocket>();
@@ -161,6 +166,14 @@ export class RunnerLink {
 	constructor(private readonly options: LinkOptions) {
 		this.createSocket = options.createSocket ?? ((url) => new WebSocket(url));
 		this.fetcher = options.fetcher ?? ((...args) => fetch(...args));
+	}
+
+	reportFallback(socket: LinkedSocket): void {
+		reportClientDiagnostic(this.options.base, this.options.token, {
+			event: "fallback",
+			source: socket.kind,
+			...(socket.sessionId ? { sessionId: socket.sessionId } : {}),
+		});
 	}
 
 	/** A socket for one terminal or chat; `legacyUrl` is its own socket, used without a link. */
@@ -213,6 +226,7 @@ export class RunnerLink {
 		this.wire = ws;
 		this.welcomed = false;
 		ws.addEventListener("open", () => {
+			this.wireOpenedAt = Date.now();
 			ws.send(
 				JSON.stringify({ t: "hello", token: this.options.token() ?? "", ...workspaceHello() }),
 			);
@@ -250,7 +264,7 @@ export class RunnerLink {
 		});
 		ws.addEventListener("close", (event: CloseEvent) => {
 			if (this.wire !== ws) return;
-			this.dropped(event.code === 4401 ? 4401 : 1006, event.reason);
+			this.dropped(event.code === 4401 ? 4401 : 1006, event.reason, event.code);
 		});
 	}
 
@@ -278,9 +292,18 @@ export class RunnerLink {
 	 * The connection is gone: every socket on it closes, and its own code reconnects it (which
 	 * opens a new connection). A sign-in the runner refused (4401) is passed on as such.
 	 */
-	private dropped(code: number, reason: string): void {
+	private dropped(code: number, reason: string, closeCode = code): void {
 		const ws = this.wire;
+		if (!ws) return;
+		reportClientDiagnostic(this.options.base, this.options.token, {
+			event: "close",
+			source: "link",
+			code: closeCode,
+			reason,
+			durationMs: this.wireOpenedAt === null ? 0 : Date.now() - this.wireOpenedAt,
+		});
 		this.wire = null;
+		this.wireOpenedAt = null;
 		this.welcomed = false;
 		clearTimeout(this.probeTimer);
 		this.probeTimer = undefined;
@@ -345,7 +368,15 @@ export class RunnerLink {
 		this.idleTimer = setTimeout(() => {
 			if (this.channels.size === 0 && this.waiting.size === 0 && this.wire) {
 				const ws = this.wire;
+				reportClientDiagnostic(this.options.base, this.options.token, {
+					event: "close",
+					source: "link",
+					code: 1000,
+					reason: "Nothing open",
+					durationMs: this.wireOpenedAt === null ? 0 : Date.now() - this.wireOpenedAt,
+				});
 				this.wire = null;
+				this.wireOpenedAt = null;
 				this.welcomed = false;
 				ws.close(1000, "Nothing open");
 			}
