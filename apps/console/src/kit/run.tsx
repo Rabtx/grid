@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, For, Show } from "solid-js";
 
+import { Shimmer } from "./feedback";
 import { AlertIcon, CheckIcon, ChevronDownIcon, SpinnerIcon } from "./icons";
 
 export type StepStatus = "running" | "done" | "error" | "waiting";
@@ -102,13 +103,13 @@ function StepRow(props: { step: RunStep; last: boolean }): JSX.Element {
 /** One line on how a run stands: working (with time), needs a fix, needs input, done. */
 export function RunStatus(props: { status: StepStatus; children: JSX.Element }): JSX.Element {
 	const look = {
-		running: { class: "text-fg-subtle", icon: <SpinnerIcon class="size-3.5 animate-spin" /> },
-		done: { class: "text-success", icon: <CheckIcon class="size-3.5" /> },
-		error: { class: "text-danger", icon: <AlertIcon class="size-3.5" /> },
-		waiting: { class: "text-warning", icon: <AlertIcon class="size-3.5" /> },
+		running: { class: "text-fg-subtle", icon: <SpinnerIcon class="size-4 animate-spin" /> },
+		done: { class: "text-fg-subtle", icon: <CheckIcon class="size-4 text-success" /> },
+		error: { class: "text-danger", icon: <AlertIcon class="size-4" /> },
+		waiting: { class: "text-warning", icon: <AlertIcon class="size-4" /> },
 	}[props.status];
 	return (
-		<p class={`flex items-center gap-1.5 font-medium text-caption ${look.class}`}>
+		<p class={`flex items-center gap-2 px-1 text-body-lg ${look.class}`}>
 			{look.icon}
 			{props.children}
 		</p>
@@ -173,19 +174,67 @@ export function Disclosure(props: {
 	summary: JSX.Element;
 	/** The summary's leading glyph: an icon, a spinner, a warning. */
 	icon?: JSX.Element;
+	/** On the far right of the summary: how long it took, a count. */
+	trailing?: JSX.Element;
+	/** A chevron after the summary that turns as it opens, for a line that plainly unfolds. */
+	chevron?: boolean;
 	children: JSX.Element;
 	open?: boolean;
 }): JSX.Element {
 	return (
 		<details class="group/disclosure" open={props.open}>
-			<summary class="flex min-h-7 cursor-pointer list-none items-center gap-1.5 px-1 py-1 text-body-lg text-fg-subtle transition-colors duration-fast hover:text-fg-muted pointer-coarse:min-h-10 [&::-webkit-details-marker]:hidden">
+			<summary class="flex min-h-7 cursor-pointer list-none items-center gap-2 px-1 py-1 text-body-lg text-fg-subtle transition-colors duration-fast hover:text-fg-muted pointer-coarse:min-h-10 [&::-webkit-details-marker]:hidden">
 				<Show when={props.icon}>
 					<span class="grid size-4 shrink-0 place-items-center">{props.icon}</span>
 				</Show>
-				<span class="flex min-w-0 flex-1 items-center gap-1.5">{props.summary}</span>
+				<span class="flex min-w-0 items-center gap-1.5">{props.summary}</span>
+				<Show when={props.chevron}>
+					<ChevronDownIcon
+						size="xs"
+						class="shrink-0 text-fg-faint transition-transform duration-fast group-open/disclosure:rotate-180"
+					/>
+				</Show>
+				<span class="flex-1" />
+				<Show when={props.trailing}>
+					<span class="shrink-0 text-body text-fg-faint tabular-nums">{props.trailing}</span>
+				</Show>
 			</summary>
 			{props.children}
 		</details>
+	);
+}
+
+/**
+ * The line that opens an agent's turn: how long it has been working (shimmering while it goes)
+ * or how long it took, over a hairline.
+ */
+export function TurnHeader(props: { children: JSX.Element; live?: boolean }): JSX.Element {
+	return (
+		<p class="border-line border-b px-1 pb-2.5 text-body-lg text-fg-subtle tabular-nums">
+			<Shimmer active={Boolean(props.live)}>{props.children}</Shimmer>
+		</p>
+	);
+}
+
+/**
+ * Something that went wrong in a run, as a soft card: what happened, then what can be done
+ * about it. Put under a `RunStatus` that names it ("Needs a fix").
+ */
+export function NoticeCard(props: {
+	title: string;
+	children?: JSX.Element;
+	actions?: JSX.Element;
+}): JSX.Element {
+	return (
+		<div class="surface-well flex flex-col gap-1 px-4 py-3.5">
+			<p class="text-body text-fg-subtle">{props.title}</p>
+			<Show when={props.children}>
+				<div class="whitespace-pre-wrap break-words text-body-lg text-fg">{props.children}</div>
+			</Show>
+			<Show when={props.actions}>
+				<div class="mt-2 flex flex-wrap gap-2">{props.actions}</div>
+			</Show>
+		</div>
 	);
 }
 

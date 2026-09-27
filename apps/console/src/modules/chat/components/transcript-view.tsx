@@ -1,9 +1,10 @@
 import type { JSX } from "@solidjs/web";
-import { createMemo, createSignal, For, Match, Show, Switch } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Match, Show, Switch } from "solid-js";
 
 import {
 	AgentMessage,
 	AlertIcon,
+	Badge,
 	CheckIcon,
 	CloseIcon,
 	CopyIcon,
@@ -19,32 +20,36 @@ import {
 	InlineNotice,
 	Menu,
 	NoteAddIcon,
+	NoticeCard,
 	PlanList,
 	type PopoverControl,
 	Pre,
 	Prose,
 	Rail,
 	RestoreIcon,
-	Row,
+	RunStatus,
 	SearchIcon,
-	Shimmer,
 	SpinnerIcon,
 	Stack,
 	TerminalIcon,
 	Text,
 	ToolIcon,
+	TurnHeader,
 	UserMessage,
-	WorkingDots,
 } from "@/kit";
 
 import { diffRows } from "../lib/diff";
 import { copyCodeFrom, renderMarkdown } from "../lib/markdown";
 import {
 	type Block,
-	groupRows,
+	countWork,
+	formatDuration,
+	groupTurns,
 	type Row as TranscriptRow,
 	summariseTools,
 	toolFile,
+	toolTag,
+	type Turn,
 } from "../lib/transcript";
 import type { FileDiff, ToolKind } from "../types/chat.types";
 
@@ -98,6 +103,25 @@ function findPrecedingUserPrompt(blocks: Block[], target: Block): string | null 
 	return null;
 }
 
+// A run of more tool calls than this folds into one counted line; fewer show one per line.
+const OPEN_STEPS = 3;
+
+/** Now, ticking each second while `active`: for a turn's running clock. */
+function useNow(active: () => boolean): () => number {
+	const [now, setNow] = createSignal(Date.now());
+	createEffect(active, (on) => {
+		if (!on) return;
+		setNow(Date.now());
+		const timer = setInterval(() => setNow(Date.now()), 1000);
+		return () => clearInterval(timer);
+	});
+	return now;
+}
+
+/**
+ * The conversation, turn by turn: what you asked in a soft card, how long the agent has been
+ * working (or took), its steps as quiet lines, its reply, and Done when it finished.
+ */
 export function TranscriptView(props: {
 	blocks: Block[];
 	running: boolean;
@@ -106,13 +130,55 @@ export function TranscriptView(props: {
 	/** Save a message to the project's notes; no action is shown without it. */
 	onNote?: (text: string) => void;
 }): JSX.Element {
-	const grouped = createMemo(() => groupRows(props.blocks));
+	const turns = createMemo(() => groupTurns(props.blocks));
 
 	return (
 		// oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- delegates clicks from the code cards' own buttons
-		<div class="flex flex-col gap-2" onClick={copyCodeFrom}>
-			{/* keyed={false}: rows only ever append or update in place, so each keeps its DOM (and an open <details>). */}
-			<For each={grouped()} keyed={false}>
+		<div class="flex flex-col gap-10" onClick={copyCodeFrom}>
+			{/* keyed={false}: turns only ever append or update in place, so each keeps its DOM (and an open <details>). */}
+			<For each={turns()} keyed={false}>
+				{(turn, index) => (
+					<TurnView
+						turn={turn()}
+						live={props.running && index === turns().length - 1}
+						blocks={props.blocks}
+						running={props.running}
+						onApprove={props.onApprove}
+						onRegenerate={props.onRegenerate}
+						onNote={props.onNote}
+					/>
+				)}
+			</For>
+		</div>
+	);
+}
+
+function TurnView(props: {
+	turn: Turn;
+	/** The agent is working on this turn now. */
+	live: boolean;
+	blocks: Block[];
+	running: boolean;
+	onApprove: (id: string, optionId: string | null) => void;
+	onRegenerate?: (prompt: string) => void;
+	onNote?: (text: string) => void;
+}): JSX.Element {
+	const now = useNow(() => props.live);
+	const header = () => {
+		const user = props.turn.user;
+		const started = user?.startedAt ? Date.parse(user.startedAt) : null;
+		if (props.live) return started ? `Working for ${formatDuration(now() - started)}` : "Working…";
+		const ended = user?.endedAt ? Date.parse(user.endedAt) : null;
+		return started && ended ? `Worked for ${formatDuration(ended - started)}` : null;
+	};
+
+	return (
+		<section class="flex flex-col gap-3">
+			<Show when={props.turn.user}>
+				{(user) => <UserMessageView text={user().text} onNote={props.onNote} />}
+			</Show>
+			<Show when={header()}>{(line) => <TurnHeader live={props.live}>{line()}</TurnHeader>}</Show>
+			<For each={props.turn.rows} keyed={false}>
 				{(row) => (
 					<Switch>
 						<Match
@@ -139,15 +205,10 @@ export function TranscriptView(props: {
 					</Switch>
 				)}
 			</For>
-			<Show when={props.running && props.blocks.at(-1)?.kind !== "assistant"}>
-				<Row gap={2} class="px-1">
-					<WorkingDots />
-					<Text as="span" tone="subtle">
-						<Shimmer active>Working</Shimmer>
-					</Text>
-				</Row>
+			<Show when={!props.live && props.turn.user?.outcome === "done"}>
+				<RunStatus status="done">Done</RunStatus>
 			</Show>
-		</div>
+		</section>
 	);
 }
 
@@ -190,7 +251,7 @@ function BlockView(props: {
 			</Match>
 			<Match when={props.block.kind === "reasoning" && props.block}>
 				{(block) => (
-					<Disclosure icon={<IdeaIcon size="sm" />} summary="Thinking">
+					<Disclosure icon={<IdeaIcon size="sm" />} summary="Thinking" chevron>
 						<p class="mt-1.5 ml-2 whitespace-pre-wrap border-line border-l-2 pl-3 text-body text-fg-subtle">
 							{(block() as Extract<Block, { kind: "reasoning" }>).text}
 						</p>
@@ -202,7 +263,14 @@ function BlockView(props: {
 					props.block.kind === "approval" && (props.block as Extract<Block, { kind: "approval" }>)
 				}
 			>
-				{(approval) => <ApprovalCard approval={approval()} onApprove={props.onApprove} />}
+				{(approval) => (
+					<Stack gap={2}>
+						<Show when={approval().resolved === undefined}>
+							<RunStatus status="waiting">Needs your input</RunStatus>
+						</Show>
+						<ApprovalCard approval={approval()} onApprove={props.onApprove} />
+					</Stack>
+				)}
 			</Match>
 			<Match
 				when={props.block.kind === "plan" && (props.block as Extract<Block, { kind: "plan" }>)}
@@ -213,9 +281,15 @@ function BlockView(props: {
 				when={props.block.kind === "notice" && (props.block as Extract<Block, { kind: "notice" }>)}
 			>
 				{(notice) => (
-					<InlineNotice tone={notice().tone === "error" ? "error" : "info"}>
-						{notice().text}
-					</InlineNotice>
+					<Show
+						when={notice().tone === "error"}
+						fallback={<InlineNotice tone="info">{notice().text}</InlineNotice>}
+					>
+						<Stack gap={2}>
+							<RunStatus status="error">Needs a fix</RunStatus>
+							<NoticeCard title="The agent stopped">{notice().text}</NoticeCard>
+						</Stack>
+					</Show>
 				)}
 			</Match>
 		</Switch>
@@ -385,39 +459,57 @@ function FileChange(props: { diff: FileDiff }): JSX.Element {
 }
 
 /**
- * A run of tool calls as one quiet line — "Read density.ts · Edited density.ts · Ran a command" —
- * live while any is working, opening to a rail that lists each call.
+ * A run of tool calls. A few show as they are, one quiet line each; a long run folds into one
+ * counted line — "18 steps, edited 5 files, ran 2 commands" — that opens to a rail of every call.
+ * While a long run works, its line is the latest call with a spinner.
  */
 function WorkGroup(props: { tools: ToolBlock[] }): JSX.Element {
 	const busy = () =>
 		props.tools.some((tool) => tool.status === "running" || tool.status === "pending");
 	const failed = () => props.tools.some((tool) => tool.status === "failed");
 	return (
-		<Disclosure
-			icon={
-				<Show
-					when={busy()}
-					fallback={
-						<Show when={failed()} fallback={TOOL_ICONS[props.tools[0]?.tool ?? "other"]()}>
-							<AlertIcon size="sm" class="text-danger" />
-						</Show>
-					}
-				>
-					<SpinnerIcon size="sm" class="animate-spin" />
-				</Show>
-			}
-			summary={
-				<Text as="span" size="inherit" tone="inherit" truncate>
-					{busy() ? (props.tools.at(-1)?.title ?? "Working…") : summariseTools(props.tools)}
-				</Text>
+		<Show
+			when={props.tools.length > OPEN_STEPS}
+			fallback={
+				<ul class="flex flex-col">
+					<For each={props.tools} keyed={false}>
+						{(tool) => <ToolRow tool={tool()} />}
+					</For>
+				</ul>
 			}
 		>
-			<Rail>
-				<For each={props.tools} keyed={false}>
-					{(tool) => <ToolRow tool={tool()} />}
-				</For>
-			</Rail>
-		</Disclosure>
+			<Disclosure
+				chevron
+				icon={
+					<Show
+						when={busy()}
+						fallback={
+							<Show when={failed()} fallback={TOOL_ICONS[props.tools[0]?.tool ?? "other"]()}>
+								<AlertIcon size="sm" class="text-danger" />
+							</Show>
+						}
+					>
+						<SpinnerIcon size="sm" class="animate-spin" />
+					</Show>
+				}
+				summary={
+					<Text as="span" size="inherit" tone="inherit" truncate>
+						{busy()
+							? (props.tools.at(-1)?.title ?? "Working…")
+							: props.tools.length > OPEN_STEPS * 2 &&
+								  props.tools.some((tool) => tool.tool === "edit" || tool.tool === "execute")
+								? countWork(props.tools)
+								: summariseTools(props.tools)}
+					</Text>
+				}
+			>
+				<Rail>
+					<For each={props.tools} keyed={false}>
+						{(tool) => <ToolRow tool={tool()} />}
+					</For>
+				</Rail>
+			</Disclosure>
+		</Show>
 	);
 }
 
@@ -455,6 +547,7 @@ function ToolRow(props: { tool: ToolBlock }): JSX.Element {
 						</Show>
 					</>
 				}
+				trailing={<Show when={toolTag(props.tool)}>{(tag) => <Badge>{tag()}</Badge>}</Show>}
 			>
 				<Show when={props.tool.input || props.tool.output || props.tool.diffs?.length}>
 					<Stack gap={1.5} class="mt-1 mb-1.5">

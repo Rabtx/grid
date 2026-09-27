@@ -132,7 +132,21 @@ references very closely, Inter, fix look and feel and navigation/layout, gallery
     drew any more, with its `glass` utility. The kit guard now covers every screen, not only files
     importing the kit, and still refuses `@/ui`. Danger alerts announce as alerts.
 
+13. **The response UI, turn by turn (agent/frontend/responses).** A thread reads as turns, after
+    the references: what you asked in a soft card across the column; "Working for 1m 28s"
+    (live, shimmering) or "Worked for 1m 28s" over a hairline — the runner now stamps turn start
+    and end with the time, and older logs simply show no time; the agent's steps as quiet lines
+    (a few one per line, tagged file, command, web or search; a long run folded into "18 steps,
+    edited 5 files, ran 2 commands" with a chevron); "Needs your input" and "Needs a fix" as
+    status headings over their cards; and Done when a turn finished. File paths in replies
+    become file chips. New kit pieces: `TurnHeader`, `NoticeCard`; `Disclosure` gains a chevron
+    and a trailing detail; `RunStatus` reads at body size; `UserMessage` is the soft card.
+
 ### Validation
+
+- Responses: console vitest 47 files / 288 tests (turn timing, the Worked/Working line, Done,
+  short and long step runs, Needs a fix, file chips and their escaping); runner 110 tests; guard,
+  lint, typecheck, architecture and naming pass. Checked on a real thread at 1280px and 375px.
 
 - Old UI removed: console vitest 47 files / 278 tests (the old folder's own tests went with it);
   the guard passes on every screen; lint, typecheck, architecture, naming and a production build

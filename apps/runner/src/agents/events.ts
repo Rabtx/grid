@@ -61,8 +61,9 @@ export type ChatEvent =
 			contextWindow?: number;
 			costUsd?: number;
 	  }
-	| { type: "turn_start" }
-	| { type: "turn_end"; reason: "done" | "cancelled" | "error"; error?: string }
+	/** `at`: when the turn began (ISO time), for how long it has been working. Older logs lack it. */
+	| { type: "turn_start"; at?: string }
+	| { type: "turn_end"; reason: "done" | "cancelled" | "error"; error?: string; at?: string }
 	/** What the agent offers and has chosen: models, modes. Sent when it changes. */
 	| {
 			type: "info";

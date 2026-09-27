@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import type { ChatEvent } from "../types/chat.types";
-import { groupRows, pendingApprovals, replay, summariseTools, toolLabel } from "./transcript";
+import {
+	countWork,
+	formatDuration,
+	groupRows,
+	groupTurns,
+	pendingApprovals,
+	replay,
+	summariseTools,
+	toolLabel,
+} from "./transcript";
 
 describe("replay", () => {
 	it("joins streamed text into one reply and keeps reasoning apart", () => {
@@ -162,5 +171,53 @@ describe("tool call summaries", () => {
 			"Read 4 files · Ran a command",
 		);
 		expect(summariseTools([reads[0], reads[0]])).toBe("Read a.ts");
+	});
+});
+
+describe("turns", () => {
+	it("keeps each turn's start, end and outcome on the message that started it", () => {
+		const transcript = replay([
+			{ type: "user", text: "Fix it" },
+			{ type: "turn_start", at: "2026-09-27T10:00:00.000Z" },
+			{ type: "message", text: "Done." },
+			{ type: "turn_end", reason: "done", at: "2026-09-27T10:00:48.000Z" },
+			{ type: "user", text: "Again" },
+			{ type: "turn_start" },
+		]);
+		const turns = groupTurns(transcript.blocks);
+		expect(turns).toHaveLength(2);
+		expect(turns[0].user).toMatchObject({
+			text: "Fix it",
+			startedAt: "2026-09-27T10:00:00.000Z",
+			endedAt: "2026-09-27T10:00:48.000Z",
+			outcome: "done",
+		});
+		expect(turns[0].rows).toHaveLength(1);
+		// An older log without times leaves them unset; the turn is still going.
+		expect(turns[1].user?.startedAt).toBeUndefined();
+		expect(turns[1].user?.outcome).toBeUndefined();
+	});
+
+	it("reads durations the short way", () => {
+		expect(formatDuration(48_000)).toBe("48s");
+		expect(formatDuration(88_000)).toBe("1m 28s");
+		expect(formatDuration(2 * 3_600_000 + 5 * 60_000)).toBe("2h 5m");
+	});
+
+	it("counts a long run of steps, edits by distinct file", () => {
+		const tool = (kind: "read" | "edit" | "execute", path: string) => ({
+			tool: kind,
+			title: path,
+			input: JSON.stringify({ path }),
+		});
+		expect(
+			countWork([
+				tool("edit", "a.ts"),
+				tool("edit", "a.ts"),
+				tool("edit", "b.ts"),
+				tool("execute", "bun test"),
+				tool("read", "c.ts"),
+			]),
+		).toBe("5 steps, edited 2 files, ran 1 command");
 	});
 });
