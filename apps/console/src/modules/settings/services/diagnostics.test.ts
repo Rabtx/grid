@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { reportClientDiagnostic } from "@/lib/runner-health";
+import { reportClientDiagnostic, reportRunnerSuccess } from "@/lib/runner-health";
 
 describe("client diagnostics reporting", () => {
 	afterEach(() => {
@@ -77,7 +77,7 @@ describe("client diagnostics reporting", () => {
 		).toHaveLength(1);
 	});
 
-	it("drops a failed online batch without retrying in a loop", async () => {
+	it("keeps a failed online batch and sends it once when the runner next answers", async () => {
 		vi.useFakeTimers();
 		Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
 		const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
@@ -91,7 +91,23 @@ describe("client diagnostics reporting", () => {
 		});
 		await vi.advanceTimersByTimeAsync(300);
 		await vi.advanceTimersByTimeAsync(10_000);
-
+		// No retry loop while the runner stays unreachable.
 		expect(fetcher).toHaveBeenCalledTimes(1);
+
+		const sent = vi.fn(
+			async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(null, { status: 204 }),
+		);
+		vi.stubGlobal("fetch", sent);
+		reportRunnerSuccess();
+		await vi.advanceTimersByTimeAsync(300);
+		expect(sent).toHaveBeenCalledTimes(1);
+		const body = JSON.parse(String(sent.mock.calls[0]?.[1]?.body)) as {
+			events: { event: string; attempt: number }[];
+		};
+		expect(body.events).toMatchObject([{ event: "reconnect", attempt: 2 }]);
+
+		reportRunnerSuccess();
+		await vi.advanceTimersByTimeAsync(300);
+		expect(sent).toHaveBeenCalledTimes(1);
 	});
 });

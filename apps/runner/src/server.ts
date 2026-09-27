@@ -4,8 +4,10 @@ import { setupCommand } from "./agents/setup";
 import type { Verified, Verify, Who } from "./auth";
 import { type Channel, type ChannelSink, openChat, openTerminal } from "./channels";
 import { type ChatHub } from "./chat/hub";
-import { DiagnosticRoutes, safeCloseReason } from "./diagnostics/routes";
 import type { DiagnosticInput, DiagnosticJournal } from "./diagnostics/journal";
+import { RefusalTally } from "./diagnostics/refusals";
+import { DiagnosticRoutes, safeCloseReason } from "./diagnostics/routes";
+import { watchEventLoop } from "./diagnostics/stall";
 import { chatRequest } from "./chat/routes";
 import type { RunnerConfig } from "./config";
 import type { PairingStore } from "./environments/pairing";
@@ -16,7 +18,7 @@ import { folderRequest } from "./folders/routes";
 import type { CodespacesLink } from "./github/codespaces";
 import type { PullRequests } from "./github/pulls";
 import { githubRequest } from "./github/routes";
-import { closeLink, createLink, type LinkState, linkMessage } from "./link";
+import { closeLink, createLink, type LinkObserver, type LinkState, linkMessage } from "./link";
 import type { PushNotifier } from "./push/notifier";
 import { pushRequest } from "./push/routes";
 import type { TerminalStore } from "./terminals";
@@ -99,13 +101,44 @@ export function startServer(
 ): Server<SocketData> {
 	const { push, diagnostics, environments, pairing, github, pulls } = extras;
 	const diagnosticRoutes = diagnostics ? new DiagnosticRoutes(diagnostics) : null;
-	const recordDiagnostic = (entry: Parameters<DiagnosticJournal["record"]>[0]): void => {
+	const recordDiagnostic = (entry: DiagnosticInput): void => {
 		try {
 			diagnostics?.record(entry);
 		} catch {
 			console.error("[runner] could not write a diagnostic event");
 		}
 	};
+	// Anyone can knock without a token, so refusals are counted, not written one by one.
+	const refusals = new RefusalTally(recordDiagnostic);
+	const refusalTimer = diagnostics ? setInterval(() => refusals.flush(), 15_000) : null;
+	refusalTimer?.unref();
+	const stopStallWatch = diagnostics
+		? watchEventLoop((lagMs) =>
+				recordDiagnostic({
+					kind: "error",
+					source: "runtime",
+					workspace: null,
+					message: "Runner event loop stalled",
+					details: { lagMs },
+				}),
+			)
+		: null;
+	/** Who each request turned out to be, so its slow-request row lands in their workspace. */
+	const signedInRequests = new WeakMap<Request, Who>();
+	const refusedSignIn = (route: string, status: number): void =>
+		refusals.note(`auth:${route}:${status}`, {
+			kind: "error",
+			source: "auth",
+			label: "Sign-in refused",
+			details: { route, status },
+		});
+	const failedUpgrade = (route: string): void =>
+		refusals.note(`upgrade:${route}`, {
+			kind: "error",
+			source: "upgrade",
+			label: "WebSocket upgrade failed",
+			details: { route, status: 426 },
+		});
 	/**
 	 * Who a request is from and the workspace it acts in (`X-Grid-Workspace`, a slug; the default
 	 * one without it), or the error to answer with.
@@ -114,31 +147,22 @@ export function startServer(
 		const header = request.headers.get("authorization") ?? "";
 		const token = header.startsWith("Bearer ") ? header.slice(7) : "";
 		if (!token) {
-			recordDiagnostic({
-				kind: "error",
-				source: "auth",
-				workspace: null,
-				message: "Authentication refused (401)",
-				details: { path: new URL(request.url).pathname, status: 401 },
-			});
+			refusedSignIn(routeKind(new URL(request.url).pathname), 401);
 			return error(401, signIn);
 		}
 		const verified = await verify(token, request.headers.get("x-grid-workspace"));
-		if ("who" in verified) return verified.who;
-		recordDiagnostic({
-			kind: "error",
-			source: "auth",
-			workspace: null,
-			message: `Authentication refused (${verified.status})`,
-			details: { path: new URL(request.url).pathname, status: verified.status },
-		});
+		if ("who" in verified) {
+			signedInRequests.set(request, verified.who);
+			return verified.who;
+		}
+		refusedSignIn(routeKind(new URL(request.url).pathname), verified.status);
 		return error(verified.status, verified.status === 401 ? signIn : verified.message);
 	}
 
 	// The hello deadline per socket, cleared when the socket closes so it never fires late.
 	const helloTimers = new Map<ServerWebSocket<SocketData>, ReturnType<typeof setTimeout>>();
 
-	return Bun.serve<SocketData>({
+	const served = Bun.serve<SocketData>({
 		hostname: config.host,
 		port: config.port,
 		async fetch(request, server) {
@@ -185,13 +209,7 @@ export function startServer(
 						},
 					});
 					if (!upgraded) {
-						recordDiagnostic({
-							kind: "error",
-							source: "upgrade",
-							workspace: null,
-							message: "WebSocket upgrade failed",
-							details: { path: url.pathname, status: 426 },
-						});
+						failedUpgrade(kind);
 						return new Response("Expected a WebSocket", { status: 426 });
 					}
 					return undefined;
@@ -220,13 +238,7 @@ export function startServer(
 							},
 						});
 						if (!upgraded) {
-							recordDiagnostic({
-								kind: "error",
-								source: "upgrade",
-								workspace: null,
-								message: "WebSocket upgrade failed",
-								details: { path: url.pathname, status: 426 },
-							});
+							failedUpgrade("env");
 							return new Response("Expected a WebSocket", { status: 426 });
 						}
 						return undefined;
@@ -372,12 +384,18 @@ export function startServer(
 			} finally {
 				const durationMs = Date.now() - startedAt;
 				if (durationMs > 2_000) {
+					// Paths carry ids: only a signed-in person's own workspace sees them.
+					const who = signedInRequests.get(request);
 					recordDiagnostic({
 						kind: "error",
 						source: "http",
-						workspace: null,
+						workspace: who?.workspace ?? null,
 						message: "Slow request",
-						details: { method: request.method, path: url.pathname, durationMs },
+						details: {
+							method: request.method,
+							...(who ? { path: url.pathname } : { route: routeKind(url.pathname) }),
+							durationMs,
+						},
 					});
 				}
 			}
@@ -408,19 +426,13 @@ export function startServer(
 					return;
 				}
 				if (ws.data.link) {
-					trackLinkFrame(ws, message, recordDiagnostic);
 					linkMessage(
 						ws.data.link,
-						{
-							send: (text) => {
-								trackLinkOutput(ws, text, recordDiagnostic);
-								ws.send(text);
-							},
-							sendBinary: (bytes) => ws.sendBinary(bytes),
-						},
+						{ send: (text) => ws.send(text), sendBinary: (bytes) => ws.sendBinary(bytes) },
 						ws.data.who,
 						typeof message === "string" ? message : new Uint8Array(message),
 						{ store, chat },
+						linkObserver(ws, recordDiagnostic),
 					);
 					return;
 				}
@@ -444,27 +456,32 @@ export function startServer(
 			close(ws, code, reason) {
 				const durationMs = Math.max(0, Date.now() - (ws.data.openedAt ?? Date.now()));
 				const closeReason = safeCloseReason(String(reason ?? ""));
-				recordDiagnostic({
-					kind: "connection",
-					source: "websocket",
-					workspace: ws.data.who?.workspace ?? null,
-					message: `${ws.data.kind} socket closed`,
-					details: {
-						socket: ws.data.kind,
-						code,
-						reason: closeReason,
-						durationMs,
-						...(ws.data.sessionId ? { sessionId: ws.data.sessionId } : {}),
-					},
-				});
-				for (const channel of ws.data.linkChannels?.values() ?? []) {
-					recordLinkChannelClose(
-						channel,
-						code,
-						closeReason,
-						ws.data.who?.workspace ?? null,
-						recordDiagnostic,
-					);
+				const who = ws.data.who;
+				if (!who) {
+					// Never signed in: counted, with nothing that names a session.
+					refusals.note(`socket:${ws.data.kind}`, {
+						kind: "connection",
+						source: "websocket",
+						label: `${ws.data.kind} socket closed before sign-in`,
+						details: { socket: ws.data.kind },
+					});
+				} else {
+					recordDiagnostic({
+						kind: "connection",
+						source: "websocket",
+						workspace: who.workspace,
+						message: `${ws.data.kind} socket closed`,
+						details: {
+							socket: ws.data.kind,
+							code,
+							reason: closeReason,
+							durationMs,
+							...(ws.data.sessionId ? { sessionId: ws.data.sessionId } : {}),
+						},
+					});
+					for (const channel of ws.data.linkChannels?.values() ?? []) {
+						recordLinkChannelClose(channel, code, closeReason, who.workspace, recordDiagnostic);
+					}
 				}
 				clearTimeout(helloTimers.get(ws));
 				helloTimers.delete(ws);
@@ -475,6 +492,14 @@ export function startServer(
 			},
 		},
 	});
+	// The diagnostics timers end with the server.
+	const stop = served.stop.bind(served);
+	served.stop = (closeActiveConnections?: boolean) => {
+		if (refusalTimer) clearInterval(refusalTimer);
+		stopStallWatch?.();
+		return stop(closeActiveConnections);
+	};
+	return served;
 
 	/**
 	 * The console's hello on an environment socket: check the person here, then carry the socket
@@ -492,7 +517,9 @@ export function startServer(
 		}
 		relay.early = [];
 		if (typeof first.id === "string" && safeSessionId(first.id)) ws.data.sessionId = first.id;
-		const who = signedIn(ws, await verify(first.token, first.workspace), recordDiagnostic);
+		const who = signedIn(ws, await verify(first.token, first.workspace), (status) =>
+			refusedSignIn(ws.data.kind, status),
+		);
 		if (!who) return;
 		const target = environments?.store.target(who.workspace, relay.environmentId);
 		if (!target) {
@@ -526,7 +553,9 @@ export function startServer(
 		}
 		if (needsId && typeof first.id === "string" && safeSessionId(first.id))
 			ws.data.sessionId = first.id;
-		const who = signedIn(ws, await verify(first.token, first.workspace), recordDiagnostic);
+		const who = signedIn(ws, await verify(first.token, first.workspace), (status) =>
+			refusedSignIn(ws.data.kind, status),
+		);
 		if (!who) return;
 		ws.data.who = who;
 		clearTimeout(helloTimers.get(ws));
@@ -537,15 +566,7 @@ export function startServer(
 			return;
 		}
 		const sink: ChannelSink = {
-			text: (payload) => {
-				recordAgentEvent(
-					payload,
-					ws.data.who?.workspace ?? null,
-					ws.data.sessionId,
-					recordDiagnostic,
-				);
-				ws.send(JSON.stringify(payload));
-			},
+			text: (payload) => ws.send(JSON.stringify(payload)),
 			bytes: (bytes) => ws.sendBinary(bytes),
 			close: (code, reason) => ws.close(code, reason),
 		};
@@ -559,76 +580,28 @@ export function startServer(
 
 type RecordDiagnostic = (entry: DiagnosticInput) => void;
 
-function trackLinkFrame(
-	ws: ServerWebSocket<SocketData>,
-	frame: string | Buffer,
-	record: RecordDiagnostic,
-): void {
-	if (typeof frame !== "string") return;
-	const message = parse<Record<string, unknown>>(frame);
-	if (!message || !isLinkChannel(message.ch)) return;
-	const channels = ws.data.linkChannels;
-	if (!channels) return;
-	const channelId = message.ch as number;
-	const existing = channels.get(channelId);
-	if (message.t === "close") {
-		if (existing) {
-			recordLinkChannelClose(
-				existing,
-				1000,
-				"Client detached",
-				ws.data.who?.workspace ?? null,
-				record,
-			);
-			channels.delete(channelId);
-		}
-		return;
-	}
-	if (
-		message.t === "open" &&
-		(message.kind === "chat" || message.kind === "terminal") &&
-		safeSessionId(message.id)
-	) {
-		if (existing) {
-			recordLinkChannelClose(existing, 1000, "Replaced", ws.data.who?.workspace ?? null, record);
-		}
-		channels.set(channelId, {
-			kind: message.kind,
-			sessionId: message.id,
-			openedAt: Date.now(),
-		});
-	}
-}
-
-function trackLinkOutput(
-	ws: ServerWebSocket<SocketData>,
-	text: string,
-	record: RecordDiagnostic,
-): void {
-	const message = parse<Record<string, unknown>>(text);
-	if (!message || !isLinkChannel(message.ch)) return;
-	const channelId = message.ch as number;
-	const channel = ws.data.linkChannels?.get(channelId);
-	if (!channel) return;
-	if (message.t === "closed") {
-		recordLinkChannelClose(
-			channel,
-			typeof message.code === "number" ? message.code : 1011,
-			typeof message.reason === "string" ? safeCloseReason(message.reason) : "",
-			ws.data.who?.workspace ?? null,
-			record,
-		);
-		ws.data.linkChannels?.delete(channelId);
-	} else if (message.t === "event") {
-		recordAgentEvent(message, ws.data.who?.workspace ?? null, channel.sessionId, record);
-	}
+/** Keep the link's chat and terminal channels, as the link opens and ends them, for close rows. */
+function linkObserver(ws: ServerWebSocket<SocketData>, record: RecordDiagnostic): LinkObserver {
+	return {
+		opened: (ch, kind, id) => {
+			if (safeSessionId(id))
+				ws.data.linkChannels?.set(ch, { kind, sessionId: id, openedAt: Date.now() });
+		},
+		closed: (ch, code, reason) => {
+			const channel = ws.data.linkChannels?.get(ch);
+			const workspace = ws.data.who?.workspace;
+			if (!channel || !workspace) return;
+			ws.data.linkChannels?.delete(ch);
+			recordLinkChannelClose(channel, code, reason, workspace, record);
+		},
+	};
 }
 
 function recordLinkChannelClose(
 	channel: { kind: "chat" | "terminal"; sessionId: string; openedAt: number },
 	code: number,
 	reason: string,
-	workspace: string | null,
+	workspace: string,
 	record: RecordDiagnostic,
 ): void {
 	record({
@@ -646,55 +619,44 @@ function recordLinkChannelClose(
 	});
 }
 
-function recordAgentEvent(
-	payload: Record<string, unknown>,
-	workspace: string | null,
-	sessionId: string | null,
-	record: RecordDiagnostic,
-): void {
-	const event = payload.event;
-	if (!event || typeof event !== "object") return;
-	const data = event as Record<string, unknown>;
-	if (data.type !== "error" && !(data.type === "turn_end" && data.reason === "error")) return;
-	record({
-		kind: "error",
-		source: "agent",
-		workspace,
-		message: "Agent process reported an error",
-		details: {
-			...(sessionId ? { sessionId } : {}),
-			event: data.type,
-		},
-	});
-}
-
 function safeSessionId(value: unknown): value is string {
 	return typeof value === "string" && /^[\w-]{1,120}$/.test(value);
-}
-
-function isLinkChannel(value: unknown): value is number {
-	return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 0xffff;
 }
 
 /** The person a hello checked out as; otherwise the socket is closed with the reason. */
 function signedIn(
 	ws: ServerWebSocket<SocketData>,
 	verified: Verified,
-	recordDiagnostic: (entry: Parameters<DiagnosticJournal["record"]>[0]) => void,
+	refused: (status: number) => void,
 ): Who | null {
 	if ("who" in verified) return verified.who;
-	recordDiagnostic({
-		kind: "error",
-		source: "auth",
-		workspace: null,
-		message: `WebSocket authentication refused (${verified.status})`,
-		details: { socket: ws.data.kind, status: verified.status },
-	});
+	refused(verified.status);
 	ws.close(
 		verified.status === 401 ? CLOSE_UNAUTHORIZED : CLOSE_NOT_FOUND,
 		verified.status === 401 ? "Sign in again" : verified.message,
 	);
 	return null;
+}
+
+const ROUTE_KINDS = new Set([
+	"chat",
+	"diagnostics",
+	"env",
+	"environments",
+	"fs",
+	"github",
+	"link",
+	"projects",
+	"push",
+	"terminal",
+	"terminals",
+	"transcribe",
+]);
+
+/** A request's first path segment when it is one of ours: coarse enough to show every workspace. */
+function routeKind(pathname: string): string {
+	const first = pathname.split("/")[1] ?? "";
+	return ROUTE_KINDS.has(first) ? first : "other";
 }
 
 function parse<T>(text: string): T | null {

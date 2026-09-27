@@ -58,15 +58,26 @@ describe("runner diagnostics socket hooks", () => {
 				"link",
 				"terminal",
 			]);
-			expect(closes.find((event) => event.details.socket === "chat")?.details).toMatchObject({
-				code: 4401,
-				reason: "Sign in again",
-				sessionId: "chat-session",
+			// Never signed in: shown to every workspace, so nothing names the session.
+			expect(closes.every((event) => event.workspace === null)).toBe(true);
+			expect(closes.find((event) => event.details.socket === "chat")?.details).toEqual({
+				socket: "chat",
+				count: 1,
 			});
-			expect(closes.every((event) => typeof event.details.durationMs === "number")).toBe(true);
 			const errors = journal.list("workspace-1", { since: Date.now() - 5_000, kind: "error" });
 			expect(errors.some((event) => event.source === "auth")).toBe(true);
 			expect(errors.some((event) => event.source === "upgrade")).toBe(true);
+
+			// A token-less request loop is counted in memory, not written per request.
+			for (let index = 0; index < 50; index++) {
+				const refused = await fetch(`http://127.0.0.1:${server.port}/chat/sessions/abc-123`);
+				expect(refused.status).toBe(401);
+			}
+			const chatRefusals = journal
+				.list("workspace-1", { since: Date.now() - 5_000, kind: "error" })
+				.filter((event) => event.source === "auth" && event.details.route === "chat");
+			expect(chatRefusals).toHaveLength(1);
+			expect(JSON.stringify(chatRefusals)).not.toContain("abc-123");
 
 			const terminalResponse = await fetch(`http://127.0.0.1:${server.port}/terminals`, {
 				method: "POST",

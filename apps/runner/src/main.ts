@@ -27,20 +27,20 @@ const store = new TerminalStore(config, spawnPty);
 const chat = new ChatHub(new ChatStore(config.chatDb), providerRegistry(), config.projectsDir);
 // A turn that ends, or an approval that waits, while no device is looking becomes a notification.
 const push = new PushNotifier(config.chatDb);
-chat.onUnwatchedAttention((session, event) => {
-	if (event.type === "turn_end" && event.reason === "error") {
-		try {
-			diagnostics.record({
-				kind: "error",
-				source: "agent",
-				workspace: session.workspaceId,
-				message: "Agent process reported an error",
-				details: { sessionId: session.id, event: event.type },
-			});
-		} catch {
-			console.error("[runner] could not write an agent diagnostic event");
-		}
+chat.onTurnFailed((session) => {
+	try {
+		diagnostics.record({
+			kind: "error",
+			source: "agent",
+			workspace: session.workspaceId,
+			message: "Agent turn ended with an error",
+			details: { sessionId: session.id },
+		});
+	} catch {
+		console.error("[runner] could not write an agent diagnostic event");
 	}
+});
+chat.onUnwatchedAttention((session, event) => {
 	const message = attentionMessage(session, event);
 	if (message) void push.notify(session.ownerId, message);
 });

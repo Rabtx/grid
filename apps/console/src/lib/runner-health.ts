@@ -30,6 +30,8 @@ type PendingDiagnostic = {
 const BACKOFF_DELAYS = [1000, 2000, 4000, 5000];
 const DIAGNOSTIC_BATCH_SIZE = 25;
 const MAX_QUEUED_DIAGNOSTICS = 500;
+const MAX_HELD_DIAGNOSTICS = 100;
+// Keep identical to SAFE_CLOSE_REASONS in apps/runner/src/diagnostics/routes.ts (apps share no code).
 const CLIENT_CLOSE_REASONS = new Set([
 	"No hello",
 	"Expected hello",
@@ -50,6 +52,8 @@ const CLIENT_CLOSE_REASONS = new Set([
 ]);
 
 const diagnosticQueue: PendingDiagnostic[] = [];
+/** Batches the runner failed to take while online: sent once more when it next answers. */
+const heldDiagnostics: PendingDiagnostic[] = [];
 let diagnosticTimer: ReturnType<typeof setTimeout> | undefined;
 let flushingDiagnostics = false;
 
@@ -144,13 +148,23 @@ async function flushDiagnostics(): Promise<void> {
 					diagnosticQueue.unshift(...grouped.slice(index).flat());
 					break;
 				}
-				// Best effort: a reachable but failing endpoint must not produce a retry loop.
+				// Not retried in a loop: held until the runner next answers, then sent once.
+				heldDiagnostics.push(...group);
+				heldDiagnostics.splice(0, Math.max(0, heldDiagnostics.length - MAX_HELD_DIAGNOSTICS));
 			}
 		}
 	} finally {
 		flushingDiagnostics = false;
 		if (diagnosticQueue.length && isOnline()) scheduleDiagnosticFlush();
 	}
+}
+
+/** The runner answered: send what it could not take before, once. */
+function releaseHeldDiagnostics(): void {
+	if (!heldDiagnostics.length) return;
+	diagnosticQueue.unshift(...heldDiagnostics.splice(0));
+	diagnosticQueue.splice(MAX_QUEUED_DIAGNOSTICS);
+	if (isOnline()) scheduleDiagnosticFlush();
 }
 
 if (typeof window !== "undefined") {
@@ -230,6 +244,7 @@ export async function checkRunnerHealth(customFetch?: typeof fetch): Promise<boo
 		setRunnerUp(true);
 		backoffAttempt = 0;
 		stopPolling();
+		releaseHeldDiagnostics();
 
 		if (wasDown) {
 			for (const cb of recoveryCallbacks) {
@@ -276,6 +291,7 @@ export function reportRunnerFailure(customFetch?: typeof fetch): void {
 export function reportRunnerSuccess(): void {
 	setRunnerUp(true);
 	stopPolling();
+	releaseHeldDiagnostics();
 }
 
 /** Initialize global listeners on browser window. */

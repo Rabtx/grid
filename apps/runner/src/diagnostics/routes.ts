@@ -10,6 +10,7 @@ const RATE_LIMIT = 30;
 const RATE_WINDOW_MS = 60_000;
 const MAX_RATE_KEYS = 1_000;
 
+// Keep identical to CLIENT_CLOSE_REASONS in apps/console/src/lib/runner-health.ts (apps share no code).
 const SAFE_CLOSE_REASONS = new Set([
 	"No hello",
 	"Expected hello",

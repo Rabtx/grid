@@ -193,6 +193,9 @@ export function connectChat(options: ChatSocketOptions) {
 			}
 		});
 		ws.addEventListener("close", (event: CloseEvent) => {
+			stopHeartbeat();
+			// A socket closed on purpose or replaced by a newer one is not a dropped connection.
+			if (socket !== ws) return;
 			reportClientDiagnostic(options.url, options.token, {
 				event: "close",
 				source: "chat",
@@ -201,8 +204,6 @@ export function connectChat(options: ChatSocketOptions) {
 				reason: event.reason,
 				durationMs: openedAt === null ? 0 : Date.now() - openedAt,
 			});
-			stopHeartbeat();
-			if (socket !== ws) return;
 			socket = null;
 			attached = false;
 			if (closed || finished) return;

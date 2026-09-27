@@ -24,7 +24,11 @@ const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 type StoredEntry = Omit<DiagnosticEntry, "details"> & { details: string };
 
-/** A small, bounded record of runner and console connection events in the runner's SQLite file. */
+/**
+ * A small, bounded record of runner and console connection events in the runner's SQLite file.
+ * Rows with no workspace are shown to every workspace, so they carry only coarse details: no
+ * paths, ids or names.
+ */
 export class DiagnosticJournal {
 	private readonly db: Database;
 	private writesSinceTrim = 0;
@@ -36,6 +40,8 @@ export class DiagnosticJournal {
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
 		this.db = new Database(path, { create: true });
 		this.db.exec("PRAGMA journal_mode = WAL");
+		// WAL keeps NORMAL safe against corruption; it only skips an fsync per write.
+		this.db.exec("PRAGMA synchronous = NORMAL");
 		this.db.exec(`
 			CREATE TABLE IF NOT EXISTS runner_diagnostics (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,7 +80,8 @@ export class DiagnosticJournal {
 		workspace: string,
 		options: { since: number; kind?: DiagnosticKind; limit?: number },
 	): DiagnosticEntry[] {
-		this.trim();
+		// Pruning happens on writes; reads only hide what has aged out since.
+		const since = Math.max(options.since, this.now() - MAX_AGE_MS);
 		const rows = this.db
 			.query<StoredEntry, [string, number, DiagnosticKind | null, DiagnosticKind | null, number]>(
 				`SELECT id, at, workspace, kind, source, message, details
@@ -83,18 +90,11 @@ export class DiagnosticJournal {
 				ORDER BY at DESC, id DESC
 				LIMIT ?`,
 			)
-			.all(
-				workspace,
-				options.since,
-				options.kind ?? null,
-				options.kind ?? null,
-				options.limit ?? 500,
-			);
+			.all(workspace, since, options.kind ?? null, options.kind ?? null, options.limit ?? 500);
 		return rows.map((row) => ({ ...row, details: parseDetails(row.details) }));
 	}
 
 	reconnectCount(workspace: string, since: number): number {
-		this.trim();
 		const row = this.db
 			.query<{ count: number }, [string, number]>(
 				`SELECT count(*) AS count FROM runner_diagnostics

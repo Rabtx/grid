@@ -110,4 +110,30 @@ describe("ChatHub running threads", () => {
 		expect(hub.running("u1")).toEqual([]);
 		hub.closeAll();
 	});
+
+	it("tells the failed-turn listener once per failed turn", async () => {
+		const provider: Provider = {
+			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+			start: async () => ({
+				prompt: async () => ({ reason: "error", error: "Out of credit" }),
+				cancel: () => undefined,
+				approve: () => undefined,
+				setModel: async () => undefined,
+				setMode: async () => undefined,
+				setEffort: async () => undefined,
+				close: () => undefined,
+			}),
+		};
+		const store = new ChatStore(":memory:");
+		const hub = new ChatHub(store, new Map([["fake", provider]]), root);
+		const failed: string[] = [];
+		hub.onTurnFailed((session) => failed.push(session.id));
+		const session = hub.create(
+			{ userId: "u1", workspace: "u1" },
+			{ project: "shop", provider: "fake" },
+		);
+		await hub.prompt("u1", session.id, "go");
+		expect(failed).toEqual([session.id]);
+		hub.closeAll();
+	});
 });

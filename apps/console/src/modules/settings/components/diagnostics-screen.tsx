@@ -49,7 +49,10 @@ export function DiagnosticsScreen(): JSX.Element {
 		const id = ++requestId;
 		setLoading(true);
 		try {
-			setData(await diagnosticsService(token, nextFilter));
+			const next = await diagnosticsService(token, nextFilter);
+			// An answer for a filter since replaced must not overwrite the newer one.
+			if (id !== requestId) return;
+			setData(next);
 			setError(null);
 		} catch (cause) {
 			if (id === requestId) {
