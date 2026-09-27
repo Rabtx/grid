@@ -9,10 +9,14 @@ import type {
 	RegisterInput,
 	RegisterResult,
 	SetupInput,
+	TwoFactorInput,
 } from "../types/auth.types";
 
 export const authService = {
 	login: (input: LoginInput) => apiClient.post<LoginResult>("/auth/login", input),
+	/** Finishes a sign-in the API held back for a second factor. */
+	verifyTwoFactor: (input: TwoFactorInput) =>
+		apiClient.post<AuthSession>("/auth/methods/two-factor/verify", input),
 	/** Trades the http-only refresh cookie for a fresh access token. */
 	refresh: () => apiClient.post<AuthSession>("/auth/refresh"),
 	logout: () => apiClient.post<void>("/auth/logout"),

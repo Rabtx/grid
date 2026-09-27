@@ -6,6 +6,7 @@ import { Alert, Button, Field, Heading, Input, PasswordInput, Stack, Text } from
 
 import { useAuth } from "../context/auth-context";
 import { authService } from "../services/auth.service";
+import type { TwoFactorChallenge } from "../types/auth.types";
 
 export function LoginForm(): JSX.Element {
 	const auth = useAuth();
@@ -32,6 +33,9 @@ export function LoginForm(): JSX.Element {
 	const [pending, setPending] = createSignal(false);
 	// A Grid nobody has set up yet has no accounts to sign in to: point at the setup link instead.
 	const [setupNeeded, setSetupNeeded] = createSignal(false);
+	// Set once the password is right and the account asks for a second factor: the second step.
+	const [challenge, setChallenge] = createSignal<TwoFactorChallenge | null>(null);
+	const [code, setCode] = createSignal("");
 	onSettled(() => {
 		authService
 			.instance()
@@ -46,7 +50,8 @@ export function LoginForm(): JSX.Element {
 		setError(null);
 		setPending(true);
 		try {
-			await auth.login({ email: email(), password: password() });
+			const held = await auth.login({ email: email(), password: password() });
+			if (held) setChallenge(held);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : "Sign in failed");
 		} finally {
@@ -54,54 +59,129 @@ export function LoginForm(): JSX.Element {
 		}
 	}
 
+	async function verify(event: SubmitEvent) {
+		event.preventDefault();
+		const held = challenge();
+		if (!held) return;
+		setError(null);
+		setPending(true);
+		try {
+			await auth.verifyTwoFactor({ challengeToken: held.challengeToken, code: code().trim() });
+		} catch (cause) {
+			// A wrong or spent code leaves the challenge standing, so another can be typed.
+			setError(cause instanceof Error ? cause.message : "That code was not accepted");
+		} finally {
+			setPending(false);
+		}
+	}
+
+	/** Back to the password step, so a wrong account or a mistyped password can be replaced. */
+	function backToPassword(): void {
+		setChallenge(null);
+		setCode("");
+		setError(null);
+	}
+
 	return (
-		<form class="w-full" onSubmit={submit}>
-			<Stack gap={4}>
-				<Stack gap={1}>
-					<Heading level={1}>Sign in to Grid</Heading>
-					<Text tone="subtle">Welcome back. Your workspaces are where you left them.</Text>
-				</Stack>
+		<Show
+			when={challenge()}
+			fallback={
+				<form class="w-full" onSubmit={submit}>
+					<Stack gap={4}>
+						<Stack gap={1}>
+							<Heading level={1}>Sign in to Grid</Heading>
+							<Text tone="subtle">Welcome back. Your workspaces are where you left them.</Text>
+						</Stack>
 
-				<Field label="Email">
-					{(id) => (
-						<Input
-							id={id}
-							type="email"
-							required
-							autocomplete="email"
-							inputmode="email"
-							enterkeyhint="next"
-							value={email()}
-							onInput={(event) => setEmail(event.currentTarget.value)}
-						/>
-					)}
-				</Field>
+						<Field label="Email">
+							{(id) => (
+								<Input
+									id={id}
+									type="email"
+									required
+									autocomplete="email"
+									inputmode="email"
+									enterkeyhint="next"
+									value={email()}
+									onInput={(event) => setEmail(event.currentTarget.value)}
+								/>
+							)}
+						</Field>
 
-				<Field label="Password">
-					{(id) => (
-						<PasswordInput
-							id={id}
-							required
-							autocomplete="current-password"
-							enterkeyhint="go"
-							value={password()}
-							onInput={(event) => setPassword(event.currentTarget.value)}
-						/>
-					)}
-				</Field>
+						<Field label="Password">
+							{(id) => (
+								<PasswordInput
+									id={id}
+									required
+									autocomplete="current-password"
+									enterkeyhint="go"
+									value={password()}
+									onInput={(event) => setPassword(event.currentTarget.value)}
+								/>
+							)}
+						</Field>
 
-				<Show when={setupNeeded()}>
-					<Alert tone="accent" title="This Grid isn't set up yet">
-						Open the setup link it printed when it started.
-					</Alert>
-				</Show>
+						<Show when={setupNeeded()}>
+							<Alert tone="accent" title="This Grid isn't set up yet">
+								Open the setup link it printed when it started.
+							</Alert>
+						</Show>
 
-				<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
+						<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
 
-				<Button type="submit" variant="primary" size="lg" disabled={pending()} class="w-full">
-					{pending() ? "Signing in…" : "Sign in"}
-				</Button>
-			</Stack>
-		</form>
+						<Button type="submit" variant="primary" size="lg" disabled={pending()} class="w-full">
+							{pending() ? "Signing in…" : "Sign in"}
+						</Button>
+					</Stack>
+				</form>
+			}
+		>
+			{(held) => (
+				<form class="w-full" onSubmit={verify}>
+					<Stack gap={4}>
+						<Stack gap={1}>
+							<Heading level={1}>Two-factor code</Heading>
+							<Text tone="subtle">
+								Enter the code from your authenticator app{email() ? ` for ${email()}` : ""}, or one
+								of your recovery codes.
+							</Text>
+						</Stack>
+
+						<Field label="Code" hint="A six-digit code, or a recovery code like 1a2b3c4d-5e6f7a8b.">
+							{(id) => (
+								<Input
+									id={id}
+									required
+									autofocus
+									autocomplete="one-time-code"
+									inputmode="text"
+									spellcheck={false}
+									enterkeyhint="go"
+									value={code()}
+									onInput={(event) => setCode(event.currentTarget.value)}
+								/>
+							)}
+						</Field>
+
+						<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
+
+						<Button type="submit" variant="primary" size="lg" disabled={pending()} class="w-full">
+							{pending() ? "Checking…" : "Verify"}
+						</Button>
+
+						<Button
+							type="button"
+							variant="ghost"
+							size="md"
+							disabled={pending()}
+							onClick={backToPassword}
+							class="w-full"
+						>
+							Use a different account
+						</Button>
+					</Stack>
+				</form>
+			)}
+		</Show>
 	);
 }
