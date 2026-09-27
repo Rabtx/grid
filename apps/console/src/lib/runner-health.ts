@@ -1,8 +1,161 @@
 import { createSignal } from "solid-js";
 
+import appPackage from "../../package.json";
+import { workspaceHeaders } from "./active-workspace";
+
 export type HealthResponse = { ok: boolean; startedAt: number };
 
+export type ClientDiagnosticEvent = {
+	event: "close" | "fallback" | "reconnect";
+	source: "chat" | "terminal" | "link";
+	sessionId?: string;
+	code?: number;
+	reason?: string;
+	durationMs?: number;
+	attempt?: number;
+};
+
+type PendingDiagnostic = {
+	endpoint: string;
+	token: () => string | null;
+	workspace: Record<string, string>;
+	event: ClientDiagnosticEvent & {
+		online: boolean;
+		visibility: "visible" | "hidden";
+		clientAt: number;
+		version: string;
+	};
+};
+
 const BACKOFF_DELAYS = [1000, 2000, 4000, 5000];
+const DIAGNOSTIC_BATCH_SIZE = 25;
+const MAX_QUEUED_DIAGNOSTICS = 500;
+const CLIENT_CLOSE_REASONS = new Set([
+	"No hello",
+	"Expected hello",
+	"Sign in again",
+	"That environment does not exist",
+	"That terminal does not exist",
+	"That chat does not exist",
+	"Chat failed",
+	"Nothing open",
+	"The connection dropped",
+	"The connection stopped answering",
+	"The runner is not reachable",
+	"The runner refused sign-in",
+	"Client detached",
+	"Replaced",
+	"Too many open terminals and chats on one connection",
+	"Unknown channel kind",
+]);
+
+const diagnosticQueue: PendingDiagnostic[] = [];
+let diagnosticTimer: ReturnType<typeof setTimeout> | undefined;
+let flushingDiagnostics = false;
+
+/** Queue a privacy-limited event; the request is best-effort and never retries in a loop. */
+export function reportClientDiagnostic(
+	base: string,
+	token: () => string | null,
+	event: ClientDiagnosticEvent,
+): void {
+	if (typeof window === "undefined") return;
+	try {
+		const online = isOnline();
+		const parsed = new URL(base, window.location.origin);
+		if (parsed.protocol === "ws:") parsed.protocol = "http:";
+		if (parsed.protocol === "wss:") parsed.protocol = "https:";
+		const path = parsed.pathname.replace(/\/(chat|terminal|link)\/?$/, "").replace(/\/$/, "");
+		parsed.pathname = `${path}/diagnostics/client`;
+		parsed.search = "";
+		parsed.hash = "";
+		const reason = event.reason ?? "";
+		diagnosticQueue.push({
+			endpoint: parsed.toString(),
+			token,
+			workspace: workspaceHeaders(),
+			event: {
+				...event,
+				...(event.reason === undefined ? {} : { reason: safeClientReason(reason) }),
+				online,
+				visibility: document.visibilityState === "hidden" ? "hidden" : "visible",
+				clientAt: Date.now(),
+				version: appPackage.version,
+			},
+		});
+		if (diagnosticQueue.length > MAX_QUEUED_DIAGNOSTICS) diagnosticQueue.shift();
+		if (online) scheduleDiagnosticFlush();
+	} catch {
+		// Diagnostic reporting must never affect the socket state or reconnect path.
+	}
+}
+
+function isOnline(): boolean {
+	return typeof navigator === "undefined" || navigator.onLine !== false;
+}
+
+function safeClientReason(reason: string): string {
+	return CLIENT_CLOSE_REASONS.has(reason)
+		? reason
+		: reason
+			? "Unrecognized close reason omitted"
+			: "";
+}
+
+function scheduleDiagnosticFlush(): void {
+	if (diagnosticTimer || flushingDiagnostics) return;
+	diagnosticTimer = setTimeout(() => {
+		diagnosticTimer = undefined;
+		void flushDiagnostics();
+	}, 300);
+}
+
+async function flushDiagnostics(): Promise<void> {
+	if (flushingDiagnostics || !diagnosticQueue.length || !isOnline()) return;
+	flushingDiagnostics = true;
+	const batch = diagnosticQueue.splice(0, DIAGNOSTIC_BATCH_SIZE);
+	const groups = new Map<string, PendingDiagnostic[]>();
+	for (const pending of batch) {
+		const key = `${pending.endpoint}\n${pending.workspace["X-Grid-Workspace"] ?? ""}`;
+		groups.set(key, [...(groups.get(key) ?? []), pending]);
+	}
+	const grouped = [...groups.values()];
+	try {
+		for (const [index, group] of grouped.entries()) {
+			let token: string | null;
+			try {
+				token = group[0]?.token() ?? null;
+			} catch {
+				continue;
+			}
+			if (!token) continue;
+			try {
+				await fetch(group[0].endpoint, {
+					method: "POST",
+					headers: {
+						...group[0].workspace,
+						Authorization: `Bearer ${token}`,
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({ events: group.map((pending) => pending.event) }),
+				});
+			} catch {
+				if (!isOnline()) {
+					diagnosticQueue.unshift(...grouped.slice(index).flat());
+					break;
+				}
+				// Best effort: a reachable but failing endpoint must not produce a retry loop.
+			}
+		}
+	} finally {
+		flushingDiagnostics = false;
+		if (diagnosticQueue.length && isOnline()) scheduleDiagnosticFlush();
+	}
+}
+
+if (typeof window !== "undefined") {
+	window.addEventListener("online", () => void flushDiagnostics());
+}
 
 let _runnerUp = true;
 let _runnerRestarted = false;

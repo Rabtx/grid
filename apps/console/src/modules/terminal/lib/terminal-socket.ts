@@ -1,4 +1,9 @@
-import { onRunnerRecovered, reportRunnerFailure, reportRunnerSuccess } from "@/lib/runner-health";
+import {
+	onRunnerRecovered,
+	reportClientDiagnostic,
+	reportRunnerFailure,
+	reportRunnerSuccess,
+} from "@/lib/runner-health";
 
 /** Where a terminal's connection stands, as the screen shows it. */
 export type ConnectionState =
@@ -139,13 +144,23 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 		clearTimeout(retryTimer);
 		retryTimer = undefined;
 		attached = false;
+		if (attempt > 0) {
+			reportClientDiagnostic(options.url, options.token, {
+				event: "reconnect",
+				source: "terminal",
+				sessionId: options.id,
+				attempt,
+			});
+		}
 		setState(attempt === 0 ? "connecting" : "reconnecting");
 
 		const ws = createSocket(options.url);
+		let openedAt: number | null = null;
 		ws.binaryType = "arraybuffer";
 		socket = ws;
 
 		ws.addEventListener("open", () => {
+			openedAt = Date.now();
 			const { cols, rows } = options.size();
 			ws.send(
 				JSON.stringify({
@@ -198,6 +213,14 @@ export function connectTerminal(options: TerminalSocketOptions): TerminalSocket 
 		});
 
 		ws.addEventListener("close", (event: CloseEvent) => {
+			reportClientDiagnostic(options.url, options.token, {
+				event: "close",
+				source: "terminal",
+				sessionId: options.id,
+				code: event.code,
+				reason: event.reason,
+				durationMs: openedAt === null ? 0 : Date.now() - openedAt,
+			});
 			stopHeartbeat();
 			if (socket !== ws) return;
 			socket = null;

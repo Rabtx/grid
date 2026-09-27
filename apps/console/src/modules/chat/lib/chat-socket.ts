@@ -1,5 +1,10 @@
 import { workspaceHello } from "@/lib/active-workspace";
-import { onRunnerRecovered, reportRunnerFailure, reportRunnerSuccess } from "@/lib/runner-health";
+import {
+	onRunnerRecovered,
+	reportClientDiagnostic,
+	reportRunnerFailure,
+	reportRunnerSuccess,
+} from "@/lib/runner-health";
 
 import type { ChatEvent, ChatSession } from "../types/chat.types";
 
@@ -120,10 +125,20 @@ export function connectChat(options: ChatSocketOptions) {
 		clearTimeout(retryTimer);
 		retryTimer = undefined;
 		attached = false;
+		if (attempt > 0) {
+			reportClientDiagnostic(options.url, options.token, {
+				event: "reconnect",
+				source: "chat",
+				sessionId: options.id,
+				attempt,
+			});
+		}
 		options.onConnection(attempt === 0 ? "connecting" : "reconnecting");
 		const ws = createSocket(options.url);
+		let openedAt: number | null = null;
 		socket = ws;
 		ws.addEventListener("open", () => {
+			openedAt = Date.now();
 			ws.send(
 				JSON.stringify({
 					t: "hello",
@@ -178,6 +193,14 @@ export function connectChat(options: ChatSocketOptions) {
 			}
 		});
 		ws.addEventListener("close", (event: CloseEvent) => {
+			reportClientDiagnostic(options.url, options.token, {
+				event: "close",
+				source: "chat",
+				sessionId: options.id,
+				code: event.code,
+				reason: event.reason,
+				durationMs: openedAt === null ? 0 : Date.now() - openedAt,
+			});
 			stopHeartbeat();
 			if (socket !== ws) return;
 			socket = null;
