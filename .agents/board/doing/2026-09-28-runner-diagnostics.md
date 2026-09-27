@@ -91,4 +91,7 @@ message text, tokens, and file contents are excluded. The console reports closes
 reconnect attempts best-effort, and Settings → Diagnostics provides filters, a 24-hour reconnect
 count, and text export. Reconnect behavior is unchanged.
 
-PR: pending.
+Commit: `65a96d5` (`feat(runner): add connection diagnostics journal`).
+
+PR: [#133](https://github.com/shabirkhan-dev/grid/pull/133) — open against `main`; human review
+pending.
