@@ -108,6 +108,13 @@ describe("TaskCard", () => {
 		);
 	}
 
+	/** Opens the card's ⋯ menu the way a pointer does and returns its items. */
+	async function openMenu(): Promise<HTMLButtonElement[]> {
+		container.querySelector<HTMLButtonElement>('button[aria-label^="Actions for"]')?.click();
+		await settle();
+		return [...document.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')];
+	}
+
 	it("renders task key, title, owner, and branch", async () => {
 		mount();
 		await settle();
@@ -122,9 +129,7 @@ describe("TaskCard", () => {
 		mount();
 		await settle();
 
-		const menuItems = [
-			...container.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]'),
-		].map((b) => b.textContent?.trim());
+		const menuItems = (await openMenu()).map((b) => b.textContent?.trim());
 
 		expect(menuItems[0]).toBe("Run with agent");
 		expect(menuItems).toContain("Run with agent");
@@ -134,9 +139,7 @@ describe("TaskCard", () => {
 		mount();
 		await settle();
 
-		const runItem = [
-			...container.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]'),
-		].find((b) => b.textContent?.trim() === "Run with agent");
+		const runItem = (await openMenu()).find((b) => b.textContent?.trim() === "Run with agent");
 
 		expect(runItem).toBeDefined();
 		runItem?.click();
@@ -161,9 +164,7 @@ describe("TaskCard", () => {
 		mount(minimalTask);
 		await settle();
 
-		const runItem = [
-			...container.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]'),
-		].find((b) => b.textContent?.trim() === "Run with agent");
+		const runItem = (await openMenu()).find((b) => b.textContent?.trim() === "Run with agent");
 
 		runItem?.click();
 		await settle();
@@ -184,9 +185,7 @@ describe("TaskCard", () => {
 		mount(branchTask);
 		await settle();
 
-		const runItem = [
-			...container.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]'),
-		].find((b) => b.textContent?.trim() === "Run with agent");
+		const runItem = (await openMenu()).find((b) => b.textContent?.trim() === "Run with agent");
 
 		runItem?.click();
 		await settle();
@@ -209,9 +208,7 @@ describe("TaskCard", () => {
 		mount(descTask);
 		await settle();
 
-		const runItem = [
-			...container.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]'),
-		].find((b) => b.textContent?.trim() === "Run with agent");
+		const runItem = (await openMenu()).find((b) => b.textContent?.trim() === "Run with agent");
 
 		runItem?.click();
 		await settle();
@@ -226,9 +223,7 @@ describe("TaskCard", () => {
 		mount();
 		await settle();
 
-		const readyItem = [
-			...container.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]'),
-		].find((b) => b.textContent?.trim() === "Ready");
+		const readyItem = (await openMenu()).find((b) => b.textContent?.trim() === "Ready");
 
 		expect(readyItem).toBeDefined();
 		readyItem?.click();

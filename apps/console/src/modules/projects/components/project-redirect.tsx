@@ -2,7 +2,7 @@ import { useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, Loading, Show } from "solid-js";
 
-import { Button, EmptyState, PlusIcon } from "@/ui";
+import { Button, EmptyState, PlusIcon, Text } from "@/kit";
 
 import { useWorkspace } from "../context/workspace-context";
 
@@ -25,14 +25,23 @@ export function ProjectRedirect(props: { to: "chat" | "board" }): JSX.Element {
 	);
 
 	return (
-		<Loading fallback={<p class="py-12 text-center text-ink/40 text-ui-sm">Loading projects…</p>}>
+		<Loading
+			fallback={
+				<Text tone="faint" class="py-12 text-center">
+					Loading projects…
+				</Text>
+			}
+		>
 			<Show when={workspace.projects().length === 0}>
 				<EmptyState
 					title="No projects yet"
 					description="A project is a folder on this machine: its chats, terminals and board live in it."
 					action={
-						<Button variant="primary" onClick={() => workspace.setAddProjectOpen(true)}>
-							<PlusIcon class="size-3.5" />
+						<Button
+							variant="primary"
+							icon={<PlusIcon size="sm" />}
+							onClick={() => workspace.setAddProjectOpen(true)}
+						>
 							Add project
 						</Button>
 					}

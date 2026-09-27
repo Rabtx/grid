@@ -49,6 +49,8 @@ import {
 	Stepper,
 	Switch,
 	TaskCard,
+	TaskStatus,
+	taskStatusLabel,
 	TerminalIcon,
 	Toolbar,
 	ToolbarButton,
@@ -436,7 +438,11 @@ export function WorkSection(): JSX.Element {
 			</Specimen>
 			<Specimen label="Board">
 				<div class="flex gap-3 overflow-x-auto">
-					<BoardColumn status="doing" count={2}>
+					<BoardColumn
+						title={taskStatusLabel("doing")}
+						icon={<TaskStatus status="doing" />}
+						count={2}
+					>
 						<TaskCard id="WEB-9" title="Fix login redirect loop" status="doing" agent />
 						<TaskCard
 							id="WEB-11"
@@ -446,7 +452,11 @@ export function WorkSection(): JSX.Element {
 							labels={["ci"]}
 						/>
 					</BoardColumn>
-					<BoardColumn status="review" count={1}>
+					<BoardColumn
+						title={taskStatusLabel("review")}
+						icon={<TaskStatus status="review" />}
+						count={1}
+					>
 						<TaskCard
 							id="WEB-7"
 							title="Onboarding checklist"

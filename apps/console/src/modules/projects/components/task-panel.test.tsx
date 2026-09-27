@@ -151,6 +151,14 @@ describe("TaskPanel", () => {
 		);
 	}
 
+	/** Opens the status picker and returns its options. */
+	async function openStatus(): Promise<HTMLButtonElement[]> {
+		container.querySelector<HTMLButtonElement>('button[aria-label="Status"]')?.click();
+		await settle();
+		const panel = document.querySelector<HTMLElement>("[data-test-popover-open]");
+		return [...(panel?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
+	}
+
 	it("opens the task named in the URL with its fields editable", async () => {
 		mount("/board/alpha/tasks/1");
 		await settle();
@@ -162,9 +170,9 @@ describe("TaskPanel", () => {
 		expect(title?.value).toBe("First task in backlog");
 		expect(dialogs(container)[0]?.open).toBe(true);
 
-		const status = container.querySelector<HTMLSelectElement>('select[aria-label="Status"]');
-		expect(status?.value).toBe("backlog");
-		expect(status?.querySelectorAll("option").length).toBe(7);
+		const status = container.querySelector<HTMLButtonElement>('button[aria-label="Status"]');
+		expect(status?.textContent).toContain("Backlog");
+		expect((await openStatus()).length).toBe(7);
 
 		const branch = container.querySelector<HTMLInputElement>('input[aria-label="Branch"]');
 		expect(branch?.value).toBe("feature/first-task");
@@ -180,11 +188,9 @@ describe("TaskPanel", () => {
 		mount("/board/alpha/tasks/1");
 		await settle();
 
-		const status = container.querySelector<HTMLSelectElement>('select[aria-label="Status"]');
-		expect(status).not.toBeNull();
-		if (!status) return;
-		status.value = "review";
-		status.dispatchEvent(new Event("change", { bubbles: true }));
+		const review = (await openStatus()).find((option) => option.textContent?.trim() === "Review");
+		expect(review).toBeDefined();
+		review?.click();
 		await settle();
 
 		const patches = calls.filter((call) => call.method === "PATCH");
@@ -240,7 +246,6 @@ describe("TaskPanel", () => {
 			(button) => button.textContent?.trim() === "Run with agent",
 		);
 		expect(runButton).toBeDefined();
-		expect(runButton?.getAttribute("title")).toBe("Run with agent");
 
 		runButton?.click();
 		await settle();

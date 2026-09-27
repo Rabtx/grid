@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, Show } from "solid-js";
 
-import { SegmentedControl, Textarea } from "@/ui";
+import { Prose, Row, Segmented, Text, Textarea } from "@/kit";
 
 type Mode = "write" | "preview";
 
@@ -46,9 +46,11 @@ export function MarkdownField(props: {
 
 	return (
 		<div class="flex flex-col gap-2">
-			<div class="flex items-center justify-between gap-2">
-				<span class="font-medium text-ink/70 text-ui-sm">{props.label}</span>
-				<SegmentedControl
+			<Row gap={2} justify="between">
+				<Text as="span" tone="strong" weight="medium">
+					{props.label}
+				</Text>
+				<Segmented<Mode>
 					label={`${props.label} view`}
 					options={[
 						{ value: "write", label: "Write" },
@@ -57,20 +59,19 @@ export function MarkdownField(props: {
 					value={mode()}
 					onChange={show}
 				/>
-			</div>
+			</Row>
 			<Show
 				when={mode() === "write"}
 				fallback={
 					<Show
 						when={props.value.trim()}
-						fallback={<p class="min-h-24 px-1 py-2 text-ink/40 text-ui-sm">Nothing to preview.</p>}
+						fallback={
+							<Text tone="faint" class="min-h-24 px-1 py-2">
+								Nothing to preview.
+							</Text>
+						}
 					>
-						{/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- delegates clicks from the code cards' own buttons */}
-						<div
-							class="chat-prose min-h-24 overflow-x-auto rounded-md border border-ink/10 px-3 py-2 text-ink text-ui"
-							innerHTML={html()}
-							onClick={(event) => copy?.(event)}
-						/>
+						<Prose framed html={html()} onClick={(event) => copy?.(event)} />
 					</Show>
 				}
 			>

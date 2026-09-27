@@ -29,6 +29,7 @@ export const iconButton = variants({
 		variant: {
 			ghost: "text-fg-subtle hover:bg-fill hover:text-fg",
 			secondary: "surface-outline text-fg-muted hover:bg-fill hover:text-fg",
+			danger: "text-fg-subtle hover:bg-danger/8 hover:text-danger",
 		},
 		size: {
 			xs: "size-6 pointer-coarse:size-10",
@@ -75,7 +76,7 @@ type IconButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 	size?: "xs" | "sm" | "md";
 	/** A tooltip other than the label, e.g. why it is disabled. */
 	tooltip?: string;
-	variant?: "ghost" | "secondary";
+	variant?: "ghost" | "secondary" | "danger";
 };
 
 /** A square button holding one icon; its label is its name and tooltip. */

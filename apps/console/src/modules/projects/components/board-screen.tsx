@@ -3,20 +3,31 @@ import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, Errored, isPending, Loading, Show } from "solid-js";
 
 import { workspaceHref } from "@/lib/active-workspace";
-import { Button, EmptyState, ErrorNotice } from "@/ui";
+import {
+	Alert,
+	Avatar,
+	BoardSkeleton,
+	Button,
+	button,
+	EmptyState,
+	LinkButton,
+	LoadingBar,
+	NobodyMark,
+	Text,
+} from "@/kit";
 
 import { useWorkspace } from "../context/workspace-context";
 import { filterTasks, groupByOwner, groupByStatus, ownerOptions } from "../lib/board";
 import { TASK_STATUS_LABELS, TASK_STATUSES } from "../types/project.types";
 
-import { BoardLanes, boardLaneId, type BoardLane, SkeletonLanes } from "./board-lanes";
+import { BoardLanes, boardLaneId, type BoardLane } from "./board-lanes";
 import { BoardToolbar, type BoardView } from "./board-toolbar";
 import { StageTabs } from "./stage-tabs";
 import { StatusIcon } from "./status-icon";
 
 export function BoardScreen(): JSX.Element {
 	return (
-		<Loading fallback={<SkeletonLanes />}>
+		<Loading fallback={<BoardSkeleton />}>
 			<Errored fallback={(error, reset) => <BoardError error={error()} onRetry={reset} />}>
 				<Board />
 			</Errored>
@@ -49,12 +60,12 @@ function Board(): JSX.Element {
 		groupByOwner(filteredTasks()).map((lane) => ({
 			id: lane.id,
 			title: lane.title,
-			icon: () => (
-				<span
-					class={`size-3.5 shrink-0 rounded-full ${lane.id === "unassigned" ? "border border-ink/30 border-dashed" : "bg-ink/20"}`}
-					aria-hidden="true"
-				/>
-			),
+			icon: () =>
+				lane.id === "unassigned" ? (
+					<NobodyMark size="xs" />
+				) : (
+					<Avatar name={lane.title} size="xs" />
+				),
 			tasks: lane.tasks,
 		})),
 	);
@@ -83,10 +94,9 @@ function Board(): JSX.Element {
 
 	return (
 		<Show when={workspace.activeProject()} fallback={<ProjectNotFound />}>
-			<div
-				aria-hidden="true"
-				class={`-mt-1 mb-2 h-0.5 rounded-full ${isPending(() => workspace.tasks()) ? "animate-pulse bg-accent" : "bg-transparent"}`}
-			/>
+			<div class="-mt-1 mb-2">
+				<LoadingBar active={isPending(() => workspace.tasks())} />
+			</div>
 			<BoardToolbar
 				view={view()}
 				onViewChange={(next) => setSearchParams({ view: next === "status" ? undefined : next })}
@@ -98,9 +108,9 @@ function Board(): JSX.Element {
 			/>
 			{/* The bar already shows the total; only a filter makes a count worth repeating. */}
 			<Show when={isFiltered()}>
-				<p class="mb-2 text-ink/45 text-ui-sm tabular-nums">
+				<Text tone="subtle" tabular class="mb-2">
 					{filteredTasks().length} of {workspace.tasks().length} tasks
-				</p>
+				</Text>
 			</Show>
 			<Show
 				when={!filteredEmpty()}
@@ -108,13 +118,9 @@ function Board(): JSX.Element {
 					<EmptyState
 						title="No tasks match these filters"
 						action={
-							<button
-								type="button"
-								onClick={clearFilters}
-								class="focus-ring -mx-2 min-h-11 rounded-sm px-2 text-link text-ui-sm underline-offset-2 hover:underline"
-							>
+							<LinkButton tone="accent" onClick={clearFilters}>
 								Clear filters
-							</button>
+							</LinkButton>
 						}
 					/>
 				}
@@ -129,14 +135,17 @@ function Board(): JSX.Element {
 function BoardError(props: { error: unknown; onRetry: () => void }): JSX.Element {
 	return (
 		<div class="py-6">
-			<ErrorNotice
-				message={`The board could not load: ${props.error instanceof Error ? props.error.message : "something went wrong"}.`}
+			<Alert
+				tone="danger"
+				title="The board could not load"
 				action={
-					<Button size="sm" variant="secondary" onClick={() => props.onRetry()}>
+					<Button size="sm" onClick={() => props.onRetry()}>
 						Try again
 					</Button>
 				}
-			/>
+			>
+				{props.error instanceof Error ? props.error.message : "Something went wrong."}
+			</Alert>
 		</div>
 	);
 }
@@ -147,10 +156,7 @@ function ProjectNotFound(): JSX.Element {
 			title="Project not found"
 			description="It may have been renamed or archived."
 			action={
-				<a
-					href={workspaceHref("/board")}
-					class="focus-ring rounded-sm text-link text-ui-sm underline-offset-2 hover:underline"
-				>
+				<a href={workspaceHref("/board")} class={button({ size: "sm" })}>
 					Open your first project
 				</a>
 			}

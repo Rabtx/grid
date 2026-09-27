@@ -5,7 +5,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 
 import { AuthProvider } from "@/modules/auth";
 import { WorkspaceProvider, useWorkspace } from "@/modules/projects/context/workspace-context";
-import { Toaster } from "@/ui";
+import { Toasts } from "@/kit";
 
 import { BoardScreen } from "./board-screen";
 import { NewTaskDialog } from "./new-task-dialog";
@@ -79,18 +79,20 @@ function laneTaskKeys(container: HTMLElement, lane: string): string[] {
 	);
 }
 
-/**
- * Click one entry of a card's "Move to…" menu. happy-dom has no Popover API, so the list is in
- * the DOM and no trigger click is needed to reveal it.
- */
-function clickMenuItem(container: HTMLElement, menu: string, item: string): void {
-	const list = container.querySelector(`[role="menu"][aria-label="${menu}"]`);
-	const button = list
-		? [...list.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(
-				(candidate) => candidate.textContent?.trim() === item,
-			)
-		: undefined;
-	expect(button, `no "${item}" entry in the ${menu} menu`).toBeDefined();
+/** Opens a card's ⋯ menu the way a pointer does and returns its entries' buttons. */
+async function openCardMenu(container: HTMLElement, key: string): Promise<HTMLButtonElement[]> {
+	container.querySelector<HTMLButtonElement>(`button[aria-label="Actions for ${key}"]`)?.click();
+	await settle();
+	const panel = document.querySelector<HTMLElement>("[data-test-popover-open]");
+	return [...(panel?.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]') ?? [])];
+}
+
+/** Click one entry of a card's menu: "Run with agent" or a stage to move it to. */
+async function clickMenuItem(container: HTMLElement, key: string, item: string): Promise<void> {
+	const button = (await openCardMenu(container, key)).find(
+		(candidate) => candidate.textContent?.trim() === item,
+	);
+	expect(button, `no "${item}" entry in the menu for ${key}`).toBeDefined();
 	button?.click();
 }
 
@@ -186,7 +188,7 @@ describe("BoardScreen", () => {
 							<BoardScreen />
 							<NewTaskTrigger />
 							<NewTaskDialog />
-							<Toaster />
+							<Toasts />
 						</>
 					),
 				},
@@ -238,7 +240,7 @@ describe("BoardScreen", () => {
 			parseInt(tab.querySelector("[data-count]")?.textContent || "0", 10),
 		);
 		expect(tabCounts).toEqual([1, 1, 0, 0, 0, 0, 0]);
-		expect(tabs[0].getAttribute("aria-current")).toBe("true");
+		expect(tabs[0].getAttribute("aria-pressed")).toBe("true");
 		expect(tabs[0].getAttribute("aria-controls")).toBe("lane-backlog");
 		expect(container.querySelector("section[data-lane]")?.getAttribute("data-lane")).toBe(
 			"backlog",
@@ -321,15 +323,15 @@ describe("BoardScreen", () => {
 		await settle();
 
 		const card = container.querySelector('a[href="/board/alpha/tasks/1"]');
-		const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Move TASK-1"]');
+		const trigger = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Actions for TASK-1"]',
+		);
 		expect(trigger).not.toBeNull();
 		// Opening the menu must not navigate, so it cannot live inside the card's link.
 		expect(trigger?.closest("a")).toBeNull();
 		expect(card?.contains(trigger ?? null)).toBe(false);
 
-		const items = [
-			...(container.querySelectorAll('[role="menu"][aria-label="Move TASK-1"] button') ?? []),
-		].map((item) => item.textContent?.trim());
+		const items = (await openCardMenu(container, "TASK-1")).map((item) => item.textContent?.trim());
 		expect(items).toEqual([
 			"Run with agent",
 			"Ready",
@@ -345,7 +347,7 @@ describe("BoardScreen", () => {
 		await settle();
 		holdPatch = true;
 
-		clickMenuItem(container, "Move TASK-1", "In progress");
+		await clickMenuItem(container, "TASK-1", "In progress");
 		await settle();
 
 		// Optimistic: the card changes lane before the write has come back.
@@ -368,7 +370,7 @@ describe("BoardScreen", () => {
 		await settle();
 		patchFailure = "Stage 'in_progress' is not allowed here";
 
-		clickMenuItem(container, "Move TASK-1", "In progress");
+		await clickMenuItem(container, "TASK-1", "In progress");
 		await settle();
 
 		expect(container.textContent).toContain(
@@ -409,7 +411,7 @@ describe("BoardScreen", () => {
 		await settle();
 
 		expect(container.textContent).toContain("Added TASK-3");
-		const sheet = container.querySelector<HTMLDialogElement>('dialog[aria-label="New task"]');
+		const sheet = container.querySelector<HTMLDialogElement>('dialog[aria-label^="New task"]');
 		expect(sheet?.open).toBe(true);
 		expect(input.value).toBe("");
 

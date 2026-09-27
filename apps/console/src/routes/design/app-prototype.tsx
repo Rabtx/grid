@@ -68,6 +68,7 @@ import {
 	SortIcon,
 	SunIcon,
 	TaskCard,
+	taskStatusLabel,
 	TaskStatus,
 	type TaskStatusKind,
 	TerminalIcon,
@@ -1013,7 +1014,8 @@ function BoardView(): JSX.Element {
 				<For each={columns}>
 					{(status) => (
 						<BoardColumn
-							status={status}
+							title={taskStatusLabel(status)}
+							icon={<TaskStatus status={status} />}
 							count={TASKS.filter((task) => task.status === status).length}
 							action={
 								<IconButton label="Add task" size="sm" class="size-6!">

@@ -2,29 +2,33 @@ import type { JSX } from "@solidjs/web";
 import { useNavigate } from "@solidjs/router";
 import { createEffect, createSignal, Loading, Show, untrack } from "solid-js";
 
-import { useAuth } from "@/modules/auth";
-import { draftsStore, taskDraft } from "@/modules/chat/stores/drafts";
 import {
+	Alert,
 	Button,
 	ChatIcon,
 	CloseIcon,
 	ConfirmDialog,
+	Dialog,
 	EmptyState,
-	ErrorNotice,
 	IconButton,
 	Input,
-	SegmentedControl,
+	PanelBar,
+	PropertyRow,
+	Segmented,
 	Select,
-	Sheet,
 	Skeleton,
+	Stack,
+	Text,
+	TitleInput,
 	TrashIcon,
-} from "@/ui";
+} from "@/kit";
+import { useAuth } from "@/modules/auth";
+import { draftsStore, taskDraft } from "@/modules/chat/stores/drafts";
 
 import { useWorkspace } from "../context/workspace-context";
 import { relativeTime } from "../lib/relative-time";
 import { projectsService } from "../services/projects.service";
 
-import { MarkdownField } from "./markdown-field";
 import {
 	TASK_STATUS_LABELS,
 	TASK_STATUSES,
@@ -34,10 +38,18 @@ import {
 	type UpdateTaskInput,
 } from "../types/project.types";
 
-const STATUS_OPTIONS = TASK_STATUSES.map((status) => ({
-	value: status,
-	label: TASK_STATUS_LABELS[status],
-}));
+import { MarkdownField } from "./markdown-field";
+import { StatusIcon } from "./status-icon";
+
+const STATUS_GROUPS = [
+	{
+		options: TASK_STATUSES.map((status) => ({
+			value: status,
+			label: TASK_STATUS_LABELS[status],
+			icon: <StatusIcon status={status} />,
+		})),
+	},
+];
 
 const OWNER_OPTIONS = [
 	{ value: "none", label: "None" },
@@ -57,20 +69,22 @@ export function TaskPanel(): JSX.Element {
 	const number = () => workspace.activeTaskNumber();
 
 	return (
-		<Sheet
-			placement="panel"
+		<Dialog
+			kind="drawer"
+			bare
+			width="32rem"
 			open={number() !== null}
 			onClose={workspace.closeTask}
-			// Naming the sheet from the task itself would read the board's first load outside the
+			// Naming the panel from the task itself would read the board's first load outside the
 			// Loading boundary below, which defers the whole app's first render until it settles.
-			label={number() === null ? "Task" : `Task ${number()}`}
+			title={number() === null ? "Task" : `Task ${number()}`}
 		>
 			<Loading fallback={<PanelSkeleton />}>
 				<Show when={workspace.activeTask()} fallback={<TaskNotFound />}>
 					{(task) => <TaskFields task={task()} />}
 				</Show>
 			</Loading>
-		</Sheet>
+		</Dialog>
 	);
 }
 
@@ -206,44 +220,49 @@ function TaskFields(props: { task: Task }): JSX.Element {
 
 	return (
 		<div class="flex h-full min-h-0 flex-col">
-			<header class="flex min-h-10 shrink-0 items-center gap-2 border-stroke border-b px-3">
-				<span class="font-mono text-ink/45 text-ui-xs">{props.task.key}</span>
-				<span class="min-w-0 flex-1 truncate text-ink/35 text-ui-xs">
-					· updated {relativeTime(props.task.updatedAt)}
-				</span>
-				<Show when={saving()}>
-					<span class="shrink-0 text-ink/40 text-ui-xs">Saving…</span>
+			<PanelBar
+				actions={
+					<>
+						<Button
+							size="sm"
+							icon={<ChatIcon size="sm" />}
+							onClick={() => {
+								const slug = workspace.activeSlug();
+								if (!slug) return;
+								draftsStore.set(slug, taskDraft(props.task));
+								navigate(`/chat/${slug}`);
+							}}
+						>
+							Run with agent
+						</Button>
+						<IconButton
+							size="sm"
+							variant="danger"
+							label="Delete task"
+							onClick={() => setConfirming(true)}
+						>
+							<TrashIcon />
+						</IconButton>
+						<IconButton size="sm" label="Close task" onClick={workspace.closeTask}>
+							<CloseIcon />
+						</IconButton>
+					</>
+				}
+			>
+				<Text as="span" size="caption" tone="subtle" mono class="shrink-0">
+					{props.task.key}
+				</Text>
+				<Text as="span" size="caption" tone="faint" truncate>
+					{saving() ? "Saving…" : `Updated ${relativeTime(props.task.updatedAt)}`}
+				</Text>
+			</PanelBar>
+
+			<Stack gap={4} class="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
+				<Show when={error()}>
+					{(message) => <Alert tone="danger" title={message()} onDismiss={() => setError(null)} />}
 				</Show>
-				<Button
-					size="sm"
-					variant="secondary"
-					title="Run with agent"
-					onClick={() => {
-						const slug = workspace.activeSlug();
-						if (!slug) return;
-						draftsStore.set(slug, taskDraft(props.task));
-						navigate(`/chat/${slug}`);
-					}}
-				>
-					<ChatIcon class="size-3.5" />
-					Run with agent
-				</Button>
-				<IconButton
-					label="Delete task"
-					class="hover:bg-danger/10 hover:text-danger"
-					onClick={() => setConfirming(true)}
-				>
-					<TrashIcon />
-				</IconButton>
-				<IconButton label="Close task" onClick={workspace.closeTask}>
-					<CloseIcon />
-				</IconButton>
-			</header>
 
-			<div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
-				<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
-
-				<input
+				<TitleInput
 					value={title()}
 					onInput={(event) => setTitle(event.currentTarget.value)}
 					onBlur={() => void commitTitle()}
@@ -251,24 +270,22 @@ function TaskFields(props: { task: Task }): JSX.Element {
 					placeholder="Task title"
 					aria-label="Task title"
 					maxlength={200}
-					class="focus-ring w-full min-w-0 rounded-sm bg-transparent font-semibold text-ink text-title outline-none placeholder:text-ink/35"
 				/>
 
-				<div class="flex flex-col gap-1 md:flex-row md:items-center md:gap-3">
-					<span class="shrink-0 text-ink/45 text-ui-sm md:w-24">Status</span>
-					<Select
-						aria-label="Status"
-						class="w-full min-w-0 md:w-56"
-						options={STATUS_OPTIONS}
-						value={status()}
-						onChange={(value) => void changeStatus(value)}
-					/>
-				</div>
+				<Stack gap={3}>
+					<PropertyRow label="Status">
+						<div class="w-full min-w-0 md:w-56">
+							<Select<TaskStatus>
+								label="Status"
+								groups={STATUS_GROUPS}
+								value={status()}
+								onChange={(value) => void changeStatus(value)}
+							/>
+						</div>
+					</PropertyRow>
 
-				<div class="flex flex-col gap-1 md:flex-row md:items-center md:gap-3">
-					<span class="shrink-0 text-ink/45 text-ui-sm md:w-24">Owner</span>
-					<div class="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-2">
-						<SegmentedControl
+					<PropertyRow label="Owner">
+						<Segmented<OwnerChoice>
 							label="Owner"
 							options={OWNER_OPTIONS}
 							value={ownerChoice()}
@@ -285,21 +302,20 @@ function TaskFields(props: { task: Task }): JSX.Element {
 								class="w-full min-w-0 md:w-48"
 							/>
 						</Show>
-					</div>
-				</div>
+					</PropertyRow>
 
-				<div class="flex flex-col gap-1 md:flex-row md:items-center md:gap-3">
-					<span class="shrink-0 text-ink/45 text-ui-sm md:w-24">Branch</span>
-					<Input
-						value={branch()}
-						onInput={(event) => setBranch(event.currentTarget.value)}
-						onBlur={() => void commitBranch()}
-						onKeyDown={saveOnEnter}
-						aria-label="Branch"
-						placeholder="agent/role/card-slug"
-						class="w-full min-w-0 font-mono"
-					/>
-				</div>
+					<PropertyRow label="Branch">
+						<Input
+							value={branch()}
+							onInput={(event) => setBranch(event.currentTarget.value)}
+							onBlur={() => void commitBranch()}
+							onKeyDown={saveOnEnter}
+							aria-label="Branch"
+							placeholder="agent/role/card-slug"
+							class="w-full min-w-0 font-mono"
+						/>
+					</PropertyRow>
+				</Stack>
 
 				<MarkdownField
 					label="Description"
@@ -310,17 +326,18 @@ function TaskFields(props: { task: Task }): JSX.Element {
 					placeholder="Context a teammate or an agent needs, in Markdown"
 					rows={6}
 				/>
-			</div>
+			</Stack>
 
 			<ConfirmDialog
 				open={confirming()}
 				title={`Delete ${props.task.key}?`}
 				description="This can't be undone."
-				confirmLabel="Delete task"
-				tone="danger"
+				confirm="Delete task"
+				danger
 				pending={deleting()}
+				stayOpen
 				onConfirm={() => void deleteTask()}
-				onCancel={() => setConfirming(false)}
+				onClose={() => setConfirming(false)}
 			/>
 		</div>
 	);
@@ -336,13 +353,15 @@ function saveOnEnter(event: KeyboardEvent & { currentTarget: HTMLInputElement })
 function PanelSkeleton(): JSX.Element {
 	return (
 		<div class="flex h-full flex-col">
-			<div class="min-h-10 shrink-0 border-stroke border-b" />
-			<div class="flex flex-col gap-3 p-4">
+			<PanelBar>
+				<Skeleton class="h-3 w-16" />
+			</PanelBar>
+			<Stack gap={3} class="p-4 md:p-5">
 				<Skeleton class="h-6 w-2/3" />
-				<Skeleton class="h-field w-full" />
-				<Skeleton class="h-field w-full" />
+				<Skeleton class="h-kit-control w-full" />
+				<Skeleton class="h-kit-control w-full" />
 				<Skeleton class="h-24 w-full" />
-			</div>
+			</Stack>
 		</div>
 	);
 }
@@ -352,11 +371,15 @@ function TaskNotFound(): JSX.Element {
 
 	return (
 		<div class="flex h-full min-h-0 flex-col">
-			<header class="flex min-h-10 shrink-0 items-center justify-end border-stroke border-b px-3">
-				<IconButton label="Close task" onClick={workspace.closeTask}>
-					<CloseIcon />
-				</IconButton>
-			</header>
+			<PanelBar
+				actions={
+					<IconButton size="sm" label="Close task" onClick={workspace.closeTask}>
+						<CloseIcon />
+					</IconButton>
+				}
+			>
+				{null}
+			</PanelBar>
 			<EmptyState
 				title="Task not found"
 				description="It may have been deleted, or the link may be wrong."

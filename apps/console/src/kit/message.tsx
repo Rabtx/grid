@@ -94,8 +94,21 @@ export function AgentMessage(props: {
  * Markdown rendered to HTML (by the caller, sanitised) in the reading style: comfortable lines,
  * code and tables in the kit's shapes. The styles live in global.css under `.chat-prose`.
  */
-export function Prose(props: { html: string }): JSX.Element {
-	return <div class="chat-prose min-w-0 max-w-full break-words px-1" innerHTML={props.html} />;
+export function Prose(props: {
+	html: string;
+	/** Drawn in an outlined box, as a preview beside the field it renders. */
+	framed?: boolean;
+	/** Clicks inside, for delegating the code cards' own buttons (copy). */
+	onClick?: (event: MouseEvent) => void;
+}): JSX.Element {
+	return (
+		// oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- delegates clicks from the buttons inside the rendered HTML
+		<div
+			class={`chat-prose min-w-0 max-w-full break-words ${props.framed ? "min-h-24 overflow-x-auto rounded-kit-md px-3 py-2 ring-line" : "px-1"}`}
+			innerHTML={props.html}
+			onClick={(event) => props.onClick?.(event)}
+		/>
+	);
 }
 
 /** A file attached to a message. */

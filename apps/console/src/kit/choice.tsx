@@ -108,3 +108,32 @@ export function Slider(props: {
 		</div>
 	);
 }
+
+/** One of several, as chips that wrap: a task's stage when making it. */
+export function ChoiceChips<T extends string>(props: {
+	label: string;
+	options: readonly { value: T; label: string; icon?: JSX.Element }[];
+	value: T;
+	onChange: (value: T) => void;
+}): JSX.Element {
+	return (
+		<fieldset class="flex min-w-0 flex-col gap-2 border-0 p-0">
+			<legend class="mb-2 font-medium text-body text-fg">{props.label}</legend>
+			<div class="flex flex-wrap gap-1.5">
+				<For each={props.options}>
+					{(option) => (
+						<button
+							type="button"
+							aria-pressed={props.value === option.value ? "true" : "false"}
+							onClick={() => props.onChange(option.value)}
+							class="focus-ring inline-flex h-7 items-center gap-1.5 rounded-kit px-2 text-body text-fg-subtle ring-line-strong transition-colors duration-fast hover:text-fg aria-pressed:bg-fill-strong aria-pressed:text-fg pointer-coarse:h-10"
+						>
+							{option.icon}
+							{option.label}
+						</button>
+					)}
+				</For>
+			</div>
+		</fieldset>
+	);
+}

@@ -1,8 +1,21 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
 
+import {
+	Alert,
+	Button,
+	CheckboxField,
+	ChoiceChips,
+	Dialog,
+	Input,
+	notify,
+	Row,
+	Segmented,
+	Stack,
+	Text,
+	TitleInput,
+} from "@/kit";
 import { useAuth } from "@/modules/auth";
-import { Button, ErrorNotice, Input, SegmentedControl, Sheet, toast } from "@/ui";
 
 import { useWorkspace } from "../context/workspace-context";
 import { projectsService } from "../services/projects.service";
@@ -18,11 +31,13 @@ import { StatusIcon } from "./status-icon";
 
 type Owner = "none" | TaskOwnerKind;
 
+const FORM_ID = "new-task-form";
+
 /**
  * File an issue in the open project: a title, an optional Markdown description, the stage it
  * starts in and who owns it. Enter in the title (or Cmd/Ctrl+Enter anywhere) adds it; with
- * "Add another" on, the sheet stays open for the next one. A bottom sheet on phones, a
- * top-anchored dialog from `md:`.
+ * "Add another" on, the dialog stays open for the next one. A bottom sheet on phones, a dialog
+ * from `md:`.
  */
 export function NewTaskDialog(): JSX.Element {
 	const auth = useAuth();
@@ -73,9 +88,9 @@ export function NewTaskDialog(): JSX.Element {
 			});
 			reset();
 			workspace.refreshTasks();
-			toast({
-				message: `Added ${task.key} to ${TASK_STATUS_LABELS[task.status]}`,
-				action: { label: "Open", onClick: () => workspace.openTask(task.number) },
+			notify({
+				title: `Added ${task.key} to ${TASK_STATUS_LABELS[task.status]}`,
+				action: { label: "Open", run: () => workspace.openTask(task.number) },
 			});
 			if (another()) input?.focus();
 			else workspace.setNewTaskOpen(false);
@@ -87,106 +102,104 @@ export function NewTaskDialog(): JSX.Element {
 	}
 
 	return (
-		<Sheet
+		<Dialog
 			open={workspace.newTaskOpen()}
 			onClose={() => workspace.setNewTaskOpen(false)}
-			label="New task"
+			title={`New task${workspace.activeProject() ? ` in ${workspace.activeProject()?.name}` : ""}`}
+			width="36rem"
+			footer={
+				<>
+					<CheckboxField
+						label="Add another"
+						checked={another()}
+						onChange={setAnother}
+						class="md:mr-auto"
+					/>
+					<Button variant="ghost" onClick={() => workspace.setNewTaskOpen(false)}>
+						Cancel
+					</Button>
+					<Button
+						type="submit"
+						form={FORM_ID}
+						variant="primary"
+						disabled={!title().trim() || pending()}
+					>
+						{pending() ? "Adding…" : "Add task"}
+					</Button>
+				</>
+			}
 		>
 			<form
-				class="flex max-h-[85dvh] flex-col gap-4 overflow-y-auto p-4 md:max-h-[70dvh]"
+				id={FORM_ID}
 				onSubmit={(event) => {
 					event.preventDefault();
 					void submit();
 				}}
 			>
-				<h2 class="font-semibold text-ui">
-					New task{workspace.activeProject() ? ` in ${workspace.activeProject()?.name}` : ""}
-				</h2>
-				<Input
-					ref={(el) => {
-						input = el;
-					}}
-					value={title()}
-					onInput={(event) => setTitle(event.currentTarget.value)}
-					onKeyDown={(event) => {
-						if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-							event.preventDefault();
-							void submit();
-						}
-					}}
-					placeholder="What needs doing?"
-					aria-label="Task title"
-					maxlength={200}
-					enterkeyhint="done"
-				/>
-				<MarkdownField
-					label="Description"
-					value={description()}
-					onInput={setDescription}
-					onSubmit={() => void submit()}
-					rows={4}
-				/>
-				<fieldset class="flex flex-col gap-2 border-0 p-0">
-					<legend class="mb-2 font-medium text-ink/70 text-ui-sm">Status</legend>
-					<div class="flex flex-wrap gap-1.5">
-						<For each={TASK_STATUSES}>
-							{(value) => (
-								<button
-									type="button"
-									aria-pressed={status() === value ? "true" : "false"}
-									onClick={() => setStatus(value)}
-									class="focus-ring inline-flex h-7 items-center gap-1.5 rounded-md border border-ink/10 px-2 text-ink/60 text-ui-sm hover:text-ink aria-pressed:border-ink/25 aria-pressed:bg-selection aria-pressed:text-ink pointer-coarse:h-10"
-								>
-									<StatusIcon status={value} />
-									{TASK_STATUS_LABELS[value]}
-								</button>
-							)}
-						</For>
-					</div>
-				</fieldset>
-				<div class="flex flex-col gap-2">
-					<span class="font-medium text-ink/70 text-ui-sm">Owner</span>
-					<div class="flex flex-wrap items-center gap-2">
-						<SegmentedControl
-							label="Owner"
-							options={[
-								{ value: "none", label: "Nobody" },
-								{ value: "human", label: "Person" },
-								{ value: "agent", label: "Agent" },
-							]}
-							value={owner()}
-							onChange={setOwner}
-						/>
-						<Show when={owner() !== "none"}>
-							<Input
-								value={ownerName()}
-								onInput={(event) => setOwnerName(event.currentTarget.value)}
-								placeholder={owner() === "agent" ? "Agent name" : "Person's name"}
-								aria-label="Owner name"
-								class="min-w-0 flex-1"
+				<Stack gap={5}>
+					<TitleInput
+						ref={(el: HTMLInputElement) => {
+							input = el;
+						}}
+						value={title()}
+						onInput={(event) => setTitle(event.currentTarget.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+								event.preventDefault();
+								void submit();
+							}
+						}}
+						placeholder="What needs doing?"
+						aria-label="Task title"
+						maxlength={200}
+						enterkeyhint="done"
+					/>
+					<MarkdownField
+						label="Description"
+						value={description()}
+						onInput={setDescription}
+						onSubmit={() => void submit()}
+						rows={4}
+					/>
+					<ChoiceChips<TaskStatus>
+						label="Status"
+						options={TASK_STATUSES.map((value) => ({
+							value,
+							label: TASK_STATUS_LABELS[value],
+							icon: <StatusIcon status={value} />,
+						}))}
+						value={status()}
+						onChange={setStatus}
+					/>
+					<Stack gap={2}>
+						<Text as="span" tone="strong" weight="medium">
+							Owner
+						</Text>
+						<Row gap={2} wrap>
+							<Segmented<Owner>
+								label="Owner"
+								options={[
+									{ value: "none", label: "Nobody" },
+									{ value: "human", label: "Person" },
+									{ value: "agent", label: "Agent" },
+								]}
+								value={owner()}
+								onChange={setOwner}
 							/>
-						</Show>
-					</div>
-				</div>
-				<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
-				<div class="flex flex-col-reverse gap-2 md:flex-row md:items-center">
-					<label class="flex min-h-10 items-center gap-2 text-ink/60 text-ui-sm md:mr-auto">
-						<input
-							type="checkbox"
-							checked={another()}
-							onChange={(event) => setAnother(event.currentTarget.checked)}
-							class="size-4 accent-[var(--color-accent)]"
-						/>
-						Add another
-					</label>
-					<Button variant="ghost" onClick={() => workspace.setNewTaskOpen(false)}>
-						Cancel
-					</Button>
-					<Button type="submit" variant="primary" disabled={!title().trim() || pending()}>
-						{pending() ? "Adding…" : "Add task"}
-					</Button>
-				</div>
+							<Show when={owner() !== "none"}>
+								<Input
+									value={ownerName()}
+									onInput={(event) => setOwnerName(event.currentTarget.value)}
+									placeholder={owner() === "agent" ? "Agent name" : "Person's name"}
+									aria-label="Owner name"
+									class="min-w-0 flex-1"
+								/>
+							</Show>
+						</Row>
+					</Stack>
+					<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
+				</Stack>
 			</form>
-		</Sheet>
+		</Dialog>
 	);
 }

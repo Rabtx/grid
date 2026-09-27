@@ -10,15 +10,24 @@ export {
 	type Provider,
 	ProviderMark,
 	WorkspaceMark,
+	NobodyMark,
 } from "./avatar";
 export { Badge, Count, Kbd, type Tone } from "./badge";
 export { BrandLogo, BrandMark } from "./brand";
 export { Button, button, IconButton, iconButton, LinkButton } from "./button";
-export { BoardColumn, TaskCard, TaskStatus, type TaskStatusKind } from "./board";
-export { RadioCards, type RadioOption, Slider } from "./choice";
-export { ConfirmDialog, Dialog } from "./dialog";
+export {
+	BoardColumn,
+	BoardSkeleton,
+	LaneStrip,
+	TaskCard,
+	TaskStatus,
+	type TaskStatusKind,
+	taskStatusLabel,
+} from "./board";
+export { ChoiceChips, RadioCards, type RadioOption, Slider } from "./choice";
+export { ConfirmDialog, Dialog, PanelBar } from "./dialog";
 export { PreviewFrame, RadiusScale, Specimen, SurfaceSwatches } from "./docs";
-export { ActivityItem, DropZone, SplitLayout, WorkspacePreview } from "./extras";
+export { ActivityItem, DropZone, InlineAdd, SplitLayout, WorkspacePreview } from "./extras";
 export {
 	Alert,
 	Banner,
@@ -29,10 +38,11 @@ export {
 	StatusDot,
 	UsageBar,
 	WorkingDots,
+	LoadingBar,
 } from "./feedback";
 export { attachContextMenu, LONG_PRESS_MS, type MenuPoint } from "./context-menu";
 export { AppFrame, AuthFrame } from "./frame";
-export { Field, InlineInput, Input, SearchInput, Textarea } from "./field";
+export { Field, InlineInput, Input, SearchInput, Textarea, TitleInput } from "./field";
 export * from "./icons";
 export { Divider, Grid, Page, PageHeader, Row, Section, Spacer, Stack } from "./layout";
 export { Breadcrumbs, type HeaderTab, HeaderTabs } from "./header";
@@ -75,10 +85,10 @@ export {
 	type StepStatus,
 } from "./run";
 export { Select, type SelectGroup, type SelectOption } from "./select";
-export { CopyField, SettingsGroup, SettingsRow } from "./settings";
+export { CopyField, PropertyRow, SettingsGroup, SettingsRow } from "./settings";
 export { Pagination, Stepper } from "./steps";
 export { Card, DescriptionList, EmptyState, ListCard, Panel, Skeleton, Tooltip } from "./surface";
-export { Checkbox, Switch } from "./switch";
+export { Checkbox, CheckboxField, Switch } from "./switch";
 export { Table, Td, Th, Tr } from "./table";
 export { Terminal, TermText } from "./terminal";
 export { Segmented, type TabOption, Tabs } from "./tabs";
