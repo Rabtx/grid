@@ -416,12 +416,19 @@ describe("ChatHub", () => {
 		// Live watchers see each piece; the log keeps one message.
 		expect(live.filter((event) => event.type === "message")).toHaveLength(2);
 		const replay = chat.attach("me", session.id, { event: () => {}, state: () => {} });
+		// The log's shape is the point of this test, so `at` is matched loosely: the turn stamps
+		// itself with a time for the console's "Worked for…" line, and that clock is not pinned here.
 		expect(replay.history).toEqual([
 			{ type: "user", text: "say hello" },
-			{ type: "turn_start" },
+			{ type: "turn_start", at: expect.any(String) },
 			{ type: "message", text: "Hello" },
-			{ type: "turn_end", reason: "done", error: undefined },
+			{ type: "turn_end", reason: "done", error: undefined, at: expect.any(String) },
 		]);
+		// The two stamps are real times, and the turn ends after it starts.
+		const started = replay.history[1] as { at?: string };
+		const ended = replay.history[3] as { at?: string };
+		expect(Number.isFinite(Date.parse(started.at ?? ""))).toBe(true);
+		expect(Date.parse(ended.at ?? "")).toBeGreaterThanOrEqual(Date.parse(started.at ?? ""));
 		expect(chat.list("me", "alpha")[0].title).toBe("say hello");
 	});
 

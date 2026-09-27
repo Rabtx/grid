@@ -22,6 +22,7 @@ scope:
   - apps/docs/content/docs/qol.mdx
   - apps/console/src/modules/auth/**
   - apps/console/src/kit/**
+  - apps/runner/src/chat/chat.test.ts
   - .agents/board/**
 allowed_shared:
   - .github/workflows/**
