@@ -19,7 +19,7 @@ export type TurnResult = { reason: "done" | "cancelled" | "error"; error?: strin
 /** One running conversation with an agent process. */
 export type AgentSession = {
 	/** Send a message; resolves when the agent has finished the turn. */
-	prompt: (text: string) => Promise<TurnResult>;
+	prompt: (text: string, images?: { mimeType: string; data: string }[]) => Promise<TurnResult>;
 	cancel: () => void;
 	/** Answer an approval request; null means dismissed. */
 	approve: (id: string, optionId: string | null) => void;

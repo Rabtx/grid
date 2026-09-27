@@ -315,7 +315,9 @@ async function startAcpSession(
 		});
 	}
 
-	const init = await rpc.request<{ agentCapabilities?: { loadSession?: boolean } }>("initialize", {
+	const init = await rpc.request<{
+		agentCapabilities?: { loadSession?: boolean; promptCapabilities?: { image?: boolean } };
+	}>("initialize", {
 		protocolVersion: 1,
 		clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
 		clientInfo: { name: "grid", version: "0.1.0" },
@@ -371,11 +373,16 @@ async function startAcpSession(
 	if (context.mode) await setMode(context.mode).catch(() => undefined);
 
 	return {
-		prompt: async (text) => {
+		prompt: async (text, images = []) => {
 			try {
 				const result = await rpc.request<{ stopReason?: string }>("session/prompt", {
 					sessionId,
-					prompt: [{ type: "text", text }],
+					prompt: [
+						{ type: "text", text },
+						...(init.agentCapabilities?.promptCapabilities?.image
+							? images.map((image) => ({ type: "image", ...image }))
+							: []),
+					],
 				});
 				return { reason: result?.stopReason === "cancelled" ? "cancelled" : "done" };
 			} catch (cause) {

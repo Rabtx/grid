@@ -2,7 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, For, onSettled, Show } from "solid-js";
 
 import { attachContextMenu, type MenuPoint } from "./context-menu";
-import { FileIcon } from "./icons";
+import { CloseIcon, FileIcon } from "./icons";
 
 /** Wires a long press on touch screens to a message's menu; the hover bar is for pointers. */
 function useTouchMenu(open: (() => ((point: MenuPoint) => void) | undefined) | undefined) {
@@ -35,6 +35,7 @@ function ActionBar(props: { children: JSX.Element; align: "start" | "end" }): JS
 export function UserMessage(props: {
 	children: JSX.Element;
 	attachments?: readonly string[];
+	attachmentContent?: JSX.Element;
 	/** Clamp to four lines, with the actions offering "Show more". */
 	clamp?: boolean;
 	actions?: JSX.Element;
@@ -44,6 +45,7 @@ export function UserMessage(props: {
 	const ref = useTouchMenu(() => props.onMenuAt);
 	return (
 		<div ref={ref} class="group/message flex flex-col gap-1.5">
+			{props.attachmentContent}
 			<Show when={props.attachments?.length}>
 				<div class="flex flex-wrap gap-1.5">
 					<For each={props.attachments}>{(name) => <Attachment name={name} />}</For>
@@ -113,11 +115,74 @@ export function Prose(props: {
 }
 
 /** A file attached to a message. */
-export function Attachment(props: { name: string; onRemove?: () => void }): JSX.Element {
+export function Attachment(props: {
+	name: string;
+	size?: number;
+	preview?: string;
+	href?: string;
+	onOpen?: () => void;
+	onRemove?: () => void;
+	disabled?: boolean;
+}): JSX.Element {
+	const content = () => (
+		<>
+			<Show when={props.preview} fallback={<FileIcon size="sm" />}>
+				<img
+					src={props.preview}
+					alt={props.name}
+					class="size-16 shrink-0 rounded-kit-sm object-cover object-top"
+				/>
+			</Show>
+			<span class="min-w-0 truncate">
+				{props.name}
+				<Show when={props.size !== undefined}>
+					<span class="ml-1 text-caption text-fg-subtle">
+						{Math.ceil((props.size ?? 0) / 1024)} KB
+					</span>
+				</Show>
+			</span>
+		</>
+	);
 	return (
-		<span class="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-kit bg-surface px-2 text-body text-fg-muted ring-line-strong">
-			<FileIcon size="sm" class="text-fg-subtle" />
-			<span class="truncate">{props.name}</span>
+		<span class="inline-flex min-h-11 max-w-full items-center gap-1 rounded-kit bg-surface px-2 text-body text-fg-muted ring-line-strong md:max-w-72">
+			<Show
+				when={props.href}
+				fallback={
+					<Show
+						when={props.onOpen}
+						fallback={<span class="flex min-w-0 items-center gap-2 py-1">{content()}</span>}
+					>
+						<button
+							type="button"
+							onClick={() => props.onOpen?.()}
+							disabled={props.disabled}
+							class="focus-ring flex min-h-11 min-w-0 items-center gap-2 py-1"
+						>
+							{content()}
+						</button>
+					</Show>
+				}
+			>
+				<a
+					href={props.href}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="focus-ring flex min-h-11 min-w-0 items-center gap-2 py-1"
+				>
+					{content()}
+				</a>
+			</Show>
+			<Show when={props.onRemove}>
+				<button
+					type="button"
+					aria-label={`Remove ${props.name}`}
+					disabled={props.disabled}
+					onClick={() => props.onRemove?.()}
+					class="focus-ring grid size-11 shrink-0 place-items-center rounded-kit hover:bg-fill disabled:opacity-40"
+				>
+					<CloseIcon size="sm" />
+				</button>
+			</Show>
 		</span>
 	);
 }

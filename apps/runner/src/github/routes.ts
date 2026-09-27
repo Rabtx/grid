@@ -1,5 +1,6 @@
 import type { Who } from "../auth";
 import { type CodespacesLink, GitHubError } from "./codespaces";
+import { type FixInclude, fixPlan } from "./fix";
 import type { MergeMethod, PullFilter, PullRequests } from "./pulls";
 
 /** Pull requests, and how to find a project's folder on this machine. */
@@ -11,6 +12,16 @@ export type PullsDeps = {
 
 const FILTERS = new Set<PullFilter>(["mine", "review", "open"]);
 const METHODS = new Set<MergeMethod>(["merge", "squash", "rebase"]);
+
+/** Which parts of a pull request to include; left out means yes, only `false` turns one off. */
+function readInclude(raw: unknown): FixInclude {
+	const value = (raw ?? {}) as Record<string, unknown>;
+	return {
+		checks: value.checks !== false,
+		comments: value.comments !== false,
+		description: value.description !== false,
+	};
+}
 
 /**
  * GitHub over HTTP: the sign-in (`/github`), and the person's Codespaces
@@ -72,7 +83,8 @@ export async function githubRequest(
 
 /**
  * `/github/pulls/<project>` lists (`?filter=mine|review|open`); `/<number>` opens one, `/diff` its
- * changed files; POST `/merge` (`{ method }`), `/ready`, `/draft`, `/close`, `/comment` (`{ body }`).
+ * changed files; POST `/merge` (`{ method }`), `/ready`, `/draft`, `/close`, `/comment` (`{ body }`),
+ * and `/fix` (`{ include }`) builds the first message for a thread that fixes it.
  */
 async function pullRequest(
 	request: Request,
@@ -97,6 +109,12 @@ async function pullRequest(
 	}
 	if (action === "diff" && request.method === "GET") {
 		return Response.json({ data: await service.diff(userId, folder, number) });
+	}
+	if (action === "fix" && request.method === "POST") {
+		const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+		return Response.json({
+			data: await fixPlan(service, userId, folder, number, readInclude(body.include)),
+		});
 	}
 	if (request.method !== "POST") return failure(405, "Not allowed");
 	const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
