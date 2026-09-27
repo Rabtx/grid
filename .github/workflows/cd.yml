@@ -38,30 +38,72 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs: quality-gate
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: staging
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy to staging
+      # The web and docs apps deploy through their connected Vercel projects; the API uses Render.
+      - name: Deploy API to staging
+        env:
+          render_deploy_hook_url: ${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}
         run: |
-          echo "Replace with your staging deploy command."
-          echo "Example: bun run deploy:staging"
-      - name: Staging health check
+          set -euo pipefail
+          : "${render_deploy_hook_url:?Set RENDER_STAGING_DEPLOY_HOOK_URL in the staging environment}"
+          deploy_url="$render_deploy_hook_url"
+          if [[ "$deploy_url" == *\?* ]]; then
+            deploy_url="${deploy_url}&ref=${GITHUB_SHA}"
+          else
+            deploy_url="${deploy_url}?ref=${GITHUB_SHA}"
+          fi
+          curl --fail --silent --show-error "$deploy_url" >/dev/null
+      - name: Wait for staging health
+        env:
+          healthcheck_url: ${{ secrets.STAGING_HEALTHCHECK_URL }}
         run: |
-          echo "Replace with staging health check."
-          echo "Example: curl --fail $STAGING_HEALTHCHECK_URL"
+          set -euo pipefail
+          : "${healthcheck_url:?Set STAGING_HEALTHCHECK_URL in the staging environment}"
+          for _ in {1..60}; do
+            if curl --fail --silent --show-error "$healthcheck_url" >/dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "staging health check did not pass within 10 minutes" >&2
+          exit 1
 
   deploy-production:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: quality-gate
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: production
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy to production
+      # The web and docs apps deploy through their connected Vercel projects; the API uses Render.
+      - name: Deploy API to production
+        env:
+          render_deploy_hook_url: ${{ secrets.RENDER_PRODUCTION_DEPLOY_HOOK_URL }}
         run: |
-          echo "Replace with your production deploy command."
-          echo "Example: bun run deploy:production"
-      - name: Production health check
+          set -euo pipefail
+          : "${render_deploy_hook_url:?Set RENDER_PRODUCTION_DEPLOY_HOOK_URL in the production environment}"
+          deploy_url="$render_deploy_hook_url"
+          if [[ "$deploy_url" == *\?* ]]; then
+            deploy_url="${deploy_url}&ref=${GITHUB_SHA}"
+          else
+            deploy_url="${deploy_url}?ref=${GITHUB_SHA}"
+          fi
+          curl --fail --silent --show-error "$deploy_url" >/dev/null
+      - name: Wait for production health
+        env:
+          healthcheck_url: ${{ secrets.PROD_HEALTHCHECK_URL }}
         run: |
-          echo "Replace with production health check."
-          echo "Example: curl --fail $PROD_HEALTHCHECK_URL"
+          set -euo pipefail
+          : "${healthcheck_url:?Set PROD_HEALTHCHECK_URL in the production environment}"
+          for _ in {1..60}; do
+            if curl --fail --silent --show-error "$healthcheck_url" >/dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "production health check did not pass within 10 minutes" >&2
+          exit 1

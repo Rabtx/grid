@@ -47,3 +47,35 @@ Address the highest-priority release-readiness findings from the project review:
 ## Progress
 
 - Card claimed in the isolated backend worktree.
+- Implementation complete; awaiting PR review.
+
+## Changes
+
+- Runner chat transcript assertions now accept persisted turn timestamps, while runner startup,
+  folder browsing, project links, chat working directories, and terminal starting directories are
+  bounded by `RUNNER_PROJECTS_DIR` with symlink-aware resolution.
+- Docs uses the existing web Next.js line at 16.3.5.
+- CI migrates and seeds Postgres, starts the API, waits on `/api/v1/health`, and runs the contract
+  suite with an explicit `CONTRACT_API_URL`.
+- CD triggers the Render API deploy hook for the exact commit and waits for a configured health URL;
+  missing environment secrets fail the job instead of producing a false green deployment.
+
+## Validation
+
+- `bun --cwd=apps/runner run test` — 113 pass, 0 fail.
+- `bun --cwd=apps/runner run lint` — pass.
+- `bun --cwd=apps/runner run typecheck` — pass.
+- `bun --cwd=apps/docs run types:check` — pass.
+- `bun --cwd=apps/docs run build` — pass on Next.js 16.3.5.
+- `bun run lint` — pass; existing warnings remain in unrelated packages.
+- `bun run typecheck` — pass.
+- `bun run test` — pass across workspace suites.
+- `bun run architecture:check` and `bun run naming:check` — pass.
+- Temporary Postgres/API contract run — 72 pass, 0 fail, 311 assertions.
+- Workflow YAML parse and `git diff --check` — pass.
+- `bun audit` — 80 advisories remain in the broader dependency graph; the docs Next.js critical
+  finding is cleared and the remaining dependency audit is outside this slice.
+
+## Review handoff
+
+- Open a pull request from `agent/backend/release-runner-hardening` without merging.

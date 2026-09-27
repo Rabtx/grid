@@ -34,6 +34,12 @@ bun --cwd=apps/runner test
   environments belong to the workspace, so teammates share them; terminals, agent settings and
   notifications stay the person's own. What a runner kept per person before workspaces moves into
   that person's default workspace the first time they use it.
+- `RUNNER_PROJECTS_DIR` is the runner's filesystem boundary: folder browsing, linked project roots,
+  agent working directories and explicit terminal starting directories must resolve inside it,
+  including through symlinks. The runner is still a trusted-machine capability: terminals and
+  agents execute as the operating-system user and can reach other host paths after a shell starts.
+  Only pair or expose a runner to workspace members you trust; use a separate environment when OS
+  isolation is required.
 - A terminal outlives its socket: the shell keeps running when a phone locks or the network
   drops. The runner keeps up to 512 KB of recent output and sends only what a reconnecting
   device missed when it can; otherwise it replays the kept output.
@@ -44,7 +50,7 @@ bun --cwd=apps/runner test
 | `RUNNER_HOST` | `127.0.0.1` | Keep it on loopback; the console proxies to it. |
 | `GRID_API_URL` | `http://localhost:4000` | Where tokens are verified. |
 | `RUNNER_SHELL` | `$SHELL` | Started as a login shell. |
-| `RUNNER_CWD` | home directory | Where new terminals start. |
+| `RUNNER_CWD` | `RUNNER_PROJECTS_DIR` | Where new terminals start; it must be inside the projects directory. |
 | `RUNNER_REPLAY_BYTES` | `524288` | Output kept per terminal for reconnects. |
 | `RUNNER_MAX_TERMINALS` | `16` | Per person. |
 | `RUNNER_CHAT_DB` | `~/.local/share/grid/chat.db` | SQLite session and event log. |

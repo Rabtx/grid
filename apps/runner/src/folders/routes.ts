@@ -1,6 +1,6 @@
 import type { ChatHub } from "../chat/hub";
 import { ChatError } from "../chat/hub";
-import { expandPath, FolderError, inspectFolder, listFolders } from "./folders";
+import { expandPath, FolderError, insideProjectsDir, inspectFolder, listFolders } from "./folders";
 import {
 	createProjectFile,
 	listProjectFiles,
@@ -17,24 +17,25 @@ export async function folderRequest(
 	url: URL,
 	userId: string,
 	hub: ChatHub,
+	projectsDir: string,
 ): Promise<Response | null> {
 	try {
 		const search = url.pathname.match(/^\/projects\/files\/([a-z0-9-]+)\/search$/);
 		if (search && request.method === "GET") {
-			const root = hub.projectFolders(userId)[search[1]];
-			if (!root) return failure(409, "Choose this project's folder first");
+			const root = linkedRoot(hub, userId, search[1], projectsDir);
+			if (root instanceof Response) return root;
 			return Response.json({ data: searchProjectFiles(root, url.searchParams.get("q") ?? "") });
 		}
 		const content = url.pathname.match(/^\/projects\/files\/([a-z0-9-]+)\/content$/);
 		if (content && request.method === "GET") {
-			const root = hub.projectFolders(userId)[content[1]];
-			if (!root) return failure(409, "Choose this project's folder first");
+			const root = linkedRoot(hub, userId, content[1], projectsDir);
+			if (root instanceof Response) return root;
 			return Response.json({ data: readProjectFile(root, url.searchParams.get("path") ?? "") });
 		}
 		const files = url.pathname.match(/^\/projects\/files\/([a-z0-9-]+)$/);
 		if (files && (request.method === "GET" || request.method === "POST")) {
-			const root = hub.projectFolders(userId)[files[1]];
-			if (!root) return failure(409, "Choose this project's folder first");
+			const root = linkedRoot(hub, userId, files[1], projectsDir);
+			if (root instanceof Response) return root;
 			if (request.method === "GET")
 				return Response.json({ data: listProjectFiles(root, url.searchParams.get("path") ?? "") });
 			const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
@@ -50,17 +51,37 @@ export async function folderRequest(
 			);
 		}
 		if (url.pathname === "/fs/folders" && request.method === "GET") {
+			const root = insideProjectsDir(projectsDir, projectsDir);
+			const path = insideProjectsDir(
+				expandPath(url.searchParams.get("path") || projectsDir),
+				projectsDir,
+			);
+			const listing = listFolders(path, {
+				hidden: url.searchParams.get("hidden") === "1",
+			});
 			return Response.json({
-				data: listFolders(url.searchParams.get("path"), {
-					hidden: url.searchParams.get("hidden") === "1",
-				}),
+				data: {
+					...listing,
+					parent: listing.path === root ? null : listing.parent,
+					home: root,
+				},
 			});
 		}
 		if (url.pathname === "/fs/inspect" && request.method === "GET") {
-			return Response.json({ data: inspectFolder(url.searchParams.get("path") ?? "") });
+			const path = insideProjectsDir(
+				expandPath(url.searchParams.get("path") || projectsDir),
+				projectsDir,
+			);
+			return Response.json({ data: inspectFolder(path) });
 		}
 		if (url.pathname === "/projects/folders" && request.method === "GET") {
-			return Response.json({ data: hub.projectFolders(userId) });
+			const folders = Object.fromEntries(
+				Object.entries(hub.projectFolders(userId)).map(([project, path]) => [
+					project,
+					insideProjectsDir(path, projectsDir),
+				]),
+			);
+			return Response.json({ data: folders });
 		}
 		const link = url.pathname.match(/^\/projects\/folders\/([a-z0-9-]+)$/);
 		if (link && request.method === "PUT") {
@@ -75,6 +96,17 @@ export async function folderRequest(
 		throw cause;
 	}
 	return null;
+}
+
+function linkedRoot(
+	hub: ChatHub,
+	userId: string,
+	project: string,
+	projectsDir: string,
+): string | Response {
+	const root = hub.projectFolders(userId)[project];
+	if (!root) return failure(409, "Choose this project's folder first");
+	return insideProjectsDir(root, projectsDir);
 }
 
 function failure(status: number, message: string): Response {

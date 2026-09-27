@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { tmpdir } from "node:os";
 
 import { acpProvider } from "../agents/acp";
 import { claudeArgs, claudeProvider } from "../agents/claude";
@@ -292,7 +293,7 @@ describe("ChatHub", () => {
 	};
 
 	function hub() {
-		return new ChatHub(new ChatStore(":memory:"), new Map([["echo", echo]]));
+		return new ChatHub(new ChatStore(":memory:"), new Map([["echo", echo]]), tmpdir());
 	}
 
 	it("asks for attention when a turn ends only if no device is looking", async () => {
@@ -416,18 +417,17 @@ describe("ChatHub", () => {
 		// Live watchers see each piece; the log keeps one message.
 		expect(live.filter((event) => event.type === "message")).toHaveLength(2);
 		const replay = chat.attach("me", session.id, { event: () => {}, state: () => {} });
-		expect(replay.history).toEqual([
-			{ type: "user", text: "say hello" },
-			{ type: "turn_start" },
-			{ type: "message", text: "Hello" },
-			{ type: "turn_end", reason: "done", error: undefined },
-		]);
+		expect(replay.history).toHaveLength(4);
+		expect(replay.history[0]).toEqual({ type: "user", text: "say hello" });
+		expect(replay.history[1]).toMatchObject({ type: "turn_start" });
+		expect(replay.history[2]).toEqual({ type: "message", text: "Hello" });
+		expect(replay.history[3]).toMatchObject({ type: "turn_end", reason: "done" });
 		expect(chat.list("me", "alpha")[0].title).toBe("say hello");
 	});
 
 	it("closes a turn the runner never finished (it restarted mid-turn)", () => {
 		const store = new ChatStore(":memory:");
-		const before = new ChatHub(store, new Map([["echo", echo]]));
+		const before = new ChatHub(store, new Map([["echo", echo]]), tmpdir());
 		const session = before.create(
 			{ userId: "me", workspace: "me" },
 			{ project: "alpha", provider: "echo", cwd: "/tmp" },
@@ -437,7 +437,7 @@ describe("ChatHub", () => {
 			{ type: "turn_start" },
 			{ type: "approval", id: "a1", title: "Run ls", options: [] },
 		]);
-		const after = new ChatHub(store, new Map([["echo", echo]]));
+		const after = new ChatHub(store, new Map([["echo", echo]]), tmpdir());
 		const { history } = after.attach("me", session.id, { event: () => {}, state: () => {} });
 		expect(history.slice(-2)).toEqual([
 			{ type: "approval_resolved", id: "a1", optionId: null },

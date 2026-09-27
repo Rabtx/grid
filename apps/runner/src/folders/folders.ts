@@ -1,6 +1,6 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 /** A folder in the browser: enough to navigate and to spot projects. */
 export type FolderEntry = { name: string; path: string; git: boolean };
@@ -29,6 +29,25 @@ export function expandPath(path: string | null | undefined): string {
 	if (raw === "~") return homedir();
 	if (raw.startsWith("~/")) return join(homedir(), raw.slice(2));
 	return resolve(raw);
+}
+
+/** Resolve a path and refuse symlinks or traversal that leave the configured projects root. */
+export function insideProjectsDir(path: string, projectsDir: string): string {
+	let root: string;
+	let target: string;
+	try {
+		root = realpathSync(projectsDir);
+		target = realpathSync(path);
+	} catch {
+		throw new FolderError("That folder is not available", 404);
+	}
+	const relation = relative(root, target);
+	if (
+		relation === "" ||
+		(relation !== ".." && !relation.startsWith(`..${sep}`) && !isAbsolute(relation))
+	)
+		return target;
+	throw new FolderError("That folder is outside the projects directory", 403);
 }
 
 function isDirectory(path: string): boolean {

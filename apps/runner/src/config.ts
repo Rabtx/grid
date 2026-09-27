@@ -34,19 +34,20 @@ export type RunnerConfig = {
 };
 
 export function readConfig(env: Record<string, string | undefined> = process.env): RunnerConfig {
+	const projectsDir = env.RUNNER_PROJECTS_DIR ?? join(homedir(), "Projects");
 	return {
 		host: env.RUNNER_HOST ?? "127.0.0.1",
 		port: Number(env.RUNNER_PORT ?? 4100),
 		apiUrl: (env.GRID_API_URL ?? "http://localhost:4000").replace(/\/$/, ""),
 		shell: env.RUNNER_SHELL ?? env.SHELL ?? "/bin/bash",
-		defaultCwd: env.RUNNER_CWD ?? homedir(),
+		defaultCwd: env.RUNNER_CWD ?? projectsDir,
 		replayBytes: Number(env.RUNNER_REPLAY_BYTES ?? 512 * 1024),
 		maxTerminalsPerUser: Number(env.RUNNER_MAX_TERMINALS ?? 16),
 		transcribe: readTranscribeConfig(env),
 		chatDb:
 			env.RUNNER_CHAT_DB ??
 			join(env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"), "grid", "chat.db"),
-		projectsDir: env.RUNNER_PROJECTS_DIR ?? join(homedir(), "Projects"),
+		projectsDir,
 		pairing: env.RUNNER_PAIRING === "1",
 		environmentHosts: (env.RUNNER_ENVIRONMENT_HOSTS ?? "")
 			.split(",")

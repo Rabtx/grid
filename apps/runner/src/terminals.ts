@@ -2,6 +2,7 @@ import { statSync } from "node:fs";
 import { basename } from "node:path";
 
 import type { RunnerConfig } from "./config";
+import { insideProjectsDir } from "./folders/folders";
 
 /** What the console sees of a terminal: enough to draw its tab. */
 export type TerminalInfo = {
@@ -133,7 +134,11 @@ export class TerminalStore {
 		run?: { command: string; title: string },
 	): TerminalInfo | null {
 		if (this.list(ownerId).length >= this.config.maxTerminalsPerUser) return null;
-		const start = cwd && isDirectory(cwd) ? cwd : this.config.defaultCwd;
+		const start =
+			(cwd?.trim() ? safeDirectory(cwd, this.config.projectsDir) : null) ??
+			safeDirectory(this.config.defaultCwd, this.config.projectsDir) ??
+			safeDirectory(this.config.projectsDir, this.config.projectsDir) ??
+			this.config.projectsDir;
 		const cols = clampSize(size.cols, 80);
 		const rows = clampSize(size.rows, 24);
 		const terminal = new Terminal(
@@ -240,6 +245,15 @@ function isDirectory(path: string): boolean {
 		return statSync(path).isDirectory();
 	} catch {
 		return false;
+	}
+}
+
+function safeDirectory(path: string, projectsDir: string): string | null {
+	try {
+		const bounded = insideProjectsDir(path, projectsDir);
+		return isDirectory(bounded) ? bounded : null;
+	} catch {
+		return null;
 	}
 }
 
