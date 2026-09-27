@@ -1,9 +1,16 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { expandPath, FolderError, inspectFolder, listFolders, remoteToUrl } from "./folders";
+import {
+	expandPath,
+	FolderError,
+	insideProjectsDir,
+	inspectFolder,
+	listFolders,
+	remoteToUrl,
+} from "./folders";
 
 const root = mkdtempSync(join(tmpdir(), "grid-folders-"));
 mkdirSync(join(root, "app", ".git"), { recursive: true });
@@ -38,6 +45,23 @@ describe("listFolders", () => {
 });
 
 describe("folder details", () => {
+	it("keeps filesystem paths inside the configured projects directory", () => {
+		const outside = mkdtempSync(join(tmpdir(), "grid-folders-outside-"));
+		const escaped = join(root, "outside-link");
+		symlinkSync(outside, escaped, "dir");
+		try {
+			expect(insideProjectsDir(root, root)).toBe(root);
+			expect(() => insideProjectsDir(outside, root)).toThrow(FolderError);
+			expect(() => insideProjectsDir(escaped, root)).toThrow("outside the projects directory");
+			expect(() => insideProjectsDir(join(root, "missing"), root)).toThrow(
+				"folder is not available",
+			);
+		} finally {
+			rmSync(escaped, { force: true });
+			rmSync(outside, { recursive: true, force: true });
+		}
+	});
+
 	it("expands the home shorthand", () => {
 		expect(expandPath("~/Projects")).toBe(join(homedir(), "Projects"));
 	});

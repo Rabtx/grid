@@ -54,6 +54,18 @@ describe("ChatHub providers", () => {
 });
 
 describe("ChatHub project folders", () => {
+	it("refuses a linked folder outside the projects directory", () => {
+		const outside = mkdtempSync(join(tmpdir(), "grid-hub-outside-"));
+		try {
+			const hub = new ChatHub(new ChatStore(":memory:"), new Map(), root);
+			expect(() => hub.linkProjectFolder("u1", "outside", outside)).toThrow(
+				"outside the projects directory",
+			);
+		} finally {
+			rmSync(outside, { recursive: true, force: true });
+		}
+	});
+
 	it("works in the project's folder, and refuses to guess when there is none", () => {
 		const store = new ChatStore(":memory:");
 		const hub = new ChatHub(store, new Map(), root);

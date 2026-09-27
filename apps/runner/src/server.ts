@@ -9,6 +9,7 @@ import type { RunnerConfig } from "./config";
 import type { PairingStore } from "./environments/pairing";
 import { RELAYED_SOCKETS, relayHttp, SocketRelay } from "./environments/relay";
 import { type EnvironmentDeps, environmentRequest, pairRequest } from "./environments/routes";
+import { insideProjectsDir } from "./folders/folders";
 import { folderRequest } from "./folders/routes";
 import type { CodespacesLink } from "./github/codespaces";
 import { githubRequest } from "./github/routes";
@@ -176,7 +177,7 @@ export function startServer(
 			if (url.pathname.startsWith("/fs/") || url.pathname.startsWith("/projects/")) {
 				const who = await whoFrom(request, "Sign in to browse folders");
 				if (who instanceof Response) return who;
-				const handled = await folderRequest(request, url, who.workspace, chat);
+				const handled = await folderRequest(request, url, who.workspace, chat, config.projectsDir);
 				if (handled) return handled;
 			}
 
@@ -223,10 +224,18 @@ export function startServer(
 						rows?: number;
 						cwd?: string;
 					};
+					let cwd: string | undefined;
+					if (typeof body.cwd === "string" && body.cwd.trim()) {
+						try {
+							cwd = insideProjectsDir(body.cwd, config.projectsDir);
+						} catch {
+							return error(400, "Terminal directory must be inside the projects directory");
+						}
+					}
 					const info = store.open(
 						who.userId,
 						{ cols: body.cols ?? 80, rows: body.rows ?? 24 },
-						typeof body.cwd === "string" ? body.cwd : undefined,
+						cwd,
 					);
 					if (!info) return error(429, "Close a terminal before opening another");
 					return Response.json({ data: info }, { status: 201 });

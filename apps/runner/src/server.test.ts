@@ -12,14 +12,19 @@ import { CLOSE_NOT_FOUND, CLOSE_UNAUTHORIZED, startServer } from "./server";
 import { TerminalStore } from "./terminals";
 
 // A real shell on a real PTY behind the real server; only sign-in is stubbed.
-const config = { ...readConfig({}), port: 0, shell: "/bin/sh" };
+const projectsDir = mkdtempSync(join(tmpdir(), "grid-server-projects-"));
+const config = {
+	...readConfig({ RUNNER_PROJECTS_DIR: projectsDir, RUNNER_CWD: projectsDir }),
+	port: 0,
+	shell: "/bin/sh",
+};
 const store = new TerminalStore(config, spawnPty);
 const server = startServer(
 	config,
 	store,
 	async (token) =>
 		token === "good" ? { who: { userId: "user-1", workspace: "ws-1" } } : signedOut,
-	new ChatHub(new ChatStore(":memory:"), new Map()),
+	new ChatHub(new ChatStore(":memory:"), new Map(), projectsDir),
 );
 const base = `http://127.0.0.1:${server.port}`;
 const auth = { Authorization: "Bearer good" };
@@ -27,6 +32,7 @@ const auth = { Authorization: "Bearer good" };
 afterAll(() => {
 	store.closeAll();
 	void server.stop(true);
+	rmSync(projectsDir, { recursive: true, force: true });
 });
 
 async function openTerminal(): Promise<string> {
@@ -125,71 +131,93 @@ describe("runner server", () => {
 		};
 		expect(list.data.some((terminal) => terminal.id === id)).toBe(false);
 	});
+
+	it("refuses an explicit terminal directory outside the projects root", async () => {
+		const response = await fetch(`${base}/terminals`, {
+			method: "POST",
+			headers: { ...auth, "Content-Type": "application/json" },
+			body: JSON.stringify({ cwd: tmpdir() }),
+		});
+		expect(response.status).toBe(400);
+	});
 });
 
 describe("folders and project links", () => {
 	it("scopes project files to the signed-in project's linked folder", async () => {
-		const root = mkdtempSync(join(tmpdir(), "grid-project-route-"));
-		try {
-			const url = `${base}/projects/files/demo`;
-			expect((await fetch(url)).status).toBe(401);
-			expect((await fetch(url, { headers: auth })).status).toBe(409);
-			await fetch(`${base}/projects/folders/demo`, {
-				method: "PUT",
-				headers: { ...auth, "Content-Type": "application/json" },
-				body: JSON.stringify({ path: root }),
-			});
-			const made = await fetch(url, {
-				method: "POST",
-				headers: { ...auth, "Content-Type": "application/json" },
-				body: JSON.stringify({ path: "", name: "notes.md", kind: "file" }),
-			});
-			expect(made.status).toBe(201);
-			const listing = (await (await fetch(url, { headers: auth })).json()) as {
-				data: { entries: { name: string }[] };
-			};
-			expect(listing.data.entries.map((entry) => entry.name)).toContain("notes.md");
-			expect((await fetch(`${url}?path=..`, { headers: auth })).status).toBe(400);
+		const root = mkdtempSync(join(projectsDir, "grid-project-route-"));
+		const url = `${base}/projects/files/demo`;
+		expect((await fetch(url)).status).toBe(401);
+		expect((await fetch(url, { headers: auth })).status).toBe(409);
+		await fetch(`${base}/projects/folders/demo`, {
+			method: "PUT",
+			headers: { ...auth, "Content-Type": "application/json" },
+			body: JSON.stringify({ path: root }),
+		});
+		const made = await fetch(url, {
+			method: "POST",
+			headers: { ...auth, "Content-Type": "application/json" },
+			body: JSON.stringify({ path: "", name: "notes.md", kind: "file" }),
+		});
+		expect(made.status).toBe(201);
+		const listing = (await (await fetch(url, { headers: auth })).json()) as {
+			data: { entries: { name: string }[] };
+		};
+		expect(listing.data.entries.map((entry) => entry.name)).toContain("notes.md");
+		expect((await fetch(`${url}?path=..`, { headers: auth })).status).toBe(400);
 
-			const searchUrl = `${url}/search?q=notes`;
-			expect((await fetch(searchUrl)).status).toBe(401);
-			expect(
-				(await fetch(`${base}/projects/files/unlinked/search`, { headers: auth })).status,
-			).toBe(409);
-			const searchRes = await fetch(searchUrl, { headers: auth });
-			expect(searchRes.status).toBe(200);
-			const searchBody = (await searchRes.json()) as { data: string[] };
-			expect(searchBody.data).toContain("notes.md");
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		const searchUrl = `${url}/search?q=notes`;
+		expect((await fetch(searchUrl)).status).toBe(401);
+		expect((await fetch(`${base}/projects/files/unlinked/search`, { headers: auth })).status).toBe(
+			409,
+		);
+		const searchRes = await fetch(searchUrl, { headers: auth });
+		expect(searchRes.status).toBe(200);
+		const searchBody = (await searchRes.json()) as { data: string[] };
+		expect(searchBody.data).toContain("notes.md");
 	});
 	it("browses folders, reads a folder's details and links a project to it", async () => {
+		const folder = mkdtempSync(join(projectsDir, "grid-folder-route-"));
+		const encoded = encodeURIComponent(folder);
 		const listing = (await (
-			await fetch(`${base}/fs/folders?path=/tmp`, { headers: auth })
+			await fetch(`${base}/fs/folders?path=${encoded}`, { headers: auth })
 		).json()) as {
 			data: { path: string; folders: unknown[] };
 		};
-		expect(listing.data.path).toBe("/tmp");
+		expect(listing.data.path).toBe(folder);
 		expect(Array.isArray(listing.data.folders)).toBe(true);
 
 		const inspected = (await (
-			await fetch(`${base}/fs/inspect?path=/tmp`, { headers: auth })
+			await fetch(`${base}/fs/inspect?path=${encoded}`, { headers: auth })
 		).json()) as {
 			data: { name: string };
 		};
-		expect(inspected.data.name).toBe("tmp");
+		expect(inspected.data.name).toMatch(/^grid-folder-route-/);
 
 		const linked = await fetch(`${base}/projects/folders/demo`, {
 			method: "PUT",
 			headers: { ...auth, "Content-Type": "application/json" },
-			body: JSON.stringify({ path: "/tmp" }),
+			body: JSON.stringify({ path: folder }),
 		});
 		expect(linked.status).toBe(204);
 		const folders = (await (await fetch(`${base}/projects/folders`, { headers: auth })).json()) as {
 			data: Record<string, string>;
 		};
-		expect(folders.data.demo).toBe("/tmp");
+		expect(folders.data.demo).toBe(folder);
+
+		expect(
+			(await fetch(`${base}/fs/folders?path=${encodeURIComponent(tmpdir())}`, { headers: auth }))
+				.status,
+		).toBe(403);
+		expect(
+			(await fetch(`${base}/fs/inspect?path=${encodeURIComponent(tmpdir())}`, { headers: auth }))
+				.status,
+		).toBe(403);
+		const outside = await fetch(`${base}/projects/folders/demo`, {
+			method: "PUT",
+			headers: { ...auth, "Content-Type": "application/json" },
+			body: JSON.stringify({ path: tmpdir() }),
+		});
+		expect(outside.status).toBe(403);
 	});
 
 	it("refuses without sign-in, and refuses a folder that does not exist", async () => {

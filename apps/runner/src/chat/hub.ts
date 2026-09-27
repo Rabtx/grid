@@ -6,6 +6,7 @@ import type { ChatEvent } from "../agents/events";
 import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
 import type { Who } from "../auth";
+import { insideProjectsDir } from "../folders/folders";
 import type { ChatSessionRow, ChatStore, ProviderCatalog, ProviderSettings } from "./store";
 
 /** One device watching a session. `n` numbers each event, for catching up after a drop. */
@@ -203,9 +204,9 @@ export class ChatHub {
 	 */
 	defaultCwd(workspace: string, project: string): string {
 		const linked = this.store.projectFolders(workspace)[project];
-		if (linked && isDirectory(linked)) return linked;
+		if (linked && isDirectory(linked)) return this.withinProjectsDir(linked);
 		const guess = join(this.projectsDir, project);
-		if (isDirectory(guess)) return guess;
+		if (isDirectory(guess)) return this.withinProjectsDir(guess);
 		throw new ChatError("Choose this project's folder first: chats work inside it.", 409);
 	}
 
@@ -215,7 +216,7 @@ export class ChatHub {
 
 	linkProjectFolder(workspace: string, project: string, path: string): void {
 		if (!isDirectory(path)) throw new ChatError(`${path} is not a folder on this machine`, 400);
-		this.store.setProjectFolder(workspace, project, path);
+		this.store.setProjectFolder(workspace, project, this.withinProjectsDir(path));
 	}
 
 	create(
@@ -235,6 +236,7 @@ export class ChatHub {
 		const cwd = input.cwd?.trim() || this.defaultCwd(who.workspace, input.project);
 		if (!existsSync(cwd) || !isDirectory(cwd))
 			throw new ChatError(`${cwd} is not a folder on this machine`, 400);
+		const boundedCwd = this.withinProjectsDir(cwd);
 		return this.store.create({
 			id: crypto.randomUUID(),
 			ownerId: who.userId,
@@ -242,11 +244,19 @@ export class ChatHub {
 			project: input.project,
 			provider: input.provider,
 			title: "New chat",
-			cwd,
+			cwd: boundedCwd,
 			model: input.model ?? null,
 			mode: input.mode ?? provider.info().defaultMode ?? null,
 			effort: input.effort ?? null,
 		});
+	}
+
+	private withinProjectsDir(path: string): string {
+		try {
+			return insideProjectsDir(path, this.projectsDir);
+		} catch {
+			throw new ChatError("That folder is outside the projects directory", 403);
+		}
 	}
 
 	delete(workspace: string, id: string): void {
@@ -404,8 +414,9 @@ export class ChatHub {
 		const provider = this.providers.get(session.provider);
 		if (!provider) return Promise.reject(new ChatError("That agent is no longer available", 400));
 		const fresh = this.store.get(session.id) ?? session;
+		const cwd = this.withinProjectsDir(fresh.cwd);
 		live.agent = provider.start({
-			cwd: fresh.cwd,
+			cwd,
 			model: fresh.model ?? undefined,
 			mode: fresh.mode ?? undefined,
 			effort: fresh.effort ?? undefined,
