@@ -2,7 +2,7 @@
 
 **Role:** tooling
 **Branch:** `agent/tooling/oxc-lint-format`
-**Status:** open
+**Status:** done
 
 ## Why
 

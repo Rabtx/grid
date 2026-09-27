@@ -40,8 +40,6 @@ services:
         generateValue: true
       - key: AUTH_TOKEN_SECRET
         generateValue: true
-      - key: AI_SERVICE_TOKEN
-        generateValue: true
       # Required for auth emails in production (https://resend.com).
       - key: RESEND_API_KEY
         sync: false
