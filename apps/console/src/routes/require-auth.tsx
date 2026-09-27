@@ -2,8 +2,8 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, onSettled, Show } from "solid-js";
 
+import { BrandMark } from "@/kit";
 import { useAuth } from "@/modules/auth";
-import { BrandMark } from "@/ui";
 
 /**
  * Keeps signed-out visitors off the authenticated routes.

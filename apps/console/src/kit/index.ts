@@ -1,6 +1,6 @@
 /**
- * Grid's design system. Screens are rebuilt on these; the older `@/ui` primitives go away as
- * each screen moves over. `/design` shows every piece in every state.
+ * Grid's design system: every screen is built from these. `/design` shows every piece in every
+ * state.
  */
 export {
 	AgentMark,
@@ -49,7 +49,15 @@ export {
 } from "./feedback";
 export { attachContextMenu, LONG_PRESS_MS, type MenuPoint } from "./context-menu";
 export { AppFrame, AuthFrame } from "./frame";
-export { Field, InlineInput, Input, SearchInput, Textarea, TitleInput } from "./field";
+export {
+	Field,
+	InlineInput,
+	Input,
+	PasswordInput,
+	SearchInput,
+	Textarea,
+	TitleInput,
+} from "./field";
 export * from "./icons";
 export { Divider, Grid, Page, PageHeader, Row, Section, Spacer, Stack } from "./layout";
 export { Breadcrumbs, type HeaderTab, HeaderTabs } from "./header";

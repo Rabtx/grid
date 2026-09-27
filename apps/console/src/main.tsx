@@ -1,7 +1,6 @@
 import { render } from "@solidjs/web";
 
 import { Toasts } from "./kit";
-import { Toaster } from "./ui";
 
 import { App } from "./app";
 import { urlWithWorkspace } from "./lib/active-workspace";
@@ -25,7 +24,6 @@ if (moved) {
 		() => (
 			<>
 				<App />
-				<Toaster />
 				<Toasts />
 			</>
 		),

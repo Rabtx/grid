@@ -60,10 +60,10 @@ create an app-specific override with a short rationale.
 
 ## Product tokens (console)
 
-The console's design lives in `@grid/tokens/product.css` and the primitives in
-`apps/console/src/ui/`. `apps/console/src/styles/tokens.test.ts` fails the build on font sizes
-outside the scale, one-off durations, and imports from the React UI package. In development,
-`/dev/ui` shows every primitive in every state.
+The console's theme inputs live in `@grid/tokens/product.css`, under the kit (below), which holds
+every component. `apps/console/src/styles/tokens.test.ts` fails the build on font sizes outside
+the scale, one-off durations, and imports from the React UI package. `/design` shows every piece in
+every state.
 
 ### Principles
 
@@ -159,11 +159,12 @@ errors are an inline strip with the concrete reason and a retry.
 
 ## Kit (the console rebuild)
 
-The console is being rebuilt screen by screen on a new design system in `apps/console/src/kit`,
+The console is built on its design system in `apps/console/src/kit`,
 taken closely from the reference designs: light, calm and spacious, with hierarchy from text
 colour rather than size. Tokens live in `@grid/tokens/kit.css`, on top of the same hue,
 saturation and lightness inputs as above. `/design` shows every piece in every state, with an app
-preview composed only of kit parts; new screens use the kit, and `@/ui` goes away as screens move.
+preview composed only of kit parts. Every screen is built from the kit; the old `@/ui` primitives
+are gone.
 
 - **Font:** Inter (self-hosted), regular and medium only. Sizes: caption 12, body 13 (the base),
   body-lg 14, heading 16, headline 18, display 24; phones step up (body 15, fields 16).
@@ -197,11 +198,11 @@ Every visual decision lives in one place, so a tweak is made once:
    `class` prop is for layout only (width, flex, grid placement, margin); content goes through
    slots (`icon`, `trailing`, `actions`, `footer`…).
 
-`src/styles/kit-guard.test.ts` enforces this on every file outside `src/kit` that imports
-`@/kit`: no `style` attributes, no bracketed one-off values, no hex colours, no radii or shadows
-of their own, no raw palette colours, no weights beyond regular and medium, and no `@/ui`
-imports. When something a screen needs is missing, add it to the kit (and to `/design`) rather
-than styling it in place.
+`src/styles/kit-guard.test.ts` enforces this on every screen (each `.tsx` file outside
+`src/kit`, tests aside): no `style` attributes, no bracketed one-off values, no hex colours, no
+radii or shadows of their own, no raw palette colours, no weights beyond regular and medium, and
+no imports from the removed `@/ui`. When something a screen needs is missing, add it to the kit
+(and to `/design`) rather than styling it in place.
 
 ## Typography
 

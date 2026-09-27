@@ -2,17 +2,21 @@ import { useParams } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createSignal, Match, onSettled, Show, Switch } from "solid-js";
 
-import { authService, useAuth } from "@/modules/auth";
 import {
-	AuthCard,
+	Alert,
 	Button,
-	ErrorNotice,
 	Field,
+	Heading as Title,
 	Input,
-	SegmentedControl,
+	PasswordInput,
+	Segmented,
 	Skeleton,
+	SplitLayout,
+	Stack,
+	Text,
 	WorkspacePreview,
-} from "@/ui";
+} from "@/kit";
+import { authService, useAuth } from "@/modules/auth";
 
 import { openWorkspace } from "../context/workspaces-context";
 import { workspacesService } from "../services/workspaces.service";
@@ -46,35 +50,35 @@ export function InviteScreen(): JSX.Element {
 	});
 
 	return (
-		<AuthCard
-			aside={
-				<Show when={invite()}>
-					{(current) => (
-						<WorkspacePreview
-							name={current().workspace.name}
-							slug={current().workspace.slug}
-							color={current().workspace.color}
-						/>
-					)}
-				</Show>
-			}
+		<SplitLayout
+			aside={(() => {
+				// A two-column card only when there is a workspace to show beside the form.
+				const current = invite();
+				return current ? (
+					<WorkspacePreview
+						name={current.workspace.name}
+						slug={current.workspace.slug}
+						color={current.workspace.color}
+					/>
+				) : undefined;
+			})()}
 		>
 			<Switch
 				fallback={
-					<div class="flex flex-col gap-3" aria-busy="true">
+					<Stack gap={3}>
 						<Skeleton class="h-7 w-2/3" />
 						<Skeleton class="h-4 w-full" />
-						<Skeleton class="h-field w-full" />
-					</div>
+						<Skeleton class="h-kit-control w-full" />
+					</Stack>
 				}
 			>
 				<Match when={invalid()}>
 					{(reason) => (
-						<div class="flex flex-col gap-2">
-							<h1 class="font-medium text-title">This invite can't be used</h1>
-							<p class="text-ink/55 text-ui-sm">{reason()}</p>
-							<p class="text-ink/55 text-ui-sm">Ask whoever sent it for a new link.</p>
-						</div>
+						<Stack gap={2}>
+							<Title level={1}>This invite can't be used</Title>
+							<Text tone="subtle">{reason()}</Text>
+							<Text tone="subtle">Ask whoever sent it for a new link.</Text>
+						</Stack>
 					)}
 				</Match>
 				<Match when={invite() && auth.ready() ? invite() : null}>
@@ -88,18 +92,18 @@ export function InviteScreen(): JSX.Element {
 					)}
 				</Match>
 			</Switch>
-		</AuthCard>
+		</SplitLayout>
 	);
 }
 
 function Heading(props: { invite: InvitePreview; children?: JSX.Element }): JSX.Element {
 	return (
-		<header class="flex flex-col gap-1">
-			<h1 class="font-medium text-title">Join {props.invite.workspace.name}</h1>
-			<p class="text-ink/55 text-ui-sm">
+		<Stack gap={1}>
+			<Title level={1}>Join {props.invite.workspace.name}</Title>
+			<Text tone="subtle">
 				You're invited as {ROLE_NAMES[props.invite.role]}. {props.children}
-			</p>
-		</header>
+			</Text>
+		</Stack>
 	);
 }
 
@@ -126,22 +130,22 @@ function JoinSignedIn(props: { invite: InvitePreview; token: string }): JSX.Elem
 	}
 
 	return (
-		<div class="flex flex-col gap-4">
+		<Stack gap={4}>
 			<Heading invite={props.invite}>Signed in as {auth.user()?.email}.</Heading>
 			<Show
 				when={!otherAccount()}
 				fallback={
 					<>
-						<p class="text-ink/70 text-ui-sm">
+						<Text>
 							This invite is for {props.invite.email}. Sign out to join with that account.
-						</p>
+						</Text>
 						<Button variant="secondary" size="lg" class="w-full" onClick={() => void auth.logout()}>
 							Sign out
 						</Button>
 					</>
 				}
 			>
-				<Show when={error()}>{(text) => <ErrorNotice message={text()} />}</Show>
+				<Show when={error()}>{(text) => <Alert tone="danger" title={text()} />}</Show>
 				<Button
 					variant="primary"
 					size="lg"
@@ -152,7 +156,7 @@ function JoinSignedIn(props: { invite: InvitePreview; token: string }): JSX.Elem
 					{pending() ? "Joining…" : `Join ${props.invite.workspace.name}`}
 				</Button>
 			</Show>
-		</div>
+		</Stack>
 	);
 }
 
@@ -219,16 +223,19 @@ function JoinSignedOut(props: { invite: InvitePreview; token: string }): JSX.Ele
 
 	const emailField = (
 		<Field label="Email">
-			<Input
-				type="email"
-				required
-				autocomplete="email"
-				inputmode="email"
-				enterkeyhint="next"
-				readonly={props.invite.email !== null}
-				value={email()}
-				onInput={(event) => setEmail(event.currentTarget.value)}
-			/>
+			{(id) => (
+				<Input
+					id={id}
+					type="email"
+					required
+					autocomplete="email"
+					inputmode="email"
+					enterkeyhint="next"
+					readonly={props.invite.email !== null}
+					value={email()}
+					onInput={(event) => setEmail(event.currentTarget.value)}
+				/>
+			)}
 		</Field>
 	);
 
@@ -237,86 +244,101 @@ function JoinSignedOut(props: { invite: InvitePreview; token: string }): JSX.Ele
 			when={step() !== "code"}
 			fallback={
 				<form
-					class="flex flex-col gap-4"
 					onSubmit={(event) => {
 						event.preventDefault();
 						void confirm();
 					}}
 				>
-					<header class="flex flex-col gap-1">
-						<h1 class="font-medium text-title">Check your email</h1>
-						<p class="text-ink/55 text-ui-sm">Enter the code sent to {email()}.</p>
-					</header>
-					<Field label="Code">
-						<Input
-							required
-							autocomplete="one-time-code"
-							inputmode="numeric"
-							enterkeyhint="go"
-							value={code()}
-							onInput={(event) => setCode(event.currentTarget.value)}
-						/>
-					</Field>
-					<Show when={error()}>{(text) => <ErrorNotice message={text()} />}</Show>
-					<Button type="submit" variant="primary" size="lg" class="w-full" disabled={pending()}>
-						{pending() ? "Checking…" : `Confirm and join ${props.invite.workspace.name}`}
-					</Button>
+					<Stack gap={4}>
+						<Stack gap={1}>
+							<Title level={1}>Check your email</Title>
+							<Text tone="subtle">Enter the code sent to {email()}.</Text>
+						</Stack>
+						<Field label="Code">
+							{(id) => (
+								<Input
+									id={id}
+									required
+									autocomplete="one-time-code"
+									inputmode="numeric"
+									enterkeyhint="go"
+									class="font-mono"
+									value={code()}
+									onInput={(event) => setCode(event.currentTarget.value)}
+								/>
+							)}
+						</Field>
+						<Show when={error()}>{(text) => <Alert tone="danger" title={text()} />}</Show>
+						<Button type="submit" variant="primary" size="lg" class="w-full" disabled={pending()}>
+							{pending() ? "Checking…" : `Confirm and join ${props.invite.workspace.name}`}
+						</Button>
+					</Stack>
 				</form>
 			}
 		>
 			<form
-				class="flex flex-col gap-4"
 				onSubmit={(event) => {
 					event.preventDefault();
 					void (step() === "create" ? create() : signIn());
 				}}
 			>
-				<Heading invite={props.invite} />
-				<SegmentedControl
-					label="Account"
-					options={[
-						{ value: "create", label: "New account" },
-						{ value: "sign-in", label: "I have an account" },
-					]}
-					value={step()}
-					onChange={(next) => {
-						setError(null);
-						setStep(next);
-					}}
-				/>
-				{emailField}
-				<Show when={step() === "create"}>
-					<Field label="Username" hint="Lowercase letters, numbers, dots, dashes.">
-						<Input
-							required
-							minlength={3}
-							autocomplete="username"
-							autocapitalize="off"
-							enterkeyhint="next"
-							value={username()}
-							onInput={(event) => setUsername(event.currentTarget.value)}
-						/>
-					</Field>
-				</Show>
-				<Field label="Password" hint={step() === "create" ? "At least 12 characters." : undefined}>
-					<Input
-						type="password"
-						required
-						minlength={step() === "create" ? 12 : 1}
-						autocomplete={step() === "create" ? "new-password" : "current-password"}
-						enterkeyhint="go"
-						value={password()}
-						onInput={(event) => setPassword(event.currentTarget.value)}
+				<Stack gap={4}>
+					<Heading invite={props.invite} />
+					<Segmented<"create" | "sign-in">
+						label="Account"
+						block
+						options={[
+							{ value: "create", label: "New account" },
+							{ value: "sign-in", label: "I have an account" },
+						]}
+						value={step() === "sign-in" ? "sign-in" : "create"}
+						onChange={(next) => {
+							setError(null);
+							setStep(next);
+						}}
 					/>
-				</Field>
-				<Show when={error()}>{(text) => <ErrorNotice message={text()} />}</Show>
-				<Button type="submit" variant="primary" size="lg" class="w-full" disabled={pending()}>
-					{pending()
-						? step() === "create"
-							? "Creating account…"
-							: "Signing in…"
-						: `Join ${props.invite.workspace.name}`}
-				</Button>
+					{emailField}
+					<Show when={step() === "create"}>
+						<Field label="Username" hint="Lowercase letters, numbers, dots, dashes.">
+							{(id) => (
+								<Input
+									id={id}
+									required
+									minlength={3}
+									autocomplete="username"
+									autocapitalize="off"
+									enterkeyhint="next"
+									value={username()}
+									onInput={(event) => setUsername(event.currentTarget.value)}
+								/>
+							)}
+						</Field>
+					</Show>
+					<Field
+						label="Password"
+						hint={step() === "create" ? "At least 12 characters." : undefined}
+					>
+						{(id) => (
+							<PasswordInput
+								id={id}
+								required
+								minlength={step() === "create" ? 12 : 1}
+								autocomplete={step() === "create" ? "new-password" : "current-password"}
+								enterkeyhint="go"
+								value={password()}
+								onInput={(event) => setPassword(event.currentTarget.value)}
+							/>
+						)}
+					</Field>
+					<Show when={error()}>{(text) => <Alert tone="danger" title={text()} />}</Show>
+					<Button type="submit" variant="primary" size="lg" class="w-full" disabled={pending()}>
+						{pending()
+							? step() === "create"
+								? "Creating account…"
+								: "Signing in…"
+							: `Join ${props.invite.workspace.name}`}
+					</Button>
+				</Stack>
 			</form>
 		</Show>
 	);

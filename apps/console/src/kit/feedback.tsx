@@ -25,7 +25,11 @@ export function Alert(props: {
 }): JSX.Element {
 	const look = () => ALERT[props.tone ?? "accent"];
 	return (
-		<output class={`flex items-start gap-3 rounded-kit-lg px-3.5 py-3 ${look().box}`}>
+		// A problem interrupts (role alert); anything else is announced politely (the output's status).
+		<output
+			role={props.tone === "danger" ? "alert" : undefined}
+			class={`flex items-start gap-3 rounded-kit-lg px-3.5 py-3 ${look().box}`}
+		>
 			<span class="mt-px shrink-0">{look().icon()}</span>
 			<div class="flex min-w-0 flex-1 flex-col gap-0.5">
 				<p class="font-medium text-body text-fg">{props.title}</p>

@@ -1,5 +1,7 @@
 import Add01Icon from "@hugeicons/core-free-icons/Add01Icon";
 import SparklesGlyph from "@hugeicons/core-free-icons/SparklesIcon";
+import ViewGlyph from "@hugeicons/core-free-icons/ViewIcon";
+import ViewOffGlyph from "@hugeicons/core-free-icons/ViewOffIcon";
 import StarGlyph from "@hugeicons/core-free-icons/StarIcon";
 import AlertCircleIcon from "@hugeicons/core-free-icons/AlertCircleIcon";
 import Archive01Icon from "@hugeicons/core-free-icons/Archive01Icon";
@@ -375,4 +377,12 @@ export function StarIcon(props: IconProps): JSX.Element {
 
 export function SparklesIcon(props: IconProps): JSX.Element {
 	return <Icon icon={SparklesGlyph} size={props.size} class={props.class} />;
+}
+
+export function EyeIcon(props: IconProps): JSX.Element {
+	return <Icon icon={ViewGlyph} size={props.size} class={props.class} />;
+}
+
+export function EyeOffIcon(props: IconProps): JSX.Element {
+	return <Icon icon={ViewOffGlyph} size={props.size} class={props.class} />;
 }

@@ -1,5 +1,7 @@
 import type { JSX } from "@solidjs/web";
-import { createUniqueId, Show, omit } from "solid-js";
+import { createSignal, createUniqueId, omit, Show } from "solid-js";
+
+import { EyeIcon, EyeOffIcon } from "./icons";
 
 const CONTROL =
 	"surface-field w-full px-3 text-fg text-field outline-none placeholder:text-fg-faint disabled:opacity-50 read-only:bg-fill";
@@ -97,5 +99,36 @@ export function TitleInput(props: JSX.InputHTMLAttributes<HTMLInputElement>): JS
 			{...rest}
 			class={`focus-ring w-full min-w-0 rounded-kit-sm bg-transparent font-medium text-fg text-headline outline-none placeholder:text-fg-faint ${props.class ?? ""}`}
 		/>
+	);
+}
+
+/**
+ * A password with a way to see what was typed: the eye inside the field's end flips it between
+ * dots and text. Takes everything an input does, `type` aside.
+ */
+export function PasswordInput(
+	props: Omit<JSX.InputHTMLAttributes<HTMLInputElement>, "type">,
+): JSX.Element {
+	const [shown, setShown] = createSignal(false);
+	const rest = omit(props, "class");
+	return (
+		<div class={`relative ${props.class ?? ""}`}>
+			<input
+				{...rest}
+				type={shown() ? "text" : "password"}
+				class={`${CONTROL} h-kit-control pr-11`}
+			/>
+			<button
+				type="button"
+				aria-label={shown() ? "Hide password" : "Show password"}
+				aria-pressed={shown() ? "true" : "false"}
+				onClick={() => setShown(!shown())}
+				class="focus-ring absolute inset-y-0 right-0 grid w-10 place-items-center rounded-r-kit text-fg-subtle hover:text-fg pointer-coarse:w-11"
+			>
+				<Show when={shown()} fallback={<EyeIcon size="sm" />}>
+					<EyeOffIcon size="sm" />
+				</Show>
+			</button>
+		</div>
 	);
 }
