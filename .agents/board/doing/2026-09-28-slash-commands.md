@@ -123,6 +123,6 @@ follow-up runner card is needed to put `available_commands` into `info`.
 
 **Contract impact:** none (console-only; no API or schema change).
 
-**Review:** pending — `human`.
+**Review:** pending — `human` (not merged). PR: https://github.com/shabirkhan-dev/grid/pull/135
 
 **Commit:** `53f7007` on `agent/web/slash-commands`.
