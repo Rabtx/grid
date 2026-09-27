@@ -9,6 +9,7 @@ import { checkEnvironmentUrl, EnvironmentStore } from "./environments/registry";
 import { type EnvironmentDeps, pairEnvironment } from "./environments/routes";
 import { CodespacesLink } from "./github/codespaces";
 import { createGh } from "./github/gh";
+import { PullRequests } from "./github/pulls";
 import { attentionMessage, PushNotifier } from "./push/notifier";
 import { spawnPty } from "./pty";
 import { startServer } from "./server";
@@ -47,12 +48,21 @@ const verify: Verify = async (token, workspace) => {
 };
 // Codespaces connect over the tailnet like any environment; GitHub only starts them and hands
 // Grid their pairing code.
-const github = new CodespacesLink(config.chatDb, createGh(), {
+const gh = createGh();
+const github = new CodespacesLink(config.chatDb, gh, {
 	environments: (ownerId) => environments.store.list(ownerId),
 	pair: (ownerId, input) => pairEnvironment(environments, ownerId, input),
 });
 
-const server = startServer(config, store, verify, chat, { push, pairing, environments, github });
+const pulls = new PullRequests(gh, (userId) => github.assertOwner(userId));
+
+const server = startServer(config, store, verify, chat, {
+	push,
+	pairing,
+	environments,
+	github,
+	pulls,
+});
 
 console.log(
 	`[runner] terminals on http://${server.hostname}:${server.port} (shell ${config.shell})`,

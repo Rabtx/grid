@@ -12,6 +12,7 @@ import { type EnvironmentDeps, environmentRequest, pairRequest } from "./environ
 import { insideProjectsDir } from "./folders/folders";
 import { folderRequest } from "./folders/routes";
 import type { CodespacesLink } from "./github/codespaces";
+import type { PullRequests } from "./github/pulls";
 import { githubRequest } from "./github/routes";
 import { closeLink, createLink, type LinkState, linkMessage } from "./link";
 import type { PushNotifier } from "./push/notifier";
@@ -80,9 +81,11 @@ export function startServer(
 		pairing?: PairingStore;
 		/** GitHub sign-in and Codespaces, through `gh` on this machine. */
 		github?: CodespacesLink;
+		/** Projects' pull requests, through the same `gh`. */
+		pulls?: PullRequests;
 	} = {},
 ): Server<SocketData> {
-	const { push, environments, pairing, github } = extras;
+	const { push, environments, pairing, github, pulls } = extras;
 	/**
 	 * Who a request is from and the workspace it acts in (`X-Grid-Workspace`, a slug; the default
 	 * one without it), or the error to answer with.
@@ -163,7 +166,24 @@ export function startServer(
 			if (github && (url.pathname === "/github" || url.pathname.startsWith("/github/"))) {
 				const who = await whoFrom(request, "Sign in to connect GitHub");
 				if (who instanceof Response) return who;
-				const handled = await githubRequest(request, url, who, github);
+				const handled = await githubRequest(
+					request,
+					url,
+					who,
+					github,
+					pulls && {
+						service: pulls,
+						folderOf: (workspace, project) => {
+							const folder = chat.projectFolders(workspace)[project];
+							try {
+								return folder ? insideProjectsDir(folder, config.projectsDir) : null;
+							} catch {
+								// Linked before the projects folder was narrowed: treated as not linked.
+								return null;
+							}
+						},
+					},
+				);
 				if (handled) return handled;
 			}
 

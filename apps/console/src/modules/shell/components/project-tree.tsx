@@ -19,6 +19,7 @@ import {
 	NavLink,
 	NavNote,
 	NoteIcon,
+	PullRequestIcon,
 	PlusIcon,
 	type PopoverControl,
 	Shimmer,
@@ -270,6 +271,13 @@ function ProjectNode(props: {
 						current={page("notes")}
 						icon={<NoteIcon size="sm" />}
 						label="Notes"
+					/>
+					<NavLink
+						level={1}
+						href={workspaceHref(`/pulls/${slug()}`)}
+						current={page("pulls")}
+						icon={<PullRequestIcon size="sm" />}
+						label="Pull requests"
 					/>
 					<Show when={!folder()}>
 						<NavButton

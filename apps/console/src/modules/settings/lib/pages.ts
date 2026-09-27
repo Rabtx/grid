@@ -35,6 +35,11 @@ export const SETTINGS_SECTIONS = [
 				label: "Environments",
 				description: "Codespaces and other machines",
 			},
+			{
+				href: "/settings/connectors",
+				label: "Connectors",
+				description: "GitHub and other services",
+			},
 		],
 	},
 	{
