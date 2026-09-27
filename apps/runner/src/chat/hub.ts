@@ -1,3 +1,13 @@
+import {
+	type Attachment,
+	imageType,
+	MAX_ATTACHMENT_BYTES,
+	MAX_ATTACHMENTS,
+	MAX_IMAGE_BLOCK_BYTES,
+	MAX_IMAGE_BLOCKS_BYTES,
+	MAX_SESSION_ATTACHMENTS,
+	MAX_SESSION_BYTES,
+} from "./attachments";
 import { existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -479,24 +489,114 @@ export class ChatHub {
 		};
 	}
 
-	async prompt(workspace: string, id: string, text: string): Promise<void> {
+	checkSession(workspace: string, id: string): void {
+		this.owned(workspace, id);
+	}
+
+	upload(workspace: string, id: string, name: string, bytes: Uint8Array): Attachment {
+		this.owned(workspace, id);
+		if (bytes.length > MAX_ATTACHMENT_BYTES)
+			throw new ChatError("Each file must be 10 MB or smaller", 413);
+		const usage = this.store.attachmentUsage(id);
+		if (usage.count >= MAX_SESSION_ATTACHMENTS || usage.bytes + bytes.length > MAX_SESSION_BYTES)
+			throw new ChatError("This thread holds as many files as it can; start a new thread", 413);
+		const safeName =
+			name
+				.replaceAll("\\", "/")
+				.split("/")
+				.at(-1)
+				?.replace(/[\x00-\x1f\x7f]/g, "")
+				.slice(0, 200) || "file";
+		const attachment = {
+			id: crypto.randomUUID(),
+			name: safeName,
+			size: bytes.length,
+			mimeType: imageType(bytes) ?? "application/octet-stream",
+		};
+		this.store.addAttachment(id, attachment, bytes);
+		return attachment;
+	}
+
+	attachment(workspace: string, id: string, attachmentId: string) {
+		this.owned(workspace, id);
+		const metadata = this.store.attachment(id, attachmentId);
+		if (!metadata) throw new ChatError("Attachment not found", 404);
+		try {
+			return { metadata, ...this.store.attachmentFiles.read(id, metadata) };
+		} catch {
+			throw new ChatError("Attachment is no longer available", 404);
+		}
+	}
+
+	async prompt(
+		workspace: string,
+		id: string,
+		text: string,
+		attachmentIds: unknown = [],
+	): Promise<void> {
 		const session = this.owned(workspace, id);
 		const live = this.liveFor(id);
 		const message = text.trim();
-		if (!message) return;
+		if (
+			!Array.isArray(attachmentIds) ||
+			attachmentIds.length > MAX_ATTACHMENTS ||
+			attachmentIds.some((value) => typeof value !== "string") ||
+			new Set(attachmentIds).size !== attachmentIds.length
+		)
+			throw new ChatError("Send up to 20 attachment ids", 400);
+		const attachments = attachmentIds.map((attachmentId) => {
+			const metadata = this.store.attachment(id, attachmentId);
+			if (!metadata) throw new ChatError("Attachment not found", 404);
+			try {
+				return { metadata, path: this.store.attachmentFiles.verifiedPath(id, metadata) };
+			} catch {
+				throw new ChatError("Attachment is no longer available", 404);
+			}
+		});
+		if (!message && !attachments.length) return;
+		// Before any image is read: a second send while the agent works costs nothing.
 		if (live.running) throw new ChatError("The agent is still working on the last message", 409);
+		// Images the agent can take inline, within what a model accepts; the rest go by path.
+		const images: { mimeType: string; data: string }[] = [];
+		let inline = 0;
+		for (const item of attachments) {
+			const { mimeType, size } = item.metadata;
+			if (!mimeType.startsWith("image/") || size > MAX_IMAGE_BLOCK_BYTES) continue;
+			if (inline + size > MAX_IMAGE_BLOCKS_BYTES) continue;
+			inline += size;
+			try {
+				const { bytes } = this.store.attachmentFiles.read(id, item.metadata);
+				images.push({ mimeType, data: bytes.toString("base64") });
+			} catch {
+				throw new ChatError("Attachment is no longer available", 404);
+			}
+		}
 
 		if (session.title === "New chat") {
-			this.store.update(id, { title: message.replace(/\s+/g, " ").slice(0, 60) });
+			this.store.update(id, {
+				title: (message || attachments[0]?.metadata.name || "Chat")
+					.replace(/\s+/g, " ")
+					.slice(0, 60),
+			});
 		}
-		this.record(id, { type: "user", text: message });
+		this.record(id, {
+			type: "user",
+			text: message,
+			...(attachments.length ? { attachments: attachments.map((item) => item.metadata) } : {}),
+		});
 		this.setRunning(id, live, true);
 		this.record(id, { type: "turn_start", at: new Date().toISOString() });
 
 		let result: Awaited<ReturnType<AgentSession["prompt"]>>;
 		try {
 			const agent = await this.agentFor(session, live);
-			result = await agent.prompt(message);
+			const paths = attachments
+				.map((item) => `${JSON.stringify(item.metadata.name)}: ${JSON.stringify(item.path)}`)
+				.join("\n");
+			const prompt = paths
+				? `${message}\n\nAttached files (absolute paths on this machine):\n${paths}`
+				: message;
+			result = await agent.prompt(prompt, images);
 		} catch (cause) {
 			result = { reason: "error", error: cause instanceof Error ? cause.message : String(cause) };
 			// A failed start leaves nothing to reuse.

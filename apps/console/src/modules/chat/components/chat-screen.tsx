@@ -296,11 +296,13 @@ function NewChat(props: {
 	// Where the new thread will work: chosen in the git control, the folder unless changed.
 	const [place, setPlace] = createSignal<WorkPlace>({ worktree: false, branch: "" });
 
-	async function start(text: string): Promise<boolean> {
+	async function start(text: string, files: File[]): Promise<boolean> {
 		const token = auth.token();
 		const provider = chosen();
 		if (!token || !provider || !props.project || !props.folder) return false;
 		setError(null);
+		const scope = placementsStore.scopeOf(props.project);
+		let created: ChatSession | undefined;
 		try {
 			const session = await chatService.create(
 				token,
@@ -317,14 +319,34 @@ function NewChat(props: {
 				},
 				placementsStore.scopeOf(props.project),
 			);
+			created = session;
 			remember(AGENT_KEY, provider.id);
 			remember(modelKey(provider.id), model());
 			remember(effortKey(provider.id), effort());
-			queueFirstMessage(session.id, text);
+			const attachments = await chatService.upload(
+				token,
+				session.id,
+				files,
+				placementsStore.scopeOf(props.project),
+			);
+			queueFirstMessage(
+				session.id,
+				text,
+				attachments.map((item) => item.id),
+			);
+			created = undefined;
 			props.onCreated(session);
 			return true;
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : "Could not start the chat");
+			let message = cause instanceof Error ? cause.message : "Could not start the chat";
+			if (created) {
+				try {
+					await chatService.remove(token, created.id, scope);
+				} catch {
+					message += " The empty chat could not be removed; delete it from the thread list.";
+				}
+			}
+			setError(message);
 			return false;
 		}
 	}

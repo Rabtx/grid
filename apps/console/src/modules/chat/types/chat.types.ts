@@ -1,3 +1,4 @@
+export type ChatAttachment = { id: string; name: string; size: number; mimeType: string };
 /** The runner's chat event stream (apps/runner/src/agents/events.ts). */
 
 /** Something to pick: a model, a mode, an effort level. */
@@ -21,7 +22,7 @@ export type PlanEntry = { text: string; status: "pending" | "in_progress" | "com
 export type ApprovalOption = { id: string; label: string; kind: "allow" | "allow_always" | "deny" };
 
 export type ChatEvent =
-	| { type: "user"; text: string }
+	| { type: "user"; text: string; attachments?: ChatAttachment[] }
 	| { type: "message"; text: string }
 	| { type: "reasoning"; text: string }
 	| {

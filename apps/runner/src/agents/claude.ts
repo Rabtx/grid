@@ -428,14 +428,23 @@ async function startClaudeSession(
 	});
 
 	return {
-		prompt: (text) =>
+		prompt: (text, images = []) =>
 			new Promise<TurnResult>((resolve) => {
 				finishTurn = resolve;
 				ensureProcess().send({
 					type: "user",
 					session_id: "",
 					parent_tool_use_id: null,
-					message: { role: "user", content: [{ type: "text", text }] },
+					message: {
+						role: "user",
+						content: [
+							{ type: "text", text },
+							...images.map((image) => ({
+								type: "image",
+								source: { type: "base64", media_type: image.mimeType, data: image.data },
+							})),
+						],
+					},
 				});
 			}),
 		cancel: () => {
