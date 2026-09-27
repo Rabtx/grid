@@ -1,4 +1,4 @@
-import { cached, effortChoices, runCli } from "./catalog";
+import { cached, effortChoices, resolveEffort, runCli } from "./catalog";
 import { type Choice, clip, type ToolKind } from "./events";
 import type { AgentContext, AgentSession, Provider, ProviderInfo, TurnResult } from "./provider";
 import { type JsonProcess, type Spawn, spawnJsonProcess } from "./stdio";
@@ -58,13 +58,20 @@ export function parseAgyModels(text: string): Choice[] {
 	});
 }
 
-/** The id `agy --model` takes for a model and effort: `gemini-3.8-flash` + `low` → `gemini-3.8-flash-low`. */
+/**
+ * The id `agy --model` takes for a model and effort: `gemini-3.8-flash` + `low` →
+ * `gemini-3.8-flash-low`. With the model's own entry the effort resolves through
+ * `resolveEffort`, so a model that has levels always carries a valid one — `agy` refuses
+ * `--model gemini-3.8-flash` with `requires --effort`, and never sees an empty one here.
+ */
 export function agyModelId(
 	model: string | undefined,
 	effort: string | undefined,
+	modelChoice?: Choice,
 ): string | undefined {
 	if (!model) return undefined;
-	return effort ? `${model}-${effort}` : model;
+	const resolved = modelChoice ? resolveEffort(modelChoice, effort) : effort;
+	return resolved ? `${model}-${resolved}` : model;
 }
 
 export function agyArgs(
@@ -146,6 +153,8 @@ export function antigravityProvider(options: {
 	binary: string;
 	available: () => boolean;
 	spawn?: Spawn;
+	/** The model list to settle effort against; the CLI's own `agy models` by default. */
+	loadModels?: () => Promise<Choice[]>;
 }): Provider {
 	const spawn = options.spawn ?? spawnJsonProcess;
 	const info = (): ProviderInfo => ({
@@ -162,7 +171,8 @@ export function antigravityProvider(options: {
 	return {
 		info,
 		catalog: async (fresh) => ({ models: await models(fresh), modes: MODES }),
-		start: async (context) => startAgySession(options.binary, spawn, context),
+		start: async (context) =>
+			startAgySession(options.binary, spawn, context, options.loadModels ?? models),
 	};
 }
 
@@ -170,14 +180,38 @@ async function startAgySession(
 	binary: string,
 	spawn: Spawn,
 	context: AgentContext,
+	loadModels: () => Promise<Choice[]>,
 ): Promise<AgentSession> {
 	let model = context.model;
 	let effort = context.effort;
 	let mode = context.mode;
 	let resume = context.resume;
+	/** The current model's entry in the agent's list, once we have asked for it. */
+	let choice: Choice | undefined;
+	let listed: Choice[] | undefined;
+	let listFailed = false;
 	let proc: JsonProcess | null = null;
 	let finishTurn: ((result: TurnResult) => void) | null = null;
 	let stderr: string[] = [];
+
+	// A model with effort levels needs one, or `agy` refuses the run: settle it against the
+	// agent's own list before the process starts — the chosen effort, else the model's default,
+	// else its middle level. The list is kept for the whole session, so this is one ask.
+	async function settleEffort(): Promise<void> {
+		if (!model) return;
+		if (!listed && !listFailed) {
+			listed = await loadModels().catch((cause: unknown) => {
+				listFailed = true;
+				console.warn(
+					"[runner] Antigravity did not list its models:",
+					cause instanceof Error ? cause.message : cause,
+				);
+				return undefined;
+			});
+		}
+		choice = listed?.find((entry) => entry.id === model);
+		effort = resolveEffort(choice, effort);
+	}
 
 	function handle(message: Record<string, unknown>): void {
 		const event = message.event;
@@ -244,7 +278,7 @@ async function startAgySession(
 		if (proc) return proc;
 		stderr = [];
 		const started = spawn(
-			agyArgs(binary, { model: agyModelId(model, effort), mode, resume, cwd: context.cwd }),
+			agyArgs(binary, { model: agyModelId(model, effort, choice), mode, resume, cwd: context.cwd }),
 			{
 				cwd: context.cwd,
 				onMessage: (message) => handle(message as Record<string, unknown>),
@@ -272,6 +306,7 @@ async function startAgySession(
 		proc = null;
 	}
 
+	await settleEffort();
 	context.emit({
 		type: "info",
 		modes: MODES,
@@ -297,8 +332,10 @@ async function startAgySession(
 		approve: () => {},
 		setModel: async (next) => {
 			model = next;
+			// The new model may want another effort, or none at all.
+			await settleEffort();
 			restart();
-			context.emit({ type: "info", model: next });
+			context.emit({ type: "info", model: next, ...(effort ? { effort } : {}) });
 		},
 		setMode: async (next) => {
 			mode = next;

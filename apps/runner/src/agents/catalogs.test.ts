@@ -2,7 +2,8 @@ import { describe, expect, it } from "bun:test";
 
 import { agyArgs, agyModelId, antigravityProvider, parseAgyModels } from "./antigravity";
 import { claudeModelChoice } from "./claude";
-import type { ChatEvent } from "./events";
+import { effortChoices } from "./catalog";
+import type { ChatEvent, Choice } from "./events";
 import { parseOpencodeModels } from "./opencode";
 import type { JsonProcess, Spawn } from "./stdio";
 
@@ -120,6 +121,42 @@ describe("Antigravity", () => {
 		expect(agyModelId("claude-opus-4-6-thinking", undefined)).toBe("claude-opus-4-6-thinking");
 	});
 
+	it("gives a model that needs an effort a valid one, never an empty one", () => {
+		const models = parseAgyModels(listing);
+		const flash = models.find((model) => model.id === "gemini-3.8-flash") as Choice;
+		const thinking = models.find((model) => model.id === "claude-opus-4-6-thinking") as Choice;
+		// The chat never chose one: the model's own default.
+		expect(agyModelId("gemini-3.8-flash", undefined, flash)).toBe("gemini-3.8-flash-high");
+		// A level the model still offers stands.
+		expect(agyModelId("gemini-3.8-flash", "low", flash)).toBe("gemini-3.8-flash-low");
+		// A level it no longer offers falls back to its default.
+		expect(agyModelId("gemini-3.8-flash", "ultra", flash)).toBe("gemini-3.8-flash-high");
+		// No default in sight: the middle of its levels.
+		expect(
+			agyModelId("gemini-3.8-flash", undefined, {
+				id: "gemini-3.8-flash",
+				name: "Gemini 3.8 Flash",
+				efforts: effortChoices(["low", "medium", "high"]),
+			}),
+		).toBe("gemini-3.8-flash-medium");
+		// A model with no levels takes no effort, a chosen one included.
+		expect(agyModelId("claude-opus-4-6-thinking", "high", thinking)).toBe(
+			"claude-opus-4-6-thinking",
+		);
+		// The list is not there to ask: the chosen effort is all we know.
+		expect(agyModelId("gemini-3.8-flash", undefined)).toBe("gemini-3.8-flash");
+	});
+
+	it("builds a run whose model carries its effort, and never an empty one", () => {
+		const flash = parseAgyModels(listing).find(
+			(model) => model.id === "gemini-3.8-flash",
+		) as Choice;
+		const args = agyArgs("agy", { model: agyModelId("gemini-3.8-flash", undefined, flash) });
+		expect(args.slice(args.indexOf("--model"))).toEqual(["--model", "gemini-3.8-flash-high"]);
+		expect(args).not.toContain("");
+		expect(args).not.toContain("--effort");
+	});
+
 	it("maps modes onto the CLI's flags", () => {
 		expect(
 			agyArgs("agy", { model: "gemini-3.8-flash-low", mode: "full-access", resume: "c1" }),
@@ -209,6 +246,8 @@ describe("Antigravity", () => {
 			binary: "agy",
 			available: () => true,
 			spawn,
+			// Never touch the real `agy` from a test.
+			loadModels: async () => parseAgyModels(listing),
 		}).start({
 			cwd: "/tmp",
 			model: "gemini-3.8-flash",
@@ -218,6 +257,7 @@ describe("Antigravity", () => {
 		});
 		expect(await session.prompt("list files")).toEqual({ reason: "done" });
 		expect(commands).toContain("gemini-3.8-flash-low");
+		expect(events[0]).toMatchObject({ type: "info", model: "gemini-3.8-flash", effort: "low" });
 		expect(sent).toEqual([{ event: "user", message: { content: "list files" } }]);
 		expect(tokens.at(-1)).toBe("conv-1");
 		expect(events.filter((event) => event.type !== "info").map((event) => event.type)).toEqual([
@@ -234,6 +274,52 @@ describe("Antigravity", () => {
 			type: "usage",
 			inputTokens: 100,
 			outputTokens: 7,
+		});
+	});
+
+	it("settles the effort against the model's own list when a chat never chose one", async () => {
+		let command: string[] = [];
+		const spawn: Spawn = (cmd, { onMessage }) => {
+			command = cmd;
+			const proc: JsonProcess = {
+				send: () => {
+					queueMicrotask(() =>
+						onMessage({ event: "result", result: { status: "SUCCESS", conversation_id: "c1" } }),
+					);
+				},
+				kill: () => {},
+				exited: new Promise(() => {}),
+			};
+			return proc;
+		};
+		const events: ChatEvent[] = [];
+		const session = await antigravityProvider({
+			binary: "agy",
+			available: () => true,
+			spawn,
+			loadModels: async () => parseAgyModels(listing),
+		}).start({
+			cwd: "/tmp",
+			model: "gemini-3.8-flash",
+			emit: (event) => events.push(event),
+			onResumeToken: () => {},
+		});
+		// No effort chosen: the model's own default, which `agy` will accept.
+		expect(events[0]).toMatchObject({
+			type: "info",
+			model: "gemini-3.8-flash",
+			effort: "high",
+		});
+		await session.prompt("hi");
+		expect(command.slice(command.indexOf("--model"), command.indexOf("--model") + 2)).toEqual([
+			"--model",
+			"gemini-3.8-flash-high",
+		]);
+		// Switching to a model without levels takes the effort away instead of guessing one.
+		await session.setModel("claude-opus-4-6-thinking");
+		expect(events.at(-1)).toEqual({
+			type: "info",
+			model: "claude-opus-4-6-thinking",
 		});
 	});
 });

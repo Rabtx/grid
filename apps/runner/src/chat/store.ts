@@ -365,6 +365,16 @@ export class ChatStore {
 		return refreshedAt;
 	}
 
+	/** Take a model out of an agent's kept list: true when it was there. */
+	dropCatalogModel(provider: string, model: string): boolean {
+		const kept = this.catalog(provider);
+		if (!kept) return false;
+		const models = kept.data.models.filter((entry) => entry.id !== model);
+		if (models.length === kept.data.models.length) return false;
+		this.setCatalog(provider, { ...kept.data, models });
+		return true;
+	}
+
 	providerSettings(ownerId: string): Record<string, ProviderSettings> {
 		const rows = this.db
 			.query<{ provider: string; data: string }, [string]>(

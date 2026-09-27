@@ -7,6 +7,7 @@ import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
 import type { Who } from "../auth";
 import { insideProjectsDir } from "../folders/folders";
+import { turnErrorMessage, turnErrorKind } from "./errors";
 import type {
 	ChatSessionRow,
 	ChatStore,
@@ -502,6 +503,9 @@ export class ChatHub {
 			// A failed start leaves nothing to reuse.
 			live.agent = null;
 		}
+		if (result.reason === "error" && result.error) {
+			result = await this.explainFailure(session, result.error);
+		}
 		this.record(id, {
 			type: "turn_end",
 			reason: result.reason,
@@ -511,6 +515,46 @@ export class ChatHub {
 		this.setRunning(id, live, false);
 		this.store.touch(id);
 		this.scheduleIdle(id, live);
+	}
+
+	/**
+	 * A turn the agent failed, in words that say what to do about it. When its own text says the
+	 * model is gone, ask it for its models again (what the "refresh models" action does), take
+	 * the model out of the kept list and out of this chat; when it says it is too busy, say
+	 * whose side that is on. The agent's own text always stays, under the plain line.
+	 */
+	private async explainFailure(
+		session: ChatSessionRow,
+		error: string,
+	): Promise<{ reason: "error"; error: string }> {
+		const kind = turnErrorKind(error);
+		if (!kind) return { reason: "error", error };
+		const provider = this.providers.get(session.provider);
+		const name = provider?.info().name ?? session.provider;
+		const model = this.store.get(session.id)?.model ?? session.model;
+		if (kind === "model-gone") {
+			try {
+				await this.providerInfo(session.provider, true);
+			} catch (cause) {
+				console.warn(
+					`[runner] ${name} did not list its models after refusing one:`,
+					cause instanceof Error ? cause.message : cause,
+				);
+			}
+			if (model) {
+				this.store.dropCatalogModel(session.provider, model);
+				this.store.update(session.id, { model: null });
+				// The running agent still holds that model: close it, so the next message starts
+				// one without a model of its own instead of failing the same way again.
+				const live = this.live.get(session.id);
+				const opened = live?.agent;
+				if (live && opened) {
+					live.agent = null;
+					opened.then((agent) => agent.close()).catch(() => undefined);
+				}
+			}
+		}
+		return { reason: "error", error: turnErrorMessage(kind, name, model, error) };
 	}
 
 	cancel(workspace: string, id: string): void {
