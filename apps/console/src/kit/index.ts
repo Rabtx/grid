@@ -92,6 +92,7 @@ export {
 	RunSteps,
 	type StepStatus,
 } from "./run";
+export { type EffortLevel, EffortSlider } from "./effort";
 export { igniteGrid, type IgniteOptions } from "./ignite";
 export { ListDetail, ListRow, PaneHeader } from "./pane";
 export { ChoiceRail, FlagshipMark, ModelRow, type RailItem } from "./picker";
