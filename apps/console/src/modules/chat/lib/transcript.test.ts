@@ -198,6 +198,37 @@ describe("turns", () => {
 		expect(turns[1].user?.outcome).toBeUndefined();
 	});
 
+	it("restates a turn read off a screen with its exact reply, keeping its tools", () => {
+		const transcript = replay([
+			{ type: "user", text: "Earlier" },
+			{ type: "message", text: "Kept as it was." },
+			{ type: "user", text: "Say hello" },
+			{ type: "turn_start" },
+			{ type: "tool", id: "notes", title: "Freebuff session", status: "completed" },
+			{ type: "reasoning", text: "Rea" },
+			{ type: "message", text: "hello - one\n" },
+			{
+				type: "turn_rewrite",
+				events: [
+					{ type: "reasoning", text: "Reading." },
+					{ type: "message", text: "**hello**\n\n- one" },
+				],
+			},
+			{ type: "turn_end", reason: "done" },
+		]);
+		expect(transcript.blocks.map((block) => [block.key, block.kind])).toEqual([
+			["b0", "user"],
+			["b1", "assistant"],
+			["b2", "user"],
+			["b3", "tool"],
+			["b4", "reasoning"],
+			["b5", "assistant"],
+		]);
+		expect(transcript.blocks[1]).toMatchObject({ text: "Kept as it was." });
+		expect(transcript.blocks[4]).toMatchObject({ text: "Reading." });
+		expect(transcript.blocks[5]).toMatchObject({ text: "**hello**\n\n- one" });
+	});
+
 	it("reads durations the short way", () => {
 		expect(formatDuration(48_000)).toBe("48s");
 		expect(formatDuration(88_000)).toBe("1m 28s");

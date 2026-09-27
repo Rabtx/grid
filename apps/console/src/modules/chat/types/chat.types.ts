@@ -57,7 +57,12 @@ export type ChatEvent =
 			efforts?: Choice[];
 			effort?: string;
 	  }
-	| { type: "error"; message: string };
+	| { type: "error"; message: string }
+	/** The turn's reply restated exactly: replaces the text and reasoning shown since the message. */
+	| { type: "turn_rewrite"; events: TurnEvent[] };
+
+/** What a rewritten turn is made of. */
+export type TurnEvent = Extract<ChatEvent, { type: "message" | "reasoning" | "tool" | "plan" }>;
 
 /** A file an edit changed, as the runner sends it: unified hunks and line counts. */
 export type FileDiff = {

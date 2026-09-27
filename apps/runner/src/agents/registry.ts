@@ -2,6 +2,7 @@ import { acpProvider } from "./acp";
 import { antigravityProvider } from "./antigravity";
 import { claudeProvider } from "./claude";
 import { codexProvider } from "./codex";
+import { freebuffProvider } from "./freebuff";
 import { opencodeCatalog } from "./opencode";
 import type { Provider } from "./provider";
 
@@ -56,6 +57,10 @@ export function providerRegistry(
 	);
 	providers.set("antigravity", antigravityProvider({ binary: "agy", available: installed("agy") }));
 	providers.set("codex", codexProvider({ binary: "codex", available: installed("codex") }));
+	providers.set(
+		"freebuff",
+		freebuffProvider({ binary: "freebuff", available: installed("freebuff") }),
+	);
 	for (const agent of extraAgents(env.RUNNER_ACP_AGENTS)) {
 		providers.set(agent.id, acpProvider({ ...agent, available: installed(agent.command[0]) }));
 	}
