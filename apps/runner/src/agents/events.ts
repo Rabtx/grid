@@ -75,7 +75,16 @@ export type ChatEvent =
 			efforts?: Choice[];
 			effort?: string;
 	  }
-	| { type: "error"; message: string };
+	| { type: "error"; message: string }
+	/**
+	 * The turn's reply restated exactly, for agents whose live stream is only an approximation (a
+	 * terminal UI read off its screen): the text and reasoning shown since the person's message are
+	 * replaced by these events. Tools and approvals already shown stay.
+	 */
+	| { type: "turn_rewrite"; events: TurnEvent[] };
+
+/** What a rewritten turn is made of. */
+export type TurnEvent = Extract<ChatEvent, { type: "message" | "reasoning" | "tool" | "plan" }>;
 
 /** Output shown in the transcript is capped: a tool can print megabytes. */
 export const MAX_TOOL_OUTPUT = 16 * 1024;
