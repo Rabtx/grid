@@ -152,6 +152,18 @@ data was never touched.
 | `git branch --merged main` | nothing left to prune; the 3 remaining branches are all unmerged |
 | `git grep AI_SERVICE_TOKEN` | no matches |
 
+### CI could not run
+
+Draft PR #120: every job is annotated *"The job was not started because recent account payments
+have failed or your spending limit needs to be increased."* An account-level GitHub billing block,
+not a code failure — no job logs exist and no test ran. The same blocker is recorded on
+`2026-09-27-freebuff-interactive-cli.md` (PR #106), so it is not specific to this branch.
+
+Nothing above is a claim that CI is green. Every command the CI jobs run was run locally instead,
+and each new job's recipe was executed by hand before being written into the workflow. Someone with
+billing access has to re-run CI before this merges; the gates themselves are unproven on GitHub's
+runners even though the commands are proven here.
+
 ### CI jobs added, and how each was proven before landing
 
 - **`build`** — `bun run ci:build` run locally; all three buildable apps exit 0.
