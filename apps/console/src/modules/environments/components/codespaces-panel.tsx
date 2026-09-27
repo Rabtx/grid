@@ -4,9 +4,6 @@ import { createSignal, For, onSettled, Show } from "solid-js";
 import {
 	Alert,
 	Button,
-	button,
-	Code,
-	CopyField,
 	Disclosure,
 	Field,
 	Input,
@@ -18,6 +15,7 @@ import {
 	Text,
 } from "@/kit";
 import { useAuth } from "@/modules/auth";
+import { GitHubSignIn } from "@/modules/github";
 
 import { type Codespace, type GitHubStatus, githubService } from "../services/github.service";
 import { environmentsStore } from "../stores/environments";
@@ -146,9 +144,10 @@ export function CodespacesPanel(): JSX.Element {
 							when={connected()}
 							fallback={
 								<div class="px-4 py-4">
-									<SignIn
+									<GitHubSignIn
 										status={current()}
 										busy={busy() !== null}
+										purpose="to manage Codespaces here"
 										onSignIn={() => void run("signin", githubService.signIn)}
 									/>
 								</div>
@@ -178,74 +177,6 @@ export function CodespacesPanel(): JSX.Element {
 				</Show>
 			</Show>
 		</SettingsGroup>
-	);
-}
-
-function SignIn(props: { status: GitHubStatus; busy: boolean; onSignIn: () => void }): JSX.Element {
-	return (
-		<Show
-			when={props.status.installed}
-			fallback={
-				<Text tone="subtle">
-					Install the GitHub CLI (<Code>gh</Code>) on the machine Grid runs on to manage Codespaces
-					here.
-				</Text>
-			}
-		>
-			<Show
-				when={props.status.claimedBy !== "someone-else"}
-				fallback={<Text tone="subtle">Someone else in this Grid has connected GitHub here.</Text>}
-			>
-				<Show
-					when={props.status.pending}
-					fallback={
-						<Stack gap={3} align="start">
-							<Text tone="subtle">
-								<Show
-									when={props.status.login && props.status.canManageCodespaces}
-									fallback="Sign in once; GitHub gives you a code to approve. Grid never stores your GitHub token."
-								>
-									This machine is already signed in to GitHub as @{props.status.login}.
-								</Show>
-							</Text>
-							<Show when={props.status.error}>
-								{(message) => <Alert tone="danger" title={message()} />}
-							</Show>
-							<Button variant="primary" disabled={props.busy} onClick={props.onSignIn}>
-								{props.status.login && props.status.canManageCodespaces
-									? `Use @${props.status.login}`
-									: "Sign in with GitHub"}
-							</Button>
-						</Stack>
-					}
-				>
-					{(pending) => (
-						<Stack gap={3}>
-							<Text tone="subtle">
-								Open GitHub, enter this code and approve. This page carries on by itself.
-							</Text>
-							<div class="md:max-w-64">
-								<CopyField label="GitHub code" value={pending().code} mono />
-							</div>
-							<div class="flex flex-wrap items-center gap-3">
-								<a
-									href={pending().url}
-									target="_blank"
-									rel="noopener noreferrer"
-									class={button({ variant: "primary" })}
-								>
-									Open github.com/login/device
-								</a>
-								<Spinner label="Waiting for approval" />
-								<Text as="span" size="caption" tone="subtle">
-									Waiting for approval…
-								</Text>
-							</div>
-						</Stack>
-					)}
-				</Show>
-			</Show>
-		</Show>
 	);
 }
 

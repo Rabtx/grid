@@ -6,6 +6,7 @@ import { EmptyState, SplitLayout, Text, TextLink } from "@/kit";
 import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { EnvironmentsScreen } from "@/modules/environments";
+import { ConnectorsScreen } from "@/modules/github";
 import {
 	AccountScreen,
 	AgentsScreen,
@@ -35,6 +36,8 @@ const Router = createRouter({
 		{ path: "/board/:slug", component: BoardRoute },
 		{ path: "/files/:slug", component: FilesRoute },
 		{ path: "/notes/:slug", component: NotesRoute },
+		// A project's pull requests on GitHub; the open one is `?pr=`.
+		{ path: "/pulls/:slug", component: PullsRoute },
 		// The same board with one task open in the panel over it.
 		{ path: "/board/:slug/tasks/:number", component: BoardRoute },
 		// Chats with agents, inside their project; `new` is the new-chat composer, any other id a
@@ -51,6 +54,7 @@ const Router = createRouter({
 		{ path: "/settings/notifications", component: () => <Authed screen={NotificationsScreen} /> },
 		{ path: "/settings/agents", component: () => <Authed screen={AgentsScreen} /> },
 		{ path: "/settings/environments", component: () => <Authed screen={EnvironmentsScreen} /> },
+		{ path: "/settings/connectors", component: () => <Authed screen={ConnectorsScreen} /> },
 		{ path: "/settings/account", component: () => <Authed screen={AccountScreen} /> },
 		// The design system, every piece in every state; loads on its own when opened.
 		{ path: "/design", component: DesignRoute },
@@ -143,6 +147,21 @@ function NotesRoute(): JSX.Element {
 
 const NotesScreen = lazy(() => import("@/modules/projects/components/notes-screen"), {
 	export: "NotesScreen",
+});
+
+function PullsRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<Loading fallback={<Opening>Opening pull requests…</Opening>}>
+				<PullsScreen />
+			</Loading>
+		</RequireAuth>
+	);
+}
+
+// Pull requests bring the Markdown renderer and diff view, so they load when opened.
+const PullsScreen = lazy(() => import("@/modules/github/components/pulls-screen"), {
+	export: "PullsScreen",
 });
 
 // Chat brings a Markdown renderer; like the terminal, it loads when someone opens it.

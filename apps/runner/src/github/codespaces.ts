@@ -211,7 +211,7 @@ export class CodespacesLink {
 	 * person's CLI login too.
 	 */
 	signOut(ownerId: string): void {
-		this.owned(ownerId);
+		this.assertOwner(ownerId);
 		if (this.pending?.ownerId === ownerId) {
 			this.pending.kill();
 			this.pending = null;
@@ -227,7 +227,8 @@ export class CodespacesLink {
 			.run(ownerId, login);
 	}
 
-	private owned(ownerId: string): void {
+	/** Throws unless this person is the one who connected GitHub here. */
+	assertOwner(ownerId: string): void {
 		const claim = this.claim();
 		if (!claim) throw new GitHubError("Connect GitHub first", 409);
 		if (claim.ownerId !== ownerId) {
@@ -247,7 +248,7 @@ export class CodespacesLink {
 
 	/** The signed-in person's Codespaces, with which of them are the workspace's environments. */
 	async list(ownerId: string, workspace: string): Promise<Codespace[]> {
-		this.owned(ownerId);
+		this.assertOwner(ownerId);
 		const rows = await this.ghJson<
 			{
 				name: string;
@@ -280,13 +281,13 @@ export class CodespacesLink {
 	}
 
 	async start(ownerId: string, name: string): Promise<void> {
-		this.owned(ownerId);
+		this.assertOwner(ownerId);
 		checkName(name);
 		await this.ghJson(["api", "--method", "POST", `user/codespaces/${name}/start`]);
 	}
 
 	async stop(ownerId: string, name: string): Promise<void> {
-		this.owned(ownerId);
+		this.assertOwner(ownerId);
 		checkName(name);
 		const result = await this.gh.run(["codespace", "stop", "--codespace", name], {
 			timeoutMs: 120_000,
@@ -297,7 +298,7 @@ export class CodespacesLink {
 
 	/** A new Codespace on a repository (and branch), on the smallest machine it offers. */
 	async create(ownerId: string, input: { repository: string; branch?: string }): Promise<string> {
-		this.owned(ownerId);
+		this.assertOwner(ownerId);
 		if (!REPO.test(input.repository))
 			throw new GitHubError("Give the repository as owner/name", 400);
 		if (input.branch && !BRANCH.test(input.branch))
@@ -324,7 +325,7 @@ export class CodespacesLink {
 	 * shows on the Codespace in `list`.
 	 */
 	connect(ownerId: string, workspace: string, name: string): void {
-		this.owned(ownerId);
+		this.assertOwner(ownerId);
 		checkName(name);
 		const running = this.jobs.get(name);
 		if (running && !running.error) return;

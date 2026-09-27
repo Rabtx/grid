@@ -6,6 +6,7 @@ import {
 	BackIcon,
 	BellIcon,
 	GlobeIcon,
+	LinkIcon,
 	NavLink,
 	NavSection,
 	RocketIcon,
@@ -22,6 +23,7 @@ const ICONS: Record<SettingsHref, () => JSX.Element> = {
 	"/settings/notifications": () => <BellIcon />,
 	"/settings/agents": () => <RocketIcon />,
 	"/settings/environments": () => <GlobeIcon />,
+	"/settings/connectors": () => <LinkIcon />,
 	"/settings/account": () => <UserIcon />,
 };
 
