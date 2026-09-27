@@ -10,7 +10,16 @@ import type {
 
 /** One row of the conversation as the screen draws it. */
 export type Block =
-	| { kind: "user"; key: string; text: string }
+	| {
+			kind: "user";
+			key: string;
+			text: string;
+			/** When the turn this message started began and ended (ISO times, when logged). */
+			startedAt?: string;
+			endedAt?: string;
+			/** How the turn ended; undefined while it is still going. */
+			outcome?: "done" | "cancelled" | "error";
+	  }
 	| { kind: "assistant"; key: string; text: string }
 	| { kind: "reasoning"; key: string; text: string }
 	| {
@@ -170,36 +179,14 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 				efforts: event.efforts ?? transcript.efforts,
 				effort: event.effort ?? transcript.effort,
 			};
+		case "turn_start":
+			return { ...transcript, blocks: markTurn(blocks, { startedAt: event.at }) };
 		case "turn_end":
-			if (event.reason === "error") {
-				return {
-					...transcript,
-					blocks: [
-						...blocks,
-						{
-							kind: "notice",
-							key,
-							tone: "error",
-							text: event.error ?? "The agent stopped with an error.",
-						},
-					],
-				};
-			}
-			if (event.reason === "cancelled") {
-				return {
-					...transcript,
-					blocks: [...blocks, { kind: "notice", key, tone: "muted", text: "Stopped." }],
-				};
-			}
-			// Tools still marked running when the turn ends did finish; the agent just never said.
-			return {
-				...transcript,
-				blocks: blocks.map((block) =>
-					block.kind === "tool" && (block.status === "running" || block.status === "pending")
-						? { ...block, status: "completed" }
-						: block,
-				),
-			};
+			return endTurn(
+				{ ...transcript, blocks: markTurn(blocks, { endedAt: event.at, outcome: event.reason }) },
+				event,
+				key,
+			);
 		case "error":
 			return {
 				...transcript,
@@ -208,6 +195,60 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 		default:
 			return transcript;
 	}
+}
+
+type UserBlock = Extract<Block, { kind: "user" }>;
+
+/** Note the current turn's timing and outcome on the message that started it. */
+function markTurn(
+	blocks: Block[],
+	patch: Partial<Omit<UserBlock, "kind" | "key" | "text">>,
+): Block[] {
+	const at = lastIndexOf(blocks, (block) => block.kind === "user");
+	if (at < 0) return blocks;
+	// Only what the event carried: an older log's missing times leave the fields unset.
+	const known = Object.fromEntries(
+		Object.entries(patch).filter(([, value]) => value !== undefined),
+	);
+	return blocks.map((block, i) => (i === at ? ({ ...block, ...known } as Block) : block));
+}
+
+/** A turn's end: an error or a stop says so; a finished turn settles tools left running. */
+function endTurn(
+	transcript: Transcript,
+	event: Extract<ChatEvent, { type: "turn_end" }>,
+	key: string,
+): Transcript {
+	const blocks = transcript.blocks;
+	if (event.reason === "error") {
+		return {
+			...transcript,
+			blocks: [
+				...blocks,
+				{
+					kind: "notice",
+					key,
+					tone: "error",
+					text: event.error ?? "The agent stopped with an error.",
+				},
+			],
+		};
+	}
+	if (event.reason === "cancelled") {
+		return {
+			...transcript,
+			blocks: [...blocks, { kind: "notice", key, tone: "muted", text: "Stopped." }],
+		};
+	}
+	// Tools still marked running when the turn ends did finish; the agent just never said.
+	return {
+		...transcript,
+		blocks: blocks.map((block) =>
+			block.kind === "tool" && (block.status === "running" || block.status === "pending")
+				? { ...block, status: "completed" }
+				: block,
+		),
+	};
 }
 
 export function replay(events: ChatEvent[]): Transcript {
@@ -247,6 +288,31 @@ export function groupRows(blocks: Block[]): Row[] {
 		}
 	}
 	return out;
+}
+
+/**
+ * The conversation as turns: each message you sent, then everything the agent did in answer to
+ * it, grouped into rows. Anything before the first message (a resumed log) is a turn of its own.
+ */
+export type Turn = { key: string; user: UserBlock | null; rows: Row[] };
+
+export function groupTurns(blocks: Block[]): Turn[] {
+	const turns: { key: string; user: UserBlock | null; blocks: Block[] }[] = [];
+	for (const block of blocks) {
+		if (block.kind === "user") turns.push({ key: block.key, user: block, blocks: [] });
+		else if (turns.length === 0) turns.push({ key: block.key, user: null, blocks: [block] });
+		else turns[turns.length - 1].blocks.push(block);
+	}
+	return turns.map((turn) => ({ key: turn.key, user: turn.user, rows: groupRows(turn.blocks) }));
+}
+
+/** "48s", "1m 28s", "2h 5m": how long a turn took, or has been going. */
+export function formatDuration(ms: number): string {
+	const seconds = Math.max(0, Math.round(ms / 1000));
+	if (seconds < 60) return `${seconds}s`;
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+	return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
 const PATH = /(?:^|[\s"'`(=:])((?:[\w.@~-]+\/)*[\w@-][\w.@-]*\.[a-z][\w]{0,7})(?=$|[\s"'`),:])/i;
@@ -322,4 +388,39 @@ export function summariseTools(tools: Pick<ToolBlock, "title" | "input" | "tool"
 	return [...counts]
 		.map(([kind, n]) => (n === 1 ? COUNTED[kind][0] : COUNTED[kind][1].replace("{n}", String(n))))
 		.join(" · ");
+}
+
+/**
+ * A long run of tool calls counted, the way a changelog reads: "18 steps, edited 5 files, ran 2
+ * commands". Edits count distinct files.
+ */
+export function countWork(tools: Pick<ToolBlock, "title" | "input" | "tool">[]): string {
+	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+	const files = new Set(
+		tools.filter((tool) => tool.tool === "edit").map((tool) => toolFile(tool) ?? tool.title),
+	).size;
+	const commands = tools.filter((tool) => tool.tool === "execute").length;
+	return [
+		plural(tools.length, "step"),
+		...(files ? [`edited ${plural(files, "file")}`] : []),
+		...(commands ? [`ran ${plural(commands, "command")}`] : []),
+	].join(", ");
+}
+
+const KIND_TAGS: Record<ToolBlock["tool"], string | null> = {
+	read: "file",
+	edit: "file",
+	execute: "command",
+	search: "search",
+	fetch: "web",
+	think: null,
+	other: null,
+};
+
+/**
+ * The short tag at the end of a step's line: what sort of thing it touched. Null when that would
+ * only say "tool" again.
+ */
+export function toolTag(tool: Pick<ToolBlock, "tool">): string | null {
+	return KIND_TAGS[tool.tool];
 }

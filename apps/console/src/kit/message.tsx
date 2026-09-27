@@ -28,8 +28,9 @@ function ActionBar(props: { children: JSX.Element; align: "start" | "end" }): JS
 }
 
 /**
- * What you asked: a soft bubble on the right, as wide as the text needs. Long messages clamp to
- * four lines until opened. Actions show on hover; a long press on touch calls `onMenuAt`.
+ * What you asked, opening the turn: a soft card across the column, as wide as the answer under
+ * it. Long messages clamp to four lines until opened. Actions show on hover; a long press on touch
+ * calls `onMenuAt`.
  */
 export function UserMessage(props: {
 	children: JSX.Element;
@@ -42,13 +43,13 @@ export function UserMessage(props: {
 	const [open, setOpen] = createSignal(false);
 	const ref = useTouchMenu(() => props.onMenuAt);
 	return (
-		<div ref={ref} class="group/message flex flex-col items-end gap-1.5">
+		<div ref={ref} class="group/message flex flex-col gap-1.5">
 			<Show when={props.attachments?.length}>
-				<div class="flex flex-wrap justify-end gap-1.5">
+				<div class="flex flex-wrap gap-1.5">
 					<For each={props.attachments}>{(name) => <Attachment name={name} />}</For>
 				</div>
 			</Show>
-			<div class="max-w-[85%] rounded-kit-xl rounded-br-kit-sm bg-fill-strong px-3.5 py-2.5 text-body-lg text-fg md:max-w-[75%]">
+			<div class="surface-well px-4 py-3 text-body-lg text-fg">
 				<div
 					class={`whitespace-pre-wrap break-words ${props.clamp && !open() ? "line-clamp-4" : ""}`}
 				>

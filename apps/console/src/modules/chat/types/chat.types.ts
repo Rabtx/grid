@@ -45,8 +45,9 @@ export type ChatEvent =
 			contextWindow?: number;
 			costUsd?: number;
 	  }
-	| { type: "turn_start" }
-	| { type: "turn_end"; reason: "done" | "cancelled" | "error"; error?: string }
+	/** `at`: when the turn began (ISO time); older logs lack it. */
+	| { type: "turn_start"; at?: string }
+	| { type: "turn_end"; reason: "done" | "cancelled" | "error"; error?: string; at?: string }
 	| {
 			type: "info";
 			models?: Choice[];

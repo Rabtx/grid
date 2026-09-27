@@ -55,6 +55,10 @@ function safeHref(href: string): string | null {
 	}
 }
 
+// Backticked text that is a file path, maybe with a line: `src/theme/derive.ts:112`, `README.md`.
+const FILE_PATH =
+	/^(?:\.{0,2}\/|~\/)?(?:[\w@.-]+\/)*[\w@-][\w.@-]*\.[a-z][a-z0-9]{0,7}(?::\d+(?::\d+)?)?$/i;
+
 /**
  * Markdown for agent replies. Raw HTML in the text is shown as text, not rendered, and links
  * are limited to safe schemes, so nothing an agent prints can run in the page.
@@ -63,6 +67,11 @@ const markdown = new Marked({
 	gfm: true,
 	breaks: false,
 	renderer: {
+		codespan(token: Tokens.Codespan) {
+			// A file the agent names reads as a file: a chip with a file mark (see .chat-prose).
+			const kind = FILE_PATH.test(token.text.trim()) ? ' class="file-chip"' : "";
+			return `<code${kind}>${escapeHtml(token.text)}</code>`;
+		},
 		html(token: Tokens.HTML | Tokens.Tag) {
 			// Key caps are the one tag agents use that is harmless to keep; all else shows as text.
 			if (/^<\/?kbd>$/i.test(token.text.trim())) return token.text.trim().toLowerCase();

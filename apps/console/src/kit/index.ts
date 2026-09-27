@@ -91,6 +91,7 @@ export {
 	CodeView,
 	Disclosure,
 	InlineNotice,
+	NoticeCard,
 	type PlanEntry,
 	PlanList,
 	Pre,
@@ -99,6 +100,7 @@ export {
 	type RunStep,
 	RunSteps,
 	type StepStatus,
+	TurnHeader,
 } from "./run";
 export { type EffortLevel, EffortSlider } from "./effort";
 export { igniteGrid, type IgniteOptions } from "./ignite";

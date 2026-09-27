@@ -103,7 +103,7 @@ describe("TranscriptView - Add as note", () => {
 });
 
 describe("TranscriptView - User Message", () => {
-	it("renders user message right-aligned with rounded bubble and a copy action", async () => {
+	it("opens the turn with what you asked in a soft card, with a copy action", async () => {
 		const blocks: Block[] = [{ kind: "user", key: "b0", text: "Hello world" }];
 		const root = mount(() => (
 			<>
@@ -114,9 +114,7 @@ describe("TranscriptView - User Message", () => {
 
 		const userWrapper = root.querySelector(".group\\/message");
 		expect(userWrapper).not.toBeNull();
-		expect(userWrapper?.className).toContain("items-end");
-
-		const bubble = userWrapper?.querySelector(".bg-fill-strong");
+		const bubble = userWrapper?.querySelector(".surface-well");
 		expect(bubble).not.toBeNull();
 		expect(bubble?.textContent).toContain("Hello world");
 
@@ -242,5 +240,94 @@ describe("TranscriptView - touch", () => {
 		);
 		expect(bars.length).toBe(2);
 		for (const bar of bars) expect(bar).toContain("pointer-coarse:hidden");
+	});
+});
+
+describe("TranscriptView - Turns", () => {
+	const tool = (n: number, kind: "read" | "edit" | "execute" = "read"): Block => ({
+		kind: "tool",
+		key: `t${n}`,
+		id: `t${n}`,
+		title: kind === "execute" ? "bun test" : `src/file-${n}.ts`,
+		tool: kind,
+		status: "completed",
+		input: kind === "execute" ? undefined : JSON.stringify({ path: `src/file-${n}.ts` }),
+	});
+
+	it("says how long a finished turn worked, then Done", () => {
+		const blocks: Block[] = [
+			{
+				kind: "user",
+				key: "b0",
+				text: "Fix the build",
+				startedAt: "2026-09-27T10:00:00.000Z",
+				endedAt: "2026-09-27T10:01:28.000Z",
+				outcome: "done",
+			},
+			{ kind: "assistant", key: "b1", text: "Fixed." },
+		];
+		const root = mount(() => (
+			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
+		));
+		flush();
+		expect(root.textContent).toContain("Worked for 1m 28s");
+		expect(root.textContent).toContain("Done");
+	});
+
+	it("shows the agent working, and no Done, while the turn runs", () => {
+		const blocks: Block[] = [{ kind: "user", key: "b0", text: "Fix the build" }];
+		const root = mount(() => (
+			<TranscriptView blocks={blocks} running={true} onApprove={() => {}} />
+		));
+		flush();
+		expect(root.textContent).toContain("Working…");
+		expect(root.textContent).not.toContain("Done");
+	});
+
+	it("lists a few steps line by line, each tagged with what it touched", () => {
+		const blocks: Block[] = [
+			{ kind: "user", key: "b0", text: "Look around" },
+			tool(1),
+			tool(2, "execute"),
+		];
+		const root = mount(() => (
+			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
+		));
+		flush();
+		const lines = [...root.querySelectorAll("summary")].map((line) => line.textContent ?? "");
+		expect(lines).toHaveLength(2);
+		expect(lines[0]).toContain("file-1.ts");
+		expect(lines[0]).toContain("file");
+		expect(lines[1]).toContain("command");
+	});
+
+	it("folds a long run into one counted line", () => {
+		const blocks: Block[] = [
+			{ kind: "user", key: "b0", text: "Refactor" },
+			...[1, 2, 3, 4, 5].map((n) => tool(n, "edit")),
+			tool(6, "execute"),
+			tool(7, "execute"),
+		];
+		const root = mount(() => (
+			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
+		));
+		flush();
+		const first = root.querySelector("summary")?.textContent ?? "";
+		expect(first).toContain("7 steps, edited 5 files, ran 2 commands");
+	});
+
+	it("names a failure as needing a fix, in a card", () => {
+		const blocks: Block[] = [
+			{ kind: "user", key: "b0", text: "Deploy", outcome: "error" },
+			{ kind: "notice", key: "b1", tone: "error", text: "Access expired mid-read." },
+		];
+		const root = mount(() => (
+			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
+		));
+		flush();
+		expect(root.textContent).toContain("Needs a fix");
+		expect(root.querySelector(".surface-well")?.textContent ?? "").toContain("Deploy");
+		expect(root.textContent).toContain("Access expired mid-read.");
+		expect(root.textContent).not.toContain("Done");
 	});
 });

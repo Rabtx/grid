@@ -70,3 +70,16 @@ describe("renderMarkdown", () => {
 		expect(html).not.toContain("<span onclick");
 	});
 });
+
+describe("file chips", () => {
+	it("marks backticked file paths as files, and leaves other code alone", () => {
+		const html = renderMarkdown("Edit `src/theme/derive.ts:112`, run `bun test`, see `README.md`.");
+		expect(html).toContain('<code class="file-chip">src/theme/derive.ts:112</code>');
+		expect(html).toContain("<code>bun test</code>");
+		expect(html).toContain('<code class="file-chip">README.md</code>');
+	});
+
+	it("escapes inline code", () => {
+		expect(renderMarkdown("`<b>&x`")).toContain("<code>&lt;b&gt;&amp;x</code>");
+	});
+});

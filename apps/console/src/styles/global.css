@@ -141,6 +141,24 @@
 		border-radius: 0.3rem;
 		background: color-mix(in srgb, var(--ink) 8%, transparent);
 	}
+	/* A file named in a reply: its path on the chip, a small file mark before it. */
+	& code.file-chip {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 0.3em;
+		color: var(--kit-fg-muted, currentColor);
+	}
+	& code.file-chip::before {
+		content: "";
+		align-self: center;
+		flex: none;
+		width: 0.95em;
+		height: 0.95em;
+		background: currentColor;
+		opacity: 0.7;
+		mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 3v5h5'/%3E%3C/svg%3E")
+			center / contain no-repeat;
+	}
 	& pre {
 		overflow-x: auto;
 		padding: 0.7em 0.85em;

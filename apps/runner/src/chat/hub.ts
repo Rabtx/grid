@@ -311,7 +311,7 @@ export class ChatHub {
 		}
 		this.record(id, { type: "user", text: message });
 		this.setRunning(id, live, true);
-		this.record(id, { type: "turn_start" });
+		this.record(id, { type: "turn_start", at: new Date().toISOString() });
 
 		let result: Awaited<ReturnType<AgentSession["prompt"]>>;
 		try {
@@ -322,7 +322,12 @@ export class ChatHub {
 			// A failed start leaves nothing to reuse.
 			live.agent = null;
 		}
-		this.record(id, { type: "turn_end", reason: result.reason, error: result.error });
+		this.record(id, {
+			type: "turn_end",
+			reason: result.reason,
+			error: result.error,
+			at: new Date().toISOString(),
+		});
 		this.setRunning(id, live, false);
 		this.store.touch(id);
 		this.scheduleIdle(id, live);
