@@ -8,8 +8,9 @@ import { linkFor } from "@/lib/runner-link";
 import { quietReconnects } from "@/lib/quiet-reconnects";
 import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
+import { placementsStore } from "@/modules/environments/stores/placements";
 import { notesStore } from "@/modules/projects";
-import { Alert, Banner, BranchIcon, FolderIcon, notify, Row, Text } from "@/kit";
+import { Alert, Banner, FolderIcon, notify, Row, Text } from "@/kit";
 
 import { type ChatConnection, connectChat, type ChatSocket } from "../lib/chat-socket";
 import { applyEvent, emptyTranscript, replay, type Transcript } from "../lib/transcript";
@@ -20,6 +21,7 @@ import type { ChatEvent, ChatProvider, ChatSession } from "../types/chat.types";
 import { mergeModels } from "../lib/choices";
 
 import { Composer } from "./composer";
+import { GitControl } from "./git-control";
 import { ModelPicker, ModePicker } from "./pickers";
 import { TranscriptView } from "./transcript-view";
 
@@ -337,34 +339,19 @@ export function Conversation(props: {
 						header={
 							<Show when={place()}>
 								{(current) => (
-									<Show
-										when={current().worktree}
-										fallback={
-											<Row gap={1.5} class="min-w-0">
-												<FolderIcon size="sm" />
-												<Text as="span" size="caption" tone="subtle" truncate>
-													{shortPath(current().cwd)}
-												</Text>
-											</Row>
-										}
-									>
-										{(worktree) => (
-											// Its own worktree: the branch it works on, and where it started.
-											<Row gap={1.5} class="min-w-0">
-												<BranchIcon size="sm" />
-												<Text as="span" size="caption" tone="subtle" mono truncate>
-													{worktree().branch}
-												</Text>
-												<Show when={worktree().base}>
-													{(base) => (
-														<Text as="span" size="caption" tone="faint" truncate>
-															from {base()}
-														</Text>
-													)}
-												</Show>
-											</Row>
-										)}
-									</Show>
+									<>
+										<Row gap={1.5} class="min-w-0">
+											<FolderIcon size="sm" />
+											<Text as="span" size="caption" tone="subtle" truncate>
+												{current().worktree ? "Own worktree" : shortPath(current().cwd)}
+											</Text>
+										</Row>
+										<GitControl
+											folder={current().cwd}
+											scope={placementsStore.scopeOf(current().project)}
+											inWorktree={Boolean(current().worktree)}
+										/>
+									</>
 								)}
 							</Show>
 						}

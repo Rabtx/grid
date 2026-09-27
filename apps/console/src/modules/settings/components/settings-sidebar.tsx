@@ -5,6 +5,7 @@ import { For } from "solid-js";
 import {
 	BackIcon,
 	BellIcon,
+	BranchIcon,
 	GlobeIcon,
 	LinkIcon,
 	NavLink,
@@ -24,6 +25,7 @@ const ICONS: Record<SettingsHref, () => JSX.Element> = {
 	"/settings/agents": () => <RocketIcon />,
 	"/settings/environments": () => <GlobeIcon />,
 	"/settings/connectors": () => <LinkIcon />,
+	"/settings/worktrees": () => <BranchIcon />,
 	"/settings/account": () => <UserIcon />,
 };
 

@@ -30,11 +30,11 @@ export type ChatSessionRow = {
 
 /** What each project is set to on this machine. */
 export type ProjectSettings = {
-	/** New chats get their own git worktree (on unless turned off). */
+	/** New chats start in their own git worktree unless the composer says otherwise (off by default). */
 	worktrees: boolean;
 };
 
-const DEFAULT_PROJECT_SETTINGS: ProjectSettings = { worktrees: true };
+const DEFAULT_PROJECT_SETTINGS: ProjectSettings = { worktrees: false };
 
 type Row = {
 	id: string;
@@ -255,6 +255,16 @@ export class ChatStore {
 		this.db
 			.query(`UPDATE sessions SET ${sets}, updated_at = ? WHERE id = ?`)
 			.run(...values, new Date().toISOString(), id);
+	}
+
+	/** The workspace's chats that have a worktree. */
+	withWorktrees(workspace: string): ChatSessionRow[] {
+		return this.db
+			.query<Row, [string]>(
+				"SELECT * FROM sessions WHERE workspace_id = ? AND worktree IS NOT NULL ORDER BY updated_at DESC",
+			)
+			.all(workspace)
+			.map(toSession);
 	}
 
 	projectSettings(workspace: string, project: string): ProjectSettings {

@@ -13,6 +13,7 @@ import {
 	AppearanceScreen,
 	NotificationsScreen,
 	SettingsIndexScreen,
+	WorktreesScreen,
 } from "@/modules/settings";
 import { InviteScreen } from "@/modules/workspaces";
 
@@ -55,6 +56,7 @@ const Router = createRouter({
 		{ path: "/settings/agents", component: () => <Authed screen={AgentsScreen} /> },
 		{ path: "/settings/environments", component: () => <Authed screen={EnvironmentsScreen} /> },
 		{ path: "/settings/connectors", component: () => <Authed screen={ConnectorsScreen} /> },
+		{ path: "/settings/worktrees", component: () => <Authed screen={WorktreesScreen} /> },
 		{ path: "/settings/account", component: () => <Authed screen={AccountScreen} /> },
 		// The design system, every piece in every state; loads on its own when opened.
 		{ path: "/design", component: DesignRoute },

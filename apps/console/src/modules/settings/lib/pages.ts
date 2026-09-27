@@ -36,6 +36,11 @@ export const SETTINGS_SECTIONS = [
 				description: "Codespaces and other machines",
 			},
 			{
+				href: "/settings/worktrees",
+				label: "Worktrees",
+				description: "Separate checkouts threads work in",
+			},
+			{
 				href: "/settings/connectors",
 				label: "Connectors",
 				description: "GitHub and other services",

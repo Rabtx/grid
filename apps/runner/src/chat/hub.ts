@@ -16,11 +16,20 @@ import type {
 } from "./store";
 import {
 	createWorktree,
+	leftoverWorktrees,
 	removeWorktree,
+	repoRoot,
+	type Worktree,
 	WorktreeError,
 	type WorktreeStatus,
 	worktreeStatus,
 } from "./worktrees";
+
+/** A worktree as the settings page lists it: how it stands, and the chat using it, if any. */
+export type WorktreeEntry = WorktreeStatus & {
+	project: string;
+	chat: { id: string; title: string } | null;
+};
 
 /** One device watching a session. `n` numbers each event, for catching up after a drop. */
 export type ChatClient = {
@@ -243,6 +252,8 @@ export class ChatHub {
 			effort?: string;
 			/** Its own git worktree; by default what the project is set to. */
 			worktree?: boolean;
+			/** The new worktree's branch; `grid/chat-<id>` when not given. */
+			branch?: string;
 		},
 	): ChatSessionRow {
 		const provider = this.providers.get(input.provider);
@@ -255,7 +266,7 @@ export class ChatHub {
 		const id = crypto.randomUUID();
 		const wanted =
 			input.worktree ?? this.store.projectSettings(who.workspace, input.project).worktrees;
-		const own = wanted ? this.worktreeFor(boundedCwd, id) : null;
+		const own = wanted ? this.worktreeFor(boundedCwd, id, input.branch) : null;
 		return this.store.create({
 			id,
 			ownerId: who.userId,
@@ -272,9 +283,13 @@ export class ChatHub {
 	}
 
 	/** A worktree for a new chat, or null when the folder is not in a git repository. */
-	private worktreeFor(folder: string, id: string): ReturnType<typeof createWorktree> {
+	private worktreeFor(
+		folder: string,
+		id: string,
+		branch?: string,
+	): ReturnType<typeof createWorktree> {
 		try {
-			return createWorktree(folder, id, this.projectsDir);
+			return createWorktree(folder, id, this.projectsDir, branch);
 		} catch (cause) {
 			if (cause instanceof WorktreeError) throw new ChatError(cause.message, cause.status);
 			throw cause;
@@ -308,6 +323,82 @@ export class ChatHub {
 		// The agent was working in the worktree: the next message starts it in the project folder.
 		this.park(id);
 		this.store.update(id, { worktree: null, cwd: session.worktree.origin, resumeToken: null });
+	}
+
+	/**
+	 * Every Grid worktree of the workspace's projects on this machine, with how it stands: those
+	 * chats work in, and those left over from deleted chats (kept because they held work).
+	 */
+	worktrees(workspace: string): WorktreeEntry[] {
+		const entries: WorktreeEntry[] = [];
+		for (const session of this.store.withWorktrees(workspace)) {
+			if (!session.worktree) continue;
+			entries.push({
+				...worktreeStatus(session.worktree),
+				project: session.project,
+				chat: { id: session.id, title: session.title },
+			});
+		}
+		for (const { project, worktree } of this.leftovers(workspace)) {
+			entries.push({ ...worktreeStatus(worktree), project, chat: null });
+		}
+		return entries;
+	}
+
+	/**
+	 * Remove a worktree from the list: a chat's (the chat carries on in its project folder) or a
+	 * leftover. The same refusals as removing it from a chat: nothing is lost without `force`.
+	 */
+	removeWorktreeAt(
+		workspace: string,
+		path: string,
+		options: { deleteBranch: boolean; force?: boolean },
+	): void {
+		const owner = this.store.withWorktrees(workspace).find((row) => row.worktree?.path === path);
+		if (owner) return this.discardWorktree(workspace, owner.id, options);
+		const leftover = this.leftovers(workspace).find(
+			({ worktree }) => worktree.path === path,
+		)?.worktree;
+		if (!leftover) throw new ChatError("That worktree is not one of this workspace's", 404);
+		try {
+			removeWorktree(leftover, options);
+		} catch (cause) {
+			if (cause instanceof WorktreeError) throw new ChatError(cause.message, cause.status);
+			throw cause;
+		}
+	}
+
+	/** Remove every worktree that holds nothing (no changes, no commits of its own). */
+	cleanWorktrees(workspace: string): number {
+		let removed = 0;
+		for (const entry of this.worktrees(workspace)) {
+			if (entry.changed > 0 || entry.unpushed > 0) continue;
+			const running = entry.chat && this.live.get(entry.chat.id)?.running;
+			if (running) continue;
+			this.removeWorktreeAt(workspace, entry.path, { deleteBranch: true });
+			removed++;
+		}
+		return removed;
+	}
+
+	/** Grid worktrees on disk that no chat of the workspace uses, with the project they belong to. */
+	private leftovers(workspace: string): { project: string; worktree: Worktree }[] {
+		const used = new Set(
+			this.store
+				.withWorktrees(workspace)
+				.map((row) => row.worktree?.path)
+				.filter((path): path is string => Boolean(path)),
+		);
+		const found: { project: string; worktree: Worktree }[] = [];
+		const repos = new Set<string>();
+		for (const [project, folder] of Object.entries(this.store.projectFolders(workspace))) {
+			const repo = isDirectory(folder) ? repoRoot(folder) : null;
+			if (!repo || repos.has(repo)) continue;
+			repos.add(repo);
+			for (const worktree of leftoverWorktrees(repo, this.projectsDir, used))
+				found.push({ project, worktree });
+		}
+		return found;
 	}
 
 	projectSettings(workspace: string, project: string): ProjectSettings {

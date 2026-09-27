@@ -95,7 +95,7 @@ export function IconButton(props: IconButtonProps): JSX.Element {
 	);
 }
 
-const linkButton = variants({
+export const linkButton = variants({
 	base: "focus-ring inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-kit-sm text-caption transition-colors duration-fast",
 	variants: {
 		tone: {
