@@ -62,6 +62,7 @@ export async function chatRequest(
 						mode: typeof body.mode === "string" ? body.mode : undefined,
 						effort: typeof body.effort === "string" ? body.effort : undefined,
 						worktree: typeof body.worktree === "boolean" ? body.worktree : undefined,
+						branch: typeof body.branch === "string" ? body.branch : undefined,
 					}),
 				},
 				{ status: 201 },
@@ -78,6 +79,24 @@ export async function chatRequest(
 		if (typeof body.worktrees !== "boolean") return failure(400, "Say whether to use worktrees");
 		hub.setProjectSettings(workspace, settings[1], { worktrees: body.worktrees });
 		return new Response(null, { status: 204 });
+	}
+	// Every worktree of the workspace (Settings → Worktrees), removing one, and cleaning up.
+	if (url.pathname === "/chat/worktrees" && request.method === "GET") {
+		return run(() => Response.json({ data: hub.worktrees(workspace) }));
+	}
+	if (url.pathname === "/chat/worktrees/remove" && request.method === "POST") {
+		const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+		if (typeof body.path !== "string") return failure(400, "Say which worktree");
+		return run(() => {
+			hub.removeWorktreeAt(workspace, body.path as string, {
+				deleteBranch: body.deleteBranch === true,
+				force: body.force === true,
+			});
+			return new Response(null, { status: 204 });
+		});
+	}
+	if (url.pathname === "/chat/worktrees/clean" && request.method === "POST") {
+		return run(() => Response.json({ data: { removed: hub.cleanWorktrees(workspace) } }));
 	}
 	// A chat's worktree: how it stands, and discarding it (`{ deleteBranch, force }`).
 	const worktree = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/worktree(\/discard)?$/);

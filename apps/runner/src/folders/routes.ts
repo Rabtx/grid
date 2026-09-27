@@ -1,6 +1,7 @@
 import type { ChatHub } from "../chat/hub";
 import { ChatError } from "../chat/hub";
 import { expandPath, FolderError, insideProjectsDir, inspectFolder, listFolders } from "./folders";
+import { checkout, GitError, gitInfo } from "./git";
 import {
 	createProjectFile,
 	listProjectFiles,
@@ -67,6 +68,18 @@ export async function folderRequest(
 				},
 			});
 		}
+		// The composer's git control: a folder's branch and branches, and switching or creating one.
+		if (url.pathname === "/fs/git" && request.method === "GET") {
+			const path = insideProjectsDir(expandPath(url.searchParams.get("path") ?? ""), projectsDir);
+			return Response.json({ data: gitInfo(path) });
+		}
+		if (url.pathname === "/fs/git/checkout" && request.method === "POST") {
+			const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+			if (typeof body.path !== "string" || typeof body.branch !== "string")
+				return failure(400, "Say which folder and which branch");
+			const path = insideProjectsDir(expandPath(body.path), projectsDir);
+			return Response.json({ data: checkout(path, body.branch, body.create === true) });
+		}
 		if (url.pathname === "/fs/inspect" && request.method === "GET") {
 			const path = insideProjectsDir(
 				expandPath(url.searchParams.get("path") || projectsDir),
@@ -95,7 +108,7 @@ export async function folderRequest(
 			return new Response(null, { status: 204 });
 		}
 	} catch (cause) {
-		if (cause instanceof FolderError || cause instanceof ChatError)
+		if (cause instanceof FolderError || cause instanceof ChatError || cause instanceof GitError)
 			return failure(cause.status, cause.message);
 		throw cause;
 	}

@@ -4,8 +4,8 @@ import { basename, join, relative } from "node:path";
 /**
  * A git worktree for each chat: its own checkout and branch of the project's repository, so
  * agents working in parallel never trip over each other or over the person's own checkout. Grid
- * keeps them together under `<projects>/.grid-worktrees/<repository>/`, one per chat, on branches
- * named `grid/chat-<id>`. Everything here is plain `git`.
+ * keeps them together under `<projects>/.grid-worktrees/<repository>/`, one per chat, on a branch
+ * the person names (or `grid/chat-<id>`). Everything here is plain `git`.
  */
 
 export type Worktree = {
@@ -87,13 +87,27 @@ export function createWorktree(
 	folder: string,
 	chatId: string,
 	projectsDir: string,
+	/** The new branch's name; `grid/chat-<id>` when not given. */
+	branchName?: string,
 ): { cwd: string; worktree: Worktree } | null {
 	const repo = repoRoot(folder);
 	if (!repo) return null;
 	const head = git(repo, ["rev-parse", "--abbrev-ref", "HEAD"]);
 	const base = head.ok && head.out !== "HEAD" ? head.out : null;
-	const name = `chat-${chatId.slice(0, 8)}`;
-	const branch = `grid/${name}`;
+	const branch = branchName?.trim() || `grid/chat-${chatId.slice(0, 8)}`;
+	if (!git(repo, ["check-ref-format", "--branch", branch]).ok) {
+		throw new WorktreeError(`"${branch}" is not a branch name git accepts`, 400);
+	}
+	if (git(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]).ok) {
+		throw new WorktreeError(`A branch called ${branch} already exists`, 409);
+	}
+	// The folder is named after the branch (Grid's own prefix left off), flattened:
+	// `feature/login` → `feature-login`, `grid/chat-1a2b3c4d` → `chat-1a2b3c4d`.
+	const name =
+		branch
+			.replace(/^grid\//, "")
+			.replace(/[^\w.-]+/g, "-")
+			.replace(/^-+|-+$/g, "") || `chat-${chatId.slice(0, 8)}`;
 	const path = join(worktreesDir(projectsDir, repo), name);
 	if (existsSync(path)) throw new WorktreeError(`${path} already exists`, 409);
 	const added = git(repo, ["worktree", "add", "-b", branch, path, "HEAD"]);
@@ -170,4 +184,23 @@ export function removeWorktree(
 		git(worktree.repo, ["worktree", "prune"]);
 	}
 	if (options.deleteBranch) git(worktree.repo, ["branch", "-D", worktree.branch]);
+}
+
+/** A Grid worktree on disk that no chat uses any more (its chat was deleted while it held work). */
+export function leftoverWorktrees(
+	repo: string,
+	projectsDir: string,
+	used: Set<string>,
+): Worktree[] {
+	const listed = git(repo, ["worktree", "list", "--porcelain"]);
+	if (!listed.ok) return [];
+	const home = worktreesDir(projectsDir, repo);
+	const found: Worktree[] = [];
+	for (const entry of listed.out.split("\n\n")) {
+		const path = entry.match(/^worktree (.+)$/m)?.[1];
+		const branch = entry.match(/^branch refs\/heads\/(.+)$/m)?.[1];
+		if (!path || !branch || !path.startsWith(`${home}/`) || used.has(path)) continue;
+		found.push({ repo, path, branch, base: null, origin: repo });
+	}
+	return found;
 }

@@ -14,7 +14,7 @@ export {
 } from "./avatar";
 export { Badge, Count, Kbd, type Tone } from "./badge";
 export { BrandLogo, BrandMark } from "./brand";
-export { Button, button, IconButton, iconButton, LinkButton, TextLink } from "./button";
+export { Button, button, IconButton, iconButton, LinkButton, linkButton, TextLink } from "./button";
 export {
 	BoardColumn,
 	BoardSkeleton,

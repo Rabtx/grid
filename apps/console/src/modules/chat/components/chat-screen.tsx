@@ -28,6 +28,7 @@ import { offeredProviders, providersStore } from "../stores/providers";
 import { threadsStore } from "../stores/threads";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
 
+import { GitControl, type WorkPlace } from "./git-control";
 import { Composer, type ComposerControl } from "./composer";
 import { Conversation, queueFirstMessage } from "./conversation";
 import { ModelPicker, ModePicker } from "./pickers";
@@ -292,6 +293,9 @@ function NewChat(props: {
 		);
 	};
 
+	// Where the new thread will work: chosen in the git control, the folder unless changed.
+	const [place, setPlace] = createSignal<WorkPlace>({ worktree: false, branch: "" });
+
 	async function start(text: string): Promise<boolean> {
 		const token = auth.token();
 		const provider = chosen();
@@ -308,6 +312,8 @@ function NewChat(props: {
 					model: model() ?? undefined,
 					effort: effort() ?? undefined,
 					mode: mode() ?? provider.settings?.mode ?? undefined,
+					worktree: place().worktree,
+					...(place().worktree && place().branch.trim() ? { branch: place().branch.trim() } : {}),
 				},
 				placementsStore.scopeOf(props.project),
 			);
@@ -391,7 +397,19 @@ function NewChat(props: {
 							running={false}
 							disabled={!chosen() || !props.project || !props.folder}
 							onSend={start}
-							header={<FolderLine folder={props.folder} onChoose={props.onChooseFolder} />}
+							header={
+								<>
+									<FolderLine folder={props.folder} onChoose={props.onChooseFolder} />
+									<Show when={props.folder && props.project}>
+										<GitControl
+											folder={props.folder ?? ""}
+											scope={placementsStore.scopeOf(props.project)}
+											place={place()}
+											onPlace={setPlace}
+										/>
+									</Show>
+								</>
+							}
 							controls={
 								<Show when={chosen()}>
 									{(provider) => (

@@ -97,26 +97,43 @@ const provider: Provider = {
 describe("chats in worktrees", () => {
 	const who = { userId: "u1", workspace: "w1" };
 
-	it("starts each new chat in its own worktree, unless the project turns that off", () => {
+	it("works in the project folder unless a worktree is asked for, on the branch named", () => {
 		const blog = repo("blog");
 		const hub = new ChatHub(new ChatStore(":memory:"), new Map([["fake", provider]]), projects);
 		hub.linkProjectFolder("w1", "blog", blog);
 
-		const chat = hub.create(who, { project: "blog", provider: "fake" });
-		expect(chat.worktree?.branch).toBe(`grid/chat-${chat.id.slice(0, 8)}`);
-		expect(chat.cwd).toBe(chat.worktree?.path ?? "");
-
-		hub.setProjectSettings("w1", "blog", { worktrees: false });
 		const plain = hub.create(who, { project: "blog", provider: "fake" });
 		expect(plain.worktree).toBeNull();
 		expect(plain.cwd).toBe(blog);
+
+		const named = hub.create(who, {
+			project: "blog",
+			provider: "fake",
+			worktree: true,
+			branch: "feature/login",
+		});
+		expect(named.worktree?.branch).toBe("feature/login");
+		expect(named.cwd).toBe(join(projects, ".grid-worktrees", "blog", "feature-login"));
+		expect(() =>
+			hub.create(who, {
+				project: "blog",
+				provider: "fake",
+				worktree: true,
+				branch: "feature/login",
+			}),
+		).toThrow("already exists");
+
+		// A project set to start every thread in a worktree names them itself.
+		hub.setProjectSettings("w1", "blog", { worktrees: true });
+		const auto = hub.create(who, { project: "blog", provider: "fake" });
+		expect(auto.worktree?.branch).toBe(`grid/chat-${auto.id.slice(0, 8)}`);
 	});
 
 	it("carries on in the project folder once its worktree is discarded", () => {
 		const docs = repo("docs");
 		const hub = new ChatHub(new ChatStore(":memory:"), new Map([["fake", provider]]), projects);
 		hub.linkProjectFolder("w1", "docs", docs);
-		const chat = hub.create(who, { project: "docs", provider: "fake" });
+		const chat = hub.create(who, { project: "docs", provider: "fake", worktree: true });
 		const path = chat.worktree?.path ?? "";
 
 		hub.discardWorktree("w1", chat.id, { deleteBranch: true });
@@ -131,13 +148,40 @@ describe("chats in worktrees", () => {
 		const site = repo("site");
 		const hub = new ChatHub(new ChatStore(":memory:"), new Map([["fake", provider]]), projects);
 		hub.linkProjectFolder("w1", "site", site);
-		const empty = hub.create(who, { project: "site", provider: "fake" });
-		const busy = hub.create(who, { project: "site", provider: "fake" });
+		const empty = hub.create(who, { project: "site", provider: "fake", worktree: true });
+		const busy = hub.create(who, { project: "site", provider: "fake", worktree: true });
 		writeFileSync(join(busy.cwd, "wip.ts"), "// half done\n");
 
 		hub.delete("w1", empty.id);
 		hub.delete("w1", busy.id);
 		expect(existsSync(empty.cwd)).toBe(false);
 		expect(existsSync(join(busy.cwd, "wip.ts"))).toBe(true);
+
+		// The kept one is listed as a leftover, with what it holds, and can be removed from there.
+		const leftover = hub.worktrees("w1").find((entry) => entry.path === busy.cwd);
+		expect(leftover).toMatchObject({ project: "site", chat: null, changed: 1 });
+		expect(() => hub.removeWorktreeAt("w1", busy.cwd, { deleteBranch: true })).toThrow(
+			"1 changed file",
+		);
+		hub.removeWorktreeAt("w1", busy.cwd, { deleteBranch: true, force: true });
+		expect(existsSync(busy.cwd)).toBe(false);
+	});
+
+	it("lists the chats' worktrees and cleans up only those that hold nothing", () => {
+		const shop = repo("store");
+		const hub = new ChatHub(new ChatStore(":memory:"), new Map([["fake", provider]]), projects);
+		hub.linkProjectFolder("w1", "store", shop);
+		const idle = hub.create(who, { project: "store", provider: "fake", worktree: true });
+		const working = hub.create(who, { project: "store", provider: "fake", worktree: true });
+		writeFileSync(join(working.cwd, "draft.md"), "draft\n");
+
+		const listed = hub.worktrees("w1").filter((entry) => entry.project === "store");
+		expect(listed.map((entry) => entry.chat?.id).sort()).toEqual([idle.id, working.id].sort());
+
+		expect(hub.cleanWorktrees("w1")).toBe(1);
+		expect(existsSync(idle.cwd)).toBe(false);
+		expect(existsSync(join(working.cwd, "draft.md"))).toBe(true);
+		// The cleaned-up chat carries on in the project folder.
+		expect(hub.list("w1", "store").find((row) => row.id === idle.id)?.cwd).toBe(shop);
 	});
 });

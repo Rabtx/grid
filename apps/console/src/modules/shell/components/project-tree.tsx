@@ -72,7 +72,7 @@ function projectMenu(worktrees: boolean | null): MenuGroup[] {
 			items: [
 				{
 					id: "worktrees",
-					label: "A worktree per thread",
+					label: "Start threads in a worktree",
 					icon: <BranchIcon />,
 					disabled: worktrees === null,
 					trailing: worktrees ? <CheckIcon size="sm" /> : undefined,
