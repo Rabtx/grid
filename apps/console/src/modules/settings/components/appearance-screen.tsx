@@ -140,6 +140,23 @@ export function AppearanceScreen(): JSX.Element {
 				</Row>
 			</Group>
 
+			<Group title="Fun" description="Small moments of delight, on this device.">
+				<Row
+					label="Celebrations"
+					description="Light up the grid when you pick a flagship model. Desktop only, and never with reduced motion."
+				>
+					<SegmentedControl
+						label="Celebrations"
+						options={[
+							{ value: "on", label: "On" },
+							{ value: "off", label: "Off" },
+						]}
+						value={appearance().celebrations ? "on" : "off"}
+						onChange={(value) => updateAppearance({ celebrations: value === "on" })}
+					/>
+				</Row>
+			</Group>
+
 			<Group title="Account" description="Who is signed in to this console.">
 				<Row label={auth.user()?.email ?? "Signed in"} description="Signing out ends this session.">
 					<Button variant="secondary" onClick={() => void auth.logout()}>

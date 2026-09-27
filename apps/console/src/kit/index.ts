@@ -92,7 +92,9 @@ export {
 	RunSteps,
 	type StepStatus,
 } from "./run";
+export { igniteGrid, type IgniteOptions } from "./ignite";
 export { ListDetail, ListRow, PaneHeader } from "./pane";
+export { ChoiceRail, FlagshipMark, ModelRow, type RailItem } from "./picker";
 export { PixelMark, ProjectMark, type ProjectMarkShape } from "./project-mark";
 export { FLOATING_MIC, VoiceDock, VoiceError, VoiceStatus } from "./voice";
 export { Select, type SelectGroup, type SelectOption } from "./select";

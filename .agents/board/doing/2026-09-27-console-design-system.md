@@ -99,7 +99,20 @@ references very closely, Inter, fix look and feel and navigation/layout, gallery
    `KeyStrip`, `PageDots`, `VoiceDock`, `VoiceStatus`, `VoiceError`, `FLOATING_MIC`, and
    `HeaderTabs` badges and a `newAction` slot.
 
+9. **Model picker and the grid ignition (agent/frontend/model-picker).** The model panel is a
+   rail (favourites, then each agent on the machine) beside a searchable list grouped by lab,
+   with effort along the bottom; picking another agent's model switches to that agent. Models
+   can be starred (kept on the device). Picking a flagship (Opus, GPT-5.x, Astra, Gemini
+   Pro/Ultra, Grok 4) plays the grid ignition on desktop: a wave lights the grid from the click,
+   the cells spell the model in a 5×7 pixel font, then burst into sparks. Off with reduced motion
+   and under Settings → Appearance → Celebrations. New kit pieces: `ChoiceRail`, `ModelRow`,
+   `FlagshipMark`, `igniteGrid`, `StarIcon`, `SparklesIcon`.
+
 ### Validation
+
+- Model picker: console vitest 49 files / 294 tests (picker: rail, cross-agent pick,
+  favourites; flagship rules); guard, lint, typecheck, architecture and naming pass. Checked in
+  the browser at 1280px (panel, favourites, the ignition playing) and 375px (the sheet).
 
 - Terminal port: console vitest 47 files / 288 tests; guard, lint, typecheck, architecture and
   naming pass. Checked in the browser against this machine's runner: the header tab with its
