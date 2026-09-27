@@ -46,7 +46,14 @@ export type Block =
 			resolved?: string | null;
 	  }
 	| { kind: "plan"; key: string; entries: PlanEntry[] }
-	| { kind: "notice"; key: string; tone: "error" | "muted"; text: string };
+	| {
+			kind: "notice";
+			key: string;
+			tone: "error" | "muted";
+			text: string;
+			/** The turn failed in a way that sending the message again can fix. */
+			retry?: boolean;
+	  };
 
 export type Transcript = {
 	blocks: Block[];
@@ -256,6 +263,7 @@ function endTurn(
 					key,
 					tone: "error",
 					text: event.error ?? "The agent stopped with an error.",
+					retry: event.retryable === true,
 				},
 			],
 		};
