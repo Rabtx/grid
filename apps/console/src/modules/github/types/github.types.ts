@@ -50,3 +50,23 @@ export type PullDetail = PullSummary & {
 export type MergeMethod = "merge" | "squash" | "rebase";
 
 export type PullAction = "ready" | "draft" | "close";
+
+/** What a fix thread starts with; the sheet picks these. */
+export type FixInclude = {
+	/** The failing checks, with the last lines of their logs. */
+	checks: boolean;
+	/** The unresolved review comments. */
+	comments: boolean;
+	/** The pull request's description. */
+	description: boolean;
+};
+
+/** What the runner would start a fix thread with: the pull request's branch and first message. */
+export type FixPlan = {
+	/** The worktree's branch: the pull request's own, or `grid/pr-<n>` for a fork's. */
+	branch: string;
+	/** The pull request comes from a fork. */
+	fork: boolean;
+	/** The first message for the thread. */
+	message: string;
+};

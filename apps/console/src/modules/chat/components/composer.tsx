@@ -1,10 +1,13 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, onSettled, Show, untrack } from "solid-js";
+import { createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import { useWorkspace } from "@/modules/projects";
 import { insertIntoField, MicButton, registerDictationTarget } from "@/modules/voice";
 import {
+	Attachment,
+	AttachIcon,
+	IconButton,
 	BranchIcon,
 	MIC_BUTTON,
 	PROMPT_FIELD,
@@ -38,7 +41,7 @@ export function Composer(props: {
 	running: boolean;
 	disabled?: boolean;
 	/** Send the text; return false to keep the draft (e.g. the link is down). */
-	onSend: (text: string) => boolean | Promise<boolean>;
+	onSend: (text: string, files: File[]) => boolean | Promise<boolean>;
 	onStop?: () => void;
 	/** The toolbar's pickers: model and mode. */
 	controls?: JSX.Element;
@@ -61,6 +64,39 @@ export function Composer(props: {
 	const workspace = useWorkspace();
 	const [draft, setDraft] = createSignal(untrack(() => props.initial) ?? "");
 	const [sending, setSending] = createSignal(false);
+	const [files, setFiles] = createSignal<{ file: File; preview?: string }[]>([]);
+	const [fileError, setFileError] = createSignal<string | null>(null);
+	let picker: HTMLInputElement | undefined;
+	function addFiles(incoming: File[]): void {
+		if (sending() || props.disabled) return;
+		if (incoming.some((file) => file.size > 10 * 1024 * 1024)) {
+			setFileError("Each file must be 10 MB or smaller.");
+			return;
+		}
+		setFiles((current) => {
+			if (current.length + incoming.length > 20) {
+				setFileError("Attach up to 20 files per message.");
+				return current;
+			}
+			setFileError(null);
+			return [
+				...current,
+				...incoming.map((file) => ({
+					file,
+					preview: /^image\/(png|jpeg|gif|webp)$/.test(file.type)
+						? URL.createObjectURL(file)
+						: undefined,
+				})),
+			];
+		});
+	}
+	function clearFiles(): void {
+		for (const item of files()) if (item.preview) URL.revokeObjectURL(item.preview);
+		setFiles([]);
+	}
+	onSettled(() => () => {
+		for (const item of files()) if (item.preview) URL.revokeObjectURL(item.preview);
+	});
 	let textarea: HTMLTextAreaElement | undefined;
 	let form: HTMLFormElement | undefined;
 
@@ -135,20 +171,35 @@ export function Composer(props: {
 
 	async function send(): Promise<void> {
 		const text = draft().trim();
-		if (!text || props.running || props.disabled || sending()) return;
+		if ((!text && !files().length) || props.running || props.disabled || sending()) return;
 		// A Grid command runs here, rather than going to the agent.
-		const action = slash.handleSend(text);
-		if (action === "handled") {
-			clearDraft();
-			return;
-		}
-		if (action === "keep") {
-			textarea?.focus();
-			return;
+		if (text && !files().length) {
+			const action = slash.handleSend(text);
+			if (action === "handled") {
+				clearDraft();
+				return;
+			}
+			if (action === "keep") {
+				textarea?.focus();
+				return;
+			}
 		}
 		setSending(true);
 		try {
-			if (await props.onSend(text)) clearDraft();
+			if (
+				await props.onSend(
+					text,
+					files().map((item) => item.file),
+				)
+			) {
+				clearDraft();
+				clearFiles();
+				setFileError(null);
+			}
+		} catch (cause) {
+			setFileError(
+				cause instanceof Error ? cause.message : "Could not send attachments. Try again.",
+			);
 		} finally {
 			setSending(false);
 		}
@@ -156,6 +207,37 @@ export function Composer(props: {
 
 	return (
 		<PromptBox
+			onDragOver={(event) => {
+				if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
+			}}
+			onDrop={(event) => {
+				event.preventDefault();
+				addFiles(Array.from(event.dataTransfer?.files ?? []));
+			}}
+			attachments={
+				<>
+					<For each={files()}>
+						{(item) => (
+							<Attachment
+								name={item.file.name}
+								size={item.file.size}
+								preview={item.preview}
+								disabled={sending()}
+								onRemove={() => {
+									if (item.preview) URL.revokeObjectURL(item.preview);
+									setFiles((current) => current.filter((entry) => entry !== item));
+								}}
+							/>
+						)}
+					</For>
+					<Show when={sending()}>
+						<Text size="caption">Sending…</Text>
+					</Show>
+					<Show when={fileError()}>
+						<Text tone="danger">{fileError()}</Text>
+					</Show>
+				</>
+			}
 			formRef={(el) => {
 				form = el;
 			}}
@@ -190,7 +272,7 @@ export function Composer(props: {
 					placeholder={props.placeholder ?? PLACEHOLDER}
 					aria-label="Message"
 					enterkeyhint="send"
-					disabled={props.disabled}
+					disabled={props.disabled || sending()}
 					onInput={(event) => {
 						setDraft(event.currentTarget.value);
 						grow();
@@ -204,6 +286,15 @@ export function Composer(props: {
 					onClick={() => {
 						mentions.handleInput();
 						slash.handleInput();
+					}}
+					onPaste={(event) => {
+						const images = Array.from(event.clipboardData?.files ?? []).filter((file) =>
+							file.type.startsWith("image/"),
+						);
+						if (images.length) {
+							event.preventDefault();
+							addFiles(images);
+						}
 					}}
 					onKeyDown={(event) => {
 						if (mentions.handleKeyDown(event)) return;
@@ -222,7 +313,32 @@ export function Composer(props: {
 					class={PROMPT_FIELD}
 				/>
 			}
-			tools={props.controls}
+			tools={
+				<>
+					<input
+						ref={(el) => {
+							picker = el;
+						}}
+						type="file"
+						multiple
+						hidden
+						aria-label="Choose attachments"
+						onChange={(event) => {
+							addFiles(Array.from(event.currentTarget.files ?? []));
+							event.currentTarget.value = "";
+						}}
+					/>
+					<IconButton
+						label="Attach files"
+						class="min-h-11 min-w-11"
+						disabled={props.disabled || sending()}
+						onClick={() => picker?.click()}
+					>
+						<AttachIcon />
+					</IconButton>
+					{props.controls}
+				</>
+			}
 			options={
 				<MicButton
 					target={() =>
@@ -245,7 +361,7 @@ export function Composer(props: {
 						<button
 							type="submit"
 							aria-label="Send"
-							disabled={!draft().trim() || props.disabled || sending()}
+							disabled={(!draft().trim() && !files().length) || props.disabled || sending()}
 							class={SEND_BUTTON}
 						>
 							<SendIcon />

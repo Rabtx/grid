@@ -1,3 +1,5 @@
+import { workspaceHeaders } from "@/lib/active-workspace";
+import type { ChatAttachment } from "../types/chat.types";
 import type { TerminalInfo } from "@/modules/terminal/types/terminal.types";
 
 import type {
@@ -31,9 +33,10 @@ async function call<T>(
 		response = await fetch(runnerUrl(path, scope), {
 			...init,
 			headers: {
+				...workspaceHeaders(),
 				...init.headers,
 				Authorization: `Bearer ${token}`,
-				...(init.body ? { "Content-Type": "application/json" } : {}),
+				...(typeof init.body === "string" ? { "Content-Type": "application/json" } : {}),
 			},
 		});
 	} catch {
@@ -52,6 +55,35 @@ async function call<T>(
 
 /** Every call takes the machine's `scope` last: empty for this machine. */
 export const chatService = {
+	upload: async (token: string, id: string, files: File[], scope = "") => {
+		if (files.length > 20 || files.some((file) => file.size > 10 * 1024 * 1024))
+			throw new Error("Attach up to 20 files, 10 MB each.");
+		const attachments: ChatAttachment[] = [];
+		for (const file of files)
+			attachments.push(
+				await call<ChatAttachment>(
+					`/chat/sessions/${id}/attachments?name=${encodeURIComponent(file.name)}`,
+					token,
+					{ method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file },
+					scope,
+				),
+			);
+		return attachments;
+	},
+	attachment: async (
+		token: string,
+		session: string,
+		id: string,
+		scope = "",
+		signal?: AbortSignal,
+	) => {
+		const response = await fetch(runnerUrl(`/chat/sessions/${session}/attachments/${id}`, scope), {
+			headers: { ...workspaceHeaders(), Authorization: `Bearer ${token}` },
+			signal,
+		});
+		if (!response.ok) throw new Error("Attachment could not be loaded. Try again.");
+		return response.blob();
+	},
 	providers: (token: string, scope = "") =>
 		call<ChatProvider[]>("/chat/providers", token, {}, scope),
 	/** Ask one agent for its models again (they are kept otherwise). */
@@ -91,6 +123,14 @@ export const chatService = {
 			effort?: string;
 			/** Its own git worktree; by default what the project is set to. */
 			worktree?: boolean;
+			/** The worktree's branch; `grid/chat-<id>` when not given. */
+			branch?: string;
+			/** Work on `branch` as it is (one that exists here or on the remote), not a new one. */
+			existing?: boolean;
+			/** The pull request this worktree's branch is. */
+			pull?: number;
+			/** That pull request comes from a fork: its ref is fetched onto `branch`. */
+			fork?: boolean;
 		},
 		scope = "",
 	) =>

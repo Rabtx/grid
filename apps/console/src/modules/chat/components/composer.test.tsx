@@ -402,7 +402,7 @@ describe("Composer", () => {
 		await settle();
 
 		expect(onCommand).not.toHaveBeenCalled();
-		expect(onSend).toHaveBeenCalledWith("/compact");
+		expect(onSend).toHaveBeenCalledWith("/compact", []);
 	});
 
 	it("sends plain text containing the mention tokens to the agent", async () => {
@@ -429,7 +429,62 @@ describe("Composer", () => {
 		form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 		await settle();
 
-		expect(onSend).toHaveBeenCalledWith("@src/app.ts");
+		expect(onSend).toHaveBeenCalledWith("@src/app.ts", []);
 		expect(sentText).toBe("@src/app.ts");
+	});
+	function attach(files: File[], type = "change"): void {
+		const event = new Event(type, { bubbles: true, cancelable: true });
+		if (type === "change") {
+			const input = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+			Object.defineProperty(input, "files", { value: files, configurable: true });
+			input.dispatchEvent(event);
+		} else {
+			Object.defineProperty(event, type === "paste" ? "clipboardData" : "dataTransfer", {
+				value: { files, types: ["Files"] },
+			});
+			container.querySelector(type === "paste" ? "textarea" : "form")!.dispatchEvent(event);
+		}
+	}
+
+	it("picks, pastes and removes attachments, retains them on failure, then clears on send", async () => {
+		const send = vi.fn().mockResolvedValue(false);
+		mount(send);
+		await settle();
+		const text = new File(["read me"], "notes.txt", { type: "text/plain" });
+		const image = new File(["png"], "shot.png", { type: "image/png" });
+		attach([text]);
+		attach([image], "paste");
+		await settle();
+		expect(container.querySelector('img[alt="shot.png"]')).not.toBeNull();
+		expect(container.textContent).toContain("notes.txt");
+		container.querySelector<HTMLButtonElement>('[aria-label="Remove notes.txt"]')!.click();
+		await settle();
+		container.querySelector<HTMLButtonElement>('[aria-label="Send"]')!.click();
+		await settle();
+		expect(send).toHaveBeenLastCalledWith("", [image]);
+		expect(container.querySelector('img[alt="shot.png"]')).not.toBeNull();
+		send.mockResolvedValue(true);
+		container.querySelector<HTMLButtonElement>('[aria-label="Send"]')!.click();
+		await settle();
+		expect(container.querySelector('img[alt="shot.png"]')).toBeNull();
+		expect(container.querySelector<HTMLButtonElement>('[aria-label="Send"]')!.disabled).toBe(true);
+	});
+
+	it("drops twenty files and rejects excess count and size without losing the draft", async () => {
+		mount();
+		await settle();
+		const files = Array.from({ length: 20 }, (_, index) => new File(["ok"], `${index}.txt`));
+		attach(files, "drop");
+		await settle();
+		expect(container.querySelectorAll('[aria-label^="Remove "]').length).toBe(20);
+		attach([new File(["extra"], "extra.txt")], "drop");
+		await settle();
+		expect(container.textContent).toContain("up to 20");
+		container.querySelector<HTMLButtonElement>('[aria-label="Remove 0.txt"]')!.click();
+		await settle();
+		attach([new File([new Uint8Array(10 * 1024 * 1024 + 1)], "large.txt")]);
+		await settle();
+		expect(container.textContent).toContain("10 MB");
+		expect(container.querySelectorAll('[aria-label^="Remove "]').length).toBe(19);
 	});
 });

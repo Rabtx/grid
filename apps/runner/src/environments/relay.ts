@@ -34,10 +34,15 @@ export async function relayHttp(
 			body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
 			redirect: "error",
 		});
-		return new Response(response.body, {
-			status: response.status,
-			headers: { "content-type": response.headers.get("content-type") ?? "application/json" },
-		});
+		// A download keeps its name and its safety headers on the way through.
+		const kept: Record<string, string> = {
+			"content-type": response.headers.get("content-type") ?? "application/json",
+		};
+		for (const name of ["content-disposition", "x-content-type-options"]) {
+			const value = response.headers.get(name);
+			if (value) kept[name] = value;
+		}
+		return new Response(response.body, { status: response.status, headers: kept });
 	} catch {
 		return Response.json(
 			{ message: "The environment is not reachable right now." },
