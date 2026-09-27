@@ -189,19 +189,21 @@ async function startAgySession(
 	/** The current model's entry in the agent's list, once we have asked for it. */
 	let choice: Choice | undefined;
 	let listed: Choice[] | undefined;
-	let listFailed = false;
 	let proc: JsonProcess | null = null;
 	let finishTurn: ((result: TurnResult) => void) | null = null;
 	let stderr: string[] = [];
 
 	// A model with effort levels needs one, or `agy` refuses the run: settle it against the
 	// agent's own list before the process starts — the chosen effort, else the model's default,
-	// else its middle level. The list is kept for the whole session, so this is one ask.
+	// else its middle level. The list is kept for the session once it has answered; a list that
+	// failed is asked for again on the next model or effort change.
 	async function settleEffort(): Promise<void> {
-		if (!model) return;
-		if (!listed && !listFailed) {
+		if (!model) {
+			effort = effort || undefined;
+			return;
+		}
+		if (!listed) {
 			listed = await loadModels().catch((cause: unknown) => {
-				listFailed = true;
 				console.warn(
 					"[runner] Antigravity did not list its models:",
 					cause instanceof Error ? cause.message : cause,
@@ -344,8 +346,10 @@ async function startAgySession(
 		},
 		setEffort: async (next) => {
 			effort = next;
+			// Kept as it will be sent: a level the model has, never "".
+			await settleEffort();
 			restart();
-			context.emit({ type: "info", effort: next });
+			context.emit({ type: "info", ...(effort ? { effort } : {}) });
 		},
 		close: () => proc?.kill(),
 	};

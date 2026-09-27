@@ -48,7 +48,14 @@ export type ChatEvent =
 	  }
 	/** `at`: when the turn began (ISO time); older logs lack it. */
 	| { type: "turn_start"; at?: string }
-	| { type: "turn_end"; reason: "done" | "cancelled" | "error"; error?: string; at?: string }
+	| {
+			type: "turn_end";
+			reason: "done" | "cancelled" | "error";
+			error?: string;
+			at?: string;
+			/** A failed turn that sending the message again can fix (a busy provider, a gone model). */
+			retryable?: boolean;
+	  }
 	| {
 			type: "info";
 			models?: Choice[];

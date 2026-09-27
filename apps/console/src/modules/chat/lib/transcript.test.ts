@@ -115,13 +115,16 @@ describe("replay", () => {
 		]);
 	});
 
-	it("marks only a turn that failed on its own as worth sending again", () => {
+	it("marks only a turn the runner calls retryable as worth sending again", () => {
 		const transcript = replay([
 			{ type: "user", text: "Ship it" },
 			// Said while working: worth reading, not worth resending the message for.
 			{ type: "error", message: "Antigravity was not allowed to use: RunCommand." },
-			{ type: "turn_end", reason: "error", error: "Codex is at capacity" },
+			{ type: "turn_end", reason: "error", error: "Codex is at capacity", retryable: true },
 			{ type: "turn_end", reason: "cancelled" },
+			// A failure resending cannot fix, however it ended.
+			{ type: "turn_end", reason: "error", error: "Exit code 1: something broke" },
+			{ type: "turn_end", reason: "error", error: "Boom", retryable: false },
 		]);
 		const notices = transcript.blocks.filter(
 			(block): block is Extract<Block, { kind: "notice" }> => block.kind === "notice",
@@ -130,6 +133,8 @@ describe("replay", () => {
 			["error", false],
 			["error", true],
 			["muted", false],
+			["error", false],
+			["error", false],
 		]);
 		expect(notices[1].text).toBe("Codex is at capacity");
 	});

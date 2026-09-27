@@ -321,5 +321,58 @@ describe("Antigravity", () => {
 			type: "info",
 			model: "claude-opus-4-6-thinking",
 		});
+		// An effort asked of a model without levels is not kept, and never reported as "".
+		await session.setEffort("low");
+		expect(events.at(-1)).toEqual({ type: "info" });
+		await session.prompt("hi");
+		expect(command).toContain("claude-opus-4-6-thinking");
+	});
+
+	it("asks for the model list again after it failed, and never sends an empty effort", async () => {
+		let command: string[] = [];
+		const spawn: Spawn = (cmd, { onMessage }) => {
+			command = cmd;
+			const proc: JsonProcess = {
+				send: () => {
+					queueMicrotask(() =>
+						onMessage({ event: "result", result: { status: "SUCCESS", conversation_id: "c1" } }),
+					);
+				},
+				kill: () => {},
+				exited: new Promise(() => {}),
+			};
+			return proc;
+		};
+		let asked = 0;
+		const events: ChatEvent[] = [];
+		const session = await antigravityProvider({
+			binary: "agy",
+			available: () => true,
+			spawn,
+			loadModels: async () => {
+				asked++;
+				if (asked === 1) throw new Error("agy models timed out");
+				return parseAgyModels(listing);
+			},
+		}).start({
+			cwd: "/tmp",
+			model: "gemini-3.8-flash",
+			effort: "",
+			emit: (event) => events.push(event),
+			onResumeToken: () => {},
+		});
+		// No list to settle against, and "" is no effort at all.
+		expect(events[0]).not.toHaveProperty("effort");
+		await session.prompt("hi");
+		expect(command).not.toContain("");
+		// The next change asks again, and this time the model's default comes back.
+		await session.setEffort("");
+		expect(asked).toBe(2);
+		expect(events.at(-1)).toEqual({ type: "info", effort: "high" });
+		await session.prompt("hi");
+		expect(command).toContain("gemini-3.8-flash-high");
+		// Once it has answered, it is not asked again.
+		await session.setModel("gemini-3.8-flash");
+		expect(asked).toBe(2);
 	});
 });

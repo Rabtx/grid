@@ -5,17 +5,19 @@
  */
 export type TurnErrorKind = "model-gone" | "provider-busy";
 
+// opencode retires a free model behind a notice of its own, with no word for the model in it:
+// "Thank you for participating in the Stealth … testing period". Only the two together count.
+const RETIRED_NOTICE = /\bstealth\b[^\n]{0,80}\btesting period\b/i;
+
 const MODEL_GONE: RegExp[] = [
 	// "model not found", "the model is not available", "model no longer offered"
-	/\bmodel\b[^.!\n]{0,60}\bnot\s+(?:found|listed|available|offered|supported|recognized)\b/i,
+	/\bmodel\b[^.!\n]{0,60}\bnot\s+(?:found|listed|available|offered|recognized)\b/i,
 	/\bmodel\b[^.!\n]{0,60}\bno longer\s+(?:available|offered|listed|supported)\b/i,
-	/\bmodel\b[^.!\n]{0,60}\b(?:does not exist|doesn't exist|unknown|unrecognized|deprecated|retired|removed)\b/i,
-	// "unknown model", "unsupported model", "no such model"
-	/\b(?:unknown|unrecognized|unsupported|deprecated|retired|non[- ]existent)\s+model\b/i,
+	/\bmodel\b[^.!\n]{0,60}\b(?:does not exist|doesn't exist|unrecognized|deprecated|retired)\b/i,
+	// "unknown model", "no such model"
+	/\b(?:unknown|unrecognized|deprecated|retired|non[- ]existent)\s+model\b/i,
 	/\bno such model\b/i,
-	// opencode retires a model behind a notice of its own, with no word for the model in it
-	/\bstealth\b/i,
-	/\btesting period\b/i,
+	RETIRED_NOTICE,
 ];
 
 const PROVIDER_BUSY: RegExp[] = [
@@ -23,14 +25,29 @@ const PROVIDER_BUSY: RegExp[] = [
 	/\brate[-\s]?limit(?:ed|ing)?\b/i,
 	/\btoo many requests\b/i,
 	/\boverload(?:ed)?\b/i,
+	/\bhigh demand\b/i,
+	/\btemporarily\s+(?:not\s+available|unavailable)\b/i,
 	/\b(?:server|provider|model)\s+(?:is\s+)?busy\b/i,
 ];
 
-/** Which kind of failure this is, or null when the agent's text says nothing we can act on. */
+/**
+ * Which kind of failure this is, or null when the agent's text says nothing we can act on. Busy
+ * is asked first: "the model is temporarily not available" is a model that is still there.
+ */
 export function turnErrorKind(error: string): TurnErrorKind | null {
-	if (MODEL_GONE.some((pattern) => pattern.test(error))) return "model-gone";
 	if (PROVIDER_BUSY.some((pattern) => pattern.test(error))) return "provider-busy";
+	if (MODEL_GONE.some((pattern) => pattern.test(error))) return "model-gone";
 	return null;
+}
+
+/** The agent's notice that it retired a model it may still list (opencode's free models). */
+export function isRetiredNotice(error: string): boolean {
+	return RETIRED_NOTICE.test(error);
+}
+
+/** Whether sending the same message again can work: after a busy provider, or a gone model. */
+export function turnRetryable(kind: TurnErrorKind | null): boolean {
+	return kind !== null;
 }
 
 /**

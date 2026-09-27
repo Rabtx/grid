@@ -13,7 +13,11 @@ describe("a failed turn in words", () => {
 		expect(turnErrorKind("unknown model")).toBe("model-gone");
 		expect(turnErrorKind("This model has been retired")).toBe("model-gone");
 		// opencode retires a model behind a notice of its own, with no word for the model in it
-		expect(turnErrorKind("This model is in stealth during its testing period")).toBe("model-gone");
+		expect(
+			turnErrorKind(
+				"Internal error: Thank you for participating in the Stealth model testing period",
+			),
+		).toBe("model-gone");
 	});
 
 	it("takes a provider that is too busy for what it is", () => {
@@ -23,6 +27,10 @@ describe("a failed turn in words", () => {
 		expect(turnErrorKind("Rate limit exceeded, try again later")).toBe("provider-busy");
 		expect(turnErrorKind("429 Too Many Requests")).toBe("provider-busy");
 		expect(turnErrorKind("The provider is overloaded right now")).toBe("provider-busy");
+		// Busy is asked first: a model that is not available for now is still there.
+		expect(
+			turnErrorKind("The model is temporarily not available due to high demand, overloaded"),
+		).toBe("provider-busy");
 	});
 
 	it("leaves everything else alone", () => {
@@ -33,6 +41,12 @@ describe("a failed turn in words", () => {
 			),
 		).toBeNull();
 		expect(turnErrorKind("Exit code 1: something broke")).toBeNull();
+		// About the message, not about a model that is gone.
+		expect(turnErrorKind("This model does not support images: unknown content type")).toBeNull();
+		expect(turnErrorKind("model output removed by content filter")).toBeNull();
+		// Either word alone is ordinary text.
+		expect(turnErrorKind("Deploy the stealth build")).toBeNull();
+		expect(turnErrorKind("The trial is in its testing period")).toBeNull();
 		expect(turnErrorKind("")).toBeNull();
 	});
 

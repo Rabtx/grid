@@ -57,7 +57,7 @@ export function resolveEffort(
 	model: Choice | undefined,
 	chosen: string | undefined,
 ): string | undefined {
-	if (!model) return chosen;
+	if (!model) return chosen || undefined;
 	const levels = model.efforts ?? [];
 	if (levels.length === 0) return undefined;
 	if (chosen && levels.some((level) => level.id === chosen)) return chosen;

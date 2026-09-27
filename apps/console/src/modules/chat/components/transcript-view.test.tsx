@@ -416,6 +416,36 @@ describe("TranscriptView - Try again", () => {
 		expect(onRegenerate).not.toHaveBeenCalled();
 	});
 
+	it("offers it only on the last failed turn, not on older ones", () => {
+		const blocks: Block[] = [
+			...failed,
+			{ kind: "user", key: "b2", text: "Ship it again" },
+			{
+				kind: "notice",
+				key: "b3",
+				tone: "error",
+				text: "Codex is busy: this is on the provider's side, not yours.",
+				retry: true,
+			},
+		];
+		const onRegenerate = vi.fn();
+		const root = mount(() => (
+			<TranscriptView
+				blocks={blocks}
+				running={false}
+				onApprove={() => {}}
+				onRegenerate={onRegenerate}
+			/>
+		));
+		flush();
+		const buttons = [...root.querySelectorAll("button")].filter(
+			(button) => button.textContent?.trim() === "Try again",
+		);
+		expect(buttons).toHaveLength(1);
+		buttons[0]?.click();
+		expect(onRegenerate).toHaveBeenCalledWith({ text: "Ship it again", attachments: [] });
+	});
+
 	it("offers nothing without onRegenerate", () => {
 		const root = mount(() => (
 			<TranscriptView blocks={failed} running={false} onApprove={() => {}} />

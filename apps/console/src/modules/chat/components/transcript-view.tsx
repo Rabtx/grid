@@ -236,10 +236,14 @@ function BlockView(props: {
 		return findPrecedingUserPrompt(props.blocks, block);
 	});
 
-	/** A failed turn offered its way out: the message again, once the agent has stopped. */
+	/**
+	 * A failed turn offered its way out: the message again, once the agent has stopped. Only the
+	 * chat's last word gets it; an older failure has been moved past.
+	 */
 	const retry = createMemo(() => {
 		const block = props.block;
 		if (block.kind !== "notice" || !block.retry || !props.onRegenerate) return null;
+		if (props.blocks.at(-1)?.key !== block.key) return null;
 		return userPrompt();
 	});
 

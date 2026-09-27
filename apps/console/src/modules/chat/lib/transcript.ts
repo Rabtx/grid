@@ -51,7 +51,7 @@ export type Block =
 			key: string;
 			tone: "error" | "muted";
 			text: string;
-			/** The turn itself failed: sending the message again is the way out. */
+			/** The turn failed in a way that sending the message again can fix. */
 			retry?: boolean;
 	  };
 
@@ -263,7 +263,7 @@ function endTurn(
 					key,
 					tone: "error",
 					text: event.error ?? "The agent stopped with an error.",
-					retry: true,
+					retry: event.retryable === true,
 				},
 			],
 		};
