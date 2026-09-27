@@ -8,12 +8,16 @@ import { exitReason, freebuffProvider } from "./freebuff";
 import { exportedTurn } from "./freebuff-export";
 import {
 	connectionWarning,
+	currentModel,
 	findEcho,
 	inSession,
+	isEffortPicker,
+	isIdle,
 	isMenu,
 	isWorking,
 	menuNotes,
 	mergeScrolled,
+	parseEfforts,
 	parseMenu,
 	parseReply,
 	ReplyTracker,
@@ -24,26 +28,47 @@ import { spawnTui } from "./tui";
 
 // Screens as the real CLI draws them (trailing spaces trimmed).
 const MENU = `
-                 Start coding for free   11 day streak  ●●●●●●●+
-                 ┌──────────────────────────────────────────────────────────────────────────┐
-                 │   GLM 5.3 Flash · Deep reasoning · Reasoning: max · Images · NEW         │
-                 │                              5 Freebucks/hr                              │
-                 └──────────────────────────────────────────────────────────────────────────┘
-                 ┌──────────────────────────────────────────────────────────────────────────┐
-                 │ › DeepSeek V4.1 Flash · Smart & Fast · Reasoning: max* · Images · NEW    │
-                 │              15 Freebucks/hr · May use data for AI training              │
-                 └──────────────────────────────────────────────────────────────────────────┘
-                 ┌──────────────────────────────────────────────────────────────────────────┐
-                 │   Solar Mini 4 · Fast and light · NEW                                    │
-                 │                              5 Freebucks/hr                              │
-                 └──────────────────────────────────────────────────────────────────────────┘
-                 STARTER · 80/105 Freebucks daily · resets in 5h 21m · 290 in wallet
-                 ↑  Show fewer
-                 ✦ Refer friends → earn Freebucks:
-                 ⎘ Copy invite link  Open Earn ↵
-                 🎁  Streak perk: +15 Freebucks every Pacific day
-                                                  H · History
-──────────────────────────────────────────────────────────────────────────`.split("\n");
+ ↑↓ choose model · Tab reasoning · Enter select · Esc cancel
+ ┌──────────────────────────────────────────────────────────────────────┐
+ │   GLM 5.3 Flash • max        Deep reasoning · Images · NEW           │
+ │                            5 Freebucks/hr                            │
+ └──────────────────────────────────────────────────────────────────────┘
+ ┌──────────────────────────────────────────────────────────────────────┐
+ │ › DeepSeek V4.1 Flash • max  Smart & Fast · Images · NEW             │
+ │            15 Freebucks/hr · May use data for AI training            │
+ └──────────────────────────────────────────────────────────────────────┘
+ ┌──────────────────────────────────────────────────────────────────────┐
+ │   Solar Mini 4         Fast and light · NEW                          │
+ │                            5 Freebucks/hr                            │
+ └──────────────────────────────────────────────────────────────────────┘
+ STARTER · 45/105 Freebucks daily · resets in 1h 39m · 305 in wallet
+ ↑  Show fewer
+ DeepSeek V4.1 Flash • max · /home/me/app · /model to change · Chat: New chat
+ ← for history · ? for help`.split("\n");
+
+// The screen Freebuff opens on: its notes, the input box, and the model under it.
+const START = `
+ ┌──────────────────────────────────────────────────────────────────┐
+ │ May use data for AI training                                     │
+ │ Your first message starts the session.                           │
+ │ 45/105 Freebucks remaining                                       │
+ │ Starter plan                                                     │
+ │ 12 day streak                                                    │
+ │ 🎁─ Streak perk: +15 Freebucks every Pacific day                  │
+ │ ✦ Refer friends → earn Freebucks:                                │
+ └──────────────────────────────────────────────────────────────────┘
+╭──────────────────────────────────────────────────────────────────────╮
+│  ▍Enter a coding task or / for commands                              │
+╰──────────────────────────────────────────────────────────────────────╯
+ Solar Mini 4 · /home/me/app · /model to change · Chat: New chat
+ ← for history · ? for help`.split("\n");
+
+const EFFORTS = `
+  ↑↓ choose · Enter save · Esc back
+    low
+    high (default)
+  › max
+ DeepSeek V4.1 Flash • max · /home/me/app · /model to change`.split("\n");
 
 const DONE = `
   Directory /tmp/project
@@ -58,18 +83,18 @@ const DONE = `
   - Apple — a crisp, sweet-tart fruit.
   - Banana — a soft, sweet tropical fruit.
                                                                                                 ⎘ • 7s • △▽
- DeepSeek V4.1 Flash · 55m left · 13.9K (1%)                                                   ✕ End session
+ 1h left · 13.9K (1%)                                                                          ✕ End session
 ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │  ▍Enter a coding task or / for commands                                                                    │
-╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯`.split(
-	"\n",
-);
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ DeepSeek V4.1 Flash • max · /home/me/app · /model to change · Chat: Reply with
+ ← for history · ? for help`.split("\n");
 
 const PROMPT =
 	"Reply with: hello from grid. Then a markdown list of 3 fruits, then one sentence about each.";
 
 describe("reading Freebuff's screen", () => {
-	it("reads the model menu, its highlight and its effort levels", () => {
+	it("reads the model picker, its highlight and each model's reasoning", () => {
 		const menu = parseMenu(MENU);
 		expect(menu.models.map((model) => model.id)).toEqual([
 			"GLM 5.3 Flash",
@@ -85,21 +110,31 @@ describe("reading Freebuff's screen", () => {
 		expect(menu.models[1].defaultEffort).toBe("max");
 		expect(menu.models[2].efforts).toBeUndefined();
 		expect(isMenu(MENU)).toBe(true);
+		expect(isIdle(MENU)).toBe(false);
+	});
+
+	it("reads the reasoning levels inside the picker", () => {
+		expect(isEffortPicker(EFFORTS)).toBe(true);
+		expect(parseEfforts(EFFORTS)).toEqual({ levels: ["low", "high", "max"], selected: 2 });
 	});
 
 	it("keeps the tool's own lines about the wallet and perks", () => {
-		expect(menuNotes(MENU)).toEqual([
-			"Start coding for free   11 day streak  ●●●●●●●+",
-			"STARTER · 80/105 Freebucks daily · resets in 5h 21m · 290 in wallet",
+		expect(menuNotes(START)).toEqual([
+			"45/105 Freebucks remaining",
+			"Starter plan",
+			"12 day streak",
+			"🎁─ Streak perk: +15 Freebucks every Pacific day",
 			"✦ Refer friends → earn Freebucks:",
-			"⎘ Copy invite link  Open Earn ↵",
-			"🎁  Streak perk: +15 Freebucks every Pacific day",
 		]);
 	});
 
-	it("reads the session line and whether it is working", () => {
-		expect(sessionModel(DONE)).toBe("DeepSeek V4.1 Flash");
-		expect(sessionModel([" Solar Mini 4 · 1h left      ✕ End session"])).toBe("Solar Mini 4");
+	it("reads the model under the input, and whether it is ready or working", () => {
+		expect(currentModel(START)).toEqual({ model: "Solar Mini 4", effort: null });
+		expect(currentModel(DONE)).toEqual({ model: "DeepSeek V4.1 Flash", effort: "max" });
+		expect(sessionModel(MENU)).toBe("DeepSeek V4.1 Flash");
+		// Ready before any session: the first message starts one.
+		expect(isIdle(START)).toBe(true);
+		expect(inSession(START)).toBe(false);
 		expect(inSession(DONE)).toBe(true);
 		expect(isWorking(DONE)).toBe(false);
 		expect(isWorking([" thinking...        1s  ■ Esc"])).toBe(true);
@@ -242,6 +277,11 @@ describe("Freebuff's export", () => {
 
 const FAKE = join(import.meta.dir, "testing", "fake-freebuff-cli.ts");
 
+/** The turn's restatement (the model that answered is announced after it). */
+function rewriteOf(events: ChatEvent[]): ChatEvent | undefined {
+	return events.findLast((event) => event.type === "turn_rewrite");
+}
+
 describe("driving the CLI", () => {
 	const folders: string[] = [];
 	const sessions: AgentSession[] = [];
@@ -315,7 +355,7 @@ describe("driving the CLI", () => {
 			.map((event) => (event as { text: string }).text)
 			.join("");
 		expect(streamed).toContain("row 1\n");
-		expect(events.at(-1)).toEqual({
+		expect(rewriteOf(events)).toEqual({
 			type: "turn_rewrite",
 			events: [
 				{ type: "reasoning", text: "Reading the request." },
@@ -341,7 +381,7 @@ describe("driving the CLI", () => {
 		const rows = streamed.split("\n").filter(Boolean);
 		expect(rows.length).toBeGreaterThan(30);
 		expect(rows).toEqual(Array.from({ length: rows.length }, (_, i) => `row ${i + 1}`));
-		const rewrite = events.at(-1) as Extract<ChatEvent, { type: "turn_rewrite" }>;
+		const rewrite = rewriteOf(events) as Extract<ChatEvent, { type: "turn_rewrite" }>;
 		expect(rewrite.events.at(-1)).toMatchObject({
 			text: expect.stringContaining("row 39\nrow 40"),
 		});
@@ -353,7 +393,7 @@ describe("driving the CLI", () => {
 		const before = events.length;
 		expect(await session.prompt("hi")).toEqual({ reason: "done" });
 		const again = events.slice(before);
-		expect(again.at(-1)?.type).toBe("turn_rewrite");
+		expect(rewriteOf(again)?.type).toBe("turn_rewrite");
 		// Its reply streamed anew: the turn did not end on the first reply.
 		expect(again.some((event) => event.type === "message")).toBe(true);
 	}, 20_000);
@@ -361,8 +401,20 @@ describe("driving the CLI", () => {
 	it("ends the turn from the chat file when the screen cannot be followed", async () => {
 		const { events, session } = await start(undefined, 60, 3, { FAKE_NO_ECHO: "1" });
 		expect(await session.prompt("Say hello")).toEqual({ reason: "done" });
-		expect(events.at(-1)).toEqual({
+		expect(rewriteOf(events)).toEqual({
 			type: "turn_rewrite",
+			events: [
+				{ type: "reasoning", text: "Reading the request." },
+				{ type: "message", text: "**Exact** reply\n\nrow 1\nrow 2\nrow 3" },
+			],
+		});
+	}, 20_000);
+
+	it("ends the turn from the screen when the chat file never says complete", async () => {
+		const { events, session } = await start(undefined, 60, 3, { FAKE_NO_COMPLETE: "1" });
+		expect(await session.prompt("Say hello")).toEqual({ reason: "done" });
+		// The exact text still comes from the file.
+		expect(events.find((event) => event.type === "turn_rewrite")).toMatchObject({
 			events: [
 				{ type: "reasoning", text: "Reading the request." },
 				{ type: "message", text: "**Exact** reply\n\nrow 1\nrow 2\nrow 3" },
@@ -405,14 +457,26 @@ describe("driving the CLI", () => {
 	it("sends a message with several lines as one", async () => {
 		const { events, session } = await start(undefined);
 		await session.prompt("first line\nsecond line");
-		expect(events.at(-1)?.type).toBe("turn_rewrite");
+		expect(rewriteOf(events)?.type).toBe("turn_rewrite");
 	}, 20_000);
 
-	it("switches model by ending the session and choosing again", async () => {
+	it("switches model mid-chat in Freebuff's own picker", async () => {
 		const { events, session } = await start(undefined);
 		await session.prompt("Hi");
 		await session.setModel("Solar Mini 4");
 		expect(events.at(-1)).toMatchObject({ type: "info", model: "Solar Mini 4" });
+		expect(await session.prompt("Still there?")).toEqual({ reason: "done" });
+	}, 20_000);
+
+	it("sets the reasoning level with Tab in the picker", async () => {
+		const { events, session } = await start("Gemini 3.8 Flash");
+		await session.prompt("Hi");
+		await session.setEffort("low");
+		expect(events.at(-1)).toMatchObject({
+			type: "info",
+			model: "Gemini 3.8 Flash",
+			effort: "low",
+		});
 	}, 20_000);
 
 	it("stops a turn with Esc", async () => {

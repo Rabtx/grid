@@ -5,7 +5,7 @@ type: feature
 from: human
 to: ui-ux
 priority: high
-status: doing
+status: done
 assignee: ui-ux
 reviewer: human
 parent: none

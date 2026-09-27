@@ -8,12 +8,15 @@ import { chatsDir, findChat, freebuffStateDir, replyState, replyText } from "./f
 import { exportedTurn } from "./freebuff-export";
 import {
 	connectionWarning,
+	currentModel,
 	inputText,
 	inSession,
+	isEffortPicker,
 	isIdle,
 	isMenu,
 	isWorking,
 	menuNotes,
+	parseEfforts,
 	parseMenu,
 	type Reply,
 	ReplyTracker,
@@ -24,13 +27,13 @@ import { spawnTui, type TuiProcess } from "./tui";
 
 /**
  * Freebuff as a chat agent. It only has an interactive terminal UI, so the runner runs the
- * official CLI in a pseudo-terminal and uses it the way a person would: it picks the model in the
- * CLI's own menu, types the message and streams the reply into the chat as the screen shows it.
+ * official CLI in a pseudo-terminal and uses it the way a person would: it picks the model and its
+ * reasoning in the CLI's own `/model` picker, types the message and streams the reply into the chat as the screen shows it.
  * Freebuff's own chat file says when the reply is complete and holds its exact text, which then
  * restates the turn; its folder name is the conversation's id, for picking it up again later.
  *
- * Freebuff sessions are paid for by the hour of Freebucks. Closing the process (not ending the
- * session) leaves the hour running, so the next start rejoins it instead of paying again.
+ * Freebuff sessions are paid for by the hour of Freebucks, from the first message. Closing the
+ * process (not ending the session) leaves the hour running, so the next start rejoins it.
  */
 
 /** Wide and tall, so replies wrap and scroll as little as possible. */
@@ -84,10 +87,10 @@ export function exitReason(lines: string[]): string {
 	return said ? `Freebuff stopped: ${said.slice(0, 300)}` : "Freebuff stopped";
 }
 
-/** Wait for the menu or a running session, passing on why when Freebuff cannot connect. */
+/** Wait until Freebuff takes messages, passing on why when it cannot connect or stops. */
 async function reachSession(tui: TuiProcess): Promise<string[]> {
 	try {
-		return await tui.wait((lines) => isMenu(lines) || inSession(lines), START_MS);
+		return await tui.wait((lines) => isIdle(lines) || inSession(lines), START_MS);
 	} catch (cause) {
 		if (!tui.alive) throw new Error(exitReason(tui.lines()));
 		const warning = connectionWarning(tui.lines());
@@ -110,31 +113,65 @@ async function expandMenu(tui: TuiProcess): Promise<void> {
 	}
 }
 
-/** Move the menu's highlight to `wanted` (or keep Freebuff's own choice) and start the session. */
-async function chooseModel(tui: TuiProcess, wanted: string | undefined): Promise<void> {
-	const menu = parseMenu(tui.lines());
-	const target = wanted ? menu.models.findIndex((model) => model.id === wanted) : menu.selected;
-	if (target < 0) throw new Error(`Freebuff does not offer ${wanted} right now`);
-	while (parseMenu(tui.lines()).selected !== target) {
-		const at = parseMenu(tui.lines()).selected;
+/** Move a list's highlight to `target`, one arrow at a time, checking each step landed. */
+async function highlight(
+	tui: TuiProcess,
+	target: number,
+	selectedIn: (lines: string[]) => number,
+): Promise<void> {
+	while (selectedIn(tui.lines()) !== target) {
+		const at = selectedIn(tui.lines());
 		tui.write(target < at ? "\x1b[A" : "\x1b[B");
 		const next = target < at ? at - 1 : at + 1;
-		await tui.wait((lines) => parseMenu(lines).selected === next, STEP_MS);
+		await tui.wait((lines) => selectedIn(lines) === next, STEP_MS);
 	}
-	tui.write("\r");
-	await tui.wait(inSession, START_MS);
 }
 
-/** The model list, read from the menu in a scratch folder without starting a session. */
+/** Open the model picker (`/model`), with every model showing. */
+async function openPicker(tui: TuiProcess): Promise<void> {
+	await submit(tui, "/model");
+	await tui.wait(isMenu, STEP_MS * 2);
+	await expandMenu(tui);
+}
+
+/**
+ * Choose the model the next messages go to, and its reasoning level, in Freebuff's own picker:
+ * highlight the model, Tab into its levels to pick one, then Enter. Changing costs nothing until
+ * a message is sent.
+ */
+async function chooseModel(tui: TuiProcess, model: string, effort?: string): Promise<Choice[]> {
+	await openPicker(tui);
+	const menu = parseMenu(tui.lines());
+	const target = menu.models.findIndex((choice) => choice.id === model);
+	if (target < 0) {
+		tui.write("\x1b");
+		throw new Error(`Freebuff does not offer ${model} right now`);
+	}
+	await highlight(tui, target, (lines) => parseMenu(lines).selected);
+	const choice = menu.models[target];
+	if (effort && choice.efforts?.some((level) => level.id === effort)) {
+		tui.write("\t");
+		await tui.wait(isEffortPicker, STEP_MS);
+		const { levels } = parseEfforts(tui.lines());
+		const level = levels.indexOf(effort);
+		if (level >= 0) await highlight(tui, level, (lines) => parseEfforts(lines).selected);
+		// Enter saves the level and goes back to the models.
+		tui.write("\r");
+		await tui.wait((lines) => isMenu(lines) && !isEffortPicker(lines), STEP_MS);
+	}
+	tui.write("\r");
+	await tui.wait(isIdle, STEP_MS * 2);
+	if (sessionModel(tui.lines()) !== model) throw new Error(`Freebuff did not switch to ${model}`);
+	return menu.models;
+}
+
+/** The model list, read from the picker in a scratch folder: nothing is sent, so nothing is spent. */
 async function readCatalog(binary: string, spawn: Tui): Promise<Choice[]> {
 	const cwd = mkdtempSync(join(tmpdir(), "grid-freebuff-models-"));
 	const tui = spawn([binary], cwd);
 	try {
-		const lines = await reachSession(tui);
-		if (!isMenu(lines)) {
-			throw new Error("A Freebuff session is running; its models show again once it ends");
-		}
-		await expandMenu(tui);
+		await reachSession(tui);
+		await openPicker(tui);
 		return parseMenu(tui.lines()).models;
 	} finally {
 		tui.kill();
@@ -184,7 +221,7 @@ function typed(text: string): string {
 
 /** How often the chat file is read while a turn runs. */
 const LOOK_MS = 400;
-/** A turn the screen shows as finished, with no chat file to confirm it, ends after this. */
+/** A turn the screen shows as finished, and the chat file does not mark complete, ends after this. */
 const SCREEN_ONLY_MS = 3_000;
 /** A connection warning on screen this long is passed on to the chat. */
 const WARNING_MS = 15_000;
@@ -196,6 +233,9 @@ async function startFreebuff(
 	context: AgentContext,
 ): Promise<AgentSession> {
 	let wanted = context.model;
+	let wantedEffort = context.effort;
+	// Model, effort and the model list are set once per process.
+	let prepared = false;
 	// Conversations started before ids were kept say "latest": the folder's newest one.
 	let conversation = context.resume && context.resume !== "latest" ? context.resume : undefined;
 	let continuing = Boolean(context.resume);
@@ -207,13 +247,15 @@ async function startFreebuff(
 	let busy = false;
 
 	const announce = () => {
-		const model = sessionModel(tui?.lines() ?? []) ?? wanted;
+		const now = currentModel(tui?.lines() ?? []);
+		const model = now?.model ?? wanted;
 		const efforts = models.find((choice) => choice.id === model)?.efforts;
 		context.emit({
 			type: "info",
 			...(models.length ? { models } : {}),
 			...(model ? { model } : {}),
 			...(efforts ? { efforts } : {}),
+			...(now?.effort ? { effort: now.effort } : {}),
 		});
 	};
 
@@ -227,17 +269,24 @@ async function startFreebuff(
 					? [binary, "--continue"]
 					: [binary];
 			tui = spawn(args, context.cwd);
+			prepared = false;
 		}
 		const current = tui;
 		const lines = await reachSession(current);
-		if (isMenu(lines)) {
-			await expandMenu(current);
-			const menu = current.lines();
-			models = parseMenu(menu).models;
-			notes = menuNotes(menu);
-			await chooseModel(current, wanted);
-			announce();
-		} else if (!models.length) {
+		if (!prepared) {
+			prepared = true;
+			notes = menuNotes(lines);
+			const now = currentModel(lines);
+			const differs =
+				(wanted && wanted !== now?.model) ||
+				(wantedEffort && now?.effort && wantedEffort !== now.effort);
+			if (differs) models = await chooseModel(current, wanted ?? now?.model ?? "", wantedEffort);
+			if (!models.length) {
+				await openPicker(current);
+				models = parseMenu(current.lines()).models;
+				current.write("\x1b");
+				await current.wait(isIdle, STEP_MS);
+			}
 			announce();
 		}
 		return current;
@@ -290,8 +339,8 @@ async function startFreebuff(
 			const since = Date.now();
 			await submit(screen, text);
 
-			// Done when Freebuff's chat file says the reply is complete; the screen's footer only
-			// when there is no file to ask. Connection trouble on screen is passed on, not waited out.
+			// Done when Freebuff's chat file says the reply is complete, or the screen has shown it
+			// finished for a moment. Connection trouble on screen is passed on, not waited out.
 			let chat = null as Awaited<ReturnType<typeof findChat>>;
 			let finishedAt: number | null = null;
 			let warnedAt: number | null = null;
@@ -301,9 +350,11 @@ async function startFreebuff(
 				chat = await findChat(chats, text, since, chat?.id ?? conversation);
 				if (chat && replyState(chat.messages, text, since) === "complete") break;
 				const lines = screen.lines();
+				// Not every build marks the file complete: a reply the screen shows finished, and
+				// that stays finished, is done too (its text still comes from the file).
 				if (tracker.finished && !isWorking(lines)) {
 					finishedAt ??= Date.now();
-					if (!chat && Date.now() - finishedAt > SCREEN_ONLY_MS) break;
+					if (Date.now() - finishedAt > SCREEN_ONLY_MS) break;
 				} else {
 					finishedAt = null;
 				}
@@ -330,6 +381,8 @@ async function startFreebuff(
 			const exact = chat ? exportedTurn(chat.messages) : [];
 			const events = exact.length ? exact : fromScreen(seen);
 			if (events.length) context.emit({ type: "turn_rewrite", events });
+			// The model that answered: a running session keeps the one it started with.
+			announce();
 			if (chat && chat.id !== conversation) {
 				conversation = chat.id;
 				context.onResumeToken(chat.id);
@@ -347,14 +400,6 @@ async function startFreebuff(
 		}
 	};
 
-	/** A Freebuff command typed into its prompt, between turns. */
-	const command = async (line: string) => {
-		if (busy) throw new Error("Wait for Freebuff to finish the current message");
-		const current = await ready();
-		await submit(current, line);
-		return current;
-	};
-
 	return {
 		prompt,
 		// Esc is how Freebuff itself stops a turn.
@@ -363,19 +408,24 @@ async function startFreebuff(
 			tui?.write("\x1b");
 		},
 		approve: () => undefined,
+		// Freebuff's picker sets the model and its reasoning for the next message, mid-chat too.
 		setModel: async (next) => {
 			wanted = next;
-			if (sessionModel(tui?.lines() ?? []) === next) return;
-			// Freebuff fixes the model for a session: switching ends it and picks again.
-			const current = await command("/end-session");
-			await current.wait(isMenu, START_MS);
-			await chooseModel(current, next);
+			if (busy) throw new Error("Wait for Freebuff to finish the current message");
+			const current = await ready();
+			if (sessionModel(current.lines()) === next) return;
+			models = await chooseModel(current, next, wantedEffort);
 			announce();
 		},
 		setMode: async () => undefined,
 		setEffort: async (level) => {
-			await command(`/reasoning ${level}`);
-			context.emit({ type: "info", effort: level });
+			wantedEffort = level;
+			if (busy) throw new Error("Wait for Freebuff to finish the current message");
+			const current = await ready();
+			const now = currentModel(current.lines());
+			if (!now || now.effort === level) return;
+			models = await chooseModel(current, now.model, level);
+			announce();
 		},
 		close: () => tui?.kill(),
 	};
