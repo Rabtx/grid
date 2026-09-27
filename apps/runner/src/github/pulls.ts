@@ -57,6 +57,8 @@ export type PullDetail = PullSummary & {
 	conversation: PullComment[];
 	files: { path: string; additions: number; deletions: number }[];
 	createdAt: string;
+	/** It comes from a fork: its branch is in another repository, not on `origin`. */
+	fork: boolean;
 };
 
 /** One unresolved review comment on a pull request, with where it hangs. */
@@ -124,6 +126,7 @@ type ThreadsAnswer = {
 };
 
 type RawDetail = RawPull & {
+	isCrossRepository?: boolean;
 	body: string;
 	state: PullDetail["state"];
 	mergeable: string;
@@ -152,7 +155,7 @@ const REVIEW_THREADS_QUERY = `query ReviewThreads($owner: String!, $name: String
 
 const LIST_FIELDS =
 	"number,title,author,headRefName,baseRefName,isDraft,reviewDecision,statusCheckRollup,labels,additions,deletions,updatedAt,url";
-const DETAIL_FIELDS = `${LIST_FIELDS},body,state,mergeable,createdAt,files,comments,reviews`;
+const DETAIL_FIELDS = `${LIST_FIELDS},body,state,mergeable,createdAt,files,comments,reviews,isCrossRepository`;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 
 /** One check, whether GitHub Actions (a check run) or a commit status (a status context). */
@@ -343,6 +346,7 @@ export class PullRequests {
 			conversation: conversation(raw),
 			files: raw.files ?? [],
 			createdAt: raw.createdAt,
+			fork: raw.isCrossRepository === true,
 		};
 	}
 
@@ -377,17 +381,29 @@ export class PullRequests {
 	}
 
 	/**
-	 * The log of a failed Actions run, through `gh run view <id> --log-failed`. Empty when the run
-	 * has nothing failed to show or the log cannot be read: a missing log is not a failure.
+	 * The failed steps' log of an Actions job (or of a whole run when the job is not known), through
+	 * `gh run view --log-failed`. Empty when there is nothing failed to show or the log cannot be
+	 * read: a missing log is not a failure, but it is said in the runner's log.
 	 */
-	async failedLog(userId: string, folder: string, runId: number): Promise<string> {
+	async failedLog(
+		userId: string,
+		folder: string,
+		target: { run: number; job: number | null },
+	): Promise<string> {
 		this.assertOwner(userId);
 		const repo = this.repository(folder);
-		const result = await this.gh.run(
-			["run", "view", String(runId), "--repo", repo, "--log-failed"],
-			{ timeoutMs: 60_000 },
-		);
-		return result.code === 0 ? result.stdout : "";
+		const which = target.job === null ? [String(target.run)] : ["--job", String(target.job)];
+		const result = await this.gh.run(["run", "view", ...which, "--repo", repo, "--log-failed"], {
+			timeoutMs: 60_000,
+		});
+		if (result.code !== 0) {
+			console.warn(
+				`[runner] no failed log for run ${target.run}:`,
+				result.stderr.trim().split("\n")[0] || `gh exited ${result.code}`,
+			);
+			return "";
+		}
+		return result.stdout;
 	}
 
 	async merge(userId: string, folder: string, number: number, method: MergeMethod): Promise<void> {

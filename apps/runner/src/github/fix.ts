@@ -17,33 +17,44 @@ export type FixInclude = {
 	description: boolean;
 };
 
-/** After a fix: where it happened, and what to say. */
+/** After a fix: where it happens, and what to say. */
 export type FixPlan = {
-	/** The pull request's branch, the worktree's branch. */
+	/**
+	 * The worktree's branch: the pull request's own, or for a fork's pull request a branch of its
+	 * own (`grid/pr-<n>`), since the fork's branch name may be one of this repository's.
+	 */
 	branch: string;
+	/** The pull request comes from a fork (its ref is fetched onto `branch`). */
+	fork: boolean;
 	/** The first message for the thread. */
 	message: string;
 };
 
 // A log tail long enough to hold a failure and what led to it, short enough to read.
 const LOG_LINES = 40;
+// A single minified or progress line can be megabytes: each line, and each tail, is capped.
+const LINE_CHARS = 300;
+const TAIL_CHARS = 4_000;
 
-/** The Actions run a check's URL points at, or null when it is not an Actions run. */
-export function runIdOf(url: string | null): number | null {
-	const match = url?.match(/\/actions\/runs\/(\d+)/);
-	return match ? Number(match[1]) : null;
+/** The Actions run (and job) a check's URL points at, or null when it is not an Actions run. */
+export function runOf(url: string | null): { run: number; job: number | null } | null {
+	const match = url?.match(/\/actions\/runs\/(\d+)(?:\/job\/(\d+))?/);
+	if (!match) return null;
+	return { run: Number(match[1]), job: match[2] ? Number(match[2]) : null };
 }
 
-/** The last lines of a log, colour codes stripped, so a huge log cannot drown the message. */
+/** The last lines of a log, colour codes stripped and sizes capped, so a huge log cannot drown the message. */
 export function logTail(text: string, lines = LOG_LINES): string {
 	// oxlint-disable-next-line no-control-regex -- escape sequences are made of control characters
 	const plain = text.replace(/\x1b\[[0-9;]*m/g, "");
-	return plain
+	const tail = plain
 		.split("\n")
 		.map((line) => line.trimEnd())
 		.filter((line) => line.trim())
 		.slice(-lines)
+		.map((line) => (line.length > LINE_CHARS ? `${line.slice(0, LINE_CHARS)} …` : line))
 		.join("\n");
+	return tail.length > TAIL_CHARS ? `… ${tail.slice(-TAIL_CHARS)}` : tail;
 }
 
 function checkLine(check: Check): string {
@@ -124,13 +135,18 @@ export async function fixPlan(
 	const pull = await service.view(userId, folder, number);
 	const checks = include.checks ? pull.checkList.filter((check) => check.state === "failure") : [];
 	const logs = new Map<string, string>();
+	// Checks in one run each point at their own job; one read per job, not one per run.
+	const seen = new Set<string>();
 	await Promise.all(
 		checks.map(async (check) => {
-			const run = runIdOf(check.url);
-			if (run === null) return;
-			const log = await service.failedLog(userId, folder, run).catch((cause: unknown) => {
+			const target = runOf(check.url);
+			if (!target) return;
+			const key = `${target.run}/${target.job ?? ""}`;
+			if (seen.has(key)) return;
+			seen.add(key);
+			const log = await service.failedLog(userId, folder, target).catch((cause: unknown) => {
 				console.warn(
-					`[runner] could not read the log of run ${run}:`,
+					`[runner] could not read the log of run ${target.run}:`,
 					cause instanceof Error ? cause.message : cause,
 				);
 				return "";
@@ -140,8 +156,10 @@ export async function fixPlan(
 		}),
 	);
 	const comments = include.comments ? await service.reviewComments(userId, folder, number) : [];
+	const branch = pull.fork ? `grid/pr-${pull.number}` : pull.branch;
 	return {
-		branch: pull.branch,
-		message: fixPrompt({ pull, checks, logs, comments, include }),
+		branch,
+		fork: pull.fork,
+		message: fixPrompt({ pull: { ...pull, branch }, checks, logs, comments, include }),
 	};
 }

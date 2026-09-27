@@ -66,23 +66,35 @@ export function FixWithAgentSheet(props: {
 	);
 
 	// The plan is the runner's: it reads the checks, their logs and the comments. It is read again
-	// whenever the sheet opens or the includes change, and rewrites the message.
+	// whenever the sheet opens or the includes change; only the newest answer counts, and it
+	// rewrites the message only while the person has not edited it.
+	let asked = 0;
+	const [edited, setEdited] = createSignal(false);
 	createEffect(
 		() => [props.open, auth.token(), props.project, props.number, include()] as const,
 		([open, token, project, number, wanted]) => {
-			if (!open) return;
+			if (!open) {
+				setEdited(false);
+				return;
+			}
 			if (!token) return;
+			const ask = ++asked;
 			setReading(true);
 			setError(null);
 			pullsService
 				.fix(token, project, number, wanted)
 				.then((next) => {
-					if (project !== props.project || number !== props.number) return;
+					if (ask !== asked) return;
 					setPlan(next);
-					setDraft(next.message);
+					if (!edited()) setDraft(next.message);
 				})
-				.catch((cause) => setError(message(cause, "Could not read this pull request's failures")))
-				.finally(() => setReading(false));
+				.catch((cause) => {
+					if (ask === asked)
+						setError(message(cause, "Could not read this pull request's failures"));
+				})
+				.finally(() => {
+					if (ask === asked) setReading(false);
+				});
 		},
 	);
 
@@ -134,6 +146,7 @@ export function FixWithAgentSheet(props: {
 					branch,
 					existing: true,
 					pull: props.number,
+					fork: plan()?.fork ?? false,
 				},
 				scope(),
 			);
@@ -242,7 +255,10 @@ export function FixWithAgentSheet(props: {
 							aria-label="First message"
 							rows={10}
 							value={draft()}
-							onInput={(event) => setDraft(event.currentTarget.value)}
+							onInput={(event) => {
+								setDraft(event.currentTarget.value);
+								setEdited(true);
+							}}
 						/>
 					</Show>
 					<Text size="caption" tone="subtle">

@@ -296,11 +296,16 @@ describe("pull requests through gh", () => {
 		const { gh, calls } = fakeGh(() => ({ stdout: "error: boom\n" }));
 		const pulls = new PullRequests(gh, owner);
 		const folder = repoFolder("https://github.com/acme/app.git");
-		await expect(pulls.failedLog("me", folder, 42)).resolves.toBe("error: boom\n");
+		await expect(pulls.failedLog("me", folder, { run: 42, job: null })).resolves.toBe(
+			"error: boom\n",
+		);
 		expect(calls[0]).toEqual(["run", "view", "42", "--repo", "acme/app", "--log-failed"]);
+		// One job of a run: that job's log only.
+		await pulls.failedLog("me", folder, { run: 42, job: 7 });
+		expect(calls[1]).toEqual(["run", "view", "--job", "7", "--repo", "acme/app", "--log-failed"]);
 
 		const none = new PullRequests(fakeGh(() => ({ code: 1, stderr: "no failed jobs" })).gh, owner);
-		await expect(none.failedLog("me", folder, 42)).resolves.toBe("");
+		await expect(none.failedLog("me", folder, { run: 42, job: null })).resolves.toBe("");
 	});
 
 	it("acts with gh's own commands", async () => {

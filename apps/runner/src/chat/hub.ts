@@ -16,6 +16,7 @@ import type {
 } from "./store";
 import {
 	createWorktree,
+	fetchBranch,
 	leftoverWorktrees,
 	removeWorktree,
 	repoRoot,
@@ -257,8 +258,10 @@ export class ChatHub {
 			branch?: string;
 			/** Work on `branch` as it is instead of making a new one from what is checked out. */
 			existing?: boolean;
-			/** A pull request number: fetch its ref when the branch is only in a fork. */
+			/** The pull request this worktree's branch is (see `WorktreeRequest`). */
 			pull?: number;
+			/** That pull request comes from a fork. */
+			fork?: boolean;
 		},
 	): ChatSessionRow {
 		const provider = this.providers.get(input.provider);
@@ -276,6 +279,7 @@ export class ChatHub {
 					branch: input.branch,
 					existing: input.existing,
 					pull: input.pull,
+					fork: input.fork,
 				})
 			: null;
 		return this.store.create({
@@ -290,6 +294,23 @@ export class ChatHub {
 			mode: input.mode ?? provider.info().defaultMode ?? null,
 			effort: input.effort ?? null,
 			worktree: own?.worktree ?? null,
+		});
+	}
+
+	/**
+	 * Before `create` puts a chat in a worktree on an existing branch: fetch that branch (or a
+	 * fork's pull request) without blocking, so `create` itself never waits on the network.
+	 */
+	async prepareWorktree(
+		who: Who,
+		input: { project: string; cwd?: string; branch?: string; pull?: number; fork?: boolean },
+	): Promise<void> {
+		const cwd = input.cwd?.trim() || this.defaultCwd(who.workspace, input.project);
+		if (!isDirectory(cwd)) return;
+		await fetchBranch(this.withinProjectsDir(cwd), {
+			branch: input.branch,
+			pull: input.pull,
+			fork: input.fork,
 		});
 	}
 

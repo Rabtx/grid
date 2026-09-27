@@ -50,15 +50,18 @@ export function RemoveWorktreeDialog(props: {
 							</Button>
 						}
 					>
-						<Button
-							variant="danger"
-							disabled={props.pending || !props.status}
-							onClick={() => props.onRemove({ deleteBranch: true, force: unpushed() > 0 })}
-						>
-							{unpushed() > 0
-								? `Delete branch and ${plural(unpushed(), "commit")}`
-								: "Delete branch too"}
-						</Button>
+						{/* A branch the thread did not make (a pull request's) is never offered for deleting. */}
+						<Show when={!props.status?.adopted}>
+							<Button
+								variant="danger"
+								disabled={props.pending || !props.status}
+								onClick={() => props.onRemove({ deleteBranch: true, force: unpushed() > 0 })}
+							>
+								{unpushed() > 0
+									? `Delete branch and ${plural(unpushed(), "commit")}`
+									: "Delete branch too"}
+							</Button>
+						</Show>
 						<Button
 							variant="primary"
 							disabled={props.pending || !props.status}
@@ -81,9 +84,11 @@ export function RemoveWorktreeDialog(props: {
 							<Text size="caption" tone="subtle">
 								{changed() > 0
 									? `${plural(changed(), "file")} changed and not committed: commit them first, or throw them away.`
-									: unpushed() > 0
-										? `${plural(unpushed(), "commit")} not pushed or merged. Keeping the branch keeps them.`
-										: "Nothing uncommitted or unpushed: nothing is lost either way."}
+									: current().adopted
+										? "The branch is not this thread's own, so it stays; only the worktree goes."
+										: unpushed() > 0
+											? `${plural(unpushed(), "commit")} not pushed or merged. Keeping the branch keeps them.`
+											: "Nothing uncommitted or unpushed: nothing is lost either way."}
 							</Text>
 						</Stack>
 					)}

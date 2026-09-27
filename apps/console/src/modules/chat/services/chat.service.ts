@@ -95,8 +95,10 @@ export const chatService = {
 			branch?: string;
 			/** Work on `branch` as it is (one that exists here or on the remote), not a new one. */
 			existing?: boolean;
-			/** A pull request number: fetch its ref when its branch is only in a fork. */
+			/** The pull request this worktree's branch is. */
 			pull?: number;
+			/** That pull request comes from a fork: its ref is fetched onto `branch`. */
+			fork?: boolean;
 		},
 		scope = "",
 	) =>

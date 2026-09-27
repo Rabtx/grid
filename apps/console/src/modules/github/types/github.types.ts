@@ -63,8 +63,10 @@ export type FixInclude = {
 
 /** What the runner would start a fix thread with: the pull request's branch and first message. */
 export type FixPlan = {
-	/** The pull request's branch, the worktree's branch. */
+	/** The worktree's branch: the pull request's own, or `grid/pr-<n>` for a fork's. */
 	branch: string;
+	/** The pull request comes from a fork. */
+	fork: boolean;
 	/** The first message for the thread. */
 	message: string;
 };

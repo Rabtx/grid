@@ -18,6 +18,11 @@ export type Worktree = {
 	base: string | null;
 	/** The folder the chat would have worked in without it (the project's own). */
 	origin: string;
+	/**
+	 * The branch was already there (a pull request's, someone's own) rather than made for the chat:
+	 * it is never deleted with the worktree.
+	 */
+	adopted?: boolean;
 };
 
 export type WorktreeStatus = {
@@ -30,6 +35,8 @@ export type WorktreeStatus = {
 	changed: number;
 	/** Commits on the branch that are on no remote and not in its base: lost if it is deleted. */
 	unpushed: number;
+	/** The branch was not made for the chat, so removing the worktree keeps it. */
+	adopted: boolean;
 };
 
 export class WorktreeError extends Error {
@@ -87,12 +94,67 @@ export type WorktreeRequest = {
 	 * making a new branch from what is checked out. Giving `pull` implies this too.
 	 */
 	existing?: boolean;
-	/**
-	 * A GitHub pull request number: when its branch is not in this repository (a fork's pull
-	 * request), its `refs/pull/<n>/head` is fetched instead of the branch.
-	 */
+	/** A GitHub pull request number, with `fork`: the pull request whose ref `fetchBranch` fetched. */
 	pull?: number;
+	/**
+	 * The pull request comes from a fork: its branch is not on `origin`, and its name may clash with
+	 * a branch of this repository, so it gets a branch of its own, `branch` (`grid/pr-<n>`).
+	 */
+	fork?: boolean;
 };
+
+/** Network fetches give up after this: a slow remote must not hold a chat back for long. */
+const FETCH_MS = 30_000;
+
+/**
+ * Fetch what an existing-branch worktree needs, before it is made: the branch from `origin` (and a
+ * local copy fast-forwarded to it when that is safe), or a fork's pull request ref onto its own
+ * local branch. Asynchronous with a timeout, so a slow or unreachable remote never blocks the
+ * runner; a failed fetch is not an error here (what was fetched before still serves), and
+ * `createWorktree` says what is missing.
+ */
+export async function fetchBranch(folder: string, request: WorktreeRequest): Promise<void> {
+	const repo = repoRoot(folder);
+	const branch = request.branch?.trim();
+	if (!repo || !branch || !git(repo, ["check-ref-format", "--branch", branch]).ok) return;
+	if (request.fork && request.pull !== undefined) {
+		// Fast-forward only: a local copy with commits of its own (an earlier fix) is kept as it is.
+		await gitAsync(repo, ["fetch", "origin", `pull/${request.pull}/head:refs/heads/${branch}`]);
+		return;
+	}
+	await gitAsync(repo, ["fetch", "origin", branch]);
+	if (git(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]).ok) {
+		// Refused (and harmless) when the local branch is checked out, or has diverged.
+		await gitAsync(repo, ["fetch", "origin", `${branch}:refs/heads/${branch}`]);
+	}
+}
+
+async function gitAsync(cwd: string, args: string[]): Promise<boolean> {
+	try {
+		const child = Bun.spawn(["git", "-C", cwd, ...args], {
+			stdout: "ignore",
+			stderr: "pipe",
+			env: {
+				...process.env,
+				GIT_TERMINAL_PROMPT: "0",
+				// No passphrase or host-key prompts either: nobody is at this terminal.
+				GIT_SSH_COMMAND: "ssh -o BatchMode=yes",
+			},
+		});
+		const timer = setTimeout(() => child.kill(), FETCH_MS);
+		const [code, err] = await Promise.all([
+			child.exited,
+			new Response(child.stderr as ReadableStream).text(),
+		]);
+		clearTimeout(timer);
+		if (code !== 0)
+			console.warn(`[runner] git ${args.slice(0, 2).join(" ")} failed:`, firstLine(err));
+		return code === 0;
+	} catch (cause) {
+		console.warn("[runner] git could not run:", cause instanceof Error ? cause.message : cause);
+		return false;
+	}
+}
 
 /** The folder a branch's worktree takes (Grid's own prefix left off), flattened so it is a path. */
 function worktreeFolder(branch: string, chatId: string): string {
@@ -137,35 +199,24 @@ function newBranch(repo: string, path: string, branch: string): string | null {
 }
 
 /**
- * An existing branch, fetched when only the remote has it. A branch `origin` has is taken by name,
- * so the worktree tracks it and pushing goes back to it; a fork's pull request is not on `origin`
- * at all, so its `refs/pull/<n>/head` is fetched instead and the local branch made from that.
+ * An existing branch, as `fetchBranch` left it: the local branch when there is one, else a new
+ * local branch tracking `origin`'s. Nothing is fetched here, so this never waits on the network.
  */
-function existingBranch(repo: string, path: string, branch: string, pull?: number): string | null {
+function existingBranch(repo: string, path: string, branch: string, pull?: number): void {
 	if (git(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]).ok) {
 		addWorktree(repo, [path, branch], branch);
-		return null;
+		return;
 	}
-	// A same-repository pull request's branch is on `origin` like any other branch. A fetch that
-	// fails keeps a ref fetched before, so a branch can still be taken while offline.
-	git(repo, ["fetch", "origin", branch]);
 	if (git(repo, ["rev-parse", "--verify", "--quiet", `refs/remotes/origin/${branch}`]).ok) {
 		addWorktree(repo, ["-b", branch, path, `origin/${branch}`], branch);
-		return null;
+		return;
 	}
-	if (pull === undefined) {
-		throw new WorktreeError(`There is no branch ${branch} here or on origin`, 404);
-	}
-	const fetched = git(repo, ["fetch", "origin", `pull/${pull}/head`]);
-	if (!fetched.ok) {
-		throw new WorktreeError(
-			`Could not fetch pull request #${pull} from origin: ${firstLine(fetched.err) || "git failed"}`,
-			404,
-		);
-	}
-	// A pull request's ref has nothing to track, so it starts from FETCH_HEAD.
-	addWorktree(repo, ["-b", branch, path, "FETCH_HEAD"], branch);
-	return null;
+	throw new WorktreeError(
+		pull === undefined
+			? `There is no branch ${branch} here or on origin`
+			: `Could not fetch pull request #${pull} from origin`,
+		404,
+	);
 }
 
 /**
@@ -188,14 +239,14 @@ export function createWorktree(
 	}
 	const path = join(worktreesDir(projectsDir, repo), worktreeFolder(branch, chatId));
 	if (existsSync(path)) throw new WorktreeError(`${path} already exists`, 409);
-	const base =
-		request.existing === true || request.pull !== undefined
-			? existingBranch(repo, path, branch, request.pull)
-			: newBranch(repo, path, branch);
+	const adopted = request.existing === true || request.pull !== undefined;
+	let base: string | null = null;
+	if (adopted) existingBranch(repo, path, branch, request.pull);
+	else base = newBranch(repo, path, branch);
 	const inside = relative(repo, folder);
 	return {
 		cwd: inside ? join(path, inside) : path,
-		worktree: { repo, path, branch, base, origin: folder },
+		worktree: { repo, path, branch, base, origin: folder, ...(adopted ? { adopted: true } : {}) },
 	};
 }
 
@@ -220,13 +271,14 @@ export function worktreeStatus(worktree: Worktree): WorktreeStatus {
 		exists,
 		changed,
 		unpushed,
+		adopted: worktree.adopted === true,
 	};
 }
 
 /**
- * Remove a chat's worktree, and its branch when asked. Uncommitted changes, or (when the branch
- * goes too) commits that are nowhere else, are only thrown away with `force`: otherwise this
- * refuses and says what would be lost.
+ * Remove a chat's worktree, and its branch when asked and the chat made it. Uncommitted changes,
+ * or (when the branch goes too) commits that are nowhere else, are only thrown away with `force`:
+ * otherwise this refuses and says what would be lost.
  */
 export function removeWorktree(
 	worktree: Worktree,
@@ -239,7 +291,7 @@ export function removeWorktree(
 			409,
 		);
 	}
-	if (!options.force && options.deleteBranch && status.unpushed > 0) {
+	if (!options.force && options.deleteBranch && !worktree.adopted && status.unpushed > 0) {
 		throw new WorktreeError(
 			`${worktree.branch} has ${status.unpushed} commit${status.unpushed === 1 ? "" : "s"} that are not pushed or merged`,
 			409,
@@ -258,7 +310,10 @@ export function removeWorktree(
 	} else {
 		git(worktree.repo, ["worktree", "prune"]);
 	}
-	if (options.deleteBranch) git(worktree.repo, ["branch", "-D", worktree.branch]);
+	// A branch the chat did not make (a pull request's, someone's own) stays, whatever was asked.
+	if (options.deleteBranch && !worktree.adopted) {
+		git(worktree.repo, ["branch", "-D", worktree.branch]);
+	}
 }
 
 /** A Grid worktree on disk that no chat uses any more (its chat was deleted while it held work). */
@@ -275,7 +330,16 @@ export function leftoverWorktrees(
 		const path = entry.match(/^worktree (.+)$/m)?.[1];
 		const branch = entry.match(/^branch refs\/heads\/(.+)$/m)?.[1];
 		if (!path || !branch || !path.startsWith(`${home}/`) || used.has(path)) continue;
-		found.push({ repo, path, branch, base: null, origin: repo });
+		// Its chat is gone, and with it the record of whether the branch was made for it: only
+		// Grid's own `grid/` branches are treated as the chat's.
+		found.push({
+			repo,
+			path,
+			branch,
+			base: null,
+			origin: repo,
+			adopted: !branch.startsWith("grid/"),
+		});
 	}
 	return found;
 }

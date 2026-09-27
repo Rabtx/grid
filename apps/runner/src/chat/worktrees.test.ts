@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { Provider } from "../agents/provider";
 import { ChatHub } from "./hub";
 import { ChatStore } from "./store";
-import { createWorktree, removeWorktree, repoRoot, worktreeStatus } from "./worktrees";
+import { createWorktree, fetchBranch, removeWorktree, repoRoot, worktreeStatus } from "./worktrees";
 
 const projects = mkdtempSync(join(tmpdir(), "grid-worktrees-"));
 afterAll(() => rmSync(projects, { recursive: true, force: true }));
@@ -79,7 +79,7 @@ describe("chat worktrees", () => {
 		);
 	});
 
-	it("fetches a branch only the remote has, and tracks it", () => {
+	it("fetches a branch only the remote has, and tracks it", async () => {
 		const server = join(projects, "origin.git");
 		mkdirSync(server);
 		git(server, "init", "-q", "--bare", "-b", "main");
@@ -95,6 +95,7 @@ describe("chat worktrees", () => {
 		git(local, "push", "-q", "origin", "remote-only");
 		git(local, "branch", "-D", "remote-only");
 
+		await fetchBranch(join(local, "web"), { branch: "remote-only", existing: true });
 		const made = createWorktree(join(local, "web"), "bbbbbbbb-2222", projects, {
 			branch: "remote-only",
 			existing: true,
@@ -108,7 +109,7 @@ describe("chat worktrees", () => {
 		);
 	});
 
-	it("fetches a fork's pull request ref onto a local branch", () => {
+	it("fetches a fork's pull request onto a branch of its own, even when its name is taken", async () => {
 		const server = join(projects, "fork-origin.git");
 		mkdirSync(server);
 		git(server, "init", "-q", "--bare", "-b", "main");
@@ -120,7 +121,8 @@ describe("chat worktrees", () => {
 		git(local, "commit", "-q", "-m", "first");
 		git(local, "remote", "add", "origin", server);
 		git(local, "push", "-q", "-u", "origin", "main");
-		// The contribution exists only as the pull request's ref, as a fork's would.
+		// The contribution exists only as the pull request's ref, as a fork's would; the fork's
+		// branch was called `main`, like the person's own, which is checked out in their folder.
 		git(local, "checkout", "-q", "-b", "contributed");
 		writeFileSync(join(local, "web", "app.ts"), "export const contributed = true;\n");
 		git(local, "commit", "-q", "-am", "contribute");
@@ -128,17 +130,32 @@ describe("chat worktrees", () => {
 		git(local, "push", "-q", "origin", "HEAD:refs/pull/7/head");
 		git(local, "checkout", "-q", "main");
 		git(local, "branch", "-D", "contributed");
+		const ownMain = git(local, "rev-parse", "main");
 
-		const made = createWorktree(join(local, "web"), "ffffffff-6666", projects, {
-			branch: "contributed",
-			existing: true,
-			pull: 7,
-		});
-		expect(made?.worktree.branch).toBe("contributed");
+		const request = { branch: "grid/pr-7", existing: true, pull: 7, fork: true };
+		await fetchBranch(join(local, "web"), request);
+		const made = createWorktree(join(local, "web"), "ffffffff-6666", projects, request);
+		expect(made?.worktree).toMatchObject({ branch: "grid/pr-7", adopted: true });
 		expect(git(made?.worktree.path ?? "", "rev-parse", "HEAD")).toBe(contributed);
+		// The person's own `main` was not touched.
+		expect(git(local, "rev-parse", "main")).toBe(ownMain);
 	});
 
-	it("takes a pull request's own branch on origin, which tracks it, over its pull ref", () => {
+	it("never deletes a branch it did not make, whatever removing asks", () => {
+		const app = repo("adopted");
+		git(app, "branch", "feature/theirs");
+		const made = createWorktree(app, "abababab-7777", projects, {
+			branch: "feature/theirs",
+			existing: true,
+		});
+		if (!made) throw new Error("no worktree");
+		expect(worktreeStatus(made.worktree).adopted).toBe(true);
+		removeWorktree(made.worktree, { deleteBranch: true });
+		expect(existsSync(made.worktree.path)).toBe(false);
+		expect(git(app, "branch", "--list", "feature/theirs")).toContain("feature/theirs");
+	});
+
+	it("takes a pull request's own branch on origin, which tracks it, over its pull ref", async () => {
 		const server = join(projects, "same-repo-origin.git");
 		mkdirSync(server);
 		git(server, "init", "-q", "--bare", "-b", "main");
@@ -159,6 +176,7 @@ describe("chat worktrees", () => {
 		git(local, "checkout", "-q", "main");
 		git(local, "branch", "-D", "fix/tidy");
 
+		await fetchBranch(join(local, "web"), { branch: "fix/tidy", existing: true, pull: 12 });
 		const made = createWorktree(join(local, "web"), "eeeeeeee-5555", projects, {
 			branch: "fix/tidy",
 			existing: true,
