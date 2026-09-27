@@ -1,6 +1,12 @@
 import type { TerminalInfo } from "@/modules/terminal/types/terminal.types";
 
-import type { ChatProvider, ChatSession, ProviderSettings } from "../types/chat.types";
+import type {
+	ChatProvider,
+	ChatSession,
+	ProjectChatSettings,
+	ProviderSettings,
+	WorktreeStatus,
+} from "../types/chat.types";
 
 /**
  * The runner, on the console's own origin (`/runner`), like the terminals. `scope` points a call
@@ -83,6 +89,8 @@ export const chatService = {
 			model?: string;
 			mode?: string;
 			effort?: string;
+			/** Its own git worktree; by default what the project is set to. */
+			worktree?: boolean;
 		},
 		scope = "",
 	) =>
@@ -101,4 +109,33 @@ export const chatService = {
 		),
 	remove: (token: string, id: string, scope = "") =>
 		call<void>(`/chat/sessions/${id}`, token, { method: "DELETE" }, scope),
+	worktree: (token: string, id: string, scope = "") =>
+		call<WorktreeStatus | null>(`/chat/sessions/${id}/worktree`, token, {}, scope),
+	/** Remove a chat's worktree (and its branch); refuses to lose work unless `force`. */
+	discardWorktree: (
+		token: string,
+		id: string,
+		options: { deleteBranch: boolean; force?: boolean },
+		scope = "",
+	) =>
+		call<void>(
+			`/chat/sessions/${id}/worktree/discard`,
+			token,
+			{ method: "POST", body: JSON.stringify(options) },
+			scope,
+		),
+	projectSettings: (token: string, project: string, scope = "") =>
+		call<ProjectChatSettings>(`/chat/projects/${project}/settings`, token, {}, scope),
+	saveProjectSettings: (
+		token: string,
+		project: string,
+		settings: ProjectChatSettings,
+		scope = "",
+	) =>
+		call<void>(
+			`/chat/projects/${project}/settings`,
+			token,
+			{ method: "PUT", body: JSON.stringify(settings) },
+			scope,
+		),
 };

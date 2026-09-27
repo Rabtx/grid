@@ -4,6 +4,8 @@ import { dirname } from "node:path";
 
 import type { ChatEvent, Choice } from "../agents/events";
 
+import type { Worktree } from "./worktrees";
+
 /** A conversation with an agent, as the console lists it. */
 export type ChatSessionRow = {
 	id: string;
@@ -20,9 +22,19 @@ export type ChatSessionRow = {
 	effort: string | null;
 	/** The provider's own session id, to resume the conversation in a fresh process. */
 	resumeToken: string | null;
+	/** The chat's own git worktree, when it has one (`cwd` is inside it). */
+	worktree: Worktree | null;
 	createdAt: string;
 	updatedAt: string;
 };
+
+/** What each project is set to on this machine. */
+export type ProjectSettings = {
+	/** New chats get their own git worktree (on unless turned off). */
+	worktrees: boolean;
+};
+
+const DEFAULT_PROJECT_SETTINGS: ProjectSettings = { worktrees: true };
 
 type Row = {
 	id: string;
@@ -36,9 +48,19 @@ type Row = {
 	mode: string | null;
 	effort: string | null;
 	resume_token: string | null;
+	worktree: string | null;
 	created_at: string;
 	updated_at: string;
 };
+
+function readWorktree(raw: string | null): Worktree | null {
+	if (!raw) return null;
+	try {
+		return JSON.parse(raw) as Worktree;
+	} catch {
+		return null;
+	}
+}
 
 function toSession(row: Row): ChatSessionRow {
 	return {
@@ -53,6 +75,7 @@ function toSession(row: Row): ChatSessionRow {
 		mode: row.mode,
 		effort: row.effort,
 		resumeToken: row.resume_token,
+		worktree: readWorktree(row.worktree),
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -135,6 +158,17 @@ export class ChatStore {
 		if (hasColumn(this.db, "project_folders", "owner_id")) {
 			this.db.exec("ALTER TABLE project_folders RENAME COLUMN owner_id TO workspace_id");
 		}
+		if (!hasColumn(this.db, "sessions", "worktree")) {
+			this.db.exec("ALTER TABLE sessions ADD COLUMN worktree TEXT");
+		}
+		this.db.exec(`
+			CREATE TABLE IF NOT EXISTS project_settings (
+				workspace_id TEXT NOT NULL,
+				project TEXT NOT NULL,
+				data TEXT NOT NULL,
+				PRIMARY KEY (workspace_id, project)
+			);
+		`);
 	}
 
 	/**
@@ -159,8 +193,8 @@ export class ChatStore {
 		const now = new Date().toISOString();
 		this.db
 			.query(
-				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, created_at, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, worktree, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
 			)
 			.run(
 				session.id,
@@ -173,6 +207,7 @@ export class ChatStore {
 				session.model,
 				session.mode,
 				session.effort,
+				session.worktree ? JSON.stringify(session.worktree) : null,
 				now,
 				now,
 			);
@@ -195,7 +230,12 @@ export class ChatStore {
 
 	update(
 		id: string,
-		fields: Partial<Pick<ChatSessionRow, "title" | "model" | "mode" | "effort" | "resumeToken">>,
+		fields: Partial<
+			Pick<
+				ChatSessionRow,
+				"title" | "model" | "mode" | "effort" | "resumeToken" | "cwd" | "worktree"
+			>
+		>,
 	): void {
 		const columns: Record<string, string> = {
 			title: "title",
@@ -203,13 +243,41 @@ export class ChatStore {
 			mode: "mode",
 			effort: "effort",
 			resumeToken: "resume_token",
+			cwd: "cwd",
+			worktree: "worktree",
 		};
 		const entries = Object.entries(fields).filter(([key]) => key in columns);
 		if (entries.length === 0) return;
 		const sets = entries.map(([key]) => `${columns[key]} = ?`).join(", ");
+		const values = entries.map(([key, value]) =>
+			key === "worktree" ? (value ? JSON.stringify(value) : null) : (value as string | null),
+		);
 		this.db
 			.query(`UPDATE sessions SET ${sets}, updated_at = ? WHERE id = ?`)
-			.run(...entries.map(([, value]) => value as string | null), new Date().toISOString(), id);
+			.run(...values, new Date().toISOString(), id);
+	}
+
+	projectSettings(workspace: string, project: string): ProjectSettings {
+		const row = this.db
+			.query<{ data: string }, [string, string]>(
+				"SELECT data FROM project_settings WHERE workspace_id = ? AND project = ?",
+			)
+			.get(workspace, project);
+		if (!row) return { ...DEFAULT_PROJECT_SETTINGS };
+		try {
+			return { ...DEFAULT_PROJECT_SETTINGS, ...(JSON.parse(row.data) as Partial<ProjectSettings>) };
+		} catch {
+			return { ...DEFAULT_PROJECT_SETTINGS };
+		}
+	}
+
+	setProjectSettings(workspace: string, project: string, settings: ProjectSettings): void {
+		this.db
+			.query(
+				`INSERT INTO project_settings (workspace_id, project, data) VALUES (?, ?, ?)
+				 ON CONFLICT (workspace_id, project) DO UPDATE SET data = excluded.data`,
+			)
+			.run(workspace, project, JSON.stringify(settings));
 	}
 
 	touch(id: string): void {

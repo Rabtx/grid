@@ -19,12 +19,13 @@ const config = {
 	shell: "/bin/sh",
 };
 const store = new TerminalStore(config, spawnPty);
+const chatStore = new ChatStore(":memory:");
 const server = startServer(
 	config,
 	store,
 	async (token) =>
 		token === "good" ? { who: { userId: "user-1", workspace: "ws-1" } } : signedOut,
-	new ChatHub(new ChatStore(":memory:"), new Map(), projectsDir),
+	new ChatHub(chatStore, new Map(), projectsDir),
 );
 const base = `http://127.0.0.1:${server.port}`;
 const auth = { Authorization: "Bearer good" };
@@ -218,6 +219,18 @@ describe("folders and project links", () => {
 			body: JSON.stringify({ path: tmpdir() }),
 		});
 		expect(outside.status).toBe(403);
+	});
+
+	it("lists the other folders when one is linked outside the projects folder", async () => {
+		const inside = mkdtempSync(join(projectsDir, "kept-"));
+		chatStore.setProjectFolder("ws-1", "kept", inside);
+		// Linked before the projects folder was narrowed: left out, not a failure of the list.
+		chatStore.setProjectFolder("ws-1", "stale", tmpdir());
+		const response = await fetch(`${base}/projects/folders`, { headers: auth });
+		expect(response.status).toBe(200);
+		const folders = ((await response.json()) as { data: Record<string, string> }).data;
+		expect(folders.kept).toBe(inside);
+		expect(folders.stale).toBeUndefined();
 	});
 
 	it("refuses without sign-in, and refuses a folder that does not exist", async () => {
