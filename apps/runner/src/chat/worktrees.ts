@@ -78,45 +78,120 @@ export function worktreesDir(projectsDir: string, repo: string): string {
 	return join(projectsDir, ".grid-worktrees", basename(repo));
 }
 
+/** What kind of worktree a chat wants: a new branch, or an existing one to work on. */
+export type WorktreeRequest = {
+	/** The new branch's name; `grid/chat-<id>` when not given. */
+	branch?: string;
+	/**
+	 * Work on `branch` as it is — one that already exists here or on the remote — instead of
+	 * making a new branch from what is checked out. Giving `pull` implies this too.
+	 */
+	existing?: boolean;
+	/**
+	 * A GitHub pull request number: when its branch is not in this repository (a fork's pull
+	 * request), its `refs/pull/<n>/head` is fetched instead of the branch.
+	 */
+	pull?: number;
+};
+
+/** The folder a branch's worktree takes (Grid's own prefix left off), flattened so it is a path. */
+function worktreeFolder(branch: string, chatId: string): string {
+	return (
+		branch
+			.replace(/^grid\//, "")
+			.replace(/[^\w.-]+/g, "-")
+			.replace(/^-+|-+$/g, "") || `chat-${chatId.slice(0, 8)}`
+	);
+}
+
+function firstLine(text: string): string {
+	return text.split("\n")[0]?.trim() ?? "";
+}
+
+/** `git worktree add`, with git's own refusals turned into something worth showing a person. */
+function addWorktree(repo: string, args: string[], branch: string): void {
+	const added = git(repo, ["worktree", "add", ...args]);
+	if (added.ok) return;
+	const said = firstLine(added.err);
+	// Git will not put one branch in two places: the branch is checked out in the project's own
+	// folder, or in another chat's worktree. Its refusal is not the first line, and its wording
+	// has changed ("already checked out" / "already used by worktree").
+	if (/already (?:checked out|used by worktree)/i.test(added.err)) {
+		throw new WorktreeError(
+			`${branch} is already checked out elsewhere; a branch can only be in one worktree`,
+			409,
+		);
+	}
+	throw new WorktreeError(`Could not make a worktree for this chat: ${said || "git failed"}`, 500);
+}
+
+/** A new branch from what is checked out now; a name already in use is refused. */
+function newBranch(repo: string, path: string, branch: string): string | null {
+	if (git(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]).ok) {
+		throw new WorktreeError(`A branch called ${branch} already exists`, 409);
+	}
+	const head = git(repo, ["rev-parse", "--abbrev-ref", "HEAD"]);
+	const base = head.ok && head.out !== "HEAD" ? head.out : null;
+	addWorktree(repo, ["-b", branch, path, "HEAD"], branch);
+	return base;
+}
+
 /**
- * A new worktree for a chat, on a new branch from what the project has checked out now. Returns
- * null when the folder is not in a git repository (the chat then works in the folder itself).
- * The chat works in the same place inside it as the folder is inside its repository.
+ * An existing branch, fetched when only the remote has it. A branch `origin` has is taken by name,
+ * so the worktree tracks it and pushing goes back to it; a fork's pull request is not on `origin`
+ * at all, so its `refs/pull/<n>/head` is fetched instead and the local branch made from that.
+ */
+function existingBranch(repo: string, path: string, branch: string, pull?: number): string | null {
+	if (git(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]).ok) {
+		addWorktree(repo, [path, branch], branch);
+		return null;
+	}
+	// A same-repository pull request's branch is on `origin` like any other branch. A fetch that
+	// fails keeps a ref fetched before, so a branch can still be taken while offline.
+	git(repo, ["fetch", "origin", branch]);
+	if (git(repo, ["rev-parse", "--verify", "--quiet", `refs/remotes/origin/${branch}`]).ok) {
+		addWorktree(repo, ["-b", branch, path, `origin/${branch}`], branch);
+		return null;
+	}
+	if (pull === undefined) {
+		throw new WorktreeError(`There is no branch ${branch} here or on origin`, 404);
+	}
+	const fetched = git(repo, ["fetch", "origin", `pull/${pull}/head`]);
+	if (!fetched.ok) {
+		throw new WorktreeError(
+			`Could not fetch pull request #${pull} from origin: ${firstLine(fetched.err) || "git failed"}`,
+			404,
+		);
+	}
+	// A pull request's ref has nothing to track, so it starts from FETCH_HEAD.
+	addWorktree(repo, ["-b", branch, path, "FETCH_HEAD"], branch);
+	return null;
+}
+
+/**
+ * A worktree for a chat: a new branch from what the project has checked out now, or, with
+ * `existing` (or a `pull` number), the branch as it is. Returns null when the folder is not in a
+ * git repository (the chat then works in the folder itself). The chat works in the same place
+ * inside it as the folder is inside its repository.
  */
 export function createWorktree(
 	folder: string,
 	chatId: string,
 	projectsDir: string,
-	/** The new branch's name; `grid/chat-<id>` when not given. */
-	branchName?: string,
+	request: WorktreeRequest = {},
 ): { cwd: string; worktree: Worktree } | null {
 	const repo = repoRoot(folder);
 	if (!repo) return null;
-	const head = git(repo, ["rev-parse", "--abbrev-ref", "HEAD"]);
-	const base = head.ok && head.out !== "HEAD" ? head.out : null;
-	const branch = branchName?.trim() || `grid/chat-${chatId.slice(0, 8)}`;
+	const branch = request.branch?.trim() || `grid/chat-${chatId.slice(0, 8)}`;
 	if (!git(repo, ["check-ref-format", "--branch", branch]).ok) {
 		throw new WorktreeError(`"${branch}" is not a branch name git accepts`, 400);
 	}
-	if (git(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]).ok) {
-		throw new WorktreeError(`A branch called ${branch} already exists`, 409);
-	}
-	// The folder is named after the branch (Grid's own prefix left off), flattened:
-	// `feature/login` → `feature-login`, `grid/chat-1a2b3c4d` → `chat-1a2b3c4d`.
-	const name =
-		branch
-			.replace(/^grid\//, "")
-			.replace(/[^\w.-]+/g, "-")
-			.replace(/^-+|-+$/g, "") || `chat-${chatId.slice(0, 8)}`;
-	const path = join(worktreesDir(projectsDir, repo), name);
+	const path = join(worktreesDir(projectsDir, repo), worktreeFolder(branch, chatId));
 	if (existsSync(path)) throw new WorktreeError(`${path} already exists`, 409);
-	const added = git(repo, ["worktree", "add", "-b", branch, path, "HEAD"]);
-	if (!added.ok) {
-		throw new WorktreeError(
-			`Could not make a worktree for this chat: ${added.err.split("\n")[0] || "git failed"}`,
-			500,
-		);
-	}
+	const base =
+		request.existing === true || request.pull !== undefined
+			? existingBranch(repo, path, branch, request.pull)
+			: newBranch(repo, path, branch);
 	const inside = relative(repo, folder);
 	return {
 		cwd: inside ? join(path, inside) : path,

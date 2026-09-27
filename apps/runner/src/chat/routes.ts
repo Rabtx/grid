@@ -63,6 +63,8 @@ export async function chatRequest(
 						effort: typeof body.effort === "string" ? body.effort : undefined,
 						worktree: typeof body.worktree === "boolean" ? body.worktree : undefined,
 						branch: typeof body.branch === "string" ? body.branch : undefined,
+						existing: typeof body.existing === "boolean" ? body.existing : undefined,
+						pull: typeof body.pull === "number" ? body.pull : undefined,
 					}),
 				},
 				{ status: 201 },

@@ -21,6 +21,7 @@ import {
 	repoRoot,
 	type Worktree,
 	WorktreeError,
+	type WorktreeRequest,
 	type WorktreeStatus,
 	worktreeStatus,
 } from "./worktrees";
@@ -254,6 +255,10 @@ export class ChatHub {
 			worktree?: boolean;
 			/** The new worktree's branch; `grid/chat-<id>` when not given. */
 			branch?: string;
+			/** Work on `branch` as it is instead of making a new one from what is checked out. */
+			existing?: boolean;
+			/** A pull request number: fetch its ref when the branch is only in a fork. */
+			pull?: number;
 		},
 	): ChatSessionRow {
 		const provider = this.providers.get(input.provider);
@@ -266,7 +271,13 @@ export class ChatHub {
 		const id = crypto.randomUUID();
 		const wanted =
 			input.worktree ?? this.store.projectSettings(who.workspace, input.project).worktrees;
-		const own = wanted ? this.worktreeFor(boundedCwd, id, input.branch) : null;
+		const own = wanted
+			? this.worktreeFor(boundedCwd, id, {
+					branch: input.branch,
+					existing: input.existing,
+					pull: input.pull,
+				})
+			: null;
 		return this.store.create({
 			id,
 			ownerId: who.userId,
@@ -286,10 +297,10 @@ export class ChatHub {
 	private worktreeFor(
 		folder: string,
 		id: string,
-		branch?: string,
+		request: WorktreeRequest = {},
 	): ReturnType<typeof createWorktree> {
 		try {
-			return createWorktree(folder, id, this.projectsDir, branch);
+			return createWorktree(folder, id, this.projectsDir, request);
 		} catch (cause) {
 			if (cause instanceof WorktreeError) throw new ChatError(cause.message, cause.status);
 			throw cause;

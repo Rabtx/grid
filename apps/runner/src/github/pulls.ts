@@ -59,6 +59,16 @@ export type PullDetail = PullSummary & {
 	createdAt: string;
 };
 
+/** One unresolved review comment on a pull request, with where it hangs. */
+export type PullReviewComment = {
+	author: string;
+	/** The file it is on; empty for a comment that is not on a file. */
+	path: string;
+	/** The line in the file, or null when the comment is on the file as a whole. */
+	line: number | null;
+	body: string;
+};
+
 export type MergeMethod = "merge" | "squash" | "rebase";
 
 type Rollup = {
@@ -91,6 +101,28 @@ type RawPull = {
 	url: string;
 };
 
+/** One review thread as GitHub's GraphQL answers it. */
+type RawThread = {
+	isResolved?: boolean;
+	comments?: {
+		nodes?: {
+			author?: Person;
+			path?: string;
+			line?: number | null;
+			originalLine?: number | null;
+			body?: string;
+		}[];
+	};
+};
+
+type ThreadsAnswer = {
+	data?: {
+		repository?: {
+			pullRequest?: { reviewThreads?: { nodes?: RawThread[] } | null } | null;
+		} | null;
+	} | null;
+};
+
 type RawDetail = RawPull & {
 	body: string;
 	state: PullDetail["state"];
@@ -100,6 +132,23 @@ type RawDetail = RawPull & {
 	comments: { author: Person; body: string; createdAt: string }[];
 	reviews: { author: Person; body: string; state: string; submittedAt: string }[];
 };
+
+// Review threads carry whether they are resolved and where each comment hangs; `gh pr view --json`
+// does not, so this is asked of GitHub's GraphQL API.
+const REVIEW_THREADS_QUERY = `query ReviewThreads($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) {
+        nodes {
+          isResolved
+          comments(first: 50) {
+            nodes { author { login } path line originalLine body }
+          }
+        }
+      }
+    }
+  }
+}`;
 
 const LIST_FIELDS =
 	"number,title,author,headRefName,baseRefName,isDraft,reviewDecision,statusCheckRollup,labels,additions,deletions,updatedAt,url";
@@ -197,6 +246,26 @@ export function splitDiff(text: string): FileDiff[] {
 	return files;
 }
 
+/** The unresolved review comments in GitHub's answer, oldest thread first, nothing resolved. */
+export function reviewComments(answer: ThreadsAnswer): PullReviewComment[] {
+	const threads = answer.data?.repository?.pullRequest?.reviewThreads?.nodes ?? [];
+	const found: PullReviewComment[] = [];
+	for (const thread of threads) {
+		if (thread.isResolved) continue;
+		for (const comment of thread.comments?.nodes ?? []) {
+			const body = comment.body?.trim() ?? "";
+			if (!body) continue;
+			found.push({
+				author: comment.author?.login ?? "ghost",
+				path: comment.path ?? "",
+				line: comment.line ?? comment.originalLine ?? null,
+				body,
+			});
+		}
+	}
+	return found;
+}
+
 /** `owner/name` of a GitHub repository URL, or null for anything else. */
 export function repoOf(url: string | null): string | null {
 	const match = url?.match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+?)\/?$/);
@@ -281,6 +350,44 @@ export class PullRequests {
 		this.assertOwner(userId);
 		const repo = this.repository(folder);
 		return splitDiff(await this.output(["pr", "diff", String(number), "--repo", repo]));
+	}
+
+	/** A pull request's unresolved review comments, with the file and line they hang on. */
+	async reviewComments(
+		userId: string,
+		folder: string,
+		number: number,
+	): Promise<PullReviewComment[]> {
+		this.assertOwner(userId);
+		const [owner, name] = this.repository(folder).split("/");
+		return reviewComments(
+			await this.json<ThreadsAnswer>([
+				"api",
+				"graphql",
+				"-f",
+				`query=${REVIEW_THREADS_QUERY}`,
+				"-f",
+				`owner=${owner}`,
+				"-f",
+				`name=${name}`,
+				"-F",
+				`number=${number}`,
+			]),
+		);
+	}
+
+	/**
+	 * The log of a failed Actions run, through `gh run view <id> --log-failed`. Empty when the run
+	 * has nothing failed to show or the log cannot be read: a missing log is not a failure.
+	 */
+	async failedLog(userId: string, folder: string, runId: number): Promise<string> {
+		this.assertOwner(userId);
+		const repo = this.repository(folder);
+		const result = await this.gh.run(
+			["run", "view", String(runId), "--repo", repo, "--log-failed"],
+			{ timeoutMs: 60_000 },
+		);
+		return result.code === 0 ? result.stdout : "";
 	}
 
 	async merge(userId: string, folder: string, number: number, method: MergeMethod): Promise<void> {
