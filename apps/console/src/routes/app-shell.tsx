@@ -35,7 +35,7 @@ const OUTSIDE = /^\/(login|setup|invite)(\/|$)/;
 const STANDALONE = /^\/design(\/|$)/;
 
 // Screens that fill the frame edge to edge and scroll inside themselves.
-const FULL_BLEED = /^\/(chat|terminal)(\/|$)/;
+const FULL_BLEED = /^\/(chat|terminal|files|notes)(\/|$)/;
 
 /**
  * Frame shared by every route. Signed out it is the brand over a card; signed in it is one

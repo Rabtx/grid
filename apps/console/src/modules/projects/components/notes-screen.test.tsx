@@ -99,27 +99,32 @@ describe("NotesScreen", () => {
 		await settle();
 		expect(container.textContent).toContain("Use Hono for the API");
 		expect(container.textContent).toContain("Claude in Plan the API");
+		// Opening the note shows it beside the list, with the way back to its chat.
+		[...container.querySelectorAll<HTMLButtonElement>("button")]
+			.find((button) => button.textContent?.includes("Use Hono for the API"))
+			?.click();
+		await settle();
 		expect(container.querySelector('a[href="/chat/beta/t1"]')).not.toBeNull();
 	});
 
 	it("writes a new note and shows it first", async () => {
 		await settle();
-		[...container.querySelectorAll<HTMLButtonElement>("button")]
-			.find((button) => button.textContent?.trim() === "Note")
-			?.click();
+		container.querySelector<HTMLButtonElement>('button[aria-label="New note"]')?.click();
 		await settle();
-		const box = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="New note"]');
+		const box = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note"]');
 		expect(box).not.toBeNull();
 		if (box) {
 			box.value = "Keep Postgres";
 			box.dispatchEvent(new Event("input", { bubbles: true }));
 		}
 		await settle();
-		container.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+		box?.form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 		await settle();
 		expect(posted).toEqual({ body: "Keep Postgres" });
-		const items = [...container.querySelectorAll("li")].map((item) => item.textContent ?? "");
-		expect(items[0]).toContain("Keep Postgres");
-		expect(items[1]).toContain("Use Hono for the API");
+		// The new note is first in the list, and open.
+		const rows = [...container.querySelectorAll<HTMLButtonElement>(".group\\/row > button")];
+		expect(rows[0]?.textContent).toContain("Keep Postgres");
+		expect(rows[0]?.getAttribute("aria-current")).toBe("true");
+		expect(rows[1]?.textContent).toContain("Use Hono for the API");
 	});
 });

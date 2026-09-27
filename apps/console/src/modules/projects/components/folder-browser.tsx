@@ -1,8 +1,21 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, For, onSettled, Show } from "solid-js";
 
+import {
+	Alert,
+	BackIcon,
+	Badge,
+	Button,
+	FolderIcon,
+	Input,
+	ListCard,
+	ListRow,
+	Row,
+	Skeleton,
+	Stack,
+	Text,
+} from "@/kit";
 import { useAuth } from "@/modules/auth";
-import { BackIcon, Button, ErrorNotice, FolderIcon, Input, Skeleton } from "@/ui";
 
 import { type FolderListing, foldersService } from "../services/folders.service";
 
@@ -48,83 +61,72 @@ export function FolderBrowser(props: {
 	});
 
 	return (
-		<div class="flex min-h-0 flex-col gap-2">
+		<Stack gap={2} class="min-h-0">
 			<form
-				class="flex gap-2"
 				onSubmit={(event) => {
 					event.preventDefault();
 					void open(typed());
 				}}
 			>
-				<Input
-					value={typed()}
-					onInput={(event) => setTyped(event.currentTarget.value)}
-					aria-label="Folder path"
-					autocapitalize="off"
-					autocomplete="off"
-					spellcheck={false}
-					enterkeyhint="go"
-					class="font-mono"
-				/>
-				<Button type="submit" size="lg">
-					Go
-				</Button>
+				<Row gap={2}>
+					<Input
+						value={typed()}
+						onInput={(event) => setTyped(event.currentTarget.value)}
+						aria-label="Folder path"
+						autocapitalize="off"
+						autocomplete="off"
+						spellcheck={false}
+						enterkeyhint="go"
+						class="min-w-0 flex-1 font-mono"
+					/>
+					<Button type="submit">Go</Button>
+				</Row>
 			</form>
-			<Show when={error()}>{(message) => <ErrorNotice message={message()} />}</Show>
+			<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
 			<Show
 				when={listing()}
 				fallback={
-					<div class="flex flex-col gap-1.5">
+					<Stack gap={1.5}>
 						<Skeleton class="h-10" />
 						<Skeleton class="h-10" />
 						<Skeleton class="h-10" />
-					</div>
+					</Stack>
 				}
 			>
 				{(current) => (
 					<>
-						<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border border-ink/10">
-							<Show when={current().parent}>
-								{(parent) => (
-									<button
-										type="button"
-										onClick={() => void open(parent())}
-										class="focus-ring flex w-full items-center gap-2 border-ink/8 border-b px-3 py-2.5 text-left text-ink/60 text-ui-sm hover:bg-ink/5 pointer-coarse:py-3"
-									>
-										<BackIcon class="size-4 shrink-0" />
-										Up to {shortPath(parent(), current().home)}
-									</button>
-								)}
-							</Show>
-							<Show
-								when={current().folders.length > 0}
-								fallback={
-									<p class="px-3 py-6 text-center text-ink/45 text-ui-sm">No folders in here.</p>
-								}
-							>
-								<ul>
+						<ListCard class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+							<div class="flex flex-col gap-px p-1">
+								<Show when={current().parent}>
+									{(parent) => (
+										<ListRow
+											icon={<BackIcon size="sm" />}
+											title={`Up to ${shortPath(parent(), current().home)}`}
+											onClick={() => void open(parent())}
+										/>
+									)}
+								</Show>
+								<Show
+									when={current().folders.length > 0}
+									fallback={
+										<Text tone="faint" class="px-3 py-6 text-center">
+											No folders in here.
+										</Text>
+									}
+								>
 									<For each={current().folders}>
 										{(folder) => (
-											<li>
-												<button
-													type="button"
-													onClick={() => void open(folder.path)}
-													class="focus-ring flex w-full items-center gap-2 px-3 py-2 text-left text-ink/85 text-ui-sm hover:bg-ink/5 pointer-coarse:py-3"
-												>
-													<FolderIcon class="size-4 shrink-0 text-ink/45" />
-													<span class="min-w-0 flex-1 truncate">{folder.name}</span>
-													<Show when={folder.git}>
-														<span class="shrink-0 rounded-sm bg-ink/8 px-1.5 py-0.5 text-ink/55 text-ui-caption">
-															git
-														</span>
-													</Show>
-												</button>
-											</li>
+											<ListRow
+												icon={<FolderIcon size="sm" />}
+												title={folder.name}
+												trailing={folder.git ? <Badge>git</Badge> : undefined}
+												onClick={() => void open(folder.path)}
+											/>
 										)}
 									</For>
-								</ul>
-							</Show>
-						</div>
+								</Show>
+							</div>
+						</ListCard>
 						<Button
 							variant="primary"
 							size="lg"
@@ -136,6 +138,6 @@ export function FolderBrowser(props: {
 					</>
 				)}
 			</Show>
-		</div>
+		</Stack>
 	);
 }

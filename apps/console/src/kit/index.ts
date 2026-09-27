@@ -14,7 +14,7 @@ export {
 } from "./avatar";
 export { Badge, Count, Kbd, type Tone } from "./badge";
 export { BrandLogo, BrandMark } from "./brand";
-export { Button, button, IconButton, iconButton, LinkButton } from "./button";
+export { Button, button, IconButton, iconButton, LinkButton, TextLink } from "./button";
 export {
 	BoardColumn,
 	BoardSkeleton,
@@ -24,7 +24,14 @@ export {
 	type TaskStatusKind,
 	taskStatusLabel,
 } from "./board";
-export { ChoiceChips, RadioCards, type RadioOption, Slider } from "./choice";
+export {
+	ChoiceChips,
+	ColorSwatches,
+	GlyphChoices,
+	RadioCards,
+	type RadioOption,
+	Slider,
+} from "./choice";
 export { ConfirmDialog, Dialog, PanelBar } from "./dialog";
 export { PreviewFrame, RadiusScale, Specimen, SurfaceSwatches } from "./docs";
 export { ActivityItem, DropZone, InlineAdd, SplitLayout, WorkspacePreview } from "./extras";
@@ -73,17 +80,20 @@ export {
 export { Checklist, ChoicePrompt, DecisionCard, ProgressRing } from "./prompts";
 export {
 	CodeBlock,
+	CodeView,
 	Disclosure,
 	InlineNotice,
 	type PlanEntry,
 	PlanList,
 	Pre,
 	Rail,
-	type RunStep,
 	RunStatus,
+	type RunStep,
 	RunSteps,
 	type StepStatus,
 } from "./run";
+export { ListDetail, ListRow, PaneHeader } from "./pane";
+export { PixelMark, ProjectMark, type ProjectMarkShape } from "./project-mark";
 export { Select, type SelectGroup, type SelectOption } from "./select";
 export { CopyField, PropertyRow, SettingsGroup, SettingsRow } from "./settings";
 export { Pagination, Stepper } from "./steps";
@@ -95,5 +105,5 @@ export { Segmented, type TabOption, Tabs } from "./tabs";
 export { Heading, Text, type TextSize, type TextTone } from "./text";
 export { notify, Toasts } from "./toast";
 export { FilterChip, Toolbar, ToolbarButton } from "./toolbar";
-export { FileTree, type TreeNode } from "./tree";
+export { type FolderEntry, FileTree, FolderTree, type TreeNode } from "./tree";
 export { type VariantProps, variants } from "./variants";

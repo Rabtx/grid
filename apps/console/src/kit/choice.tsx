@@ -137,3 +137,100 @@ export function ChoiceChips<T extends string>(props: {
 		</fieldset>
 	);
 }
+
+/**
+ * A colour from a palette, "Automatic" first and a custom colour last: round swatches, the chosen
+ * one ringed. `null` is automatic; a custom colour is a hex value.
+ */
+export function ColorSwatches(props: {
+	label: string;
+	options: readonly { id: string; value: string }[];
+	value: string | null;
+	onChange: (value: string | null) => void;
+}): JSX.Element {
+	const custom = () => (props.value?.startsWith("#") ? props.value : null);
+	const SWATCH =
+		"focus-ring size-7 rounded-full aria-pressed:ring-2 aria-pressed:ring-fg aria-pressed:ring-offset-2 aria-pressed:ring-offset-surface-raised pointer-coarse:size-9";
+	return (
+		<fieldset class="flex min-w-0 flex-col gap-2 border-0 p-0">
+			<legend class="mb-2 font-medium text-body text-fg">{props.label}</legend>
+			<div class="flex flex-wrap items-center gap-2">
+				<button
+					type="button"
+					aria-pressed={props.value === null ? "true" : "false"}
+					title="Automatic"
+					onClick={() => props.onChange(null)}
+					class={`${SWATCH} grid place-items-center border border-line-strong border-dashed text-caption text-fg-subtle`}
+				>
+					A
+				</button>
+				<For each={props.options}>
+					{(swatch) => (
+						<button
+							type="button"
+							aria-label={swatch.id}
+							title={swatch.id}
+							aria-pressed={props.value === swatch.id ? "true" : "false"}
+							onClick={() => props.onChange(swatch.id)}
+							class={SWATCH}
+							style={{ background: swatch.value }}
+						/>
+					)}
+				</For>
+				<label
+					title="Custom colour"
+					class={`${SWATCH} relative cursor-pointer overflow-hidden ring-line-strong focus-within:ring-2 focus-within:ring-fg ${custom() ? "ring-2 ring-fg ring-offset-2 ring-offset-surface-raised" : ""}`}
+					style={{
+						background:
+							custom() ??
+							"conic-gradient(from 90deg, #ef4444, #f59e0b, #10b981, #3b82f6, #8b5cf6, #ef4444)",
+					}}
+				>
+					<input
+						type="color"
+						aria-label="Custom colour"
+						value={custom() ?? "#4d9ef5"}
+						onInput={(event) => props.onChange(event.currentTarget.value)}
+						class="absolute inset-0 cursor-pointer opacity-0"
+					/>
+				</label>
+			</div>
+		</fieldset>
+	);
+}
+
+/**
+ * One glyph of many, as square tiles tinted in `color` (a project's icon, say). `wide` tiles also
+ * name the choice beside its glyph.
+ */
+export function GlyphChoices<T extends string>(props: {
+	label: string;
+	options: readonly { value: T; label: string; glyph: JSX.Element }[];
+	value: T | null;
+	onChange: (value: T) => void;
+	color?: string;
+	wide?: boolean;
+}): JSX.Element {
+	return (
+		<fieldset class="flex min-w-0 flex-wrap gap-1 border-0 p-0" style={{ color: props.color }}>
+			<legend class="sr-only">{props.label}</legend>
+			<For each={props.options}>
+				{(option) => (
+					<button
+						type="button"
+						aria-label={props.wide ? undefined : option.label}
+						title={option.label}
+						aria-pressed={props.value === option.value ? "true" : "false"}
+						onClick={() => props.onChange(option.value)}
+						class={`focus-ring grid place-items-center rounded-kit-md transition-colors duration-fast hover:bg-fill aria-pressed:bg-fill-strong aria-pressed:ring-line-strong ${props.wide ? "h-9 grid-flow-col gap-1.5 px-3 text-body text-fg pointer-coarse:h-11" : "size-9 pointer-coarse:size-11"}`}
+					>
+						{option.glyph}
+						<Show when={props.wide}>
+							<span>{option.label}</span>
+						</Show>
+					</button>
+				)}
+			</For>
+		</fieldset>
+	);
+}

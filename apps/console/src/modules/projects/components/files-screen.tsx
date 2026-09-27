@@ -1,33 +1,62 @@
-import { useMatch } from "@solidjs/router";
+import { useMatch, useSearchParams } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Loading, onSettled, Show } from "solid-js";
+import { createEffect, createSignal, Loading, Show } from "solid-js";
 
-import { useAuth } from "@/modules/auth";
 import {
-	attachContextMenu,
+	Alert,
 	Button,
+	CodeView,
+	CopyIcon,
+	Dialog,
 	EmptyState,
-	ErrorNotice,
 	Field,
 	FileIcon,
+	type FolderEntry,
 	FolderIcon,
+	FolderTree,
+	IconButton,
+	iconButton,
 	Input,
+	ListDetail,
 	Menu,
-	type MenuControl,
+	type MenuGroup,
 	MoreIcon,
+	notify,
+	PaneHeader,
 	PlusIcon,
-	Sheet,
+	type PopoverControl,
 	Skeleton,
-} from "@/ui";
+	Stack,
+} from "@/kit";
+import { useAuth } from "@/modules/auth";
 
 import { useWorkspace } from "../context/workspace-context";
-import { filesService, type ProjectFile, type ProjectFileListing } from "../services/files.service";
+import { filesService, type ProjectFile, type ProjectFileContent } from "../services/files.service";
+
+const NEEDS_FOLDER = "Choose this project's folder";
 
 function parent(path: string): string {
 	return path.split("/").slice(0, -1).join("/");
 }
 
-/** A project's real files, one folder at a time. No editor is mounted until one exists. */
+function message(cause: unknown, fallback: string): string {
+	return cause instanceof Error ? cause.message : fallback;
+}
+
+async function copy(value: string, what: string): Promise<void> {
+	try {
+		await navigator.clipboard.writeText(value);
+		notify({ title: `Copied ${what}` });
+	} catch {
+		notify({ title: "Could not copy to the clipboard", tone: "danger" });
+	}
+}
+
+/**
+ * A project's real files: its folders as a tree, loaded as they open, and the chosen file beside
+ * it to read. The open file is in the URL (`?file=`), so a link or a reload lands on it; on phones
+ * the file covers the tree, with a way back.
+ */
 export function FilesScreen(): JSX.Element {
 	return (
 		<Loading
@@ -46,60 +75,339 @@ function FilesView(): JSX.Element {
 	const auth = useAuth();
 	const workspace = useWorkspace();
 	const match = useMatch(() => "/files/:slug");
+	const [search, setSearch] = useSearchParams<{ file?: string }>();
 	const slug = () => match()?.params.slug ?? "";
 	const project = () => workspace.projects().find((item) => item.slug === slug());
-	const [path, setPath] = createSignal("");
-	const [listing, setListing] = createSignal<ProjectFileListing | null>(null);
-	const [loading, setLoading] = createSignal(true);
-	const [error, setError] = createSignal<string | null>(null);
+	const file = () => search.file ?? "";
+	const [listings, setListings] = createSignal<ReadonlyMap<string, readonly FolderEntry[]>>(
+		new Map(),
+	);
+	const [errors, setErrors] = createSignal<ReadonlyMap<string, string>>(new Map());
+	const [creating, setCreating] = createSignal<{ kind: ProjectFile["kind"]; in: string } | null>(
+		null,
+	);
+	// Bumped to read the tree again from the root: after linking a folder, or "Try again".
 	const [revision, setRevision] = createSignal(0);
-	const [creating, setCreating] = createSignal<ProjectFile["kind"] | null>(null);
-	const [name, setName] = createSignal("");
-	const [formError, setFormError] = createSignal<string | null>(null);
-	const [saving, setSaving] = createSignal(false);
+
+	async function load(path: string): Promise<void> {
+		const token = auth.token();
+		if (!token || !slug()) return;
+		const project = slug();
+		try {
+			const listing = await filesService.list(token, project, path);
+			if (project !== slug()) return;
+			setListings((current) => new Map(current).set(path, listing.entries));
+			setErrors((current) => {
+				const next = new Map(current);
+				next.delete(path);
+				return next;
+			});
+		} catch (cause) {
+			if (project !== slug()) return;
+			setErrors((current) =>
+				new Map(current).set(path, message(cause, "Could not read this folder")),
+			);
+		}
+	}
+
+	// A new project, a newly linked folder or a retry starts the tree over from its root.
+	createEffect(
+		() => [auth.token(), slug(), workspace.folders()[slug()], revision()] as const,
+		() => {
+			setListings(new Map());
+			setErrors(new Map());
+			void load("");
+		},
+	);
+
+	function open(path: string | null): void {
+		setSearch({ file: path ?? undefined });
+	}
+
+	/** Read one folder again, keeping the rest of the tree as it is. */
+	function refresh(path: string): void {
+		setListings((current) => {
+			const next = new Map(current);
+			next.delete(path);
+			return next;
+		});
+		void load(path);
+	}
+
+	const rootError = () => errors().get("") ?? null;
+	// New items go in the open file's folder, or the root.
+	const here = () => (file() ? parent(file()) : "");
+
+	return (
+		<Show when={project()} fallback={<EmptyState title="Project not found" />}>
+			<ListDetail
+				open={file() !== ""}
+				list={
+					<>
+						<PaneHeader
+							title="Files"
+							detail={project()?.name}
+							actions={
+								<Show when={!rootError()}>
+									<IconButton
+										size="sm"
+										label="New folder"
+										onClick={() => setCreating({ kind: "folder", in: here() })}
+									>
+										<FolderIcon />
+									</IconButton>
+									<IconButton
+										size="sm"
+										label="New file"
+										onClick={() => setCreating({ kind: "file", in: here() })}
+									>
+										<PlusIcon />
+									</IconButton>
+								</Show>
+							}
+						/>
+						<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 pb-safe">
+							<Show
+								when={rootError()}
+								fallback={
+									<FolderTree
+										entries={(path) => listings().get(path)}
+										error={(path) => (path === "" ? null : (errors().get(path) ?? null))}
+										onExpand={(path) => {
+											if (!listings().has(path)) void load(path);
+										}}
+										selected={file()}
+										onSelect={(entry) => open(entry.path)}
+										actions={(entry) => (
+											<EntryMenu entry={entry} onCreate={setCreating} onRefresh={refresh} />
+										)}
+									/>
+								}
+							>
+								{(text) => (
+									<EmptyState
+										icon={<FolderIcon size="lg" />}
+										title={
+											text().startsWith(NEEDS_FOLDER) ? "No folder yet" : "Could not read the files"
+										}
+										description={
+											text().startsWith(NEEDS_FOLDER)
+												? "Link this project to a folder on this machine to browse its files."
+												: text()
+										}
+										action={
+											text().startsWith(NEEDS_FOLDER) ? (
+												<Button variant="primary" onClick={() => workspace.chooseFolderFor(slug())}>
+													Choose folder
+												</Button>
+											) : (
+												<Button onClick={() => setRevision((n) => n + 1)}>Try again</Button>
+											)
+										}
+									/>
+								)}
+							</Show>
+						</div>
+					</>
+				}
+			>
+				<Show
+					when={file()}
+					fallback={
+						<EmptyState
+							icon={<FileIcon size="lg" />}
+							title="Pick a file"
+							description="Choose a file in the tree to read it here."
+						/>
+					}
+				>
+					{(path) => <FilePane path={path()} slug={slug()} onBack={() => open(null)} />}
+				</Show>
+			</ListDetail>
+			<CreateDialog
+				request={creating()}
+				slug={slug()}
+				onClose={() => setCreating(null)}
+				onCreated={(item) => {
+					refresh(parent(item.path));
+					if (item.kind === "file") open(item.path);
+				}}
+			/>
+		</Show>
+	);
+}
+
+/** A tree row's ⋯: new items inside a folder, and copying its path or name. */
+function EntryMenu(props: {
+	entry: FolderEntry;
+	onCreate: (request: { kind: ProjectFile["kind"]; in: string }) => void;
+	onRefresh: (path: string) => void;
+}): JSX.Element {
+	let menu: PopoverControl | undefined;
+	const groups = (): MenuGroup[] => [
+		...(props.entry.kind === "folder"
+			? [
+					{
+						items: [
+							{ id: "new-file", label: "New file here", icon: <PlusIcon size="sm" /> },
+							{ id: "new-folder", label: "New folder here", icon: <FolderIcon size="sm" /> },
+							{ id: "refresh", label: "Refresh" },
+						],
+					},
+				]
+			: []),
+		{
+			items: [
+				{ id: "path", label: "Copy relative path" },
+				{ id: "name", label: "Copy name" },
+			],
+		},
+	];
+	return (
+		<Menu
+			label={`Actions for ${props.entry.name}`}
+			trigger={<MoreIcon size="sm" />}
+			triggerClass={iconButton({ size: "xs" })}
+			groups={groups()}
+			placement="bottom-end"
+			pointerOnly
+			control={(control) => {
+				menu = control;
+			}}
+			onSelect={(id) => {
+				if (id === "new-file") props.onCreate({ kind: "file", in: props.entry.path });
+				else if (id === "new-folder") props.onCreate({ kind: "folder", in: props.entry.path });
+				else if (id === "refresh") props.onRefresh(props.entry.path);
+				else if (id === "path") void copy(props.entry.path, "the path");
+				else void copy(props.entry.name, "the name");
+				menu?.close();
+			}}
+		/>
+	);
+}
+
+/** The open file: its name and folder over its numbered lines, or why it cannot be shown. */
+function FilePane(props: { path: string; slug: string; onBack: () => void }): JSX.Element {
+	const auth = useAuth();
+	const [content, setContent] = createSignal<ProjectFileContent | null>(null);
+	const [error, setError] = createSignal<string | null>(null);
 	let request = 0;
 
-	createEffect(slug, () => {
-		setPath("");
-	});
 	createEffect(
-		() => [auth.token(), slug(), path(), revision(), workspace.folders()[slug()]] as const,
-		([token, projectSlug, directory]) => {
+		() => [auth.token(), props.slug, props.path] as const,
+		([token, slug, path]) => {
 			const current = ++request;
-			setLoading(true);
+			setContent(null);
 			setError(null);
-			setListing(null);
-			if (!token || !projectSlug) {
-				setLoading(false);
-				return;
-			}
-			void filesService.list(token, projectSlug, directory).then(
+			if (!token) return;
+			void filesService.read(token, slug, path).then(
 				(value) => {
-					if (current !== request) return;
-					setListing(value);
-					setLoading(false);
+					if (current === request) setContent(value);
 				},
 				(cause) => {
-					if (current !== request) return;
-					setError(cause instanceof Error ? cause.message : "Could not read this folder");
-					setLoading(false);
+					if (current === request) setError(message(cause, "Could not read this file"));
 				},
 			);
 		},
 	);
 
-	function startCreate(kind: ProjectFile["kind"]): void {
-		setName("");
-		setFormError(null);
-		setCreating(kind);
-	}
+	const name = () => props.path.split("/").pop() ?? props.path;
 
-	async function create(event: SubmitEvent): Promise<void> {
-		event.preventDefault();
+	return (
+		<>
+			<PaneHeader
+				title={name()}
+				detail={parent(props.path) || undefined}
+				onBack={props.onBack}
+				backLabel="Back to files"
+				actions={
+					<IconButton size="sm" label="Copy path" onClick={() => void copy(props.path, "the path")}>
+						<CopyIcon />
+					</IconButton>
+				}
+			/>
+			<div class="min-h-0 flex-1 overflow-auto overscroll-contain pb-safe">
+				<Show
+					when={content()}
+					fallback={
+						<Show
+							when={error()}
+							fallback={
+								<Stack gap={2} class="p-4">
+									<Skeleton class="h-4 w-2/3" />
+									<Skeleton class="h-4 w-1/2" />
+									<Skeleton class="h-4 w-3/4" />
+								</Stack>
+							}
+						>
+							{(text) => (
+								<div class="p-4">
+									<Alert tone="danger" title={text()} />
+								</div>
+							)}
+						</Show>
+					}
+				>
+					{(file) => (
+						<Show
+							when={file().text}
+							fallback={
+								<EmptyState
+									icon={<FileIcon size="lg" />}
+									title={file().binary ? "Not a text file" : "Too large to show"}
+									description={
+										file().binary
+											? "This file is binary, so there is nothing to read here."
+											: `This file is ${Math.round(file().size / 1024)} KB; files over 512 KB are not shown.`
+									}
+								/>
+							}
+						>
+							{(text) => (
+								<Show
+									when={text().length > 0}
+									fallback={
+										<EmptyState title="Empty file" description="There is nothing in it yet." />
+									}
+								>
+									<CodeView text={text()} />
+								</Show>
+							)}
+						</Show>
+					)}
+				</Show>
+			</div>
+		</>
+	);
+}
+
+/** Name a new file or folder; names with slashes or control characters are refused here first. */
+function CreateDialog(props: {
+	request: { kind: ProjectFile["kind"]; in: string } | null;
+	slug: string;
+	onClose: () => void;
+	onCreated: (item: ProjectFile) => void;
+}): JSX.Element {
+	const auth = useAuth();
+	const [name, setName] = createSignal("");
+	const [error, setError] = createSignal<string | null>(null);
+	const [saving, setSaving] = createSignal(false);
+	const kind = () => props.request?.kind ?? "file";
+
+	createEffect(
+		() => props.request,
+		(request) => {
+			if (!request) return;
+			setName("");
+			setError(null);
+		},
+	);
+
+	async function create(): Promise<void> {
 		const token = auth.token();
-		const kind = creating();
+		const request = props.request;
 		const value = name().trim();
-		if (!token || !kind || saving()) return;
+		if (!token || !request || saving()) return;
 		if (
 			!value ||
 			value === "." ||
@@ -107,229 +415,62 @@ function FilesView(): JSX.Element {
 			/[\\/]/.test(value) ||
 			[...value].some((letter) => letter.charCodeAt(0) < 32)
 		) {
-			setFormError("Use a name without slashes or control characters");
+			setError("Use a name without slashes or control characters");
 			return;
 		}
 		setSaving(true);
-		setFormError(null);
+		setError(null);
 		try {
-			await filesService.create(token, slug(), path(), value, kind);
-			setCreating(null);
-			setRevision((n) => n + 1);
+			const item = await filesService.create(token, props.slug, request.in, value, request.kind);
+			props.onClose();
+			props.onCreated(item);
 		} catch (cause) {
-			setFormError(cause instanceof Error ? cause.message : "Could not create this item");
+			setError(message(cause, "Could not create this item"));
 		} finally {
 			setSaving(false);
 		}
 	}
 
-	async function copy(value: string): Promise<void> {
-		try {
-			await navigator.clipboard.writeText(value);
-			setError(null);
-		} catch {
-			setError("Could not copy to the clipboard");
-		}
-	}
-
 	return (
-		<Show when={project()} fallback={<EmptyState title="Project not found" />}>
-			<div class="mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-3">
-				<header class="flex min-w-0 flex-wrap items-center justify-between gap-2 border-stroke border-b pb-3">
-					<div class="min-w-0">
-						<h1 class="font-semibold text-ink text-title">Files</h1>
-						<p class="truncate text-ink/45 text-ui-sm">{project()?.name}</p>
-					</div>
-					<div class="flex shrink-0 gap-1.5">
-						<Button
-							size="md"
-							onClick={() => startCreate("folder")}
-							disabled={!!error() || loading()}
-							class="pointer-coarse:min-h-11"
-						>
-							<FolderIcon class="size-4" /> Folder
-						</Button>
-						<Button
-							size="md"
-							variant="primary"
-							onClick={() => startCreate("file")}
-							disabled={!!error() || loading()}
-							class="pointer-coarse:min-h-11"
-						>
-							<PlusIcon class="size-4" /> File
-						</Button>
-					</div>
-				</header>
-				<nav aria-label="File path" class="flex min-w-0 flex-wrap items-center gap-1 text-ui-sm">
-					<button
-						type="button"
-						onClick={() => setPath("")}
-						class="focus-ring min-h-11 rounded-md px-2 text-ink/65 hover:bg-ink/8 pointer-fine:min-h-7"
-					>
-						{project()?.name}
-					</button>
-					<For each={path().split("/").filter(Boolean)}>
-						{(part, index) => (
-							<>
-								<span class="text-ink/30">/</span>
-								<button
-									type="button"
-									onClick={() =>
-										setPath(
-											path()
-												.split("/")
-												.slice(0, index() + 1)
-												.join("/"),
-										)
-									}
-									class="focus-ring min-h-11 max-w-36 truncate rounded-md px-2 text-ink/65 hover:bg-ink/8 pointer-fine:min-h-7"
-								>
-									{part}
-								</button>
-							</>
-						)}
-					</For>
-				</nav>
-				<Show when={error()}>
-					{(message) => (
-						<ErrorNotice
-							message={message()}
-							action={
-								message().startsWith("Choose this project's folder") ? (
-									<Button size="sm" onClick={() => workspace.chooseFolderFor(slug())}>
-										Choose folder
-									</Button>
-								) : (
-									<Button size="sm" onClick={() => setRevision((n) => n + 1)}>
-										Try again
-									</Button>
-								)
-							}
-						/>
-					)}
-				</Show>
-				<Show when={loading()}>
-					<div class="flex flex-col gap-1">
-						<Skeleton class="h-11" />
-						<Skeleton class="h-11" />
-						<Skeleton class="h-11" />
-					</div>
-				</Show>
-				<Show when={!loading() && listing()}>
-					<div class="min-w-0 overflow-hidden rounded-lg border border-ink/10">
-						<Show when={path()}>
-							<button
-								type="button"
-								onClick={() => setPath(parent(path()))}
-								class="focus-ring flex min-h-11 w-full items-center gap-3 border-stroke border-b px-3 text-left text-ink/55 text-ui hover:bg-ink/5"
-							>
-								<FolderIcon class="size-4" /> .. <span class="text-ui-xs">Up one folder</span>
-							</button>
-						</Show>
-						<Show
-							when={listing()?.entries.length}
-							fallback={
-								<p class="px-3 py-8 text-center text-ink/45 text-ui-sm">
-									This folder is empty. Add a file or folder to start.
-								</p>
-							}
-						>
-							<ul>
-								<For each={listing()?.entries}>
-									{(entry) => (
-										<FileRow entry={entry} onOpen={() => setPath(entry.path)} onCopy={copy} />
-									)}
-								</For>
-							</ul>
-						</Show>
-					</div>
-				</Show>
-			</div>
-			<Sheet
-				open={creating() !== null}
-				onClose={() => setCreating(null)}
-				label={`New ${creating() ?? "item"}`}
+		<Dialog
+			open={props.request !== null}
+			onClose={props.onClose}
+			title={kind() === "file" ? "New file" : "New folder"}
+			description={props.request?.in ? `In ${props.request.in}` : "At the top of the project"}
+			width="26rem"
+			footer={
+				<>
+					<Button variant="ghost" onClick={props.onClose}>
+						Cancel
+					</Button>
+					<Button type="submit" form="create-file-form" variant="primary" disabled={saving()}>
+						{saving() ? "Creating…" : "Create"}
+					</Button>
+				</>
+			}
+		>
+			<form
+				id="create-file-form"
+				onSubmit={(event) => {
+					event.preventDefault();
+					void create();
+				}}
 			>
-				<form onSubmit={(event) => void create(event)} class="flex flex-col gap-4 p-4 pt-6 md:pt-4">
-					<h2 class="font-semibold text-ink text-ui-lg">New {creating()}</h2>
-					<Field label="Name" error={formError()}>
+				<Field label="Name" error={error()}>
+					{(id) => (
 						<Input
-							autofocus
+							id={id}
+							ref={(el: HTMLInputElement) => queueMicrotask(() => el.focus())}
 							value={name()}
 							onInput={(event) => setName(event.currentTarget.value)}
 							autocomplete="off"
 							autocapitalize="off"
 							spellcheck={false}
-							placeholder={creating() === "file" ? "notes.md" : "New folder"}
+							placeholder={kind() === "file" ? "notes.md" : "New folder"}
 						/>
-					</Field>
-					<div class="flex justify-end gap-2">
-						<Button onClick={() => setCreating(null)}>Cancel</Button>
-						<Button type="submit" variant="primary" disabled={saving()}>
-							{saving() ? "Creating…" : "Create"}
-						</Button>
-					</div>
-				</form>
-			</Sheet>
-		</Show>
-	);
-}
-
-function FileRow(props: {
-	entry: ProjectFile;
-	onOpen: () => void;
-	onCopy: (value: string) => Promise<void>;
-}): JSX.Element {
-	let row: HTMLLIElement | undefined;
-	let menu: MenuControl | undefined;
-	const folder = () => props.entry.kind === "folder";
-	// Right-click and long press open the row's menu; the ⋯ is for pointers, on hover.
-	onSettled(() => (row ? attachContextMenu(row, (point) => menu?.open(point)) : undefined));
-	const items = () => [
-		...(folder() ? [{ id: "open", label: "Open folder" }] : []),
-		{ id: "path", label: "Copy relative path" },
-		{ id: "name", label: "Copy name" },
-	];
-	return (
-		<li
-			ref={(el) => {
-				row = el;
-			}}
-			class="group/row flex min-w-0 select-none items-center border-stroke border-b last:border-b-0 [-webkit-touch-callout:none]"
-		>
-			<Show
-				when={folder()}
-				fallback={
-					<div class="flex min-h-11 min-w-0 flex-1 items-center gap-3 px-3 text-ui">
-						<FileIcon class="size-4 shrink-0 text-ink/45" />
-						<span class="min-w-0 flex-1 truncate">{props.entry.name}</span>
-					</div>
-				}
-			>
-				<button
-					type="button"
-					onClick={() => props.onOpen()}
-					class="focus-ring flex min-h-11 min-w-0 flex-1 items-center gap-3 px-3 text-left text-ui hover:bg-ink/5"
-				>
-					<FolderIcon class="size-4 shrink-0 text-ink/55" />
-					<span class="min-w-0 flex-1 truncate">{props.entry.name}</span>
-				</button>
-			</Show>
-			<div class="pr-1 opacity-0 transition-opacity duration-fast focus-within:opacity-100 group-hover/row:opacity-100 pointer-coarse:opacity-100">
-				<Menu
-					label={`${props.entry.name} actions`}
-					trigger={<MoreIcon class="size-4" />}
-					items={items()}
-					pointerOnly
-					control={(control) => {
-						menu = control;
-					}}
-					onSelect={(id) => {
-						if (id === "open") props.onOpen();
-						else void props.onCopy(id === "name" ? props.entry.name : props.entry.path);
-					}}
-				/>
-			</div>
-		</li>
+					)}
+				</Field>
+			</form>
+		</Dialog>
 	);
 }

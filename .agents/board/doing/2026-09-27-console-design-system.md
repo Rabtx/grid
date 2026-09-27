@@ -71,7 +71,23 @@ references very closely, Inter, fix look and feel and navigation/layout, gallery
    `aria-controls`. Component tests get a popover polyfill (`kit/test-setup.ts`) so kit menus
    open in happy-dom the way they do in a browser.
 
+6. **Files and notes on the kit, in the prototype's layout (agent/frontend/port-files).** Both
+   are full-bleed list-and-reader screens: a pane list on the left, the open item beside it, one
+   at a time with a way back on phones; the open item is in the URL. Files is a tree that loads
+   folders as they open, with the chosen file shown in numbered lines, read through a new runner
+   route (`GET /projects/files/:slug/content`, contained to the project folder, 512 KB cap,
+   binary files named but not sent). The project sheets, folder browser and project marks move
+   too, so the projects module no longer imports `@/ui`. New kit pieces: `ListDetail`,
+   `PaneHeader`, `ListRow`, `FolderTree`, `CodeView`, `ProjectMark`/`PixelMark`,
+   `ColorSwatches`, `GlyphChoices`, `TextLink`.
+
 ### Validation
+
+- Files port: console vitest 47 files / 286 tests, runner 110 tests (file reads: text, binary,
+  oversized, traversal and symlink escapes refused); guard, lint, typecheck, architecture and
+  naming pass. Checked in the browser on throwaway copies of the database and the runner's chat
+  database (removed afterwards): the Grid repo's tree, reading files, writing a note, and at 375px
+  the tree and the file view.
 
 - Board port: console vitest 47 files / 285 tests (board, card and panel tests open the kit menus
   like a person); the board no longer imports `@/ui`; guard, lint, typecheck, architecture and
