@@ -175,18 +175,37 @@ describe("AppShell top bar", () => {
 		return { header, dispose };
 	}
 
-	it("names the board after its project and offers New task there", async () => {
+	it("names the board after its project, with the board's actions left to the board", async () => {
 		const { header, dispose } = await mountAt("/board/beta");
 		expect(header.textContent).toContain("Beta");
-		expect(header.textContent).toContain("New task");
+		// New task lives in the board's toolbar; the project's pages are in the sidebar.
+		expect(header.querySelector('button[aria-label="New task"]')).toBeNull();
+		expect(header.querySelector("fieldset")).toBeNull();
 		dispose();
 	});
 
-	it("names other screens after themselves and drops the board's action", async () => {
+	it("names other screens after themselves", async () => {
 		const { header, dispose } = await mountAt("/terminal");
 		expect(header.textContent).toContain("Terminal");
-		expect(header.textContent).not.toContain("New task");
 		dispose();
+	});
+
+	it("gives the phone bar one action: New task on the board, New chat elsewhere", async () => {
+		// A phone: the desktop query does not match.
+		vi.stubGlobal("matchMedia", (query: string) => ({
+			matches: false,
+			media: query,
+			addEventListener: () => {},
+			removeEventListener: () => {},
+		}));
+		const board = await mountAt("/board/beta");
+		expect(board.header.querySelector('button[aria-label="New task"]')).not.toBeNull();
+		board.dispose();
+		document.body.replaceChildren();
+		const terminal = await mountAt("/terminal");
+		expect(terminal.header.querySelector('button[aria-label="New chat"]')).not.toBeNull();
+		expect(terminal.header.querySelector('button[aria-label="New task"]')).toBeNull();
+		terminal.dispose();
 	});
 });
 

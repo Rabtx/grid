@@ -28,7 +28,7 @@ export function StageTabs(props: {
 				strip = el;
 			}}
 			aria-label="Board lanes"
-			class="-mx-4 mb-2 overflow-x-auto px-4 [scrollbar-width:none] md:hidden"
+			class="-mx-4 mb-2 shrink-0 overflow-x-auto px-4 [scrollbar-width:none] md:hidden"
 		>
 			<Segmented
 				label="Board lanes"

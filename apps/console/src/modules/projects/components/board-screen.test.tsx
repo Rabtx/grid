@@ -283,7 +283,7 @@ describe("BoardScreen", () => {
 	it("hides task cards that do not match the query", async () => {
 		await settle();
 
-		const input = container.querySelector<HTMLInputElement>('input[placeholder="Filter tasks"]');
+		const input = container.querySelector<HTMLInputElement>('input[aria-label="Filter tasks"]');
 		expect(input).not.toBeNull();
 		if (!input) return;
 		input.value = "second";
@@ -299,7 +299,7 @@ describe("BoardScreen", () => {
 	it("shows the filtered empty state and restores every task", async () => {
 		await settle();
 
-		const input = container.querySelector<HTMLInputElement>('input[placeholder="Filter tasks"]');
+		const input = container.querySelector<HTMLInputElement>('input[aria-label="Filter tasks"]');
 		expect(input).not.toBeNull();
 		if (!input) return;
 		input.value = "missing";

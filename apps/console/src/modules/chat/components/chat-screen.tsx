@@ -16,7 +16,6 @@ import {
 	FolderIcon,
 	IdeaIcon,
 	LinkButton,
-	Row,
 	Stack,
 	Suggestions,
 	Text,
@@ -329,24 +328,24 @@ function NewChat(props: {
 	return (
 		<div class="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-3 pb-3 md:justify-center md:px-6 md:pt-12 md:pb-24">
 			<Stack gap={5} class="mx-auto w-full max-w-2xl">
-				<Row gap={2} justify="center" wrap class="px-2">
-					<Text as="h1" size="heading" tone="strong" weight="medium">
-						What should we work on
-					</Text>
+				{/* "…work on in" ends the first line; the project keeps its icon and name together. */}
+				<Text
+					as="h1"
+					size="heading"
+					tone="strong"
+					weight="medium"
+					class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-2 text-center"
+				>
+					What should we work on{project() ? " in" : ""}
 					<Show when={project()}>
 						{(current) => (
-							<Row gap={1.5}>
-								<Text as="span" size="heading" tone="subtle">
-									in
-								</Text>
+							<span class="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
 								<ProjectIcon project={current()} class="size-5" />
-								<Text as="span" size="heading" tone="strong" weight="medium" truncate>
-									{current().name}
-								</Text>
-							</Row>
+								<span class="truncate">{current().name}</span>
+							</span>
 						)}
 					</Show>
-				</Row>
+				</Text>
 				<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
 				<Show when={!props.folder && props.project}>
 					<Alert

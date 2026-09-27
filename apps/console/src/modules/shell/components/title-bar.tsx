@@ -2,21 +2,7 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { Loading, Show } from "solid-js";
 
-import {
-	BoardIcon,
-	Button,
-	ChatIcon,
-	FileIcon,
-	IconButton,
-	MenuIcon,
-	NoteIcon,
-	PlusIcon,
-	Row,
-	Segmented,
-	SidebarIcon,
-	Spacer,
-	Text,
-} from "@/kit";
+import { EditIcon, IconButton, MenuIcon, PlusIcon, Row, SidebarIcon, Text } from "@/kit";
 import { useWorkspace } from "@/modules/projects";
 
 import { useShell } from "../context/shell-context";
@@ -27,19 +13,6 @@ const SECTION_TITLES: [prefix: string, title: string][] = [
 	["/terminal", "Terminal"],
 	["/settings", "Settings"],
 ];
-
-type View = "chat" | "files" | "notes" | "board";
-
-/** The part of a project the URL is on, or null outside a project. */
-function useProjectView(): () => View | null {
-	const location = useLocation();
-	return () => {
-		const section = location.pathname.split("/")[1];
-		return section === "chat" || section === "files" || section === "notes" || section === "board"
-			? section
-			: null;
-	};
-}
 
 /** Where you are when a screen has no tabs: the board's project and size, or the section. */
 function Heading(): JSX.Element {
@@ -82,70 +55,43 @@ function Heading(): JSX.Element {
 	);
 }
 
-/** A project's views, side by side in the bar: its threads, files, notes and board. */
-function ProjectViews(props: { compact?: boolean }): JSX.Element {
-	const workspace = useWorkspace();
-	const navigate = useNavigate();
-	const view = useProjectView();
-
-	return (
-		<Show when={view() ? workspace.currentSlug() : null}>
-			{(project) => (
-				<Segmented<View>
-					label="Project views"
-					iconsOnly={props.compact}
-					value={view() ?? "chat"}
-					options={[
-						{ value: "chat", label: "Threads", icon: <ChatIcon size="sm" /> },
-						{ value: "files", label: "Files", icon: <FileIcon size="sm" /> },
-						{ value: "notes", label: "Notes", icon: <NoteIcon size="sm" /> },
-						{ value: "board", label: "Board", icon: <BoardIcon size="sm" /> },
-					]}
-					onChange={(next) =>
-						navigate(next === "chat" ? workspace.projectHref(project()) : `/${next}/${project()}`)
-					}
-				/>
-			)}
-		</Show>
-	);
-}
-
-/** The screen's own action at the right of the bar: a new task on the board. */
-function Action(props: { compact?: boolean }): JSX.Element {
-	const workspace = useWorkspace();
-
-	return (
-		<Show when={workspace.activeSlug()}>
-			<Show
-				when={props.compact}
-				fallback={
-					<Button
-						variant="primary"
-						size="sm"
-						icon={<PlusIcon size="sm" />}
-						aria-haspopup="dialog"
-						onClick={() => workspace.setNewTaskOpen(true)}
-					>
-						New task
-					</Button>
-				}
-			>
-				<IconButton
-					label="New task"
-					aria-haspopup="dialog"
-					onClick={() => workspace.setNewTaskOpen(true)}
-				>
-					<PlusIcon size="lg" />
-				</IconButton>
-			</Show>
-		</Show>
-	);
-}
-
 /**
- * Desktop title bar: the sidebar toggle, the screen's tabs (or its name), then the project's
- * views and the screen's action.
+ * The phone bar's one action, in thumb reach: a new task on the board, a new chat everywhere
+ * else. The project's other pages are a tap away in the drawer.
  */
+function PhoneAction(): JSX.Element {
+	const workspace = useWorkspace();
+	const location = useLocation();
+	const navigate = useNavigate();
+	const onBoard = () => location.pathname.startsWith("/board/") && workspace.activeSlug();
+
+	return (
+		<Show
+			when={onBoard()}
+			fallback={
+				<IconButton
+					label="New chat"
+					onClick={() => {
+						const slug = workspace.currentSlug();
+						navigate(slug ? `/chat/${slug}` : "/chat");
+					}}
+				>
+					<EditIcon size="lg" />
+				</IconButton>
+			}
+		>
+			<IconButton
+				label="New task"
+				aria-haspopup="dialog"
+				onClick={() => workspace.setNewTaskOpen(true)}
+			>
+				<PlusIcon size="lg" />
+			</IconButton>
+		</Show>
+	);
+}
+
+/** Desktop title bar: the sidebar toggle, then the screen's tabs (or its name). */
 export function TitleBar(): JSX.Element {
 	const shell = useShell();
 
@@ -163,18 +109,13 @@ export function TitleBar(): JSX.Element {
 					{(tabs) => <>{tabs()()}</>}
 				</Show>
 			</div>
-			<Row gap={2} class="shrink-0">
-				<ProjectViews />
-				<Action />
-			</Row>
 		</header>
 	);
 }
 
-/** Phone title bar: the menu, the screen's tabs (or its name), and its action in thumb reach. */
+/** Phone title bar: the menu, where you are in the middle, and the screen's one action. */
 export function TopBar(): JSX.Element {
 	const shell = useShell();
-	const location = useLocation();
 
 	return (
 		<header class="z-30 shrink-0 border-line border-b bg-surface pt-safe">
@@ -186,17 +127,12 @@ export function TopBar(): JSX.Element {
 				>
 					<MenuIcon size="lg" />
 				</IconButton>
-				<div class="flex min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none]">
+				<div class="flex min-w-0 flex-1 items-center justify-center overflow-x-auto [scrollbar-width:none]">
 					<Show when={shell.tabs()} fallback={<Heading />}>
 						{(tabs) => <>{tabs()()}</>}
 					</Show>
 				</div>
-				<Spacer />
-				{/* In a chat the phone header is the title alone; the drawer reaches the rest. */}
-				<Show when={!location.pathname.startsWith("/chat")}>
-					<ProjectViews compact />
-				</Show>
-				<Action compact />
+				<PhoneAction />
 			</Row>
 		</header>
 	);

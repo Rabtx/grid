@@ -31,6 +31,7 @@ import {
 	modeDescription,
 	modeGlyph,
 	type ModeGlyph,
+	shortModelName,
 } from "../lib/choices";
 import type { ChatProvider, Choice } from "../types/chat.types";
 
@@ -99,7 +100,7 @@ export function ModelPicker(props: {
 }): JSX.Element {
 	const model = () => findChoice(props.models, props.model);
 	const effort = () => findChoice(props.efforts, props.effort);
-	const name = () => model()?.name || props.model || "Model";
+	const name = () => shortModelName(model()?.name || props.model || "Model");
 
 	return (
 		<Popover
