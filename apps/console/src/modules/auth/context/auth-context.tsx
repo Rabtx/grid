@@ -11,6 +11,8 @@ import {
 	isTwoFactorChallenge,
 	type LoginInput,
 	type SetupInput,
+	type TwoFactorChallenge,
+	type TwoFactorInput,
 } from "../types/auth.types";
 
 type AuthState = {
@@ -33,7 +35,12 @@ type AuthState = {
 	 * if the API was unreachable.
 	 */
 	renew: () => Promise<string | null>;
-	login: (input: LoginInput) => Promise<void>;
+	login: (input: LoginInput) => Promise<TwoFactorChallenge | null>;
+	/**
+	 * Finishes a sign-in the API held for a second factor. The challenge from `login` is only good
+	 * for a few minutes, so a refused code leaves the caller to ask for another.
+	 */
+	verifyTwoFactor: (input: TwoFactorInput) => Promise<void>;
 	/** First run: create the owner and sign in as them. */
 	setUp: (input: SetupInput) => Promise<void>;
 	logout: () => Promise<void>;
@@ -159,12 +166,18 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 		},
 		login: async (input) => {
 			const result = await authService.login(input);
-			if (isTwoFactorChallenge(result)) {
-				throw new Error("This account needs a second factor, which the console cannot do yet.");
-			}
+			// The account has a second factor: no session yet, the form asks for the code.
+			if (isTwoFactorChallenge(result)) return result;
 			generation++;
 			renewing = null;
 			acceptSession(result);
+			return null;
+		},
+		verifyTwoFactor: async (input) => {
+			const session = await authService.verifyTwoFactor(input);
+			generation++;
+			renewing = null;
+			acceptSession(session);
 		},
 		setUp: async (input) => {
 			const session = await authService.setUp(input);

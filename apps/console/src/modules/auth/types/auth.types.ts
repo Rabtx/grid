@@ -19,6 +19,12 @@ export interface TwoFactorChallenge {
 
 export type LoginResult = AuthSession | TwoFactorChallenge;
 
+/** The second step for an account with 2FA: the login's challenge plus a code or recovery code. */
+export interface TwoFactorInput {
+	challengeToken: string;
+	code: string;
+}
+
 /** First run: the owner account and the first workspace, with the code from the setup link. */
 export interface SetupInput {
 	code: string;

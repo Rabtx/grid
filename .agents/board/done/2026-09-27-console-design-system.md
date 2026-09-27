@@ -5,13 +5,13 @@ type: feature
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: web
 reviewer: human
 parent: none
 depends_on: []
 branch: agent/frontend/design-system-kit
-worktree: ../grid-worktrees/kit
+worktree: removed (merged)
 scope:
   - apps/console/**
   - packages/tokens/**
@@ -195,3 +195,27 @@ references very closely, Inter, fix look and feel and navigation/layout, gallery
   knob checked live across the prototype.
 - `/design` checked at 1100px and 375px, light and dark; menus, dialog, drawer and palette
   opened.
+
+## Resolution
+
+Shipped in full. All thirteen increments are merged into `main` as PRs #107–#118; the design system
+lives in `apps/console/src/kit` (50 files) over `@grid/tokens`' `kit.css`, `/design` is the gallery,
+and the old `apps/console/src/ui` primitives are deleted with the guard test
+(`src/styles/kit-guard.test.ts`) refusing them, inline styles, one-off values, raw palette colours
+and off-scale type in any screen outside the kit.
+
+Validation across the increments is recorded above, ending at console vitest 47 files / 288 tests
+plus the runner's 110, with guard, lint, typecheck, architecture and naming all passing and each
+screen checked in the browser at desktop and phone widths in light and dark.
+
+Two things the card should have noticed and did not:
+
+- Its `scope` claimed `packages/tokens/**` and `DESIGN.md`, which `.agents/ownership.yaml` assigns
+  to nobody and to `ui-ux` respectively. The design system grew a home that no role owns.
+- `DESIGN.md` still documents the token layer the console abandoned (`text-ink`, `bg-canvas`,
+  `bg-selection`, `rounded-sm/md/lg` — zero uses) instead of the live `kit.css` vocabulary
+  (`text-fg`, `bg-surface`, `rounded-kit*`), points at a renamed `lib/preferences.ts`, and lists a
+  deleted `apps/web/src/components/ui`. Follow-up card needed.
+
+Closed 2026-09-27 by `2026-09-27-tier-1-unblock-trust` after confirming every listed branch is an
+ancestor of `main` (`git merge-base --is-ancestor` against all thirteen).
