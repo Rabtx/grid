@@ -78,4 +78,8 @@ Address the highest-priority release-readiness findings from the project review:
 
 ## Review handoff
 
-- Open a pull request from `agent/backend/release-runner-hardening` without merging.
+- Pull request opened: https://github.com/shabirkhan-dev/grid/pull/119
+- GitHub Actions rerun is blocked before job startup by the repository account billing/spending
+  limit; local and disposable integration validation passed.
+- Do not merge until CI billing is restored and the configured staging/production environment
+  secrets are reviewed.
