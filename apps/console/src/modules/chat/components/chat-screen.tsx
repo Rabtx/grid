@@ -6,13 +6,7 @@ import { onRunnerRecovered } from "@/lib/runner-health";
 
 import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
-import {
-	notesStore,
-	ProjectIcon,
-	projectsService,
-	TASK_STATUS_LABELS,
-	useWorkspace,
-} from "@/modules/projects";
+import { notesStore, ProjectIcon, useWorkspace } from "@/modules/projects";
 import { ShellSlot, useShell } from "@/modules/shell";
 import {
 	Alert,
@@ -30,6 +24,7 @@ import {
 	ToolIcon,
 } from "@/kit";
 
+import { addBoardTask, runSlashCommand } from "../lib/run-slash-command";
 import { availableCommands, type SlashCommand } from "../lib/slash-commands";
 import { chatService } from "../services/chat.service";
 import { draftsStore } from "../stores/drafts";
@@ -373,37 +368,13 @@ function NewChat(props: {
 			project: Boolean(props.project),
 		});
 
-	function chooseEffort(argument: string): boolean {
-		const level = efforts().find(
-			(item) =>
-				item.id.toLowerCase() === argument.toLowerCase() ||
-				item.name.toLowerCase() === argument.toLowerCase(),
-		);
-		if (!level) return false;
-		setPickedEffort(level.id);
-		return true;
-	}
-
-	async function addTask(title: string): Promise<void> {
-		const token = auth.token();
-		const slug = props.project;
-		if (!token || !slug) return;
-		try {
-			const task = await projectsService.createTask(token, slug, { title, status: "backlog" });
-			workspace.refreshTasks();
-			notify({
-				title: `Added ${task.key} to ${TASK_STATUS_LABELS[task.status]}`,
-				action: { label: "Open", run: () => workspace.openTask(task.number) },
-			});
-		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : "Could not add the task");
-		}
-	}
-
 	async function addNote(text: string): Promise<void> {
 		const token = auth.token();
 		const slug = props.project;
-		if (!token || !slug) return;
+		if (!token || !slug) {
+			notify({ title: "Open a project to add notes", tone: "danger" });
+			return;
+		}
 		try {
 			await notesStore.add(token, slug, { body: text, source: chosen()?.name ?? "Composer" });
 			notify({
@@ -420,27 +391,19 @@ function NewChat(props: {
 	}
 
 	function runCommand(command: SlashCommand, argument: string): boolean {
-		switch (command.id) {
-			case "model":
-				modelPicker?.open();
-				return Boolean(modelPicker);
-			case "mode":
-				modePicker?.open();
-				return Boolean(modePicker);
-			case "effort":
-				return chooseEffort(argument);
-			case "task":
-				if (!argument) return false;
-				void addTask(argument);
-				return true;
-			case "note":
-				if (!argument) return false;
-				void addNote(argument);
-				return true;
-			default:
-				// `/new` is this screen already; the composer clears and stays.
-				return command.id === "new";
-		}
+		const slug = props.project;
+		// No `newThread`: this screen is the new thread already.
+		return runSlashCommand(command, argument, {
+			running: false,
+			openModel: modelPicker?.open,
+			openMode: modePicker?.open,
+			efforts: efforts(),
+			setEffort: setPickedEffort,
+			addTask: slug
+				? (title) => void addBoardTask({ token: auth.token(), project: slug, title, workspace })
+				: undefined,
+			addNote: slug ? (text) => void addNote(text) : undefined,
+		});
 	}
 
 	const ready = () => Boolean(chosen() && props.project && props.folder);

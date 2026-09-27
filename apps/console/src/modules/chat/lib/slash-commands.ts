@@ -17,6 +17,8 @@ export type SlashCommand = {
 	description: string;
 	/** The argument placeholder when the command needs one, e.g. `<level>`. */
 	argument?: string;
+	/** It opens a picker, which takes the keyboard from the field. */
+	picker?: boolean;
 	/** Who offers it: "Grid", or the agent's name. */
 	group: string;
 	kind: SlashCommandKind;
@@ -31,14 +33,19 @@ const grid = (command: Omit<SlashCommand, "group" | "kind">): SlashCommand => ({
 /** Grid's commands, in the order they are listed while nothing has been typed after the slash. */
 export const GRID_COMMANDS: readonly SlashCommand[] = [
 	grid({ id: "new", name: "new", description: "Start a new thread in this project" }),
-	grid({ id: "model", name: "model", description: "Switch the model" }),
+	grid({ id: "model", name: "model", description: "Switch the model", picker: true }),
 	grid({
 		id: "effort",
 		name: "effort",
 		description: "Set the reasoning effort",
 		argument: "<level>",
 	}),
-	grid({ id: "mode", name: "mode", description: "Switch the permission mode" }),
+	grid({
+		id: "mode",
+		name: "mode",
+		description: "Switch the permission mode",
+		picker: true,
+	}),
 	grid({ id: "stop", name: "stop", description: "Stop the agent's turn" }),
 	grid({ id: "task", name: "task", description: "Add a board task", argument: "<title>" }),
 	grid({
@@ -129,6 +136,8 @@ export type ParsedSlashCommand = { command: SlashCommand; argument: string };
 /**
  * A Grid command a whole composer message starts with, and its argument. Only Grid's own commands
  * are recognised: anything else, an agent's own command included, is left to be sent as typed.
+ * So is a command that takes no argument with words after it: `/new landing page ideas` is a
+ * message, not `/new`.
  */
 export function parseSlashCommand(
 	text: string,
@@ -142,7 +151,9 @@ export function parseSlashCommand(
 		(candidate) => candidate.kind === "grid" && candidate.name.toLowerCase() === name,
 	);
 	if (!command) return null;
-	return { command, argument: (match[2] ?? "").trim() };
+	const argument = (match[2] ?? "").trim();
+	if (argument && !command.argument) return null;
+	return { command, argument };
 }
 
 /**
@@ -169,11 +180,14 @@ export type SlashSendAction = "send" | "handled" | "keep";
 export type SlashCommandsOptions = {
 	/** The field the query is read from and the command written back into. */
 	textarea: () => HTMLTextAreaElement | undefined;
-	/** The commands that apply right now: Grid's plus the agent's own. */
+	/** The commands listed right now: Grid's that apply here, plus the agent's own. */
 	commands: () => readonly SlashCommand[];
 	value: () => string;
 	onChange: (next: string) => void;
-	/** Run a command; return false to keep the typed text so the reader can finish it. */
+	/**
+	 * Run a command; return false to keep the typed text so the reader can finish it. A typed Grid
+	 * command reaches it even when it is not listed here, so it can say why it does not apply.
+	 */
 	run: (command: SlashCommand, argument: string) => boolean;
 };
 
@@ -212,8 +226,10 @@ export function useSlashCommands(options: SlashCommandsOptions): SlashCommandsRe
 		dismissedAtIndex = slashIndex();
 	}
 
-	function place(cursor: number): void {
+	function place(cursor: number, command: SlashCommand): void {
 		const textarea = options.textarea();
+		// A picker it opened has the keyboard now; taking it back would close it.
+		if (command.picker) return;
 		queueMicrotask(() => {
 			textarea?.focus();
 			textarea?.setSelectionRange(cursor, cursor);
@@ -233,14 +249,14 @@ export function useSlashCommands(options: SlashCommandsOptions): SlashCommandsRe
 			if (!options.run(command, "")) return;
 			const result = insertCommand(current, at, cursor, command);
 			options.onChange(result.text);
-			place(result.cursorPosition);
+			place(result.cursorPosition, command);
 			return;
 		}
 
 		// One that needs an argument (or an agent's own): type it out, cursor after it.
 		const result = insertCommand(current, at, cursor, command);
 		options.onChange(result.text);
-		place(result.cursorPosition);
+		place(result.cursorPosition, command);
 	}
 
 	function check(): void {
@@ -295,7 +311,8 @@ export function useSlashCommands(options: SlashCommandsOptions): SlashCommandsRe
 			setSelectedIndex((index) => (index - 1 + items.length) % items.length);
 			return true;
 		}
-		if (event.key === "Enter" || event.key === "Tab") {
+		// Enter while an input method is composing belongs to it, not the list.
+		if ((event.key === "Enter" || event.key === "Tab") && !event.isComposing) {
 			event.preventDefault();
 			event.stopPropagation();
 			const command = items[selectedIndex()];
@@ -306,7 +323,8 @@ export function useSlashCommands(options: SlashCommandsOptions): SlashCommandsRe
 	}
 
 	function handleSend(text: string): SlashSendAction {
-		const parsed = parseSlashCommand(text, options.commands());
+		// All of Grid's commands, not just those listed: `/stop` while idle is answered, not sent.
+		const parsed = parseSlashCommand(text, GRID_COMMANDS);
 		if (!parsed) return "send";
 		return options.run(parsed.command, parsed.argument) ? "handled" : "keep";
 	}

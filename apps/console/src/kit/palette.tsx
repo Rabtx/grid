@@ -135,6 +135,8 @@ export type AutocompleteItem = {
  * the keyboard (arrows and Enter are the caller's); a pointer picks without blurring the field.
  */
 export function AutocompleteList(props: {
+	/** The list's id; each item's is `<id>-<index>`, for the field's `aria-activedescendant`. */
+	id: string;
 	label: string;
 	items: readonly AutocompleteItem[];
 	active: number;
@@ -182,6 +184,10 @@ export function AutocompleteList(props: {
 					ref={(el) => {
 						list = el;
 					}}
+					id={props.id}
+					// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a native select cannot float suggestions while the field keeps the keyboard
+					role="listbox"
+					aria-label={props.label}
 					class="flex min-h-0 flex-1 flex-col overflow-y-auto p-1"
 				>
 					<For each={props.items}>
@@ -192,27 +198,29 @@ export function AutocompleteList(props: {
 										{item.group}
 									</li>
 								</Show>
-								<li data-index={index()}>
-									<button
-										type="button"
-										aria-current={index() === props.active ? "true" : undefined}
-										onMouseDown={(event) => {
-											// Keep the field focused while the pick applies.
-											event.preventDefault();
-											props.onPick(item.id);
-										}}
-										class="flex h-8 w-full items-center gap-2 rounded-kit px-2 text-left text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=true]:bg-fill-strong aria-[current=true]:text-fg pointer-coarse:h-11"
-									>
-										<Show when={item.icon}>
-											<span class="shrink-0 text-fg-subtle">{item.icon}</span>
-										</Show>
-										<span class="truncate font-mono text-caption">{item.label}</span>
-										<Show when={item.hint}>
-											<span class="ml-auto truncate font-mono text-caption text-fg-faint">
-												{item.hint}
-											</span>
-										</Show>
-									</button>
+								{/* The field keeps the keyboard, so an option is picked by pointer only. */}
+								<li
+									data-index={index()}
+									id={`${props.id}-${index()}`}
+									// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- an option of the listbox above; a native option cannot hold icons and hints
+									role="option"
+									aria-selected={index() === props.active ? "true" : "false"}
+									onMouseDown={(event) => {
+										// Keep the field focused while the pick applies.
+										event.preventDefault();
+										props.onPick(item.id);
+									}}
+									class="flex h-8 w-full cursor-pointer items-center gap-2 rounded-kit px-2 text-left text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-selected:bg-fill-strong aria-selected:text-fg pointer-coarse:h-11"
+								>
+									<Show when={item.icon}>
+										<span class="shrink-0 text-fg-subtle">{item.icon}</span>
+									</Show>
+									<span class="truncate font-mono text-caption">{item.label}</span>
+									<Show when={item.hint}>
+										<span class="ml-auto truncate font-mono text-caption text-fg-faint">
+											{item.hint}
+										</span>
+									</Show>
 								</li>
 							</>
 						)}

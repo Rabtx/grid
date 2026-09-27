@@ -24,6 +24,7 @@ describe("FileMentionPopup", () => {
 		dispose = render(
 			() => (
 				<FileMentionPopup
+					id="files"
 					files={props.files}
 					loading={props.loading ?? false}
 					selectedIndex={props.selectedIndex ?? 0}
@@ -55,9 +56,9 @@ describe("FileMentionPopup", () => {
 			selectedIndex: 1,
 		});
 
-		const items = container.querySelectorAll("li button");
-		expect(items[0].getAttribute("aria-current")).toBeNull();
-		expect(items[1].getAttribute("aria-current")).toBe("true");
+		const items = container.querySelectorAll('[role="option"]');
+		expect(items[0].getAttribute("aria-selected")).toBe("false");
+		expect(items[1].getAttribute("aria-selected")).toBe("true");
 	});
 
 	it("calls onSelect when an item is clicked", () => {
@@ -68,8 +69,8 @@ describe("FileMentionPopup", () => {
 			onSelect,
 		});
 
-		const button = container.querySelectorAll("button")[1]; // second item: src/index.ts
-		button.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+		const option = container.querySelectorAll('[role="option"]')[1]; // second item: src/index.ts
+		option.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
 
 		expect(onSelect).toHaveBeenCalledWith("src/index.ts");
 	});

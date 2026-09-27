@@ -30,7 +30,14 @@ describe("SlashMenu", () => {
 		container = document.createElement("div");
 		document.body.append(container);
 		dispose = render(
-			() => <SlashMenu commands={commands} selectedIndex={selectedIndex} onSelect={onSelect} />,
+			() => (
+				<SlashMenu
+					id="commands"
+					commands={commands}
+					selectedIndex={selectedIndex}
+					onSelect={onSelect}
+				/>
+			),
 			container,
 		);
 	}
@@ -57,16 +64,16 @@ describe("SlashMenu", () => {
 	it("marks the selected command as current", () => {
 		mount(GRID_COMMANDS, 1);
 
-		const items = container.querySelectorAll("li button");
-		expect(items[0].getAttribute("aria-current")).toBeNull();
-		expect(items[1].getAttribute("aria-current")).toBe("true");
+		const items = container.querySelectorAll('[role="option"]');
+		expect(items[0].getAttribute("aria-selected")).toBe("false");
+		expect(items[1].getAttribute("aria-selected")).toBe("true");
 	});
 
 	it("picks the command that was tapped", () => {
 		const onSelect = vi.fn();
 		mount(GRID_COMMANDS, 0, onSelect);
 
-		const button = [...container.querySelectorAll<HTMLButtonElement>("li button")].find((item) =>
+		const button = [...container.querySelectorAll<HTMLElement>('[role="option"]')].find((item) =>
 			item.textContent?.includes("/note"),
 		);
 		button?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));

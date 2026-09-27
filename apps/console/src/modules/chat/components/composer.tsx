@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, For, onSettled, Show, untrack } from "solid-js";
+import { createSignal, createUniqueId, For, onSettled, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import { useWorkspace } from "@/modules/projects";
@@ -138,6 +138,18 @@ export function Composer(props: {
 		},
 	});
 
+	// The open list's ids, so the field can say which item is picked.
+	const listId = createUniqueId();
+	const slashId = `${listId}-commands`;
+	const mentionsId = `${listId}-files`;
+	const openList = (): { id: string; active: number; count: number } | null => {
+		if (mentions.open())
+			return { id: mentionsId, active: mentions.selectedIndex(), count: mentions.files().length };
+		if (slash.open())
+			return { id: slashId, active: slash.selectedIndex(), count: slash.matches().length };
+		return null;
+	};
+
 	// The composer has its own mic next to Send (a floating one would sit on top of it).
 	onSettled(() => {
 		if (!form) return;
@@ -171,9 +183,9 @@ export function Composer(props: {
 
 	async function send(): Promise<void> {
 		const text = draft().trim();
-		if ((!text && !files().length) || props.running || props.disabled || sending()) return;
-		// A Grid command runs here, rather than going to the agent.
-		if (text && !files().length) {
+		if ((!text && !files().length) || props.disabled) return;
+		// A Grid command runs here, rather than going to the agent, even mid-turn.
+		if (text && !files().length && props.onCommand) {
 			const action = slash.handleSend(text);
 			if (action === "handled") {
 				clearDraft();
@@ -184,6 +196,8 @@ export function Composer(props: {
 				return;
 			}
 		}
+		// Only a message for the agent waits for its turn to end.
+		if (props.running || sending()) return;
 		setSending(true);
 		try {
 			if (
@@ -246,6 +260,7 @@ export function Composer(props: {
 				<>
 					<Show when={mentions.open()}>
 						<FileMentionPopup
+							id={mentionsId}
 							files={mentions.files()}
 							loading={mentions.loading()}
 							selectedIndex={mentions.selectedIndex()}
@@ -255,6 +270,7 @@ export function Composer(props: {
 					</Show>
 					<Show when={slash.open()}>
 						<SlashMenu
+							id={slashId}
 							commands={slash.matches()}
 							selectedIndex={slash.selectedIndex()}
 							onSelect={slash.selectCommand}
@@ -271,6 +287,11 @@ export function Composer(props: {
 					value={draft()}
 					placeholder={props.placeholder ?? PLACEHOLDER}
 					aria-label="Message"
+					aria-controls={openList()?.id}
+					aria-activedescendant={(() => {
+						const list = openList();
+						return list && list.count > 0 ? `${list.id}-${list.active}` : undefined;
+					})()}
 					enterkeyhint="send"
 					disabled={props.disabled || sending()}
 					onInput={(event) => {

@@ -86,6 +86,24 @@ describe("parseSlashCommand", () => {
 		expect(parsed?.argument).toBe("buy milk");
 	});
 
+	it("reads a command that takes an argument even when it is missing", () => {
+		const parsed = parseSlashCommand("/effort", commands);
+		expect(parsed?.command.name).toBe("effort");
+		expect(parsed?.argument).toBe("");
+	});
+
+	it("sends words after a command that takes none to the agent as typed", () => {
+		expect(parseSlashCommand("/new landing page ideas", commands)).toBeNull();
+		expect(parseSlashCommand("/clear the cache first", commands)).toBeNull();
+		expect(parseSlashCommand("/stop now", commands)).toBeNull();
+		expect(parseSlashCommand("/clear  ", commands)?.command.name).toBe("clear");
+	});
+
+	it("sends a path as typed", () => {
+		expect(parseSlashCommand("/usr/bin/env", commands)).toBeNull();
+		expect(parseSlashCommand("/usr/bin/env bun run dev", commands)).toBeNull();
+	});
+
 	it("leaves anything that is not a Grid command to the agent", () => {
 		expect(parseSlashCommand("hello /new", commands)).toBeNull();
 		expect(parseSlashCommand("/compact", commands)).toBeNull();

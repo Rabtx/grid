@@ -5,6 +5,8 @@ import { AgentMark, AutocompleteList } from "@/kit";
 import { GRID, type SlashCommand } from "../lib/slash-commands";
 
 export type SlashMenuProps = {
+	/** The list's id, for the field's `aria-controls`. */
+	id: string;
 	commands: readonly SlashCommand[];
 	selectedIndex: number;
 	onSelect: (command: SlashCommand) => void;
@@ -18,6 +20,7 @@ export type SlashMenuProps = {
 export function SlashMenu(props: SlashMenuProps): JSX.Element {
 	return (
 		<AutocompleteList
+			id={props.id}
 			label="Commands"
 			items={props.commands.map((command) => ({
 				id: command.id,

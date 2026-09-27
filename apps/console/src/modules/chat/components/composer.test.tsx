@@ -96,6 +96,7 @@ describe("Composer", () => {
 		slash?: {
 			commands?: readonly SlashCommand[];
 			onCommand?: (command: SlashCommand, argument: string) => boolean;
+			running?: boolean;
 		},
 	): void {
 		const Router = createRouter({
@@ -105,7 +106,7 @@ describe("Composer", () => {
 					component: () => (
 						<Composer
 							project="alpha"
-							running={false}
+							running={slash?.running ?? false}
 							onSend={onSend}
 							control={control}
 							commands={slash?.commands}
@@ -186,16 +187,16 @@ describe("Composer", () => {
 		typeInto(textarea, "@");
 		await settle();
 
-		const options = container.querySelectorAll('[aria-label="File mentions"] li button');
+		const options = container.querySelectorAll('[aria-label="File mentions"] [role="option"]');
 		expect(options.length).toBeGreaterThan(1);
-		expect(options[0].getAttribute("aria-current")).toBe("true");
+		expect(options[0].getAttribute("aria-selected")).toBe("true");
 
 		// Press ArrowDown
 		pressKey(textarea, "ArrowDown");
 		await settle();
 
-		const afterDown = container.querySelectorAll('[aria-label="File mentions"] li button');
-		expect(afterDown[1].getAttribute("aria-current")).toBe("true");
+		const afterDown = container.querySelectorAll('[aria-label="File mentions"] [role="option"]');
+		expect(afterDown[1].getAttribute("aria-selected")).toBe("true");
 
 		// Press Enter to select second option: src/components/composer.tsx
 		pressKey(textarea, "Enter");
@@ -254,7 +255,7 @@ describe("Composer", () => {
 		await settle();
 
 		const itemButton = [
-			...container.querySelectorAll<HTMLButtonElement>('[aria-label="File mentions"] li button'),
+			...container.querySelectorAll<HTMLElement>('[aria-label="File mentions"] [role="option"]'),
 		].find((b) => b.textContent?.includes("README.md"));
 		expect(itemButton).toBeDefined();
 
@@ -372,6 +373,149 @@ describe("Composer", () => {
 		);
 		expect(onSend).not.toHaveBeenCalled();
 		expect(textarea.value).toBe("");
+	});
+
+	it("runs a typed Grid command while the agent's turn is running", async () => {
+		const onSend = vi.fn().mockReturnValue(true);
+		const onCommand = vi.fn().mockReturnValue(true);
+		mount(onSend, undefined, { commands: GRID_COMMANDS, onCommand, running: true });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+
+		typeInto(textarea, "/note check the logs");
+		await settle();
+		container
+			.querySelector("form")
+			?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+		await settle();
+
+		expect(onCommand).toHaveBeenCalledWith(
+			GRID_COMMANDS.find((command) => command.name === "note"),
+			"check the logs",
+		);
+		expect(textarea.value).toBe("");
+
+		// A message for the agent still waits for the turn to end.
+		typeInto(textarea, "and then this");
+		await settle();
+		container
+			.querySelector("form")
+			?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+		await settle();
+		expect(onSend).not.toHaveBeenCalled();
+		expect(textarea.value).toBe("and then this");
+	});
+
+	it("sends words after a command that takes none to the agent as typed", async () => {
+		const onSend = vi.fn().mockReturnValue(true);
+		const onCommand = vi.fn().mockReturnValue(true);
+		mount(onSend, undefined, { commands: GRID_COMMANDS, onCommand });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+
+		typeInto(textarea, "/new landing page ideas");
+		await settle();
+		container
+			.querySelector("form")
+			?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+		await settle();
+
+		expect(onCommand).not.toHaveBeenCalled();
+		expect(onSend).toHaveBeenCalledWith("/new landing page ideas", []);
+	});
+
+	it("answers a Grid command that is not listed here instead of sending it", async () => {
+		const onSend = vi.fn().mockReturnValue(true);
+		const onCommand = vi.fn().mockReturnValue(false);
+		const idle = GRID_COMMANDS.filter((command) => command.name !== "stop");
+		mount(onSend, undefined, { commands: idle, onCommand });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+
+		typeInto(textarea, "/stop");
+		await settle();
+		container
+			.querySelector("form")
+			?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+		await settle();
+
+		expect(onCommand).toHaveBeenCalledWith(
+			GRID_COMMANDS.find((command) => command.name === "stop"),
+			"",
+		);
+		expect(onSend).not.toHaveBeenCalled();
+		expect(textarea.value).toBe("/stop");
+	});
+
+	it("leaves the keyboard with the picker /model opened", async () => {
+		const picker = document.createElement("button");
+		const onCommand = vi.fn(() => {
+			// What the picker does: take the focus.
+			document.body.append(picker);
+			picker.focus();
+			return true;
+		});
+		mount(undefined, undefined, { commands: GRID_COMMANDS, onCommand });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+
+		textarea.focus();
+		typeInto(textarea, "/model");
+		await settle();
+		pressKey(textarea, "Enter");
+		await settle();
+
+		expect(onCommand).toHaveBeenCalled();
+		expect(textarea.value).toBe("");
+		expect(document.activeElement).toBe(picker);
+		picker.remove();
+	});
+
+	it("leaves Enter to an input method that is composing", async () => {
+		const onCommand = vi.fn().mockReturnValue(true);
+		mount(undefined, undefined, { commands: GRID_COMMANDS, onCommand });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+
+		typeInto(textarea, "/new");
+		await settle();
+		pressKey(textarea, "Enter", { isComposing: true });
+		await settle();
+
+		expect(onCommand).not.toHaveBeenCalled();
+		expect(container.querySelector('[aria-label="Commands"]')).not.toBeNull();
+	});
+
+	it("points the field at the open list and its picked command", async () => {
+		mount(undefined, undefined, { commands: GRID_COMMANDS, onCommand: () => true });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+		expect(textarea.getAttribute("aria-controls")).toBeNull();
+
+		typeInto(textarea, "/");
+		await settle();
+
+		const list = container.querySelector('[role="listbox"]');
+		expect(list).not.toBeNull();
+		expect(textarea.getAttribute("aria-controls")).toBe(list?.id);
+		const active = textarea.getAttribute("aria-activedescendant");
+		expect(active && document.getElementById(active)?.getAttribute("aria-selected")).toBe("true");
+
+		pressKey(textarea, "ArrowDown");
+		await settle();
+		expect(textarea.getAttribute("aria-activedescendant")).toBe(`${list?.id}-1`);
 	});
 
 	it("writes an agent's own command out and sends it as typed", async () => {

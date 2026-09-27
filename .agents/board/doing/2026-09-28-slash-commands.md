@@ -121,6 +121,30 @@ agent's commands, the menu heads them with the agent's name, and `insertCommand`
 leave anything that is not a Grid command in the field to be sent to the agent as typed. A
 follow-up runner card is needed to put `available_commands` into `info`.
 
+**Not done: agent-provided commands are not listed yet.** Because the runner does not emit them,
+the menu shows Grid's commands only, and that half of the definition of done is open until the
+follow-up runner card lands. An agent command typed in full still reaches the agent as typed.
+
+**Review fixes (PR #135)**
+
+- Typed Grid commands run mid-turn (`/task`, `/note`, `/stop`); only a message for the agent waits
+  for the turn to end.
+- A command that takes no argument matches only on its own: `/new landing page ideas`,
+  `/clear the cache first` and paths like `/usr/bin/env` go to the agent as typed.
+- Typed commands are parsed against all of Grid's commands, so one that does not apply here is
+  answered with a toast (`/stop` while idle: "Nothing to stop") rather than sent.
+- Every command that cannot run says why through `notify` (unknown effort lists the real levels,
+  `/effort` while disconnected, `/new` on the new-thread screen, `/task`/`/note` without a title,
+  token or project); the draft is kept.
+- `/model` and `/mode` picked from the menu leave the keyboard with the picker they open.
+- `lib/run-slash-command.ts` holds `runSlashCommand`, `findEffort` and `addBoardTask`, shared by
+  `NewChat` and `Conversation`.
+- Enter/Tab while an input method is composing is left to it, in both the `/` and `@` lists.
+- `AutocompleteList` is a `listbox` of `option`s with `aria-selected`; the field carries
+  `aria-expanded`, `aria-controls` and `aria-activedescendant` while a list is open.
+- Tests: `lib/run-slash-command.test.ts`, and new parse and composer cases. Console: 56 files,
+  366 tests passed; lint, typecheck, format and `architecture:check` clean.
+
 **Contract impact:** none (console-only; no API or schema change).
 
 **Review:** pending — `human` (not merged). PR: https://github.com/shabirkhan-dev/grid/pull/135
