@@ -9,7 +9,7 @@ import { quietReconnects } from "@/lib/quiet-reconnects";
 import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
 import { notesStore } from "@/modules/projects";
-import { Alert, Banner, FolderIcon, notify, Row, Text } from "@/kit";
+import { Alert, Banner, BranchIcon, FolderIcon, notify, Row, Text } from "@/kit";
 
 import { type ChatConnection, connectChat, type ChatSocket } from "../lib/chat-socket";
 import { applyEvent, emptyTranscript, replay, type Transcript } from "../lib/transcript";
@@ -63,6 +63,13 @@ export function Conversation(props: {
 	let pinned = true;
 
 	const provider = () => props.providers.find((item) => item.id === session()?.provider);
+	// Where the thread works: the thread list's copy is kept current (a worktree removed from
+	// its menu), the one this screen opened with is not.
+	const place = () => {
+		const current = session();
+		if (!current) return null;
+		return threadsStore.threads(current.project).find((item) => item.id === current.id) ?? current;
+	};
 	// The agent's catalog (exact names, effort levels), plus anything it reported live.
 	const models = () => mergeModels(provider()?.models ?? [], transcript().models);
 	const modes = () => (transcript().modes.length ? transcript().modes : (provider()?.modes ?? []));
@@ -328,14 +335,36 @@ export function Conversation(props: {
 						onSend={send}
 						onStop={() => socket?.send({ t: "cancel" })}
 						header={
-							<Show when={session()}>
+							<Show when={place()}>
 								{(current) => (
-									<Row gap={1.5} class="min-w-0">
-										<FolderIcon size="sm" />
-										<Text as="span" size="caption" tone="subtle" truncate>
-											{shortPath(current().cwd)}
-										</Text>
-									</Row>
+									<Show
+										when={current().worktree}
+										fallback={
+											<Row gap={1.5} class="min-w-0">
+												<FolderIcon size="sm" />
+												<Text as="span" size="caption" tone="subtle" truncate>
+													{shortPath(current().cwd)}
+												</Text>
+											</Row>
+										}
+									>
+										{(worktree) => (
+											// Its own worktree: the branch it works on, and where it started.
+											<Row gap={1.5} class="min-w-0">
+												<BranchIcon size="sm" />
+												<Text as="span" size="caption" tone="subtle" mono truncate>
+													{worktree().branch}
+												</Text>
+												<Show when={worktree().base}>
+													{(base) => (
+														<Text as="span" size="caption" tone="faint" truncate>
+															from {base()}
+														</Text>
+													)}
+												</Show>
+											</Row>
+										)}
+									</Show>
 								)}
 							</Show>
 						}

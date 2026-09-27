@@ -75,12 +75,16 @@ export async function folderRequest(
 			return Response.json({ data: inspectFolder(path) });
 		}
 		if (url.pathname === "/projects/folders" && request.method === "GET") {
-			const folders = Object.fromEntries(
-				Object.entries(hub.projectFolders(userId)).map(([project, path]) => [
-					project,
-					insideProjectsDir(path, projectsDir),
-				]),
-			);
+			// A folder linked before the projects folder was narrowed is left out, not an error:
+			// one stale link must not hide every other project's folder.
+			const folders: Record<string, string> = {};
+			for (const [project, path] of Object.entries(hub.projectFolders(userId))) {
+				try {
+					folders[project] = insideProjectsDir(path, projectsDir);
+				} catch {
+					// Outside the projects folder: that project shows as needing its folder chosen.
+				}
+			}
 			return Response.json({ data: folders });
 		}
 		const link = url.pathname.match(/^\/projects\/folders\/([a-z0-9-]+)$/);

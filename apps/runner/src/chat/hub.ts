@@ -7,7 +7,20 @@ import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
 import type { Who } from "../auth";
 import { insideProjectsDir } from "../folders/folders";
-import type { ChatSessionRow, ChatStore, ProviderCatalog, ProviderSettings } from "./store";
+import type {
+	ChatSessionRow,
+	ChatStore,
+	ProjectSettings,
+	ProviderCatalog,
+	ProviderSettings,
+} from "./store";
+import {
+	createWorktree,
+	removeWorktree,
+	WorktreeError,
+	type WorktreeStatus,
+	worktreeStatus,
+} from "./worktrees";
 
 /** One device watching a session. `n` numbers each event, for catching up after a drop. */
 export type ChatClient = {
@@ -228,6 +241,8 @@ export class ChatHub {
 			model?: string;
 			mode?: string;
 			effort?: string;
+			/** Its own git worktree; by default what the project is set to. */
+			worktree?: boolean;
 		},
 	): ChatSessionRow {
 		const provider = this.providers.get(input.provider);
@@ -237,18 +252,70 @@ export class ChatHub {
 		if (!existsSync(cwd) || !isDirectory(cwd))
 			throw new ChatError(`${cwd} is not a folder on this machine`, 400);
 		const boundedCwd = this.withinProjectsDir(cwd);
+		const id = crypto.randomUUID();
+		const wanted =
+			input.worktree ?? this.store.projectSettings(who.workspace, input.project).worktrees;
+		const own = wanted ? this.worktreeFor(boundedCwd, id) : null;
 		return this.store.create({
-			id: crypto.randomUUID(),
+			id,
 			ownerId: who.userId,
 			workspaceId: who.workspace,
 			project: input.project,
 			provider: input.provider,
 			title: "New chat",
-			cwd: boundedCwd,
+			cwd: own ? this.withinProjectsDir(own.cwd) : boundedCwd,
 			model: input.model ?? null,
 			mode: input.mode ?? provider.info().defaultMode ?? null,
 			effort: input.effort ?? null,
+			worktree: own?.worktree ?? null,
 		});
+	}
+
+	/** A worktree for a new chat, or null when the folder is not in a git repository. */
+	private worktreeFor(folder: string, id: string): ReturnType<typeof createWorktree> {
+		try {
+			return createWorktree(folder, id, this.projectsDir);
+		} catch (cause) {
+			if (cause instanceof WorktreeError) throw new ChatError(cause.message, cause.status);
+			throw cause;
+		}
+	}
+
+	/** How a chat's worktree stands (changed files, unpushed commits), or null without one. */
+	worktree(workspace: string, id: string): WorktreeStatus | null {
+		const session = this.owned(workspace, id);
+		return session.worktree ? worktreeStatus(session.worktree) : null;
+	}
+
+	/**
+	 * Remove a chat's worktree; the chat carries on in the project's own folder. Refuses to throw
+	 * away uncommitted changes, or (deleting the branch too) unpushed commits, without `force`.
+	 */
+	discardWorktree(
+		workspace: string,
+		id: string,
+		options: { deleteBranch: boolean; force?: boolean },
+	): void {
+		const session = this.owned(workspace, id);
+		if (!session.worktree) throw new ChatError("This chat has no worktree", 404);
+		if (this.live.get(id)?.running) throw new ChatError("Stop the agent first", 409);
+		try {
+			removeWorktree(session.worktree, options);
+		} catch (cause) {
+			if (cause instanceof WorktreeError) throw new ChatError(cause.message, cause.status);
+			throw cause;
+		}
+		// The agent was working in the worktree: the next message starts it in the project folder.
+		this.park(id);
+		this.store.update(id, { worktree: null, cwd: session.worktree.origin, resumeToken: null });
+	}
+
+	projectSettings(workspace: string, project: string): ProjectSettings {
+		return this.store.projectSettings(workspace, project);
+	}
+
+	setProjectSettings(workspace: string, project: string, settings: ProjectSettings): void {
+		this.store.setProjectSettings(workspace, project, settings);
 	}
 
 	private withinProjectsDir(path: string): string {
@@ -259,9 +326,21 @@ export class ChatHub {
 		}
 	}
 
+	/**
+	 * Delete a chat. Its worktree goes too when nothing would be lost (no changes, no commits of
+	 * its own); otherwise it stays on disk, with its branch, for the person to deal with.
+	 */
 	delete(workspace: string, id: string): void {
-		this.owned(workspace, id);
+		const session = this.owned(workspace, id);
 		this.park(id);
+		if (session.worktree) {
+			try {
+				removeWorktree(session.worktree, { deleteBranch: true });
+			} catch (cause) {
+				if (!(cause instanceof WorktreeError)) throw cause;
+				console.warn(`[runner] kept the worktree of a deleted chat: ${cause.message}`);
+			}
+		}
 		this.store.delete(id);
 	}
 

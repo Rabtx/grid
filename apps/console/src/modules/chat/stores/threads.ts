@@ -125,6 +125,24 @@ export const threadsStore = {
 		await chatService.rename(token, session.id, title, placementsStore.scopeOf(session.project));
 		threadsStore.upsert({ ...session, title });
 	},
+	/** Remove a thread's worktree; it carries on in the project's own folder. */
+	async discardWorktree(
+		token: string,
+		session: ChatSession,
+		options: { deleteBranch: boolean; force?: boolean },
+	): Promise<void> {
+		await chatService.discardWorktree(
+			token,
+			session.id,
+			options,
+			placementsStore.scopeOf(session.project),
+		);
+		threadsStore.upsert({
+			...session,
+			cwd: session.worktree?.origin ?? session.cwd,
+			worktree: null,
+		});
+	},
 	async remove(token: string, session: ChatSession): Promise<void> {
 		await chatService.remove(token, session.id, placementsStore.scopeOf(session.project));
 		put(

@@ -84,9 +84,32 @@ export type ChatSession = {
 	model: string | null;
 	mode: string | null;
 	effort: string | null;
+	/** Its own git worktree and branch, when it has one (`cwd` is inside it). */
+	worktree?: {
+		repo: string;
+		path: string;
+		branch: string;
+		base: string | null;
+		origin: string;
+	} | null;
 	createdAt: string;
 	updatedAt: string;
 };
+
+/** How a chat's worktree stands: what removing it would throw away. */
+export type WorktreeStatus = {
+	branch: string;
+	base: string | null;
+	path: string;
+	exists: boolean;
+	/** Files changed and not committed. */
+	changed: number;
+	/** Commits on its branch that are on no remote and not in its base. */
+	unpushed: number;
+};
+
+/** A project's chat settings on the machine it runs on. */
+export type ProjectChatSettings = { worktrees: boolean };
 
 /** An agent the runner can drive, and whether it is installed. */
 export type ChatProvider = {

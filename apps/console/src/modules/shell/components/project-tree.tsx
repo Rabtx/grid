@@ -4,6 +4,8 @@ import { createEffect, createSignal, For, onSettled, Show, untrack } from "solid
 
 import {
 	BoardIcon,
+	BranchIcon,
+	CheckIcon,
 	ConfirmDialog,
 	EditIcon,
 	FileIcon,
@@ -19,6 +21,7 @@ import {
 	NavLink,
 	NavNote,
 	NoteIcon,
+	notify,
 	PullRequestIcon,
 	PlusIcon,
 	type PopoverControl,
@@ -31,42 +34,69 @@ import {
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
 import { useAuth } from "@/modules/auth";
+import { chatService } from "@/modules/chat/services/chat.service";
 import { threadsStore } from "@/modules/chat/stores/threads";
+import { placementsStore } from "@/modules/environments/stores/placements";
 import type { ChatSession } from "@/modules/chat/types/chat.types";
 import { type Project, ProjectIcon, useWorkspace } from "@/modules/projects";
 
 import { useShell } from "../context/shell-context";
 
+import { WorktreeDialog } from "./worktree-dialog";
+
 const OPEN_KEY = "grid.sidebar.open";
 
-const PROJECT_MENU: MenuGroup[] = [
-	{
-		items: [
-			{ id: "new", label: "New thread", icon: <PlusIcon /> },
-			{ id: "rename", label: "Rename", icon: <EditIcon /> },
-			{ id: "customize", label: "Customize…" },
-			{ id: "folder", label: "Change folder", icon: <FolderIcon /> },
-		],
-	},
-	{
-		items: [
-			{ id: "board", label: "Open board", icon: <BoardIcon /> },
-			{ id: "files", label: "Open files", icon: <FileIcon /> },
-			{ id: "pulls", label: "Open pull requests", icon: <PullRequestIcon /> },
-			{ id: "notes", label: "Open notes", icon: <NoteIcon /> },
-		],
-	},
-	{ items: [{ id: "remove", label: "Remove from Grid", icon: <TrashIcon />, danger: true }] },
-];
+/**
+ * A project's menu. `worktrees` is whether its new threads get their own git worktree (null
+ * while that is not known yet).
+ */
+function projectMenu(worktrees: boolean | null): MenuGroup[] {
+	return [
+		{
+			items: [
+				{ id: "new", label: "New thread", icon: <PlusIcon /> },
+				{ id: "rename", label: "Rename", icon: <EditIcon /> },
+				{ id: "customize", label: "Customize…" },
+				{ id: "folder", label: "Change folder", icon: <FolderIcon /> },
+			],
+		},
+		{
+			items: [
+				{ id: "board", label: "Open board", icon: <BoardIcon /> },
+				{ id: "files", label: "Open files", icon: <FileIcon /> },
+				{ id: "pulls", label: "Open pull requests", icon: <PullRequestIcon /> },
+				{ id: "notes", label: "Open notes", icon: <NoteIcon /> },
+			],
+		},
+		{
+			items: [
+				{
+					id: "worktrees",
+					label: "A worktree per thread",
+					icon: <BranchIcon />,
+					disabled: worktrees === null,
+					trailing: worktrees ? <CheckIcon size="sm" /> : undefined,
+				},
+			],
+		},
+		{ items: [{ id: "remove", label: "Remove from Grid", icon: <TrashIcon />, danger: true }] },
+	];
+}
 
-const THREAD_MENU: MenuGroup[] = [
-	{
-		items: [
-			{ id: "rename", label: "Rename", icon: <EditIcon /> },
-			{ id: "delete", label: "Delete", icon: <TrashIcon />, danger: true },
-		],
-	},
-];
+/** A thread's menu; one with its own worktree can remove it. */
+function threadMenu(session: ChatSession): MenuGroup[] {
+	return [
+		{
+			items: [
+				{ id: "rename", label: "Rename", icon: <EditIcon /> },
+				...(session.worktree
+					? [{ id: "worktree", label: "Remove worktree…", icon: <BranchIcon /> }]
+					: []),
+				{ id: "delete", label: "Delete", icon: <TrashIcon />, danger: true },
+			],
+		},
+	];
+}
 
 function rememberedOpen(): string[] {
 	try {
@@ -98,6 +128,7 @@ export function ProjectTree(): JSX.Element {
 	const auth = useAuth();
 	const [open, setOpen] = createSignal<string[]>(rememberedOpen());
 	const [deleting, setDeleting] = createSignal<ChatSession | null>(null);
+	const [discarding, setDiscarding] = createSignal<ChatSession | null>(null);
 	const [pending, setPending] = createSignal(false);
 
 	function setOpenFor(slug: string, value: boolean): void {
@@ -142,16 +173,18 @@ export function ProjectTree(): JSX.Element {
 								open={open().includes(project.slug)}
 								onToggle={(value) => setOpenFor(project.slug, value)}
 								onDelete={setDeleting}
+								onWorktree={setDiscarding}
 							/>
 						)}
 					</For>
 				</Stack>
 			</Show>
+			<WorktreeDialog session={discarding()} onClose={() => setDiscarding(null)} />
 			<ConfirmDialog
 				open={deleting() !== null}
 				onClose={() => setDeleting(null)}
 				title={`Delete “${deleting()?.title ?? "this thread"}”?`}
-				description="The thread and its history are removed. Files the agent changed stay as they are."
+				description="The thread and its history are removed. Its worktree goes too if nothing in it is uncommitted or unpushed; otherwise it stays, with its branch."
 				confirm="Delete"
 				danger
 				stayOpen
@@ -174,6 +207,7 @@ export function ProjectTree(): JSX.Element {
 function ProjectNode(props: {
 	project: Project;
 	open: boolean;
+	onWorktree: (session: ChatSession) => void;
 	onToggle: (open: boolean) => void;
 	onDelete: (session: ChatSession) => void;
 }): JSX.Element {
@@ -194,7 +228,44 @@ function ProjectNode(props: {
 		},
 	);
 
+	// Whether new threads get their own worktree, read when the project is opened.
+	const [worktrees, setWorktrees] = createSignal<boolean | null>(null);
+	createEffect(
+		() => [props.open, auth.token(), slug()] as const,
+		([open, token, project]) => {
+			if (!open || !token) return;
+			chatService
+				.projectSettings(token, project, placementsStore.scopeOf(project))
+				.then((settings) => setWorktrees(settings.worktrees))
+				.catch(() => setWorktrees(null));
+		},
+	);
+
+	async function toggleWorktrees(): Promise<void> {
+		const token = auth.token();
+		const next = !worktrees();
+		if (!token) return;
+		setWorktrees(next);
+		try {
+			await chatService.saveProjectSettings(
+				token,
+				slug(),
+				{ worktrees: next },
+				placementsStore.scopeOf(slug()),
+			);
+			notify({
+				title: next
+					? "New threads get their own worktree"
+					: "New threads work in the project folder",
+			});
+		} catch (cause) {
+			setWorktrees(!next);
+			notify({ title: cause instanceof Error ? cause.message : "Not saved", tone: "danger" });
+		}
+	}
+
 	function onMenu(id: string): void {
+		if (id === "worktrees") return void toggleWorktrees();
 		// The dialogs open over the page, so the phone drawer steps aside first.
 		if (id !== "new" && id !== "board") shell.setDrawerOpen(false);
 		if (id === "new") navigate(`/chat/${slug()}`);
@@ -239,7 +310,7 @@ function ProjectNode(props: {
 							width="md:w-56"
 							triggerClass={iconButton({ size: "xs" })}
 							trigger={<MoreIcon />}
-							groups={PROJECT_MENU}
+							groups={projectMenu(worktrees())}
 							onSelect={onMenu}
 							control={(control) => {
 								menu = control;
@@ -268,7 +339,13 @@ function ProjectNode(props: {
 							fallback={<NavNote>{threadsStore.error(slug()) ?? "No threads yet"}</NavNote>}
 						>
 							<For each={threadsStore.threads(slug())}>
-								{(session) => <ThreadRow session={session} onDelete={props.onDelete} />}
+								{(session) => (
+									<ThreadRow
+										session={session}
+										onDelete={props.onDelete}
+										onWorktree={props.onWorktree}
+									/>
+								)}
 							</For>
 						</Show>
 					</Show>
@@ -281,6 +358,7 @@ function ProjectNode(props: {
 function ThreadRow(props: {
 	session: ChatSession;
 	onDelete: (session: ChatSession) => void;
+	onWorktree: (session: ChatSession) => void;
 }): JSX.Element {
 	const auth = useAuth();
 	const inThread = useMatch(() => "/chat/:project/:id");
@@ -347,13 +425,14 @@ function ThreadRow(props: {
 						width="md:w-44"
 						triggerClass={iconButton({ size: "xs" })}
 						trigger={<MoreIcon />}
-						groups={THREAD_MENU}
+						groups={threadMenu(props.session)}
 						control={(control) => {
 							menu = control;
 						}}
 						onSelect={(id) => {
 							if (id === "rename") setRenaming(true);
-							// The confirmation is a modal of its own, above the drawer.
+							// The confirmations are modals of their own, above the drawer.
+							else if (id === "worktree") props.onWorktree(props.session);
 							else props.onDelete(props.session);
 						}}
 					/>
