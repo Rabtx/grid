@@ -89,6 +89,10 @@ Run in this worktree, all clean:
 - `bun run lint` → 0, `bun run format` → clean, `bun run typecheck` → 0 (all workspaces),
   `bun run architecture:check` → passed, `bun run naming:check` → OK (658 paths).
 - Kit guard inside the console suite (no inline styles, kit components only).
+- GitHub Actions for PR #132 could not run: every workflow in the repo fails in ~4s with
+  "The job was not started because recent account payments have failed or your spending limit
+  needs to be increased" (same on `main` and on the other open branches). The checks above are
+  the local equivalents; CI needs the account's billing fixed before it can confirm them.
 
 ## Resolution
 
@@ -132,6 +136,8 @@ Validation:
 - `bun run --filter console test`: 52 files, 310 pass.
 - `bun run lint`: 0 · `bun run format`: clean · `bun run typecheck`: 0 (all workspaces).
 - `bun run architecture:check`: passed · `bun run naming:check`: OK (658 paths).
+- CI: not run — the repo's workflows fail at start on a GitHub billing error (see Validation
+  above), on every branch including `main`.
 
 Contract impact:
 
