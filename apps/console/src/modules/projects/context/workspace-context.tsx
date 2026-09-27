@@ -116,6 +116,7 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 	const taskMatch = useMatch(() => "/board/:slug/tasks/:number");
 	const filesMatch = useMatch(() => "/files/:slug");
 	const notesMatch = useMatch(() => "/notes/:slug");
+	const pullsMatch = useMatch(() => "/pulls/:slug");
 	// Bumped after every write so the task read re-runs; the dependency stays visible in the memo.
 	const [revision, setRevision] = createSignal(0);
 	const [newTaskOpen, setNewTaskOpen] = createSignal(false);
@@ -177,6 +178,7 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 			known(activeSlug()) ??
 			known(filesMatch()?.params.slug) ??
 			known(notesMatch()?.params.slug) ??
+			known(pullsMatch()?.params.slug) ??
 			known(chatMatch()?.params.slug) ??
 			known(remembered()) ??
 			list[0]?.slug ??

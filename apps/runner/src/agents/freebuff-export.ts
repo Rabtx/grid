@@ -1,9 +1,9 @@
 import { clip, type ToolKind, type TurnEvent } from "./events";
 
 /**
- * Freebuff's `/export` command writes the conversation as JSON: the exact Markdown of each reply,
- * its reasoning and its tool calls, which the rendered screen only approximates. After each turn
- * the adapter exports and restates the turn from it.
+ * Freebuff's conversation as JSON (its chat file, the same shape `/export` writes): the exact
+ * Markdown of each reply, its reasoning and its tool calls, which the rendered screen only
+ * approximates. After each turn the adapter restates the turn from it.
  */
 
 type Block = Record<string, unknown> & { type?: unknown };

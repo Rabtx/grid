@@ -1,16 +1,20 @@
 import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { Loading, Show } from "solid-js";
+import { For, Loading, Show } from "solid-js";
 
 import {
+	BoardIcon,
 	CloseIcon,
 	EditIcon,
+	FileIcon,
 	IconButton,
 	Kbd,
 	NavButton,
 	NavLink,
 	NavSection,
+	NoteIcon,
 	PlusIcon,
+	PullRequestIcon,
 	Row,
 	SearchIcon,
 	Skeleton,
@@ -26,9 +30,18 @@ import { useShell } from "../context/shell-context";
 import { AccountMenu } from "./account-menu";
 import { ProjectTree } from "./project-tree";
 
+/** The pages every project has, listed once at the top rather than under each project. */
+const PROJECT_PAGES = [
+	{ path: "board", label: "Board", icon: () => <BoardIcon /> },
+	{ path: "files", label: "Files", icon: () => <FileIcon /> },
+	{ path: "pulls", label: "Pull requests", icon: () => <PullRequestIcon /> },
+	{ path: "notes", label: "Notes", icon: () => <NoteIcon /> },
+] as const;
+
 /**
- * The navigation: the workspace and its switcher, the everyday destinations, the workspace's
- * projects with their pages and threads, and who is signed in. The same component is the
+ * The navigation: the workspace and its switcher, the everyday destinations (a project's board,
+ * files, pull requests and notes among them, for the project you are in), the workspace's
+ * projects with their threads, and who is signed in. The same component is the
  * desktop column and the phone drawer.
  */
 export function Sidebar(props: { onClose?: () => void }): JSX.Element {
@@ -38,6 +51,11 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 	const newChat = () => {
 		const slug = workspace.currentSlug();
 		return slug ? `/chat/${slug}` : "/chat";
+	};
+	// A project's pages open on the project you are in; each page switches project from its bar.
+	const pageHref = (path: string) => {
+		const slug = workspace.currentSlug();
+		return slug ? `/${path}/${slug}` : "/board";
 	};
 
 	return (
@@ -76,6 +94,16 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 						onClick={() => shell.setPaletteOpen(true)}
 					/>
 				</Show>
+				<For each={PROJECT_PAGES}>
+					{(page) => (
+						<NavLink
+							href={workspaceHref(pageHref(page.path))}
+							icon={page.icon()}
+							label={page.label}
+							current={location.pathname.startsWith(`/${page.path}/`)}
+						/>
+					)}
+				</For>
 				<NavLink
 					href={workspaceHref("/terminal")}
 					icon={<TerminalIcon />}

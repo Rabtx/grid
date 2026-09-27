@@ -7,6 +7,8 @@ import { useWorkspace } from "@/modules/projects";
 
 import { useShell } from "../context/shell-context";
 
+import { PROJECT_PAGE, ProjectSwitcher } from "./project-switcher";
+
 // Screens without tabs of their own are named in the bar.
 const SECTION_TITLES: [prefix: string, title: string][] = [
 	["/chat", "Chat"],
@@ -14,41 +16,42 @@ const SECTION_TITLES: [prefix: string, title: string][] = [
 	["/settings", "Settings"],
 ];
 
-/** Where you are when a screen has no tabs: the board's project and size, or the section. */
+/**
+ * Where you are when a screen has no tabs: a project's page (board, files, pull requests, notes)
+ * is titled by its project, which switches to another project's same page; others by section.
+ */
 function Heading(): JSX.Element {
 	const workspace = useWorkspace();
 	const location = useLocation();
 	const section = () =>
 		SECTION_TITLES.find(([prefix]) => location.pathname.startsWith(prefix))?.[1] ?? null;
-	// A project's Files and Notes pages are named after the project, like its board.
-	const projectPage = () =>
-		location.pathname.startsWith("/files/") || location.pathname.startsWith("/notes/")
-			? (workspace.currentProject()?.name ?? null)
-			: null;
+	const projectPage = () => !section() && PROJECT_PAGE.test(location.pathname);
 
 	return (
 		<Show
-			when={!section() && workspace.activeSlug()}
+			when={projectPage()}
 			fallback={
 				<Text as="h1" tone="strong" weight="medium" truncate class="px-1.5">
-					{section() ?? projectPage() ?? "Grid"}
+					{section() ?? "Grid"}
 				</Text>
 			}
 		>
 			<Loading fallback={<span />}>
-				<Row gap={2} class="px-1.5">
-					<Text as="h1" tone="strong" weight="medium" truncate>
-						{workspace.activeProject()?.name ?? "Board"}
-					</Text>
-					<Text
-						as="span"
-						size="caption"
-						tone="subtle"
-						tabular
-						class="hidden shrink-0 whitespace-nowrap sm:inline"
-					>
-						{workspace.tasks().length} task{workspace.tasks().length === 1 ? "" : "s"}
-					</Text>
+				<Row gap={2} class="min-w-0">
+					<h1 class="min-w-0">
+						<ProjectSwitcher />
+					</h1>
+					<Show when={workspace.activeSlug()}>
+						<Text
+							as="span"
+							size="caption"
+							tone="subtle"
+							tabular
+							class="hidden shrink-0 whitespace-nowrap sm:inline"
+						>
+							{workspace.tasks().length} task{workspace.tasks().length === 1 ? "" : "s"}
+						</Text>
+					</Show>
 				</Row>
 			</Loading>
 		</Show>

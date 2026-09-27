@@ -1,14 +1,16 @@
 import { mkdtempSync, rmSync } from "node:fs";
-import { unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { cached } from "./catalog";
 import type { Choice, TurnEvent } from "./events";
+import { chatsDir, findChat, freebuffStateDir, replyState, replyText } from "./freebuff-chats";
 import { exportedTurn } from "./freebuff-export";
 import {
 	connectionWarning,
+	inputText,
 	inSession,
+	isIdle,
 	isMenu,
 	isWorking,
 	menuNotes,
@@ -23,8 +25,9 @@ import { spawnTui, type TuiProcess } from "./tui";
 /**
  * Freebuff as a chat agent. It only has an interactive terminal UI, so the runner runs the
  * official CLI in a pseudo-terminal and uses it the way a person would: it picks the model in the
- * CLI's own menu, types the message, reads the reply off the screen as it is written (streamed
- * into the chat), and when the turn ends asks the CLI's own `/export` for the exact reply.
+ * CLI's own menu, types the message and streams the reply into the chat as the screen shows it.
+ * Freebuff's own chat file says when the reply is complete and holds its exact text, which then
+ * restates the turn; its folder name is the conversation's id, for picking it up again later.
  *
  * Freebuff sessions are paid for by the hour of Freebucks. Closing the process (not ending the
  * session) leaves the hour running, so the next start rejoins it instead of paying again.
@@ -46,6 +49,8 @@ export type FreebuffOptions = {
 	available: () => boolean;
 	/** For tests: run something else in the terminal. */
 	spawn?: Tui;
+	/** Where Freebuff keeps its state (for tests; `~/.config/manicode` otherwise). */
+	stateDir?: string;
 };
 
 const defaultSpawn: Tui = (command, cwd) =>
@@ -63,8 +68,20 @@ export function freebuffProvider(options: FreebuffOptions): Provider {
 			modes: [],
 		}),
 		catalog: async (fresh) => ({ models: await models(fresh) }),
-		start: (context) => startFreebuff(options.binary, spawn, context),
+		start: (context) =>
+			startFreebuff(options.binary, spawn, options.stateDir ?? freebuffStateDir(), context),
 	};
+}
+
+/** Why Freebuff stopped, in its own words: the first lines it left on screen. */
+export function exitReason(lines: string[]): string {
+	const said = lines
+		.map((line) => line.trim())
+		.filter(Boolean)
+		.slice(0, 3)
+		.join(" ")
+		.replace(/^❌\s*/, "");
+	return said ? `Freebuff stopped: ${said.slice(0, 300)}` : "Freebuff stopped";
 }
 
 /** Wait for the menu or a running session, passing on why when Freebuff cannot connect. */
@@ -72,6 +89,7 @@ async function reachSession(tui: TuiProcess): Promise<string[]> {
 	try {
 		return await tui.wait((lines) => isMenu(lines) || inSession(lines), START_MS);
 	} catch (cause) {
+		if (!tui.alive) throw new Error(exitReason(tui.lines()));
 		const warning = connectionWarning(tui.lines());
 		throw new Error(warning ? `Freebuff: ${warning}` : String(cause));
 	}
@@ -134,18 +152,54 @@ function fromScreen(reply: Reply | null): TurnEvent[] {
 	];
 }
 
+/**
+ * Send a message and make sure Freebuff took it. Right after starting (or rejoining a session) the
+ * CLI can ignore keys for a moment, so: wait until its input box is ready, type, check the text
+ * arrived, press Enter, and check it left the box, retrying each step a few times.
+ */
+async function submit(tui: TuiProcess, text: string): Promise<void> {
+	await tui.wait(isIdle, START_MS);
+	for (let attempt = 0; attempt < 3; attempt++) {
+		if (!inputText(tui.lines())) tui.write(typed(text));
+		const arrived = await tui
+			.wait((lines) => inputText(lines) !== "", STEP_MS)
+			.then(() => true)
+			.catch(() => false);
+		if (!arrived) continue;
+		await Bun.sleep(150);
+		tui.write("\r");
+		const sent = await tui
+			.wait((lines) => inputText(lines) === "" || isWorking(lines), STEP_MS)
+			.then(() => true)
+			.catch(() => false);
+		if (sent) return;
+	}
+	throw new Error("Freebuff did not take the message; try sending it again");
+}
+
 /** Type a message the way a paste arrives, so new lines stay in the message instead of sending it. */
 function typed(text: string): string {
 	return text.includes("\n") ? `\x1b[200~${text}\x1b[201~` : text;
 }
 
+/** How often the chat file is read while a turn runs. */
+const LOOK_MS = 400;
+/** A turn the screen shows as finished, with no chat file to confirm it, ends after this. */
+const SCREEN_ONLY_MS = 3_000;
+/** A connection warning on screen this long is passed on to the chat. */
+const WARNING_MS = 15_000;
+
 async function startFreebuff(
 	binary: string,
 	spawn: Tui,
+	stateDir: string,
 	context: AgentContext,
 ): Promise<AgentSession> {
 	let wanted = context.model;
+	// Conversations started before ids were kept say "latest": the folder's newest one.
+	let conversation = context.resume && context.resume !== "latest" ? context.resume : undefined;
 	let continuing = Boolean(context.resume);
+	const chats = chatsDir(stateDir, context.cwd);
 	let tui: TuiProcess | null = null;
 	let models: Choice[] = [];
 	let notes: string[] = [];
@@ -167,7 +221,12 @@ async function startFreebuff(
 	const ready = async (): Promise<TuiProcess> => {
 		if (!tui?.alive) {
 			// `--continue` picks the conversation back up after the process was closed.
-			tui = spawn(continuing ? [binary, "--continue"] : [binary], context.cwd);
+			const args = conversation
+				? [binary, "--continue", conversation]
+				: continuing
+					? [binary, "--continue"]
+					: [binary];
+			tui = spawn(args, context.cwd);
 		}
 		const current = tui;
 		const lines = await reachSession(current);
@@ -182,29 +241,6 @@ async function startFreebuff(
 			announce();
 		}
 		return current;
-	};
-
-	/** The exact reply, from Freebuff's own export; written inside the folder (it refuses others). */
-	const exportTurn = async (current: TuiProcess) => {
-		const name = `.grid-freebuff-${crypto.randomUUID()}.json`;
-		const path = join(context.cwd, name);
-		current.write(`/export ${name}`);
-		await Bun.sleep(150);
-		current.write("\r");
-		try {
-			// Freebuff says when it has written the file; it may still be writing when it appears.
-			for (let i = 0; i < 50; i++) {
-				await Bun.sleep(100);
-				const written = await Bun.file(path)
-					.json()
-					.catch(() => null);
-				if (written) return exportedTurn(written);
-			}
-			console.error("[runner] Freebuff did not export the turn; keeping the reply as read");
-			return [];
-		} finally {
-			await unlink(path).catch(() => undefined);
-		}
 	};
 
 	const prompt = async (text: string): Promise<TurnResult> => {
@@ -251,23 +287,56 @@ async function startFreebuff(
 				stream("text", reply.text, false);
 			});
 
-			screen.write(typed(text));
-			await Bun.sleep(150);
-			screen.write("\r");
-			await screen.wait((lines) => cancelled || (tracker.finished && !isWorking(lines)), TURN_MS);
+			const since = Date.now();
+			await submit(screen, text);
+
+			// Done when Freebuff's chat file says the reply is complete; the screen's footer only
+			// when there is no file to ask. Connection trouble on screen is passed on, not waited out.
+			let chat = null as Awaited<ReturnType<typeof findChat>>;
+			let finishedAt: number | null = null;
+			let warnedAt: number | null = null;
+			let warned = false;
+			while (!cancelled) {
+				if (!screen.alive) throw new Error(exitReason(screen.lines()));
+				chat = await findChat(chats, text, since, chat?.id ?? conversation);
+				if (chat && replyState(chat.messages, text, since) === "complete") break;
+				const lines = screen.lines();
+				if (tracker.finished && !isWorking(lines)) {
+					finishedAt ??= Date.now();
+					if (!chat && Date.now() - finishedAt > SCREEN_ONLY_MS) break;
+				} else {
+					finishedAt = null;
+				}
+				// The screen shows no reply yet but the file has text: stream that instead.
+				if (chat && !shown.text && !tracker.anchored) {
+					const saved = replyText(chat.messages, text, since);
+					if (saved) stream("text", `${saved}\n`, false);
+				}
+				const warning = connectionWarning(lines);
+				warnedAt = warning ? (warnedAt ?? Date.now()) : null;
+				if (warning && !warned && warnedAt && Date.now() - warnedAt > WARNING_MS) {
+					warned = true;
+					context.emit({ type: "error", message: `Freebuff: ${warning}` });
+				}
+				if (Date.now() - since > TURN_MS) throw new Error("Freebuff did not finish in time");
+				await Bun.sleep(LOOK_MS);
+			}
 			if (cancelled) {
 				await screen.wait((lines) => !isWorking(lines), STEP_MS).catch(() => undefined);
 				return { reason: "cancelled" };
 			}
 			const seen = tracker.update(screen.lines());
 			screen.onChange();
-			const exact = await exportTurn(screen);
+			const exact = chat ? exportedTurn(chat.messages) : [];
 			const events = exact.length ? exact : fromScreen(seen);
 			if (events.length) context.emit({ type: "turn_rewrite", events });
-			if (!continuing) {
-				continuing = true;
+			if (chat && chat.id !== conversation) {
+				conversation = chat.id;
+				context.onResumeToken(chat.id);
+			} else if (!continuing) {
 				context.onResumeToken("latest");
 			}
+			continuing = true;
 			return { reason: "done" };
 		} catch (cause) {
 			if (cancelled) return { reason: "cancelled" };
@@ -282,9 +351,7 @@ async function startFreebuff(
 	const command = async (line: string) => {
 		if (busy) throw new Error("Wait for Freebuff to finish the current message");
 		const current = await ready();
-		current.write(line);
-		await Bun.sleep(150);
-		current.write("\r");
+		await submit(current, line);
 		return current;
 	};
 
