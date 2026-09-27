@@ -3,35 +3,32 @@ import { createSignal, createUniqueId, For, Show } from "solid-js";
 
 export type EffortLevel = { id: string; name: string };
 
-type Spark = { key: number; dx: number; rise: number; delay: number; size: number };
+/** What each level means, in a few words under the slider. */
+const MEANING: Record<string, string> = {
+	none: "Answers straight away",
+	minimal: "Almost instant",
+	low: "Quick, light thinking",
+	medium: "Balanced",
+	high: "Thinks it through",
+	xhigh: "Thinks harder",
+	max: "Thinks the longest",
+	ultra: "As hard as it can",
+};
 
-/**
- * How hot a level is, 0 at the lowest and 1 at the top, as a hue: cool blue building through
- * violet and magenta to red — power gathering, never a green "go" in the middle.
- */
-function heatHue(heat: number): number {
-	return (215 + 153 * heat) % 360;
-}
-
-function color(heat: number, lightness = 58): string {
-	return `hsl(${heatHue(heat)} 92% ${lightness}%)`;
-}
-
-function tick(heavy: boolean): void {
+function tick(): void {
 	try {
-		navigator.vibrate?.(heavy ? [14, 40, 22] : 10);
+		navigator.vibrate?.(8);
 	} catch {
 		// No vibration here; the slider works the same without it.
 	}
 }
 
-let sparkKey = 0;
-
 /**
- * How hard the model thinks, as a slider of steps. The fill heats from cool blue to red as it
- * climbs; each step up sends a ring and a burst of sparks off the thumb, more the higher it goes,
- * and the top step runs hot. Stepping down is calm. A native range underneath takes the drag,
- * the tap, the arrow keys and the screen reader, so it behaves like any slider.
+ * How hard the model thinks: a calm, stepped slider. A stop per level along the track, the fill
+ * and thumb springing to the chosen one, a light sweeping along the fill as it moves; above, the
+ * level's name rolls in from the side it came from, with what it means under the track; the top
+ * level glows softly. A native range underneath takes the drag, the tap, the arrow keys and the
+ * screen reader; the names under the stops can be tapped too.
  */
 export function EffortSlider(props: {
 	label: string;
@@ -41,15 +38,13 @@ export function EffortSlider(props: {
 }): JSX.Element {
 	const id = createUniqueId();
 	const [direction, setDirection] = createSignal<"up" | "down">("up");
-	const [sparks, setSparks] = createSignal<Spark[]>([]);
-	const [pulse, setPulse] = createSignal(0);
+	const [moves, setMoves] = createSignal(0);
 	const last = () => Math.max(props.levels.length - 1, 1);
 	const index = () =>
 		Math.max(
 			0,
 			props.levels.findIndex((level) => level.id === props.value),
 		);
-	const heat = () => index() / last();
 	const percent = () => (index() / last()) * 100;
 	const current = () => props.levels[index()];
 	const top = () => index() === props.levels.length - 1 && props.levels.length > 1;
@@ -57,40 +52,23 @@ export function EffortSlider(props: {
 	function set(next: number): void {
 		const level = props.levels[next];
 		if (!level || next === index()) return;
-		const rising = next > index();
-		setDirection(rising ? "up" : "down");
+		setDirection(next > index() ? "up" : "down");
+		setMoves((n) => n + 1);
 		props.onChange(level.id);
-		if (!rising) return;
-		// The higher the level, the bigger the burst.
-		const strength = next / last();
-		const burst = Array.from({ length: 4 + Math.round(strength * 10) }, () => ({
-			key: ++sparkKey,
-			dx: (Math.random() - 0.5) * (18 + strength * 40),
-			rise: 16 + Math.random() * (14 + strength * 26),
-			delay: Math.random() * 90,
-			size: 2 + Math.random() * (2 + strength * 2),
-		}));
-		setSparks((all) => [...all, ...burst]);
-		setPulse((n) => n + 1);
-		tick(next === props.levels.length - 1);
-		setTimeout(() => {
-			const done = new Set(burst.map((spark) => spark.key));
-			setSparks((all) => all.filter((spark) => !done.has(spark.key)));
-		}, 900);
+		tick();
 	}
 
 	return (
-		<div class="flex min-w-0 flex-col gap-1.5">
+		<div class="flex min-w-0 flex-col gap-2">
 			<div class="flex items-baseline justify-between gap-3">
 				<label for={id} class="text-caption text-fg-subtle">
 					{props.label}
 				</label>
-				<span class="relative h-5 overflow-hidden text-right font-medium text-body leading-5">
+				<span class="relative h-5 overflow-hidden text-right font-medium text-body text-fg leading-5">
 					<Show when={current()} keyed>
 						{(level) => (
 							<span
 								class={`block ${direction() === "up" ? "kit-effort-roll-up" : "kit-effort-roll-down"}`}
-								style={{ color: color(heat(), 62) }}
 							>
 								{level.name}
 							</span>
@@ -98,67 +76,36 @@ export function EffortSlider(props: {
 					</Show>
 				</span>
 			</div>
-			<div class="relative h-7 rounded-kit has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-accent/60">
-				{/* The track and its heating fill. */}
-				<div class="absolute inset-x-2 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-fill-strong">
+			<div class="relative h-8 rounded-kit has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-accent/60">
+				{/* The track, and the fill up to the chosen stop with a light sweeping along it as it moves. */}
+				<div class="absolute inset-x-2.5 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-fill-strong">
 					<div
-						class={`h-full rounded-full transition-[width] duration-slow ease-[cubic-bezier(0.34,1.56,0.64,1)] ${top() ? "kit-effort-hot" : ""}`}
-						style={{
-							width: `${percent()}%`,
-							// At the top the fill runs hot: a seamless loop of the hottest colours sliding along.
-							"background-image": top()
-								? `linear-gradient(90deg, ${color(0.8)}, ${color(1)}, ${color(1, 72)}, ${color(1)}, ${color(0.8)})`
-								: `linear-gradient(90deg, ${color(0)}, ${color(heat())})`,
-						}}
-					/>
+						class="relative h-full overflow-hidden rounded-full bg-accent transition-[width] duration-slow ease-[cubic-bezier(0.34,1.4,0.64,1)]"
+						style={{ width: `${percent()}%` }}
+					>
+						<Show when={moves()} keyed>
+							<span class="kit-effort-sweep absolute inset-y-0 w-1/2" />
+						</Show>
+					</div>
 				</div>
-				{/* A notch per level, lit once the fill reaches it. */}
-				<div class="pointer-events-none absolute inset-x-2 top-1/2">
+				{/* A stop per level: filled once the fill reaches it. */}
+				<div class="pointer-events-none absolute inset-x-2.5 top-1/2">
 					<For each={props.levels}>
-						{(level, at) => (
+						{(_, at) => (
 							<span
-								title={level.name}
-								class={`absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors duration-fast ${at() <= index() ? "" : "bg-fg-faint"} ${at() === index() && direction() === "up" ? "kit-effort-pop" : ""}`}
-								style={{
-									left: `${(at() / last()) * 100}%`,
-									background: at() <= index() ? "white" : undefined,
-									opacity: at() <= index() ? 0.85 : undefined,
-								}}
+								class={`absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-surface transition-colors duration-normal ${at() <= index() ? "bg-accent" : "bg-fill-strong"}`}
+								style={{ left: `${(at() / last()) * 100}%` }}
 							/>
 						)}
 					</For>
 				</div>
-				{/* The thumb, springing to its step, glowing the colour it has reached. */}
-				<div class="pointer-events-none absolute inset-x-2 top-1/2">
+				{/* The thumb, springing to its stop; at the top level it glows. */}
+				<div class="pointer-events-none absolute inset-x-2.5 top-1/2">
 					<div
-						class="absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white transition-[left,box-shadow] duration-slow ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-						style={{
-							left: `${percent()}%`,
-							"box-shadow": `0 0 0 1px rgb(0 0 0 / 0.12), 0 1px 3px rgb(0 0 0 / 0.25), 0 0 ${6 + heat() * 14}px ${color(heat())}`,
-						}}
+						class={`absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-raise ring-1 ring-black/10 transition-[left] duration-slow ease-[cubic-bezier(0.34,1.4,0.64,1)] ${top() ? "kit-effort-glow" : ""}`}
+						style={{ left: `${percent()}%` }}
 					>
-						<Show when={pulse()} keyed>
-							<span
-								class="kit-effort-ring absolute top-1/2 left-1/2 size-4 rounded-full border-2"
-								style={{ "border-color": color(heat()) }}
-							/>
-						</Show>
-						<For each={sparks()}>
-							{(spark) => (
-								<span
-									class="kit-effort-spark absolute top-1/2 left-1/2 rounded-full"
-									style={{
-										width: `${spark.size}px`,
-										height: `${spark.size}px`,
-										background: color(heat(), 64),
-										"box-shadow": `0 0 6px ${color(heat())}`,
-										"--dx": `${spark.dx}px`,
-										"--rise": `${spark.rise}px`,
-										"animation-delay": `${spark.delay}ms`,
-									}}
-								/>
-							)}
-						</For>
+						<span class="absolute inset-1.5 rounded-full bg-accent" />
 					</div>
 				</div>
 				<input
@@ -173,7 +120,7 @@ export function EffortSlider(props: {
 					class="absolute inset-0 w-full cursor-pointer appearance-none bg-transparent opacity-0 outline-none"
 				/>
 			</div>
-			<div class="relative mx-2 h-4">
+			<div class="relative mx-2.5 h-4">
 				<For each={props.levels}>
 					{(level, at) => (
 						<button
@@ -188,6 +135,17 @@ export function EffortSlider(props: {
 					)}
 				</For>
 			</div>
+			<span class="relative h-4 overflow-hidden text-caption text-fg-subtle leading-4">
+				<Show when={current()} keyed>
+					{(level) => (
+						<span
+							class={`block ${direction() === "up" ? "kit-effort-roll-up" : "kit-effort-roll-down"}`}
+						>
+							{MEANING[level.id] ?? " "}
+						</span>
+					)}
+				</Show>
+			</span>
 		</div>
 	);
 }

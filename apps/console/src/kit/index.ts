@@ -103,7 +103,7 @@ export {
 	TurnHeader,
 } from "./run";
 export { type EffortLevel, EffortSlider } from "./effort";
-export { igniteGrid, type IgniteOptions } from "./ignite";
+export { type ArrivalOptions, playArrival } from "./arrival";
 export { ListDetail, ListRow, PaneHeader } from "./pane";
 export { ChoiceRail, FlagshipMark, ModelRow, type RailItem } from "./picker";
 export { PixelMark, ProjectMark, type ProjectMarkShape } from "./project-mark";
