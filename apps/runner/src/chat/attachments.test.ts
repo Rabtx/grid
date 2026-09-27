@@ -255,6 +255,8 @@ it("relays uploads to the project's runner and preserves safe download headers",
 		});
 		expect(saved.headers.get("Content-Type")).toBe("application/octet-stream");
 		expect(saved.headers.get("Content-Disposition")).toBe("attachment; filename*=UTF-8''notes.txt");
+		expect(saved.headers.get("X-Content-Type-Options")).toBe("nosniff");
+		expect(saved.headers.get("Content-Security-Policy")).toBe("default-src 'none'; sandbox");
 		expect((await fetch(`${path}/${file.id}`)).status).toBe(401);
 	} finally {
 		remoteTerminal.closeAll();

@@ -76,6 +76,138 @@ describe("ChatHub project folders", () => {
 	});
 });
 
+/**
+ * An agent whose turns fail with `error`. Its model list says `m1` and `m2`, or what `listed`
+ * gives for the nth time it is asked.
+ */
+function failingProvider(
+	error: string,
+	listed: (asked: number) => string[] = () => ["m1", "m2"],
+): { provider: Provider; asked: () => number; closed: () => number } {
+	let asked = 0;
+	let closed = 0;
+	const provider: Provider = {
+		info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+		catalog: async () => {
+			asked++;
+			return { models: listed(asked).map((id) => ({ id, name: id })) };
+		},
+		start: async () => ({
+			prompt: async () => ({ reason: "error", error }),
+			cancel: () => undefined,
+			approve: () => undefined,
+			setModel: async () => undefined,
+			setMode: async () => undefined,
+			setEffort: async () => undefined,
+			close: () => {
+				closed++;
+			},
+		}),
+	};
+	return { provider, asked: () => asked, closed: () => closed };
+}
+
+/** Wait for work the hub does after a turn has ended, without holding the turn up. */
+async function until(done: () => boolean): Promise<void> {
+	for (let tries = 0; tries < 100 && !done(); tries++) await Bun.sleep(1);
+	// One more pass, so anything after the last check has run too.
+	await Bun.sleep(1);
+}
+
+describe("ChatHub failed turns", () => {
+	/** The last turn's end as the log holds it: how it ended, and the words it ended with. */
+	function turnEnd(
+		store: ChatStore,
+		id: string,
+	): { reason: string; error?: string; retryable?: boolean } {
+		const event = store.events(id).find((entry) => entry.type === "turn_end");
+		if (!event || event.type !== "turn_end") throw new Error("the turn never ended");
+		return event;
+	}
+
+	async function chatFailingWith(error: string, listed?: (asked: number) => string[]) {
+		const store = new ChatStore(":memory:");
+		const { provider, asked, closed } = failingProvider(error, listed);
+		const hub = new ChatHub(store, new Map([["fake", provider]]), root);
+		await hub.providerList("u1");
+		const chat = hub.create(
+			{ userId: "u1", workspace: "u1" },
+			{ project: "shop", provider: "fake", model: "m1" },
+		);
+		await hub.prompt("u1", chat.id, "go");
+		return { hub, store, chat, asked, closed };
+	}
+
+	it("says whose side capacity is on, keeps the model, and does not ask for models again", async () => {
+		const detail = "Selected model is at capacity. Please try a different model.";
+		const { hub, store, chat, asked } = await chatFailingWith(detail);
+		hub.closeAll();
+		const end = turnEnd(store, chat.id);
+		expect(end.reason).toBe("error");
+		expect(end.retryable).toBe(true);
+		// The plain line first, the agent's own words after it, untouched.
+		expect(end.error).toContain("on the provider's side, not yours");
+		expect(end.error).toContain(detail);
+		expect(store.get(chat.id)?.model).toBe("m1");
+		expect(asked()).toBe(1);
+	});
+
+	it("ends the turn before asking for models, and takes a model the fresh list lost out of the chat", async () => {
+		const detail = "model not found: m1";
+		const { hub, store, chat, asked, closed } = await chatFailingWith(detail, (n) =>
+			n === 1 ? ["m1", "m2"] : ["m2"],
+		);
+		// The turn has ended with the model still set: the list is asked for after it.
+		const end = turnEnd(store, chat.id);
+		expect(end.error).toContain("This model (m1) is no longer offered by Fake");
+		expect(end.error).toContain(detail);
+		expect(end.retryable).toBe(true);
+		await until(() => store.get(chat.id)?.model === null);
+		expect(asked()).toBe(2);
+		expect(store.get(chat.id)?.model).toBeNull();
+		expect(store.catalog("fake")?.data.models.map((model) => model.id)).toEqual(["m2"]);
+		// The idle agent that held the model is closed, so the next message starts afresh.
+		expect(closed()).toBe(1);
+		hub.closeAll();
+	});
+
+	it("leaves a model the fresh list still has, when the refusal may not be about it", async () => {
+		const { hub, store, chat, asked } = await chatFailingWith("model not found: m1");
+		await until(() => asked() === 2);
+		expect(store.get(chat.id)?.model).toBe("m1");
+		expect(store.catalog("fake")?.data.models.map((model) => model.id)).toEqual(["m1", "m2"]);
+		hub.closeAll();
+	});
+
+	it("drops a model the agent retired but still lists (opencode's notice)", async () => {
+		const detail =
+			"Internal error: Thank you for participating in the Stealth model testing period";
+		const { hub, store, chat, asked } = await chatFailingWith(detail);
+		await until(() => store.get(chat.id)?.model === null);
+		expect(asked()).toBe(2);
+		expect(store.get(chat.id)?.model).toBeNull();
+		expect(store.catalog("fake")?.data.models.map((model) => model.id)).toEqual(["m2"]);
+		hub.closeAll();
+	});
+
+	it("leaves a failure it cannot read, and the model list, alone", async () => {
+		for (const detail of [
+			"Exit code 1: something broke",
+			"This model does not support images: unknown content type",
+			"model output removed by content filter",
+		]) {
+			const { hub, store, chat, asked } = await chatFailingWith(detail);
+			await Bun.sleep(2);
+			hub.closeAll();
+			const end = turnEnd(store, chat.id);
+			expect(end.error).toBe(detail);
+			expect(end.retryable).toBe(false);
+			expect(store.get(chat.id)?.model).toBe("m1");
+			expect(asked()).toBe(1);
+		}
+	});
+});
+
 describe("ChatHub running threads", () => {
 	it("lists only this person's threads with a turn in flight", async () => {
 		let finish: () => void = () => undefined;
@@ -108,6 +240,32 @@ describe("ChatHub running threads", () => {
 		finish();
 		await turn;
 		expect(hub.running("u1")).toEqual([]);
+		hub.closeAll();
+	});
+
+	it("tells the failed-turn listener once per failed turn", async () => {
+		const provider: Provider = {
+			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+			start: async () => ({
+				prompt: async () => ({ reason: "error", error: "Out of credit" }),
+				cancel: () => undefined,
+				approve: () => undefined,
+				setModel: async () => undefined,
+				setMode: async () => undefined,
+				setEffort: async () => undefined,
+				close: () => undefined,
+			}),
+		};
+		const store = new ChatStore(":memory:");
+		const hub = new ChatHub(store, new Map([["fake", provider]]), root);
+		const failed: string[] = [];
+		hub.onTurnFailed((session) => failed.push(session.id));
+		const session = hub.create(
+			{ userId: "u1", workspace: "u1" },
+			{ project: "shop", provider: "fake" },
+		);
+		await hub.prompt("u1", session.id, "go");
+		expect(failed).toEqual([session.id]);
 		hub.closeAll();
 	});
 });

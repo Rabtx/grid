@@ -48,6 +48,24 @@ export function effortChoices(levels: string[]): Choice[] {
 		}));
 }
 
+/**
+ * The effort to send for a model: the chosen one while the model still offers it, else the
+ * model's own default, else the middle of its levels. A model without levels takes none, and an
+ * effort is never "" — an agent that is given a model with no effort refuses the run.
+ */
+export function resolveEffort(
+	model: Choice | undefined,
+	chosen: string | undefined,
+): string | undefined {
+	if (!model) return chosen || undefined;
+	const levels = model.efforts ?? [];
+	if (levels.length === 0) return undefined;
+	if (chosen && levels.some((level) => level.id === chosen)) return chosen;
+	const fallback = model.defaultEffort;
+	if (fallback && levels.some((level) => level.id === fallback)) return fallback;
+	return levels[Math.floor((levels.length - 1) / 2)]?.id;
+}
+
 /** Run a CLI and return what it printed, or throw with what it said on stderr. */
 export async function runCli(command: string[], timeoutMs = 20_000): Promise<string> {
 	const proc = Bun.spawn(command, {

@@ -352,6 +352,109 @@ describe("TranscriptView - Turns", () => {
 	});
 });
 
+describe("TranscriptView - Try again", () => {
+	const failed: Block[] = [
+		{ kind: "user", key: "b0", text: "Ship the build" },
+		{
+			kind: "notice",
+			key: "b1",
+			tone: "error",
+			text: "Codex is busy: this is on the provider's side, not yours.",
+			retry: true,
+		},
+	];
+
+	function retryButton(root: HTMLElement): HTMLButtonElement | undefined {
+		return [...root.querySelectorAll("button")].find(
+			(button) => button.textContent?.trim() === "Try again",
+		);
+	}
+
+	it("offers to send the message again, and sends the same one", () => {
+		const onRegenerate = vi.fn();
+		const root = mount(() => (
+			<TranscriptView
+				blocks={failed}
+				running={false}
+				onApprove={() => {}}
+				onRegenerate={onRegenerate}
+			/>
+		));
+		flush();
+		const button = retryButton(root);
+		expect(button).toBeDefined();
+		expect(button?.disabled).toBe(false);
+		button?.click();
+		expect(onRegenerate).toHaveBeenCalledWith({ text: "Ship the build", attachments: [] });
+	});
+
+	it("waits while the agent is working", () => {
+		const onRegenerate = vi.fn();
+		const root = mount(() => (
+			<TranscriptView blocks={failed} running onApprove={() => {}} onRegenerate={onRegenerate} />
+		));
+		flush();
+		expect(retryButton(root)?.disabled).toBe(true);
+	});
+
+	it("offers nothing to resend when the turn did not fail on its own", () => {
+		const onRegenerate = vi.fn();
+		const blocks: Block[] = [
+			{ kind: "user", key: "b0", text: "Ship the build" },
+			{ kind: "notice", key: "b1", tone: "error", text: "Not allowed to run rm." },
+		];
+		const root = mount(() => (
+			<TranscriptView
+				blocks={blocks}
+				running={false}
+				onApprove={() => {}}
+				onRegenerate={onRegenerate}
+			/>
+		));
+		flush();
+		expect(retryButton(root)).toBeUndefined();
+		expect(onRegenerate).not.toHaveBeenCalled();
+	});
+
+	it("offers it only on the last failed turn, not on older ones", () => {
+		const blocks: Block[] = [
+			...failed,
+			{ kind: "user", key: "b2", text: "Ship it again" },
+			{
+				kind: "notice",
+				key: "b3",
+				tone: "error",
+				text: "Codex is busy: this is on the provider's side, not yours.",
+				retry: true,
+			},
+		];
+		const onRegenerate = vi.fn();
+		const root = mount(() => (
+			<TranscriptView
+				blocks={blocks}
+				running={false}
+				onApprove={() => {}}
+				onRegenerate={onRegenerate}
+			/>
+		));
+		flush();
+		const buttons = [...root.querySelectorAll("button")].filter(
+			(button) => button.textContent?.trim() === "Try again",
+		);
+		expect(buttons).toHaveLength(1);
+		buttons[0]?.click();
+		expect(onRegenerate).toHaveBeenCalledWith({ text: "Ship it again", attachments: [] });
+	});
+
+	it("offers nothing without onRegenerate", () => {
+		const root = mount(() => (
+			<TranscriptView blocks={failed} running={false} onApprove={() => {}} />
+		));
+		flush();
+		expect(retryButton(root)).toBeUndefined();
+	});
+});
+
 it("renders replayed attachments, loads images and offers a retry on failure", async () => {
 	const load = vi
 		.fn()

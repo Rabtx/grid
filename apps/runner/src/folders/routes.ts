@@ -5,9 +5,14 @@ import { checkout, GitError, gitInfo } from "./git";
 import {
 	createProjectFile,
 	listProjectFiles,
+	type ProjectFileWrite,
 	readProjectFile,
 	searchProjectFiles,
+	writeProjectFile,
 } from "./project-files";
+
+/** A save's JSON: the file's text (at most 512 KB) plus escaping and the other fields. */
+const MAX_SAVE_BODY_BYTES = 1024 * 1024;
 
 /**
  * Folders on this machine, for linking projects to their code from any device: browse, look
@@ -27,11 +32,25 @@ export async function folderRequest(
 			if (root instanceof Response) return root;
 			return Response.json({ data: searchProjectFiles(root, url.searchParams.get("q") ?? "") });
 		}
+		// One file's contents: GET reads it, PUT saves an edit onto the version that was read.
 		const content = url.pathname.match(/^\/projects\/files\/([a-z0-9-]+)\/content$/);
-		if (content && request.method === "GET") {
+		if (content && (request.method === "GET" || request.method === "PUT")) {
 			const root = linkedRoot(hub, userId, content[1], projectsDir);
 			if (root instanceof Response) return root;
-			return Response.json({ data: readProjectFile(root, url.searchParams.get("path") ?? "") });
+			if (request.method === "GET")
+				return Response.json({
+					data: readProjectFile(root, url.searchParams.get("path") ?? ""),
+				});
+			const body = await boundedJson(request, MAX_SAVE_BODY_BYTES);
+			if (body instanceof Response) return body;
+			if (
+				typeof body.path !== "string" ||
+				typeof body.text !== "string" ||
+				typeof body.base !== "string"
+			)
+				return failure(400, "Say which file, what to write and which version you read");
+			const write: ProjectFileWrite = { path: body.path, text: body.text, base: body.base };
+			return Response.json({ data: writeProjectFile(root, write) });
 		}
 		const files = url.pathname.match(/^\/projects\/files\/([a-z0-9-]+)$/);
 		if (files && (request.method === "GET" || request.method === "POST")) {
@@ -124,6 +143,42 @@ function linkedRoot(
 	const root = hub.projectFolders(userId)[project];
 	if (!root) return failure(409, "Choose this project's folder first");
 	return insideProjectsDir(root, projectsDir);
+}
+
+/**
+ * A JSON body read no further than `limit` bytes: refused up front by its Content-Length, and
+ * cut off while reading when it has none or understates it.
+ */
+async function boundedJson(
+	request: Request,
+	limit: number,
+): Promise<Record<string, unknown> | Response> {
+	const tooLarge = () => failure(413, "This file would be too large to save");
+	if (Number(request.headers.get("content-length") ?? 0) > limit) return tooLarge();
+	const reader = request.body?.getReader();
+	if (!reader) return {};
+	const chunks: Uint8Array[] = [];
+	let size = 0;
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			size += value.length;
+			if (size > limit) {
+				await reader.cancel();
+				return tooLarge();
+			}
+			chunks.push(value);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+	try {
+		const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+		return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+	} catch {
+		return {};
+	}
 }
 
 function failure(status: number, message: string): Response {

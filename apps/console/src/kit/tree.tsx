@@ -94,6 +94,11 @@ type FolderTreeProps = {
 	onExpand: (path: string) => void;
 	selected?: string;
 	onSelect: (entry: FolderEntry) => void;
+	/**
+	 * A mark at the end of a row, before its actions — a dirty dot on a file being edited, a
+	 * count. Nothing for the rows it returns nothing for.
+	 */
+	mark?: (entry: FolderEntry) => JSX.Element;
 	/** Row actions for pointers (a ⋯ menu), shown on hover. */
 	actions?: (entry: FolderEntry) => JSX.Element;
 	/** Right-click and long press on a row. */
@@ -202,6 +207,7 @@ function FolderRow(props: {
 			: undefined;
 	});
 	const folder = () => props.entry.kind === "folder";
+	const mark = () => (props.entry.kind === "file" ? props.tree.mark?.(props.entry) : undefined);
 	const actions = () => props.tree.actions?.(props.entry);
 	return (
 		<div
@@ -231,6 +237,9 @@ function FolderRow(props: {
 					</Show>
 				</span>
 				<span class="min-w-0 flex-1 truncate">{props.entry.name}</span>
+				<Show when={mark()}>
+					<span class="grid shrink-0 place-items-center pr-1">{mark()}</span>
+				</Show>
 			</button>
 			<Show when={actions()}>
 				<div class="absolute inset-y-0 right-0.5 flex items-center opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:hidden">

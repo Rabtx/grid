@@ -32,7 +32,9 @@ export {
 	type RadioOption,
 	Slider,
 } from "./choice";
+export { CodeEditor, type CodeEditorProps } from "./code-editor";
 export { ConfirmDialog, Dialog, PanelBar } from "./dialog";
+export { diffLines } from "./diff";
 export { PreviewFrame, RadiusScale, Specimen, SurfaceSwatches } from "./docs";
 export { ActivityItem, DropZone, InlineAdd, SplitLayout, WorkspacePreview } from "./extras";
 export {
