@@ -209,9 +209,19 @@ function commit(next: Appearance, persist: boolean): void {
 	if (persist) writeStored(next);
 }
 
-/** Change some settings: normalise, apply, persist. */
+// Settings that switch in one step cross-fade; sliders apply instantly so dragging stays live.
+const CROSS_FADE: readonly (keyof Appearance)[] = ["theme", "accent", "depth"];
+
+/** Change some settings: normalise, apply, persist. A theme, accent or depth change cross-fades. */
 export function updateAppearance(patch: Partial<Appearance>): void {
-	commit(normalizeAppearance({ ...state, ...patch }), true);
+	const next = normalizeAppearance({ ...state, ...patch });
+	const fades = CROSS_FADE.some((key) => key in patch && patch[key] !== state[key]);
+	const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? true;
+	if (fades && !calm && typeof document.startViewTransition === "function") {
+		document.startViewTransition(() => commit(next, true));
+		return;
+	}
+	commit(next, true);
 }
 
 /** Put every appearance setting back to its default. */

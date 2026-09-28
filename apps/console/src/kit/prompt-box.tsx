@@ -1,7 +1,8 @@
 import type { JSX } from "@solidjs/web";
-import { For, Show } from "solid-js";
+import { For, onSettled, Show } from "solid-js";
 
 import { ICON_SIZE } from "./button";
+import { attachEdgeFade } from "./edge-fade";
 import { Tooltip } from "./surface";
 
 /**
@@ -30,6 +31,8 @@ export function PromptBox(props: {
 	formRef?: (form: HTMLFormElement) => void;
 	class?: string;
 }): JSX.Element {
+	let tools: HTMLDivElement | undefined;
+	onSettled(() => (tools ? attachEdgeFade(tools) : undefined));
 	return (
 		<div class={`relative flex flex-col ${props.class ?? ""}`}>
 			{/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- file drop supplements the keyboard-accessible picker */}
@@ -49,7 +52,12 @@ export function PromptBox(props: {
 					<div class="flex flex-wrap gap-2 px-4 pb-3">{props.attachments}</div>
 				</Show>
 				<div class="flex items-center gap-1.5 px-3 pb-3">
-					<div class="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
+					<div
+						ref={(el) => {
+							tools = el;
+						}}
+						class="edge-fade flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]"
+					>
 						{props.tools}
 					</div>
 					{props.options}
@@ -163,9 +171,14 @@ export function Suggestions(props: {
 	/** Layout only, e.g. `md:order-last` to sit under the composer on desktop. */
 	class?: string;
 }): JSX.Element {
+	let list: HTMLUListElement | undefined;
+	onSettled(() => (list ? attachEdgeFade(list) : undefined));
 	return (
 		<ul
-			class={`flex gap-2 overflow-x-auto [scrollbar-width:none] md:flex-col md:gap-0.5 md:px-1 ${props.class ?? ""}`}
+			ref={(el) => {
+				list = el;
+			}}
+			class={`edge-fade flex gap-2 overflow-x-auto [scrollbar-width:none] md:flex-col md:gap-0.5 md:px-1 ${props.class ?? ""}`}
 		>
 			<For each={props.items}>
 				{(item) => (

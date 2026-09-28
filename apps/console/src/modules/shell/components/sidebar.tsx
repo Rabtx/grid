@@ -79,7 +79,12 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 				<Show
 					when={props.onClose}
 					fallback={
-						<IconButton label="Search" size="sm" onClick={() => shell.setPaletteOpen(true)}>
+						<IconButton
+							label="Search"
+							shortcut="Mod K"
+							size="sm"
+							onClick={() => shell.setPaletteOpen(true)}
+						>
 							<SearchIcon />
 						</IconButton>
 					}

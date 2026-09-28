@@ -1,5 +1,7 @@
 import type { JSX } from "@solidjs/web";
-import { For, Show } from "solid-js";
+import { For, onSettled, Show } from "solid-js";
+
+import { attachEdgeFade } from "./edge-fade";
 
 import { StarIcon } from "./icons";
 
@@ -15,11 +17,16 @@ export function ChoiceRail(props: {
 	value: string;
 	onChange: (id: string) => void;
 }): JSX.Element {
+	let rail: HTMLDivElement | undefined;
+	onSettled(() => (rail ? attachEdgeFade(rail) : undefined));
 	return (
 		<div
+			ref={(el) => {
+				rail = el;
+			}}
 			role="tablist"
 			aria-label={props.label}
-			class="flex shrink-0 gap-1 overflow-x-auto border-line border-b px-2 py-1.5 [scrollbar-width:none] md:w-40 md:flex-col md:overflow-y-auto md:border-r md:border-b-0 md:bg-fill md:p-1.5"
+			class="edge-fade flex shrink-0 gap-1 overflow-x-auto border-line border-b px-2 py-1.5 [scrollbar-width:none] md:w-40 md:flex-col md:overflow-y-auto md:border-r md:border-b-0 md:bg-fill md:p-1.5"
 		>
 			<For each={props.items}>
 				{(item) => (

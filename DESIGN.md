@@ -200,6 +200,17 @@ a 44px touch target keeps its full tap area while the tile stays light and clear
 edge. Empty states use the small button (`size="sm"`); the screen's header keeps the
 primary action.
 
+**Small touches every screen gets for free:**
+
+- Icon buttons name themselves on hover (pointers only) in one app-wide tooltip that stays on
+  screen (`TooltipLayer`); pass `shortcut` to show the key ("C", "Mod K" for ⌘/Ctrl).
+- A pane header keeps its divider and gains a soft shade (`shadow-pane`) once its content scrolls
+  under it.
+- A sideways scroller fades out at whichever end has more (`edge-fade` + `attachEdgeFade`).
+- Times like "2m" and "in 13 h" stay current: the time helpers read the shared clock (`lib/clock`).
+- Switching theme, accent or depth cross-fades the screen; sliders stay instant; reduced motion
+  switches without it.
+
 Focus is keyboard-only (`focus-ring`: a 2px accent outline). Secondary row actions may appear on
 hover on pointer devices but are always visible on touch. Empty states are one short sentence;
 errors are an inline strip with the concrete reason and a retry.

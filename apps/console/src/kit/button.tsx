@@ -91,17 +91,21 @@ type IconButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 	size?: "xs" | "sm" | "md";
 	/** A tooltip other than the label, e.g. why it is disabled. */
 	tooltip?: string;
+	/** Its keyboard shortcut, shown in the tooltip: "C", "Mod K" (⌘ or Ctrl). */
+	shortcut?: string;
 	variant?: "ghost" | "bare" | "secondary" | "danger";
 };
 
-/** A square button holding one icon; its label is its name and tooltip. */
+/** A square button holding one icon; its label is its name and its tooltip (on pointers). */
 export function IconButton(props: IconButtonProps): JSX.Element {
-	const rest = omit(props, "label", "size", "variant", "class", "children", "tooltip");
+	const rest = omit(props, "label", "size", "variant", "class", "children", "tooltip", "shortcut");
 	return (
 		<button
 			type="button"
 			aria-label={props.label}
-			title={props.tooltip ?? props.label}
+			aria-keyshortcuts={props.shortcut?.replace("Mod", "Control")}
+			data-tooltip={props.tooltip ?? props.label}
+			data-shortcut={props.shortcut}
 			{...rest}
 			class={iconButton({ variant: props.variant, size: props.size, class: props.class })}
 		>

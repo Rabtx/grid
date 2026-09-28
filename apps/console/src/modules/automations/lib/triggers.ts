@@ -1,3 +1,5 @@
+import { now as clockNow } from "@/lib/clock";
+
 import type { AutomationRun, Trigger } from "../services/automations.service";
 
 /** The zone this browser is in: new schedules start in it. */
@@ -104,7 +106,7 @@ export function onGithub(triggers: readonly Trigger[]): boolean {
 }
 
 /** How soon a time is, as "in 12 min", "in 3 h", "in 2 d". */
-export function untilLabel(at: string, now: number = Date.now()): string {
+export function untilLabel(at: string, now: number = clockNow()): string {
 	const minutes = Math.max(0, Math.ceil((Date.parse(at) - now) / 60_000));
 	if (minutes < 60) return `in ${minutes} min`;
 	if (minutes < 48 * 60) return `in ${Math.round(minutes / 60)} h`;

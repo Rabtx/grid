@@ -123,7 +123,7 @@ describe("TranscriptView - User Message", () => {
 			'button[aria-label="Copy message"]',
 		);
 		expect(copyBtn).not.toBeNull();
-		expect(copyBtn?.getAttribute("title")).toBe("Copy");
+		expect(copyBtn?.getAttribute("data-tooltip")).toBe("Copy");
 
 		copyBtn?.click();
 		expect(navigator.clipboard.writeText).toHaveBeenCalledWith("Hello world");
@@ -177,7 +177,7 @@ describe("TranscriptView - Assistant Message", () => {
 			'button[aria-label="Copy response"]',
 		);
 		expect(copyBtn).not.toBeNull();
-		expect(copyBtn?.getAttribute("title")).toBe("Copy");
+		expect(copyBtn?.getAttribute("data-tooltip")).toBe("Copy");
 		copyBtn?.click();
 		expect(navigator.clipboard.writeText).toHaveBeenCalledWith("Here is your code");
 
@@ -227,7 +227,7 @@ describe("TranscriptView - Assistant Message", () => {
 		);
 		expect(regenerateBtn).not.toBeNull();
 		expect(regenerateBtn?.disabled).toBe(true);
-		expect(regenerateBtn?.getAttribute("title")).toBe("Cannot regenerate while running");
+		expect(regenerateBtn?.getAttribute("data-tooltip")).toBe("Cannot regenerate while running");
 	});
 
 	it("omits regenerate button when no preceding user prompt exists", () => {

@@ -43,6 +43,7 @@ export function BoardScreen(): JSX.Element {
 					<IconButton
 						size="sm"
 						label="New task"
+						shortcut="C"
 						aria-haspopup="dialog"
 						onClick={() => workspace.setNewTaskOpen(true)}
 					>

@@ -1,3 +1,5 @@
+import { now as clockNow } from "@/lib/clock";
+
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -5,10 +7,10 @@ const SHORT_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "nume
 
 /**
  * How long ago an ISO timestamp was, in one short label: "just now", "4m", "3h", "yesterday",
- * "5d", then the date itself ("Sep 3"). `now` is injectable so callers and tests do not depend
- * on the clock.
+ * "5d", then the date itself ("Sep 3"). `now` defaults to the shared clock, so the label keeps
+ * itself current; tests pass their own.
  */
-export function relativeTime(iso: string, now: number = Date.now()): string {
+export function relativeTime(iso: string, now: number = clockNow()): string {
 	const then = Date.parse(iso);
 	if (Number.isNaN(then)) return "";
 

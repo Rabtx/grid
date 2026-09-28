@@ -33,6 +33,7 @@ export function ListDetail(props: {
 /**
  * The bar across the top of a pane: its title (and a count or path beside it), its actions on the
  * right. `onBack` draws a back button on phones, where the pane covers the list it came from.
+ * Once the pane's content scrolls under it, a soft shade appears below its divider.
  */
 export function PaneHeader(props: {
 	title: JSX.Element;
@@ -41,8 +42,27 @@ export function PaneHeader(props: {
 	onBack?: () => void;
 	backLabel?: string;
 }): JSX.Element {
+	let header: HTMLElement | undefined;
+	onSettled(() => {
+		const pane = header?.parentElement;
+		if (!header || !pane) return;
+		const bar = header;
+		// Any vertical scroller in this pane, including lists that load after the header.
+		const onScroll = (event: Event) => {
+			const scroller = event.target;
+			if (!(scroller instanceof HTMLElement) || scroller === bar || bar.contains(scroller)) return;
+			bar.toggleAttribute("data-scrolled", scroller.scrollTop > 2);
+		};
+		pane.addEventListener("scroll", onScroll, true);
+		return () => pane.removeEventListener("scroll", onScroll, true);
+	});
 	return (
-		<header class="flex h-11 shrink-0 items-center gap-1.5 border-line border-b px-2 md:px-3">
+		<header
+			ref={(el) => {
+				header = el;
+			}}
+			class="relative z-10 flex h-11 shrink-0 items-center gap-1.5 border-line border-b px-2 transition-shadow duration-base data-scrolled:shadow-pane md:px-3"
+		>
 			<Show when={props.onBack}>
 				<button
 					type="button"
