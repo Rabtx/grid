@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For, onSettled, Show } from "solid-js";
 
+import { ICON_SIZE } from "./button";
 import { Popover, type Placement, type PopoverControl } from "./popover";
 import { variants } from "./variants";
 
@@ -27,7 +28,7 @@ export const menuTrigger = variants({
 		width: { auto: "", fill: "flex-1", full: "w-full" },
 		shape: {
 			default: "",
-			icon: "size-8 shrink-0 justify-center px-0 text-fg-muted hover:text-fg pointer-coarse:size-11",
+			icon: `icon-tile size-8 shrink-0 justify-center px-0 text-fg-muted hover:bg-fill-strong hover:text-fg pointer-coarse:size-11 ${ICON_SIZE.md}`,
 		},
 	},
 	defaults: { size: "sm", width: "auto", shape: "default" },

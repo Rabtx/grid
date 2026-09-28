@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
+import { iconButton } from "./button";
 import { CloseIcon, PlusIcon } from "./icons";
 
 /** Where you are: `Chat / Meta ROAS dropped`, the last part in full ink. */
@@ -110,9 +111,9 @@ export function HeaderTabs(props: {
 					href={props.newHref}
 					aria-label={props.newLabel ?? "New tab"}
 					title={props.newLabel ?? "New tab"}
-					class="focus-ring grid size-8 shrink-0 place-items-center rounded-kit-md text-fg-subtle hover:bg-fill hover:text-fg pointer-coarse:size-10"
+					class={iconButton({ size: "sm" })}
 				>
-					<PlusIcon class="size-3.5" />
+					<PlusIcon />
 				</a>
 			</Show>
 		</div>

@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { onSettled, Show } from "solid-js";
 
 import { attachContextMenu, type MenuPoint } from "./context-menu";
+import { iconButton } from "./button";
 import { BackIcon } from "./icons";
 
 /**
@@ -47,9 +48,9 @@ export function PaneHeader(props: {
 					type="button"
 					aria-label={props.backLabel ?? "Back"}
 					onClick={() => props.onBack?.()}
-					class="focus-ring -ml-0.5 grid size-10 shrink-0 place-items-center rounded-kit text-fg-subtle hover:bg-fill hover:text-fg md:hidden"
+					class={iconButton({ size: "md", class: "-ml-0.5 md:hidden" })}
 				>
-					<BackIcon size="md" />
+					<BackIcon />
 				</button>
 			</Show>
 			<div class="flex min-w-0 flex-1 items-baseline gap-2 pl-1 md:pl-0">

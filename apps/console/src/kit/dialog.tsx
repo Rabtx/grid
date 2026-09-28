@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createEffect, Show } from "solid-js";
 
+import { iconButton } from "./button";
 import { CloseIcon } from "./icons";
 
 import { attachSwipe } from "./sheet-gestures";
@@ -91,9 +92,9 @@ export function Dialog(props: {
 						type="button"
 						aria-label="Close"
 						onClick={() => props.onClose()}
-						class="focus-ring -mt-1 -mr-2 grid size-kit-control-sm shrink-0 place-items-center rounded-kit text-fg-subtle hover:bg-fill hover:text-fg"
+						class={iconButton({ size: "sm", class: "-mt-1 -mr-1" })}
 					>
-						<CloseIcon class="size-4" />
+						<CloseIcon />
 					</button>
 				</header>
 			</Show>

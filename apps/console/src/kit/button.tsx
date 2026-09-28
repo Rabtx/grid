@@ -25,18 +25,31 @@ export const button = variants({
 	defaults: { variant: "secondary", size: "md" },
 });
 
+/**
+ * An icon-only button. It sits on a tile (`icon-tile`) so it reads as a button, and it sets its
+ * icon's size, so every icon in a button of one size is the same: 16px (14px in `xs`), 20px on
+ * touch. `bare` drops the tile for an icon inside something that is already a control (a chip).
+ */
+export const ICON_SIZE = {
+	xs: "[&_svg]:size-3.5 pointer-coarse:[&_svg]:size-4",
+	sm: "[&_svg]:size-4 pointer-coarse:[&_svg]:size-5",
+	md: "[&_svg]:size-4 pointer-coarse:[&_svg]:size-5",
+} as const;
+
 export const iconButton = variants({
 	base: "focus-ring inline-grid shrink-0 select-none place-items-center rounded-kit transition-[background-color,color,transform] duration-fast ease-out-grid active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40",
 	variants: {
 		variant: {
-			ghost: "text-fg-subtle hover:bg-fill hover:text-fg",
+			ghost:
+				"icon-tile text-fg-muted hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg",
+			bare: "text-fg-subtle hover:bg-fill hover:text-fg",
 			secondary: "surface-outline text-fg-muted hover:bg-fill hover:text-fg",
-			danger: "text-fg-subtle hover:bg-danger/8 hover:text-danger",
+			danger: "icon-tile text-fg-subtle hover:bg-danger/10 hover:text-danger",
 		},
 		size: {
-			xs: "size-6 pointer-coarse:size-10",
-			sm: "size-kit-control-sm",
-			md: "size-kit-control",
+			xs: `size-6 pointer-coarse:size-10 ${ICON_SIZE.xs}`,
+			sm: `size-kit-control-sm ${ICON_SIZE.sm}`,
+			md: `size-kit-control ${ICON_SIZE.md}`,
 		},
 	},
 	defaults: { variant: "ghost", size: "md" },
@@ -78,7 +91,7 @@ type IconButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 	size?: "xs" | "sm" | "md";
 	/** A tooltip other than the label, e.g. why it is disabled. */
 	tooltip?: string;
-	variant?: "ghost" | "secondary" | "danger";
+	variant?: "ghost" | "bare" | "secondary" | "danger";
 };
 
 /** A square button holding one icon; its label is its name and tooltip. */

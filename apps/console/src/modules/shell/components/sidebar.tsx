@@ -97,6 +97,7 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 					<NavLink
 						href={workspaceHref(newChat())}
 						icon={<EditIcon />}
+						iconTile
 						label="New chat"
 						current={location.pathname === newChat()}
 					/>
