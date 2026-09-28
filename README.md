@@ -1,42 +1,108 @@
-# Grid
+<div align="center">
 
-**One place to build a project with people and AI agents, from any device.** Grid brings a
-project's board, files, agent conversations, and terminals into a browser-based workspace. The
-work runs on a machine with the project's code: your laptop, a VPS, or a GitHub Codespace.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/grid-logo-dark.png">
+  <img src=".github/assets/grid-logo-light.png" alt="Grid" width="260">
+</picture>
 
-Grid's larger goal is an AI-native operating system for building and running a startup. Agents
-are workers in the project, with visible sessions and tool activity, rather than a chat box
-separate from the work. Grid can use different coding agents and does not require one AI provider
-or one permanent development machine.
+### Build your company with a team of agents.
 
-## The problem
+One self-hosted workspace for your people, your AI coding agents and your code. The board, the
+threads, the files and the terminal, on the machine that holds the project, from any device.
 
-A task, its code, the agent working on it, and the terminal running it often live in different
-places. That makes it hard to start work with the right context, see what changed, or continue
-from a phone or another computer. Grid connects those pieces around the **project folder**:
+**Beta** · Any AI provider · Runs on a laptop, a VPS or a Codespace ·
+[MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-Apache-2.0)
 
-1. Open a project and find its tasks on the board.
-2. Talk to an agent in that project's folder, with its actions visible in the thread.
-3. Browse the files and use a terminal on the machine that holds the project.
-4. Reopen the workspace on another device and catch up with the session.
+<a href="https://github.com/shabirkhan-dev/grid/releases/tag/v0.1.0-beta"><img src=".github/assets/grid-intro.webp" alt="Grid in 50 seconds: an agent takes a request, works in the project, and the result lands on the board and in the inbox" width="880"></a>
 
-A task can prefill a new agent thread. Direct run dispatch and status on the task card are still
-being developed; see [What's next](#whats-next).
+[**Watch the intro**](https://github.com/shabirkhan-dev/grid/releases/tag/v0.1.0-beta) · [Try it locally](#try-grid-locally) · [What works today](#what-works-today) · [Docs](apps/docs/content/docs/index.mdx)
+
+</div>
+
+---
+
+## Why Grid
+
+A task, its code, the agent working on it and the terminal running it usually live in four
+different places. Grid puts them around the **project folder**, so the context is already there:
+
+1. **Plan.** Tasks live on the project's board, for people and agents alike.
+2. **Ask.** Start a thread in the project and say what you want built.
+3. **Watch it work.** The agent runs in the real folder. Every command, edit, diff and test
+   streams into the thread, and it asks before doing anything you haven't allowed.
+4. **Carry on anywhere.** Close the laptop and pick the thread up on your phone. The work kept
+   going on the machine with the code.
+
+Agents are workers in the project, not a chat box next to it. Grid is not tied to one AI provider,
+one machine or one deployment platform: the execution machine is disposable, while projects,
+threads and context persist.
+
+## See it
+
+<table>
+  <tr>
+    <td width="50%">
+      <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/thread-darkmode-dark.webp"><img src=".github/assets/thread-darkmode-light.webp" alt="An agent thread: commands it ran, the files it changed and a summary of the work"></picture>
+      <p align="center"><b>Threads</b><br><sub>Every command, edit and test the agent makes, as it happens.</sub></p>
+    </td>
+    <td width="50%">
+      <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/board-dark.webp"><img src=".github/assets/board-light.webp" alt="The project board with tasks from backlog to done, owned by people and agents"></picture>
+      <p align="center"><b>Board</b><br><sub>Plan the work and hand tasks to people or agents.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/files-edit-dark.webp"><img src=".github/assets/files-edit-light.webp" alt="The files browser with the in-browser editor open on a TypeScript file"></picture>
+      <p align="center"><b>Files and editor</b><br><sub>Browse and edit the project's files in the browser.</sub></p>
+    </td>
+    <td width="50%">
+      <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/terminal-dark.webp"><img src=".github/assets/terminal-light.webp" alt="A terminal on the project machine running the test suite"></picture>
+      <p align="center"><b>Terminal</b><br><sub>Persistent terminals on the machine with the code.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/model-picker-dark.webp"><img src=".github/assets/model-picker-light.webp" alt="The model picker listing agents and their models, with a reasoning effort slider"></picture>
+      <p align="center"><b>Any agent, any model</b><br><sub>Claude Code, Codex, opencode, Antigravity, Freebuff and any ACP agent.</sub></p>
+    </td>
+    <td width="50%">
+      <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/inbox-dark.webp"><img src=".github/assets/inbox-light.webp" alt="The inbox listing finished runs, an approval request and a failed run across projects"></picture>
+      <p align="center"><b>Inbox</b><br><sub>Everything waiting on you, across every project.</sub></p>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/m-home-dark.webp"><img src=".github/assets/m-home-light.webp" alt="Grid on a phone: starting a new thread" width="200"></picture>
+  &nbsp;
+  <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/m-thread-dark.webp"><img src=".github/assets/m-thread-light.webp" alt="Grid on a phone: an agent's finished work in a thread" width="200"></picture>
+  &nbsp;
+  <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/m-board-dark.webp"><img src=".github/assets/m-board-light.webp" alt="Grid on a phone: the project board" width="200"></picture>
+  &nbsp;
+  <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/m-inbox-dark.webp"><img src=".github/assets/m-inbox-light.webp" alt="Grid on a phone: the inbox" width="200"></picture>
+  <br><sub><b>Built for phones too.</b> An installable app that opens instantly, with touch-first controls.</sub>
+</p>
+
+<sub>Screens from an example workspace, "Kestrel", a fictional field-service startup. The agent
+threads shown are real runs.</sub>
 
 ## What works today
 
-| Area | Current capability |
+| Area | What you can do |
 | --- | --- |
-| Projects and board | Link project folders, create and move tasks, and view each project's board. |
-| Agent sessions | Talk to supported coding-agent CLIs in project threads; stream replies, tool calls, and approvals; resume stored conversations. Grid can help install and sign in agents on the execution machine. |
-| Files and terminals | Browse project folders, create files and folders, and use persistent terminal sessions. The file editor is still planned. |
-| Environments | Run a project on this machine or a paired Grid environment. Manage GitHub Codespaces from Grid when GitHub access is configured. |
-| Phone and offline startup | Use the installable console on phone or desktop. Local snapshots make recent screens appear quickly; the app shell can reopen offline, while live agent and terminal work still needs a runner connection. |
+| **Workspaces** | A workspace is the company: it owns projects and environments, and people join by invite. Self-hosted setup starts from a one-time link. |
+| **Projects and board** | Link project folders, then plan tasks from backlog to done, owned by people or agents, with notes per project. |
+| **Agent threads** | Talk to Claude Code, Codex, opencode, Antigravity and Freebuff, or any agent that speaks ACP. Replies, tool calls, diffs and approvals stream live, and threads resume after a restart. Pick the model, effort and mode per thread. |
+| **Composer** | `@` to mention files, `/` for commands, attach images and files, dictate by voice, and choose the branch or a fresh worktree from the git control under the box. |
+| **Files and terminals** | Browse the project, edit files in the browser with conflict-safe saves, and use persistent terminals on the project's machine. |
+| **Git and pull requests** | Worktrees per thread when you want them; a project's pull requests with checks and reviews, and "fix with an agent" to hand a failing PR to an agent on its own branch. |
+| **Inbox and notifications** | One inbox for approvals, finished and failed runs, review requests and failing checks, with push notifications to your devices. |
+| **Environments** | Run projects on this machine, on a paired Grid instance, or in a GitHub Codespace managed from Grid. |
+| **Phone and offline** | The console installs as an app; recent screens open instantly and the shell reopens offline. Live agent and terminal work needs the runner. |
 
-Grid has a working development workspace, not yet the full startup operating system in its
-mission. Deployment, infrastructure operations, and business management are future product
-areas. The [project reference](PROJECT.md) explains the current architecture and where data
-lives.
+Grid is a working development workspace today, not yet the full startup operating system in its
+mission: deployment, operations and business management are later product areas. The
+[project reference](PROJECT.md) explains the architecture and where data lives.
 
 ## Try Grid locally
 
@@ -51,23 +117,44 @@ bun run grid
 ```
 
 On first start, the launcher prints a one-time setup link (also saved in `.grid/setup-link.txt`).
-Open it to create your account and your workspace; after that, people join by invite. `bun run grid` starts Postgres through Docker when `DATABASE_URL` is unset,
-applies migrations, builds the console, and runs the API and runner behind one port.
+Open it to create your account and your workspace; after that, people join by invite.
+`bun run grid` starts Postgres through Docker when `DATABASE_URL` is unset, applies migrations,
+builds the console, and runs the API and runner behind one port.
 
-For a Codespace or VPS, environment variables, pairing, and deployment steps, read the
+Install at least one agent CLI on the machine (Grid can help from **Settings → Agents**). For a
+Codespace or VPS, environment variables, pairing and deployment, read the
 [portable Grid guide](apps/docs/content/docs/portable.mdx). To work on individual services, see
 [development commands](PROJECT.md#development-commands).
 
+## How it works
+
+```
+ browser / phone ──▶ console (Solid 2 PWA)
+                          │
+                ┌─────────┴──────────┐
+                ▼                    ▼
+        API (Hono on Bun)     runner (Bun) ── agent CLIs · terminals · files · git
+        people, projects,          │
+        tasks, notes               └──▶ paired Grid environments and Codespaces
+        (PostgreSQL)
+```
+
+- **Console:** the product interface, a Vite + Solid 2 app that installs as a PWA.
+- **API:** identity, workspaces, projects, tasks and notes, on Hono with PostgreSQL.
+- **Runner:** lives on the machine with the code. It drives agent CLIs, keeps threads in SQLite,
+  and serves terminals, files and git to the console. Other machines join as paired environments.
+
+One `bun run grid` runs all three behind a single port, so a whole Grid is one disposable bundle.
+
 ## What's next
 
-The [open board](.agents/board/open/) tracks the next reviewable features: Project Notes,
-`@` file mentions in prompts, a readable diff viewer for agent edits, and launching an agent
-run directly from a task. The [agent chat plan](.agents/plans/agent-chat.md) and
-[console plan](.agents/plans/console-design-migration.md) describe broader interaction work.
+- **Automations:** agent jobs that run on a schedule or when a pull request opens or a check fails.
+- **Agent commands:** each agent's own slash commands in the composer's `/` menu.
+- **A cleaner composer:** one `+` for files, photos, project files, mentions and commands, with
+  upload progress and previews.
 
-The [portable Grid plan](.agents/plans/portable-next.md) proposes lighter local setup and an API
-migration. Some environment work described there has already shipped; the board and merged code
-are the more current status. These plans are directions, not release dates.
+The [open board](.agents/board/open/) tracks what's being built; the
+[plans](.agents/plans/) describe broader directions. These are directions, not release dates.
 
 ## Repository map
 
