@@ -16,10 +16,10 @@ import {
 	Menu,
 	type MenuGroup,
 	type MenuItem,
-	menuTrigger,
 	MIC_BUTTON,
 	PlusIcon,
 	PROMPT_FIELD,
+	PROMPT_ADD,
 	PromptBox,
 	Row,
 	SEND_BUTTON,
@@ -643,7 +643,7 @@ export function Composer(props: {
 							/>
 							<Menu
 								label="Add or attach"
-								triggerClass={menuTrigger({ shape: "icon" })}
+								triggerClass={PROMPT_ADD}
 								trigger={<PlusIcon class="size-4" />}
 								groups={plusMenuGroups()}
 								onSelect={handleMenuSelect}

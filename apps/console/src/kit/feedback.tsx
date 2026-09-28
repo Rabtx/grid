@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { Show } from "solid-js";
 
+import { iconButton } from "./button";
 import { AlertIcon, CheckCircleIcon, CloseIcon, InfoIcon, SpinnerIcon } from "./icons";
 
 import type { Tone } from "./badge";
@@ -45,9 +46,9 @@ export function Alert(props: {
 					type="button"
 					aria-label="Dismiss"
 					onClick={() => props.onDismiss?.()}
-					class="focus-ring -mt-0.5 -mr-1 grid size-6 shrink-0 place-items-center rounded-kit-sm text-fg-subtle hover:bg-fill-strong hover:text-fg"
+					class={iconButton({ size: "xs", class: "-mt-0.5 -mr-1" })}
 				>
-					<CloseIcon class="size-3.5" />
+					<CloseIcon />
 				</button>
 			</Show>
 		</output>
@@ -153,7 +154,7 @@ export function UsageBar(props: { value: number; ticks?: number; label?: string 
 				{Math.round(props.value * 100)}%
 			</span>
 			{Array.from({ length: ticks() }, (_, index) => (
-				<span class={`flex-1 rounded-[1px] ${index < filled() ? color() : "bg-fill-strong"}`} />
+				<span class={`flex-1 rounded-kit-2xs ${index < filled() ? color() : "bg-fill-strong"}`} />
 			))}
 		</div>
 	);

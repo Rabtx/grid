@@ -71,4 +71,36 @@ describe("kit guard", () => {
 		if (violations.length > 0)
 			expect.fail(`${violations.length} kit guard violation(s):\n\n${violations.join("\n")}`);
 	});
+
+	it("keeps every corner on the roundness slider", () => {
+		// The kit and the stylesheets set corners only from the kit's radius scale, which follows
+		// Settings → Appearance → Corner roundness. Circles and pills (full, 999px) are shapes, and 0 is
+		// no corner, so both are allowed.
+		const src = join(__dirname, "..");
+		const kit = readdirSync(join(src, "kit"))
+			.filter((entry) => entry.endsWith(".tsx") && !entry.endsWith(".test.tsx"))
+			.map((entry) => join(src, "kit", entry));
+		const css = [join(src, "styles", "global.css")];
+		const violations: string[] = [];
+		for (const file of [...kit, ...css]) {
+			readFileSync(file, "utf8")
+				.split("\n")
+				.forEach((line, index) => {
+					const fixed =
+						line.match(
+							/(?:^|[\s"'`:])rounded(?:-[a-z]+)?-\[(?!calc\([^\]]*kit-radius-scale)[^\]]+\]/,
+						) ??
+						line.match(
+							/(?:^|[\s"'`:])rounded(?:-(?:t|b|l|r|tl|tr|bl|br|s|e))?(?:-(?:xs|sm|md|lg|xl|2xl|3xl))?(?=[\s"'`])/,
+						) ??
+						line.match(
+							/border-radius:(?!\s*(?:0\b|var\(|999|9999|calc\([^;]*kit-radius-scale))[^;]+;/,
+						);
+					if (fixed)
+						violations.push(`${relative(process.cwd(), file)}:${index + 1}: ${fixed[0].trim()}`);
+				});
+		}
+		if (violations.length > 0)
+			expect.fail(`Corners off the roundness slider:\n\n${violations.join("\n")}`);
+	});
 });

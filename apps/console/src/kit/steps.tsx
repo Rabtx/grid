@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
+import { iconButton } from "./button";
 import { ChevronRightIcon, BackIcon } from "./icons";
 
 /** Where you are in a few steps (Details · Review · Secret key): done ticked, current ringed. */
@@ -61,8 +62,7 @@ export function Pagination(props: {
 	pages: number;
 	onPage: (page: number) => void;
 }): JSX.Element {
-	const BUTTON =
-		"focus-ring grid size-7 place-items-center rounded-kit text-fg-subtle hover:bg-fill hover:text-fg disabled:pointer-events-none disabled:opacity-35 pointer-coarse:size-10";
+	const BUTTON = iconButton({ size: "sm" });
 	return (
 		<nav aria-label="Pages" class="flex items-center gap-1 text-caption text-fg-subtle">
 			<span class="mr-auto tabular-nums">

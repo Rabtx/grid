@@ -195,6 +195,8 @@
 	--spacing-kit-control-lg: var(--kit-h-control-lg);
 
 	/* Radius by size: chips 6, controls 8, rows and cards 10–12, floating surfaces 14, composer 16. */
+	--radius-kit-2xs: calc(2px * var(--kit-radius-scale));
+	--radius-kit-xs: calc(4px * var(--kit-radius-scale));
 	--radius-kit-sm: calc(6px * var(--kit-radius-scale));
 	--radius-kit: calc(8px * var(--kit-radius-scale));
 	--radius-kit-md: calc(10px * var(--kit-radius-scale));
@@ -288,6 +290,17 @@
 	&[aria-invalid="true"] {
 		box-shadow: inset 0 0 0 1px var(--signal-danger);
 	}
+}
+
+/*
+ * A standalone icon: a soft square behind it, so an icon button reads as a button and not as a
+ * stray glyph. Every icon-only button in the kit sits on one; hover and open deepen the fill.
+ */
+@utility icon-tile {
+	background-color: var(--kit-fill);
+	box-shadow:
+		inset 0 1px 0 var(--kit-highlight),
+		inset 0 0 0 1px var(--kit-line);
 }
 
 /* A quiet control that is outlined rather than filled: secondary buttons, the composer's add. */

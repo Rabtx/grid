@@ -136,6 +136,13 @@ on any coarse pointer all three stay ≥ 44px. `data-density="compact | comforta
 on `<html>` scales them. Radius by nesting: chips `rounded-sm` (4px), controls `rounded-md`
 (6px, the default), cards `rounded-lg` (8px), floating surfaces `rounded-xl` (12px).
 
+**Every corner follows the roundness slider** (Settings → Appearance → Corner roundness,
+`--kit-radius-scale`). Corners come only from the kit scale — `rounded-kit-2xs` (2px), `-xs` (4),
+`-sm` (6), `rounded-kit` (8), `-md` (10), `-lg` (12), `-xl` (14), `-2xl` (16) — or, in CSS,
+`var(--radius-kit*)`; the older `--radius-*` names scale too. No fixed pixel corners: circles and
+pills (`rounded-full`) are shapes and stay round, and 0 is no corner. `kit-guard.test.ts` fails the
+build on a fixed corner in the kit or the stylesheets.
+
 ### Surfaces
 
 Four levels, no shadows on in-flow content: the backdrop (`bg-backdrop`), which the desktop
@@ -179,6 +186,16 @@ and show whatever the depth setting: the composer glows in the accent while focu
 all three. Nothing moves on hover except colour; no bounces, no staggered entrances.
 
 ### Interaction
+
+**Standalone icons sit on a tile.** Every icon-only button (`IconButton`, `iconButton()`, the
+composer's add, tools and mic, a menu's icon trigger, a dialog's close) has a soft square behind
+it (`icon-tile`) that deepens on hover and while open; the one primary action in a nav list (New
+chat) shows its icon on a tile too. `variant="bare"` drops the tile only for an icon inside
+something that is already a control (a chip). **The button sets its icon's size**, whatever the
+icon asks for: 16px in `sm`/`md` buttons, 14px in `xs`, one step larger on touch (`ICON_SIZE`).
+Tiles share one corner (`rounded-kit`, 8px) and, beside chips or other controls, their height
+(28px on desktop: the composer's add, tools and mic match its model and mode chips). The send
+button is the one round control.
 
 Focus is keyboard-only (`focus-ring`: a 2px accent outline). Secondary row actions may appear on
 hover on pointer devices but are always visible on touch. Empty states are one short sentence;
