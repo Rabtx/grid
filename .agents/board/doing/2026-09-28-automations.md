@@ -286,8 +286,8 @@ Ran 265 tests across 40 files. [28.92s]
    Duration  32.76s (tests 45%, transform 24%, environment 19%, import 11%, worker 1%)
 ```
 
-Review: human reviewer pending on pull request; no independent approval claimed.
+Review: human reviewer pending on [PR #142](https://github.com/shabirkhan-dev/grid/pull/142); no independent approval claimed. Card stays in `doing` until review is recorded.
 
-Commit: to be recorded after committing.
+Commit: `9a0b09f84db51ce6d71515486565ae4e326065ff` (`feat(automations): add scheduled and github-triggered agent jobs`).
 
 Follow-up: none identified within this card.
