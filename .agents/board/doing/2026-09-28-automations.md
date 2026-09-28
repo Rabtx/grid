@@ -288,6 +288,8 @@ Ran 265 tests across 40 files. [28.92s]
 
 Review: human reviewer pending on [PR #142](https://github.com/shabirkhan-dev/grid/pull/142); no independent approval claimed. Card stays in `doing` until review is recorded.
 
+CI: GitHub marked `lint`, `typecheck`, `codeql`, and `dependency-review` failed without starting their steps; downstream jobs were skipped. The `lint` job annotation says: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings". Run: https://github.com/shabirkhan-dev/grid/actions/runs/36400600255. This is an external CI blocker, not a local test failure.
+
 Commit: `9a0b09f84db51ce6d71515486565ae4e326065ff` (`feat(automations): add scheduled and github-triggered agent jobs`).
 
 Follow-up: none identified within this card.
