@@ -16,6 +16,7 @@ import {
 	DiagnosticsScreen,
 	NotificationsScreen,
 	SettingsIndexScreen,
+	MembersScreen,
 	WorktreesScreen,
 } from "@/modules/settings";
 import { InviteScreen } from "@/modules/workspaces";
@@ -62,6 +63,7 @@ const Router = createRouter({
 		{ path: "/settings/agents", component: () => <Authed screen={AgentsScreen} /> },
 		{ path: "/settings/environments", component: () => <Authed screen={EnvironmentsScreen} /> },
 		{ path: "/settings/connectors", component: () => <Authed screen={ConnectorsScreen} /> },
+		{ path: "/settings/members", component: () => <Authed screen={MembersScreen} /> },
 		{ path: "/settings/worktrees", component: () => <Authed screen={WorktreesScreen} /> },
 		{ path: "/settings/diagnostics", component: () => <Authed screen={DiagnosticsScreen} /> },
 		{ path: "/settings/account", component: () => <Authed screen={AccountScreen} /> },

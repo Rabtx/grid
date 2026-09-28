@@ -31,6 +31,11 @@ export const SETTINGS_SECTIONS = [
 		label: "Workspace",
 		pages: [
 			{
+				href: "/settings/members",
+				label: "Members",
+				description: "Who is in this workspace, their roles and invites",
+			},
+			{
 				href: "/settings/environments",
 				label: "Environments",
 				description: "Codespaces and other machines",
