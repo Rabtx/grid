@@ -6,6 +6,7 @@ import { App } from "./app";
 import { urlWithWorkspace } from "./lib/active-workspace";
 import { installScaleShortcuts, restoreAppearance } from "./lib/appearance";
 import { loadFileIcons } from "./lib/file-icons";
+import { installTouchGuards } from "./lib/touch-guards";
 import { registerServiceWorker } from "./pwa/register";
 import "./styles/global.css";
 
@@ -14,6 +15,7 @@ if (!root) throw new Error("index.html is missing the #root element");
 
 restoreAppearance();
 installScaleShortcuts();
+installTouchGuards();
 void loadFileIcons();
 registerServiceWorker();
 

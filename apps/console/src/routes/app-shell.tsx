@@ -29,6 +29,7 @@ import {
 import { SettingsSidebar, settingsReturn } from "@/modules/settings";
 import { VoiceControls } from "@/modules/voice";
 import { CreateWorkspaceSheet, WorkspacesProvider } from "@/modules/workspaces";
+import { showAppBadge } from "@/pwa/app-badge";
 
 // Pages outside any workspace keep the signed-out frame even for someone signed in.
 const OUTSIDE = /^\/(login|setup|invite)(\/|$)/;
@@ -86,6 +87,12 @@ function SignedIn(props: { children: JSX.Element }): JSX.Element {
 		(path) => {
 			settingsReturn.remember(path);
 		},
+	);
+
+	// The installed app's icon carries the Inbox's unread count, as a native app's would.
+	createEffect(
+		() => inboxStore.unread(),
+		(unread) => showAppBadge(unread),
 	);
 
 	// Opening the thread or the pull request an item waits on deals with it, however the person

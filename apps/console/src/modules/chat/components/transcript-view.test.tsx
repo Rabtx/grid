@@ -246,7 +246,7 @@ describe("TranscriptView - Assistant Message", () => {
 });
 
 describe("TranscriptView - touch", () => {
-	it("hides the hover action bars on touch screens", () => {
+	it("keeps the hover action bars out of reach on touch screens, but mounted for the long press", () => {
 		const blocks: Block[] = [
 			{ kind: "user", key: "b0", text: "Write some code" },
 			{ kind: "assistant", key: "b1", text: "Here is your code" },
@@ -259,7 +259,13 @@ describe("TranscriptView - touch", () => {
 			(button) => button.parentElement?.className ?? "",
 		);
 		expect(bars.length).toBe(2);
-		for (const bar of bars) expect(bar).toContain("pointer-coarse:hidden");
+		// Not display:none: the message's menu lives in the bar, and a long press must be able to
+		// open it. The bar takes no room and cannot be tapped instead.
+		for (const bar of bars) {
+			expect(bar).not.toContain("pointer-coarse:hidden");
+			expect(bar).toContain("pointer-coarse:pointer-events-none");
+			expect(bar).toContain("pointer-coarse:size-0");
+		}
 	});
 });
 

@@ -239,7 +239,7 @@ function FolderRow(props: {
 				</Show>
 			</button>
 			<Show when={actions()}>
-				<div class="absolute inset-y-0 right-0.5 flex items-center opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:hidden">
+				<div class="absolute inset-y-0 right-0.5 flex items-center opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:pointer-events-none pointer-coarse:opacity-0">
 					{actions()}
 				</div>
 			</Show>

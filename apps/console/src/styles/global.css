@@ -14,6 +14,9 @@
 		/* The grey flash on every tap; controls draw their own pressed state. */
 		-webkit-tap-highlight-color: transparent;
 		-webkit-text-size-adjust: 100%;
+		/* Grid is an app, not a page: no double-tap zoom anywhere (pinch is off in index.html and
+		   lib/touch-guards.ts); the interface scale in Appearance is how to make it bigger. */
+		touch-action: manipulation;
 	}
 
 	/* No double-tap zoom on controls, so a tap lands at once. */
@@ -37,6 +40,35 @@
 		-webkit-touch-callout: none;
 		-webkit-user-select: none;
 		user-select: none;
+	}
+}
+
+/*
+ * On touch, a long press is the app's gesture (a row's menu), not text selection: the app's chrome
+ * cannot be selected or raise the system callout. What people copy stays selectable — replies,
+ * code, the editor, the terminal, and every field.
+ */
+@media (pointer: coarse) {
+	body {
+		-webkit-touch-callout: none;
+		-webkit-user-select: none;
+		user-select: none;
+	}
+	input,
+	textarea,
+	[contenteditable="true"],
+	.chat-prose,
+	.select-text,
+	pre,
+	code,
+	.cm-editor,
+	.xterm {
+		-webkit-touch-callout: default;
+		-webkit-user-select: text;
+		user-select: text;
+	}
+	img {
+		-webkit-user-drag: none;
 	}
 }
 

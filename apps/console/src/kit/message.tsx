@@ -16,11 +16,14 @@ function useTouchMenu(open: (() => ((point: MenuPoint) => void) | undefined) | u
 	};
 }
 
-/** A message's actions under it (copy, note, regenerate): shown on hover, never drawn on touch. */
+/**
+ * A message's actions under it (copy, note, regenerate): shown on hover. On touch they take no
+ * room and cannot be tapped, but stay mounted so a long press can open the message's menu.
+ */
 function ActionBar(props: { children: JSX.Element; align: "start" | "end" }): JSX.Element {
 	return (
 		<div
-			class={`flex h-7 items-center gap-0.5 px-1 pt-1 opacity-0 transition-opacity duration-fast group-hover/message:opacity-100 group-focus-within/message:opacity-100 pointer-coarse:hidden ${props.align === "end" ? "justify-end" : ""}`}
+			class={`flex h-7 items-center gap-0.5 px-1 pt-1 opacity-0 transition-opacity duration-fast group-hover/message:opacity-100 group-focus-within/message:opacity-100 pointer-coarse:pointer-events-none pointer-coarse:absolute pointer-coarse:size-0 pointer-coarse:overflow-hidden pointer-coarse:p-0 pointer-coarse:opacity-0 ${props.align === "end" ? "justify-end" : ""}`}
 		>
 			{props.children}
 		</div>

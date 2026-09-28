@@ -88,7 +88,7 @@ function RowFrame(props: { item: NavItemProps; children: JSX.Element }): JSX.Ele
 		>
 			{props.children}
 			<Show when={props.item.actions}>
-				<div class="absolute inset-y-0 right-1 flex items-center gap-0.5 opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:hidden">
+				<div class="absolute inset-y-0 right-1 flex items-center gap-0.5 opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:pointer-events-none pointer-coarse:opacity-0">
 					{props.item.actions}
 				</div>
 			</Show>

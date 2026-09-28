@@ -23,5 +23,55 @@
 			"type": "image/png",
 			"purpose": "any maskable"
 		}
+	],
+	"shortcuts": [
+		{
+			"name": "New chat",
+			"short_name": "Chat",
+			"url": "/chat",
+			"icons": [
+				{
+					"src": "/brand/grid-mark-96.png",
+					"sizes": "96x96",
+					"type": "image/png"
+				}
+			]
+		},
+		{
+			"name": "Inbox",
+			"short_name": "Inbox",
+			"url": "/inbox",
+			"icons": [
+				{
+					"src": "/brand/grid-mark-96.png",
+					"sizes": "96x96",
+					"type": "image/png"
+				}
+			]
+		},
+		{
+			"name": "Board",
+			"short_name": "Board",
+			"url": "/board",
+			"icons": [
+				{
+					"src": "/brand/grid-mark-96.png",
+					"sizes": "96x96",
+					"type": "image/png"
+				}
+			]
+		},
+		{
+			"name": "Terminal",
+			"short_name": "Terminal",
+			"url": "/terminal",
+			"icons": [
+				{
+					"src": "/brand/grid-mark-96.png",
+					"sizes": "96x96",
+					"type": "image/png"
+				}
+			]
+		}
 	]
 }
