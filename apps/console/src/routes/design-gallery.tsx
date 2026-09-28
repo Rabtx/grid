@@ -6,6 +6,7 @@ import { APPEARANCE_LIMITS, appearance, type Theme, updateAppearance } from "@/l
 import { AppPrototype } from "./design/app-prototype";
 import { FeedbackSection, FormsSection, WorkSection } from "./design/more-sections";
 import {
+	Attachment,
 	Avatar,
 	button,
 	Popover,
@@ -408,6 +409,35 @@ function Inputs(): JSX.Element {
 					value={tab()}
 					onChange={setTab}
 				/>
+			</Specimen>
+			<Specimen
+				label="Attachments · chips with thumbnails, progress and error states"
+				class="md:col-span-2"
+			>
+				<div class="flex flex-wrap items-center gap-2">
+					<Attachment name="document.pdf" size={245760} onRemove={() => undefined} />
+					<Attachment
+						name="screenshot.png"
+						size={1048576}
+						preview="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='%236366f1'%3E%3Crect width='64' height='64' rx='8'/%3E%3C/svg%3E"
+						onOpen={() => undefined}
+						onRemove={() => undefined}
+					/>
+					<Attachment
+						name="uploading.mp4"
+						size={5242880}
+						progress={65}
+						onRemove={() => undefined}
+					/>
+					<Attachment
+						name="too-large.zip"
+						size={15728640}
+						error="Each file must be 10 MB or smaller"
+						onRetry={() => undefined}
+						onRemove={() => undefined}
+					/>
+					<Attachment name="src/modules/chat/composer.tsx" reference onRemove={() => undefined} />
+				</div>
 			</Specimen>
 		</div>
 	);

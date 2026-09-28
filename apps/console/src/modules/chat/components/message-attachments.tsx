@@ -1,8 +1,9 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, For, onSettled, Show } from "solid-js";
 
-import { Attachment, Button, Row, Text } from "@/kit";
+import { Attachment, Row } from "@/kit";
 import type { ChatAttachment } from "../types/chat.types";
+import { AttachmentPreviewDialog } from "./attachment-preview-dialog";
 
 export type LoadAttachment = (id: string, signal?: AbortSignal) => Promise<Blob>;
 
@@ -26,9 +27,11 @@ function MessageAttachment(props: {
 	const [url, setUrl] = createSignal<string>();
 	const [error, setError] = createSignal(false);
 	const [busy, setBusy] = createSignal(false);
+	const [previewOpen, setPreviewOpen] = createSignal(false);
 	const image = () => props.attachment.mimeType.startsWith("image/");
 	const controller = new AbortController();
 	let objectUrl: string | undefined;
+
 	async function load(download = false): Promise<void> {
 		if (!props.load || busy()) return;
 		setBusy(true);
@@ -51,6 +54,7 @@ function MessageAttachment(props: {
 			setBusy(false);
 		}
 	}
+
 	onSettled(() => {
 		if (image()) void load();
 		return () => {
@@ -58,6 +62,21 @@ function MessageAttachment(props: {
 			if (objectUrl) URL.revokeObjectURL(objectUrl);
 		};
 	});
+
+	function handleOpen() {
+		if (image()) {
+			if (url()) {
+				setPreviewOpen(true);
+			} else {
+				void load(false).then(() => {
+					if (url()) setPreviewOpen(true);
+				});
+			}
+		} else {
+			void load(true);
+		}
+	}
+
 	return (
 		<>
 			<Attachment
@@ -66,11 +85,18 @@ function MessageAttachment(props: {
 				preview={image() ? url() : undefined}
 				href={image() ? url() : undefined}
 				disabled={busy()}
-				onOpen={() => void load(!image())}
+				error={error() ? "Attachment unavailable." : null}
+				onRetry={() => void load(!image())}
+				onOpen={handleOpen}
 			/>
-			<Show when={error()}>
-				<Text tone="danger">Attachment unavailable.</Text>
-				<Button onClick={() => void load(!image())}>Retry</Button>
+			<Show when={previewOpen() && url()}>
+				<AttachmentPreviewDialog
+					open={previewOpen()}
+					onClose={() => setPreviewOpen(false)}
+					name={props.attachment.name}
+					size={props.attachment.size}
+					preview={url()}
+				/>
 			</Show>
 		</>
 	);

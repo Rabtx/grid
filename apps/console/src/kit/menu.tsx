@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { For, Show } from "solid-js";
+import { For, onSettled, Show } from "solid-js";
 
 import { Popover, type Placement, type PopoverControl } from "./popover";
 import { variants } from "./variants";
@@ -25,8 +25,12 @@ export const menuTrigger = variants({
 	variants: {
 		size: { sm: "h-8 pointer-coarse:h-11", md: "h-9 text-body-lg pointer-coarse:h-12" },
 		width: { auto: "", fill: "flex-1", full: "w-full" },
+		shape: {
+			default: "",
+			icon: "size-8 shrink-0 justify-center px-0 text-fg-muted hover:text-fg pointer-coarse:size-11",
+		},
 	},
-	defaults: { size: "sm", width: "auto" },
+	defaults: { size: "sm", width: "auto", shape: "default" },
 });
 
 export const MENU_ITEM =
@@ -36,11 +40,56 @@ export const MENU_ITEM =
 export function MenuList(props: {
 	groups: readonly MenuGroup[];
 	onSelect: (id: string) => void;
+	onClose?: () => void;
 	header?: JSX.Element;
 	footer?: JSX.Element;
 }): JSX.Element {
+	let menuEl: HTMLDivElement | undefined;
+
+	onSettled(() => {
+		requestAnimationFrame(() => {
+			const first = menuEl?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)');
+			first?.focus();
+		});
+	});
+
+	function handleKeyDown(event: KeyboardEvent): void {
+		const items = Array.from(
+			menuEl?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? [],
+		);
+		if (!items.length) return;
+		const current = document.activeElement as HTMLButtonElement;
+		const idx = items.indexOf(current);
+
+		if (event.key === "ArrowDown") {
+			event.preventDefault();
+			const next = idx === -1 || idx === items.length - 1 ? 0 : idx + 1;
+			items[next]?.focus();
+		} else if (event.key === "ArrowUp") {
+			event.preventDefault();
+			const prev = idx <= 0 ? items.length - 1 : idx - 1;
+			items[prev]?.focus();
+		} else if (event.key === "Home") {
+			event.preventDefault();
+			items[0]?.focus();
+		} else if (event.key === "End") {
+			event.preventDefault();
+			items[items.length - 1]?.focus();
+		} else if (event.key === "Escape") {
+			props.onClose?.();
+		}
+	}
+
 	return (
-		<div role="menu" class="flex flex-col p-1.5 md:p-1">
+		<div
+			ref={(el) => {
+				menuEl = el;
+			}}
+			role="menu"
+			tabindex="-1"
+			onKeyDown={handleKeyDown}
+			class="flex flex-col p-1.5 md:p-1"
+		>
 			{props.header}
 			<For each={props.groups}>
 				{(group, index) => (
@@ -120,6 +169,7 @@ export function Menu(props: {
 					groups={props.groups}
 					header={props.header}
 					footer={props.footer}
+					onClose={close}
 					onSelect={(id) => {
 						close();
 						props.onSelect(id);

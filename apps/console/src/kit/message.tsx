@@ -2,7 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { attachContextMenu, type MenuPoint } from "./context-menu";
-import { CloseIcon, FileIcon } from "./icons";
+import { CloseIcon, FileIcon, RestoreIcon } from "./icons";
 
 /** Wires a long press on touch screens to a message's menu; the hover bar is for pointers. */
 function useTouchMenu(open: (() => ((point: MenuPoint) => void) | undefined) | undefined) {
@@ -114,49 +114,78 @@ export function Prose(props: {
 	);
 }
 
+export function formatFileSize(bytes: number): string {
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 /** A file attached to a message. */
 export function Attachment(props: {
 	name: string;
 	size?: number;
 	preview?: string;
 	href?: string;
+	progress?: number;
+	error?: string | null;
+	onRetry?: () => void;
+	reference?: boolean;
 	onOpen?: () => void;
 	onRemove?: () => void;
 	disabled?: boolean;
 }): JSX.Element {
 	const content = () => (
 		<>
-			<Show when={props.preview} fallback={<FileIcon size="sm" />}>
-				<img
-					src={props.preview}
-					alt={props.name}
-					class="size-16 shrink-0 rounded-kit-sm object-cover object-top"
-				/>
+			<Show
+				when={props.reference}
+				fallback={
+					<Show
+						when={props.preview}
+						fallback={<FileIcon size="sm" class="shrink-0 text-fg-subtle" />}
+					>
+						<img
+							src={props.preview}
+							alt={props.name}
+							class="size-8 shrink-0 rounded-kit-sm object-cover object-top"
+						/>
+					</Show>
+				}
+			>
+				<FileIcon size="sm" class="shrink-0 text-accent" />
 			</Show>
-			<span class="min-w-0 truncate">
-				{props.name}
-				<Show when={props.size !== undefined}>
-					<span class="ml-1 text-caption text-fg-subtle">
-						{Math.ceil((props.size ?? 0) / 1024)} KB
-					</span>
-				</Show>
-			</span>
+			<span class="min-w-0 max-w-44 truncate md:max-w-56">{props.name}</span>
+			<Show when={props.size !== undefined && !props.reference}>
+				<span class="shrink-0 text-caption text-fg-subtle">{formatFileSize(props.size ?? 0)}</span>
+			</Show>
+			<Show when={props.progress !== undefined && props.progress < 100 && !props.error}>
+				<span class="shrink-0 text-caption text-accent tabular-nums">{props.progress}%</span>
+			</Show>
+			<Show when={props.error}>
+				<span class="shrink-0 text-caption text-danger" title={props.error ?? undefined}>
+					{props.error}
+				</span>
+			</Show>
 		</>
 	);
+
 	return (
-		<span class="inline-flex min-h-11 max-w-full items-center gap-1 rounded-kit bg-surface px-2 text-body text-fg-muted ring-line-strong md:max-w-72">
+		<span
+			class={`relative inline-flex min-h-11 max-w-full items-center gap-1.5 overflow-hidden rounded-kit bg-surface px-2 text-body text-fg-muted ring-line-strong md:max-w-80 ${
+				props.error ? "bg-danger/5 ring-danger/30" : ""
+			}`}
+		>
 			<Show
 				when={props.href}
 				fallback={
 					<Show
 						when={props.onOpen}
-						fallback={<span class="flex min-w-0 items-center gap-2 py-1">{content()}</span>}
+						fallback={<span class="flex min-w-0 items-center gap-1.5 py-1">{content()}</span>}
 					>
 						<button
 							type="button"
 							onClick={() => props.onOpen?.()}
 							disabled={props.disabled}
-							class="focus-ring flex min-h-11 min-w-0 items-center gap-2 py-1"
+							class="focus-ring flex min-h-11 min-w-0 items-center gap-1.5 py-1 text-left"
 						>
 							{content()}
 						</button>
@@ -167,10 +196,21 @@ export function Attachment(props: {
 					href={props.href}
 					target="_blank"
 					rel="noopener noreferrer"
-					class="focus-ring flex min-h-11 min-w-0 items-center gap-2 py-1"
+					class="focus-ring flex min-h-11 min-w-0 items-center gap-1.5 py-1 text-left"
 				>
 					{content()}
 				</a>
+			</Show>
+			<Show when={props.error && props.onRetry}>
+				<button
+					type="button"
+					aria-label={`Retry ${props.name}`}
+					onClick={() => props.onRetry?.()}
+					class="focus-ring flex items-center gap-1 rounded-kit px-1.5 py-1 text-caption text-accent hover:bg-fill pointer-coarse:min-h-11"
+				>
+					<RestoreIcon size="xs" />
+					<span>Retry</span>
+				</button>
 			</Show>
 			<Show when={props.onRemove}>
 				<button
@@ -178,10 +218,18 @@ export function Attachment(props: {
 					aria-label={`Remove ${props.name}`}
 					disabled={props.disabled}
 					onClick={() => props.onRemove?.()}
-					class="focus-ring grid size-11 shrink-0 place-items-center rounded-kit hover:bg-fill disabled:opacity-40"
+					class="focus-ring grid size-8 shrink-0 place-items-center rounded-kit hover:bg-fill disabled:opacity-40 pointer-coarse:size-11"
 				>
 					<CloseIcon size="sm" />
 				</button>
+			</Show>
+			<Show when={props.progress !== undefined && props.progress < 100 && !props.error}>
+				<div class="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden rounded-b-kit bg-fill">
+					<div
+						class="h-full bg-accent transition-all duration-fast"
+						style={{ width: `${Math.max(props.progress ?? 0, 5)}%` }}
+					/>
+				</div>
 			</Show>
 		</span>
 	);

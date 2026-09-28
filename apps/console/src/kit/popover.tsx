@@ -118,6 +118,7 @@ export function Popover(props: {
 						at = null;
 						for (const property of ["position", "margin", "top", "left", "position-area"])
 							panel?.style.removeProperty(property);
+						if (trigger && !trigger.disabled) trigger.focus();
 					}
 				}}
 				style={anchored ? `position-anchor: ${anchor}` : undefined}

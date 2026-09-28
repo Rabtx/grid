@@ -46,3 +46,73 @@ it("surfaces upload failures and rejects oversized batches before fetching", asy
 	).rejects.toThrow("20 files");
 	expect(fetcher).not.toHaveBeenCalled();
 });
+
+it("supports progress callbacks and abort with XMLHttpRequest", async () => {
+	vi.stubGlobal("window", { location: { origin: "http://grid" } });
+
+	class MockXHR {
+		status = 201;
+		responseText = JSON.stringify({
+			data: { id: "f1", name: "test.png", size: 100, mimeType: "image/png" },
+		});
+		upload = { onprogress: null as ((e: ProgressEvent) => void) | null };
+		onload = null as (() => void) | null;
+		onerror = null as (() => void) | null;
+		headers: Record<string, string> = {};
+		open = vi.fn();
+		setRequestHeader = vi.fn((k: string, v: string) => {
+			this.headers[k] = v;
+		});
+		abort = vi.fn();
+		send = vi.fn(() => {
+			if (this.upload.onprogress) {
+				this.upload.onprogress({
+					lengthComputable: true,
+					loaded: 50,
+					total: 100,
+				} as ProgressEvent);
+			}
+			setTimeout(() => {
+				this.onload?.();
+			}, 0);
+		});
+	}
+
+	vi.stubGlobal("XMLHttpRequest", MockXHR as unknown as typeof XMLHttpRequest);
+
+	const progressUpdates: number[] = [];
+	const file = new File(["data"], "test.png", { type: "image/png" });
+
+	const result = await chatService.uploadOne("token", "sess-1", file, "", {
+		onProgress: (pct) => progressUpdates.push(pct),
+	});
+
+	expect(result).toMatchObject({ id: "f1", name: "test.png" });
+	expect(progressUpdates).toContain(50);
+	expect(progressUpdates).toContain(100);
+
+	// Test caching: a second upload of the same file returns cached result without sending again
+	const cachedResult = await chatService.upload("token", "sess-1", [file]);
+	expect(cachedResult).toEqual([result]);
+});
+
+it("cancels in-flight upload when aborted", async () => {
+	vi.stubGlobal("window", { location: { origin: "http://grid" } });
+
+	class MockXHR {
+		upload = { onprogress: null };
+		open = vi.fn();
+		setRequestHeader = vi.fn();
+		abort = vi.fn();
+		send = vi.fn();
+	}
+	vi.stubGlobal("XMLHttpRequest", MockXHR as unknown as typeof XMLHttpRequest);
+
+	const controller = new AbortController();
+	controller.abort();
+
+	const file = new File(["aborted"], "abort.txt");
+	await expect(
+		chatService.uploadOne("token", "sess-1", file, "", { signal: controller.signal }),
+	).rejects.toThrow();
+});
