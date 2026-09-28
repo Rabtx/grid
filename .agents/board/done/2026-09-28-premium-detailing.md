@@ -5,7 +5,7 @@ type: feature
 from: human
 to: ui-ux
 priority: normal
-status: doing
+status: done
 assignee: claude
 reviewer: human
 parent: none
@@ -71,4 +71,5 @@ per device and applied before the first paint. Future depth work goes behind the
 
 ## Resolution
 
-Open until the human has tried the branch and it is merged.
+Merged as #144 after the human tried the branch: the composer and model picker redesign for
+everyone, depth detailing as an Appearance option (off by default).
