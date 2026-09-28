@@ -36,8 +36,6 @@ type NavItemProps = {
 	current?: boolean;
 	level?: 0 | 1;
 	tone?: "default" | "accent" | "danger";
-	/** The icon on a tile, for the one primary action in a list (New chat). */
-	iconTile?: boolean;
 	/** Layout only. */
 	class?: string;
 };
@@ -51,7 +49,6 @@ const OWN = [
 	"current",
 	"level",
 	"tone",
-	"iconTile",
 	"class",
 ] as const;
 
@@ -59,9 +56,7 @@ function Content(props: NavItemProps): JSX.Element {
 	return (
 		<>
 			<Show when={props.icon}>
-				<span
-					class={`grid shrink-0 place-items-center text-fg-subtle group-hover/nav:text-fg-muted group-aria-[current=page]/nav:text-fg [&_svg]:size-4 ${props.iconTile ? "icon-tile -mx-1 size-6 rounded-kit text-fg-muted" : "size-4"}`}
-				>
+				<span class="grid size-4 shrink-0 place-items-center text-fg-subtle group-hover/nav:text-fg-muted group-aria-[current=page]/nav:text-fg [&_svg]:size-4">
 					{props.icon}
 				</span>
 			</Show>
