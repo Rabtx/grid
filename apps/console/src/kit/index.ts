@@ -134,5 +134,6 @@ export { Segmented, type TabOption, Tabs } from "./tabs";
 export { Code, Heading, Text, type TextSize, type TextTone } from "./text";
 export { notify, Toasts } from "./toast";
 export { FilterChip, Toolbar, ToolbarButton } from "./toolbar";
+export { EntryIcon, type FileIconResolver, setFileIcons } from "./file-icon";
 export { type FolderEntry, FileTree, FolderTree, type TreeNode } from "./tree";
 export { type VariantProps, variants } from "./variants";

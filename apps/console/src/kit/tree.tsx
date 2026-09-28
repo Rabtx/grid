@@ -2,7 +2,8 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, For, onSettled, Show } from "solid-js";
 
 import { attachContextMenu, type MenuPoint } from "./context-menu";
-import { ChevronRightIcon, FileIcon, FolderIcon } from "./icons";
+import { EntryIcon } from "./file-icon";
+import { ChevronRightIcon } from "./icons";
 
 export type TreeNode = { name: string; children?: readonly TreeNode[]; badge?: JSX.Element };
 
@@ -55,10 +56,8 @@ function TreeRow(props: {
 						/>
 					</Show>
 				</span>
-				<span class="shrink-0 text-fg-subtle">
-					<Show when={folder()} fallback={<FileIcon class="size-4" />}>
-						<FolderIcon class="size-4" />
-					</Show>
+				<span class="grid shrink-0 place-items-center text-fg-subtle">
+					<EntryIcon name={props.node.name} folder={folder()} open={open()} />
 				</span>
 				<span class="min-w-0 flex-1 truncate">{props.node.name}</span>
 				{props.node.badge}
@@ -231,10 +230,8 @@ function FolderRow(props: {
 						/>
 					</Show>
 				</span>
-				<span class="shrink-0 text-fg-subtle">
-					<Show when={folder()} fallback={<FileIcon class="size-4" />}>
-						<FolderIcon class="size-4" />
-					</Show>
+				<span class="grid shrink-0 place-items-center text-fg-subtle">
+					<EntryIcon name={props.entry.name} folder={folder()} open={props.open} />
 				</span>
 				<span class="min-w-0 flex-1 truncate">{props.entry.name}</span>
 				<Show when={mark()}>

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import solid from "@solidjs/vite-plugin";
@@ -94,11 +94,18 @@ function serviceWorker(): Plugin {
 				else if (item?.type === "asset") hash.update(item.source);
 			}
 			const buildId = hash.digest("hex").slice(0, 12);
+			// The icon cache is keyed to the icon set, not the build: it survives deploys and is
+			// replaced only when the icons are.
+			const theme = `${publicDir}/file-icons/theme.json`;
+			const iconsId = existsSync(theme)
+				? createHash("sha256").update(readFileSync(theme)).digest("hex").slice(0, 12)
+				: "none";
 			this.emitFile({
 				type: "asset",
 				fileName: "sw.js",
 				source: readFileSync(source, "utf8")
 					.replaceAll("__BUILD_ID__", buildId)
+					.replaceAll("__ICONS_ID__", iconsId)
 					.replaceAll("__PRECACHE__", JSON.stringify(precache)),
 			});
 		},
