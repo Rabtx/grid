@@ -30,6 +30,13 @@ export type PlanEntry = { text: string; status: "pending" | "in_progress" | "com
 
 export type ApprovalOption = { id: string; label: string; kind: "allow" | "allow_always" | "deny" };
 
+/**
+ * One command the agent itself offers, as the person types it: `/name`, what it does, and the
+ * argument it takes when the agent says (`<what to design>` and the like). The name is what the
+ * agent will see, so it is the agent's own — never one Grid made up.
+ */
+export type AgentCommand = { name: string; description: string; hint?: string };
+
 export type ChatEvent =
 	/** What the person sent. */
 	| { type: "user"; text: string; attachments?: ChatAttachment[] }
@@ -86,6 +93,12 @@ export type ChatEvent =
 			effort?: string;
 	  }
 	| { type: "error"; message: string }
+	/**
+	 * The commands this agent offers, as it reported them: the whole list, each time it changes.
+	 * Not part of the conversation — the hub keeps the latest list per live session and sends it
+	 * again to a device that attaches, rather than writing it into the log.
+	 */
+	| { type: "commands"; commands: AgentCommand[] }
 	/**
 	 * The turn's reply restated exactly, for agents whose live stream is only an approximation (a
 	 * terminal UI read off its screen): the text and reasoning shown since the person's message are

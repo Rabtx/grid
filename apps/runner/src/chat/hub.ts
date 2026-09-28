@@ -12,7 +12,7 @@ import { existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import type { ChatEvent } from "../agents/events";
+import type { AgentCommand, ChatEvent } from "../agents/events";
 import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
 import type { Who } from "../auth";
@@ -50,9 +50,12 @@ export type WorktreeEntry = WorktreeStatus & {
 	chat: { id: string; title: string } | null;
 };
 
-/** One device watching a session. `n` numbers each event, for catching up after a drop. */
+/**
+ * One device watching a session. `n` numbers each event in the journal, for catching up after a
+ * drop; an event that is not part of the journal (the agent's command list) carries none.
+ */
 export type ChatClient = {
-	event: (event: ChatEvent, n: number) => void;
+	event: (event: ChatEvent, n?: number) => void;
 	state: (state: { running: boolean }) => void;
 	/** False while the device has the app in the background; unset means it is looking. */
 	watching?: () => boolean;
@@ -75,6 +78,12 @@ type Live = {
 	agent: Promise<AgentSession> | null;
 	clients: Set<ChatClient>;
 	epoch: string;
+	/**
+	 * The commands the agent last reported, kept beside the session rather than in its log: a
+	 * device that attaches is sent the current list, and a session that never reported one has
+	 * none. Null until the agent says.
+	 */
+	commands: AgentCommand[] | null;
 	/** The last events sent to devices, numbered from `journalStart`. */
 	journal: ChatEvent[];
 	journalStart: number;
@@ -136,6 +145,16 @@ async function setupOf(id: string, available: boolean): Promise<ProviderSetup> {
 // An agent nobody has used for this long is stopped; the next message resumes it.
 const IDLE_MS = 15 * 60 * 1000;
 const FLUSH_MS = 750;
+
+/**
+ * What the agent is actually sent. A command the menu listed as `/<agent>:<name>` — because its
+ * name is one of Grid's — is the agent's own command, so the prefix Grid added goes before the
+ * agent ever sees it. Everything else is the text as typed.
+ */
+export function agentPromptText(provider: string, text: string): string {
+	const prefix = `/${provider}:`;
+	return text.startsWith(prefix) ? `/${text.slice(prefix.length)}` : text;
+}
 
 function isDirectory(path: string): boolean {
 	try {
@@ -522,6 +541,8 @@ export class ChatHub {
 		const canResume =
 			resume?.epoch === live.epoch && resume.next >= live.journalStart && resume.next <= end;
 		live.clients.add(client);
+		// The list is not in the log, so it is sent here as well as when it changes.
+		if (live.commands) client.event({ type: "commands", commands: live.commands });
 		return {
 			session,
 			history: canResume ? [] : this.store.events(id),
@@ -638,9 +659,11 @@ export class ChatHub {
 			const paths = attachments
 				.map((item) => `${JSON.stringify(item.metadata.name)}: ${JSON.stringify(item.path)}`)
 				.join("\n");
+			// An agent command the menu prefixed is the agent's own command, sent as it typed.
+			const text = agentPromptText(session.provider, message);
 			const prompt = paths
-				? `${message}\n\nAttached files (absolute paths on this machine):\n${paths}`
-				: message;
+				? `${text}\n\nAttached files (absolute paths on this machine):\n${paths}`
+				: text;
 			result = await agent.prompt(prompt, images);
 		} catch (cause) {
 			result = { reason: "error", error: cause instanceof Error ? cause.message : String(cause) };
@@ -782,6 +805,7 @@ export class ChatHub {
 				agent: null,
 				clients: new Set(),
 				epoch: crypto.randomUUID(),
+				commands: null,
 				journal: [],
 				journalStart: 0,
 				running: false,
@@ -819,6 +843,12 @@ export class ChatHub {
 	/** Log an event and send it to every device watching. Streamed text is merged before it is written. */
 	private record(id: string, event: ChatEvent): void {
 		const live = this.liveFor(id);
+		// What the agent can be asked to do is not part of the conversation: it is kept for the
+		// session and sent again to whoever attaches, rather than written into the log.
+		if (event.type === "commands") {
+			this.setCommands(live, event.commands);
+			return;
+		}
 		if (event.type === "info") {
 			const change: { model?: string; mode?: string; effort?: string } = {};
 			if (event.model) change.model = event.model;
@@ -853,6 +883,15 @@ export class ChatHub {
 		}
 		this.flush(id, live);
 		this.store.append(id, [event]);
+	}
+
+	/**
+	 * The agent's current commands, told to every device watching. It is not numbered: it is not
+	 * in the journal, so a device catching up gets it from the attach, not from the gap.
+	 */
+	private setCommands(live: Live, commands: AgentCommand[]): void {
+		live.commands = commands;
+		for (const client of live.clients) client.event({ type: "commands", commands });
 	}
 
 	/** Number an event and keep it for devices catching up. */

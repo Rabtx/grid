@@ -7,6 +7,7 @@ import {
 	type ToolStatus,
 } from "./events";
 import { diffTexts, type FileDiff } from "./diff";
+import { agentCommands } from "./commands";
 import type { AgentContext, AgentSession, Provider, ProviderInfo } from "./provider";
 import { JsonRpc, type Spawn, spawnJsonProcess } from "./stdio";
 
@@ -255,6 +256,13 @@ async function startAcpSession(
 				type: "usage",
 				contextUsed: typeof update.used === "number" ? update.used : undefined,
 				contextWindow: typeof update.size === "number" ? update.size : undefined,
+			});
+		} else if (kind === "available_commands_update") {
+			// The agent's own commands, the whole list, each time it changes. Nothing is invented
+			// for an agent that reports none.
+			context.emit({
+				type: "commands",
+				commands: agentCommands((update as { availableCommands?: unknown }).availableCommands),
 			});
 		}
 	}

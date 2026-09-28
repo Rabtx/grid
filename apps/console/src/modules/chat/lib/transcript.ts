@@ -1,4 +1,5 @@
 import type {
+	AgentCommand,
 	ApprovalOption,
 	ChatAttachment,
 	ChatEvent,
@@ -66,6 +67,8 @@ export type Transcript = {
 	effort: string | null;
 	/** The latest usage the agent reported. */
 	usage: Extract<ChatEvent, { type: "usage" }> | null;
+	/** What the agent can be asked to do, when it has said. Never part of the log. */
+	commands: AgentCommand[];
 };
 
 export function emptyTranscript(): Transcript {
@@ -78,6 +81,7 @@ export function emptyTranscript(): Transcript {
 		efforts: null,
 		effort: null,
 		usage: null,
+		commands: [],
 	};
 }
 
@@ -92,6 +96,8 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 	const key = `b${blocks.length}`;
 
 	switch (event.type) {
+		case "commands":
+			return { ...transcript, commands: event.commands };
 		case "user":
 			return {
 				...transcript,
