@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ChatEvent } from "../types/chat.types";
+import { applyEvent, emptyTranscript } from "./transcript";
 import {
 	countWork,
 	formatDuration,
@@ -137,6 +138,31 @@ describe("replay", () => {
 			["error", false],
 		]);
 		expect(notices[1].text).toBe("Codex is at capacity");
+	});
+});
+
+describe("the agent's command list", () => {
+	const list: ChatEvent = {
+		type: "commands",
+		commands: [{ name: "compact", description: "Summarise the conversation" }],
+	};
+
+	it("is not a row in the conversation, and the latest list wins", () => {
+		const first = applyEvent(emptyTranscript(), list);
+		expect(first.blocks).toEqual([]);
+		expect(first.commands).toEqual([
+			{ name: "compact", description: "Summarise the conversation" },
+		]);
+		const second = applyEvent(first, { type: "commands", commands: [] });
+		expect(second.commands).toEqual([]);
+		// An agent with no commands of its own: nothing is offered under its name.
+		expect(second.blocks).toEqual([]);
+	});
+
+	it("replays into the list rather than into the log's rows", () => {
+		const transcript = replay([{ type: "user", text: "hi" }, list]);
+		expect(transcript.blocks.map((block) => block.kind)).toEqual(["user"]);
+		expect(transcript.commands).toHaveLength(1);
 	});
 });
 

@@ -1,9 +1,16 @@
 import { render } from "@solidjs/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { GRID_COMMANDS, type SlashCommand } from "../lib/slash-commands";
+import {
+	agentCommands,
+	availableCommands,
+	GRID_COMMANDS,
+	type SlashCommand,
+} from "../lib/slash-commands";
 
 import { SlashMenu } from "./slash-menu";
+
+const CONTEXT = { running: true, models: true, modes: true, efforts: true, project: true };
 
 const AGENT_COMMAND: SlashCommand = {
 	id: "claude:compact",
@@ -59,6 +66,30 @@ describe("SlashMenu", () => {
 		expect(headings).toContain("Grid");
 		expect(headings).toContain("Claude");
 		expect(container.textContent).toContain("/compact");
+	});
+
+	it("lists what a real agent reported, its own names and Grid's clashes apart", () => {
+		// As Claude Code 2.1.280 answered, trimmed: its commands, and two whose names Grid has.
+		const reported = [
+			{ name: "compact", description: "Compact the conversation", hint: "<instructions>" },
+			{ name: "design", description: "Make a new Design artifact", hint: "[what to design]" },
+			{ name: "clear", description: "Clear the screen", hint: "[name]" },
+			{ name: "model", description: "Select a model", hint: "<model>" },
+		];
+		mount(availableCommands(CONTEXT, agentCommands(reported, { id: "claude", name: "Claude" })));
+
+		// Grid's group first, the agent's under it.
+		const headings = [...container.querySelectorAll("li")]
+			.map((item) => item.textContent)
+			.filter((text) => text === "Grid" || text === "Claude");
+		expect(headings).toEqual(["Grid", "Claude"]);
+		// Grid's own names stay bare; the agent's carry its id, so the two cannot be confused.
+		expect(container.textContent).toContain("/claude:clear");
+		expect(container.textContent).toContain("/claude:model");
+		expect(container.textContent).toContain("[what to design] — Make a new Design artifact");
+		// It is a listbox of the whole menu, agent's own included.
+		const options = container.querySelectorAll('[role="option"]');
+		expect(options).toHaveLength(GRID_COMMANDS.length + reported.length);
 	});
 
 	it("marks the selected command as current", () => {

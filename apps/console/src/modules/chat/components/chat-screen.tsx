@@ -358,7 +358,8 @@ function NewChat(props: {
 		}
 	}
 
-	// Slash commands: which apply on this screen, and what each one does.
+	// Slash commands: which apply on this screen, and what each one does. No agent is running yet
+	// here, so nothing of its own is offered until the thread is open.
 	const commands = () =>
 		availableCommands({
 			running: false,

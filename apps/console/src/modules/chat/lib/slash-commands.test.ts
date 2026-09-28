@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	agentCommands,
 	availableCommands,
 	filterCommands,
 	findSlashQuery,
@@ -13,6 +14,8 @@ import {
 const CONTEXT = { running: true, models: true, modes: true, efforts: true, project: true };
 
 const NOTHING = { running: false, models: false, modes: false, efforts: false, project: false };
+
+const CLAUDE = { id: "claude", name: "Claude" };
 
 const AGENT_COMMAND: SlashCommand = {
 	id: "claude:compact",
@@ -154,5 +157,77 @@ describe("availableCommands", () => {
 		expect(last).toEqual(AGENT_COMMAND);
 		expect(last?.group).toBe("Claude");
 		expect(last?.kind).toBe("agent");
+	});
+
+	it("offers an agent's commands that arrive after the composer opened", () => {
+		// Nothing yet: the agent has not started, so there is no list and the menu is Grid's.
+		expect(availableCommands(CONTEXT, agentCommands([], CLAUDE)).length).toBe(GRID_COMMANDS.length);
+		const later = availableCommands(
+			CONTEXT,
+			agentCommands([{ name: "compact", description: "Summarise the conversation" }], CLAUDE),
+		);
+		expect(later.at(-1)).toEqual(AGENT_COMMAND);
+	});
+});
+
+describe("agentCommands", () => {
+	const CLAUDE = { id: "claude", name: "Claude" };
+
+	it("lists what the agent reported under its name, with its argument as a placeholder", () => {
+		expect(
+			agentCommands(
+				[
+					{ name: "compact", description: "Summarise the conversation" },
+					{ name: "design", description: "Make a new Design artifact", hint: "[what to design]" },
+				],
+				CLAUDE,
+			),
+		).toEqual([
+			{
+				id: "claude:compact",
+				name: "compact",
+				description: "Summarise the conversation",
+				group: "Claude",
+				kind: "agent",
+			},
+			{
+				id: "claude:design",
+				name: "design",
+				description: "Make a new Design artifact",
+				argument: "[what to design]",
+				group: "Claude",
+				kind: "agent",
+			},
+		]);
+	});
+
+	it("keeps a name Grid also has the agent's, and types it so the runner can tell them apart", () => {
+		// Grid's `/clear` wins a bare `/clear`, so Claude's is `/claude:clear` end to end.
+		const [claudeClear, gridClear] = agentCommands(
+			[{ name: "clear", description: "Clear the screen" }],
+			CLAUDE,
+		);
+		expect(claudeClear).toMatchObject({
+			id: "claude:clear",
+			name: "claude:clear",
+			group: "Claude",
+		});
+		expect(gridClear).toBeUndefined();
+		const menu = availableCommands(CONTEXT, [claudeClear!]);
+		expect(menu.map((command) => command.name)).toContain("claude:clear");
+		expect(menu.map((command) => command.name)).toContain("clear");
+		// Typed out as listed, and sent as typed: Grid does not claim it, the runner unprefixes it.
+		expect(insertCommand("/claude:cl", 0, 10, claudeClear!)).toEqual({
+			text: "/claude:clear ",
+			cursorPosition: 14,
+		});
+		expect(parseSlashCommand("/claude:clear", menu)).toBeNull();
+	});
+
+	it("keeps a name the agent namespaces itself", () => {
+		expect(agentCommands([{ name: "skills:pdf", description: "PDFs" }], CLAUDE)[0]).toMatchObject({
+			id: "claude:skills:pdf",
+			name: "skills:pdf",
+		});
 	});
 });

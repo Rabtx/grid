@@ -20,7 +20,7 @@ import type { ChatEvent, ChatProvider, ChatSession } from "../types/chat.types";
 
 import { mergeModels } from "../lib/choices";
 import { addBoardTask, runSlashCommand } from "../lib/run-slash-command";
-import { availableCommands, type SlashCommand } from "../lib/slash-commands";
+import { agentCommands, availableCommands, type SlashCommand } from "../lib/slash-commands";
 
 import { Composer } from "./composer";
 import { GitControl } from "./git-control";
@@ -137,15 +137,22 @@ export function Conversation(props: {
 		}
 	}
 
-	// Slash commands: which apply here, and what each one does.
+	// Slash commands: which apply here, what each one does, and what the agent itself offers.
+	// An agent that has not said, or does not have any, adds nothing.
 	const commands = () =>
-		availableCommands({
-			running: running(),
-			models: models().length > 0,
-			modes: modes().length > 0,
-			efforts: efforts().length > 0,
-			project: Boolean(session()?.project),
-		});
+		availableCommands(
+			{
+				running: running(),
+				models: models().length > 0,
+				modes: modes().length > 0,
+				efforts: efforts().length > 0,
+				project: Boolean(session()?.project),
+			},
+			agentCommands(transcript().commands, {
+				id: session()?.provider ?? "",
+				name: provider()?.name ?? session()?.provider ?? "",
+			}),
+		);
 
 	function runCommand(command: SlashCommand, argument: string): boolean {
 		const slug = session()?.project;
@@ -219,7 +226,12 @@ export function Conversation(props: {
 						setTranscript((current) => missed.reduce(applyEvent, current));
 					} else {
 						log = [...ready.history];
-						setTranscript(replay(ready.history));
+						// The list arrived with this attach, before `ready`; the rebuild is the
+						// conversation, so it must not take the list with it.
+						setTranscript((current) => ({
+							...replay(ready.history),
+							commands: current.commands,
+						}));
 					}
 					saver.schedule();
 					const currentStartedAt = runnerStartedAt();
@@ -247,6 +259,12 @@ export function Conversation(props: {
 					}
 				},
 				onEvent: (event) => {
+					// The agent's command list is not conversation: it comes again on every attach,
+					// so it is not worth keeping with the log.
+					if (event.type === "commands") {
+						setTranscript((current) => applyEvent(current, event));
+						return;
+					}
 					log.push(event);
 					saver.schedule();
 					setTranscript((current) => applyEvent(current, event));
