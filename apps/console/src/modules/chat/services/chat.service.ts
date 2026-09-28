@@ -53,7 +53,16 @@ async function call<T>(
 	return body?.data as T;
 }
 
-const uploadedAttachments = new WeakMap<File, Promise<ChatAttachment> | ChatAttachment>();
+/**
+ * Uploads already made or under way, so a file sent right after it was added is not uploaded
+ * twice. Keyed by the file and then by the machine and thread it went to: the same file attached
+ * to another thread is a new upload there, never another thread's attachment id.
+ */
+const uploadedAttachments = new WeakMap<
+	File,
+	Map<string, Promise<ChatAttachment> | ChatAttachment>
+>();
+const uploadKey = (scope: string, id: string) => `${scope}\n${id}`;
 
 /** Every call takes the machine's `scope` last: empty for this machine. */
 export const chatService = {
@@ -69,7 +78,10 @@ export const chatService = {
 	): Promise<ChatAttachment> => {
 		if (file.size > 10 * 1024 * 1024) throw new Error("Each file must be 10 MB or smaller.");
 
-		const cached = uploadedAttachments.get(file);
+		const key = uploadKey(scope, id);
+		const uploads = uploadedAttachments.get(file) ?? new Map();
+		uploadedAttachments.set(file, uploads);
+		const cached = uploads.get(key);
 		if (cached) return await cached;
 
 		const doUpload = async (): Promise<ChatAttachment> => {
@@ -177,13 +189,13 @@ export const chatService = {
 		};
 
 		const promise = doUpload();
-		uploadedAttachments.set(file, promise);
+		uploads.set(key, promise);
 		try {
 			const result = await promise;
-			uploadedAttachments.set(file, result);
+			uploads.set(key, result);
 			return result;
 		} catch (error) {
-			uploadedAttachments.delete(file);
+			uploads.delete(key);
 			throw error;
 		}
 	},

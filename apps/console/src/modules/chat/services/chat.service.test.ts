@@ -94,6 +94,18 @@ it("supports progress callbacks and abort with XMLHttpRequest", async () => {
 	// Test caching: a second upload of the same file returns cached result without sending again
 	const cachedResult = await chatService.upload("token", "sess-1", [file]);
 	expect(cachedResult).toEqual([result]);
+
+	// The same file in another thread is uploaded there, not given this thread's attachment.
+	const sends: string[] = [];
+	class CountingXHR extends MockXHR {
+		override open = vi.fn((_method: string, url: string) => {
+			sends.push(url);
+		});
+	}
+	vi.stubGlobal("XMLHttpRequest", CountingXHR as unknown as typeof XMLHttpRequest);
+	await chatService.uploadOne("token", "sess-2", file, "");
+	expect(sends).toHaveLength(1);
+	expect(sends[0]).toContain("/chat/sessions/sess-2/");
 });
 
 it("cancels in-flight upload when aborted", async () => {
