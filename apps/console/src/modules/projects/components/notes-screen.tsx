@@ -185,6 +185,7 @@ export function NotesScreen(): JSX.Element {
 												description="Keep decisions and agent answers here: write one, or use “Add as note” on any message in a chat."
 												action={
 													<Button
+														size="sm"
 														variant="primary"
 														icon={<PlusIcon size="sm" />}
 														onClick={() => open("new")}

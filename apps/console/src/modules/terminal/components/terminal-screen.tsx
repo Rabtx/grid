@@ -381,7 +381,7 @@ export function TerminalScreen(): JSX.Element {
 							icon={<TerminalIcon size="lg" />}
 							title="No terminal is open"
 							action={
-								<Button variant="primary" onClick={() => void openTerminal()}>
+								<Button size="sm" variant="primary" onClick={() => void openTerminal()}>
 									New terminal
 								</Button>
 							}

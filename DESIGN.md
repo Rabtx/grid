@@ -189,13 +189,16 @@ all three. Nothing moves on hover except colour; no bounces, no staggered entran
 
 **Standalone icons sit on a tile.** Every icon-only button (`IconButton`, `iconButton()`, the
 composer's add, tools and mic, a menu's icon trigger, a dialog's close) has a soft square behind
-it (`icon-tile`) that deepens on hover and while open; the one primary action in a nav list (New
-chat) shows its icon on a tile too. `variant="bare"` drops the tile only for an icon inside
+it (`icon-tile`) that deepens on hover and while open. Icons beside a label (the sidebar's New chat,
+Inbox, Board…) are part of that row and have no tile. `variant="bare"` drops the tile only for an icon inside
 something that is already a control (a chip). **The button sets its icon's size**, whatever the
 icon asks for: 16px in `sm`/`md` buttons, 14px in `xs`, one step larger on touch (`ICON_SIZE`).
 Tiles share one corner (`rounded-kit`, 8px) and, beside chips or other controls, their height
 (28px on desktop: the composer's add, tools and mic match its model and mode chips). The send
-button is the one round control.
+button is the one round control. A tile is never more than 32px: it is drawn centred in its button, so
+a 44px touch target keeps its full tap area while the tile stays light and clear of the screen
+edge. Empty states use the small button (`size="sm"`); the screen's header keeps the
+primary action.
 
 Focus is keyboard-only (`focus-ring`: a 2px accent outline). Secondary row actions may appear on
 hover on pointer devices but are always visible on touch. Empty states are one short sentence;

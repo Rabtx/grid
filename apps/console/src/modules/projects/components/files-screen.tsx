@@ -236,7 +236,11 @@ function FilesView(): JSX.Element {
 										}
 										action={
 											text().startsWith(NEEDS_FOLDER) ? (
-												<Button variant="primary" onClick={() => workspace.chooseFolderFor(slug())}>
+												<Button
+													size="sm"
+													variant="primary"
+													onClick={() => workspace.chooseFolderFor(slug())}
+												>
 													Choose folder
 												</Button>
 											) : (
@@ -489,7 +493,7 @@ function FilePane(props: {
 													title="Empty file"
 													description="There is nothing in it yet."
 													action={
-														<Button variant="primary" onClick={() => setEditing(true)}>
+														<Button size="sm" variant="primary" onClick={() => setEditing(true)}>
 															Write in it
 														</Button>
 													}

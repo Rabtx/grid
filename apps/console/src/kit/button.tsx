@@ -40,11 +40,11 @@ export const iconButton = variants({
 	base: "focus-ring inline-grid shrink-0 select-none place-items-center rounded-kit transition-[background-color,color,transform] duration-fast ease-out-grid active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40",
 	variants: {
 		variant: {
-			ghost:
-				"icon-tile text-fg-muted hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg",
+			ghost: "icon-tile text-fg-muted hover:text-fg aria-expanded:text-fg",
 			bare: "text-fg-subtle hover:bg-fill hover:text-fg",
 			secondary: "surface-outline text-fg-muted hover:bg-fill hover:text-fg",
-			danger: "icon-tile text-fg-subtle hover:bg-danger/10 hover:text-danger",
+			danger:
+				"icon-tile text-fg-subtle [--tile-hover:color-mix(in_srgb,var(--signal-danger)_12%,transparent)] hover:text-danger",
 		},
 		size: {
 			xs: `size-6 pointer-coarse:size-10 ${ICON_SIZE.xs}`,
