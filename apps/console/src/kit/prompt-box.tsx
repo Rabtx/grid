@@ -80,23 +80,23 @@ export const PROMPT_ADD = `focus-ring grid size-7 shrink-0 place-items-center ro
  * On touch screens send and stop are drawn 32px, the size of the tiles beside them (the mic, the
  * add), and an invisible margin keeps their tap area 40px.
  */
-const TOUCH_32 = "pointer-coarse:size-8 after:absolute after:-inset-1 after:rounded-full";
+const TOUCH_32 = "pointer-coarse:size-8 after:absolute after:-inset-1";
 
 /**
- * The round send button: a quiet, empty circle until there is something to send, then it fills
- * with ink and a lit edge, a little larger, as if it came forward.
+ * The send button: the same shape as the tiles beside it, quiet until there is something to send,
+ * then it fills with ink.
  */
-export const SEND_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${TOUCH_32} ${ICON_SIZE.md}`;
+export const SEND_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-kit bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${TOUCH_32} ${ICON_SIZE.md}`;
 
-/** Stop, in place of send while the agent works: a ring turns around it until it is done. */
-export const STOP_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-full bg-fill-strong text-fg transition-transform duration-fast active:scale-95 ${TOUCH_32} ${ICON_SIZE.md}`;
+/** Stop, in place of send while the agent works: a ring turns inside it until it is done. */
+export const STOP_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-kit bg-fill-strong text-fg transition-transform duration-fast active:scale-95 ${TOUCH_32} ${ICON_SIZE.md}`;
 
-/** The ring turning around the stop button while the agent works. */
+/** The ring turning inside the stop button while the agent works. */
 export function WorkingRing(): JSX.Element {
 	return (
 		<span
 			aria-hidden="true"
-			class="pointer-events-none absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-accent [animation-duration:1.1s] motion-reduce:animate-none"
+			class="pointer-events-none absolute inset-1 animate-spin rounded-full border-2 border-transparent border-t-accent [animation-duration:1.1s] motion-reduce:animate-none"
 		/>
 	);
 }
