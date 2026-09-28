@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { For, onSettled, Show } from "solid-js";
 
 import { attachEdgeFade } from "./edge-fade";
+import { tap } from "./haptics";
 
 export type TabOption<T extends string> = {
 	value: T;
@@ -39,7 +40,10 @@ export function Tabs<T extends string>(props: {
 						type="button"
 						role="tab"
 						aria-selected={props.value === option.value ? "true" : "false"}
-						onClick={() => props.onChange(option.value)}
+						onClick={() => {
+							if (props.value !== option.value) tap();
+							props.onChange(option.value);
+						}}
 						class="focus-ring relative flex h-9 shrink-0 items-center gap-1.5 text-body text-fg-subtle transition-colors duration-fast hover:text-fg aria-selected:text-fg after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent aria-selected:after:bg-fg pointer-coarse:h-11"
 					>
 						{option.icon}
@@ -77,7 +81,10 @@ export function Segmented<T extends string>(props: {
 						aria-pressed={props.value === option.value ? "true" : "false"}
 						title={props.iconsOnly ? option.label : undefined}
 						aria-controls={option.controls}
-						onClick={() => props.onChange(option.value)}
+						onClick={() => {
+							if (props.value !== option.value) tap();
+							props.onChange(option.value);
+						}}
 						class={`focus-ring flex h-[calc(var(--kit-h-control-sm)-0.25rem)] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-kit-sm px-2.5 text-body text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid hover:text-fg aria-pressed:bg-surface aria-pressed:font-medium aria-pressed:text-fg aria-pressed:shadow-knob ${props.block ? "flex-1" : ""}`}
 					>
 						{option.icon}

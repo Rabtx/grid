@@ -1,6 +1,8 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, createUniqueId, For, Show } from "solid-js";
 
+import { tap } from "./haptics";
+
 export type EffortLevel = { id: string; name: string };
 
 /** What each level means, in a few words under the slider. */
@@ -14,14 +16,6 @@ const MEANING: Record<string, string> = {
 	max: "Thinks the longest",
 	ultra: "As hard as it can",
 };
-
-function tick(): void {
-	try {
-		navigator.vibrate?.(8);
-	} catch {
-		// No vibration here; the slider works the same without it.
-	}
-}
 
 /**
  * How hard the model thinks: a segmented control, one segment per level, with an accent knob that
@@ -54,7 +48,7 @@ export function EffortSlider(props: {
 		setDirection(next > index() ? "up" : "down");
 		setMoves((n) => n + 1);
 		props.onChange(level.id);
-		tick();
+		tap();
 	}
 
 	return (

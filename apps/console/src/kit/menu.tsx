@@ -1,7 +1,9 @@
 import type { JSX } from "@solidjs/web";
 import { For, onSettled, Show } from "solid-js";
 
+import { Kbd } from "./badge";
 import { ICON_SIZE } from "./button";
+import { shortcutKeys } from "./keys";
 import { Popover, type Placement, type PopoverControl } from "./popover";
 import { variants } from "./variants";
 
@@ -122,9 +124,11 @@ export function MenuList(props: {
 										when={item.trailing}
 										fallback={
 											<Show when={item.shortcut}>
-												<span class="text-caption text-fg-faint pointer-coarse:hidden">
-													{item.shortcut}
-												</span>
+												{(shortcut) => (
+													<span class="flex shrink-0 items-center gap-0.5 pointer-coarse:hidden">
+														<For each={shortcutKeys(shortcut())}>{(key) => <Kbd>{key}</Kbd>}</For>
+													</span>
+												)}
 											</Show>
 										}
 									>

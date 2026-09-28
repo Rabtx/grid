@@ -53,7 +53,7 @@ export function WorkspaceSwitcher(): JSX.Element {
 					{
 						items: [
 							{ id: "create", label: "Create workspace", icon: <PlusIcon /> },
-							{ id: "settings", label: "Settings", icon: <SettingsIcon />, shortcut: "Ctrl ," },
+							{ id: "settings", label: "Settings", icon: <SettingsIcon />, shortcut: "Mod ," },
 						],
 					},
 				]}

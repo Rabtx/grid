@@ -1,5 +1,7 @@
 import type { JSX } from "@solidjs/web";
 
+import { tap } from "./haptics";
+
 /** An on/off toggle, the accent when on. */
 export function Switch(props: {
 	label: string;
@@ -14,7 +16,10 @@ export function Switch(props: {
 			aria-label={props.label}
 			aria-checked={props.checked ? "true" : "false"}
 			disabled={props.disabled}
-			onClick={() => props.onChange(!props.checked)}
+			onClick={() => {
+				tap();
+				props.onChange(!props.checked);
+			}}
 			class="focus-ring relative inline-flex h-5 w-8.5 shrink-0 items-center rounded-full bg-fill-strong transition-colors duration-fast ease-out-grid aria-checked:bg-accent disabled:opacity-40 pointer-coarse:h-6 pointer-coarse:w-10"
 		>
 			<span
@@ -40,7 +45,10 @@ export function Checkbox(props: {
 				ref={(el) => {
 					el.indeterminate = props.indeterminate ?? false;
 				}}
-				onChange={(event) => props.onChange(event.currentTarget.checked)}
+				onChange={(event) => {
+					tap();
+					props.onChange(event.currentTarget.checked);
+				}}
 				class="peer focus-ring size-4 cursor-pointer appearance-none rounded-kit-xs bg-surface ring-line-strong transition-colors duration-fast checked:bg-inverse checked:shadow-none indeterminate:bg-inverse indeterminate:shadow-none"
 			/>
 			<svg

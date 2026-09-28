@@ -1,6 +1,8 @@
 import type { JSX } from "@solidjs/web";
 import { createUniqueId, For, Show } from "solid-js";
 
+import { tap } from "./haptics";
+
 export type RadioOption<T extends string> = {
 	value: T;
 	label: string;
@@ -33,7 +35,10 @@ export function RadioCards<T extends string>(props: {
 							name={name}
 							value={option.value}
 							checked={props.value === option.value}
-							onChange={() => props.onChange(option.value)}
+							onChange={() => {
+								tap();
+								props.onChange(option.value);
+							}}
 							class="peer sr-only"
 						/>
 						<Show when={option.icon}>
@@ -140,7 +145,10 @@ export function ChoiceChips<T extends string>(props: {
 						<button
 							type="button"
 							aria-pressed={props.value === option.value ? "true" : "false"}
-							onClick={() => props.onChange(option.value)}
+							onClick={() => {
+								tap();
+								props.onChange(option.value);
+							}}
 							class="focus-ring inline-flex h-7 items-center gap-1.5 rounded-kit px-2 text-body text-fg-subtle ring-line-strong transition-colors duration-fast hover:text-fg aria-pressed:bg-fill-strong aria-pressed:text-fg pointer-coarse:h-10"
 						>
 							{option.icon}
@@ -178,7 +186,10 @@ export function ColorSwatches(props: {
 					type="button"
 					aria-pressed={props.value === null ? "true" : "false"}
 					title="Automatic"
-					onClick={() => props.onChange(null)}
+					onClick={() => {
+						tap();
+						props.onChange(null);
+					}}
 					class={`${SWATCH} grid place-items-center border border-line-strong border-dashed text-caption text-fg-subtle`}
 				>
 					A
@@ -190,7 +201,10 @@ export function ColorSwatches(props: {
 							aria-label={swatch.id}
 							title={swatch.id}
 							aria-pressed={props.value === swatch.id ? "true" : "false"}
-							onClick={() => props.onChange(swatch.id)}
+							onClick={() => {
+								tap();
+								props.onChange(swatch.id);
+							}}
 							class={SWATCH}
 							style={{ background: swatch.value }}
 						/>
@@ -240,7 +254,10 @@ export function GlyphChoices<T extends string>(props: {
 						aria-label={props.wide ? undefined : option.label}
 						title={option.label}
 						aria-pressed={props.value === option.value ? "true" : "false"}
-						onClick={() => props.onChange(option.value)}
+						onClick={() => {
+							tap();
+							props.onChange(option.value);
+						}}
 						class={`focus-ring grid place-items-center rounded-kit-md transition-colors duration-fast hover:bg-fill aria-pressed:bg-fill-strong aria-pressed:ring-line-strong ${props.wide ? "h-9 grid-flow-col gap-1.5 px-3 text-body text-fg pointer-coarse:h-11" : "size-9 pointer-coarse:size-11"}`}
 					>
 						{option.glyph}

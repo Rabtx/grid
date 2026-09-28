@@ -72,7 +72,7 @@ export function AccountMenu(): JSX.Element {
 				},
 				{
 					items: [
-						{ id: "settings", label: "Settings", icon: <SettingsIcon />, shortcut: "Ctrl ," },
+						{ id: "settings", label: "Settings", icon: <SettingsIcon />, shortcut: "Mod ," },
 						{ id: "signout", label: "Sign out", icon: <SignOutIcon /> },
 					],
 				},

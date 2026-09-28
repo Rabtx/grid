@@ -536,3 +536,48 @@
 		}
 	}
 }
+
+/*
+ * Loading placeholders: a soft band of light sweeps across them, slowly, all in step. Reduced
+ * motion keeps them still.
+ */
+@layer components {
+	@keyframes kit-shimmer {
+		from {
+			background-position: 150% 0;
+		}
+		to {
+			background-position: -50% 0;
+		}
+	}
+	.kit-shimmer {
+		background-color: var(--kit-fill-strong);
+		background-image: linear-gradient(
+			90deg,
+			transparent 0%,
+			color-mix(in srgb, var(--ink) 5%, transparent) 50%,
+			transparent 100%
+		);
+		background-size: 200% 100%;
+		background-repeat: no-repeat;
+		animation: kit-shimmer 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+	}
+	/* Room for the loading bar's run across the top of the screen. */
+	@keyframes kit-progress {
+		from {
+			translate: -100% 0;
+		}
+		to {
+			translate: 250% 0;
+		}
+	}
+	.kit-progress {
+		animation: kit-progress 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.kit-shimmer,
+		.kit-progress {
+			animation: none;
+		}
+	}
+}

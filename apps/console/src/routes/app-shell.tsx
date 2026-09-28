@@ -1,8 +1,8 @@
-import { useLocation } from "@solidjs/router";
+import { useIsRouting, useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, Show } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
 
-import { AppFrame, AuthFrame, FloatingNotice } from "@/kit";
+import { AppFrame, AuthFrame, FloatingNotice, TopLoadingBar } from "@/kit";
 import { runnerUp } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
 import { inboxStore, waitedOn } from "@/modules/inbox";
@@ -127,6 +127,7 @@ function SignedIn(props: { children: JSX.Element }): JSX.Element {
 					<CreateWorkspaceSheet />
 					<VoiceControls />
 					<ShortcutsHelp />
+					<RouteProgress />
 					<Show when={!runnerUp()}>
 						<FloatingNotice position="top">Runner offline — reconnecting…</FloatingNotice>
 					</Show>
@@ -136,4 +137,25 @@ function SignedIn(props: { children: JSX.Element }): JSX.Element {
 			{props.children}
 		</AppFrame>
 	);
+}
+
+// A switch that settles quicker than this never shows the bar, so fast screens do not flicker.
+const PROGRESS_DELAY_MS = 150;
+
+/** A thin accent bar across the very top of the screen while a screen is still loading. */
+function RouteProgress(): JSX.Element {
+	const routing = useIsRouting();
+	const [shown, setShown] = createSignal(false);
+	createEffect(
+		() => routing(),
+		(busy) => {
+			if (!busy) {
+				setShown(false);
+				return;
+			}
+			const timer = setTimeout(() => setShown(true), PROGRESS_DELAY_MS);
+			return () => clearTimeout(timer);
+		},
+	);
+	return <TopLoadingBar active={shown()} />;
 }
