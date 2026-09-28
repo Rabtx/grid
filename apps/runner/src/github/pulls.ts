@@ -35,7 +35,11 @@ export type PullSummary = {
 	labels: string[];
 	additions: number;
 	deletions: number;
+	/** When it was opened. */
+	createdAt: string;
 	updatedAt: string;
+	/** The commit at the tip of its branch: a new push is a new head. */
+	head: string;
 	url: string;
 };
 
@@ -56,7 +60,6 @@ export type PullDetail = PullSummary & {
 	/** Reviews and comments, oldest first. */
 	conversation: PullComment[];
 	files: { path: string; additions: number; deletions: number }[];
-	createdAt: string;
 	/** It comes from a fork: its branch is in another repository, not on `origin`. */
 	fork: boolean;
 };
@@ -99,7 +102,9 @@ type RawPull = {
 	labels: { name: string }[];
 	additions: number;
 	deletions: number;
+	createdAt: string;
 	updatedAt: string;
+	headRefOid: string;
 	url: string;
 };
 
@@ -130,7 +135,6 @@ type RawDetail = RawPull & {
 	body: string;
 	state: PullDetail["state"];
 	mergeable: string;
-	createdAt: string;
 	files: { path: string; additions: number; deletions: number }[];
 	comments: { author: Person; body: string; createdAt: string }[];
 	reviews: { author: Person; body: string; state: string; submittedAt: string }[];
@@ -154,8 +158,8 @@ const REVIEW_THREADS_QUERY = `query ReviewThreads($owner: String!, $name: String
 }`;
 
 const LIST_FIELDS =
-	"number,title,author,headRefName,baseRefName,isDraft,reviewDecision,statusCheckRollup,labels,additions,deletions,updatedAt,url";
-const DETAIL_FIELDS = `${LIST_FIELDS},body,state,mergeable,createdAt,files,comments,reviews,isCrossRepository`;
+	"number,title,author,headRefName,baseRefName,isDraft,reviewDecision,statusCheckRollup,labels,additions,deletions,createdAt,updatedAt,headRefOid,url";
+const DETAIL_FIELDS = `${LIST_FIELDS},body,state,mergeable,files,comments,reviews,isCrossRepository`;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 
 /** One check, whether GitHub Actions (a check run) or a commit status (a status context). */
@@ -211,7 +215,9 @@ function summary(raw: RawPull): PullSummary {
 		labels: raw.labels.map((label) => label.name),
 		additions: raw.additions,
 		deletions: raw.deletions,
+		createdAt: raw.createdAt,
 		updatedAt: raw.updatedAt,
+		head: raw.headRefOid,
 		url: raw.url,
 	};
 }
@@ -348,7 +354,6 @@ export class PullRequests {
 			checkList,
 			conversation: conversation(raw),
 			files: raw.files ?? [],
-			createdAt: raw.createdAt,
 			fork: raw.isCrossRepository === true,
 		};
 	}

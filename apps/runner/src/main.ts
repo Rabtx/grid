@@ -96,8 +96,8 @@ const githubInbox = new GithubInbox(inbox, {
 		}
 	},
 	foldersOf: (workspaceId) => chat.projectFolders(workspaceId),
-	onEvents: (workspace, ownerId, project, type, itemId) =>
-		automations.event(workspace, ownerId, project, type, itemId),
+	onEvents: (workspace, ownerId, project, type, itemId, openedAt) =>
+		automations.event(workspace, ownerId, project, type, itemId, openedAt),
 	onError: (workspace, ownerId, project, message) =>
 		automations.eventError(workspace, ownerId, project, message),
 	needsOpen: (workspace, ownerId, project) =>

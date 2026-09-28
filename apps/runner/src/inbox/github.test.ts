@@ -34,7 +34,9 @@ const pull = (over: Partial<PullSummary> = {}): PullSummary => ({
 	labels: [],
 	additions: 10,
 	deletions: 1,
+	createdAt: "2026-09-28T08:00:00.000Z",
 	updatedAt: "2026-09-28T09:00:00.000Z",
+	head: "abc123",
 	url: "https://github.com/shabirkhan-dev/grid/pull/12",
 	...over,
 });
@@ -141,6 +143,27 @@ describe("GithubInbox", () => {
 				createdAt: "2026-09-28T09:00:00.000Z",
 				readAt: null,
 			},
+		]);
+		store.close();
+	});
+
+	it("hands jobs each opened pull request with when it opened, and failing checks by head commit", async () => {
+		const root = projectsDir("grid");
+		const events: unknown[][] = [];
+		const answers = { review: [], mine: [pull({ checks: "failing", head: "def456" })] };
+		const pulls = {
+			list: async (_userId: string, _folder: string, filter: PullFilter) =>
+				filter === "open" ? [pull({ number: 20 })] : answers[filter as "review" | "mine"],
+		} as unknown as Pulls;
+		const { store, gh } = inbox(
+			pulls,
+			{ onEvents: (...args) => events.push(args), needsOpen: () => true },
+			{ grid: join(root, "grid") },
+		);
+		await gh.sync("me", "acme", root);
+		expect(events).toEqual([
+			["acme", "me", "grid", "pull_opened", "20", "2026-09-28T08:00:00.000Z"],
+			["acme", "me", "grid", "checks_failed", "12@def456"],
 		]);
 		store.close();
 	});

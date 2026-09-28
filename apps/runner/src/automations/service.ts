@@ -88,13 +88,18 @@ export class Automations {
 		return this.launch(item, "manual", null, null);
 	}
 
-	/** Called only by the existing Inbox GitHub refresh, never by a second poller. */
+	/**
+	 * Called only by the existing Inbox GitHub refresh, never by a second poller. Every refresh
+	 * offers everything still open, so an item a busy job could not take now is taken on a later
+	 * one rather than lost; each item still runs a job at most once.
+	 */
 	event(
 		workspace: string,
 		ownerId: string,
 		project: string,
 		type: EventTrigger["event"],
 		itemId: string,
+		openedAt?: string,
 	): void {
 		for (const item of this.store.list(workspace)) {
 			if (
@@ -104,6 +109,10 @@ export class Automations {
 				!item.triggers.some((trigger) => trigger.kind === "event" && trigger.event === type)
 			)
 				continue;
+			// Pull requests already open when the job was saved or switched on are not new to it.
+			if (type === "pull_opened" && openedAt && Date.parse(openedAt) < Date.parse(item.updatedAt))
+				continue;
+			if (this.store.active(item.id) || this.store.countActive() >= CONCURRENT_LIMIT) continue;
 			try {
 				this.launch(item, "event", null, `${type}:${project}:${itemId}`);
 			} catch (cause) {

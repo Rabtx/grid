@@ -77,19 +77,15 @@ describe("automation runs", () => {
 		expect(inbox.list("alpha", "bob").items).toHaveLength(0);
 		service.stop();
 	});
-	test("deduplicates GitHub items, skips overlap and caps concurrent runs", () => {
-		const { store, service, created } = setup(true);
+	test("deduplicates GitHub items and caps concurrent runs without losing the item", async () => {
+		const { store, service, created, finish } = setup(true);
 		const items = ["one", "two", "three"].map((name) =>
 			store.create("alpha", "alice", { ...input(), name }),
 		);
 		service.event("alpha", "alice", "grid", "pull_opened", "42");
 		service.event("alpha", "alice", "grid", "pull_opened", "42");
-		expect(items.map((item) => store.runs("alpha", item.id).length)).toEqual([1, 1, 1]);
-		expect(items.map((item) => store.runs("alpha", item.id)[0].status).sort()).toEqual([
-			"running",
-			"running",
-			"skipped",
-		]);
+		// Two run; the third job waits for a free slot instead of burning the item on a skip.
+		expect(items.map((item) => store.runs("alpha", item.id).length)).toEqual([1, 1, 0]);
 		service.runNow(who, items[0].id);
 		expect(
 			store
@@ -97,6 +93,36 @@ describe("automation runs", () => {
 				.some((run) => run.trigger === "manual" && run.status === "skipped"),
 		).toBe(true);
 		expect(created()).toBe(2);
+		finish();
+		await Bun.sleep(1);
+		finish();
+		await Bun.sleep(1);
+		// The next refresh offers the same item again: the waiting job takes it, the others do not.
+		service.event("alpha", "alice", "grid", "pull_opened", "42");
+		expect(
+			items.map((item) => store.runs("alpha", item.id).filter((run) => run.eventKey).length),
+		).toEqual([1, 1, 1]);
+		service.stop();
+	});
+	test("a pull request opened before the job was saved does not run it", () => {
+		const { store, service } = setup();
+		const item = store.create("alpha", "alice", input());
+		const before = new Date(Date.parse(item.updatedAt) - 60_000).toISOString();
+		const after = new Date(Date.parse(item.updatedAt) + 60_000).toISOString();
+		service.event("alpha", "alice", "grid", "pull_opened", "7", before);
+		expect(store.runs("alpha", item.id)).toHaveLength(0);
+		service.event("alpha", "alice", "grid", "pull_opened", "8", after);
+		expect(store.runs("alpha", item.id)).toHaveLength(1);
+		service.stop();
+	});
+	test("failing checks on a new head run the job again", async () => {
+		const { store, service } = setup();
+		const item = store.create("alpha", "alice", input([{ kind: "event", event: "checks_failed" }]));
+		service.event("alpha", "alice", "grid", "checks_failed", "12@aaa");
+		await Bun.sleep(1);
+		service.event("alpha", "alice", "grid", "checks_failed", "12@aaa");
+		service.event("alpha", "alice", "grid", "checks_failed", "12@bbb");
+		expect(store.runs("alpha", item.id)).toHaveLength(2);
 		service.stop();
 	});
 	test("restart marks interrupted runs failed and puts them in the Inbox", () => {

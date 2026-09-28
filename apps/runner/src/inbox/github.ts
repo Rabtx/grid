@@ -19,6 +19,8 @@ export type GithubDeps = {
 		project: string,
 		type: "pull_opened" | "review_requested" | "checks_failed",
 		itemId: string,
+		/** When the pull request was opened, so a job only answers ones opened after it was saved. */
+		openedAt?: string,
 	) => void;
 	onError?: (workspace: string, ownerId: string, project: string, message: string) => void;
 	needsOpen?: (workspace: string, ownerId: string, project: string) => boolean;
@@ -213,7 +215,14 @@ export class GithubInbox {
 				try {
 					const open = await pulls.list(userId, folder, "open");
 					for (const pull of open)
-						this.deps.onEvents(workspaceId, userId, project, "pull_opened", String(pull.number));
+						this.deps.onEvents(
+							workspaceId,
+							userId,
+							project,
+							"pull_opened",
+							String(pull.number),
+							pull.createdAt,
+						);
 				} catch (cause) {
 					console.warn(`[inbox] ${project}: could not check opened pull requests`, cause);
 				}
@@ -221,8 +230,15 @@ export class GithubInbox {
 			for (const pull of reviews)
 				this.deps.onEvents(workspaceId, userId, project, "review_requested", String(pull.number));
 			for (const pull of mine)
+				// Keyed by the head commit: checks failing again after a new push is a new failure.
 				if (pull.checks === "failing")
-					this.deps.onEvents(workspaceId, userId, project, "checks_failed", String(pull.number));
+					this.deps.onEvents(
+						workspaceId,
+						userId,
+						project,
+						"checks_failed",
+						`${pull.number}@${pull.head}`,
+					);
 		}
 		const drafts = draftsFor({ userId, workspaceId }, project, reviews, mine);
 		for (const draft of drafts) this.store.keep(draft);

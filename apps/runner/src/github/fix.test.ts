@@ -18,6 +18,7 @@ const detail: PullDetail = {
 	additions: 10,
 	deletions: 2,
 	updatedAt: "2026-09-27T10:00:00Z",
+	head: "abc123",
 	url: "https://github.com/acme/app/pull/7",
 	body: "Adds **login**.",
 	state: "OPEN",
