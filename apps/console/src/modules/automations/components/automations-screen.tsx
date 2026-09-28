@@ -272,7 +272,7 @@ export function AutomationsScreen(): JSX.Element {
 									title="Let an agent take the recurring work"
 									description="Run a job every morning, every week, or whenever a pull request needs a look. Each run is a thread you can open."
 									action={
-										<Button variant="primary" onClick={() => create()}>
+										<Button size="sm" variant="primary" onClick={() => create()}>
 											<PlusIcon size="sm" /> New automation
 										</Button>
 									}

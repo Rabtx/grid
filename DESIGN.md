@@ -195,7 +195,10 @@ something that is already a control (a chip). **The button sets its icon's size*
 icon asks for: 16px in `sm`/`md` buttons, 14px in `xs`, one step larger on touch (`ICON_SIZE`).
 Tiles share one corner (`rounded-kit`, 8px) and, beside chips or other controls, their height
 (28px on desktop: the composer's add, tools and mic match its model and mode chips). The send
-button is the one round control.
+button is the one round control. On touch screens a tile is drawn 4px inside its 44px target
+(36px visible), so the tap area stays full size while the tile stays light and clear of the
+screen edge. Empty states use the small button (`size="sm"`); the screen's header keeps the
+primary action.
 
 Focus is keyboard-only (`focus-ring`: a 2px accent outline). Secondary row actions may appear on
 hover on pointer devices but are always visible on touch. Empty states are one short sentence;

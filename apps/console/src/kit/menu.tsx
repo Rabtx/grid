@@ -28,7 +28,7 @@ export const menuTrigger = variants({
 		width: { auto: "", fill: "flex-1", full: "w-full" },
 		shape: {
 			default: "",
-			icon: `icon-tile size-8 shrink-0 justify-center px-0 text-fg-muted hover:bg-fill-strong hover:text-fg pointer-coarse:size-11 ${ICON_SIZE.md}`,
+			icon: `icon-tile size-8 shrink-0 justify-center px-0 text-fg-muted hover:text-fg pointer-coarse:size-11 ${ICON_SIZE.md}`,
 		},
 	},
 	defaults: { size: "sm", width: "auto", shape: "default" },
