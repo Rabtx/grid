@@ -175,7 +175,7 @@ export function TaskCard(props: {
 				</a>
 			</Show>
 			<Show when={props.actions}>
-				<div class="absolute top-2 right-2 opacity-0 transition-opacity duration-fast group-hover/card:opacity-100 focus-within:opacity-100 pointer-coarse:hidden">
+				<div class="absolute top-2 right-2 opacity-0 transition-opacity duration-fast group-hover/card:opacity-100 focus-within:opacity-100 pointer-coarse:pointer-events-none pointer-coarse:opacity-0">
 					{props.actions}
 				</div>
 			</Show>

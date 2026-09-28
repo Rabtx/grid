@@ -217,6 +217,14 @@ primary action.
 - Shortcuts show as key caps for this device (`shortcutKeys`: "Mod ," is ⌘ , or Ctrl ,) in menus
   and tooltips; a screen still loading shows the bar across the top (`TopLoadingBar`).
 
+**Touch and the installed app.** Row actions (⋯) are hidden on touch, but the container that
+holds them stays mounted (`pointer-coarse:pointer-events-none`, never `hidden`): a long press opens
+the same menu, and a menu inside a `display: none` parent never shows. On touch the app's chrome is
+not selectable, so a long press is the menu, not a text selection; replies, code, the editor, the
+terminal and fields stay selectable. The browser never zooms the app (the viewport, `touch-action`,
+and Safari's gesture events); Appearance's interface scale is the way to make it bigger. The
+installed app offers home-screen shortcuts and shows the Inbox's unread count on its icon.
+
 Focus is keyboard-only (`focus-ring`: a 2px accent outline). Secondary row actions may appear on
 hover on pointer devices but are always visible on touch. Empty states are one short sentence;
 errors are an inline strip with the concrete reason and a retry.

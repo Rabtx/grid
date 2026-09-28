@@ -77,6 +77,8 @@ export function FilesScreen(): JSX.Element {
 }
 
 function FilesView(): JSX.Element {
+	// Each row's menu by path, so a long press on the row (touch) opens the same menu as its ⋯.
+	const entryMenus = new Map<string, PopoverControl>();
 	const auth = useAuth();
 	const workspace = useWorkspace();
 	const match = useMatch(() => "/files/:slug");
@@ -218,8 +220,14 @@ function FilesView(): JSX.Element {
 											)
 										}
 										actions={(entry) => (
-											<EntryMenu entry={entry} onCreate={setCreating} onRefresh={refresh} />
+											<EntryMenu
+												entry={entry}
+												onCreate={setCreating}
+												onRefresh={refresh}
+												register={(path, control) => entryMenus.set(path, control)}
+											/>
 										)}
+										onMenuAt={(entry, point) => entryMenus.get(entry.path)?.open(point)}
 									/>
 								}
 							>
@@ -318,6 +326,8 @@ function EntryMenu(props: {
 	entry: FolderEntry;
 	onCreate: (request: { kind: ProjectFile["kind"]; in: string }) => void;
 	onRefresh: (path: string) => void;
+	/** Hands over this row's menu, so a long press on the row can open it. */
+	register: (path: string, control: PopoverControl) => void;
 }): JSX.Element {
 	let menu: PopoverControl | undefined;
 	const groups = (): MenuGroup[] => [
@@ -349,6 +359,7 @@ function EntryMenu(props: {
 			pointerOnly
 			control={(control) => {
 				menu = control;
+				props.register(props.entry.path, control);
 			}}
 			onSelect={(id) => {
 				if (id === "new-file") props.onCreate({ kind: "file", in: props.entry.path });

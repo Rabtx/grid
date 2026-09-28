@@ -122,7 +122,7 @@ export function ListRow(props: {
 				<RowText {...props} />
 			</button>
 			<Show when={props.actions}>
-				<div class="absolute top-1.5 right-1.5 opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:hidden">
+				<div class="absolute top-1.5 right-1.5 opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:pointer-events-none pointer-coarse:opacity-0">
 					{props.actions}
 				</div>
 			</Show>
