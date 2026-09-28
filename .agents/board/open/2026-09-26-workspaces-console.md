@@ -5,8 +5,8 @@ type: feature
 from: human
 to: web
 priority: normal
-status: doing
-assignee: web
+status: open
+assignee: none
 reviewer: human
 parent: .agents/plans/api-on-hono.md
 depends_on: [str-workspaces-data, str-workspaces-invites-setup]
@@ -17,7 +17,7 @@ scope:
   - apps/console/src/modules/workspaces/**
 allowed_shared: []
 created: 2026-09-26
-updated: 2026-09-27
+updated: 2026-09-28
 ---
 
 ## What

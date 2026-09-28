@@ -5,7 +5,7 @@ type: feature
 from: human
 to: backend
 priority: high
-status: doing
+status: done
 assignee: backend
 reviewer: human
 parent: none
@@ -129,6 +129,8 @@ These were found in the last reviews; check each and say so here.
 ## Resolution
 
 
+
+Merged to `main` as #142; the board was brought up to date on 2026-09-28.
 Changed:
 - `apps/runner/src/automations/**`: runner SQLite jobs/runs, schedule computation, scheduler, routes, templates and tests.
 - `apps/runner/src/chat/hub.ts`, `apps/runner/src/chat/worktrees.ts`: ordinary chat creation for unattended runs, with async worktree creation and path checks.

@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: normal
-status: doing
+status: done
 assignee: web
 reviewer: human
 parent: none
@@ -72,6 +72,8 @@ same way every other console popover does. Approved by the human owner before co
 
 ## Resolution
 
+
+Merged to `main` as #135; the board was brought up to date on 2026-09-28.
 Done on `agent/web/slash-commands`. Typing `/` at the start of the composer opens the command
 list; it filters as you type, and arrows/Enter/Tab pick while Escape closes.
 

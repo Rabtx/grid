@@ -5,7 +5,7 @@ type: chore
 from: human
 to: backend
 priority: high
-status: doing
+status: done
 assignee: backend
 reviewer: reviewer
 parent: none
@@ -25,7 +25,7 @@ allowed_shared:
   - .github/workflows/ci.yml
   - .github/workflows/cd.yml
 created: 2026-09-27
-updated: 2026-09-27
+updated: 2026-09-28
 ---
 
 ## Objective
@@ -83,3 +83,7 @@ Address the highest-priority release-readiness findings from the project review:
   limit; local and disposable integration validation passed.
 - Do not merge until CI billing is restored and the configured staging/production environment
   secrets are reviewed.
+
+## Resolution
+
+Merged to `main` as #119; the board was brought up to date on 2026-09-28.

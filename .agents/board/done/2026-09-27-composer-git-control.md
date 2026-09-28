@@ -5,7 +5,7 @@ type: feature
 from: human
 to: ui-ux
 priority: high
-status: doing
+status: done
 assignee: ui-ux
 reviewer: human
 parent: none
@@ -22,7 +22,7 @@ scope:
   - apps/console/src/kit/index.ts
   - apps/console/src/app.tsx
 created: 2026-09-27
-updated: 2026-09-27
+updated: 2026-09-28
 ---
 
 ## What
@@ -40,3 +40,7 @@ still start every thread in one from its menu.
   and removed; clean-up of only what holds nothing).
 - Console `vitest run`: 304 pass (git control: switching, creating, choosing a new worktree).
 - Browser on a cloned stack with a scratch repository: the control, its menu and the page.
+
+## Resolution
+
+Merged to `main` as #127; the board was brought up to date on 2026-09-28.

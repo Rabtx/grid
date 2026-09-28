@@ -5,7 +5,7 @@ type: chore
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: web
 reviewer: human
 parent: none
@@ -27,7 +27,7 @@ scope:
 allowed_shared:
   - .github/workflows/**
 created: 2026-09-27
-updated: 2026-09-27
+updated: 2026-09-28
 ---
 
 ## What
@@ -233,4 +233,6 @@ optional by type — but the two paths disagree.
 
 ## Resolution
 
+
+Merged to `main` as #120; the board was brought up to date on 2026-09-28.
 (filled on close)
