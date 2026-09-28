@@ -295,8 +295,8 @@
 /*
  * A standalone icon: a soft square behind it, so an icon button reads as a button and not as a
  * stray glyph. Every icon-only button in the kit sits on one; hover and open deepen the fill.
- * The tile is drawn as a layer behind the icon so that on touch screens it can sit 4px inside the
- * 44px target: the tap area stays full size, the tile reads lighter and clears the screen edge.
+ * The tile is a layer behind the icon, centred and at most 32px: a 44px touch target keeps its
+ * full tap area while the tile stays light and clear of the screen edge.
  * `--tile-hover` sets the hover fill (the danger button tints red).
  */
 @utility icon-tile {
@@ -305,7 +305,9 @@
 	&::before {
 		content: "";
 		position: absolute;
-		inset: 0;
+		/* Centred and never more than 32px, whatever the target: a 44px touch target keeps its
+		   size while the tile stays small. */
+		inset: max(0px, calc(50% - 16px));
 		z-index: -1;
 		border-radius: inherit;
 		background-color: var(--kit-fill);
@@ -317,11 +319,6 @@
 	&:hover::before,
 	&[aria-expanded="true"]::before {
 		background-color: var(--tile-hover, var(--kit-fill-strong));
-	}
-	@media (pointer: coarse) {
-		&:is(button, a)::before {
-			inset: 4px;
-		}
 	}
 }
 

@@ -8,21 +8,20 @@ import {
 	ClockIcon,
 	ConfirmDialog,
 	EmptyState,
+	IconButton,
 	iconButton,
-	ListCard,
 	ListRow,
 	Menu,
 	MoreIcon,
 	notify,
-	Page,
 	PaneHeader,
 	PlusIcon,
 	PullRequestIcon,
 	Row,
-	Section,
 	Skeleton,
 	Stack,
 	StatusDot,
+	Text,
 } from "@/kit";
 import type { PopoverControl } from "@/kit/popover";
 import { workspaceHref } from "@/lib/active-workspace";
@@ -235,12 +234,13 @@ export function AutomationsScreen(): JSX.Element {
 				title="Automations"
 				detail={tally(items())}
 				actions={
-					<Button size="sm" variant="primary" onClick={() => create()}>
-						<PlusIcon size="sm" /> New
-					</Button>
+					<IconButton size="sm" label="New automation" onClick={() => create()}>
+						<PlusIcon />
+					</IconButton>
 				}
 			/>
-			<Page width="md">
+			{/* Rows edge to edge under the header, as Notes and Inbox lay theirs out. */}
+			<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5 pb-safe md:p-2">
 				<Show when={error() && !openId() && !editing()}>
 					<Alert
 						tone="danger"
@@ -256,10 +256,10 @@ export function AutomationsScreen(): JSX.Element {
 				<Show
 					when={loaded()}
 					fallback={
-						<Stack gap={1.5}>
-							<Skeleton class="h-14" />
-							<Skeleton class="h-14" />
-							<Skeleton class="h-14" />
+						<Stack gap={1.5} class="p-1">
+							<Skeleton class="h-12" />
+							<Skeleton class="h-12" />
+							<Skeleton class="h-12" />
 						</Stack>
 					}
 				>
@@ -280,44 +280,38 @@ export function AutomationsScreen(): JSX.Element {
 							</Show>
 						}
 					>
-						<ListCard>
-							<For each={items()}>
-								{(item) => (
-									<AutomationRow
-										item={item}
-										projectName={projectName(item.project)}
-										onOpen={() => void open(item)}
-										onEdit={() => edit(item)}
-										onRun={() => void act("run", item)}
-										onToggle={() => void act("toggle", item)}
-										onDelete={() => setDeleting(item)}
-									/>
-								)}
-							</For>
-						</ListCard>
+						<For each={items()}>
+							{(item) => (
+								<AutomationRow
+									item={item}
+									projectName={projectName(item.project)}
+									onOpen={() => void open(item)}
+									onEdit={() => edit(item)}
+									onRun={() => void act("run", item)}
+									onToggle={() => void act("toggle", item)}
+									onDelete={() => setDeleting(item)}
+								/>
+							)}
+						</For>
 					</Show>
 				</Show>
 
 				<Show when={loaded() && templates().length > 0}>
-					<Section
-						title={items().length ? "Templates" : "Start from a template"}
-						description="A name, instructions and a trigger to begin with; change anything before saving."
-					>
-						<ListCard>
-							<For each={templates()}>
-								{(template) => (
-									<ListRow
-										icon={template.event ? <PullRequestIcon size="sm" /> : <ClockIcon size="sm" />}
-										title={template.name}
-										subtitle={`${describeTrigger(newTrigger(template.event ?? template.cadence ?? "daily"))} · ${template.prompt}`}
-										onClick={() => create(template)}
-									/>
-								)}
-							</For>
-						</ListCard>
-					</Section>
+					<Text size="caption" tone="subtle" class="block px-2.5 pt-4 pb-1">
+						{items().length ? "Templates" : "Start from a template"}
+					</Text>
+					<For each={templates()}>
+						{(template) => (
+							<ListRow
+								icon={template.event ? <PullRequestIcon size="sm" /> : <ClockIcon size="sm" />}
+								title={template.name}
+								subtitle={`${describeTrigger(newTrigger(template.event ?? template.cadence ?? "daily"))} · ${template.prompt}`}
+								onClick={() => create(template)}
+							/>
+						)}
+					</For>
 				</Show>
-			</Page>
+			</div>
 
 			<Show when={opened()}>
 				{(item) => (
