@@ -12,6 +12,7 @@ parent: str-slash-commands
 depends_on: []
 branch: agent/backend/agent-commands
 worktree: ../grid-worktrees/agent/backend/agent-commands
+pull_request: https://github.com/shabirkhan-dev/grid/pull/138
 scope:
   - apps/runner/src/agents/**
   - apps/runner/src/chat/hub.ts
@@ -39,6 +40,8 @@ Notes:
     is now optional. No test file was rewritten.
   - `apps/console/src/modules/chat/components/composer.tsx` is NOT touched: another agent owns it
     (`str-composer-plus`). The menu already accepts a grouped list, so nothing there is needed.
+  - Review: human, through PR #138. `apps/runner/src/chat/routes.ts` and `components/chat-screen.tsx`
+    needed no functional change (see Resolution) — chat-screen is a comment only.
 created: 2026-09-28
 updated: 2026-09-28
 ---
