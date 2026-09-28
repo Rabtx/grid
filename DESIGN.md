@@ -210,6 +210,12 @@ primary action.
 - Times like "2m" and "in 13 h" stay current: the time helpers read the shared clock (`lib/clock`).
 - Switching theme, accent or depth cross-fades the screen; sliders stay instant; reduced motion
   switches without it.
+- Choices land with a tiny vibration on phones (`tap()` in switches, segments, option cards,
+  swatches and sheets swiped away).
+- Toasts carry an icon for their kind (done, failed, info) and swipe away on touch.
+- Loading placeholders shimmer (`kit-shimmer`); loading bars run a short bar along their line.
+- Shortcuts show as key caps for this device (`shortcutKeys`: "Mod ," is ⌘ , or Ctrl ,) in menus
+  and tooltips; a screen still loading shows the bar across the top (`TopLoadingBar`).
 
 Focus is keyboard-only (`focus-ring`: a 2px accent outline). Secondary row actions may appear on
 hover on pointer devices but are always visible on touch. Empty states are one short sentence;

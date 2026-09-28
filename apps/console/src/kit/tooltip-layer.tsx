@@ -1,17 +1,13 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, onSettled, Show } from "solid-js";
 
+import { shortcutKeys } from "./keys";
+
 type Tip = { text: string; shortcut?: string; x: number; top: number; bottom: number };
 
 const DELAY_MS = 450;
 const GAP = 6;
 const EDGE = 8;
-
-/** The platform's key for shortcuts: ⌘ on Apple devices, Ctrl elsewhere. */
-function platformKeys(shortcut: string): string {
-	const apple = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
-	return shortcut.replace("Mod", apple ? "⌘" : "Ctrl+");
-}
 
 /**
  * The one tooltip for the whole console, for pointers: resting on anything marked
@@ -45,7 +41,9 @@ export function TooltipLayer(): JSX.Element {
 				const rect = found.getBoundingClientRect();
 				setTip({
 					text,
-					shortcut: found.dataset.shortcut ? platformKeys(found.dataset.shortcut) : undefined,
+					shortcut: found.dataset.shortcut
+						? shortcutKeys(found.dataset.shortcut).join(" ")
+						: undefined,
 					x: rect.left + rect.width / 2,
 					top: rect.top,
 					bottom: rect.bottom,

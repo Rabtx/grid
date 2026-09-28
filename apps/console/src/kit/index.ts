@@ -48,6 +48,7 @@ export {
 	UsageBar,
 	WorkingDots,
 	LoadingBar,
+	TopLoadingBar,
 } from "./feedback";
 export { attachContextMenu, LONG_PRESS_MS, type MenuPoint } from "./context-menu";
 export { AppFrame, AuthFrame } from "./frame";

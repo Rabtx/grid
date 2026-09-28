@@ -1,3 +1,4 @@
+import { tap } from "./haptics";
 import { followFinger, shouldDismiss, SWIPE_SLOP_PX, type SwipeDirection } from "./swipe";
 
 // Controls that own their own drag: swiping on them must not move the sheet.
@@ -100,7 +101,10 @@ export function attachSwipe(
 		sheet.style.transition = "";
 		sheet.style.translate = "";
 		reset();
-		if (dismiss) onDismiss();
+		if (dismiss) {
+			tap();
+			onDismiss();
+		}
 	};
 	sheet.addEventListener("touchend", release);
 	sheet.addEventListener("touchcancel", release);

@@ -97,7 +97,7 @@ export function Skeleton(props: { class?: string; circle?: boolean }): JSX.Eleme
 	return (
 		<span
 			aria-hidden="true"
-			class={`block animate-pulse bg-fill-strong ${props.circle ? "rounded-full" : "rounded-kit"} ${props.class ?? "h-4"}`}
+			class={`kit-shimmer block ${props.circle ? "rounded-full" : "rounded-kit"} ${props.class ?? "h-4"}`}
 		/>
 	);
 }
