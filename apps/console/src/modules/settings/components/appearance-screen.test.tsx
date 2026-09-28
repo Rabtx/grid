@@ -147,8 +147,8 @@ describe("AppearanceScreen", () => {
 		await settle();
 		expect(document.documentElement.style.getPropertyValue("--hue")).toBe("120");
 
-		const restore = [...container.querySelectorAll("button")].find((button) =>
-			button.textContent?.includes("Restore defaults"),
+		const restore = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Restore defaults"]',
 		);
 		expect(restore).toBeDefined();
 		restore?.click();

@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { Loading, Show } from "solid-js";
 
-import { EditIcon, IconButton, MenuIcon, PlusIcon, Row, SidebarIcon, Text } from "@/kit";
+import { EditIcon, IconButton, MenuIcon, Row, SidebarIcon, Text } from "@/kit";
 import { useWorkspace } from "@/modules/projects";
 
 import { useShell } from "../context/shell-context";
@@ -59,38 +59,23 @@ function Heading(): JSX.Element {
 }
 
 /**
- * The phone bar's one action, in thumb reach: a new task on the board, a new chat everywhere
- * else. The project's other pages are a tap away in the drawer.
+ * The phone bar's one action, in thumb reach and the same on every screen: a new chat. A screen's
+ * own actions (a new task, a new note) sit in its pane header.
  */
 function PhoneAction(): JSX.Element {
 	const workspace = useWorkspace();
-	const location = useLocation();
 	const navigate = useNavigate();
-	const onBoard = () => location.pathname.startsWith("/board/") && workspace.activeSlug();
 
 	return (
-		<Show
-			when={onBoard()}
-			fallback={
-				<IconButton
-					label="New chat"
-					onClick={() => {
-						const slug = workspace.currentSlug();
-						navigate(slug ? `/chat/${slug}` : "/chat");
-					}}
-				>
-					<EditIcon size="lg" />
-				</IconButton>
-			}
+		<IconButton
+			label="New chat"
+			onClick={() => {
+				const slug = workspace.currentSlug();
+				navigate(slug ? `/chat/${slug}` : "/chat");
+			}}
 		>
-			<IconButton
-				label="New task"
-				aria-haspopup="dialog"
-				onClick={() => workspace.setNewTaskOpen(true)}
-			>
-				<PlusIcon size="lg" />
-			</IconButton>
-		</Show>
+			<EditIcon />
+		</IconButton>
 	);
 }
 

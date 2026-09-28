@@ -136,13 +136,16 @@ export function PullsScreen(): JSX.Element {
 								<Show
 									when={NEEDS_FOLDER.test(reason())}
 									fallback={
-										<div class="flex flex-col gap-2 p-2">
-											<Alert tone="danger" title={reason()} />
-											<div>
-												<Button size="sm" onClick={() => setRevision((n) => n + 1)}>
-													Try again
-												</Button>
-											</div>
+										<div class="p-2">
+											<Alert
+												tone="danger"
+												title={reason()}
+												action={
+													<Button size="sm" onClick={() => setRevision((n) => n + 1)}>
+														Try again
+													</Button>
+												}
+											/>
 										</div>
 									}
 								>

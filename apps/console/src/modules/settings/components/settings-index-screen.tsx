@@ -2,7 +2,7 @@ import { useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { For, onSettled } from "solid-js";
 
-import { ChevronRightIcon, ListCard, NavLink, Page, PageHeader, Section } from "@/kit";
+import { ChevronRightIcon, ListCard, NavLink, Page, PaneHeader, Section } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
 
 import { SETTINGS_SECTIONS } from "../lib/pages";
@@ -24,28 +24,30 @@ export function SettingsIndexScreen(): JSX.Element {
 	});
 
 	return (
-		<Page width="sm">
-			<PageHeader title="Settings" />
-			<For each={SETTINGS_SECTIONS}>
-				{(section) => (
-					<Section title={section.label}>
-						<ListCard>
-							<div class="flex flex-col gap-px p-1">
-								<For each={section.pages}>
-									{(page) => (
-										<NavLink
-											href={workspaceHref(page.href)}
-											icon={settingsIcon(page.href)}
-											label={page.label}
-											trailing={<ChevronRightIcon size="xs" class="text-fg-faint" />}
-										/>
-									)}
-								</For>
-							</div>
-						</ListCard>
-					</Section>
-				)}
-			</For>
-		</Page>
+		<div class="flex min-h-0 flex-1 flex-col">
+			<PaneHeader title="Settings" />
+			<Page width="sm">
+				<For each={SETTINGS_SECTIONS}>
+					{(section) => (
+						<Section title={section.label}>
+							<ListCard>
+								<div class="flex flex-col gap-px p-1">
+									<For each={section.pages}>
+										{(page) => (
+											<NavLink
+												href={workspaceHref(page.href)}
+												icon={settingsIcon(page.href)}
+												label={page.label}
+												trailing={<ChevronRightIcon size="xs" class="text-fg-faint" />}
+											/>
+										)}
+									</For>
+								</div>
+							</ListCard>
+						</Section>
+					)}
+				</For>
+			</Page>
+		</div>
 	);
 }

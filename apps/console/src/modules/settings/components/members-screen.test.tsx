@@ -92,7 +92,7 @@ describe("MembersScreen", () => {
 		expect(container.textContent).toContain("Demo (you)");
 		expect(container.textContent).toContain("Sam Lee");
 		expect(container.textContent).toContain("Invite link");
-		expect(buttonWith("Invite")).toBeTruthy();
+		expect(document.querySelector('button[aria-label="Invite people"]')).toBeTruthy();
 	});
 
 	it("shows a plain member the people only", async () => {
@@ -130,7 +130,7 @@ describe("MembersScreen", () => {
 		});
 		mount();
 		await settle();
-		[...document.querySelectorAll("button")].find((b) => b.textContent === "Invite")?.click();
+		document.querySelector<HTMLButtonElement>('button[aria-label="Invite people"]')?.click();
 		await settle();
 		buttonWith("Create link")?.click();
 		await settle();

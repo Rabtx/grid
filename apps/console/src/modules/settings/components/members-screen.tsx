@@ -7,6 +7,7 @@ import {
 	Badge,
 	Button,
 	ConfirmDialog,
+	IconButton,
 	LinkIcon,
 	ListCard,
 	ListRow,
@@ -162,18 +163,17 @@ export function MembersScreen(): JSX.Element {
 			description={`Who is in ${workspaces.current()?.name ?? "this workspace"} and what they can do.`}
 			actions={
 				<Show when={admin()}>
-					<Button
+					<IconButton
 						size="sm"
-						variant="primary"
-						icon={<UserAddIcon size="sm" />}
+						label="Invite people"
 						onClick={() => {
 							setCreated(null);
 							setSheetError(null);
 							setInviting(true);
 						}}
 					>
-						Invite
-					</Button>
+						<UserAddIcon />
+					</IconButton>
 				</Show>
 			}
 		>

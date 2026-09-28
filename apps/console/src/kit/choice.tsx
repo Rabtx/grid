@@ -167,13 +167,13 @@ export function ColorSwatches(props: {
 }): JSX.Element {
 	const custom = () => (props.value?.startsWith("#") ? props.value : null);
 	const SWATCH =
-		"focus-ring size-7 rounded-full aria-pressed:ring-2 aria-pressed:ring-fg aria-pressed:ring-offset-2 aria-pressed:ring-offset-surface-raised pointer-coarse:size-9";
+		"focus-ring size-7 rounded-full aria-pressed:ring-2 aria-pressed:ring-fg aria-pressed:ring-offset-2 aria-pressed:ring-offset-surface-raised pointer-coarse:size-8";
 	return (
 		<fieldset class="flex min-w-0 flex-col gap-2 border-0 p-0">
 			<legend class={props.labelHidden ? "sr-only" : "mb-2 font-medium text-body text-fg"}>
 				{props.label}
 			</legend>
-			<div class="flex flex-wrap items-center gap-2">
+			<div class="flex flex-wrap items-center gap-2 pointer-coarse:gap-1.5">
 				<button
 					type="button"
 					aria-pressed={props.value === null ? "true" : "false"}

@@ -4,6 +4,7 @@ import {
 	Badge,
 	Button,
 	ColorSwatches,
+	IconButton,
 	playArrival,
 	Input,
 	RestoreIcon,
@@ -72,9 +73,9 @@ export function AppearanceScreen(): JSX.Element {
 			title="Appearance"
 			description="These settings are saved on this device."
 			actions={
-				<Button variant="ghost" icon={<RestoreIcon size="sm" />} onClick={() => resetAppearance()}>
-					Restore defaults
-				</Button>
+				<IconButton size="sm" label="Restore defaults" onClick={() => resetAppearance()}>
+					<RestoreIcon />
+				</IconButton>
 			}
 		>
 			<SettingsGroup
