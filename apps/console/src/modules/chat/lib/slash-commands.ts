@@ -1,5 +1,7 @@
 import { createMemo, createSignal } from "solid-js";
 
+import type { AgentCommand } from "../types/chat.types";
+
 import { matchSubsequence } from "./file-mentions";
 
 /** Who offers a command: Grid itself, or the agent it is written to. */
@@ -56,6 +58,27 @@ export const GRID_COMMANDS: readonly SlashCommand[] = [
 	}),
 	grid({ id: "clear", name: "clear", description: "Clear the composer" }),
 ];
+
+const GRID_NAMES = new Set(GRID_COMMANDS.map((command) => command.name));
+
+/**
+ * The agent's own commands, as the composer's list. They sit under the agent's name and are sent
+ * to it as typed. A name Grid also has is the agent's, not Grid's: it is listed and typed with the
+ * agent's id in front, and the runner takes that off again before the agent sees it.
+ */
+export function agentCommands(
+	commands: readonly AgentCommand[],
+	agent: { id: string; name: string },
+): SlashCommand[] {
+	return commands.map((command) => ({
+		id: `${agent.id}:${command.name}`,
+		name: GRID_NAMES.has(command.name.toLowerCase()) ? `${agent.id}:${command.name}` : command.name,
+		description: command.description,
+		...(command.hint ? { argument: command.hint } : {}),
+		group: agent.name,
+		kind: "agent",
+	}));
+}
 
 /** What a composer can offer right now: a running turn, a catalog, a project to file into. */
 export type SlashCommandContext = {

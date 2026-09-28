@@ -19,6 +19,9 @@ export type ToolStatus = "pending" | "running" | "completed" | "failed";
 
 export type PlanEntry = { text: string; status: "pending" | "in_progress" | "completed" };
 
+/** A command an agent offers, as the runner reports it (apps/runner/src/agents/events.ts). */
+export type AgentCommand = { name: string; description: string; hint?: string };
+
 export type ApprovalOption = { id: string; label: string; kind: "allow" | "allow_always" | "deny" };
 
 export type ChatEvent =
@@ -66,6 +69,11 @@ export type ChatEvent =
 			effort?: string;
 	  }
 	| { type: "error"; message: string }
+	/**
+	 * What the agent can be asked to do right now, for the composer's `/` menu. It is not part of
+	 * the conversation: the runner sends it on attach and whenever it changes, and never logs it.
+	 */
+	| { type: "commands"; commands: AgentCommand[] }
 	/** The turn's reply restated exactly: replaces the text and reasoning shown since the message. */
 	| { type: "turn_rewrite"; events: TurnEvent[] };
 

@@ -181,6 +181,37 @@ describe("connectChat", () => {
 		expect(sockets).toHaveLength(2);
 	});
 
+	it("passes on an event that carries no journal number, and leaves the cursor alone", () => {
+		const { sockets, events, live } = setup();
+		sockets[0].accept();
+		sockets[0].receive(
+			JSON.stringify({
+				t: "ready",
+				session: mockSession,
+				history: [{ type: "user", text: "hi" }],
+				running: false,
+				cursor: { epoch: "run-1", next: 1 },
+			}),
+		);
+		expect(live.cursor()).toEqual({ epoch: "run-1", next: 1 });
+
+		// The agent's command list is not in the log, so it arrives with no number of its own.
+		sockets[0].receive(
+			JSON.stringify({
+				t: "event",
+				event: { type: "commands", commands: [{ name: "compact", description: "Summarise" }] },
+			}),
+		);
+		expect(events.at(-1)).toEqual({
+			type: "commands",
+			commands: [{ name: "compact", description: "Summarise" }],
+		});
+		// The next real event is still the one the cursor is waiting for.
+		expect(live.cursor()).toEqual({ epoch: "run-1", next: 1 });
+		sockets[0].receive(JSON.stringify({ t: "event", event: { type: "turn_start" }, n: 1 }));
+		expect(live.cursor()).toEqual({ epoch: "run-1", next: 2 });
+	});
+
 	it("sends heartbeat ping every 20s and ignores pong", () => {
 		const { sockets } = setup();
 		sockets[0].accept();

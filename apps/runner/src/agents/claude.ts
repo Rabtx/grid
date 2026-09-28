@@ -1,7 +1,8 @@
 import { homedir } from "node:os";
 
 import { cached, effortChoices } from "./catalog";
-import { type Choice, clip, type PlanEntry, type ToolKind } from "./events";
+import { agentCommands } from "./commands";
+import { type AgentCommand, type Choice, clip, type PlanEntry, type ToolKind } from "./events";
 import { diffTexts, type FileDiff } from "./diff";
 import type { AgentContext, AgentSession, Provider, ProviderInfo, TurnResult } from "./provider";
 import { type JsonProcess, type Spawn, spawnJsonProcess } from "./stdio";
@@ -96,6 +97,69 @@ function listClaudeModels(binary: string, spawn: Spawn): Promise<Choice[]> {
 	});
 }
 
+/** The commands Claude Code reports, as it reports them: name, description and argument hint. */
+type ListedCommand = { name?: string; description?: string; argumentHint?: string };
+
+/**
+ * Claude Code's command list as menu entries. The CLI answers its `initialize` control request
+ * with every command it can run in this folder — its own, the ones in `~/.claude`, and the
+ * project's `.claude/commands` — so nothing is read off disk and nothing is made up here.
+ */
+export function claudeCommandChoices(commands: unknown): AgentCommand[] {
+	return agentCommands(
+		(Array.isArray(commands) ? commands : []).map((command) => {
+			const listed = command as ListedCommand;
+			return {
+				name: listed?.name,
+				description: listed?.description,
+				hint: listed?.argumentHint,
+			};
+		}),
+	);
+}
+
+/** How long a command list is waited for before the agent is treated as having none. */
+const TIMEOUT_MS = 30_000;
+
+/**
+ * Ask a short-lived Claude Code process, in the project's folder, which commands it offers. The
+ * `initialize` control request answers with the list, so no conversation is started and nothing is
+ * spent. A CLI that does not answer leaves the thread with Grid's commands only.
+ */
+function listClaudeCommands(binary: string, spawn: Spawn, cwd: string): Promise<AgentCommand[]> {
+	return new Promise((resolve) => {
+		let proc: JsonProcess | null = null;
+		const done = (commands: AgentCommand[]) => {
+			clearTimeout(timer);
+			proc?.kill();
+			resolve(commands);
+		};
+		// An agent that will not say in half a minute is one with no list to give; say so, so a
+		// missing group can be told from a broken one.
+		const timer = setTimeout(() => {
+			console.warn(`[runner] Claude did not list its commands within ${TIMEOUT_MS}ms`);
+			done([]);
+		}, TIMEOUT_MS);
+		proc = spawn(claudeArgs(binary, {}), {
+			cwd,
+			onMessage: (raw) => {
+				const message = raw as {
+					type?: string;
+					response?: { request_id?: string; response?: { commands?: unknown } };
+				};
+				if (message.type !== "control_response" || message.response?.request_id !== "grid-init")
+					return;
+				done(claudeCommandChoices(message.response.response?.commands));
+			},
+		});
+		proc.send({
+			type: "control_request",
+			request_id: "grid-init",
+			request: { subtype: "initialize" },
+		});
+	});
+}
+
 const MODES: Choice[] = [
 	{ id: "default", name: "Ask", description: "Ask before editing files or running commands" },
 	{
@@ -125,7 +189,20 @@ export function claudeProvider(options: {
 	return {
 		info,
 		catalog: async (fresh) => ({ models: await models(fresh), modes: MODES }),
-		start: async (context) => startClaudeSession(options.binary, spawn, context),
+		start: async (context) => {
+			const session = await startClaudeSession(options.binary, spawn, context);
+			// Asked for beside the session, not before it: the thread opens at once and gains its
+			// list when the CLI answers. A CLI that lists none gets Grid's commands only.
+			void listClaudeCommands(options.binary, spawn, context.cwd)
+				.then((list) => context.emit({ type: "commands", commands: list }))
+				.catch((cause: unknown) => {
+					console.warn(
+						"[runner] Claude could not be asked for its commands:",
+						cause instanceof Error ? cause.message : cause,
+					);
+				});
+			return session;
+		},
 	};
 }
 

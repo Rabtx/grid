@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 
 import { acpProvider } from "../agents/acp";
 import { claudeArgs, claudeProvider } from "../agents/claude";
-import type { ChatEvent } from "../agents/events";
+import type { AgentCommand, ChatEvent } from "../agents/events";
 import type { Provider } from "../agents/provider";
 import type { JsonProcess, Spawn } from "../agents/stdio";
 import { ChatHub } from "./hub";
@@ -15,8 +15,12 @@ function fakeSpawn(
 ) {
 	const sent: Record<string, unknown>[] = [];
 	const commands: string[][] = [];
-	const spawn: Spawn = (command, { onMessage }) => {
+	const folders: string[] = [];
+	let push: (message: unknown) => void = () => undefined;
+	const spawn: Spawn = (command, { onMessage, cwd }) => {
 		commands.push(command);
+		folders.push(cwd);
+		push = (message) => onMessage(message);
 		let resolveExit: (code: number) => void = () => {};
 		const proc: JsonProcess = {
 			send: (message) => {
@@ -30,7 +34,14 @@ function fakeSpawn(
 		};
 		return proc;
 	};
-	return { spawn, sent, commands };
+	return {
+		spawn,
+		sent,
+		commands,
+		folders,
+		/** Something the agent says on its own, as a running agent would. */
+		push: (message: unknown) => push(message),
+	};
 }
 
 function collector() {
@@ -110,6 +121,61 @@ describe("ACP adapter", () => {
 		}
 	});
 
+	it("reports the commands the agent offers, and nothing for an agent that offers none", async () => {
+		const { events, context } = collector();
+		const session = await acpProvider({
+			id: "fake",
+			name: "Fake",
+			command: ["fake", "acp"],
+			available: () => true,
+			spawn: acp.spawn,
+		}).start(context);
+
+		acp.push({
+			jsonrpc: "2.0",
+			method: "session/update",
+			params: {
+				sessionId: "s1",
+				update: {
+					sessionUpdate: "available_commands_update",
+					availableCommands: [
+						{ name: "compact", description: "Summarise the conversation" },
+						{
+							name: "design",
+							description: "Make a new Design artifact",
+							input: { hint: "[what]" },
+						},
+						{ name: "compact", description: "Listed twice" },
+						{ name: "not a command", description: "A space is not typeable" },
+						{ name: "quiet" },
+					],
+				},
+			},
+		});
+		// A list that is not an array, or is empty, is an agent with no commands — not a failure.
+		acp.push({
+			jsonrpc: "2.0",
+			method: "session/update",
+			params: {
+				sessionId: "s1",
+				update: { sessionUpdate: "available_commands_update", availableCommands: "nonsense" },
+			},
+		});
+		await Bun.sleep(5);
+
+		expect(events.filter((event) => event.type === "commands")).toEqual([
+			{
+				type: "commands",
+				commands: [
+					{ name: "compact", description: "Summarise the conversation" },
+					{ name: "design", description: "Make a new Design artifact", hint: "[what]" },
+				],
+			},
+			{ type: "commands", commands: [] },
+		]);
+		session.close();
+	});
+
 	it("maps sessions, models, tool calls, approvals and replies onto chat events", async () => {
 		const { events, tokens, context } = collector();
 		const provider = acpProvider({
@@ -182,6 +248,93 @@ describe("Claude adapter", () => {
 			"abc",
 		]);
 		expect(claudeArgs("claude", { model: "default" })).not.toContain("--model");
+	});
+
+	it("reports the commands from the initialize response, with their argument hints", async () => {
+		// What Claude Code 2.1.280 answers to `initialize` (recorded, then trimmed here): its own
+		// commands, a user's, a plugin's, and what each one takes.
+		const claude = fakeSpawn((message, reply) => {
+			if (message.type !== "control_request") return;
+			const { request_id, request } = message as {
+				request_id: string;
+				request: { subtype: string };
+			};
+			if (request.subtype !== "initialize") return;
+			reply({
+				type: "control_response",
+				response: {
+					subtype: "success",
+					request_id,
+					response: {
+						commands: [
+							{ name: "compact", description: "Compact the conversation", argumentHint: "" },
+							{
+								name: "design",
+								description: "Make a new Design artifact from a brief",
+								argumentHint: "[what to design]",
+								builtin: true,
+							},
+							{
+								name: "diagnose-crash",
+								description: "Diagnose why a program crashed (user)",
+								argumentHint: "",
+							},
+							{ name: "anthropic-skills:pdf", description: "PDFs", builtin: true },
+							{ name: "bad name", description: "A space is not typeable" },
+						],
+					},
+				},
+			});
+		});
+		const { events, context } = collector();
+		const session = await claudeProvider({
+			binary: "claude",
+			available: () => true,
+			spawn: claude.spawn,
+		}).start(context);
+		await Bun.sleep(5);
+
+		expect(events.find((event) => event.type === "commands")).toEqual({
+			type: "commands",
+			commands: [
+				{ name: "compact", description: "Compact the conversation" },
+				{
+					name: "design",
+					description: "Make a new Design artifact from a brief",
+					hint: "[what to design]",
+				},
+				{ name: "diagnose-crash", description: "Diagnose why a program crashed (user)" },
+				{ name: "anthropic-skills:pdf", description: "PDFs" },
+			],
+		});
+		// One short-lived process, in the project's folder so the project's own commands are in the
+		// answer. The thread's own process is not started by asking, so a list costs no session.
+		expect(claude.commands).toEqual([claudeArgs("claude", {})]);
+		expect(claude.folders).toEqual(["/tmp"]);
+		session.close();
+	});
+
+	it("asks for nothing in particular, or an answer that is not a list, and offers nothing", async () => {
+		const claude = fakeSpawn((message, reply) => {
+			if (message.type !== "control_request") return;
+			const { request_id } = message as { request_id: string };
+			reply({
+				type: "control_response",
+				response: { subtype: "success", request_id, response: { commands: "nonsense" } },
+			});
+		});
+		const { events, context } = collector();
+		const session = await claudeProvider({
+			binary: "claude",
+			available: () => true,
+			spawn: claude.spawn,
+		}).start(context);
+		await Bun.sleep(5);
+		expect(events.find((event) => event.type === "commands")).toEqual({
+			type: "commands",
+			commands: [],
+		});
+		session.close();
 	});
 
 	it("streams text, asks before tools, and ends the turn with usage", async () => {
@@ -363,6 +516,103 @@ describe("ChatHub", () => {
 		expect(stranger.history.length).toBeGreaterThan(0);
 	});
 
+	/** A provider that reports a command list on the first turn, and says what it was sent. */
+	function commandsProvider(list: AgentCommand[] | null) {
+		const sent: string[] = [];
+		const provider: Provider = {
+			info: () => ({ id: "echo", name: "Echo", available: true, models: [], modes: [] }),
+			start: async (context) => {
+				if (list) context.emit({ type: "commands", commands: list });
+				return {
+					prompt: async (text) => {
+						sent.push(text);
+						return { reason: "done" };
+					},
+					cancel: () => {},
+					approve: () => {},
+					setModel: async () => {},
+					setMode: async () => {},
+					setEffort: async () => {},
+					close: () => {},
+				};
+			},
+		};
+		return { provider, sent };
+	}
+
+	const COMMANDS: AgentCommand[] = [
+		{ name: "compact", description: "Summarise the conversation" },
+		{ name: "clear", description: "Clear the screen" },
+	];
+
+	it("keeps the agent's commands out of the log, and sends the list to a device that attaches", async () => {
+		const chat = new ChatHub(
+			new ChatStore(":memory:"),
+			new Map([["echo", commandsProvider(COMMANDS).provider]]),
+			tmpdir(),
+		);
+		const session = chat.create(
+			{ userId: "me", workspace: "me" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
+		// A device that was here for the first turn: the list arrived, unnumbered.
+		const first: { event: ChatEvent; n?: number }[] = [];
+		const watching = chat.attach("me", session.id, {
+			event: (event, n) => first.push({ event, n }),
+			state: () => {},
+		});
+		await chat.prompt("me", session.id, "hello");
+		expect(first.filter((item) => item.event.type === "commands")).toEqual([
+			{ event: { type: "commands", commands: COMMANDS }, n: undefined },
+		]);
+		watching.detach();
+
+		// A second device, and one after the agent is parked: both are given the current list.
+		const late: ChatEvent[] = [];
+		const back = chat.attach("me", session.id, {
+			event: (event) => late.push(event),
+			state: () => {},
+		});
+		expect(late).toEqual([{ type: "commands", commands: COMMANDS }]);
+		// The list is not part of the conversation, so it is not in the log the device replays.
+		expect(back.history.map((event) => event.type)).toEqual(["user", "turn_start", "turn_end"]);
+	});
+
+	it("tells every device watching when the list changes, and a thread whose agent offers none gets none", async () => {
+		const { provider } = commandsProvider(null);
+		const chat = new ChatHub(new ChatStore(":memory:"), new Map([["echo", provider]]), tmpdir());
+		const session = chat.create(
+			{ userId: "me", workspace: "me" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
+		const one: ChatEvent[] = [];
+		const two: ChatEvent[] = [];
+		chat.attach("me", session.id, { event: (event) => one.push(event), state: () => {} });
+		chat.attach("me", session.id, { event: (event) => two.push(event), state: () => {} });
+		await chat.prompt("me", session.id, "hello");
+		expect(one.some((event) => event.type === "commands")).toBe(false);
+		expect(two.some((event) => event.type === "commands")).toBe(false);
+	});
+
+	it("sends an agent command the menu prefixed as the agent typed it", async () => {
+		const { provider, sent } = commandsProvider(COMMANDS);
+		const chat = new ChatHub(new ChatStore(":memory:"), new Map([["echo", provider]]), tmpdir());
+		const session = chat.create(
+			{ userId: "me", workspace: "me" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
+		chat.attach("me", session.id, { event: () => {}, state: () => {} });
+		await chat.prompt("me", session.id, "/echo:clear");
+		await chat.prompt("me", session.id, "/compact the first ten messages");
+		await chat.prompt("me", session.id, "ask /echo:compact about this");
+		expect(sent).toEqual([
+			"/clear",
+			"/compact the first ten messages",
+			// A prefix in the middle of a message is the person's own text, not a command.
+			"ask /echo:compact about this",
+		]);
+	});
+
 	it("numbers live events for the devices watching", async () => {
 		const chat = hub();
 		const session = chat.create(
@@ -371,7 +621,7 @@ describe("ChatHub", () => {
 		);
 		const numbers: number[] = [];
 		const watching = chat.attach("me", session.id, {
-			event: (_event, n) => numbers.push(n),
+			event: (_event, n) => numbers.push(n ?? -1),
 			state: () => {},
 		});
 		await chat.prompt("me", session.id, "count");
