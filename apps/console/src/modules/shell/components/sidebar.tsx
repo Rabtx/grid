@@ -154,7 +154,7 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 					label="Projects"
 					action={
 						<IconButton
-							size="xs"
+							size="sm"
 							label="Open a folder as a project"
 							onClick={() => workspace.setAddProjectOpen(true)}
 						>

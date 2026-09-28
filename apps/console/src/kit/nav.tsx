@@ -60,7 +60,7 @@ function Content(props: NavItemProps): JSX.Element {
 		<>
 			<Show when={props.icon}>
 				<span
-					class={`grid shrink-0 place-items-center text-fg-subtle group-hover/nav:text-fg-muted group-aria-[current=page]/nav:text-fg [&_svg]:size-4 ${props.iconTile ? "icon-tile -mx-1 size-6 rounded-kit-sm text-fg-muted" : "size-4"}`}
+					class={`grid shrink-0 place-items-center text-fg-subtle group-hover/nav:text-fg-muted group-aria-[current=page]/nav:text-fg [&_svg]:size-4 ${props.iconTile ? "icon-tile -mx-1 size-6 rounded-kit text-fg-muted" : "size-4"}`}
 				>
 					{props.icon}
 				</span>

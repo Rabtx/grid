@@ -186,6 +186,9 @@ it (`icon-tile`) that deepens on hover and while open; the one primary action in
 chat) shows its icon on a tile too. `variant="bare"` drops the tile only for an icon inside
 something that is already a control (a chip). **The button sets its icon's size**, whatever the
 icon asks for: 16px in `sm`/`md` buttons, 14px in `xs`, one step larger on touch (`ICON_SIZE`).
+Tiles share one corner (`rounded-kit`, 8px) and, beside chips or other controls, their height
+(28px on desktop: the composer's add, tools and mic match its model and mode chips). The send
+button is the one round control.
 
 Focus is keyboard-only (`focus-ring`: a 2px accent outline). Secondary row actions may appear on
 hover on pointer devices but are always visible on touch. Empty states are one short sentence;

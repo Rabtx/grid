@@ -74,18 +74,18 @@ export const PROMPT_CHIP =
 	"focus-ring inline-flex h-7 shrink-0 items-center gap-1.5 rounded-kit px-2 text-body-lg text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:h-10";
 
 /** The bordered square at the start of the toolbar: add files, context, tools. */
-export const PROMPT_ADD = `focus-ring grid size-8 shrink-0 place-items-center rounded-kit icon-tile text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:size-10 ${ICON_SIZE.md}`;
+export const PROMPT_ADD = `focus-ring grid size-7 shrink-0 place-items-center rounded-kit icon-tile text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:size-10 ${ICON_SIZE.md}`;
 
 /**
  * The round send button: a quiet, empty circle until there is something to send, then it fills
  * with ink and a lit edge, a little larger, as if it came forward.
  */
 export const SEND_BUTTON =
-	"focus-ring grid size-8 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:scale-90 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none pointer-coarse:size-10";
+	"focus-ring grid size-7 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none pointer-coarse:size-10";
 
 /** Stop, in place of send while the agent works: a ring turns around it until it is done. */
 export const STOP_BUTTON =
-	"focus-ring relative grid size-8 shrink-0 place-items-center rounded-full bg-fill-strong text-fg transition-transform duration-fast active:scale-95 pointer-coarse:size-10";
+	"focus-ring relative grid size-7 shrink-0 place-items-center rounded-full bg-fill-strong text-fg transition-transform duration-fast active:scale-95 pointer-coarse:size-10";
 
 /** The ring turning around the stop button while the agent works. */
 export function WorkingRing(): JSX.Element {
@@ -144,10 +144,10 @@ export function ContextMeter(props: { used: number; total: number }): JSX.Elemen
 }
 
 /** The composer's mic: red while it listens. */
-export const MIC_BUTTON = `focus-ring grid size-8 shrink-0 place-items-center rounded-kit icon-tile text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-pressed:bg-danger aria-pressed:text-white pointer-coarse:size-10 ${ICON_SIZE.md}`;
+export const MIC_BUTTON = `focus-ring grid size-7 shrink-0 place-items-center rounded-kit icon-tile text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-pressed:bg-danger aria-pressed:text-white pointer-coarse:size-10 ${ICON_SIZE.md}`;
 
 /** A round-cornered square icon button on the composer's toolbar: the mic, a tool. */
-export const PROMPT_ICON = `focus-ring grid size-8 shrink-0 place-items-center rounded-kit icon-tile text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:size-10 ${ICON_SIZE.md}`;
+export const PROMPT_ICON = `focus-ring grid size-7 shrink-0 place-items-center rounded-kit icon-tile text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:size-10 ${ICON_SIZE.md}`;
 
 /**
  * Ways into a first message: chips that scroll sideways on phones (in thumb reach, above the
