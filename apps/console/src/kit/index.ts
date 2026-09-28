@@ -133,6 +133,8 @@ export {
 export { Segmented, type TabOption, Tabs } from "./tabs";
 export { Code, Heading, Text, type TextSize, type TextTone } from "./text";
 export { notify, Toasts } from "./toast";
+export { TooltipLayer } from "./tooltip-layer";
+export { attachEdgeFade } from "./edge-fade";
 export { FilterChip, Toolbar, ToolbarButton } from "./toolbar";
 export { EntryIcon, type FileIconResolver, setFileIcons } from "./file-icon";
 export { type FolderEntry, FileTree, FolderTree, type TreeNode } from "./tree";

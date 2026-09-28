@@ -1,5 +1,7 @@
 import type { JSX } from "@solidjs/web";
-import { For, Show } from "solid-js";
+import { For, onSettled, Show } from "solid-js";
+
+import { attachEdgeFade } from "./edge-fade";
 
 export type TabOption<T extends string> = {
 	value: T;
@@ -20,11 +22,16 @@ export function Tabs<T extends string>(props: {
 	onChange: (value: T) => void;
 	class?: string;
 }): JSX.Element {
+	let strip: HTMLDivElement | undefined;
+	onSettled(() => (strip ? attachEdgeFade(strip) : undefined));
 	return (
 		<div
+			ref={(el) => {
+				strip = el;
+			}}
 			role="tablist"
 			aria-label={props.label}
-			class={`flex items-center gap-5 overflow-x-auto [scrollbar-width:none] ${props.class ?? ""}`}
+			class={`edge-fade flex items-center gap-5 overflow-x-auto [scrollbar-width:none] ${props.class ?? ""}`}
 		>
 			<For each={props.options}>
 				{(option) => (

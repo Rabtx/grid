@@ -33,6 +33,7 @@ import {
 	WorkingDots,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
+import { now } from "@/lib/clock";
 import { useAuth } from "@/modules/auth";
 import { chatService } from "@/modules/chat/services/chat.service";
 import { threadsStore } from "@/modules/chat/stores/threads";
@@ -110,7 +111,7 @@ function rememberedOpen(): string[] {
 }
 
 function relative(iso: string): string {
-	const minutes = Math.round((Date.now() - Date.parse(iso)) / 60_000);
+	const minutes = Math.round((now() - Date.parse(iso)) / 60_000);
 	if (minutes < 1) return "now";
 	if (minutes < 60) return `${minutes}m`;
 	const hours = Math.round(minutes / 60);

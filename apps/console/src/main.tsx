@@ -1,6 +1,6 @@
 import { render } from "@solidjs/web";
 
-import { Toasts } from "./kit";
+import { Toasts, TooltipLayer } from "./kit";
 
 import { App } from "./app";
 import { urlWithWorkspace } from "./lib/active-workspace";
@@ -27,6 +27,7 @@ if (moved) {
 			<>
 				<App />
 				<Toasts />
+				<TooltipLayer />
 			</>
 		),
 		root,

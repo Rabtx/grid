@@ -421,3 +421,16 @@
 		animation: none;
 	}
 }
+
+/* Switching theme, accent or depth cross-fades the whole screen for a moment (`updateAppearance`). */
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 260ms;
+	animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none;
+	}
+}

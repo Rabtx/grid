@@ -1,3 +1,5 @@
+import { now as clockNow } from "@/lib/clock";
+
 import type { Member, WorkspaceRole } from "../types/workspace.types";
 
 /**
@@ -47,7 +49,7 @@ export function memberName(member: Member): string {
 }
 
 /** How long an invite has left: "expires in 5 d", "expires in 3 h", "expires soon". */
-export function expiresIn(at: string, now: number = Date.now()): string {
+export function expiresIn(at: string, now: number = clockNow()): string {
 	const hours = (Date.parse(at) - now) / 3_600_000;
 	if (hours <= 1) return "expires soon";
 	if (hours < 48) return `expires in ${Math.round(hours)} h`;

@@ -424,6 +424,31 @@
 		0 10px 28px -12px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 1.1));
 }
 
+/* A sideways scroller fading out at whichever end has more beyond it (see `attachEdgeFade`). */
+@utility edge-fade {
+	--fade: 1.5rem;
+	&[data-fade="end"] {
+		mask-image: linear-gradient(90deg, #000 calc(100% - var(--fade)), transparent);
+	}
+	&[data-fade="start"] {
+		mask-image: linear-gradient(90deg, transparent, #000 var(--fade));
+	}
+	&[data-fade="both"] {
+		mask-image: linear-gradient(
+			90deg,
+			transparent,
+			#000 var(--fade),
+			#000 calc(100% - var(--fade)),
+			transparent
+		);
+	}
+}
+
+/* A pane header once its content scrolls under it: a soft shade below the divider. */
+@utility shadow-pane {
+	box-shadow: 0 8px 14px -12px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 1.6));
+}
+
 /* A knob that sits on a track: the switch thumb, the chosen segment. */
 @utility shadow-knob {
 	box-shadow:

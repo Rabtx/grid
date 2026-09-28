@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect } from "solid-js";
+import { createEffect, onSettled } from "solid-js";
 
-import { Segmented } from "@/kit";
+import { attachEdgeFade, Segmented } from "@/kit";
 
 import { boardLaneId, type BoardLane } from "./board-lanes";
 
@@ -12,6 +12,7 @@ export function StageTabs(props: {
 	onSelect: (laneId: string) => void;
 }): JSX.Element {
 	let strip: HTMLElement | undefined;
+	onSettled(() => (strip ? attachEdgeFade(strip) : undefined));
 
 	createEffect(
 		() => props.active,
@@ -28,7 +29,7 @@ export function StageTabs(props: {
 				strip = el;
 			}}
 			aria-label="Board lanes"
-			class="-mx-4 mb-2 shrink-0 overflow-x-auto px-4 [scrollbar-width:none] md:hidden"
+			class="edge-fade -mx-4 mb-2 shrink-0 overflow-x-auto px-4 [scrollbar-width:none] md:hidden"
 		>
 			<Segmented
 				label="Board lanes"
