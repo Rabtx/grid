@@ -16,6 +16,8 @@
 			try {
 				const saved = JSON.parse(localStorage.getItem("grid.appearance") || "{}");
 				const theme = saved.theme ?? localStorage.getItem("grid.theme");
+				// Depth before the first paint, so the page does not flash flat and then lift.
+				if (saved.depth === true) document.documentElement.setAttribute("data-depth", "on");
 				if (theme === "light" || theme === "dark") {
 					document.documentElement.classList.add(theme);
 					document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {

@@ -9,12 +9,12 @@ export const button = variants({
 	variants: {
 		variant: {
 			primary:
-				"surface-primary bg-inverse text-inverse-fg hover:bg-inverse/90 active:translate-y-px disabled:opacity-35 disabled:shadow-none",
+				"surface-primary bg-inverse text-inverse-fg hover:bg-inverse/90 depth:active:translate-y-px disabled:opacity-35 disabled:shadow-none",
 			secondary: "surface-outline text-fg hover:bg-fill disabled:text-fg-faint",
 			ghost: "text-fg-muted hover:bg-fill hover:text-fg disabled:text-fg-faint",
 			danger: "text-danger hover:bg-danger/8 disabled:opacity-40",
 			accent:
-				"surface-primary bg-accent text-white hover:bg-accent/90 active:translate-y-px disabled:opacity-40 disabled:shadow-none",
+				"surface-primary bg-accent text-white hover:bg-accent/90 depth:active:translate-y-px disabled:opacity-40 disabled:shadow-none",
 		},
 		size: {
 			sm: "h-kit-control-sm px-2.5 text-caption",

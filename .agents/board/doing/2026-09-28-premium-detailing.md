@@ -54,6 +54,10 @@ model it stands for, and a thin effort slider.
   the default model is one row with a "Default" badge; effort is a segmented control with a
   sliding accent knob that keeps the roll-in name, sweep and top-level glow.
 
+**Change after review:** the human kept the composer and model picker redesign for everyone and
+made the depth detailing optional: Settings → Appearance → Material → Depth, off by default, saved
+per device and applied before the first paint. Future depth work goes behind the same switch.
+
 ## Validation
 
 - `bun run lint`, `bun run typecheck`, `bun run format`, `bun run architecture:check`: pass.
@@ -62,6 +66,8 @@ model it stands for, and a thin effort slider.
 - Console `bun run build`: passes.
 - Browser against the live runner, dark and light, 1280 px and 375 px: new chat, a conversation,
   the model picker with several agents, and the phone bottom sheet.
+- Depth switch: off by default (`data-depth="off"`), the switch sets `on` and saves it; the
+  `depth:` variant is in the built CSS. Appearance test covers both states.
 
 ## Resolution
 

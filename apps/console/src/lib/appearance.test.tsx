@@ -82,8 +82,11 @@ describe("applyAppearance", () => {
 		expect(root.style.getPropertyValue("--user-accent-ink")).toBe("#ffffff");
 		expect(root.classList.contains("dark")).toBe(true);
 		expect(root.getAttribute("data-density")).toBe("comfortable");
+		// Depth is off unless chosen: the flat look is the default.
+		expect(root.getAttribute("data-depth")).toBe("off");
 
-		applyAppearance({ ...APPEARANCE_DEFAULTS, theme: "system" }, root);
+		applyAppearance({ ...APPEARANCE_DEFAULTS, theme: "system", depth: true }, root);
+		expect(root.getAttribute("data-depth")).toBe("on");
 		expect(root.style.getPropertyValue("--user-accent")).toBe("");
 		expect(root.classList.contains("dark")).toBe(false);
 		expect(root.classList.contains("light")).toBe(false);

@@ -147,7 +147,12 @@ by 1px `stroke` lines, never gaps or shadows.
 
 ### Depth and material
 
-Depth comes from light, not from stacking shadows. The rules, all tokens in `kit.css`:
+Depth is an Appearance choice, **off by default**: Settings → Appearance → Material → Depth sets
+`data-depth="on"` on the root (saved per device, applied before the first paint). Off, the
+console is the flat look above. On, depth comes from light, not from stacking shadows. Every rule
+below is a `--kit-*` variable that is flat by default and switched in `:root[data-depth="on"]`
+in `kit.css`; what a variable cannot switch uses the `depth:` variant (`depth:active:…`). New
+depth detailing goes behind the same switch.
 
 - **Lit edges.** Anything raised (cards, outlined controls, the composer, menus, knobs) carries a
   1px inner highlight along its top edge (`--kit-highlight`: strong on light, 6% white on dark).
@@ -160,12 +165,12 @@ Depth comes from light, not from stacking shadows. The rules, all tokens in `kit
   fill deepening downward, a 1px nudge down when pressed.
 - **Selection is lifted.** The selected sidebar row is a raised pill on the sunken frame
   (`bg-surface` + `shadow-lift`), not only a fill.
-- **Focus halo where you type.** The composer glows in the accent while focused (`shadow-focus`);
-  every other control keeps the keyboard-only `focus-ring`.
 - **Fading hairlines.** A horizontal `Divider` fades out at its ends (`hairline-fade`).
 
 Keep it small: one highlight, at most two shadow layers, no coloured glows beyond the composer's
-halo and the effort knob at its top level.
+halo and the effort knob at its top level. Those two are part of the composer and picker design
+and show whatever the depth setting: the composer glows in the accent while focused
+(`shadow-focus`); every other control keeps the keyboard-only `focus-ring`.
 
 ### Motion
 
