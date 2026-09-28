@@ -15,11 +15,13 @@ import {
 	Terminal,
 	TermText,
 	AgentMessage,
+	Attachment,
 	Avatar,
 	BoardColumn,
 	BoardIcon,
 	BranchIcon,
 	Button,
+	CameraIcon,
 	ChatIcon,
 	CheckIcon,
 	ChoicePrompt,
@@ -49,7 +51,6 @@ import {
 	notify,
 	Palette,
 	PlusIcon,
-	PROMPT_ADD,
 	PROMPT_FIELD,
 	PromptBox,
 	PullRequestIcon,
@@ -639,6 +640,21 @@ function Composer(props: {
 	const [draft, setDraft] = createSignal("");
 	const [mode, setMode] = createSignal<"build" | "plan">("build");
 	const [model, setModel] = createSignal<"opus" | "sonnet" | "gpt">("opus");
+	const [attachments, setAttachments] = createSignal<
+		{
+			name: string;
+			size?: number;
+			preview?: string;
+		}[]
+	>([
+		{
+			name: "mockup.png",
+			size: 1048576,
+			preview:
+				"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='%236366f1'%3E%3Crect width='64' height='64' rx='8'/%3E%3C/svg%3E",
+		},
+		{ name: "spec.pdf", size: 245760 },
+	]);
 	const send = () => {
 		const text = draft().trim();
 		if (!text) return;
@@ -647,6 +663,18 @@ function Composer(props: {
 	};
 	return (
 		<PromptBox
+			attachments={
+				<For each={attachments()}>
+					{(att) => (
+						<Attachment
+							name={att.name}
+							size={att.size}
+							preview={att.preview}
+							onRemove={() => setAttachments((cur) => cur.filter((a) => a.name !== att.name))}
+						/>
+					)}
+				</For>
+			}
 			field={
 				<textarea
 					rows={2}
@@ -665,14 +693,43 @@ function Composer(props: {
 			}
 			tools={
 				<>
-					<button
-						type="button"
-						class={PROMPT_ADD}
-						aria-label="Add files"
-						onClick={() => notify({ title: "Attach files or @mention them" })}
-					>
-						<PlusIcon class={ICON} />
-					</button>
+					<Menu
+						label="Add or attach"
+						triggerClass={menuTrigger({ shape: "icon" })}
+						trigger={<PlusIcon class={ICON} />}
+						groups={[
+							{
+								items: [
+									{ id: "files", label: "Add files or photos", icon: <FileIcon size="sm" /> },
+									{ id: "photo", label: "Take a photo", icon: <CameraIcon size="sm" /> },
+									{ id: "project", label: "Add from project", icon: <FolderIcon size="sm" /> },
+								],
+							},
+							{
+								items: [
+									{
+										id: "mention",
+										label: "Mention a file",
+										icon: <EditIcon size="sm" />,
+										shortcut: "@",
+									},
+									{
+										id: "commands",
+										label: "Commands",
+										icon: <TerminalIcon size="sm" />,
+										shortcut: "/",
+									},
+								],
+							},
+						]}
+						onSelect={(id) => {
+							if (id === "files") notify({ title: "Choose files or photos" });
+							else if (id === "photo") notify({ title: "Camera active" });
+							else if (id === "project") notify({ title: "Select from project files" });
+							else if (id === "mention") setDraft((d) => (d ? `${d} @` : "@"));
+							else if (id === "commands") setDraft((d) => (d.startsWith("/") ? d : `/${d}`));
+						}}
+					/>
 					<span class="hidden md:inline-flex">
 						<Segmented
 							label="Mode"

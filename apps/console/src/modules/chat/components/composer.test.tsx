@@ -6,6 +6,7 @@ import { AuthProvider } from "@/modules/auth";
 import { WorkspaceProvider } from "@/modules/projects";
 
 import { GRID_COMMANDS, type SlashCommand } from "../lib/slash-commands";
+import { chatService } from "../services/chat.service";
 
 import { Composer, type ComposerControl } from "./composer";
 
@@ -57,6 +58,16 @@ describe("Composer", () => {
 
 	beforeEach(() => {
 		sentText = null;
+		if (!HTMLDialogElement.prototype.showModal) {
+			HTMLDialogElement.prototype.showModal = function () {
+				this.open = true;
+			};
+		}
+		if (!HTMLDialogElement.prototype.close) {
+			HTMLDialogElement.prototype.close = function () {
+				this.open = false;
+			};
+		}
 		vi.stubGlobal(
 			"fetch",
 			vi.fn(async (input: string | URL | Request) => {
@@ -98,6 +109,7 @@ describe("Composer", () => {
 			onCommand?: (command: SlashCommand, argument: string) => boolean;
 			running?: boolean;
 		},
+		sessionId?: string,
 	): void {
 		const Router = createRouter({
 			routes: [
@@ -106,6 +118,7 @@ describe("Composer", () => {
 					component: () => (
 						<Composer
 							project="alpha"
+							sessionId={sessionId}
 							running={slash?.running ?? false}
 							onSend={onSend}
 							control={control}
@@ -576,7 +589,11 @@ describe("Composer", () => {
 		expect(onSend).toHaveBeenCalledWith("@src/app.ts", []);
 		expect(sentText).toBe("@src/app.ts");
 	});
-	function attach(files: File[], type = "change"): void {
+	function attach(
+		files: File[],
+		type: "change" | "paste" | "drop" = "change",
+		target: "input" | "paste" | "drop" | "window" = "input",
+	): void {
 		const event = new Event(type, { bubbles: true, cancelable: true });
 		if (type === "change") {
 			const input = container.querySelector<HTMLInputElement>('input[type="file"]')!;
@@ -586,7 +603,11 @@ describe("Composer", () => {
 			Object.defineProperty(event, type === "paste" ? "clipboardData" : "dataTransfer", {
 				value: { files, types: ["Files"] },
 			});
-			container.querySelector(type === "paste" ? "textarea" : "form")!.dispatchEvent(event);
+			if (target === "window") {
+				window.dispatchEvent(event);
+			} else {
+				container.querySelector(type === "paste" ? "textarea" : "form")!.dispatchEvent(event);
+			}
 		}
 	}
 
@@ -630,5 +651,288 @@ describe("Composer", () => {
 		await settle();
 		expect(container.textContent).toContain("10 MB");
 		expect(container.querySelectorAll('[aria-label^="Remove "]').length).toBe(19);
+	});
+
+	it("opens the + menu and triggers mention, command, and project actions", async () => {
+		const onSend = vi.fn().mockReturnValue(true);
+		mount(onSend, undefined, { commands: GRID_COMMANDS, onCommand: () => true });
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		expect(textarea).not.toBeNull();
+		if (!textarea) return;
+
+		// 1. Open menu and trigger Mention
+		const addBtn = container.querySelector<HTMLButtonElement>('button[aria-label="Add or attach"]');
+		expect(addBtn).not.toBeNull();
+		addBtn?.click();
+		await settle();
+
+		const menu = container.querySelector('[role="menu"]');
+		expect(menu).not.toBeNull();
+		expect(menu?.textContent).toContain("Mention a file");
+		expect(menu?.textContent).toContain("Commands");
+		expect(menu?.textContent).toContain("Add from project");
+
+		const mentionItem = [
+			...container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+		].find((btn) => btn.textContent?.includes("Mention a file"));
+		mentionItem?.click();
+		await settle();
+
+		expect(textarea.value).toBe("@");
+		expect(container.querySelector('[aria-label="File mentions"]')).not.toBeNull();
+
+		// Close mentions with escape
+		pressKey(textarea, "Escape");
+		await settle();
+		typeInto(textarea, "");
+		await settle();
+
+		// 2. Open menu and trigger Commands
+		container.querySelector<HTMLButtonElement>('button[aria-label="Add or attach"]')?.click();
+		await settle();
+
+		const commandItem = [
+			...container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+		].find((btn) => btn.textContent?.includes("Commands"));
+		commandItem?.click();
+		await settle();
+
+		expect(textarea.value).toBe("/");
+		expect(container.querySelector('[aria-label="Commands"]')).not.toBeNull();
+
+		pressKey(textarea, "Escape");
+		await settle();
+		typeInto(textarea, "");
+		await settle();
+
+		// 3. Open menu and trigger Add from project
+		container.querySelector<HTMLButtonElement>('button[aria-label="Add or attach"]')?.click();
+		await settle();
+
+		const projectItem = [
+			...container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+		].find((btn) => btn.textContent?.includes("Add from project"));
+		projectItem?.click();
+		await settle();
+
+		// Project file picker dialog appears
+		const dialog = container.querySelector("dialog");
+		expect(dialog).not.toBeNull();
+		expect(dialog?.textContent).toContain("app.ts");
+		expect(dialog?.textContent).toContain("src");
+
+		// Pick src/app.ts
+		const fileItem = [...dialog!.querySelectorAll<HTMLButtonElement>("button")].find((el) =>
+			el.textContent?.includes("app.ts"),
+		);
+		expect(fileItem).toBeDefined();
+		fileItem?.click();
+		await settle();
+
+		// Dialog closes and reference chip is shown
+		expect(container.querySelector("dialog")).toBeNull();
+		expect(container.querySelector('[aria-label="Remove src/app.ts"]')).not.toBeNull();
+
+		// Send message with reference chip
+		typeInto(textarea, "Review this implementation");
+		await settle();
+
+		container.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+		await settle();
+
+		expect(onSend).toHaveBeenCalledWith("Review this implementation @src/app.ts", []);
+		expect(container.querySelector('[aria-label="Remove src/app.ts"]')).toBeNull();
+	});
+
+	it("renders camera option on touch devices and triggers camera input", async () => {
+		const originalTouch = navigator.maxTouchPoints;
+		Object.defineProperty(navigator, "maxTouchPoints", { value: 1, configurable: true });
+
+		mount();
+		await settle();
+
+		const addBtn = container.querySelector<HTMLButtonElement>('button[aria-label="Add or attach"]');
+		expect(addBtn).not.toBeNull();
+		addBtn?.click();
+		await settle();
+
+		const cameraItem = [...container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(
+			(btn) => btn.textContent?.includes("Take a photo"),
+		);
+		expect(cameraItem).toBeDefined();
+
+		const cameraInput = container.querySelector<HTMLInputElement>('input[capture="environment"]');
+		expect(cameraInput).not.toBeNull();
+		const clickSpy = vi.spyOn(cameraInput!, "click");
+
+		cameraItem?.click();
+		await settle();
+		expect(clickSpy).toHaveBeenCalled();
+
+		Object.defineProperty(navigator, "maxTouchPoints", {
+			value: originalTouch,
+			configurable: true,
+		});
+	});
+
+	it("drops anywhere on window and attaches files", async () => {
+		mount();
+		await settle();
+
+		const file = new File(["window dropped"], "global-drop.txt", { type: "text/plain" });
+		attach([file], "drop", "window");
+		await settle();
+
+		expect(container.textContent).toContain("global-drop.txt");
+		expect(container.querySelector('[aria-label="Remove global-drop.txt"]')).not.toBeNull();
+	});
+
+	it("pastes non-image files such as pdf and attaches them", async () => {
+		mount();
+		await settle();
+
+		const pdf = new File(["%PDF-1.4"], "manual.pdf", { type: "application/pdf" });
+		attach([pdf], "paste");
+		await settle();
+
+		expect(container.textContent).toContain("manual.pdf");
+		expect(container.querySelector('[aria-label="Remove manual.pdf"]')).not.toBeNull();
+	});
+
+	it("opens preview dialog when clicking on an image attachment thumbnail", async () => {
+		mount();
+		await settle();
+
+		const image = new File(["pngdata"], "diagram.png", { type: "image/png" });
+		attach([image]);
+		await settle();
+
+		const img = container.querySelector('img[alt="diagram.png"]');
+		expect(img).not.toBeNull();
+
+		// Click the attachment button that contains the preview
+		const chipButton = img?.closest("button");
+		expect(chipButton).not.toBeNull();
+		chipButton?.click();
+		await settle();
+
+		// Preview dialog should now be open
+		const previewDialog = container.querySelector("dialog");
+		expect(previewDialog).not.toBeNull();
+		expect(previewDialog?.textContent).toContain("diagram.png");
+
+		// Close the dialog
+		const closeButton = previewDialog?.querySelector<HTMLButtonElement>(
+			'button[aria-label="Close"]',
+		);
+		closeButton?.click();
+		await settle();
+
+		expect(container.querySelector("dialog")).toBeNull();
+	});
+
+	it("tracks upload progress, cancels upload on remove, and retries on failure", async () => {
+		let progressCb: ((p: number) => void) | undefined;
+		let rejectUpload: ((err: Error) => void) | undefined;
+		let aborted = false;
+
+		const uploadSpy = vi
+			.spyOn(chatService, "uploadOne")
+			.mockImplementation((_tok, _sid, _file, _sc, opts) => {
+				progressCb = opts?.onProgress;
+				opts?.signal?.addEventListener("abort", () => {
+					aborted = true;
+				});
+				return new Promise((resolve, reject) => {
+					rejectUpload = reject;
+				});
+			});
+
+		mount(undefined, undefined, undefined, "sess-123");
+		await settle();
+
+		const testFile = new File(["content"], "upload-test.txt", { type: "text/plain" });
+		attach([testFile]);
+		await settle();
+
+		expect(uploadSpy).toHaveBeenCalled();
+
+		// Progress update
+		progressCb?.(45);
+		await settle();
+		expect(container.textContent).toContain("45%");
+
+		const sendButton = container.querySelector<HTMLButtonElement>('button[type="submit"]');
+		expect(sendButton?.disabled).toBe(true);
+		expect(sendButton?.getAttribute("aria-label")).toBe("Uploading attachments…");
+
+		// Reject upload with error
+		rejectUpload?.(new Error("Network timeout"));
+		await settle();
+
+		expect(container.textContent).toContain("Network timeout");
+		const retryButton = container.querySelector<HTMLButtonElement>(
+			'[aria-label="Retry upload-test.txt"]',
+		);
+		expect(retryButton).not.toBeNull();
+		expect(sendButton?.disabled).toBe(true);
+
+		// Now retry
+		uploadSpy.mockClear();
+		retryButton?.click();
+		await settle();
+		expect(uploadSpy).toHaveBeenCalled();
+
+		// Remove file mid-upload cancels it
+		const removeBtn = container.querySelector<HTMLButtonElement>(
+			'[aria-label="Remove upload-test.txt"]',
+		);
+		removeBtn?.click();
+		await settle();
+
+		expect(aborted).toBe(true);
+		expect(container.querySelector('[aria-label="Remove upload-test.txt"]')).toBeNull();
+	});
+
+	it("handles attaching the same file twice gracefully", async () => {
+		mount();
+		await settle();
+
+		const file = new File(["duplicate"], "sample.txt", { type: "text/plain" });
+		attach([file]);
+		attach([file]);
+		await settle();
+
+		const chips = container.querySelectorAll('[aria-label^="Remove sample.txt"]');
+		expect(chips.length).toBe(2);
+
+		(chips[0] as HTMLButtonElement).click();
+		await settle();
+
+		expect(container.querySelectorAll('[aria-label^="Remove sample.txt"]').length).toBe(1);
+	});
+
+	it("allows sending a message that contains only attachments without text", async () => {
+		const send = vi.fn().mockResolvedValue(true);
+		mount(send);
+		await settle();
+
+		const file = new File(["photo data"], "photo.jpg", { type: "image/jpeg" });
+		attach([file]);
+		await settle();
+
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		expect(textarea?.value).toBe("");
+
+		const sendButton = container.querySelector<HTMLButtonElement>('button[aria-label="Send"]');
+		expect(sendButton?.disabled).toBe(false);
+
+		sendButton?.click();
+		await settle();
+
+		expect(send).toHaveBeenCalledWith("", [file]);
+		expect(container.querySelector('[aria-label="Remove photo.jpg"]')).toBeNull();
 	});
 });

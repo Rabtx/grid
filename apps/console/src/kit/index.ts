@@ -70,6 +70,7 @@ export {
 	DiffCard,
 	type DiffLine,
 	DiffStat,
+	formatFileSize,
 	Prose,
 	UserMessage,
 } from "./message";

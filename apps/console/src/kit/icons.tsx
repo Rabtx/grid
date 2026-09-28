@@ -13,6 +13,7 @@ import ArrowUpRight01Glyph from "@hugeicons/core-free-icons/ArrowUpRight01Icon";
 import Attachment01Glyph from "@hugeicons/core-free-icons/Attachment01Icon";
 import BubbleChatIcon from "@hugeicons/core-free-icons/BubbleChatIcon";
 import Calendar03Glyph from "@hugeicons/core-free-icons/Calendar03Icon";
+import Camera01Glyph from "@hugeicons/core-free-icons/Camera01Icon";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import CheckmarkCircle02Glyph from "@hugeicons/core-free-icons/CheckmarkCircle02Icon";
 import Clock01Glyph from "@hugeicons/core-free-icons/Clock01Icon";
@@ -385,4 +386,8 @@ export function EyeIcon(props: IconProps): JSX.Element {
 
 export function EyeOffIcon(props: IconProps): JSX.Element {
 	return <Icon icon={ViewOffGlyph} size={props.size} class={props.class} />;
+}
+
+export function CameraIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Camera01Glyph} size={props.size} class={props.class} />;
 }
