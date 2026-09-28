@@ -1,6 +1,6 @@
 import type { JSX } from "@solidjs/web";
 
-import { Button, PlusIcon, Row, SearchIcon, SearchInput, Segmented, Select } from "@/kit";
+import { Row, SearchIcon, SearchInput, Segmented, Select } from "@/kit";
 
 import type { OwnerOption } from "../lib/board";
 
@@ -15,7 +15,6 @@ export function BoardToolbar(props: {
 	owner: string;
 	ownerOptions: readonly OwnerOption[];
 	onOwnerChange: (owner: string) => void;
-	onNewTask: () => void;
 }): JSX.Element {
 	return (
 		<Row wrap gap={2} class="mb-3 shrink-0">
@@ -53,18 +52,6 @@ export function BoardToolbar(props: {
 						},
 					]}
 				/>
-			</div>
-			{/* Phones reach "New task" from the top bar, in thumb reach. */}
-			<div class="hidden md:ml-auto md:block">
-				<Button
-					variant="primary"
-					size="sm"
-					icon={<PlusIcon size="sm" />}
-					aria-haspopup="dialog"
-					onClick={() => props.onNewTask()}
-				>
-					New task
-				</Button>
 			</div>
 		</Row>
 	);

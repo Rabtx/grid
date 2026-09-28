@@ -60,12 +60,10 @@ export function AgentsScreen(): JSX.Element {
 		<SettingsPage
 			title="Agents"
 			description="The coding agents on this machine, and what new threads start with. Model lists are kept; refresh one when an agent gains models."
-			actions={
-				<div class="w-full md:w-56">
-					<MachinePicker value={machine()} onChange={setMachine} />
-				</div>
-			}
 		>
+			<div class="md:w-56">
+				<MachinePicker value={machine()} onChange={setMachine} />
+			</div>
 			<Show when={providersStore.error(scope())}>
 				{(message) => <Alert tone="danger" title={message()} />}
 			</Show>

@@ -190,7 +190,7 @@ describe("AppShell top bar", () => {
 		dispose();
 	});
 
-	it("gives the phone bar one action: New task on the board, New chat elsewhere", async () => {
+	it("gives the phone bar one action, New chat, on every screen", async () => {
 		// A phone: the desktop query does not match.
 		vi.stubGlobal("matchMedia", (query: string) => ({
 			matches: false,
@@ -198,8 +198,10 @@ describe("AppShell top bar", () => {
 			addEventListener: () => {},
 			removeEventListener: () => {},
 		}));
+		// The board's own "New task" is in its pane header, not the phone bar.
 		const board = await mountAt("/board/beta");
-		expect(board.header.querySelector('button[aria-label="New task"]')).not.toBeNull();
+		expect(board.header.querySelector('button[aria-label="New chat"]')).not.toBeNull();
+		expect(board.header.querySelector('button[aria-label="New task"]')).toBeNull();
 		board.dispose();
 		document.body.replaceChildren();
 		const terminal = await mountAt("/terminal");

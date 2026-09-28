@@ -100,9 +100,7 @@ describe("DiagnosticsScreen", () => {
 			true,
 		);
 
-		const copy = [...container.querySelectorAll("button")].find(
-			(button) => button.textContent === "Copy as text",
-		);
+		const copy = container.querySelector<HTMLButtonElement>('button[aria-label="Copy as text"]');
 		copy?.click();
 		await settle();
 		expect(navigator.clipboard.writeText).toHaveBeenCalledWith(

@@ -4,9 +4,11 @@ import { createEffect, createSignal, For, Show } from "solid-js";
 import {
 	Alert,
 	Badge,
-	Button,
+	CopyIcon,
 	EmptyState,
+	IconButton,
 	ListCard,
+	RestoreIcon,
 	Segmented,
 	SettingsGroup,
 	SettingsRow,
@@ -90,14 +92,14 @@ export function DiagnosticsScreen(): JSX.Element {
 			title="Diagnostics"
 			description="Runner errors and socket events from the last seven days."
 			actions={
-				<div class="flex flex-wrap gap-2">
-					<Button size="sm" variant="secondary" disabled={!data()} onClick={() => void copy()}>
-						Copy as text
-					</Button>
-					<Button size="sm" onClick={() => void load()} disabled={loading()}>
-						Refresh
-					</Button>
-				</div>
+				<>
+					<IconButton size="sm" label="Copy as text" disabled={!data()} onClick={() => void copy()}>
+						<CopyIcon />
+					</IconButton>
+					<IconButton size="sm" label="Refresh" onClick={() => void load()} disabled={loading()}>
+						<RestoreIcon />
+					</IconButton>
+				</>
 			}
 		>
 			<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>

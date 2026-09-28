@@ -10,9 +10,12 @@ import {
 	Button,
 	button,
 	EmptyState,
+	IconButton,
 	LinkButton,
 	LoadingBar,
 	NobodyMark,
+	PaneHeader,
+	PlusIcon,
 	Text,
 } from "@/kit";
 
@@ -26,17 +29,34 @@ import { StageTabs } from "./stage-tabs";
 import { StatusIcon } from "./status-icon";
 
 /**
- * A project's board, edge to edge like the prototype: the toolbar, then lanes that run to the
- * bottom of the screen, each scrolling its own cards.
+ * A project's board, edge to edge like the prototype: the pane header every screen has (with the
+ * way to a new task), the toolbar, then lanes that run to the bottom of the screen, each
+ * scrolling its own cards.
  */
 export function BoardScreen(): JSX.Element {
+	const workspace = useWorkspace();
 	return (
-		<div class="flex min-h-0 flex-1 flex-col px-4 pt-3 md:px-6 md:pt-4">
-			<Loading fallback={<BoardSkeleton />}>
-				<Errored fallback={(error, reset) => <BoardError error={error()} onRetry={reset} />}>
-					<Board />
-				</Errored>
-			</Loading>
+		<div class="flex min-h-0 flex-1 flex-col">
+			<PaneHeader
+				title="Board"
+				actions={
+					<IconButton
+						size="sm"
+						label="New task"
+						aria-haspopup="dialog"
+						onClick={() => workspace.setNewTaskOpen(true)}
+					>
+						<PlusIcon />
+					</IconButton>
+				}
+			/>
+			<div class="flex min-h-0 flex-1 flex-col px-4 pt-3 md:px-6 md:pt-4">
+				<Loading fallback={<BoardSkeleton />}>
+					<Errored fallback={(error, reset) => <BoardError error={error()} onRetry={reset} />}>
+						<Board />
+					</Errored>
+				</Loading>
+			</div>
 		</div>
 	);
 }
@@ -111,7 +131,6 @@ function Board(): JSX.Element {
 				owner={owner()}
 				ownerOptions={options()}
 				onOwnerChange={(next) => setSearchParams({ owner: next === "all" ? undefined : next })}
-				onNewTask={() => workspace.setNewTaskOpen(true)}
 			/>
 			{/* The bar already shows the total; only a filter makes a count worth repeating. */}
 			<Show when={isFiltered()}>
