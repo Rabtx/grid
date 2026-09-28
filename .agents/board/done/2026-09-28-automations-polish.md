@@ -5,7 +5,7 @@ type: feature
 from: human
 to: ui-ux
 priority: high
-status: doing
+status: done
 assignee: claude
 reviewer: human
 parent: none
@@ -81,4 +81,5 @@ workspaces card (members and invites, never started) moved back to `open/`.
 
 ## Resolution
 
-Open until merged.
+Done in #143: the screen rebuilt on the kit, the three trigger behaviours fixed with tests, and
+the board brought up to date. Checks were run locally because GitHub Actions is blocked by billing.
