@@ -77,15 +77,19 @@ export const PROMPT_CHIP =
 export const PROMPT_ADD = `focus-ring grid size-7 shrink-0 place-items-center rounded-kit icon-tile text-fg-muted transition-colors duration-fast hover:text-fg pointer-coarse:size-10 ${ICON_SIZE.md}`;
 
 /**
+ * On touch screens send and stop are drawn 32px, the size of the tiles beside them (the mic, the
+ * add), and an invisible margin keeps their tap area 40px.
+ */
+const TOUCH_32 = "pointer-coarse:size-8 after:absolute after:-inset-1 after:rounded-full";
+
+/**
  * The round send button: a quiet, empty circle until there is something to send, then it fills
  * with ink and a lit edge, a little larger, as if it came forward.
  */
-export const SEND_BUTTON =
-	"focus-ring grid size-7 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none pointer-coarse:size-10";
+export const SEND_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${TOUCH_32} ${ICON_SIZE.md}`;
 
 /** Stop, in place of send while the agent works: a ring turns around it until it is done. */
-export const STOP_BUTTON =
-	"focus-ring relative grid size-7 shrink-0 place-items-center rounded-full bg-fill-strong text-fg transition-transform duration-fast active:scale-95 pointer-coarse:size-10";
+export const STOP_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-full bg-fill-strong text-fg transition-transform duration-fast active:scale-95 ${TOUCH_32} ${ICON_SIZE.md}`;
 
 /** The ring turning around the stop button while the agent works. */
 export function WorkingRing(): JSX.Element {
