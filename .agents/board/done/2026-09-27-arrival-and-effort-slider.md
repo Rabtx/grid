@@ -5,7 +5,7 @@ type: feature
 from: human
 to: ui-ux
 priority: medium
-status: doing
+status: done
 assignee: ui-ux
 reviewer: human
 parent: none
@@ -21,7 +21,7 @@ scope:
   - apps/console/src/routes/design/more-sections.tsx
   - packages/tokens/src/kit.css
 created: 2026-09-27
-updated: 2026-09-27
+updated: 2026-09-28
 ---
 
 ## What
@@ -37,3 +37,7 @@ rolling in, a soft glow at the top level). Both are in the design gallery.
 
 - Console `vitest run`: 303 pass (slider: roll, sweep, glow at the top; labs' colours).
 - Browser: the slider and the arrival in the design gallery, frame by frame.
+
+## Resolution
+
+Merged to `main` as #128; the board was brought up to date on 2026-09-28.

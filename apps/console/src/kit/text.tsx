@@ -66,6 +66,8 @@ export function Text(props: {
 	truncate?: boolean;
 	mono?: boolean;
 	tabular?: boolean;
+	/** Keep the line breaks it was written with (a prompt, a message), wrapping long words. */
+	lines?: boolean;
 	/** Layout only. */
 	class?: string;
 	children: JSX.Element;
@@ -77,7 +79,7 @@ export function Text(props: {
 				size: props.size,
 				tone: props.tone,
 				weight: props.weight,
-				class: `${props.truncate ? "min-w-0 truncate" : ""} ${props.mono ? "font-mono" : ""} ${props.tabular ? "tabular-nums" : ""} ${props.class ?? ""}`,
+				class: `${props.truncate ? "min-w-0 truncate" : ""} ${props.mono ? "font-mono" : ""} ${props.tabular ? "tabular-nums" : ""} ${props.lines ? "whitespace-pre-wrap break-words" : ""} ${props.class ?? ""}`,
 			})}
 		>
 			{props.children}

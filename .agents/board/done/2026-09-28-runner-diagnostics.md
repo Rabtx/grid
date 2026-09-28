@@ -5,8 +5,8 @@ type: feature
 from: human
 to: backend
 priority: high
-status: open
-assignee: none
+status: done
+assignee: codex
 reviewer: human
 parent: none
 depends_on: []
@@ -70,9 +70,33 @@ times, with codes.
 
 ## Validation
 
-- Runner tests: journal writes, trimming, redaction (no message text), the close hooks, the
-  client endpoint's validation and rate limit.
-- Console tests: batching, offline hold, the settings page.
-- `bun run lint`, `bun run typecheck`, `bun run architecture:check`, kit guard.
+- `bun run format` — passed.
+- `bun run lint` — passed (repository warnings only; no feature warnings).
+- `bun run typecheck` — passed.
+- `bun run test` — passed: runner 167 tests, console 309 tests, web 31 tests, API 28 passed / 20
+  skipped, logger 3 tests, database 4 tests, launcher 4 tests.
+- `bun run architecture:check` — passed; 662 paths checked.
+- `bun --cwd=apps/runner test src/diagnostics` — passed: 6 tests, 27 assertions.
+- `bun --cwd=apps/console run test -- src/modules/settings/services/diagnostics.test.ts
+  src/modules/settings/components/diagnostics-screen.test.tsx src/styles/kit-guard.test.ts` —
+  passed: 3 files, 5 tests, including the kit guard.
+- `git diff --check` — passed.
+- GitHub Actions for PR #133 did not start jobs because GitHub reports failed recent account
+  payments or a spending-limit block. Lint, typecheck, dependency review, and CodeQL are marked
+  failed before execution; test, build, API contract, and web E2E are skipped.
 
 ## Resolution
+
+
+Merged to `main` as #133; the board was brought up to date on 2026-09-28.
+Added a bounded SQLite diagnostics journal and authenticated workspace endpoints for reading events
+and accepting batched client reports. Runner errors, slow requests, refused auth/upgrades, and
+chat/terminal/link closes include safe metadata; raw exception text, arbitrary close reasons,
+message text, tokens, and file contents are excluded. The console reports closes, fallbacks, and
+reconnect attempts best-effort, and Settings → Diagnostics provides filters, a 24-hour reconnect
+count, and text export. Reconnect behavior is unchanged.
+
+Commit: `65a96d5` (`feat(runner): add connection diagnostics journal`).
+
+PR: [#133](https://github.com/shabirkhan-dev/grid/pull/133) — open against `main`; human review
+pending.

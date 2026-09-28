@@ -237,7 +237,9 @@ describe("pull requests through gh", () => {
 		labels: [{ name: "ui" }],
 		additions: 10,
 		deletions: 2,
+		createdAt: "2026-09-26T10:00:00Z",
 		updatedAt: "2026-09-27T10:00:00Z",
+		headRefOid: "abc123",
 		url: "https://github.com/acme/app/pull/7",
 	};
 
@@ -259,7 +261,9 @@ describe("pull requests through gh", () => {
 				labels: ["ui"],
 				additions: 10,
 				deletions: 2,
+				createdAt: "2026-09-26T10:00:00Z",
 				updatedAt: "2026-09-27T10:00:00Z",
+				head: "abc123",
 				url: "https://github.com/acme/app/pull/7",
 			},
 		]);

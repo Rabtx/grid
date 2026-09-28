@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: web
 reviewer: human
 parent: none
@@ -100,6 +100,8 @@ needs, the runner's project-files and folder routes, CodeMirror packages.
 
 ## Resolution
 
+
+Merged to `main` as #134; the board was brought up to date on 2026-09-28.
 ## Resolution
 
 Implemented. The Files page reads a file as before and edits it on request, everywhere: read-only

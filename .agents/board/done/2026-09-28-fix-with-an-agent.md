@@ -5,7 +5,7 @@ type: feature
 from: human
 to: backend
 priority: high
-status: doing
+status: done
 assignee: backend
 reviewer: human
 parent: none
@@ -66,6 +66,8 @@ thread working in a worktree on its branch with the failure in its first message
 
 ## Resolution
 
+
+Merged to `main` as #131; the board was brought up to date on 2026-09-28.
 **Changed:**
 
 - `apps/runner/src/chat/worktrees.ts` — `createWorktree(folder, chatId, projectsDir, request)` now takes

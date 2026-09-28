@@ -5,7 +5,7 @@ type: feature
 from: human
 to: backend
 priority: high
-status: doing
+status: done
 assignee: backend
 reviewer: human
 parent: str-slash-commands
@@ -246,6 +246,8 @@ These were found in the last reviews; check each and say so here.
 
 ## Resolution
 
+
+Merged to `main` as #138; the board was brought up to date on 2026-09-28.
 The runner learns each agent's real commands and keeps the list beside the live session, never in
 the log: Claude Code is asked once per session start over its `initialize` control request (its own
 commands, a user's, a plugin's, the project's, with their argument hints), and an ACP agent's

@@ -5,7 +5,7 @@ type: feature
 from: human
 to: backend
 priority: high
-status: doing
+status: done
 assignee: codex-backend
 reviewer: human
 parent: none
@@ -77,6 +77,8 @@ store, routes and agent adapters.
 
 ## Resolution
 
+
+Merged to `main` as #130; the board was brought up to date on 2026-09-28.
 Implementation ready in [PR #130](https://github.com/shabirkhan-dev/grid/pull/130). Awaiting independent human review; this card stays in `doing` and the PR stays unmerged.
 
 Changed:

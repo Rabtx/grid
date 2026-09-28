@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: web
 reviewer: human
 parent: none
@@ -191,6 +191,8 @@ These were found in the last reviews; check each and say so here.
 
 ## Resolution
 
+
+Merged to `main` as #139; the board was brought up to date on 2026-09-28.
 Replaced the chat composer's paperclip button with a clean **+** `Menu` button and implemented complete attachment capabilities:
 1. **+ Button & Menu**:
    - Integrated kit `Menu` with `menuTrigger({ shape: "icon" })` providing desktop popover and mobile bottom sheet presentation with full keyboard navigation (arrows, home, end, escape) and focus restoration to the trigger button.
