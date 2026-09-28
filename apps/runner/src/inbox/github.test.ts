@@ -75,10 +75,10 @@ function inbox(
 }
 
 describe("linkedFolders", () => {
-	it("keeps only folders inside the projects directory", () => {
+	it("keeps only folders inside the projects directory", async () => {
 		const outside = projectsDir("grid");
 		const root = projectsDir("grid");
-		expect(linkedFolders({ grid: join(root, "grid"), elsewhere: outside }, root)).toEqual({
+		expect(await linkedFolders({ grid: join(root, "grid"), elsewhere: outside }, root)).toEqual({
 			grid: join(root, "grid"),
 		});
 	});

@@ -1,6 +1,8 @@
 import type { Server, ServerWebSocket } from "bun";
 
 import { setupCommand } from "./agents/setup";
+import { automationRequest } from "./automations/routes";
+import type { Automations } from "./automations/service";
 import type { Verified, Verify, Who } from "./auth";
 import { type Channel, type ChannelSink, openChat, openTerminal } from "./channels";
 import { type ChatHub } from "./chat/hub";
@@ -100,9 +102,10 @@ export function startServer(
 		pulls?: PullRequests;
 		/** What is waiting on the people in a workspace, and the GitHub half of it. */
 		inbox?: InboxDeps;
+		automations?: Automations;
 	} = {},
 ): Server<SocketData> {
-	const { push, diagnostics, environments, pairing, github, pulls, inbox } = extras;
+	const { push, diagnostics, environments, pairing, github, pulls, inbox, automations } = extras;
 	const diagnosticRoutes = diagnostics ? new DiagnosticRoutes(diagnostics) : null;
 	const recordDiagnostic = (entry: DiagnosticInput): void => {
 		try {
@@ -329,6 +332,22 @@ export function startServer(
 					if (handled) return handled;
 				}
 
+				if (
+					automations &&
+					(url.pathname === "/automations" || url.pathname.startsWith("/automations/"))
+				) {
+					const who = await whoFrom(request, "Sign in to manage automations");
+					if (who instanceof Response) return who;
+					return automationRequest(
+						request,
+						url,
+						who,
+						automations,
+						chat,
+						inbox?.github?.available(who.userId) ?? false,
+					);
+				}
+
 				// Install or sign in an agent: a terminal here, running the agent's own command.
 				const setup = url.pathname.match(/^\/chat\/providers\/([\w-]+)\/setup$/);
 				if (setup && request.method === "POST") {
@@ -505,6 +524,7 @@ export function startServer(
 	// The diagnostics timers end with the server.
 	const stop = served.stop.bind(served);
 	served.stop = (closeActiveConnections?: boolean) => {
+		automations?.stop();
 		if (refusalTimer) clearInterval(refusalTimer);
 		stopStallWatch?.();
 		return stop(closeActiveConnections);
@@ -649,6 +669,7 @@ function signedIn(
 }
 
 const ROUTE_KINDS = new Set([
+	"automations",
 	"chat",
 	"diagnostics",
 	"env",

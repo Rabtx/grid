@@ -1,5 +1,6 @@
 import { existsSync, statSync } from "node:fs";
-import { basename, join, relative } from "node:path";
+import { mkdir, realpath, stat } from "node:fs/promises";
+import { basename, isAbsolute, join, relative, sep } from "node:path";
 
 /**
  * A git worktree for each chat: its own checkout and branch of the project's repository, so
@@ -248,6 +249,80 @@ export function createWorktree(
 		cwd: inside ? join(path, inside) : path,
 		worktree: { repo, path, branch, base, origin: folder, ...(adopted ? { adopted: true } : {}) },
 	};
+}
+
+/** The new-branch path used by unattended jobs, without synchronous git on the runner loop. */
+export async function createWorktreeAsync(
+	folder: string,
+	chatId: string,
+	projectsDir: string,
+): Promise<{ cwd: string; worktree: Worktree } | null> {
+	const top = await gitResult(folder, ["rev-parse", "--show-toplevel"]);
+	if (!top.ok || !top.out) return null;
+	const repo = top.out;
+	const branch = `grid/chat-${chatId.slice(0, 8)}`;
+	const baseDir = worktreesDir(projectsDir, repo);
+	await mkdir(baseDir, { recursive: true });
+	const actualBase = await realpath(baseDir);
+	const insideBase = relative(projectsDir, actualBase);
+	if (insideBase === ".." || insideBase.startsWith(`..${sep}`) || isAbsolute(insideBase))
+		throw new WorktreeError("Worktrees directory is outside the projects directory", 403);
+	const path = join(actualBase, worktreeFolder(branch, chatId));
+	if (
+		await stat(path).then(
+			() => true,
+			() => false,
+		)
+	)
+		throw new WorktreeError(`${path} already exists`, 409);
+	const existing = await gitResult(repo, [
+		"rev-parse",
+		"--verify",
+		"--quiet",
+		`refs/heads/${branch}`,
+	]);
+	if (existing.ok) throw new WorktreeError(`A branch called ${branch} already exists`, 409);
+	const head = await gitResult(repo, ["rev-parse", "--abbrev-ref", "HEAD"]);
+	const base = head.ok && head.out !== "HEAD" ? head.out : null;
+	const added = await gitResult(repo, ["worktree", "add", "-b", branch, path, "HEAD"]);
+	if (!added.ok) {
+		if (/already (?:checked out|used by worktree)/i.test(added.err))
+			throw new WorktreeError(`${branch} is already checked out elsewhere`, 409);
+		throw new WorktreeError(
+			`Could not make a worktree for this chat: ${firstLine(added.err) || "git failed"}`,
+			500,
+		);
+	}
+	const inside = relative(repo, folder);
+	return {
+		cwd: inside ? join(path, inside) : path,
+		worktree: { repo, path, branch, base, origin: folder },
+	};
+}
+
+async function gitResult(
+	cwd: string,
+	args: string[],
+): Promise<{ ok: boolean; out: string; err: string }> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		const child = Bun.spawn(["git", "-C", cwd, ...args], {
+			stdout: "pipe",
+			stderr: "pipe",
+			env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+		});
+		timer = setTimeout(() => child.kill(), FETCH_MS);
+		const [code, out, err] = await Promise.all([
+			child.exited,
+			new Response(child.stdout as ReadableStream).text(),
+			new Response(child.stderr as ReadableStream).text(),
+		]);
+		return { ok: code === 0, out: out.trim(), err: err.trim() };
+	} catch (cause) {
+		return { ok: false, out: "", err: cause instanceof Error ? cause.message : String(cause) };
+	} finally {
+		if (timer) clearTimeout(timer);
+	}
 }
 
 /** How a chat's worktree stands: what would be lost if it went. */

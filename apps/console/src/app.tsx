@@ -3,6 +3,7 @@ import type { JSX } from "@solidjs/web";
 import { lazy, Loading } from "solid-js";
 
 import { EmptyState, SplitLayout, Text, TextLink } from "@/kit";
+import { AutomationsScreen } from "@/modules/automations";
 import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { EnvironmentsScreen } from "@/modules/environments";
@@ -37,6 +38,7 @@ const Router = createRouter({
 		{ path: "/invite/:token", component: InviteRoute },
 		// What is waiting on the people in this workspace, across every project.
 		{ path: "/inbox", component: InboxRoute },
+		{ path: "/automations", component: () => <Authed screen={AutomationsScreen} /> },
 		{ path: "/board", component: RedirectRoute },
 		{ path: "/board/:slug", component: BoardRoute },
 		{ path: "/files/:slug", component: FilesRoute },

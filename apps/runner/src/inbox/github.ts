@@ -1,4 +1,5 @@
-import { insideProjectsDir } from "../folders/folders";
+import { realpath } from "node:fs/promises";
+import { isAbsolute, relative, sep } from "node:path";
 import type { PullRequests, PullSummary } from "../github/pulls";
 import { GitHubError } from "../github/codespaces";
 
@@ -11,6 +12,16 @@ export type GithubDeps = {
 	isOwner: (userId: string) => boolean;
 	/** Each project's folder in this workspace, by project slug. */
 	foldersOf: (workspaceId: string) => Record<string, string>;
+	/** Forward the items found by this refresh to saved jobs; no separate GitHub polling. */
+	onEvents?: (
+		workspace: string,
+		ownerId: string,
+		project: string,
+		type: "pull_opened" | "review_requested" | "checks_failed",
+		itemId: string,
+	) => void;
+	onError?: (workspace: string, ownerId: string, project: string, message: string) => void;
+	needsOpen?: (workspace: string, ownerId: string, project: string) => boolean;
 	/** How long a refresh is worth, so opening the inbox twice does not ask `gh` twice. */
 	freshForMs?: number;
 	/** How soon the page's own Refresh may ask again, so a pressed button cannot hammer `gh`. */
@@ -33,14 +44,18 @@ const MAX_PROJECTS = 12;
  * Only folders inside the projects directory count, the same containment the pull request routes
  * use. A folder linked before that was narrowed reads as not linked.
  */
-export function linkedFolders(
+export async function linkedFolders(
 	folders: Record<string, string>,
 	projectsDir: string,
-): Record<string, string> {
+): Promise<Record<string, string>> {
 	const inside: Record<string, string> = {};
+	const root = await realpath(projectsDir);
 	for (const [project, folder] of Object.entries(folders)) {
 		try {
-			inside[project] = insideProjectsDir(folder, projectsDir);
+			const target = await realpath(folder);
+			const path = relative(root, target);
+			if (path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path))
+				inside[project] = target;
 		} catch {
 			continue;
 		}
@@ -148,9 +163,18 @@ export class GithubInbox {
 		workspaceId: string,
 		projectsDir: string,
 	): Promise<boolean> {
-		const folders = Object.entries(
-			linkedFolders(this.deps.foldersOf(workspaceId), projectsDir),
-		).slice(0, MAX_PROJECTS);
+		const linked = this.deps.foldersOf(workspaceId);
+		const valid = await linkedFolders(linked, projectsDir);
+		for (const project of Object.keys(linked)) {
+			if (!valid[project])
+				this.deps.onError?.(
+					workspaceId,
+					userId,
+					project,
+					"The linked project folder is unavailable or outside the projects directory",
+				);
+		}
+		const folders = Object.entries(valid).slice(0, MAX_PROJECTS);
 		await Promise.all(
 			folders.map(async ([project, folder]) => {
 				try {
@@ -160,6 +184,12 @@ export class GithubInbox {
 					// project's items stay as they were, and the other projects carry on.
 					console.warn(
 						`[inbox] ${project}: ${cause instanceof GitHubError ? cause.message : cause}`,
+					);
+					this.deps.onError?.(
+						workspaceId,
+						userId,
+						project,
+						cause instanceof Error ? cause.message : String(cause),
 					);
 				}
 			}),
@@ -178,6 +208,22 @@ export class GithubInbox {
 		// One after the other: the projects already run side by side, and that is enough `gh`.
 		const reviews = await pulls.list(userId, folder, "review");
 		const mine = await pulls.list(userId, folder, "mine");
+		if (this.deps.onEvents) {
+			if (this.deps.needsOpen?.(workspaceId, userId, project)) {
+				try {
+					const open = await pulls.list(userId, folder, "open");
+					for (const pull of open)
+						this.deps.onEvents(workspaceId, userId, project, "pull_opened", String(pull.number));
+				} catch (cause) {
+					console.warn(`[inbox] ${project}: could not check opened pull requests`, cause);
+				}
+			}
+			for (const pull of reviews)
+				this.deps.onEvents(workspaceId, userId, project, "review_requested", String(pull.number));
+			for (const pull of mine)
+				if (pull.checks === "failing")
+					this.deps.onEvents(workspaceId, userId, project, "checks_failed", String(pull.number));
+		}
 		const drafts = draftsFor({ userId, workspaceId }, project, reviews, mine);
 		for (const draft of drafts) this.store.keep(draft);
 		this.store.forgetMissing(

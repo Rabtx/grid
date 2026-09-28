@@ -4,6 +4,7 @@ import { createEffect, For, Loading, Show } from "solid-js";
 
 import {
 	BoardIcon,
+	ClockIcon,
 	CloseIcon,
 	Count,
 	EditIcon,
@@ -117,6 +118,12 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 							<Count>{inboxStore.unread() > 99 ? "99+" : inboxStore.unread()}</Count>
 						</Show>
 					}
+				/>
+				<NavLink
+					href={workspaceHref("/automations")}
+					icon={<ClockIcon />}
+					label="Automations"
+					current={location.pathname.startsWith("/automations")}
 				/>
 				<For each={PROJECT_PAGES}>
 					{(page) => (
