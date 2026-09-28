@@ -97,14 +97,23 @@ export function ProviderMark(props: { provider: Provider }): JSX.Element {
 	);
 }
 
-/** An agent (Claude Code, Codex…) as its initial in a small tile, so chats from each read apart. */
-export function AgentMark(props: { name: string; size?: "sm" | "md" }): JSX.Element {
+/**
+ * An agent (Claude Code, Codex…) or a lab as its initial in a small tile tinted its own colour,
+ * lit along the top edge, so each reads apart at a glance. The tint follows the theme.
+ */
+export function AgentMark(props: { name: string; size?: "sm" | "md" | "lg" }): JSX.Element {
+	const hue = () => hueOf(props.name.trim().toLowerCase());
 	return (
 		<span
 			aria-hidden="true"
-			class={`grid shrink-0 place-items-center rounded-[4px] bg-fill-strong font-semibold text-fg-muted uppercase leading-none ${props.size === "md" ? "size-4 text-micro" : "size-3.5 text-micro"}`}
+			class={`grid shrink-0 place-items-center font-semibold uppercase leading-none ${props.size === "lg" ? "size-6 rounded-[6px] text-caption" : props.size === "md" ? "size-4 rounded-[4px] text-micro" : "size-3.5 rounded-[4px] text-micro"}`}
+			style={{
+				background: `color-mix(in srgb, hsl(${hue()} 70% 55%) 18%, transparent)`,
+				color: `color-mix(in oklab, hsl(${hue()} 70% 55%) 70%, var(--ink))`,
+				"box-shadow": `inset 0 1px 0 var(--kit-highlight), inset 0 0 0 1px color-mix(in srgb, hsl(${hue()} 70% 55%) 26%, transparent)`,
+			}}
 		>
-			{props.name.slice(0, 1)}
+			{props.name.trim().slice(0, 1)}
 		</span>
 	);
 }

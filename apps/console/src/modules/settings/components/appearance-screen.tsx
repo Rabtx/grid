@@ -223,6 +223,23 @@ export function AppearanceScreen(): JSX.Element {
 				</SettingsRow>
 			</SettingsGroup>
 
+			<SettingsGroup
+				title="Material"
+				description="How physical the interface feels, on this device."
+			>
+				<SettingsRow
+					inline
+					label="Depth"
+					description="Light along the top edge of raised things, softer layered shadows, pressable buttons and a lifted selection."
+				>
+					<Switch
+						label="Depth"
+						checked={appearance().depth}
+						onChange={(depth) => updateAppearance({ depth })}
+					/>
+				</SettingsRow>
+			</SettingsGroup>
+
 			<SettingsGroup title="Motion and fun" description="Small moments of delight, on this device.">
 				<SettingsRow
 					inline

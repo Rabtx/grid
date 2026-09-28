@@ -1,10 +1,13 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
+import { Tooltip } from "./surface";
+
 /**
- * Where you write to an agent: a raised card with the text on top and a toolbar under it —
- * tools on the left, the model, the mic and send on the right — and an optional tray tucked
- * beneath for context (the folder it works in). Chat owns the text and sending; this is its shape.
+ * Where you write to an agent: one raised, lit card with the text on top and a toolbar under it —
+ * tools on the left, the model, the mic and send on the right — and, along its bottom edge, a
+ * strip for context (the folder it works in, the branch). It glows in the accent while you type.
+ * Chat owns the text and sending; this is its shape.
  */
 export function PromptBox(props: {
 	field: JSX.Element;
@@ -37,7 +40,7 @@ export function PromptBox(props: {
 					event.preventDefault();
 					props.onSubmit?.(event);
 				}}
-				class="relative z-10 flex flex-col rounded-kit-2xl bg-surface-raised shadow-lift transition-shadow duration-fast focus-within:shadow-focus"
+				class="relative z-10 flex flex-col rounded-kit-2xl bg-surface-raised shadow-raise transition-shadow duration-base ease-out-grid focus-within:shadow-focus"
 			>
 				{props.overlay}
 				{props.field}
@@ -51,12 +54,12 @@ export function PromptBox(props: {
 					{props.options}
 					{props.send}
 				</div>
+				<Show when={props.tray}>
+					<div class="flex min-h-9 items-center gap-3 rounded-b-kit-2xl border-line border-t bg-fill px-4 text-body text-fg-subtle pointer-coarse:min-h-11">
+						{props.tray}
+					</div>
+				</Show>
 			</form>
-			<Show when={props.tray}>
-				<div class="mx-3 flex min-h-9 items-center gap-3 rounded-b-kit-lg border border-line border-t-0 bg-surface-sunken px-3 text-body text-fg-subtle pointer-coarse:min-h-11">
-					{props.tray}
-				</div>
-			</Show>
 		</div>
 	);
 }
@@ -73,13 +76,72 @@ export const PROMPT_CHIP =
 export const PROMPT_ADD =
 	"focus-ring grid size-7 shrink-0 place-items-center rounded-kit text-fg-muted ring-line-strong transition-colors duration-fast hover:bg-fill hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:size-10";
 
-/** The round send button: dark when there is something to send. */
+/**
+ * The round send button: a quiet, empty circle until there is something to send, then it fills
+ * with ink and a lit edge, a little larger, as if it came forward.
+ */
 export const SEND_BUTTON =
-	"focus-ring grid size-7 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg transition-[opacity,transform] duration-fast active:scale-95 disabled:bg-fill-strong disabled:text-fg-faint pointer-coarse:size-10";
+	"focus-ring grid size-8 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:scale-90 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none pointer-coarse:size-10";
 
-/** Stop, in place of send while the agent works. */
+/** Stop, in place of send while the agent works: a ring turns around it until it is done. */
 export const STOP_BUTTON =
-	"focus-ring grid size-7 shrink-0 place-items-center rounded-full bg-fill-strong text-fg transition-transform duration-fast hover:bg-fill-strong active:scale-95 pointer-coarse:size-10";
+	"focus-ring relative grid size-8 shrink-0 place-items-center rounded-full bg-fill-strong text-fg transition-transform duration-fast active:scale-95 pointer-coarse:size-10";
+
+/** The ring turning around the stop button while the agent works. */
+export function WorkingRing(): JSX.Element {
+	return (
+		<span
+			aria-hidden="true"
+			class="pointer-events-none absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-accent [animation-duration:1.1s] motion-reduce:animate-none"
+		/>
+	);
+}
+
+/**
+ * How full the agent's context is, as a small ring beside the model: quiet until it fills,
+ * amber from 80%, red from 95%. The number is in its label and tooltip.
+ */
+export function ContextMeter(props: { used: number; total: number }): JSX.Element {
+	const ratio = () => Math.min(1, Math.max(0, props.used / Math.max(1, props.total)));
+	const percent = () => Math.round(ratio() * 100);
+	const tone = () =>
+		ratio() >= 0.95
+			? "var(--signal-danger)"
+			: ratio() >= 0.8
+				? "var(--signal-warning)"
+				: "var(--kit-fg-subtle)";
+	const radius = 6;
+	const around = 2 * Math.PI * radius;
+	return (
+		<Tooltip label={`${percent()}% of context used`}>
+			<span class="grid size-7 shrink-0 place-items-center pointer-coarse:size-10">
+				<span class="sr-only">{percent()}% of context used</span>
+				<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" class="-rotate-90">
+					<circle
+						cx="8"
+						cy="8"
+						r={radius}
+						fill="none"
+						stroke="var(--kit-fill-strong)"
+						stroke-width="2"
+					/>
+					<circle
+						cx="8"
+						cy="8"
+						r={radius}
+						fill="none"
+						stroke={tone()}
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-dasharray={String(around)}
+						stroke-dashoffset={String(around * (1 - ratio()))}
+						class="transition-[stroke-dashoffset] duration-slow ease-out-grid"
+					/>
+				</svg>
+			</span>
+		</Tooltip>
+	);
+}
 
 /** The composer's mic: red while it listens. */
 export const MIC_BUTTON =

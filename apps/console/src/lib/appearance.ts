@@ -29,6 +29,8 @@ export type Appearance = {
 	lines: number;
 	/** Play the grid ignition when a flagship model is picked (desktop, motion allowed). */
 	celebrations: boolean;
+	/** Lit edges, softer layered shadows and a lifted selection; off keeps the flat look. */
+	depth: boolean;
 };
 
 export const APPEARANCE_DEFAULTS: Appearance = {
@@ -43,6 +45,7 @@ export const APPEARANCE_DEFAULTS: Appearance = {
 	spacing: 1,
 	lines: 1,
 	celebrations: true,
+	depth: false,
 };
 
 export const APPEARANCE_LIMITS = {
@@ -103,6 +106,7 @@ export function normalizeAppearance(input: unknown): Appearance {
 		spacing: Math.round(clamp(raw.spacing, l.spacing.min, l.spacing.max, d.spacing) * 100) / 100,
 		lines: Math.round(clamp(raw.lines, l.lines.min, l.lines.max, d.lines) * 100) / 100,
 		celebrations: typeof raw.celebrations === "boolean" ? raw.celebrations : d.celebrations,
+		depth: typeof raw.depth === "boolean" ? raw.depth : d.depth,
 	};
 }
 
@@ -162,6 +166,7 @@ export function applyAppearance(
 	root.classList.toggle("dark", value.theme === "dark");
 	root.classList.toggle("light", value.theme === "light");
 	root.setAttribute("data-density", value.density);
+	root.setAttribute("data-depth", value.depth ? "on" : "off");
 	if (root === document.documentElement) syncThemeColor(value);
 }
 

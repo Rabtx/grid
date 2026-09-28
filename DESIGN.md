@@ -145,6 +145,33 @@ backdrop (`rounded-xl`, `border-ink/8`) and edge to edge on phones; the phone na
 (sheets, menus, dialogs: solid canvas, `border-ink/10`, the only shadows). Regions are separated
 by 1px `stroke` lines, never gaps or shadows.
 
+### Depth and material
+
+Depth is an Appearance choice, **off by default**: Settings → Appearance → Material → Depth sets
+`data-depth="on"` on the root (saved per device, applied before the first paint). Off, the
+console is the flat look above. On, depth comes from light, not from stacking shadows. Every rule
+below is a `--kit-*` variable that is flat by default and switched in `:root[data-depth="on"]`
+in `kit.css`; what a variable cannot switch uses the `depth:` variant (`depth:active:…`). New
+depth detailing goes behind the same switch.
+
+- **Lit edges.** Anything raised (cards, outlined controls, the composer, menus, knobs) carries a
+  1px inner highlight along its top edge (`--kit-highlight`: strong on light, 6% white on dark).
+  It is a line of light, not a shadow, so in-flow cards stay flat.
+- **Two-layer shadows on floating things only.** A tight contact shadow and a soft ambient one
+  (`shadow-float`, `shadow-raise`). In-flow content never gets more than `shadow-lift`.
+- **The canvas breathes.** The screen's panel has a faint light at its top (`surface-canvas`), so a
+  dark canvas is not a flat void.
+- **Pressable primaries.** Ink and accent buttons get `surface-primary`: light on the top edge, the
+  fill deepening downward, a 1px nudge down when pressed.
+- **Selection is lifted.** The selected sidebar row is a raised pill on the sunken frame
+  (`bg-surface` + `shadow-lift`), not only a fill.
+- **Fading hairlines.** A horizontal `Divider` fades out at its ends (`hairline-fade`).
+
+Keep it small: one highlight, at most two shadow layers, no coloured glows beyond the composer's
+halo and the effort knob at its top level. Those two are part of the composer and picker design
+and show whatever the depth setting: the composer glows in the accent while focused
+(`shadow-focus`); every other control keeps the keyboard-only `focus-ring`.
+
 ### Motion
 
 `duration-fast` 120ms (feedback), `duration-base` 160ms (disclosure, reorder), `duration-slow`
@@ -191,8 +218,9 @@ Every visual decision lives in one place, so a tweak is made once:
 2. **Kit components** turn tokens into recipes, each defined with the `variants()` helper
    (`base` + axes like `size`, `tone`, `variant` + defaults). A new size or tone is one entry.
    Repeated recipes are named utilities: `surface-card`, `surface-well`, `surface-field`,
-   `surface-outline`, `ring-line`, `ring-line-strong`, `shadow-raise`, `shadow-lift`,
-   `shadow-float`, `shadow-focus`, `shadow-knob`, `shadow-page`.
+   `surface-outline`, `surface-primary`, `surface-canvas`, `hairline-fade`, `ring-line`,
+   `ring-line-strong`, `shadow-raise`, `shadow-lift`, `shadow-float`, `shadow-focus`,
+   `shadow-knob`, `shadow-page`.
 3. **Screens compose.** Layout with `Stack`, `Row`, `Grid`, `Page`, `PageHeader`, `Section`,
    `Spacer`, `Divider`; text with `Text` and `Heading`; icons with a `size`. A kit component's
    `class` prop is for layout only (width, flex, grid placement, margin); content goes through

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
 	filterChoices,
+	foldDefault,
+	modelBlurb,
 	findChoice,
 	groupChoices,
 	mergeModels,
@@ -113,5 +115,37 @@ describe("shortModelName", () => {
 		expect(shortModelName("Default · Opus 5.5 (1M context)")).toBe("Opus 5.5");
 		expect(shortModelName("MiMo-V2.6-Flash Free")).toBe("MiMo-V2.6-Flash Free");
 		expect(shortModelName("(beta)")).toBe("(beta)");
+	});
+});
+
+describe("modelBlurb", () => {
+	it("drops the model id a description starts with", () => {
+		expect(
+			modelBlurb({
+				id: "x",
+				name: "Opus",
+				description: "claude-opus-5-5 · Best for everyday tasks",
+			}),
+		).toBe("Best for everyday tasks");
+		expect(
+			modelBlurb({ id: "x", name: "Sonnet", description: "Efficient · for routine tasks" }),
+		).toBe("Efficient · for routine tasks");
+		expect(modelBlurb({ id: "x", name: "None" })).toBeUndefined();
+	});
+});
+
+describe("foldDefault", () => {
+	it("keeps the default under its model's name and drops the duplicate", () => {
+		const folded = foldDefault([
+			{ id: "default", name: "Default · Opus 5.5 (1M context)" },
+			{ id: "opus", name: "Opus 5.5 (1M context)" },
+			{ id: "sonnet", name: "Sonnet 5" },
+		]);
+		expect(folded.choices.map((choice) => [choice.id, choice.name])).toEqual([
+			["default", "Opus 5.5 (1M context)"],
+			["sonnet", "Sonnet 5"],
+		]);
+		expect(folded.defaults.has("default")).toBe(true);
+		expect(folded.aliases.get("default")).toBe("opus");
 	});
 });

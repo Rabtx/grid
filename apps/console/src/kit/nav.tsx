@@ -5,7 +5,7 @@ import { attachContextMenu, type MenuPoint } from "./context-menu";
 import { variants } from "./variants";
 
 const row = variants({
-	base: "focus-ring group/nav flex w-full min-w-0 items-center gap-2.5 rounded-kit-md text-left text-fg-muted transition-colors duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill hover:text-fg aria-[current=page]:bg-fill-strong aria-[current=page]:text-fg",
+	base: "focus-ring group/nav flex w-full min-w-0 items-center gap-2.5 rounded-kit-md text-left text-fg-muted transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill hover:text-fg aria-[current=page]:bg-fill-strong aria-[current=page]:text-fg depth:aria-[current=page]:bg-surface depth:aria-[current=page]:shadow-lift",
 	variants: {
 		// Top-level destinations and projects; threads and a project's pages one step down.
 		level: {

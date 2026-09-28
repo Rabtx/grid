@@ -8,11 +8,13 @@ export const button = variants({
 	base: "focus-ring inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-kit font-medium transition-[background-color,color,box-shadow,transform] duration-fast ease-out-grid active:scale-[0.98] disabled:pointer-events-none",
 	variants: {
 		variant: {
-			primary: "bg-inverse text-inverse-fg hover:bg-inverse/88 disabled:opacity-35",
+			primary:
+				"surface-primary bg-inverse text-inverse-fg hover:bg-inverse/90 depth:active:translate-y-px disabled:opacity-35 disabled:shadow-none",
 			secondary: "surface-outline text-fg hover:bg-fill disabled:text-fg-faint",
 			ghost: "text-fg-muted hover:bg-fill hover:text-fg disabled:text-fg-faint",
 			danger: "text-danger hover:bg-danger/8 disabled:opacity-40",
-			accent: "bg-accent text-white hover:bg-accent/90 disabled:opacity-40",
+			accent:
+				"surface-primary bg-accent text-white hover:bg-accent/90 depth:active:translate-y-px disabled:opacity-40 disabled:shadow-none",
 		},
 		size: {
 			sm: "h-kit-control-sm px-2.5 text-caption",
