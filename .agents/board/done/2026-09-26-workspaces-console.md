@@ -5,12 +5,12 @@ type: feature
 from: human
 to: web
 priority: normal
-status: open
-assignee: none
+status: done
+assignee: claude
 reviewer: human
 parent: .agents/plans/api-on-hono.md
 depends_on: [str-workspaces-data, str-workspaces-invites-setup]
-branch: none
+branch: agent/web/workspace-members
 worktree: none
 scope:
   - apps/console/src/modules/settings/**
@@ -114,3 +114,21 @@ vitest covers the role change and the revoke; `bun run typecheck`, `lint`, `arch
   and copy an invite, revoke it. As a plain member, confirm the actions are absent rather than
   broken.
 - Against a throwaway database clone, not the dev one.
+
+## Resolution
+
+Item 4 shipped on `agent/web/workspace-members`: Settings → Members. Everyone sees the people
+(avatar, name, @username, role, when they joined); tapping a person opens a sheet. Owners and
+admins change roles (only to roles at or below their own), remove people and see pending invites;
+you can leave from your own sheet. Invite (header) makes a link or an emailed invite as admin or
+member and shows the link once to copy, on the console's own address; tapping a pending invite
+revokes it. A plain member sees the people without the actions the API would refuse. The role
+rules live in `modules/workspaces/lib/members.ts`, mirroring the API.
+
+Validation: lint, typecheck, format, architecture check pass; console vitest 68 files / 451
+tests (new: member rules, members screen for owner and member, role change, invite link); build
+passes. Browser against the live API at 1280 px and 375 px: list, invite by link, the link shown
+once, the pending invite listed, revoked, the own-member sheet with Leave.
+
+Follow-up for whoever runs a Grid: emailed invites link to the API's `WEB_APP_URL`, which defaults
+to the website on :3000; point it at the console for email links to open the invite page.

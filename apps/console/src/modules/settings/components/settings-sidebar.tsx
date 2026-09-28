@@ -14,6 +14,7 @@ import {
 	RocketIcon,
 	SunIcon,
 	Text,
+	UserAddIcon,
 	UserIcon,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
@@ -24,6 +25,7 @@ const ICONS: Record<SettingsHref, () => JSX.Element> = {
 	"/settings/appearance": () => <SunIcon />,
 	"/settings/notifications": () => <BellIcon />,
 	"/settings/agents": () => <RocketIcon />,
+	"/settings/members": () => <UserAddIcon />,
 	"/settings/environments": () => <GlobeIcon />,
 	"/settings/connectors": () => <LinkIcon />,
 	"/settings/worktrees": () => <BranchIcon />,
