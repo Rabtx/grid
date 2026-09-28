@@ -7,6 +7,7 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 
 import {
 	AgentMark,
+	Badge,
 	CheckIcon,
 	ChevronDownIcon,
 	ChoiceRail,
@@ -30,6 +31,8 @@ import {
 import {
 	filterChoices,
 	findChoice,
+	foldDefault,
+	modelBlurb,
 	modeDescription,
 	modeGlyph,
 	type ModeGlyph,
@@ -124,10 +127,12 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 		id === current() || !agents()
 			? props.models
 			: (agents()?.find((a) => a.id === id)?.models ?? []);
+	// Each agent's list with its "Default" folded into the model it stands for.
+	const foldedOf = (id: string) => foldDefault(modelsOf(id));
 	const everyEntry = createMemo<Entry[]>(() =>
 		(agents() ?? [{ id: current(), name: agentName(current()), models: props.models }]).flatMap(
 			(agent) =>
-				(agent.id === current() ? props.models : agent.models).map((choice) => ({
+				foldDefault(agent.id === current() ? props.models : agent.models).choices.map((choice) => ({
 					agent: agent.id,
 					agentName: agent.name,
 					choice,
@@ -158,7 +163,7 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 		const source =
 			view() === FAVORITES
 				? favorites()
-				: modelsOf(view()).map((choice) => ({
+				: foldedOf(view()).choices.map((choice) => ({
 						agent: view(),
 						agentName: agentName(view()),
 						choice,
@@ -207,7 +212,9 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 					icon={<SearchIcon />}
 					value={query()}
 					placeholder={
-						view() === FAVORITES ? "Search favourites" : `Search ${modelsOf(view()).length} models`
+						view() === FAVORITES
+							? "Search favourites"
+							: `Search ${foldedOf(view()).choices.length} models`
 					}
 					aria-label="Search models"
 					autocomplete="off"
@@ -278,26 +285,31 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 										{(entry) => {
 											const index = () => shown().indexOf(entry);
 											const chosen = () =>
-												entry.agent === current() && entry.choice.id === props.model;
+												entry.agent === current() &&
+												(entry.choice.id === props.model ||
+													foldedOf(current()).aliases.get(entry.choice.id) === props.model);
+											const isDefault = () => foldedOf(entry.agent).defaults.has(entry.choice.id);
 											return (
 												<ModelRow
 													index={index()}
 													name={entry.choice.name}
-													description={entry.choice.description}
+													description={modelBlurb(entry.choice)}
+													title={
+														foldedOf(entry.agent).aliases.get(entry.choice.id) ?? entry.choice.id
+													}
 													badge={
-														isFlagship(entry.choice) ? (
-															<FlagshipMark>
-																<SparklesIcon size="xs" />
-															</FlagshipMark>
-														) : undefined
+														<>
+															<Show when={isFlagship(entry.choice)}>
+																<FlagshipMark>
+																	<SparklesIcon size="xs" />
+																</FlagshipMark>
+															</Show>
+															<Show when={isDefault()}>
+																<Badge>Default</Badge>
+															</Show>
+														</>
 													}
-													detail={
-														chosen() ? (
-															<CheckIcon size="sm" class="text-fg" />
-														) : entry.choice.efforts?.length ? (
-															`${entry.choice.efforts.length} efforts`
-														) : undefined
-													}
+													detail={chosen() ? <CheckIcon size="sm" class="text-fg" /> : undefined}
 													selected={chosen()}
 													active={index() === active()}
 													favorite={favoritesStore.has(entry.agent, entry.choice.id)}

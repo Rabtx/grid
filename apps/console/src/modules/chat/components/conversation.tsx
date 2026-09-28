@@ -10,7 +10,16 @@ import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
 import { placementsStore } from "@/modules/environments/stores/placements";
 import { notesStore, useWorkspace } from "@/modules/projects";
-import { Alert, Banner, FolderIcon, notify, type PopoverControl, Row, Text } from "@/kit";
+import {
+	Alert,
+	Banner,
+	ContextMeter,
+	FolderIcon,
+	notify,
+	type PopoverControl,
+	Row,
+	Text,
+} from "@/kit";
 
 import { type ChatConnection, connectChat, type ChatSocket } from "../lib/chat-socket";
 import { applyEvent, emptyTranscript, replay, type Transcript } from "../lib/transcript";
@@ -465,17 +474,9 @@ export function Conversation(props: {
 									/>
 								</Show>
 								<Show when={transcript().usage?.contextWindow}>
-									<span
-										class="shrink-0 px-1 text-caption text-fg-faint tabular-nums"
-										title="Context used"
-									>
-										{Math.round(
-											((transcript().usage?.contextUsed ?? 0) /
-												(transcript().usage?.contextWindow ?? 1)) *
-												100,
-										)}
-										%
-									</span>
+									{(total) => (
+										<ContextMeter used={transcript().usage?.contextUsed ?? 0} total={total()} />
+									)}
 								</Show>
 							</>
 						}

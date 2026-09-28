@@ -99,3 +99,42 @@ export function shortModelName(name: string): string {
 		.trim();
 	return short || name;
 }
+
+/**
+ * What a picker row says under a model's name: the agent's description without the model id it
+ * often starts with ("claude-opus-5-5 · Best for everyday tasks" reads "Best for everyday
+ * tasks"). The id stays in the row's tooltip.
+ */
+export function modelBlurb(choice: Choice): string | undefined {
+	const text = choice.description?.trim();
+	if (!text) return undefined;
+	const rest = text.replace(/^[a-z0-9][\w.:/-]*[-\d][\w.:/-]*\s*·\s*/i, "").trim();
+	return rest || undefined;
+}
+
+/**
+ * An agent's "Default" model and the model it currently resolves to are one choice: the list
+ * keeps the default (under the model's own name, marked as the default) and drops the duplicate.
+ * `aliases` maps the default's id to the id it stands for, so either reads as chosen.
+ */
+export function foldDefault(choices: readonly Choice[]): {
+	choices: Choice[];
+	defaults: Set<string>;
+	aliases: Map<string, string>;
+} {
+	const defaults = new Set<string>();
+	const aliases = new Map<string, string>();
+	const hidden = new Set<string>();
+	const named = choices.map((choice) => {
+		const match = /^Default\s*·\s*(.+)$/.exec(choice.name);
+		if (!match) return choice;
+		defaults.add(choice.id);
+		const target = choices.find((other) => other !== choice && other.name === match[1]);
+		if (target) {
+			aliases.set(choice.id, target.id);
+			hidden.add(target.id);
+		}
+		return { ...choice, name: match[1] };
+	});
+	return { choices: named.filter((choice) => !hidden.has(choice.id)), defaults, aliases };
+}

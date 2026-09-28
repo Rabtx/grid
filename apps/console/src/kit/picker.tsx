@@ -7,7 +7,7 @@ export type RailItem = { id: string; label: string; icon: JSX.Element };
 
 /**
  * What a picker's list shows, chosen from a rail: favourites, then each agent or provider. A
- * column of marks down the left of the panel from md, a row of chips across its top on phones.
+ * named column down the left of the panel from md, a row of chips across its top on phones.
  */
 export function ChoiceRail(props: {
 	label: string;
@@ -19,7 +19,7 @@ export function ChoiceRail(props: {
 		<div
 			role="tablist"
 			aria-label={props.label}
-			class="flex shrink-0 gap-1 overflow-x-auto border-line border-b px-2 py-1.5 [scrollbar-width:none] md:w-12 md:flex-col md:items-center md:overflow-y-auto md:border-r md:border-b-0 md:px-1.5"
+			class="flex shrink-0 gap-1 overflow-x-auto border-line border-b px-2 py-1.5 [scrollbar-width:none] md:w-40 md:flex-col md:overflow-y-auto md:border-r md:border-b-0 md:bg-fill md:p-1.5"
 		>
 			<For each={props.items}>
 				{(item) => (
@@ -30,10 +30,10 @@ export function ChoiceRail(props: {
 						aria-label={item.label}
 						aria-selected={props.value === item.id ? "true" : "false"}
 						onClick={() => props.onChange(item.id)}
-						class="focus-ring flex h-8 shrink-0 items-center gap-1.5 rounded-kit-md px-2 text-body text-fg-subtle transition-colors duration-fast hover:bg-fill hover:text-fg aria-selected:bg-fill-strong aria-selected:text-fg pointer-coarse:h-10 md:size-9 md:justify-center md:px-0"
+						class="focus-ring flex h-8 shrink-0 items-center gap-2 rounded-kit-md px-2 text-body text-fg-subtle transition-[background-color,color,box-shadow] duration-fast hover:bg-fill-strong hover:text-fg aria-selected:bg-surface-raised aria-selected:text-fg aria-selected:shadow-lift pointer-coarse:h-10 md:w-full"
 					>
 						<span class="grid size-5 shrink-0 place-items-center">{item.icon}</span>
-						<span class="whitespace-nowrap md:hidden">{item.label}</span>
+						<span class="min-w-0 truncate whitespace-nowrap">{item.label}</span>
 					</button>
 				)}
 			</For>
@@ -49,6 +49,8 @@ export function ChoiceRail(props: {
 export function ModelRow(props: {
 	name: string;
 	description?: string;
+	/** On hover: the model's id, for when the name is not enough. */
+	title?: string;
 	badge?: JSX.Element;
 	detail?: JSX.Element;
 	selected: boolean;
@@ -68,6 +70,7 @@ export function ModelRow(props: {
 			<button
 				type="button"
 				aria-label={props.name}
+				title={props.title}
 				aria-pressed={props.selected ? "true" : "false"}
 				onMouseEnter={() => props.onHover?.()}
 				onClick={(event) => props.onPick(event)}

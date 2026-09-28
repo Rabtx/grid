@@ -100,7 +100,7 @@ export function Divider(props: { vertical?: boolean }): JSX.Element {
 	return (
 		<span
 			aria-hidden="true"
-			class={props.vertical ? "w-px self-stretch bg-line" : "h-px w-full shrink-0 bg-line"}
+			class={props.vertical ? "w-px self-stretch bg-line" : "hairline-fade h-px w-full shrink-0"}
 		/>
 	);
 }

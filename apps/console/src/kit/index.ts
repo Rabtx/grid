@@ -87,6 +87,8 @@ export {
 	SEND_BUTTON,
 	STOP_BUTTON,
 	Suggestions,
+	ContextMeter,
+	WorkingRing,
 } from "./prompt-box";
 export { Checklist, ChoicePrompt, DecisionCard, ProgressRing } from "./prompts";
 export {

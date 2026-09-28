@@ -26,6 +26,7 @@ import {
 	SendIcon,
 	SpinnerIcon,
 	STOP_BUTTON,
+	WorkingRing,
 	StopSquareIcon,
 	TerminalIcon,
 	Text,
@@ -694,6 +695,7 @@ export function Composer(props: {
 								onClick={() => props.onStop?.()}
 								class={STOP_BUTTON}
 							>
+								<WorkingRing />
 								<StopSquareIcon />
 							</button>
 						</Show>

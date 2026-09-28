@@ -43,7 +43,7 @@ export function AppFrame(props: {
 				<aside class="hidden w-60 shrink-0 lg:block">{props.sidebar}</aside>
 			</Show>
 			<div
-				class={`flex min-w-0 flex-1 flex-col bg-surface ${props.sidebar ? "lg:border-line lg:border-l" : ""}`}
+				class={`surface-canvas flex min-w-0 flex-1 flex-col ${props.sidebar ? "lg:border-line lg:border-l" : ""}`}
 			>
 				{props.header}
 				<main
