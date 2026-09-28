@@ -12,4 +12,7 @@ Grid is in development and will draw Grid its own icons. Until then:
   named `theme.json`), and nothing else needs to change.
 
 The console reads `theme.json` at start and matches file and folder names the way the editor does
-(`apps/console/src/lib/file-icons.ts`); the service worker does not precache these files.
+(`apps/console/src/lib/file-icons.ts`). Nothing is downloaded up front: an icon is fetched the first
+time a tree row needs it, then the service worker keeps it in its own cache and serves it from
+there, so only icons not seen before touch the network. That cache survives app updates and is
+keyed to `theme.json`, so replacing the icons replaces the cache.

@@ -7,6 +7,9 @@
  * - Page navigations go to the network first and fall back to the cached shell offline; the
  *   router then renders the right screen from the URL.
  * - Hashed assets are served from the cache first — their names change whenever they change.
+ * - File and folder icons (/file-icons/…) are fetched only when a tree row needs one, then kept in
+ *   their own cache and served from it after that, so only icons not seen before touch the network.
+ *   That cache outlives deploys and is keyed to the icon set, so new icons replace the old.
  * - API and terminal calls (/api/…, /uploads/…, /runner/…) are never cached: they must be live.
  * - Pushes from the runner (an agent finished or needs approval while nobody was looking) show as
  *   notifications; tapping one opens that chat, in the open window when there is one.
@@ -14,6 +17,7 @@
 const BUILD_ID = "__BUILD_ID__";
 const CACHE = `grid-shell-${BUILD_ID}`;
 const PRECACHE = __PRECACHE__;
+const ICONS = "grid-file-icons-__ICONS_ID__";
 
 self.addEventListener("install", (event) => {
 	event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)));
@@ -26,7 +30,11 @@ self.addEventListener("activate", (event) => {
 			.then((keys) =>
 				Promise.all(
 					keys
-						.filter((key) => key.startsWith("grid-shell-") && key !== CACHE)
+						.filter(
+							(key) =>
+								(key.startsWith("grid-shell-") && key !== CACHE) ||
+								(key.startsWith("grid-file-icons-") && key !== ICONS),
+						)
 						.map((key) => caches.delete(key)),
 				),
 			)
@@ -45,6 +53,23 @@ self.addEventListener("fetch", (event) => {
 	const url = new URL(request.url);
 	if (url.origin !== self.location.origin) return;
 	if (["/api/", "/uploads/", "/runner/"].some((prefix) => url.pathname.startsWith(prefix))) return;
+
+	// Icons: from the icon cache when seen before, else fetched once and kept.
+	if (url.pathname.startsWith("/file-icons/")) {
+		event.respondWith(
+			caches.open(ICONS).then((cache) =>
+				cache.match(request).then(
+					(cached) =>
+						cached ??
+						fetch(request).then((response) => {
+							if (response.ok) void cache.put(request, response.clone());
+							return response;
+						}),
+				),
+			),
+		);
+		return;
+	}
 
 	if (request.mode === "navigate") {
 		event.respondWith(
