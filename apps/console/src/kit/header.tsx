@@ -97,7 +97,7 @@ export function HeaderTabs(props: {
 								type="button"
 								aria-label={`Close ${tab.label}`}
 								onClick={() => props.onClose?.(tab.id)}
-								class="focus-ring mr-1 grid size-4.5 shrink-0 place-items-center rounded-[5px] text-fg-faint opacity-0 hover:bg-fill-strong hover:text-fg group-hover/tab:opacity-100 group-aria-[current=page]/tab:opacity-100 pointer-coarse:opacity-100"
+								class="focus-ring mr-1 grid size-4.5 shrink-0 place-items-center rounded-kit-xs text-fg-faint opacity-0 hover:bg-fill-strong hover:text-fg group-hover/tab:opacity-100 group-aria-[current=page]/tab:opacity-100 pointer-coarse:opacity-100"
 							>
 								<CloseIcon class="size-3" />
 							</button>

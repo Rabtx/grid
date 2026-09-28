@@ -41,7 +41,7 @@ export function Checkbox(props: {
 					el.indeterminate = props.indeterminate ?? false;
 				}}
 				onChange={(event) => props.onChange(event.currentTarget.checked)}
-				class="peer focus-ring size-4 cursor-pointer appearance-none rounded-[5px] bg-surface ring-line-strong transition-colors duration-fast checked:bg-inverse checked:shadow-none indeterminate:bg-inverse indeterminate:shadow-none"
+				class="peer focus-ring size-4 cursor-pointer appearance-none rounded-kit-xs bg-surface ring-line-strong transition-colors duration-fast checked:bg-inverse checked:shadow-none indeterminate:bg-inverse indeterminate:shadow-none"
 			/>
 			<svg
 				viewBox="0 0 16 16"

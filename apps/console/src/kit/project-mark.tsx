@@ -66,7 +66,7 @@ export function ProjectMark(props: {
 				<Match when={props.shape.kind === "letter" && props.shape}>
 					{(shape) => (
 						<span
-							class={`grid size-full place-items-center rounded-[0.3rem] bg-current font-medium text-micro uppercase leading-none ${breathe()}`}
+							class={`grid size-full place-items-center rounded-kit-xs bg-current font-medium text-micro uppercase leading-none ${breathe()}`}
 						>
 							<span class="text-surface">{shape().letter}</span>
 						</span>

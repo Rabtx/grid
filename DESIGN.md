@@ -136,6 +136,13 @@ on any coarse pointer all three stay ≥ 44px. `data-density="compact | comforta
 on `<html>` scales them. Radius by nesting: chips `rounded-sm` (4px), controls `rounded-md`
 (6px, the default), cards `rounded-lg` (8px), floating surfaces `rounded-xl` (12px).
 
+**Every corner follows the roundness slider** (Settings → Appearance → Corner roundness,
+`--kit-radius-scale`). Corners come only from the kit scale — `rounded-kit-2xs` (2px), `-xs` (4),
+`-sm` (6), `rounded-kit` (8), `-md` (10), `-lg` (12), `-xl` (14), `-2xl` (16) — or, in CSS,
+`var(--radius-kit*)`; the older `--radius-*` names scale too. No fixed pixel corners: circles and
+pills (`rounded-full`) are shapes and stay round, and 0 is no corner. `kit-guard.test.ts` fails the
+build on a fixed corner in the kit or the stylesheets.
+
 ### Surfaces
 
 Four levels, no shadows on in-flow content: the backdrop (`bg-backdrop`), which the desktop

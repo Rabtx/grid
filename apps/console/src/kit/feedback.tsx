@@ -154,7 +154,7 @@ export function UsageBar(props: { value: number; ticks?: number; label?: string 
 				{Math.round(props.value * 100)}%
 			</span>
 			{Array.from({ length: ticks() }, (_, index) => (
-				<span class={`flex-1 rounded-[1px] ${index < filled() ? color() : "bg-fill-strong"}`} />
+				<span class={`flex-1 rounded-kit-2xs ${index < filled() ? color() : "bg-fill-strong"}`} />
 			))}
 		</div>
 	);

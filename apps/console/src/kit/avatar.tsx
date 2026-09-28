@@ -49,7 +49,7 @@ export function WorkspaceMark(props: {
 	return (
 		<span
 			aria-hidden="true"
-			class={`grid shrink-0 place-items-center rounded-[28%] font-semibold text-white uppercase ${SIZES[props.size ?? "sm"]}`}
+			class={`grid shrink-0 place-items-center rounded-[calc(28%*var(--kit-radius-scale))] font-semibold text-white uppercase ${SIZES[props.size ?? "sm"]}`}
 			style={{
 				background: props.color?.startsWith("#")
 					? props.color
@@ -106,7 +106,7 @@ export function AgentMark(props: { name: string; size?: "sm" | "md" | "lg" }): J
 	return (
 		<span
 			aria-hidden="true"
-			class={`grid shrink-0 place-items-center font-semibold uppercase leading-none ${props.size === "lg" ? "size-6 rounded-[6px] text-caption" : props.size === "md" ? "size-4 rounded-[4px] text-micro" : "size-3.5 rounded-[4px] text-micro"}`}
+			class={`grid shrink-0 place-items-center font-semibold uppercase leading-none ${props.size === "lg" ? "size-6 rounded-kit-sm text-caption" : props.size === "md" ? "size-4 rounded-kit-xs text-micro" : "size-3.5 rounded-kit-xs text-micro"}`}
 			style={{
 				background: `color-mix(in srgb, hsl(${hue()} 70% 55%) 18%, transparent)`,
 				color: `color-mix(in oklab, hsl(${hue()} 70% 55%) 70%, var(--ink))`,

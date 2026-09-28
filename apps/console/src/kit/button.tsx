@@ -76,7 +76,7 @@ export function Button(props: ButtonProps): JSX.Element {
 			{props.icon}
 			{props.children}
 			<Show when={props.kbd}>
-				<kbd class="ml-0.5 rounded-[4px] bg-current/12 px-1 font-kit font-normal text-caption leading-4 opacity-80">
+				<kbd class="ml-0.5 rounded-kit-xs bg-current/12 px-1 font-kit font-normal text-caption leading-4 opacity-80">
 					{props.kbd}
 				</kbd>
 			</Show>

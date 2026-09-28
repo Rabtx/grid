@@ -39,7 +39,7 @@ export function Count(props: { children: JSX.Element; quiet?: boolean }): JSX.El
 /** A key on the keyboard, for hints: ⌘K, Esc. */
 export function Kbd(props: { children: JSX.Element }): JSX.Element {
 	return (
-		<kbd class="inline-grid h-5 min-w-5 place-items-center rounded-[5px] px-1 font-kit text-caption text-fg-subtle ring-line-strong pointer-coarse:hidden">
+		<kbd class="inline-grid h-5 min-w-5 place-items-center rounded-kit-xs px-1 font-kit text-caption text-fg-subtle ring-line-strong pointer-coarse:hidden">
 			{props.children}
 		</kbd>
 	);
