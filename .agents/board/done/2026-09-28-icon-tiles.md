@@ -5,7 +5,7 @@ type: feature
 from: human
 to: ui-ux
 priority: normal
-status: doing
+status: done
 assignee: claude
 reviewer: human
 parent: none
@@ -49,4 +49,6 @@ Standalone icons (New chat, the projects "+", the composer's attach, search, clo
 
 ## Resolution
 
-Open until the human has tried the branch and it is merged.
+Merged as #145 after the human tried the branch. Follow-ups on review: every tile is 28px with the
+kit's 8px corner (matching the chips beside it), and every corner in the kit and stylesheets now
+follows the corner roundness slider, with a guard test against fixed corners.
