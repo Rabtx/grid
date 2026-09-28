@@ -98,12 +98,47 @@ Plans belong to a workspace. `GET /api/v1/billing/subscription?workspace=:ws` sh
 member; `POST /api/v1/billing/checkout` and `/portal` take an optional `workspace` in the body and
 need its owner. Without one they use your default workspace.
 
+### Runner automations
+
+Automations belong to the project's machine and use the runner URL prefix `/runner` (not
+`/api/v1`). These routes require the same bearer token as runner chat routes. Send
+`X-Grid-Workspace: <workspace-slug>` to select a workspace; otherwise the token's default
+workspace is used. Responses wrap values in `{ "data": ... }`; errors use `{ "message": ... }`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/runner/automations` | List up to 200 jobs in the workspace, each with `lastRun` |
+| `POST` | `/runner/automations` | Create a job (`201`) |
+| `GET` | `/runner/automations/templates` | Six static form templates; does not create a job |
+| `GET` | `/runner/automations/:id` | Read a job |
+| `PUT` | `/runner/automations/:id` | Replace a job (owner only) |
+| `DELETE` | `/runner/automations/:id` | Delete an idle job (`204`, owner only) |
+| `POST` | `/runner/automations/:id/toggle` | Flip enabled state (owner only) |
+| `POST` | `/runner/automations/:id/run` | Start a run now (`202`, owner only) |
+| `GET` | `/runner/automations/:id/runs` | Latest 50 runs, newest first |
+
+Create and replace take the complete form: `{ name, prompt, provider, model, effort, mode,
+project, workspaceMode, enabled, triggers }`. `model`, `effort`, and `mode` may be `null`.
+`workspaceMode` is `folder` or `worktree`. `project` must have a linked folder on this machine.
+`triggers` contains one to five schedule or GitHub event triggers. A schedule has `kind:
+"schedule"`, `cadence` (`hourly`, `daily`, `weekdays`, `weekly`), an IANA `timezone`, and
+`minute` for hourly, `time` (`HH:MM`) for daily or weekdays, or `day` (0–6, Sunday first) plus
+`time` for weekly. An event has `kind: "event"` and `event` (`pull_opened`,
+`review_requested`, `checks_failed`); GitHub must be connected. The returned job includes its
+`id`, owner and workspace, timestamps, and `nextRunAt`. A run includes its trigger, status,
+timestamps, error, and `sessionId`; that ID opens an ordinary chat transcript.
+
+Unknown IDs return `404`; invalid fields and disconnected GitHub triggers return `400`.
+Nonowners receive `403` for changes and run-now. Active job deletion and the 200-job limit
+return `409`; unsupported methods return `405`. Request bodies over 32 KiB return `413`.
+
 ## Changelog
 
 Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-09-28 | Runner automations: saved scheduled or GitHub-triggered agent jobs, templates, run-now and history | no |
 | 2026-09-26 | First-run setup link, closed signup, workspace invites; `register` needs an `inviteToken` unless signup is open | yes: open signup or pass `inviteToken` |
 | 2026-09-26 | Workspaces: `/workspaces` routes, projects under `/workspaces/:ws/projects`, billing per workspace; `/projects` kept as the default workspace | no |
 | 2026-09-22 | Documented existing projects and tasks endpoints | no |

@@ -9,8 +9,9 @@ import {
 	MAX_SESSION_BYTES,
 } from "./attachments";
 import { existsSync, statSync } from "node:fs";
+import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 
 import type { ChatEvent } from "../agents/events";
 import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
@@ -33,6 +34,7 @@ import type {
 } from "./store";
 import {
 	createWorktree,
+	createWorktreeAsync,
 	fetchBranch,
 	leftoverWorktrees,
 	removeWorktree,
@@ -313,6 +315,61 @@ export class ChatHub {
 			provider: input.provider,
 			title: "New chat",
 			cwd: own ? this.withinProjectsDir(own.cwd) : boundedCwd,
+			model: input.model ?? null,
+			mode: input.mode ?? provider.info().defaultMode ?? null,
+			effort: input.effort ?? null,
+			worktree: own?.worktree ?? null,
+		});
+	}
+
+	/** Create an unattended run without synchronous filesystem or git work on the event loop. */
+	async createAutomation(
+		who: Who,
+		input: {
+			project: string;
+			provider: string;
+			model?: string;
+			mode?: string;
+			effort?: string;
+			worktree: boolean;
+		},
+	): Promise<ChatSessionRow> {
+		const provider = this.providers.get(input.provider);
+		if (!provider?.info().available)
+			throw new ChatError("That agent is not installed on this machine", 400);
+		const linked = this.store.projectFolders(who.workspace)[input.project];
+		const directory = linked
+			? await stat(linked).then(
+					(entry) => entry.isDirectory(),
+					() => false,
+				)
+			: false;
+		if (!linked || !directory)
+			throw new ChatError("Choose this project's folder first: chats work inside it.", 409);
+		const root = await realpath(this.projectsDir);
+		const boundedCwd = await realpath(linked);
+		const inside = relative(root, boundedCwd);
+		if (inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside))
+			throw new ChatError("Project folder must be inside the projects directory", 400);
+		const id = crypto.randomUUID();
+		let own: Awaited<ReturnType<typeof createWorktreeAsync>> = null;
+		if (input.worktree) {
+			try {
+				own = await createWorktreeAsync(boundedCwd, id, root);
+			} catch (cause) {
+				if (cause instanceof WorktreeError) throw new ChatError(cause.message, cause.status);
+				throw cause;
+			}
+			if (!own) throw new ChatError("This project folder is not in a git repository", 409);
+		}
+		return this.store.create({
+			id,
+			ownerId: who.userId,
+			workspaceId: who.workspace,
+			project: input.project,
+			provider: input.provider,
+			title: "New chat",
+			cwd: own?.cwd ?? boundedCwd,
 			model: input.model ?? null,
 			mode: input.mode ?? provider.info().defaultMode ?? null,
 			effort: input.effort ?? null,
@@ -671,6 +728,16 @@ export class ChatHub {
 		}
 	}
 
+	/** The most recent turn outcome, including the same error shown in its transcript. */
+	turnOutcome(workspace: string, id: string): Extract<ChatEvent, { type: "turn_end" }> | null {
+		this.owned(workspace, id);
+		return (
+			(this.store.events(id).findLast((event) => event.type === "turn_end") as
+				| Extract<ChatEvent, { type: "turn_end" }>
+				| undefined) ?? null
+		);
+	}
+
 	/**
 	 * A turn the agent failed, in words that say what to do about it: the model is gone, or the
 	 * provider is too busy, and whose side that is on. The agent's own text always stays, under
@@ -799,17 +866,23 @@ export class ChatHub {
 		if (live.agent) return live.agent;
 		const provider = this.providers.get(session.provider);
 		if (!provider) return Promise.reject(new ChatError("That agent is no longer available", 400));
-		const fresh = this.store.get(session.id) ?? session;
-		const cwd = this.withinProjectsDir(fresh.cwd);
-		live.agent = provider.start({
-			cwd,
-			model: fresh.model ?? undefined,
-			mode: fresh.mode ?? undefined,
-			effort: fresh.effort ?? undefined,
-			resume: fresh.resumeToken ?? undefined,
-			emit: (event) => this.record(session.id, event),
-			onResumeToken: (token) => this.store.update(session.id, { resumeToken: token }),
-		});
+		live.agent = (async () => {
+			const fresh = this.store.get(session.id) ?? session;
+			const root = await realpath(this.projectsDir);
+			const cwd = await realpath(fresh.cwd);
+			const inside = relative(root, cwd);
+			if (inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside))
+				throw new ChatError("That folder is outside the projects directory", 403);
+			return provider.start({
+				cwd,
+				model: fresh.model ?? undefined,
+				mode: fresh.mode ?? undefined,
+				effort: fresh.effort ?? undefined,
+				resume: fresh.resumeToken ?? undefined,
+				emit: (event) => this.record(session.id, event),
+				onResumeToken: (token) => this.store.update(session.id, { resumeToken: token }),
+			});
+		})();
 		live.agent.catch(() => {
 			live.agent = null;
 		});

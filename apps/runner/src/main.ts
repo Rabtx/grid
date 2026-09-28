@@ -1,4 +1,6 @@
 import { providerRegistry } from "./agents/registry";
+import { Automations } from "./automations/service";
+import { AutomationStore } from "./automations/store";
 import { withAgentBins } from "./agents/setup";
 import { createTokenVerifier, signedOut, type Verify } from "./auth";
 import { ChatHub } from "./chat/hub";
@@ -30,6 +32,7 @@ const store = new TerminalStore(config, spawnPty);
 const chat = new ChatHub(new ChatStore(config.chatDb), providerRegistry(), config.projectsDir);
 // Everything waiting on the people in a workspace, kept in the same database as their chats.
 const inbox = new InboxStore(config.chatDb);
+const automations = new Automations(new AutomationStore(config.chatDb), chat, inbox);
 // A turn that ends, or an approval that waits, while no device is looking becomes a notification
 // and a row on the Inbox: one decision about what deserves attention, two things done with it.
 const push = new PushNotifier(config.chatDb);
@@ -93,6 +96,16 @@ const githubInbox = new GithubInbox(inbox, {
 		}
 	},
 	foldersOf: (workspaceId) => chat.projectFolders(workspaceId),
+	onEvents: (workspace, ownerId, project, type, itemId) =>
+		automations.event(workspace, ownerId, project, type, itemId),
+	onError: (workspace, ownerId, project, message) =>
+		automations.eventError(workspace, ownerId, project, message),
+	needsOpen: (workspace, ownerId, project) =>
+		automations.store.hasPullOpened(workspace, ownerId, project),
+});
+automations.setEventSync(async (workspace, ownerId) => {
+	if (githubInbox.available(ownerId) && githubInbox.stale(workspace))
+		await githubInbox.sync(ownerId, workspace, config.projectsDir);
 });
 
 const server = startServer(config, store, verify, chat, {
@@ -103,6 +116,7 @@ const server = startServer(config, store, verify, chat, {
 	github,
 	pulls,
 	inbox: { store: inbox, github: githubInbox, projectsDir: config.projectsDir },
+	automations,
 });
 
 console.log(
@@ -119,6 +133,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 	process.on(signal, () => {
 		store.closeAll();
 		chat.closeAll();
+		automations.stop();
 		void server.stop(true);
 		process.exit(0);
 	});
