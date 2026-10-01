@@ -2,7 +2,7 @@ import { createRouter } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { lazy, Loading } from "solid-js";
 
-import { EmptyState, SplitLayout, Text, TextLink } from "@/kit";
+import { EmptyState, Text, TextLink } from "@/kit";
 import { AutomationsScreen } from "@/modules/automations";
 import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
@@ -82,11 +82,7 @@ export function App(): JSX.Element {
 }
 
 function LoginRoute(): JSX.Element {
-	return (
-		<SplitLayout>
-			<LoginForm />
-		</SplitLayout>
-	);
+	return <LoginForm />;
 }
 
 function SetupRoute(): JSX.Element {

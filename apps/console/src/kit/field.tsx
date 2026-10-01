@@ -1,14 +1,43 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, createUniqueId, omit, Show } from "solid-js";
+import { createSignal, createUniqueId, omit, onSettled, Show } from "solid-js";
 
 import { EyeIcon, EyeOffIcon } from "./icons";
 
 const CONTROL =
 	"surface-field w-full px-3 text-fg text-field outline-none placeholder:text-fg-faint disabled:opacity-50 read-only:bg-fill";
 
-export function Input(props: JSX.InputHTMLAttributes<HTMLInputElement>): JSX.Element {
-	const rest = omit(props, "class");
-	return <input {...rest} class={`${CONTROL} h-kit-control ${props.class ?? ""}`} />;
+/** The Figma Input, Shape: Pill, X-Large: 44px, set into the surface. For sign-in and setup forms. */
+const PILL =
+	"surface-recessed h-11 w-full px-5 text-fg text-field outline-none placeholder:text-fg-faint disabled:opacity-50";
+
+type Shape = {
+	/** `pill`: the 44px recessed pill the sign-in and setup forms use. */ shape?: "pill";
+};
+
+/**
+ * `autofocus` taken on where the browser does not: it only honours the first on a page, so a field
+ * that appears later (a form's next step) would otherwise leave focus on the body.
+ */
+function focusOnArrival(wanted: boolean | "" | undefined): (el: HTMLInputElement) => void {
+	let field: HTMLInputElement | undefined;
+	onSettled(() => {
+		if (wanted !== undefined && wanted !== false) field?.focus();
+	});
+	return (el) => {
+		field = el;
+	};
+}
+
+export function Input(props: JSX.InputHTMLAttributes<HTMLInputElement> & Shape): JSX.Element {
+	const rest = omit(props, "class", "shape");
+	const ref = focusOnArrival(props.autofocus);
+	return (
+		<input
+			{...rest}
+			ref={ref}
+			class={`${props.shape === "pill" ? PILL : `${CONTROL} h-kit-control`} ${props.class ?? ""}`}
+		/>
+	);
 }
 
 export function Textarea(props: JSX.TextareaHTMLAttributes<HTMLTextAreaElement>): JSX.Element {
@@ -36,12 +65,18 @@ export function Field(props: {
 	label: string;
 	hint?: string;
 	error?: string | null;
+	/** For a pill control: a 12px label and hint set in to line up with the text inside it. */
+	pill?: boolean;
 	children: (id: string) => JSX.Element;
 }): JSX.Element {
 	const id = createUniqueId();
+	const inset = () => (props.pill ? "px-5" : "");
 	return (
-		<div class="flex flex-col gap-1.5">
-			<label for={id} class="font-medium text-body text-fg">
+		<div class={`flex flex-col ${props.pill ? "gap-2" : "gap-1.5"}`}>
+			<label
+				for={id}
+				class={`font-medium text-fg ${props.pill ? "px-5 text-caption" : "text-body"}`}
+			>
 				{props.label}
 			</label>
 			{props.children(id)}
@@ -49,11 +84,11 @@ export function Field(props: {
 				when={props.error}
 				fallback={
 					<Show when={props.hint}>
-						<p class="text-caption text-fg-subtle">{props.hint}</p>
+						<p class={`text-caption text-fg-subtle ${inset()}`}>{props.hint}</p>
 					</Show>
 				}
 			>
-				<p class="text-caption text-danger">{props.error}</p>
+				<p class={`text-caption text-danger ${inset()}`}>{props.error}</p>
 			</Show>
 		</div>
 	);
@@ -107,23 +142,25 @@ export function TitleInput(props: JSX.InputHTMLAttributes<HTMLInputElement>): JS
  * dots and text. Takes everything an input does, `type` aside.
  */
 export function PasswordInput(
-	props: Omit<JSX.InputHTMLAttributes<HTMLInputElement>, "type">,
+	props: Omit<JSX.InputHTMLAttributes<HTMLInputElement>, "type"> & Shape,
 ): JSX.Element {
 	const [shown, setShown] = createSignal(false);
-	const rest = omit(props, "class");
+	const rest = omit(props, "class", "shape");
+	const ref = focusOnArrival(props.autofocus);
 	return (
 		<div class={`relative ${props.class ?? ""}`}>
 			<input
 				{...rest}
+				ref={ref}
 				type={shown() ? "text" : "password"}
-				class={`${CONTROL} h-kit-control pr-11`}
+				class={props.shape === "pill" ? `${PILL} pr-12` : `${CONTROL} h-kit-control pr-11`}
 			/>
 			<button
 				type="button"
 				aria-label={shown() ? "Hide password" : "Show password"}
 				aria-pressed={shown() ? "true" : "false"}
 				onClick={() => setShown(!shown())}
-				class="focus-ring absolute inset-y-0 right-0 grid w-10 place-items-center rounded-r-kit text-fg-subtle hover:text-fg pointer-coarse:w-11"
+				class={`focus-ring absolute inset-y-0 right-0 grid place-items-center text-fg-subtle hover:text-fg ${props.shape === "pill" ? "w-12 rounded-r-full" : "w-10 rounded-r-kit pointer-coarse:w-11"}`}
 			>
 				<Show when={shown()} fallback={<EyeIcon size="sm" />}>
 					<EyeOffIcon size="sm" />

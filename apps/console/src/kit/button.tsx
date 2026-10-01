@@ -23,6 +23,8 @@ export const button = variants({
 			sm: "h-kit-control-sm px-3 text-caption",
 			md: "h-kit-control px-3.5 text-body",
 			lg: "h-kit-control-lg px-5 text-body",
+			/** 44px: the Figma Button X-Large, for sign-in, setup and other focused forms. */
+			xl: "h-11 px-5 text-body",
 		},
 	},
 	defaults: { variant: "secondary", size: "md" },
@@ -67,7 +69,7 @@ export const iconButton = variants({
 
 type ButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 	variant?: "primary" | "secondary" | "ghost" | "danger" | "accent";
-	size?: "sm" | "md" | "lg";
+	size?: "sm" | "md" | "lg" | "xl";
 	/** An icon before the label. */
 	icon?: JSX.Element;
 	/** A keyboard hint after the label, e.g. ↵ or Esc. */

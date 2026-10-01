@@ -279,13 +279,19 @@ describe("login polish", () => {
 	function location() {
 		return container.querySelector("[data-location]")?.textContent;
 	}
-	async function signIn() {
+	/** The email step, then the password step. */
+	async function toPassword() {
 		const email = container.querySelector<HTMLInputElement>('input[type="email"]')!;
+		email.value = "person@example.com";
+		email.dispatchEvent(new Event("input", { bubbles: true }));
+		container.querySelector("form")!.requestSubmit();
+		await settle();
+	}
+	async function signIn() {
+		await toPassword();
 		const password = container.querySelector<HTMLInputElement>(
 			'input[autocomplete="current-password"]',
 		)!;
-		email.value = "person@example.com";
-		email.dispatchEvent(new Event("input", { bubbles: true }));
 		password.value = "password";
 		password.dispatchEvent(new Event("input", { bubbles: true }));
 		container.querySelector("form")!.requestSubmit();
@@ -322,6 +328,7 @@ describe("login polish", () => {
 	it("toggles password visibility without submitting or losing autocomplete", async () => {
 		mount("/login");
 		await settle();
+		await toPassword();
 		const input = container.querySelector<HTMLInputElement>(
 			'input[autocomplete="current-password"]',
 		)!;
@@ -351,16 +358,16 @@ describe("login polish", () => {
 				}),
 		);
 		await vi.advanceTimersByTimeAsync(299);
-		expect(container.querySelector('output[aria-label="Checking your session"]')).toBeNull();
+		expect(container.querySelector('output[aria-label^="Connecting"]')).toBeNull();
 		await vi.advanceTimersByTimeAsync(1);
 		flush();
-		expect(
-			container.querySelector('output[aria-label="Checking your session"] img')?.className,
-		).toContain("motion-safe:animate-pulse");
+		// The splash: the mark, the wordmark and the running bar.
+		expect(container.querySelector("output svg title")).not.toBeNull();
+		expect(container.querySelector("output .kit-progress")).not.toBeNull();
 		finish(json(session()));
 		await vi.advanceTimersByTimeAsync(0);
 		flush();
-		expect(container.querySelector('output[aria-label="Checking your session"]')).toBeNull();
+		expect(container.querySelector('output[aria-label^="Connecting"]')).toBeNull();
 		expect(container.textContent).toContain("Protected content");
 	});
 	it("never flashes the loading mark for a fast session check", async () => {
@@ -368,7 +375,7 @@ describe("login polish", () => {
 		mount("/board/alpha", async () => json(session()));
 		await vi.advanceTimersByTimeAsync(300);
 		flush();
-		expect(container.querySelector('output[aria-label="Checking your session"]')).toBeNull();
+		expect(container.querySelector('output[aria-label^="Connecting"]')).toBeNull();
 		expect(container.textContent).toContain("Protected content");
 	});
 });

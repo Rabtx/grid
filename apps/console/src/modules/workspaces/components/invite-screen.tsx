@@ -4,6 +4,7 @@ import { createSignal, Match, onSettled, Show, Switch } from "solid-js";
 
 import {
 	Alert,
+	AuthCard,
 	Button,
 	Field,
 	Heading as Title,
@@ -11,10 +12,8 @@ import {
 	PasswordInput,
 	Segmented,
 	Skeleton,
-	SplitLayout,
 	Stack,
 	Text,
-	WorkspacePreview,
 } from "@/kit";
 import { authService, useAuth } from "@/modules/auth";
 
@@ -50,19 +49,7 @@ export function InviteScreen(): JSX.Element {
 	});
 
 	return (
-		<SplitLayout
-			aside={(() => {
-				// A two-column card only when there is a workspace to show beside the form.
-				const current = invite();
-				return current ? (
-					<WorkspacePreview
-						name={current.workspace.name}
-						slug={current.workspace.slug}
-						color={current.workspace.color}
-					/>
-				) : undefined;
-			})()}
-		>
+		<AuthCard>
 			<Switch
 				fallback={
 					<Stack gap={3}>
@@ -92,7 +79,7 @@ export function InviteScreen(): JSX.Element {
 					)}
 				</Match>
 			</Switch>
-		</SplitLayout>
+		</AuthCard>
 	);
 }
 

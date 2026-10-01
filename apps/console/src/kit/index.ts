@@ -3,6 +3,7 @@
  * state.
  */
 export {
+	AgentLogo,
 	AgentMark,
 	Avatar,
 	AvatarGroup,
@@ -13,7 +14,7 @@ export {
 	NobodyMark,
 } from "./avatar";
 export { Badge, Count, Kbd, type Tone } from "./badge";
-export { BrandLogo, BrandMark } from "./brand";
+export { BrandLogo, BrandMark, BrandWordmark, Splash } from "./brand";
 export { Button, button, IconButton, iconButton, LinkButton, linkButton, TextLink } from "./button";
 export {
 	BoardColumn,
@@ -25,6 +26,8 @@ export {
 	taskStatusLabel,
 } from "./board";
 export {
+	type ChoiceCardOption,
+	ChoiceCards,
 	ChoiceChips,
 	ColorSwatches,
 	GlyphChoices,
@@ -52,7 +55,7 @@ export {
 } from "./feedback";
 export { type FeedTone, FeedGroup, FeedRow, InfoStrip, ToneTile } from "./feed";
 export { attachContextMenu, LONG_PRESS_MS, type MenuPoint } from "./context-menu";
-export { AppFrame, AuthFrame } from "./frame";
+export { AppFrame, AuthCard, AuthFrame, AuthHead } from "./frame";
 export {
 	Field,
 	InlineInput,

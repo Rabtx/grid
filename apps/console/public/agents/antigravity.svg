@@ -1,0 +1,26 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<mask id="m" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="0" y="1" width="24" height="23"><path d="M21.7511 22.607C23.0911 23.612 25.1011 22.942 23.2591 21.099C17.7301 15.74 18.9041 1 12.0371 1C5.1701 1 6.3421 15.74 0.815099 21.1C-1.1949 23.109 0.982099 23.611 2.3221 22.606C7.5141 19.089 7.1791 12.892 12.0371 12.892C16.8941 12.892 16.5591 19.089 21.7511 22.607Z" fill="white"/></mask>
+<defs>
+<filter id="b1" x="-30" y="-30" width="90" height="90" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="1.117"/></filter>
+<filter id="b2" x="-30" y="-30" width="90" height="90" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="5.4"/></filter>
+<filter id="b3" x="-30" y="-30" width="90" height="90" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="4.591"/></filter>
+<filter id="b4" x="-30" y="-30" width="90" height="90" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="4.363"/></filter>
+<filter id="b5" x="-30" y="-30" width="90" height="90" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="3.954"/></filter>
+<filter id="b6" x="-30" y="-30" width="90" height="90" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="3.531"/></filter>
+<filter id="b7" x="-30" y="-30" width="90" height="90" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="3.159"/></filter>
+<filter id="b8" x="-30" y="-30" width="90" height="90" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="2.669"/></filter>
+<filter id="b9" x="-30" y="-30" width="90" height="90" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="3.303"/></filter>
+</defs>
+<g mask="url(#m)">
+<path filter="url(#b1)" d="M-1.01782 -3.992C-1.42582 -0.401 1.66818 2.898 5.89218 3.378C10.1172 3.858 13.8722 1.335 14.2792 -2.255C14.6872 -5.845 11.5932 -9.145 7.36918 -9.625C3.14418 -10.104 -0.610821 -7.582 -1.01782 -3.992Z" fill="#FFE432"/>
+<path filter="url(#b2)" d="M15.2691 7.747C16.3271 12.304 20.9601 15.121 25.6171 14.04C30.2741 12.958 33.1921 8.387 32.1331 3.83C31.0751 -0.726001 26.4421 -3.544 21.7851 -2.462C17.1281 -1.38 14.2101 3.191 15.2691 7.748V7.747Z" fill="#FC413D"/>
+<path filter="url(#b3)" d="M-12.4429 10.804C-11.1049 15.507 -5.08286 17.914 1.01014 16.182C7.10214 14.449 10.9571 9.232 9.62014 4.53C8.28214 -0.173 2.26014 -2.58 -3.83286 -0.848C-9.92486 0.884 -13.7799 6.1 -12.4429 10.804Z" fill="#00B95C"/>
+<path filter="url(#b3)" d="M-7.6079 14.703C-4.2559 18.127 1.5181 17.911 5.2881 14.22C9.0581 10.53 9.3961 4.761 6.0441 1.337C2.6901 -2.087 -3.0829 -1.871 -6.8529 1.82C-10.6229 5.51 -10.9609 11.278 -7.6079 14.703Z" fill="#00B95C"/>
+<path filter="url(#b4)" d="M9.93224 27.617C10.9722 32.099 15.3162 34.92 19.6322 33.917C23.9482 32.915 26.6032 28.469 25.5622 23.987C24.5222 19.504 20.1782 16.683 15.8622 17.686C11.5462 18.688 8.89124 23.134 9.93224 27.616V27.617Z" fill="#3186FF"/>
+<path filter="url(#b5)" d="M2.57214 -8.185C0.392141 -3.329 2.77814 2.472 7.90014 4.771C13.0221 7.071 18.9421 4.998 21.1221 0.141C23.3021 -4.714 20.9171 -10.515 15.7951 -12.814C10.6731 -15.114 4.75314 -13.041 2.57314 -8.184L2.57214 -8.185Z" fill="#FBBC04"/>
+<path filter="url(#b6)" d="M-3.26676 38.686C-8.54376 36.614 0.475236 19.569 2.71724 13.856C4.96024 8.144 11.0572 5.192 16.3332 7.264C21.6112 9.335 27.8662 20.746 25.6232 26.459C23.3812 32.172 2.01024 40.757 -3.26676 38.686Z" fill="#3186FF"/>
+<path filter="url(#b7)" d="M28.7101 17.471C27.2971 19.12 23.6101 18.279 20.4741 15.593C17.3391 12.906 15.9431 9.392 17.3561 7.743C18.7681 6.094 22.4561 6.935 25.5911 9.621C28.7261 12.307 30.1231 15.821 28.7101 17.471Z" fill="#749BFF"/>
+<path filter="url(#b8)" d="M18.1632 9.077C23.9732 13.007 30.6652 13.267 33.1092 9.654C35.5522 6.042 32.8222 -0.0729995 27.0112 -4.004C21.2012 -7.935 14.5092 -8.194 12.0652 -4.581C9.62219 -0.968999 12.3522 5.146 18.1632 9.077Z" fill="#FC413D"/>
+<path filter="url(#b9)" d="M-0.914879 2.684C-2.35488 6.157 -1.88488 9.651 0.135121 10.488C2.15512 11.325 4.95912 9.188 6.39912 5.716C7.83912 2.243 7.36912 -1.251 5.34912 -2.088C3.32912 -2.925 0.525121 -0.787998 -0.914879 2.684Z" fill="#FFEE48"/>
+</g>
+</svg>

@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { onSettled, Show } from "solid-js";
 
-import { BrandLogo } from "./brand";
+import { BrandMark } from "./brand";
 
 /**
  * The signed-in app: the sidebar on the sunken frame and the screen flush beside it under its
@@ -71,16 +71,52 @@ export function AppFrame(props: {
 	);
 }
 
-/** Signing in, setup and invites: the brand on top, the page's card centred on the backdrop. */
+/**
+ * Signing in, setup and invites (the Figma 01 · Auth frames): the canvas, the page's card in the
+ * middle on desktop and as a sheet from the bottom on phones, and where this Grid lives at the foot.
+ */
 export function AuthFrame(props: { children: JSX.Element }): JSX.Element {
 	return (
-		<div class="flex min-h-dvh flex-col bg-surface text-fg md:bg-surface-sunken">
-			<header class="flex h-14 shrink-0 items-center px-4 pt-[env(safe-area-inset-top)] md:h-24 md:justify-center">
-				<BrandLogo class="h-6" />
-			</header>
-			<main class="flex flex-1 items-start justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-6 md:pt-[2vh]">
+		<div class="flex min-h-dvh flex-col bg-surface-sunken pt-safe text-fg">
+			<main class="flex flex-1 flex-col justify-end md:items-center md:justify-center md:p-6">
 				{props.children}
 			</main>
+			<footer class="hidden pb-6 text-center text-caption text-fg-muted md:block">
+				{window.location.host}
+			</footer>
+		</div>
+	);
+}
+
+/** The auth page's card (Figma Card / Sheet): 400px, 32px in, the card depth; a sheet on phones. */
+export function AuthCard(props: { children: JSX.Element; wide?: boolean }): JSX.Element {
+	return (
+		<div
+			class={`surface-auth flex w-full flex-col gap-6 px-4 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))] md:p-8 ${props.wide ? "md:max-w-lg" : "md:max-w-100"}`}
+		>
+			{props.children}
+		</div>
+	);
+}
+
+/**
+ * The auth card's head: a 24px title and the line under it, with the mark above on sign-in.
+ * Centred on desktop, from the left on the phone sheet, as the Figma frames set them.
+ */
+export function AuthHead(props: {
+	title: string;
+	mark?: boolean;
+	children: JSX.Element;
+}): JSX.Element {
+	return (
+		<div class="flex flex-col items-start gap-6 md:items-center md:text-center">
+			<Show when={props.mark}>
+				<BrandMark class="size-10" />
+			</Show>
+			<div class="flex flex-col gap-2">
+				<h1 class="font-medium text-fg text-headline">{props.title}</h1>
+				<p class="text-body-lg text-fg-muted">{props.children}</p>
+			</div>
 		</div>
 	);
 }
