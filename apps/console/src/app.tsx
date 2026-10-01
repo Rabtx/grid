@@ -7,6 +7,7 @@ import { AutomationsScreen } from "@/modules/automations";
 import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { EnvironmentsScreen } from "@/modules/environments";
+import { HomeScreen } from "@/modules/home";
 import { ConnectorsScreen } from "@/modules/github";
 import { InboxScreen } from "@/modules/inbox";
 import {
@@ -37,6 +38,8 @@ const Router = createRouter({
 		{ path: "/setup", component: SetupRoute },
 		// An invite link: join its workspace, signed in or with a new account.
 		{ path: "/invite/:token", component: InviteRoute },
+		// The first screen of the day: what needs you, the work in flight, and what runs next.
+		{ path: "/home", component: () => <Authed screen={HomeScreen} /> },
 		// What is waiting on the people in this workspace, across every project.
 		{ path: "/inbox", component: InboxRoute },
 		{ path: "/automations", component: () => <Authed screen={AutomationsScreen} /> },

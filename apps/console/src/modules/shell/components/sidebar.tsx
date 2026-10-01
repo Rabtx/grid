@@ -9,6 +9,7 @@ import {
 	Count,
 	EditIcon,
 	FileIcon,
+	HomeIcon,
 	IconButton,
 	InboxIcon,
 	Kbd,
@@ -113,6 +114,12 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 						onClick={() => shell.setPaletteOpen(true)}
 					/>
 				</Show>
+				<NavLink
+					href={workspaceHref("/home")}
+					icon={<HomeIcon />}
+					label="Home"
+					current={location.pathname.startsWith("/home")}
+				/>
 				<NavLink
 					href={workspaceHref("/inbox")}
 					icon={<InboxIcon />}
