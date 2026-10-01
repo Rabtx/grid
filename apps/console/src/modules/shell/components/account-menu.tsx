@@ -8,6 +8,7 @@ import {
 	Menu,
 	menuTrigger,
 	MoonIcon,
+	railItem,
 	Row,
 	SettingsIcon,
 	SignOutIcon,
@@ -28,7 +29,7 @@ const THEMES: { id: Theme; label: string; icon: () => JSX.Element }[] = [
  * Who is signed in, and what belongs to them rather than the workspace: the theme, settings and
  * signing out. Opens above the row on desktop and as a bottom sheet on phones.
  */
-export function AccountMenu(): JSX.Element {
+export function AccountMenu(props: { compact?: boolean }): JSX.Element {
 	const auth = useAuth();
 	const navigate = useNavigate();
 	const name = () => auth.user()?.username ?? "Account";
@@ -38,14 +39,18 @@ export function AccountMenu(): JSX.Element {
 			label="Account"
 			placement="top-start"
 			width="md:w-60"
-			triggerClass={menuTrigger({ size: "md", width: "full" })}
+			triggerClass={props.compact ? railItem() : menuTrigger({ size: "md", width: "full" })}
 			trigger={
-				<>
+				props.compact ? (
 					<Avatar name={name()} />
-					<Text as="span" size="inherit" truncate class="flex-1">
-						{name()}
-					</Text>
-				</>
+				) : (
+					<>
+						<Avatar name={name()} />
+						<Text as="span" size="inherit" truncate class="flex-1">
+							{name()}
+						</Text>
+					</>
+				)
 			}
 			header={
 				<Row gap={2.5} class="px-2 py-2">

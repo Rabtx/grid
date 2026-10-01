@@ -40,7 +40,7 @@ export const ICON_SIZE = {
 } as const;
 
 export const iconButton = variants({
-	base: "focus-ring inline-grid shrink-0 select-none place-items-center rounded-kit transition-[background-color,color,transform] duration-fast ease-out-grid active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40",
+	base: "focus-ring inline-grid shrink-0 select-none place-items-center transition-[background-color,color,transform] duration-fast ease-out-grid active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40",
 	variants: {
 		variant: {
 			ghost: "icon-tile text-fg-muted hover:text-fg aria-expanded:text-fg",
@@ -53,9 +53,16 @@ export const iconButton = variants({
 			xs: `size-6 pointer-coarse:size-10 ${ICON_SIZE.xs}`,
 			sm: `size-kit-control-sm ${ICON_SIZE.sm}`,
 			md: `size-kit-control ${ICON_SIZE.md}`,
+			/** 44px: the Figma mobile header's round buttons. */
+			lg: "size-11 [&_svg]:size-5",
+		},
+		// The Figma Icon Button's Shape: Square (8px corners) or Round (mobile headers).
+		shape: {
+			square: "rounded-kit",
+			round: "rounded-full",
 		},
 	},
-	defaults: { variant: "ghost", size: "md" },
+	defaults: { variant: "ghost", size: "md", shape: "square" },
 });
 
 type ButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -91,7 +98,8 @@ type IconButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 	/** The accessible name, also the tooltip. */
 	label: string;
 	/** xs is a 24px glyph button inside rows and headers (44px on touch). */
-	size?: "xs" | "sm" | "md";
+	size?: "xs" | "sm" | "md" | "lg";
+	shape?: "square" | "round";
 	/** A tooltip other than the label, e.g. why it is disabled. */
 	tooltip?: string;
 	/** Its keyboard shortcut, shown in the tooltip: "C", "Mod K" (⌘ or Ctrl). */
@@ -101,7 +109,17 @@ type IconButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 
 /** A square button holding one icon; its label is its name and its tooltip (on pointers). */
 export function IconButton(props: IconButtonProps): JSX.Element {
-	const rest = omit(props, "label", "size", "variant", "class", "children", "tooltip", "shortcut");
+	const rest = omit(
+		props,
+		"label",
+		"size",
+		"shape",
+		"variant",
+		"class",
+		"children",
+		"tooltip",
+		"shortcut",
+	);
 	return (
 		<button
 			type="button"
@@ -110,7 +128,12 @@ export function IconButton(props: IconButtonProps): JSX.Element {
 			data-tooltip={props.tooltip ?? props.label}
 			data-shortcut={props.shortcut}
 			{...rest}
-			class={iconButton({ variant: props.variant, size: props.size, class: props.class })}
+			class={iconButton({
+				variant: props.variant,
+				size: props.size,
+				shape: props.shape,
+				class: props.class,
+			})}
 		>
 			{props.children}
 		</button>

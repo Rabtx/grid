@@ -75,7 +75,19 @@ export {
 	Prose,
 	UserMessage,
 } from "./message";
-export { NavButton, NavGroup, NavLink, NavNote, NavSection } from "./nav";
+export {
+	BrandTile,
+	MachineCard,
+	NavButton,
+	NavGroup,
+	NavLink,
+	NavNote,
+	NavSection,
+	PanelHeader,
+	RailButton,
+	RailLink,
+	railItem,
+} from "./nav";
 export { type AutocompleteItem, AutocompleteList, Palette, type PaletteItem } from "./palette";
 export { type Placement, Popover, type PopoverControl } from "./popover";
 export {

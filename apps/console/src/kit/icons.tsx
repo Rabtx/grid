@@ -26,6 +26,9 @@ import File01Icon from "@hugeicons/core-free-icons/File01Icon";
 import FilterHorizontalGlyph from "@hugeicons/core-free-icons/FilterHorizontalIcon";
 import Flag02Glyph from "@hugeicons/core-free-icons/Flag02Icon";
 import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
+import KanbanGlyph from "@hugeicons/core-free-icons/KanbanIcon";
+import LaptopGlyph from "@hugeicons/core-free-icons/LaptopIcon";
+import AsteriskGlyph from "@hugeicons/core-free-icons/AsteriskIcon";
 import Folder01Icon from "@hugeicons/core-free-icons/Folder01Icon";
 import GitBranchIcon from "@hugeicons/core-free-icons/GitBranchIcon";
 import GitPullRequestGlyph from "@hugeicons/core-free-icons/GitPullRequestIcon";
@@ -156,8 +159,24 @@ export function AlertIcon(props: IconProps): JSX.Element {
 	return <Icon icon={AlertCircleIcon} size={props.size} class={props.class} />;
 }
 
+/** The board: a kanban, as the Figma rail draws it. */
 export function BoardIcon(props: IconProps): JSX.Element {
+	return <Icon icon={KanbanGlyph} size={props.size} class={props.class} />;
+}
+
+/** Automations: a bolt. */
+export function BoltIcon(props: IconProps): JSX.Element {
 	return <Icon icon={FlashIcon} size={props.size} class={props.class} />;
+}
+
+/** A machine that runs Grid. */
+export function LaptopIcon(props: IconProps): JSX.Element {
+	return <Icon icon={LaptopGlyph} size={props.size} class={props.class} />;
+}
+
+/** Agents. */
+export function AsteriskIcon(props: IconProps): JSX.Element {
+	return <Icon icon={AsteriskGlyph} size={props.size} class={props.class} />;
 }
 
 export function SignOutIcon(props: IconProps): JSX.Element {

@@ -99,7 +99,7 @@ describe("AppShell", () => {
 		// Project rows are the links that fold open.
 		const links = [
 			...container.querySelectorAll<HTMLAnchorElement>(
-				'nav[aria-label="Navigation"] a[aria-expanded]',
+				'nav[aria-label="Workspace"] a[aria-expanded]',
 			),
 		];
 		expect(links.map((link) => link.querySelector(".truncate")?.textContent)).toEqual([
@@ -107,11 +107,11 @@ describe("AppShell", () => {
 			"Beta",
 		]);
 
-		// The project in the URL is open, and the page you are on inside it is the current row.
+		// The project in the URL is open, and the rail marks the page you are on.
 		expect(links.map((link) => link.getAttribute("aria-expanded"))).toEqual(["false", "true"]);
 		const current = [
 			...container.querySelectorAll<HTMLAnchorElement>(
-				'nav[aria-label="Navigation"] a[aria-current="page"]',
+				'nav[aria-label="Destinations"] a[aria-current="page"]',
 			),
 		];
 		expect(current.map((link) => link.getAttribute("href"))).toEqual(["/board/beta"]);
@@ -190,7 +190,7 @@ describe("AppShell top bar", () => {
 		dispose();
 	});
 
-	it("gives the phone bar one action, New chat, on every screen", async () => {
+	it("gives the phone bar one action, New thread, on every screen", async () => {
 		// A phone: the desktop query does not match.
 		vi.stubGlobal("matchMedia", (query: string) => ({
 			matches: false,
@@ -200,12 +200,12 @@ describe("AppShell top bar", () => {
 		}));
 		// The board's own "New task" is in its pane header, not the phone bar.
 		const board = await mountAt("/board/beta");
-		expect(board.header.querySelector('button[aria-label="New chat"]')).not.toBeNull();
+		expect(board.header.querySelector('button[aria-label="New thread"]')).not.toBeNull();
 		expect(board.header.querySelector('button[aria-label="New task"]')).toBeNull();
 		board.dispose();
 		document.body.replaceChildren();
 		const terminal = await mountAt("/terminal");
-		expect(terminal.header.querySelector('button[aria-label="New chat"]')).not.toBeNull();
+		expect(terminal.header.querySelector('button[aria-label="New thread"]')).not.toBeNull();
 		expect(terminal.header.querySelector('button[aria-label="New task"]')).toBeNull();
 		terminal.dispose();
 	});
@@ -425,7 +425,7 @@ describe("AppShell opening for someone signed in last time", () => {
 		window.removeEventListener("error", onError);
 
 		expect(errors).toEqual([]);
-		expect(container.querySelector('nav[aria-label="Navigation"]')).not.toBeNull();
+		expect(container.querySelector('nav[aria-label="Workspace"]')).not.toBeNull();
 		expect(container.textContent).toContain("workspace");
 		dispose();
 	});

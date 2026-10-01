@@ -9,7 +9,9 @@ import { BrandLogo } from "./brand";
  * itself never scrolls; screens scroll inside `main`.
  */
 export function AppFrame(props: {
-	/** The desktop sidebar; phones reach it through a drawer instead. */
+	/** The desktop icon rail (the Figma Grid/Sidebar/Rail); phones reach it in the drawer. */
+	rail?: JSX.Element;
+	/** The desktop panel beside the rail; folded away when the person hides it. */
 	sidebar?: JSX.Element;
 	header: JSX.Element;
 	/** Screens that fill the frame and scroll inside themselves (a chat, a terminal). */
@@ -38,13 +40,21 @@ export function AppFrame(props: {
 	});
 
 	return (
-		<div class="flex h-[var(--app-height,100dvh)] overflow-hidden bg-surface text-fg lg:bg-surface-sunken">
-			<Show when={props.sidebar}>
-				<aside class="hidden w-60 shrink-0 lg:block">{props.sidebar}</aside>
+		<div class="flex h-[var(--app-height,100dvh)] overflow-hidden bg-surface text-fg">
+			{/* Rail and panel share the Figma bg/subtle: a breath of ink over the app surface. */}
+			<Show when={props.rail || props.sidebar}>
+				<div class="hidden shrink-0 border-line border-r bg-fill lg:flex">
+					<Show when={props.rail}>
+						<div class="w-19 shrink-0">{props.rail}</div>
+					</Show>
+					<Show when={props.sidebar}>
+						<aside class={`w-55 shrink-0 ${props.rail ? "border-line border-l" : ""}`}>
+							{props.sidebar}
+						</aside>
+					</Show>
+				</div>
 			</Show>
-			<div
-				class={`surface-canvas flex min-w-0 flex-1 flex-col ${props.sidebar ? "lg:border-line lg:border-l" : ""}`}
-			>
+			<div class="flex min-w-0 flex-1 flex-col">
 				{props.header}
 				<main
 					class={

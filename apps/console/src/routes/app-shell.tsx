@@ -18,6 +18,7 @@ import {
 	CommandPalette,
 	NavDrawer,
 	OfflineBanner,
+	Rail,
 	ShellProvider,
 	ShortcutsHelp,
 	Sidebar,
@@ -89,6 +90,16 @@ function SignedIn(props: { children: JSX.Element }): JSX.Element {
 		},
 	);
 
+	// The count of what is waiting, for the rail's Inbox dot and the app badge, which the Inbox
+	// and its own actions keep true. Read once per sign-in: push already tells someone about a new
+	// item, and a stale count is not worth a poll.
+	createEffect(
+		() => auth.token(),
+		(token) => {
+			if (token) void inboxStore.count(token);
+		},
+	);
+
 	// The installed app's icon carries the Inbox's unread count, as a native app's would.
 	createEffect(
 		() => inboxStore.unread(),
@@ -109,6 +120,7 @@ function SignedIn(props: { children: JSX.Element }): JSX.Element {
 
 	return (
 		<AppFrame
+			rail={shell.desktop() ? <Rail /> : undefined}
 			sidebar={
 				shell.desktop() && !shell.collapsed() ? (
 					<Show when={inSettings()} fallback={<Sidebar />}>
