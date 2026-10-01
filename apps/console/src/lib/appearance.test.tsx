@@ -57,15 +57,19 @@ describe("readableInk", () => {
 
 describe("canvasColor", () => {
 	it("matches the default canvases and a custom tint", () => {
-		expect(canvasColor(APPEARANCE_DEFAULTS, false)).toBe("#fefefe");
-		expect(canvasColor(APPEARANCE_DEFAULTS, true)).toBe("#171717");
-		expect(canvasColor({ ...APPEARANCE_DEFAULTS, theme: "light" }, true)).toBe("#fefefe");
+		expect(canvasColor(APPEARANCE_DEFAULTS, false)).toBe("#ffffff");
+		expect(canvasColor(APPEARANCE_DEFAULTS, true)).toBe("#141414");
+		expect(canvasColor({ ...APPEARANCE_DEFAULTS, theme: "light" }, true)).toBe("#ffffff");
 		expect(canvasColor({ ...APPEARANCE_DEFAULTS, theme: "dark", darkLightness: 0 }, false)).toBe(
 			"#000000",
 		);
 		expect(
 			canvasColor({ ...APPEARANCE_DEFAULTS, theme: "dark", hue: 0, saturation: 100 }, false),
-		).toBe("#2e0000");
+		).toBe("#290000");
+		// A tint reaches the light canvas too, which is pure white only at 0% saturation.
+		expect(
+			canvasColor({ ...APPEARANCE_DEFAULTS, theme: "light", hue: 0, saturation: 100 }, false),
+		).toBe("#ffebeb");
 	});
 });
 
@@ -82,11 +86,11 @@ describe("applyAppearance", () => {
 		expect(root.style.getPropertyValue("--user-accent-ink")).toBe("#ffffff");
 		expect(root.classList.contains("dark")).toBe(true);
 		expect(root.getAttribute("data-density")).toBe("comfortable");
-		// Depth is off unless chosen: the flat look is the default.
-		expect(root.getAttribute("data-depth")).toBe("off");
-
-		applyAppearance({ ...APPEARANCE_DEFAULTS, theme: "system", depth: true }, root);
+		// Depth is on by default, as the Figma design system draws cards; it can be turned off.
 		expect(root.getAttribute("data-depth")).toBe("on");
+
+		applyAppearance({ ...APPEARANCE_DEFAULTS, theme: "system", depth: false }, root);
+		expect(root.getAttribute("data-depth")).toBe("off");
 		expect(root.style.getPropertyValue("--user-accent")).toBe("");
 		expect(root.classList.contains("dark")).toBe(false);
 		expect(root.classList.contains("light")).toBe(false);
@@ -99,7 +103,7 @@ describe("applyAppearance", () => {
 		applyAppearance({ ...APPEARANCE_DEFAULTS, theme: "dark", darkLightness: 0 });
 		expect(meta.content).toBe("#000000");
 		applyAppearance({ ...APPEARANCE_DEFAULTS, theme: "light" });
-		expect(meta.content).toBe("#fefefe");
+		expect(meta.content).toBe("#ffffff");
 		meta.remove();
 	});
 });
@@ -114,6 +118,29 @@ describe("persistence", () => {
 		restoreAppearance();
 		flush();
 		expect(appearance()).toMatchObject({ hue: 120, accent: "#10b981" });
+	});
+
+	it("moves settings saved before the Figma design onto its defaults", () => {
+		localStorage.setItem(
+			"grid.appearance",
+			JSON.stringify({ ...APPEARANCE_DEFAULTS, darkLightness: 9, depth: false, hue: 30 }),
+		);
+		restoreAppearance();
+		flush();
+		expect(appearance()).toMatchObject({ darkLightness: 8, depth: true, hue: 30 });
+		// Written back once, so the pre-paint script reads the migrated values too.
+		expect(JSON.parse(localStorage.getItem("grid.appearance") ?? "{}")).toMatchObject({
+			darkLightness: 8,
+			depth: true,
+			design: 2,
+		});
+	});
+
+	it("keeps a choice made under the Figma design", () => {
+		updateAppearance({ depth: false, darkLightness: 9 });
+		restoreAppearance();
+		flush();
+		expect(appearance()).toMatchObject({ depth: false, darkLightness: 9 });
 	});
 
 	it("migrates the earlier theme and density keys", () => {

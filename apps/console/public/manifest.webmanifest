@@ -8,8 +8,8 @@
 	"display": "standalone",
 	"orientation": "any",
 	"categories": ["productivity", "developer tools"],
-	"background_color": "#171717",
-	"theme_color": "#171717",
+	"background_color": "#141414",
+	"theme_color": "#141414",
 	"icons": [
 		{
 			"src": "/brand/app-icon-192.png",

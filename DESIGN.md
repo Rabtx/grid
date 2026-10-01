@@ -82,8 +82,12 @@ every state.
 ### Colour
 
 `--hue` and `--saturation` tint the whole UI (0% is neutral); Settings → Appearance exposes them
-as sliders, with the dark canvas lightness. Light: canvas 99.2%, backdrop 96.6%, ink 16%.
-Dark: canvas 9% (the slider), backdrop 3% below it, ink 92%. The theme follows the OS; `.light` / `.dark` on `<html>` force one
+as sliders, with the dark canvas lightness. The defaults are the Figma design system (rabtx DS,
+file `Dx4ZZ1v693wRzVDKzunhQA`) exactly. Light: canvas 100% (`bg/app` #ffffff), backdrop 96.1%
+(`bg/canvas` #f5f5f5), ink 16% (`text/primary` #292929). Dark: canvas 8% (the slider; #141414),
+backdrop 2.5% below it (#0e0e0e), ink 92% (#ebebeb). Signals: accent #2d7cf6; success
+#30a46c / #4bbe88; warning #f0803c / #f5985c; danger #e5484d / #f0686d; violet #8e5cf0 /
+#a382f5 (light / dark). The theme follows the OS; `.light` / `.dark` on `<html>` force one
 (`lib/preferences.ts` stores the choice).
 
 | Use | Utility |
@@ -154,8 +158,10 @@ by 1px `stroke` lines, never gaps or shadows.
 
 ### Depth and material
 
-Depth is an Appearance choice, **off by default**: Settings → Appearance → Material → Depth sets
-`data-depth="on"` on the root (saved per device, applied before the first paint). Off, the
+Depth is an Appearance choice, **on by default** (the Figma `Depth/Card` effect: a 0 0 32px
+ambient at 4% and a white 1px top edge; in dark a deeper ambient and a 6% white edge): Settings →
+Appearance → Material → Depth sets `data-depth="on"` on the root (saved per device, applied
+before the first paint). Settings saved before the Figma design move to it once. Off, the
 console is the flat look above. On, depth comes from light, not from stacking shadows. Every rule
 below is a `--kit-*` variable that is flat by default and switched in `:root[data-depth="on"]`
 in `kit.css`; what a variable cannot switch uses the `depth:` variant (`depth:active:…`). New
@@ -238,8 +244,16 @@ saturation and lightness inputs as above. `/design` shows every piece in every s
 preview composed only of kit parts. Every screen is built from the kit; the old `@/ui` primitives
 are gone.
 
-- **Font:** Inter (self-hosted), regular and medium only. Sizes: caption 12, body 13 (the base),
-  body-lg 14, heading 16, headline 18, display 24; phones step up (body 15, fields 16).
+- **Font:** SF Pro (the system face on Apple devices; Inter, self-hosted, elsewhere), tracked
+  -0.15px, regular and medium only. The Figma scale on phone and desktop alike: caption 12/16,
+  body 13/20 (the base), body-lg 14/20, heading 14/20, headline and display 24/32; fields are 16
+  on phones so iOS never zooms.
+- **Kit roles at the defaults** (light / dark): `fg-muted` #5d5d5d / #a3a3a3, `fg-subtle`
+  #9e9e9e / #7f7f7f, `line` #f2f2f2 / #303030, `line-strong` #e3e3e3 / #3d3d3d, `fill`
+  #fafafa / #1b1b1b, `fill-strong` #f5f5f5, `selection` #ebebeb / #292929, raised surface
+  #ffffff / #212121 — each still ink over transparent, so tint and dark lightness follow.
+- **Buttons** are pills (the Figma Button, Shape: Pill); primary is ink, accent is blue. Icon
+  buttons keep the 8px tile corner.
 - **Text:** `text-fg` strong, `text-fg-muted` default, `text-fg-subtle` metadata and section
   labels, `text-fg-faint` placeholders only.
 - **Surfaces:** `bg-surface` content, `bg-surface-sunken` the frame and sidebar,

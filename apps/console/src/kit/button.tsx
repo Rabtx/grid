@@ -3,9 +3,12 @@ import { Show, omit } from "solid-js";
 
 import { variants } from "./variants";
 
-/** The button recipe: exported so links and triggers that must look like buttons share it. */
+/**
+ * The button recipe: a pill, as the Figma Button (Shape: Pill). Exported so links and triggers
+ * that must look like buttons share it.
+ */
 export const button = variants({
-	base: "focus-ring inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-kit font-medium transition-[background-color,color,box-shadow,transform] duration-fast ease-out-grid active:scale-[0.98] disabled:pointer-events-none",
+	base: "focus-ring inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-medium transition-[background-color,color,box-shadow,transform] duration-fast ease-out-grid active:scale-[0.98] disabled:pointer-events-none",
 	variants: {
 		variant: {
 			primary:
@@ -17,9 +20,9 @@ export const button = variants({
 				"surface-primary bg-accent text-white hover:bg-accent/90 depth:active:translate-y-px disabled:opacity-40 disabled:shadow-none",
 		},
 		size: {
-			sm: "h-kit-control-sm px-2.5 text-caption",
-			md: "h-kit-control px-3 text-body",
-			lg: "h-kit-control-lg px-4 text-body",
+			sm: "h-kit-control-sm px-3 text-caption",
+			md: "h-kit-control px-3.5 text-body",
+			lg: "h-kit-control-lg px-5 text-body",
 		},
 	},
 	defaults: { variant: "secondary", size: "md" },

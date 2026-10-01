@@ -3,25 +3,27 @@
 	<head>
 		<meta charset="UTF-8" />
 		<style>
-			html { background: var(--canvas, #f7f7f7); }
-			@media (prefers-color-scheme: dark) { html:not(.light) { background: var(--canvas, #171717); } }
-			html.dark { background: var(--canvas, #171717); }
+			html { background: var(--canvas, #ffffff); }
+			@media (prefers-color-scheme: dark) { html:not(.light) { background: var(--canvas, #141414); } }
+			html.dark { background: var(--canvas, #141414); }
 		</style>
 		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
 		<meta name="color-scheme" content="light dark" />
-		<!-- The canvas colour of each theme (hsl 240 0% 97% / 9%), so browser chrome blends in. -->
-		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f7f7" />
-		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171717" />
+		<!-- The canvas colour of each theme (#ffffff / #141414, the Figma bg/app), so browser chrome blends in. -->
+		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141414" />
 		<script>
 			try {
 				const saved = JSON.parse(localStorage.getItem("grid.appearance") || "{}");
 				const theme = saved.theme ?? localStorage.getItem("grid.theme");
-				// Depth before the first paint, so the page does not flash flat and then lift.
-				if (saved.depth === true) document.documentElement.setAttribute("data-depth", "on");
+				// Depth before the first paint, so the page does not flash flat and then lift. It is on
+				// by default; only a choice saved under the Figma design (generation 2) turns it off.
+				if (!(saved.depth === false && saved.design === 2))
+					document.documentElement.setAttribute("data-depth", "on");
 				if (theme === "light" || theme === "dark") {
 					document.documentElement.classList.add(theme);
 					document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
-						meta.content = theme === "dark" ? "#171717" : "#f7f7f7";
+						meta.content = theme === "dark" ? "#141414" : "#ffffff";
 					});
 				}
 			} catch {

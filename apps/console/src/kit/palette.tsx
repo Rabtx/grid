@@ -59,7 +59,7 @@ export function Palette<T extends string>(props: {
 					placeholder={props.placeholder ?? "Search anything…"}
 					value={props.query}
 					onInput={(event) => props.onQuery(event.currentTarget.value)}
-					class="min-w-0 flex-1 bg-transparent text-body-lg text-fg outline-none placeholder:text-fg-faint"
+					class="min-w-0 flex-1 bg-transparent text-field text-fg outline-none placeholder:text-fg-faint"
 				/>
 			</div>
 			<Show when={props.tabs && props.tab && props.onTab}>
