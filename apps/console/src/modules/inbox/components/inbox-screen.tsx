@@ -4,7 +4,6 @@ import { createEffect, createMemo, createSignal, For, onSettled, Show } from "so
 
 import {
 	Alert,
-	AlertIcon,
 	BellIcon,
 	Button,
 	ChatIcon,
@@ -12,7 +11,6 @@ import {
 	CloseIcon,
 	EmptyState,
 	ExternalIcon,
-	type FeedTone,
 	FeedGroup,
 	FeedRow,
 	IconButton,
@@ -22,10 +20,8 @@ import {
 	NavSection,
 	FolderIcon,
 	InfoStrip,
-	PullRequestIcon,
 	RestoreIcon,
 	Segmented,
-	ShieldIcon,
 	Skeleton,
 	SpinnerIcon,
 	Text,
@@ -39,44 +35,8 @@ import { relativeTime } from "@/modules/projects/lib/relative-time";
 import { ShellSlot, useShell } from "@/modules/shell";
 
 import { inboxStore } from "../stores/inbox";
-import type { InboxItem, InboxKind } from "../types/inbox.types";
-
-/** How each kind reads: its tinted glyph, what it is waiting on, and where it opens. */
-const KINDS: Record<
-	InboxKind,
-	{ tone: FeedTone; icon: () => JSX.Element; state: string; open: string }
-> = {
-	approval: {
-		tone: "violet",
-		icon: () => <ShieldIcon />,
-		state: "Waiting for your approval",
-		open: "Open thread",
-	},
-	turn_done: {
-		tone: "success",
-		icon: () => <CheckIcon />,
-		state: "Finished while you were away",
-		open: "Open thread",
-	},
-	turn_error: {
-		tone: "danger",
-		icon: () => <CloseIcon />,
-		state: "The run failed",
-		open: "Open thread",
-	},
-	pull_review: {
-		tone: "accent",
-		icon: () => <PullRequestIcon />,
-		state: "Wants your review",
-		open: "Open pull request",
-	},
-	pull_checks: {
-		tone: "danger",
-		icon: () => <AlertIcon />,
-		state: "Checks are failing",
-		open: "Open pull request",
-	},
-};
+import { KINDS } from "../lib/kinds";
+import type { InboxItem } from "../types/inbox.types";
 
 type View = "needs" | "all" | "done";
 

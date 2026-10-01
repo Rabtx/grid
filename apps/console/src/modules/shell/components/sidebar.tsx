@@ -25,6 +25,7 @@ import { ProjectTree } from "./project-tree";
 
 // The panel is titled by the rail destination you are on, as the Figma panel header is.
 const SECTIONS: [prefix: string, title: string][] = [
+	["/home", "Home"],
 	["/inbox", "Inbox"],
 	["/chat", "Threads"],
 	["/board", "Board"],

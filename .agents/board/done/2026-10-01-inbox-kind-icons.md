@@ -5,7 +5,7 @@ type: chore
 from: web
 to: web
 priority: low
-status: open
+status: done
 assignee: none
 reviewer: none
 parent: none
@@ -51,3 +51,4 @@ screens. Done when one definition remains and both screens' tests pass.
 
 ## Resolution
 
+Resolved on agent/web/figma-home: the inbox kind looks live in `modules/inbox/lib/kinds.tsx`, exported as `INBOX_KINDS`; the Inbox and Home both use it.

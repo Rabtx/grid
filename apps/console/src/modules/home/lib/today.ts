@@ -77,3 +77,25 @@ export function upcoming(items: readonly Automation[]): Automation[] {
 		.sort((a, b) => (a.nextRunAt ?? "").localeCompare(b.nextRunAt ?? ""))
 		.slice(0, LIMITS.upcoming);
 }
+
+/** "3 need you", "1 needs you". */
+export function needLabel(count: number): string {
+	return `${count} need${count === 1 ? "s" : ""} you`;
+}
+
+/** The day short, for the phone header: "Thu 1 Oct". */
+export function shortDay(date: Date): string {
+	return date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+
+/**
+ * What happened while you were away: inbox items from the last day that are already dealt with
+ * (anything unread is under Needs you instead), newest first, at most five.
+ */
+export function recentlyDone(items: readonly InboxItem[], now: number): InboxItem[] {
+	const since = now - 24 * 60 * 60 * 1000;
+	return items
+		.filter((item) => Date.parse(item.createdAt) >= since && item.readAt !== null)
+		.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+		.slice(0, 5);
+}

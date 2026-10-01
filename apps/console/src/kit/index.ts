@@ -53,7 +53,16 @@ export {
 	LoadingBar,
 	TopLoadingBar,
 } from "./feedback";
-export { type FeedTone, FeedGroup, FeedRow, InfoStrip, ToneTile } from "./feed";
+export {
+	CardRow,
+	DotLine,
+	type FeedTone,
+	FeedGroup,
+	FeedRow,
+	InfoStrip,
+	SectionCard,
+	ToneTile,
+} from "./feed";
 export { attachContextMenu, LONG_PRESS_MS, type MenuPoint } from "./context-menu";
 export { AppFrame, AuthCard, AuthFrame, AuthHead } from "./frame";
 export {
@@ -66,7 +75,7 @@ export {
 	TitleInput,
 } from "./field";
 export * from "./icons";
-export { Divider, Grid, Page, PageHeader, Row, Section, Spacer, Stack } from "./layout";
+export { Divider, Grid, MainAside, Page, PageHeader, Row, Section, Spacer, Stack } from "./layout";
 export { Breadcrumbs, type HeaderTab, HeaderTabs } from "./header";
 export { Menu, MENU_ITEM, type MenuGroup, type MenuItem, MenuList, menuTrigger } from "./menu";
 export {

@@ -7,12 +7,14 @@ import { variants } from "./variants";
 
 const row = variants({
 	// The Figma panel row: 13px medium in the muted ink, a flat grey selection (bg/selected).
-	base: "focus-ring group/nav flex w-full min-w-0 items-center gap-2 rounded-kit text-left font-medium text-fg-muted transition-[background-color,color] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg",
+	base: "focus-ring group/nav flex w-full min-w-0 gap-2 rounded-kit text-left font-medium text-fg-muted transition-[background-color,color] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg",
 	variants: {
 		// Top-level destinations and projects; threads and a project's pages one step down.
 		level: {
-			0: "h-kit-row px-2 text-nav",
-			1: "h-[calc(var(--kit-h-row)-0.25rem)] px-2 text-body pointer-coarse:h-11",
+			0: "h-kit-row items-center px-2 text-nav",
+			1: "h-[calc(var(--kit-h-row)-0.25rem)] items-center px-2 text-body pointer-coarse:h-11",
+			/** A row with a second line under its label: as tall as its two lines. */
+			2: "min-h-kit-row items-start px-2 py-2 text-nav",
 		},
 		tone: {
 			default: "",
@@ -26,6 +28,8 @@ const row = variants({
 type NavItemProps = {
 	icon?: JSX.Element;
 	label: JSX.Element;
+	/** A second line under the label (the Figma Home panel: "3 things need you"). */
+	detail?: string;
 	/** Right-hand detail at rest: a count, a shortcut, a time, a badge. Hidden while actions show. */
 	trailing?: JSX.Element;
 	/**
@@ -36,7 +40,7 @@ type NavItemProps = {
 	/** Right-click (desktop) and long press (touch) on the row. */
 	onMenuAt?: (point: MenuPoint) => void;
 	current?: boolean;
-	level?: 0 | 1;
+	level?: 0 | 1 | 2;
 	tone?: "default" | "accent" | "danger";
 	/** Layout only. */
 	class?: string;
@@ -45,6 +49,7 @@ type NavItemProps = {
 const OWN = [
 	"icon",
 	"label",
+	"detail",
 	"trailing",
 	"actions",
 	"onMenuAt",
@@ -58,11 +63,21 @@ function Content(props: NavItemProps): JSX.Element {
 	return (
 		<>
 			<Show when={props.icon}>
-				<span class="grid size-3.5 shrink-0 place-items-center text-fg-subtle group-hover/nav:text-fg-muted group-aria-[current=page]/nav:text-fg [&_svg]:size-3.5 pointer-coarse:size-4 pointer-coarse:[&_svg]:size-4">
+				<span
+					class={`${props.detail ? "mt-0.75" : ""} grid size-3.5 shrink-0 place-items-center text-fg-subtle group-hover/nav:text-fg-muted group-aria-[current=page]/nav:text-fg [&_svg]:size-3.5 pointer-coarse:size-4 pointer-coarse:[&_svg]:size-4`}
+				>
 					{props.icon}
 				</span>
 			</Show>
-			<span class="min-w-0 flex-1 truncate">{props.label}</span>
+			<Show
+				when={props.detail}
+				fallback={<span class="min-w-0 flex-1 truncate">{props.label}</span>}
+			>
+				<span class="flex min-w-0 flex-1 flex-col">
+					<span class="truncate">{props.label}</span>
+					<span class="truncate font-normal text-caption text-fg-subtle">{props.detail}</span>
+				</span>
+			</Show>
 			<Show when={props.trailing}>
 				<span
 					class={`flex shrink-0 items-center gap-1 ${props.actions ? "group-hover/row:invisible group-focus-within/row:invisible pointer-coarse:visible" : ""}`}
@@ -110,7 +125,7 @@ export function NavLink(
 				// Always set, so the router's own link marking never overrides the caller's choice.
 				aria-current={props.current ? "page" : "false"}
 				class={row({
-					level: props.level,
+					level: props.detail ? 2 : props.level,
 					tone: props.tone,
 					class: props.actions ? "pr-14 pointer-coarse:pr-2.5" : "",
 				})}

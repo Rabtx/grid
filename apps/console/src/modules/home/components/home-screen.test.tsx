@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/modules/auth";
 import { WorkspaceProvider } from "@/modules/projects";
+import { ShellProvider } from "@/modules/shell";
 
 import { HomeScreen } from "./home-screen";
 
@@ -74,7 +75,13 @@ function serve(answers: Answers): void {
 					return Response.json({ message: "The runner is not running." }, { status: 503 });
 				}
 				const items = answers.inbox ?? [];
-				return Response.json({ data: { items, unread: items.length, github: true } });
+				return Response.json({
+					data: {
+						items,
+						unread: (items as { readAt: string | null }[]).filter((item) => !item.readAt).length,
+						github: true,
+					},
+				});
 			}
 			if (url.includes("/automations")) {
 				if (answers.automations === "fail") {
@@ -133,7 +140,13 @@ describe("HomeScreen", () => {
 		dispose = render(
 			() => (
 				<AuthProvider>
-					<Router>{(route) => <WorkspaceProvider>{route.children}</WorkspaceProvider>}</Router>
+					<Router>
+						{(route) => (
+							<WorkspaceProvider>
+								<ShellProvider>{route.children}</ShellProvider>
+							</WorkspaceProvider>
+						)}
+					</Router>
 				</AuthProvider>
 			),
 			container,
@@ -162,6 +175,16 @@ describe("HomeScreen", () => {
 					createdAt: NOW,
 					readAt: null,
 				},
+				{
+					id: "turn_done:s2",
+					kind: "turn_done",
+					project: "alpha",
+					title: "Shipped the fix",
+					body: "Done",
+					url: "/chat/alpha/s2",
+					createdAt: NOW,
+					readAt: NOW,
+				},
 			],
 			alpha: [
 				task(1, "in_progress", { kind: "agent", name: "Claude Code" }),
@@ -188,11 +211,24 @@ describe("HomeScreen", () => {
 		expect(container.textContent).toContain("1 thing needs you · 2 tasks moving");
 		expect(rowTitles("Needs you")).toEqual(["Debounce typing"]);
 		// Blocked work comes first, and each row says whose it is.
-		expect(rowTitles("Moving now")).toEqual(["#7 Task 7", "#1 Task 1"]);
-		expect(section("Moving now")?.textContent).toContain("Beta · Ayesha · Blocked");
-		expect(section("Moving now")?.textContent).toContain("Alpha · Claude Code · In progress");
-		expect(rowTitles("Up next")).toEqual(["Weekly digest"]);
-		expect(section("Up next")?.textContent).toContain("in 3 h");
+		expect(rowTitles("Agents' plan for today")).toEqual(["Task 7", "Task 1"]);
+		expect(section("Agents' plan for today")?.textContent).toContain("Beta · Ayesha · Blocked");
+		expect(section("Agents' plan for today")?.textContent).toContain(
+			"Alpha · Claude Code · In progress",
+		);
+		expect(rowTitles("Scheduled")).toEqual(["Weekly digest"]);
+		// What was dealt with is news in the aside, and only there.
+		expect(section("While you were away")?.textContent).toContain("Shipped the fix");
+		expect(section("Needs you")?.textContent).not.toContain("Shipped the fix");
+		expect(section("While you were away")?.textContent).not.toContain("Debounce typing");
+		// Each waiting item says what to do with it.
+		expect(
+			section("Needs you")?.querySelector('button[aria-label="Answer: Debounce typing"]'),
+		).not.toBeNull();
+		// The run's time (or "Tmrw" just before midnight) leads the row.
+		expect(section("Scheduled")?.textContent).toMatch(
+			/^Scheduled.*(\d{2}:\d{2}|Tmrw)Weekly digest/,
+		);
 	});
 
 	it("opens a task where it lives when its row is tapped", async () => {
@@ -200,7 +236,8 @@ describe("HomeScreen", () => {
 		mount();
 		await settle();
 
-		const row = [...(section("Moving now")?.querySelectorAll("button") ?? [])][0];
+		const row =
+			section("Agents' plan for today")?.querySelector<HTMLButtonElement>("button:has(.truncate)");
 		row?.click();
 		await settle();
 		expect(container.querySelector('[data-testid="where"]')?.textContent).toBe(
@@ -224,7 +261,7 @@ describe("HomeScreen", () => {
 		mount();
 		await settle();
 
-		expect(rowTitles("Moving now")).toEqual(["#3 Task 3"]);
+		expect(rowTitles("Agents' plan for today")).toEqual(["Task 3"]);
 		// The note names the project and why, and the runner's own sentence says what is wrong.
 		expect(container.textContent).toContain("Beta's board did not answer");
 		expect(container.textContent).toContain("Automations did not answer: offline");
@@ -236,15 +273,15 @@ describe("HomeScreen", () => {
 		mount();
 		await settle();
 
-		expect(section("Moving now")?.textContent).toContain("The boards did not answer");
+		expect(section("Agents' plan for today")?.textContent).toContain("The boards did not answer");
 		answers.alpha = [task(4, "review", null)];
 		answers.beta = [];
-		[...(section("Moving now")?.querySelectorAll("button") ?? [])]
+		[...(section("Agents' plan for today")?.querySelectorAll("button") ?? [])]
 			.find((button) => button.textContent === "Try again")
 			?.click();
 		await settle();
 
-		expect(rowTitles("Moving now")).toEqual(["#4 Task 4"]);
+		expect(rowTitles("Agents' plan for today")).toEqual(["Task 4"]);
 	});
 
 	it("shows placeholders while the boards load, and says nothing about them yet", async () => {
@@ -252,8 +289,8 @@ describe("HomeScreen", () => {
 		mount();
 		await settle();
 
-		expect(section("Moving now")?.querySelectorAll(".kit-shimmer").length).toBe(3);
-		expect(rowTitles("Moving now")).toEqual([]);
+		expect(section("Agents' plan for today")?.querySelectorAll(".kit-shimmer").length).toBe(3);
+		expect(rowTitles("Agents' plan for today")).toEqual([]);
 		expect(container.textContent).not.toContain("No work in flight.");
 		expect(container.textContent).not.toContain("tasks moving");
 	});
@@ -292,7 +329,9 @@ describe("HomeScreen", () => {
 		mount();
 		await settle();
 
-		[...(section("Needs you")?.querySelectorAll("button") ?? [])][0]?.click();
+		[...(section("Needs you")?.querySelectorAll("button") ?? [])]
+			.find((button) => button.textContent?.startsWith("Fix the login"))
+			?.click();
 		await settle();
 		expect(container.querySelector('[data-testid="where"]')?.textContent).toBe("/chat/alpha/s9");
 	});
