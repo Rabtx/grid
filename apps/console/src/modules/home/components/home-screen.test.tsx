@@ -39,7 +39,9 @@ const task = (
 });
 
 type Answers = {
-	inbox?: unknown[];
+	inbox?: unknown[] | "fail";
+	/** Never answer the boards, to see what shows while they load. */
+	hold?: boolean;
 	alpha?: unknown[] | "fail";
 	beta?: unknown[] | "fail";
 	automations?: unknown[] | "fail";
@@ -49,7 +51,10 @@ function json(data: unknown, status = 200): Response {
 	return Response.json({ success: status < 400, statusCode: status, data }, { status });
 }
 
-/** Answers the API and the runner the way they would for one test. */
+/**
+ * Answers the API and the runner the way they would for one test. The answers object is read on
+ * every call, so a test can change it to see a retry pick up the new state.
+ */
 function serve(answers: Answers): void {
 	vi.stubGlobal(
 		"fetch",
@@ -63,7 +68,11 @@ function serve(answers: Answers): void {
 				});
 			}
 			if (url.includes("/inbox/unread")) return Response.json({ data: { unread: 0 } });
+			if (url.includes("/inbox/read")) return Response.json({ data: { changed: 1, unread: 0 } });
 			if (url.includes("/inbox")) {
+				if (answers.inbox === "fail") {
+					return Response.json({ message: "The runner is not running." }, { status: 503 });
+				}
 				const items = answers.inbox ?? [];
 				return Response.json({ data: { items, unread: items.length, github: true } });
 			}
@@ -75,6 +84,7 @@ function serve(answers: Answers): void {
 			}
 			for (const slug of ["alpha", "beta"] as const) {
 				if (url.includes(`/projects/${slug}/tasks`)) {
+					if (answers.hold) return new Promise<Response>(() => {});
 					const held = answers[slug];
 					return held === "fail" ? json(null, 500) : json(held ?? []);
 				}
@@ -215,20 +225,75 @@ describe("HomeScreen", () => {
 		await settle();
 
 		expect(rowTitles("Moving now")).toEqual(["#3 Task 3"]);
-		expect(container.textContent).toContain("One project's board did not answer.");
-		expect(container.textContent).toContain("Automations did not answer");
+		// The note names the project and why, and the runner's own sentence says what is wrong.
+		expect(container.textContent).toContain("Beta's board did not answer");
+		expect(container.textContent).toContain("Automations did not answer: offline");
 	});
 
-	it("shows an error with a retry when no board answers at all", async () => {
-		serve({ alpha: "fail", beta: "fail" });
+	it("shows an error when no board answers, and Try again reads them again", async () => {
+		const answers: Answers = { alpha: "fail", beta: "fail" };
+		serve(answers);
 		mount();
 		await settle();
 
 		expect(section("Moving now")?.textContent).toContain("The boards did not answer");
-		expect(
-			[...(section("Moving now")?.querySelectorAll("button") ?? [])].some(
-				(button) => button.textContent === "Try again",
-			),
-		).toBe(true);
+		answers.alpha = [task(4, "review", null)];
+		answers.beta = [];
+		[...(section("Moving now")?.querySelectorAll("button") ?? [])]
+			.find((button) => button.textContent === "Try again")
+			?.click();
+		await settle();
+
+		expect(rowTitles("Moving now")).toEqual(["#4 Task 4"]);
+	});
+
+	it("shows placeholders while the boards load, and says nothing about them yet", async () => {
+		serve({ hold: true });
+		mount();
+		await settle();
+
+		expect(section("Moving now")?.querySelectorAll(".kit-shimmer").length).toBe(3);
+		expect(rowTitles("Moving now")).toEqual([]);
+		expect(container.textContent).not.toContain("No work in flight.");
+		expect(container.textContent).not.toContain("tasks moving");
+	});
+
+	it("does not claim nothing needs you when the inbox fails, and retries it", async () => {
+		const answers: Answers = { inbox: "fail" };
+		serve(answers);
+		mount();
+		await settle();
+
+		expect(container.textContent).not.toContain("Nothing needs you");
+		expect(section("Needs you")?.textContent).toContain("The runner is not running.");
+		answers.inbox = [];
+		[...(section("Needs you")?.querySelectorAll("button") ?? [])]
+			.find((button) => button.textContent === "Try again")
+			?.click();
+		await settle();
+		expect(container.textContent).toContain("Nothing needs you");
+	});
+
+	it("follows an inbox item to its thread when its row is tapped", async () => {
+		serve({
+			inbox: [
+				{
+					id: "turn_done:s9",
+					kind: "turn_done",
+					project: "alpha",
+					title: "Fix the login",
+					body: "Finished",
+					url: "/chat/alpha/s9",
+					createdAt: NOW,
+					readAt: null,
+				},
+			],
+		});
+		mount();
+		await settle();
+
+		[...(section("Needs you")?.querySelectorAll("button") ?? [])][0]?.click();
+		await settle();
+		expect(container.querySelector('[data-testid="where"]')?.textContent).toBe("/chat/alpha/s9");
 	});
 });

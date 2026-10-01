@@ -24,7 +24,10 @@ import {
 import { workspaceHref } from "@/lib/active-workspace";
 import { now as clockNow } from "@/lib/clock";
 import { useAuth } from "@/modules/auth";
-import { automationsService } from "@/modules/automations/services/automations.service";
+import {
+	type Automation,
+	automationsService,
+} from "@/modules/automations/services/automations.service";
 import { untilLabel } from "@/modules/automations/lib/triggers";
 import { type InboxItem, type InboxKind, inboxStore } from "@/modules/inbox";
 import { projectsService, StatusIcon, TASK_STATUS_LABELS, useWorkspace } from "@/modules/projects";
@@ -51,8 +54,23 @@ const KIND_ICONS: Record<InboxKind, () => JSX.Element> = {
 	pull_checks: () => <AlertIcon size="sm" class="text-danger" />,
 };
 
-/** Every project's tasks, read together; a project that does not answer is counted, not fatal. */
-type MovingView = { entries: ProjectTask[]; failed: number };
+/**
+ * Every project's tasks, read together. A project that does not answer is named with its reason,
+ * not fatal: the rest of the work in flight still shows.
+ */
+type MovingView = { entries: ProjectTask[]; failed: { name: string; reason: string }[] };
+
+/** The next automations to run, or why they could not be read. */
+type UpNextView = { items: Automation[]; failed: string | null };
+
+/**
+ * A read that waits for sign-in: never settles, so the part keeps showing its placeholder. The
+ * memo runs again once there is a token, and that run is the one that answers.
+ */
+const untilSignedIn = <T,>(): Promise<T> => new Promise<T>(() => {});
+
+const reasonOf = (cause: unknown, fallback: string) =>
+	cause instanceof Error && cause.message ? cause.message : fallback;
 
 /**
  * The first screen of the day: what needs you (the newest unread inbox items), the work in
@@ -76,30 +94,44 @@ export function HomeScreen(): JSX.Element {
 	const moving = createMemo(async (): Promise<MovingView> => {
 		const token = auth.token();
 		const projects = workspace.projects();
-		if (!token || projects.length === 0) return { entries: [], failed: 0 };
+		// Until sign-in is restored there is nothing to ask yet: stay loading rather than say "no work".
+		if (!token) return untilSignedIn();
+		if (projects.length === 0) return { entries: [], failed: [] };
 		const answers = await Promise.all(
 			projects.map((project) =>
 				projectsService.listTasks(token, project.slug).then(
-					(tasks) => tasks.map((task) => ({ project, task })),
-					() => null,
+					(tasks) => ({ entries: tasks.map((task) => ({ project, task })), failure: null }),
+					(cause: unknown) => {
+						console.warn(`[home] ${project.slug}'s board did not answer`, cause);
+						const reason = reasonOf(cause, "The board did not answer");
+						return { entries: [], failure: { name: project.name, reason } };
+					},
 				),
 			),
 		);
-		const failed = answers.filter((answer) => answer === null).length;
+		const failed = answers.flatMap((answer) => (answer.failure ? [answer.failure] : []));
 		// Every project failing is an error to show and retry; some failing is a note under the list.
-		if (failed === projects.length) throw new Error("The boards did not answer");
-		return { entries: movingTasks(answers.flatMap((answer) => answer ?? [])), failed };
+		if (failed.length === projects.length) {
+			throw new Error(`The boards did not answer: ${failed[0]?.reason ?? ""}`);
+		}
+		return { entries: movingTasks(answers.flatMap((answer) => answer.entries)), failed };
 	});
 
-	const automations = createMemo(async () => {
+	const automations = createMemo(async (): Promise<UpNextView> => {
 		const token = auth.token();
-		if (!token) return { items: [], failed: false };
+		if (!token) return untilSignedIn();
 		return automationsService.list(token).then(
-			(items) => ({ items: upcoming(items), failed: false }),
-			// The runner being offline only hides this part; the rest of Today still works.
-			() => ({ items: [], failed: true }),
+			(items) => ({ items: upcoming(items), failed: null }),
+			// The runner not answering only hides this part; the rest of Today still works. Its
+			// messages are written to be shown ("The runner is not reachable…").
+			(cause: unknown) => {
+				console.warn("[home] automations did not answer", cause);
+				return { items: [], failed: reasonOf(cause, "Automations did not answer") };
+			},
 		);
 	});
+
+	const waiting = createMemo(() => needsYou(inboxStore.items()));
 
 	function openItem(item: InboxItem): void {
 		const token = auth.token();
@@ -143,7 +175,7 @@ export function HomeScreen(): JSX.Element {
 							)}
 						</Show>
 						<Show
-							when={needsYou(inboxStore.items()).length > 0}
+							when={waiting().length > 0}
 							fallback={
 								<Show when={!inboxStore.error()}>
 									<Quiet>Nothing is waiting on you.</Quiet>
@@ -151,7 +183,7 @@ export function HomeScreen(): JSX.Element {
 							}
 						>
 							<Rows>
-								<For each={needsYou(inboxStore.items())}>
+								<For each={waiting()}>
 									{(item) => (
 										<ListRow
 											title={item.title}
@@ -214,11 +246,11 @@ export function HomeScreen(): JSX.Element {
 										</For>
 									</Rows>
 								</Show>
-								<Show when={moving().failed > 0}>
+								<Show when={moving().failed.length > 0}>
 									<Quiet>
-										{moving().failed === 1
-											? "One project's board did not answer."
-											: `${moving().failed} projects' boards did not answer.`}
+										{moving().failed.length === 1
+											? `${moving().failed[0]?.name}'s board did not answer: ${moving().failed[0]?.reason}`
+											: `${moving().failed.length} projects' boards did not answer.`}
 									</Quiet>
 								</Show>
 							</Errored>
@@ -230,38 +262,50 @@ export function HomeScreen(): JSX.Element {
 						action={<TextLink href={workspaceHref("/automations")}>Automations</TextLink>}
 					>
 						<Loading fallback={<RowsSkeleton count={2} />}>
-							<Show
-								when={!automations().failed}
-								fallback={
-									<Quiet>Automations did not answer; this machine's runner may be offline.</Quiet>
-								}
+							<Errored
+								fallback={(error, reset) => (
+									<Alert
+										tone="danger"
+										title={reasonOf(error(), "Up next did not load")}
+										action={
+											<Button size="sm" onClick={reset}>
+												Try again
+											</Button>
+										}
+									/>
+								)}
 							>
 								<Show
-									when={automations().items.length > 0}
-									fallback={
-										<Quiet>
-											Nothing scheduled. Automations you set up show their next run here.
-										</Quiet>
-									}
+									when={automations().failed === null}
+									fallback={<Quiet>{`Automations did not answer: ${automations().failed}`}</Quiet>}
 								>
-									<Rows>
-										<For each={automations().items}>
-											{(item) => (
-												<ListRow
-													title={item.name}
-													subtitle={
-														workspace.projects().find((project) => project.slug === item.project)
-															?.name ?? item.project
-													}
-													trailing={item.nextRunAt ? untilLabel(item.nextRunAt) : undefined}
-													icon={<ClockIcon size="sm" />}
-													onClick={() => navigate(workspaceHref("/automations"))}
-												/>
-											)}
-										</For>
-									</Rows>
+									<Show
+										when={automations().items.length > 0}
+										fallback={
+											<Quiet>
+												Nothing scheduled. Automations you set up show their next run here.
+											</Quiet>
+										}
+									>
+										<Rows>
+											<For each={automations().items}>
+												{(item) => (
+													<ListRow
+														title={item.name}
+														subtitle={
+															workspace.projects().find((project) => project.slug === item.project)
+																?.name ?? item.project
+														}
+														trailing={item.nextRunAt ? untilLabel(item.nextRunAt) : undefined}
+														icon={<ClockIcon size="sm" />}
+														onClick={() => navigate(workspaceHref("/automations"))}
+													/>
+												)}
+											</For>
+										</Rows>
+									</Show>
 								</Show>
-							</Show>
+							</Errored>
 						</Loading>
 					</Section>
 				</Grid>
@@ -278,7 +322,10 @@ function Greeting(props: { date: Date; moving: number }): JSX.Element {
 			title={
 				auth.user() ? `${greeting(props.date)}, ${auth.user()?.username}` : greeting(props.date)
 			}
-			description={summary(inboxStore.unread(), props.moving)}
+			description={summary(
+				inboxStore.loaded() && !inboxStore.error() ? inboxStore.unread() : null,
+				props.moving,
+			)}
 		/>
 	);
 }

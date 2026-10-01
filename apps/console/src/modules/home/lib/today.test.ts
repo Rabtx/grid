@@ -59,6 +59,11 @@ describe("summary", () => {
 		expect(summary(3, 2)).toBe("3 things need you · 2 tasks moving");
 	});
 
+	it("leaves out what needs you until the inbox has answered", () => {
+		expect(summary(null, 2)).toBe("2 tasks moving");
+		expect(summary(null, 0)).toBe("");
+	});
+
 	it("says nothing needs you, and leaves out moving work when there is none", () => {
 		expect(summary(0, 0)).toBe("Nothing needs you");
 		expect(summary(0, 4)).toBe("Nothing needs you · 4 tasks moving");

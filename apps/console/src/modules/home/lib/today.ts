@@ -26,10 +26,17 @@ export function dayLabel(date: Date): string {
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-/** One line under the greeting: what needs you and what is moving, or that nothing does. */
-export function summary(needs: number, moving: number): string {
+/**
+ * One line under the greeting: what needs you and what is moving. `needs` is null while the inbox
+ * has not answered, so the line never claims nothing needs you before it knows.
+ */
+export function summary(needs: number | null, moving: number): string {
 	const parts = [
-		needs > 0 ? `${plural(needs, "thing needs", "things need")} you` : "Nothing needs you",
+		needs === null
+			? null
+			: needs > 0
+				? `${plural(needs, "thing needs", "things need")} you`
+				: "Nothing needs you",
 		moving > 0 ? `${plural(moving, "task", "tasks")} moving` : null,
 	];
 	return parts.filter(Boolean).join(" · ");
