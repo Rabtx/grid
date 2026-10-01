@@ -27,6 +27,7 @@ import FilterHorizontalGlyph from "@hugeicons/core-free-icons/FilterHorizontalIc
 import Flag02Glyph from "@hugeicons/core-free-icons/Flag02Icon";
 import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
 import KanbanGlyph from "@hugeicons/core-free-icons/KanbanIcon";
+import Shield01Glyph from "@hugeicons/core-free-icons/Shield01Icon";
 import LaptopGlyph from "@hugeicons/core-free-icons/LaptopIcon";
 import AsteriskGlyph from "@hugeicons/core-free-icons/AsteriskIcon";
 import Folder01Icon from "@hugeicons/core-free-icons/Folder01Icon";
@@ -409,4 +410,9 @@ export function EyeOffIcon(props: IconProps): JSX.Element {
 
 export function CameraIcon(props: IconProps): JSX.Element {
 	return <Icon icon={Camera01Glyph} size={props.size} class={props.class} />;
+}
+
+/** Something asking permission: an approval. */
+export function ShieldIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Shield01Glyph} size={props.size} class={props.class} />;
 }

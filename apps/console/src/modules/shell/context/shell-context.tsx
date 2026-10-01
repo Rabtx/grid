@@ -7,7 +7,17 @@ type Slot = () => JSX.Element;
 type ShellState = {
 	/** The screen's tabs for the title bar, or null to show the section's name. */
 	tabs: () => Slot | null;
+	/** The breadcrumb's last step after the section ("Inbox / Needs you"). */
+	crumb: () => Slot | null;
+	/** The screen's actions on the right of the desktop top bar. */
+	actions: () => Slot | null;
+	/** The phone header's line under the title ("4 need you"). */
+	subtitle: () => Slot | null;
+	/** The screen's own panel body beside the rail, in place of the projects tree. */
+	panel: () => Slot | null;
 	setSlot: (name: SlotName, slot: Slot | null) => void;
+	/** Empties a slot only if it still holds `mine`: the next screen may already have filled it. */
+	clearSlot: (name: SlotName, mine: Slot) => void;
 	/** Desktop only: the sidebar and panel folded away to give the screen the width. */
 	collapsed: () => boolean;
 	toggleCollapsed: () => void;
@@ -19,7 +29,7 @@ type ShellState = {
 	desktop: () => boolean;
 };
 
-type SlotName = "tabs";
+type SlotName = "tabs" | "crumb" | "actions" | "subtitle" | "panel";
 
 const COLLAPSED_KEY = "grid.shell.collapsed";
 const DESKTOP_QUERY = "(min-width: 64rem)";
@@ -36,6 +46,17 @@ function rememberedCollapsed(): boolean {
 
 export function ShellProvider(props: { children: JSX.Element }): JSX.Element {
 	const [tabs, setTabs] = createSignal<Slot | null>(null);
+	const [crumb, setCrumb] = createSignal<Slot | null>(null);
+	const [actions, setActions] = createSignal<Slot | null>(null);
+	const [subtitle, setSubtitle] = createSignal<Slot | null>(null);
+	const [panel, setPanel] = createSignal<Slot | null>(null);
+	const setters = {
+		tabs: setTabs,
+		crumb: setCrumb,
+		actions: setActions,
+		subtitle: setSubtitle,
+		panel: setPanel,
+	};
 	const [collapsed, setCollapsed] = createSignal(rememberedCollapsed());
 	const [drawerOpen, setDrawerOpen] = createSignal(false);
 	const [paletteOpen, setPaletteOpen] = createSignal(false);
@@ -50,8 +71,13 @@ export function ShellProvider(props: { children: JSX.Element }): JSX.Element {
 
 	const state: ShellState = {
 		tabs,
+		crumb,
+		actions,
+		subtitle,
+		panel,
 		// The setter takes the slot through a function so Solid does not call it as an updater.
-		setSlot: (_name, slot) => setTabs(() => slot),
+		setSlot: (name, slot) => setters[name](() => slot),
+		clearSlot: (name, mine) => setters[name]((current) => (current === mine ? null : current)),
 		collapsed,
 		toggleCollapsed: () => {
 			const next = !collapsed();
@@ -79,15 +105,17 @@ export function useShell(): ShellState {
 }
 
 /**
- * Hand part of a screen to the shell: its tabs for the title bar. The shell draws them for as
- * long as the screen is open.
+ * Hand part of a screen to the shell: its tabs or breadcrumb step and actions for the top bar,
+ * the phone header's subtitle, or its own panel body. The shell draws them for as long as the
+ * screen is open.
  */
 export function ShellSlot(props: { name: SlotName; children: JSX.Element }): JSX.Element {
 	const shell = useShell();
 
 	onSettled(() => {
-		shell.setSlot(props.name, () => props.children);
-		return () => shell.setSlot(props.name, null);
+		const mine: Slot = () => props.children;
+		shell.setSlot(props.name, mine);
+		return () => shell.clearSlot(props.name, mine);
 	});
 
 	return <></>;

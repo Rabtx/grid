@@ -20,7 +20,7 @@ export function NavDrawer(props: { content?: () => JSX.Element }): JSX.Element {
 	const close = () => shell.setDrawerOpen(false);
 
 	createEffect(
-		() => location.pathname,
+		() => location.pathname + location.search,
 		() => {
 			close();
 		},

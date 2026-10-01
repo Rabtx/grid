@@ -42,6 +42,38 @@ export function sectionTitle(path: string): string {
 	);
 }
 
+/** The panel's default body: the workspace's projects, each with its threads. */
+function ProjectsBody(): JSX.Element {
+	const workspace = useWorkspace();
+	return (
+		<div class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-2">
+			<NavSection
+				label="Projects"
+				action={
+					<IconButton
+						size="sm"
+						label="Open a folder as a project"
+						onClick={() => workspace.setAddProjectOpen(true)}
+					>
+						<PlusIcon size="sm" />
+					</IconButton>
+				}
+			>
+				<Loading
+					fallback={
+						<Stack gap={1}>
+							<Skeleton class="h-8" />
+							<Skeleton class="h-8" />
+						</Stack>
+					}
+				>
+					<ProjectTree />
+				</Loading>
+			</NavSection>
+		</div>
+	);
+}
+
 /**
  * The panel beside the rail (the Figma Grid/Sidebar/Panel): the section's name with search and a
  * new thread, the workspace and its projects with their threads, and this machine at the foot.
@@ -91,33 +123,13 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 			<div class="shrink-0 px-2 pt-2">
 				<WorkspaceSwitcher />
 			</div>
-
-			<div class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-2">
-				<NavSection
-					label="Projects"
-					action={
-						<IconButton
-							size="sm"
-							label="Open a folder as a project"
-							onClick={() => workspace.setAddProjectOpen(true)}
-						>
-							<PlusIcon size="sm" />
-						</IconButton>
-					}
-				>
-					<Loading
-						fallback={
-							<Stack gap={1}>
-								<Skeleton class="h-8" />
-								<Skeleton class="h-8" />
-							</Stack>
-						}
-					>
-						<ProjectTree />
-					</Loading>
-				</NavSection>
-			</div>
-
+			<Show when={shell.panel()} fallback={<ProjectsBody />}>
+				{(panel) => (
+					<div class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-2">
+						{panel()()}
+					</div>
+				)}
+			</Show>
 			<div class="shrink-0 p-2 pb-safe">
 				{/* The runner this console drives: whether it is online, and the way to every machine. */}
 				<MachineCard

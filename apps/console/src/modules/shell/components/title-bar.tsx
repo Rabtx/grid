@@ -16,9 +16,11 @@ import { sectionTitle } from "./sidebar";
  * project's same page.
  */
 function Breadcrumb(): JSX.Element {
+	const shell = useShell();
 	const workspace = useWorkspace();
 	const location = useLocation();
-	const projectPage = () => PROJECT_PAGE.test(location.pathname);
+	// A step after the section: the project of a project's page, or the screen's own (a view).
+	const projectPage = () => PROJECT_PAGE.test(location.pathname) || shell.crumb() !== null;
 
 	return (
 		<Row gap={1.5} class="min-w-0">
@@ -31,7 +33,17 @@ function Breadcrumb(): JSX.Element {
 			>
 				{sectionTitle(location.pathname)}
 			</Text>
-			<Show when={projectPage()}>
+			<Show when={shell.crumb()}>
+				{(crumb) => (
+					<>
+						<Text as="span" tone="subtle" aria-hidden="true">
+							/
+						</Text>
+						<h1 class="min-w-0 truncate font-medium text-body text-fg">{crumb()()}</h1>
+					</>
+				)}
+			</Show>
+			<Show when={!shell.crumb() && PROJECT_PAGE.test(location.pathname)}>
 				<Text as="span" tone="subtle" aria-hidden="true">
 					/
 				</Text>
@@ -93,6 +105,9 @@ export function TitleBar(): JSX.Element {
 					{(tabs) => <>{tabs()()}</>}
 				</Show>
 			</div>
+			<Show when={shell.actions()}>
+				{(actions) => <div class="flex shrink-0 items-center gap-2">{actions()()}</div>}
+			</Show>
 		</header>
 	);
 }
@@ -125,9 +140,18 @@ export function TopBar(): JSX.Element {
 							<Show
 								when={PROJECT_PAGE.test(location.pathname)}
 								fallback={
-									<Text as="h1" tone="strong" weight="medium" size="body-lg" truncate>
-										{sectionTitle(location.pathname)}
-									</Text>
+									<div class="flex min-w-0 flex-col items-center">
+										<Text as="h1" tone="strong" weight="medium" size="body-lg" truncate>
+											{sectionTitle(location.pathname)}
+										</Text>
+										<Show when={shell.subtitle()}>
+											{(subtitle) => (
+												<Text size="caption" tone="subtle" truncate>
+													{subtitle()()}
+												</Text>
+											)}
+										</Show>
+									</div>
 								}
 							>
 								<Loading fallback={<span />}>

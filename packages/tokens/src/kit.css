@@ -282,6 +282,36 @@
 		0 1px 2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.3));
 }
 
+/*
+ * A signal's tint, as the Figma Inbox glyphs draw it: the signal at 12% for the fill, 35% for the
+ * edge, and the signal itself for the glyph. Dark keeps the same mix, which reads as a deep tint.
+ */
+@utility tint-accent {
+	color: var(--signal-accent);
+	background: color-mix(in srgb, var(--signal-accent) 10%, var(--kit-surface));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-accent) 22%, transparent);
+}
+@utility tint-violet {
+	color: var(--signal-violet);
+	background: color-mix(in srgb, var(--signal-violet) 12%, var(--kit-surface));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-violet) 45%, transparent);
+}
+@utility tint-success {
+	color: var(--signal-success);
+	background: color-mix(in srgb, var(--signal-success) 12%, var(--kit-surface));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-success) 50%, transparent);
+}
+@utility tint-warning {
+	color: var(--signal-warning);
+	background: color-mix(in srgb, var(--signal-warning) 12%, var(--kit-surface));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-warning) 45%, transparent);
+}
+@utility tint-danger {
+	color: var(--signal-danger);
+	background: color-mix(in srgb, var(--signal-danger) 10%, var(--kit-surface));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-danger) 45%, transparent);
+}
+
 /* Hairline edges drawn inside the box, so they never shift layout. */
 @utility ring-line {
 	box-shadow: inset 0 0 0 1px var(--kit-line);

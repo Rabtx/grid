@@ -50,6 +50,7 @@ export {
 	LoadingBar,
 	TopLoadingBar,
 } from "./feedback";
+export { type FeedTone, FeedGroup, FeedRow, InfoStrip, ToneTile } from "./feed";
 export { attachContextMenu, LONG_PRESS_MS, type MenuPoint } from "./context-menu";
 export { AppFrame, AuthFrame } from "./frame";
 export {

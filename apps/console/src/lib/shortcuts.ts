@@ -26,6 +26,8 @@ export function installShortcuts(shortcuts: readonly Shortcut[], target: Documen
 	const onKeydown = (event: KeyboardEvent) => {
 		if (isEditable(event.target) || isTerminal(event.target)) return;
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		// Held keys do not repeat an action, and nothing acts on a page under an open dialog.
+		if (event.repeat || document.querySelector("dialog[open]")) return;
 		if (matchMedia("(pointer: coarse)").matches) return;
 
 		const key = normalizeKey(event);
