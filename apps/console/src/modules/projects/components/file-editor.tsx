@@ -207,6 +207,7 @@ export function FileEditor(props: {
 				}
 			>
 				<Segmented<View>
+					size="sm"
 					label="File view"
 					options={[
 						{ value: "text", label: "Text" },
