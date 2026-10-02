@@ -196,3 +196,16 @@ export function Section(props: {
 		</section>
 	);
 }
+
+/**
+ * A main column beside a 340px aside (the Figma Home and Pulse pages); stacked on phones, the
+ * aside after the main column.
+ */
+export function MainAside(props: { main: JSX.Element; aside: JSX.Element }): JSX.Element {
+	return (
+		<div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_21.25rem]">
+			<div class="flex min-w-0 flex-col gap-4">{props.main}</div>
+			<div class="flex min-w-0 flex-col gap-4">{props.aside}</div>
+		</div>
+	);
+}

@@ -2,7 +2,10 @@ import { createRouter, memoryHistory } from "@solidjs/router";
 import { render } from "@solidjs/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { JSX } from "@solidjs/web";
+
 import { AuthProvider } from "@/modules/auth";
+import { ShellProvider, useShell } from "@/modules/shell";
 import { WorkspaceProvider } from "../context/workspace-context";
 
 import { FilesScreen } from "./files-screen";
@@ -61,6 +64,17 @@ function content(path: string, text: string): unknown {
 		tooLarge: false,
 		hash: hash(text),
 	};
+}
+
+/** What the shell draws around the screen: its panel (the tree), tabs and breadcrumb. */
+function ShellOutlet(): JSX.Element {
+	const shell = useShell();
+	return (
+		<>
+			<nav data-slot="panel">{shell.panel()?.()}</nav>
+			<div data-slot="tabs">{shell.tabs()?.()}</div>
+		</>
+	);
 }
 
 describe("FilesScreen", () => {
@@ -135,6 +149,21 @@ describe("FilesScreen", () => {
 					const path = new URL(url).searchParams.get("path") ?? "";
 					return json({
 						path,
+						git:
+							new URL(url).searchParams.get("git") === "1"
+								? {
+										branch: "eta-rounding",
+										changes: [{ path: "readme.md", status: "modified", added: 1, removed: 0 }],
+										last: {
+											"": { author: "Sam", at: "2026-10-01T09:00:00.000Z", subject: "Round ETAs" },
+											"readme.md": {
+												author: "Sam",
+												at: "2026-10-01T09:00:00.000Z",
+												subject: "Say hello",
+											},
+										},
+									}
+								: null,
 						entries:
 							path === ""
 								? [
@@ -159,7 +188,16 @@ describe("FilesScreen", () => {
 		dispose = render(
 			() => (
 				<AuthProvider>
-					<Router>{(route) => <WorkspaceProvider>{route.children}</WorkspaceProvider>}</Router>
+					<Router>
+						{(route) => (
+							<WorkspaceProvider>
+								<ShellProvider>
+									<ShellOutlet />
+									{route.children}
+								</ShellProvider>
+							</WorkspaceProvider>
+						)}
+					</Router>
 				</AuthProvider>
 			),
 			container,
@@ -185,10 +223,31 @@ describe("FilesScreen", () => {
 		expect(container.textContent).toContain("Empty");
 	});
 
+	it("shows what changed since the last commit, and who last changed each entry", async () => {
+		await settle();
+		const table = container.querySelector("table");
+		expect(table?.textContent).toContain("Say hello");
+		const readme = [...(table?.querySelectorAll("tr") ?? [])].find((row) =>
+			row.textContent?.includes("readme.md"),
+		);
+		expect(readme?.textContent).toContain("Modified");
+		expect(container.textContent).toContain("1 changed since the last commit");
+
+		const changed = [...container.querySelectorAll<HTMLButtonElement>("button")].find((item) =>
+			item.textContent?.startsWith("Changed"),
+		);
+		changed?.click();
+		await settle();
+		const names = [...(container.querySelector("table")?.querySelectorAll("tbody tr") ?? [])].map(
+			(row) => row.querySelector("a")?.textContent?.replace("Modified", "").trim(),
+		);
+		expect(names).toEqual(["readme.md"]);
+	});
+
 	it("opens a file beside the tree with its lines numbered", async () => {
 		await settle();
-		const file = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
-			(button) => button.textContent?.trim() === "readme.md",
+		const file = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+			button.textContent?.trim().startsWith("readme.md"),
 		);
 		file?.click();
 		await settle();
@@ -196,9 +255,11 @@ describe("FilesScreen", () => {
 			true,
 		);
 		expect(file?.getAttribute("aria-current")).toBe("true");
-		const [gutter, code] = [...container.querySelectorAll("pre")];
-		expect(gutter?.textContent).toBe("1\n2");
-		expect(code?.textContent).toBe("# Alpha\nhello");
+		const rows = [
+			...container.querySelectorAll<HTMLElement>("section[aria-label='readme.md'] [data-line]"),
+		];
+		expect(rows.map((row) => row.dataset.line)).toEqual(["1", "2"]);
+		expect(rows.map((row) => row.querySelector("code")?.textContent)).toEqual(["# Alpha", "hello"]);
 	});
 
 	it("creates a file in the current directory", async () => {
@@ -307,7 +368,16 @@ describe("editing a file", () => {
 		dispose = render(
 			() => (
 				<AuthProvider>
-					<Router>{(route) => <WorkspaceProvider>{route.children}</WorkspaceProvider>}</Router>
+					<Router>
+						{(route) => (
+							<WorkspaceProvider>
+								<ShellProvider>
+									<ShellOutlet />
+									{route.children}
+								</ShellProvider>
+							</WorkspaceProvider>
+						)}
+					</Router>
 				</AuthProvider>
 			),
 			container,
@@ -459,7 +529,7 @@ describe("editing a file", () => {
 		// Still on the edit, untouched.
 		expect(container.querySelector(".cm-content")?.textContent).toContain("mine");
 		expect(calls.some((url) => url.endsWith("content?path=readme.md"))).toBe(false);
-		button(container, "Back to files")?.click();
+		button(container, "Back to the folder")?.click();
 		await settle();
 		expect(container.textContent).toContain("Leave without saving?");
 		button(container, "Cancel")?.click();

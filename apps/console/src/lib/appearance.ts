@@ -38,14 +38,14 @@ export const APPEARANCE_DEFAULTS: Appearance = {
 	accent: null,
 	hue: 240,
 	saturation: 0,
-	darkLightness: 9,
+	darkLightness: 8,
 	uiScale: 1,
 	density: "comfortable",
 	radius: 1,
 	spacing: 1,
 	lines: 1,
 	celebrations: true,
-	depth: false,
+	depth: true,
 };
 
 export const APPEARANCE_LIMITS = {
@@ -123,7 +123,7 @@ export function readableInk(hex: string): "#000000" | "#ffffff" {
 /** The actual canvas colour, for the status/browser bar surrounding the page. */
 export function canvasColor(value: Appearance, prefersDark: boolean): string {
 	const dark = value.theme === "dark" || (value.theme === "system" && prefersDark);
-	const lightness = (dark ? value.darkLightness : 99.6) / 100;
+	const lightness = (dark ? value.darkLightness : 100 - value.saturation * 0.04) / 100;
 	const saturation = value.saturation / 100;
 	const amount = saturation * Math.min(lightness, 1 - lightness);
 	const channel = (offset: number) => {
@@ -170,23 +170,52 @@ export function applyAppearance(
 	if (root === document.documentElement) syncThemeColor(value);
 }
 
-function readStored(): Appearance {
+/** The saved appearance, and whether it was saved before the Figma design and needs writing back. */
+function readStored(): { value: Appearance; migrated: boolean } {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
-		if (raw) return normalizeAppearance(JSON.parse(raw));
-		return normalizeAppearance({
-			theme: localStorage.getItem(LEGACY_THEME_KEY),
-			density: localStorage.getItem(LEGACY_DENSITY_KEY),
-		});
+		if (raw) {
+			const parsed: unknown = JSON.parse(raw);
+			const migrated =
+				typeof parsed === "object" &&
+				parsed !== null &&
+				(parsed as Record<string, unknown>).design !== DESIGN_GENERATION;
+			return { value: normalizeAppearance(migrateStored(parsed)), migrated };
+		}
+		return {
+			value: normalizeAppearance({
+				theme: localStorage.getItem(LEGACY_THEME_KEY),
+				density: localStorage.getItem(LEGACY_DENSITY_KEY),
+			}),
+			migrated: false,
+		};
 	} catch {
 		// Blocked storage, private windows or corrupt JSON: fall back to the defaults.
-		return APPEARANCE_DEFAULTS;
+		return { value: APPEARANCE_DEFAULTS, migrated: false };
 	}
+}
+
+/**
+ * The design generation stored with the settings. Generation 2 is the Figma design system:
+ * a deeper dark canvas (8%, was 9%) and depth on by default. Settings saved before it carried
+ * the old defaults, so those two move to the new ones; anything else the person chose stays.
+ */
+const DESIGN_GENERATION = 2;
+
+function migrateStored(input: unknown): unknown {
+	if (typeof input !== "object" || input === null) return input;
+	const raw = input as Record<string, unknown>;
+	if (raw.design === DESIGN_GENERATION) return raw;
+	return {
+		...raw,
+		darkLightness: raw.darkLightness === 9 ? APPEARANCE_DEFAULTS.darkLightness : raw.darkLightness,
+		depth: raw.depth === false ? APPEARANCE_DEFAULTS.depth : raw.depth,
+	};
 }
 
 function writeStored(value: Appearance): void {
 	try {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+		localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...value, design: DESIGN_GENERATION }));
 	} catch {
 		// Storage can be blocked or full; the change still applies for this visit.
 	}
@@ -231,7 +260,10 @@ export function resetAppearance(): void {
 
 /** Load the saved appearance and apply it; call once before the first render. */
 export function restoreAppearance(): void {
-	commit(readStored(), false);
+	const stored = readStored();
+	// Settings saved before the Figma design are written back once, so the pre-paint script in
+	// index.html (which reads them raw) sees the migrated values too.
+	commit(stored.value, stored.migrated);
 	if (window.matchMedia && !watchingSystemTheme) {
 		window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
 			if (state.theme === "system") syncThemeColor(state);

@@ -59,7 +59,7 @@ export function Palette<T extends string>(props: {
 					placeholder={props.placeholder ?? "Search anything…"}
 					value={props.query}
 					onInput={(event) => props.onQuery(event.currentTarget.value)}
-					class="min-w-0 flex-1 bg-transparent text-body-lg text-fg outline-none placeholder:text-fg-faint"
+					class="min-w-0 flex-1 bg-transparent text-field text-fg outline-none placeholder:text-fg-faint"
 				/>
 			</div>
 			<Show when={props.tabs && props.tab && props.onTab}>
@@ -125,19 +125,26 @@ export type AutocompleteItem = {
 	id: string;
 	icon?: JSX.Element;
 	label: string;
+	/** Beside the label, quieter: a command's argument and what it does. */
 	hint?: string;
+	/** Under the label: the folder a file is in. */
+	detail?: string;
 	/** A heading drawn before the first item of each run, e.g. who offers the command. */
 	group?: string;
 };
 
 /**
- * Suggestions floating above a text field while you type: @-mentions, / commands. The field keeps
- * the keyboard (arrows and Enter are the caller's); a pointer picks without blurring the field.
+ * Suggestions floating above a text field while you type: @-mentions, / commands. A raised card
+ * (Figma 10 · Composer, Mention files): a caption over each run, rows with a tile and a second
+ * line, and an ↵ on the one Enter would pick. The field keeps the keyboard (arrows and Enter are
+ * the caller's); a pointer picks without blurring the field.
  */
 export function AutocompleteList(props: {
 	/** The list's id; each item's is `<id>-<index>`, for the field's `aria-activedescendant`. */
 	id: string;
 	label: string;
+	/** The caption over the list when its items carry no group of their own. */
+	heading?: string;
 	items: readonly AutocompleteItem[];
 	active: number;
 	onPick: (id: string) => void;
@@ -152,23 +159,20 @@ export function AutocompleteList(props: {
 			list?.querySelector(`[data-index="${index}"]`)?.scrollIntoView({ block: "nearest" });
 		},
 	);
+	const heading = (index: number): string | undefined => {
+		const item = props.items[index];
+		if (!item) return undefined;
+		if (item.group) return props.items[index - 1]?.group !== item.group ? item.group : undefined;
+		return index === 0 ? props.heading : undefined;
+	};
 	return (
 		<div
 			aria-label={props.label}
-			class="absolute right-0 bottom-full left-0 z-30 mb-1.5 flex max-h-60 flex-col overflow-hidden rounded-kit-xl bg-surface-raised shadow-float md:right-auto md:left-2 md:w-96"
+			class="surface-card absolute right-0 bottom-full left-0 z-30 mb-2 flex max-h-72 flex-col overflow-hidden rounded-kit-2xl md:right-auto md:left-14 md:w-80"
 		>
-			<div class="flex h-8 shrink-0 items-center justify-between border-line border-b px-3 text-caption text-fg-subtle">
-				<span>
-					{props.label}
-					<Show when={props.items.length > 0}> · {props.items.length}</Show>
-				</span>
-				<span class="flex items-center gap-1.5">
-					<Show when={props.loading}>
-						<SpinnerIcon size="xs" class="animate-spin" />
-					</Show>
-					<span class="hidden md:inline">↑↓ move · ↵ pick · esc close</span>
-				</span>
-			</div>
+			<Show when={props.loading && props.items.length > 0}>
+				<SpinnerIcon size="xs" class="absolute top-3 right-3 animate-spin text-fg-subtle" />
+			</Show>
 			<Show
 				when={props.items.length > 0}
 				fallback={
@@ -188,15 +192,17 @@ export function AutocompleteList(props: {
 					// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a native select cannot float suggestions while the field keeps the keyboard
 					role="listbox"
 					aria-label={props.label}
-					class="flex min-h-0 flex-1 flex-col overflow-y-auto p-1"
+					class="flex min-h-0 flex-1 flex-col overflow-y-auto p-1.5"
 				>
 					<For each={props.items}>
 						{(item, index) => (
 							<>
-								<Show when={item.group && props.items[index() - 1]?.group !== item.group}>
-									<li role="presentation" class="px-2 pt-2 pb-1 text-caption text-fg-subtle">
-										{item.group}
-									</li>
+								<Show when={heading(index())}>
+									{(text) => (
+										<li role="presentation" class="px-2 pt-1.5 pb-1 text-caption text-fg-subtle">
+											{text()}
+										</li>
+									)}
 								</Show>
 								{/* The field keeps the keyboard, so an option is picked by pointer only. */}
 								<li
@@ -204,23 +210,37 @@ export function AutocompleteList(props: {
 									id={`${props.id}-${index()}`}
 									// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- an option of the listbox above; a native option cannot hold icons and hints
 									role="option"
+									aria-label={[item.label, item.hint, item.detail].filter(Boolean).join(", ")}
 									aria-selected={index() === props.active ? "true" : "false"}
 									onMouseDown={(event) => {
 										// Keep the field focused while the pick applies.
 										event.preventDefault();
 										props.onPick(item.id);
 									}}
-									class="flex h-8 w-full cursor-pointer items-center gap-2 rounded-kit px-2 text-left text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-selected:bg-fill-strong aria-selected:text-fg pointer-coarse:h-11"
+									class="group/option flex min-h-kit-row w-full cursor-pointer items-center gap-2.5 rounded-kit-lg px-2 py-1.5 text-left text-body text-fg transition-colors duration-fast hover:bg-fill aria-selected:bg-fill pointer-coarse:min-h-12"
 								>
 									<Show when={item.icon}>
-										<span class="shrink-0 text-fg-subtle">{item.icon}</span>
-									</Show>
-									<span class="truncate font-mono text-caption">{item.label}</span>
-									<Show when={item.hint}>
-										<span class="ml-auto truncate font-mono text-caption text-fg-faint">
-											{item.hint}
+										<span class="grid size-5 shrink-0 place-items-center text-fg-subtle">
+											{item.icon}
 										</span>
 									</Show>
+									<span class="flex min-w-0 flex-1 flex-col">
+										<span class="flex min-w-0 items-baseline gap-2">
+											<span class="truncate">{item.label}</span>
+											<Show when={item.hint}>
+												<span class="truncate text-caption text-fg-subtle">{item.hint}</span>
+											</Show>
+										</span>
+										<Show when={item.detail}>
+											<span class="truncate text-caption text-fg-subtle">{item.detail}</span>
+										</Show>
+									</span>
+									<span
+										aria-hidden="true"
+										class="hidden shrink-0 group-aria-selected/option:inline-grid pointer-coarse:hidden"
+									>
+										<Kbd>↵</Kbd>
+									</span>
 								</li>
 							</>
 						)}

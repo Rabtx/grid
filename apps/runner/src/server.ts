@@ -21,6 +21,7 @@ import type { CodespacesLink } from "./github/codespaces";
 import type { PullRequests } from "./github/pulls";
 import { githubRequest } from "./github/routes";
 import { type InboxDeps, inboxRequest } from "./inbox/routes";
+import { type RoleDeps, roleRequest } from "./roles/routes";
 import { closeLink, createLink, type LinkObserver, type LinkState, linkMessage } from "./link";
 import type { PushNotifier } from "./push/notifier";
 import { pushRequest } from "./push/routes";
@@ -103,9 +104,12 @@ export function startServer(
 		/** What is waiting on the people in a workspace, and the GitHub half of it. */
 		inbox?: InboxDeps;
 		automations?: Automations;
+		/** The workspace's team: the roles its threads are started as. */
+		roles?: RoleDeps;
 	} = {},
 ): Server<SocketData> {
-	const { push, diagnostics, environments, pairing, github, pulls, inbox, automations } = extras;
+	const { push, diagnostics, environments, pairing, github, pulls, inbox, automations, roles } =
+		extras;
 	const diagnosticRoutes = diagnostics ? new DiagnosticRoutes(diagnostics) : null;
 	const recordDiagnostic = (entry: DiagnosticInput): void => {
 		try {
@@ -365,10 +369,17 @@ export function startServer(
 					return Response.json({ data: info }, { status: 201 });
 				}
 
+				if (roles && (url.pathname === "/roles" || url.pathname.startsWith("/roles/"))) {
+					const who = await whoFrom(request, "Sign in to see your team");
+					if (who instanceof Response) return who;
+					const handled = await roleRequest(request, url, who, roles);
+					if (handled) return handled;
+				}
+
 				if (url.pathname.startsWith("/chat/")) {
 					const who = await whoFrom(request, "Sign in to chat with agents");
 					if (who instanceof Response) return who;
-					const handled = await chatRequest(request, url, who, chat);
+					const handled = await chatRequest(request, url, who, chat, roles?.store);
 					if (handled) return handled;
 				}
 

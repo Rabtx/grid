@@ -4,6 +4,7 @@ import { render } from "@solidjs/web";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/modules/auth";
+import { ShellProvider, useShell } from "@/modules/shell";
 import { WorkspaceProvider, useWorkspace } from "@/modules/projects/context/workspace-context";
 import { Toasts } from "@/kit";
 
@@ -75,7 +76,7 @@ function laneTaskKeys(container: HTMLElement, lane: string): string[] {
 	const section = container.querySelector(`section[data-lane="${lane}"]`);
 	if (!section) return [];
 	return [...section.querySelectorAll("article")].map(
-		(card) => card.querySelector("span")?.textContent ?? "",
+		(card) => /TASK-\d+/.exec(card.textContent ?? "")?.[0] ?? "",
 	);
 }
 
@@ -94,6 +95,17 @@ async function clickMenuItem(container: HTMLElement, key: string, item: string):
 	);
 	expect(button, `no "${item}" entry in the menu for ${key}`).toBeDefined();
 	button?.click();
+}
+
+/** What the shell draws around a screen: its actions and its panel, so tests can reach them. */
+function ShellOutlet(): JSX.Element {
+	const shell = useShell();
+	return (
+		<>
+			<div data-slot="actions">{shell.actions()?.()}</div>
+			<div data-slot="panel">{shell.panel()?.()}</div>
+		</>
+	);
 }
 
 /** Opens the new-task sheet through the workspace, the way the shell's control does. */
@@ -201,7 +213,16 @@ describe("BoardScreen", () => {
 		dispose = render(
 			() => (
 				<AuthProvider>
-					<Router>{(route) => <WorkspaceProvider>{route.children}</WorkspaceProvider>}</Router>
+					<Router>
+						{(route) => (
+							<WorkspaceProvider>
+								<ShellProvider>
+									<ShellOutlet />
+									{route.children}
+								</ShellProvider>
+							</WorkspaceProvider>
+						)}
+					</Router>
 				</AuthProvider>
 			),
 			container,
@@ -214,70 +235,74 @@ describe("BoardScreen", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("renders all seven lane headings with correct labels", async () => {
+	it("renders the four columns, each stage in its own", async () => {
 		await settle();
 
 		const headings = container.querySelectorAll("section[id^=lane-] h2");
-		expect(headings.length).toBe(7);
 		const labels = Array.from(headings).map((h) => h.textContent?.trim());
-		expect(labels).toEqual(["Backlog", "Ready", "In progress", "Review", "QA", "Blocked", "Done"]);
-	});
-
-	it("shows correct task counts for alpha project in lane headings", async () => {
-		await settle();
-
+		expect(labels).toEqual(["Todo", "In progress", "In review", "Done"]);
 		const counts = container.querySelectorAll("section[id^=lane-] header [data-count]");
-		const countValues = Array.from(counts).map((s) => parseInt(s.textContent || "0", 10));
-		expect(countValues).toEqual([1, 1, 0, 0, 0, 0, 0]);
+		expect(Array.from(counts).map((n) => Number(n.textContent))).toEqual([2, 0, 0, 0]);
+		// Todo holds Ready and Backlog: the backlog card says which it is.
+		expect(laneTaskKeys(container, "todo")).toEqual(["TASK-1", "TASK-2"]);
+		const backlog = container.querySelector('a[href="/board/alpha/tasks/1"]');
+		expect(backlog?.textContent).toContain("Backlog");
 	});
 
-	it("renders seven lane tabs with correct counts on mobile", async () => {
+	it("names the columns in phone tabs with their counts", async () => {
 		await settle();
 
 		const tabs = container.querySelectorAll('nav[aria-label="Board lanes"] button');
-		expect(tabs.length).toBe(7);
-		const tabCounts = Array.from(tabs).map((tab) =>
-			parseInt(tab.querySelector("[data-count]")?.textContent || "0", 10),
-		);
-		expect(tabCounts).toEqual([1, 1, 0, 0, 0, 0, 0]);
+		expect(Array.from(tabs).map((tab) => tab.textContent?.replace(/\d+/g, "").trim())).toEqual([
+			"Todo",
+			"Doing",
+			"Review",
+			"Done",
+		]);
 		expect(tabs[0].getAttribute("aria-pressed")).toBe("true");
-		expect(tabs[0].getAttribute("aria-controls")).toBe("lane-backlog");
-		expect(container.querySelector("section[data-lane]")?.getAttribute("data-lane")).toBe(
-			"backlog",
-		);
+		expect(tabs[0].getAttribute("aria-controls")).toBe("lane-todo");
 	});
 
-	it("shows 'No tasks' in empty lanes", async () => {
+	it("shows 'No tasks' in empty columns", async () => {
 		await settle();
 
 		const emptyMessages = container.querySelectorAll("section[id^=lane-] p");
 		const noTasksCount = Array.from(emptyMessages).filter((p) =>
 			p.textContent?.includes("No tasks"),
 		).length;
-		expect(noTasksCount).toBe(5);
+		expect(noTasksCount).toBe(3);
+	});
+
+	it("filters to what agents hold, and to what is yours, from the panel", async () => {
+		await settle();
+
+		const panel = container.querySelector('[data-slot="panel"]');
+		const views = [...(panel?.querySelectorAll("a") ?? [])].map((link) =>
+			link.textContent?.replace(/\s+/g, " ").trim(),
+		);
+		expect(views.slice(0, 3)).toEqual(["All tasks2", "Given to agents1", "Assigned to me0"]);
+		expect(panel?.querySelector('a[href="/board/alpha?owner=agents"]')).not.toBeNull();
 	});
 
 	it("groups tasks into one lane per owner", async () => {
 		await settle();
 
-		const ownerView = Array.from(
-			container.querySelectorAll<HTMLButtonElement>("fieldset button"),
-		).find((button) => button.textContent?.trim() === "By owner");
+		container.querySelector<HTMLButtonElement>('button[aria-label="Board view"]')?.click();
+		await settle();
+		const ownerView = [...document.querySelectorAll<HTMLButtonElement>("button")].find(
+			(button) => button.textContent?.trim() === "By owner",
+		);
 		expect(ownerView).toBeDefined();
 		ownerView?.click();
 		await settle();
 
 		const lanes = container.querySelectorAll("section[data-lane]");
 		const labels = Array.from(lanes).map((lane) => lane.querySelector("h2")?.textContent?.trim());
-		const counts = Array.from(lanes).map((lane) =>
-			parseInt(lane.querySelector("[data-count]")?.textContent || "0", 10),
-		);
 		expect(Array.from(lanes).map((lane) => lane.getAttribute("data-lane"))).toEqual([
 			"human:Alice",
 			"agent:Morgan",
 		]);
 		expect(labels).toEqual(["Alice", "Morgan"]);
-		expect(counts).toEqual([1, 1]);
 	});
 
 	it("hides task cards that do not match the query", async () => {
@@ -293,7 +318,6 @@ describe("BoardScreen", () => {
 		const cards = container.querySelectorAll("article");
 		expect(cards).toHaveLength(1);
 		expect(cards[0].textContent).toContain("Second task ready for work");
-		expect(container.textContent).toContain("1 of 2 tasks");
 	});
 
 	it("shows the filtered empty state and restores every task", async () => {
@@ -315,7 +339,7 @@ describe("BoardScreen", () => {
 		clear?.click();
 		await settle();
 
-		expect(container.querySelectorAll("section[data-lane]")).toHaveLength(7);
+		expect(container.querySelectorAll("section[data-lane]")).toHaveLength(4);
 		expect(container.querySelectorAll("article")).toHaveLength(2);
 	});
 
@@ -351,8 +375,8 @@ describe("BoardScreen", () => {
 		await settle();
 
 		// Optimistic: the card changes lane before the write has come back.
-		expect(laneTaskKeys(container, "backlog")).toEqual([]);
-		expect(laneTaskKeys(container, "in_progress")).toEqual(["TASK-1"]);
+		expect(laneTaskKeys(container, "todo")).toEqual(["TASK-2"]);
+		expect(laneTaskKeys(container, "doing")).toEqual(["TASK-1"]);
 
 		releasePatch();
 		await settle();
@@ -362,8 +386,8 @@ describe("BoardScreen", () => {
 		expect(patches[0].url).toContain("/projects/alpha/tasks/1");
 		expect(patches[0].body).toEqual({ status: "in_progress", position: 0 });
 		// Once the write lands the overlay is gone: the card stays where the API put it.
-		expect(laneTaskKeys(container, "backlog")).toEqual([]);
-		expect(laneTaskKeys(container, "in_progress")).toEqual(["TASK-1"]);
+		expect(laneTaskKeys(container, "todo")).toEqual(["TASK-2"]);
+		expect(laneTaskKeys(container, "doing")).toEqual(["TASK-1"]);
 	});
 
 	it("puts the card back and says why when the move is rejected", async () => {
@@ -376,8 +400,8 @@ describe("BoardScreen", () => {
 		expect(container.textContent).toContain(
 			"Couldn't move TASK-1: Stage 'in_progress' is not allowed here",
 		);
-		expect(laneTaskKeys(container, "backlog")).toEqual(["TASK-1"]);
-		expect(laneTaskKeys(container, "in_progress")).toEqual([]);
+		expect(laneTaskKeys(container, "todo")).toEqual(["TASK-1", "TASK-2"]);
+		expect(laneTaskKeys(container, "doing")).toEqual([]);
 	});
 
 	it("toasts after adding a task and, with Add another on, keeps the sheet open", async () => {

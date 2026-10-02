@@ -2,7 +2,9 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, onSettled, Show } from "solid-js";
 
-import { BrandMark } from "@/kit";
+import { Splash } from "@/kit";
+import { activeWorkspace } from "@/lib/active-workspace";
+import { bootSplashShown } from "@/lib/boot-splash";
 import { useAuth } from "@/modules/auth";
 
 /**
@@ -38,17 +40,22 @@ export function RequireAuth(props: { children: JSX.Element }): JSX.Element {
 	);
 }
 
+/**
+ * The splash while the session is checked. It waits 300 ms first, so a quick check never flashes
+ * it; a slow one shows the Figma splash naming the workspace being opened.
+ */
 function AuthPending(): JSX.Element {
-	const [visible, setVisible] = createSignal(false);
+	// Straight on when the page is still opening (the static splash was showing), so the two
+	// splashes meet without a blank between them; after 300 ms otherwise, so quick checks never flash.
+	const [visible, setVisible] = createSignal(bootSplashShown);
 	onSettled(() => {
 		const timer = setTimeout(() => setVisible(true), 300);
 		return () => clearTimeout(timer);
 	});
+	const workspace = activeWorkspace();
 	return (
 		<Show when={visible()}>
-			<output aria-label="Checking your session" class="flex justify-center py-12">
-				<BrandMark class="motion-safe:animate-pulse" />
-			</output>
+			<Splash message={workspace ? `Connecting to ${workspace}…` : "Connecting…"} />
 		</Show>
 	);
 }

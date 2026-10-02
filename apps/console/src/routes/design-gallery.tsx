@@ -228,7 +228,7 @@ function TweakPanel(): JSX.Element {
 								uiScale: 1,
 								hue: 240,
 								saturation: 0,
-								darkLightness: 9,
+								darkLightness: 8,
 							})
 						}
 					>
@@ -271,10 +271,10 @@ function Foundations(): JSX.Element {
 				<Text tone="subtle">Subtle: metadata, section labels, icons at rest</Text>
 				<Text tone="faint">Faint: placeholders and disabled only</Text>
 			</Specimen>
-			<Specimen label="Type scale · Inter, regular and medium">
+			<Specimen label="Type scale · SF Pro, regular and medium">
 				<Heading level={1}>Display 24</Heading>
-				<Heading level={2}>Headline 18</Heading>
-				<Heading level={3}>Heading 16</Heading>
+				<Heading level={2}>Headline 24</Heading>
+				<Heading level={3}>Heading 14</Heading>
 				<Text size="body-lg">Body large 14</Text>
 				<Text>Body 13 — the base size of the console</Text>
 				<Text size="caption" tone="subtle">

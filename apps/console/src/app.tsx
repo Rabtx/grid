@@ -2,11 +2,12 @@ import { createRouter } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { lazy, Loading } from "solid-js";
 
-import { EmptyState, SplitLayout, Text, TextLink } from "@/kit";
+import { EmptyState, Text, TextLink } from "@/kit";
 import { AutomationsScreen } from "@/modules/automations";
 import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { EnvironmentsScreen } from "@/modules/environments";
+import { HomeScreen } from "@/modules/home";
 import { ConnectorsScreen } from "@/modules/github";
 import { InboxScreen } from "@/modules/inbox";
 import {
@@ -37,13 +38,16 @@ const Router = createRouter({
 		{ path: "/setup", component: SetupRoute },
 		// An invite link: join its workspace, signed in or with a new account.
 		{ path: "/invite/:token", component: InviteRoute },
+		// The first screen of the day: what needs you, the work in flight, and what runs next.
+		{ path: "/home", component: () => <Authed screen={HomeScreen} /> },
 		// What is waiting on the people in this workspace, across every project.
 		{ path: "/inbox", component: InboxRoute },
 		{ path: "/automations", component: () => <Authed screen={AutomationsScreen} /> },
 		{ path: "/board", component: RedirectRoute },
 		{ path: "/board/:slug", component: BoardRoute },
 		{ path: "/files/:slug", component: FilesRoute },
-		{ path: "/notes/:slug", component: NotesRoute },
+		// A project's notes; the open one (or `new`) after it.
+		{ path: "/notes/:slug/:note?", component: NotesRoute },
 		// A project's pull requests on GitHub; the open one is `?pr=`.
 		{ path: "/pulls/:slug", component: PullsRoute },
 		// The same board with one task open in the panel over it.
@@ -82,11 +86,7 @@ export function App(): JSX.Element {
 }
 
 function LoginRoute(): JSX.Element {
-	return (
-		<SplitLayout>
-			<LoginForm />
-		</SplitLayout>
-	);
+	return <LoginForm />;
 }
 
 function SetupRoute(): JSX.Element {

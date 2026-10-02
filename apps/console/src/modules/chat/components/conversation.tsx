@@ -1,6 +1,6 @@
 import { useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, onSettled, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { onAppResume } from "@/lib/app-resume";
 import { localStore, saveSoon } from "@/lib/local-store";
@@ -8,21 +8,39 @@ import { linkFor } from "@/lib/runner-link";
 import { quietReconnects } from "@/lib/quiet-reconnects";
 import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
+import { environmentsStore } from "@/modules/environments";
 import { placementsStore } from "@/modules/environments/stores/placements";
+import { relativeTime } from "@/modules/projects/lib/relative-time";
+import { ShellSlot } from "@/modules/shell";
 import { notesStore, useWorkspace } from "@/modules/projects";
 import {
+	AgentLogo,
 	Alert,
+	Badge,
 	Banner,
+	BranchIcon,
+	ClockIcon,
 	ContextMeter,
-	FolderIcon,
+	DiffStat,
+	FactGroup,
+	LaptopIcon,
+	RoleMark,
+	ThreadHeader,
 	notify,
 	type PopoverControl,
-	Row,
 	Text,
 } from "@/kit";
 
 import { type ChatConnection, connectChat, type ChatSocket } from "../lib/chat-socket";
-import { applyEvent, emptyTranscript, replay, type Transcript } from "../lib/transcript";
+import { threadFacts } from "../lib/thread-facts";
+import {
+	applyEvent,
+	emptyTranscript,
+	formatDuration,
+	pendingApprovals,
+	replay,
+	type Transcript,
+} from "../lib/transcript";
 import { chatService, chatSocketUrl } from "../services/chat.service";
 import { threadsStore } from "../stores/threads";
 import type { ChatEvent, ChatProvider, ChatSession } from "../types/chat.types";
@@ -34,7 +52,12 @@ import { agentCommands, availableCommands, type SlashCommand } from "../lib/slas
 import { Composer } from "./composer";
 import { GitControl } from "./git-control";
 import { ModelPicker, ModePicker } from "./pickers";
-import { TranscriptView, type UserPrompt } from "./transcript-view";
+import {
+	ApprovalCard,
+	type ThreadPeople,
+	TranscriptView,
+	type UserPrompt,
+} from "./transcript-view";
 
 /** A first message typed on the new-chat screen, sent as soon as the session's socket is up. */
 const firstMessages = new Map<string, { text: string; attachments: string[] }>();
@@ -45,10 +68,6 @@ export function queueFirstMessage(
 	attachments: string[] = [],
 ): void {
 	firstMessages.set(sessionId, { text, attachments });
-}
-
-function shortPath(path: string): string {
-	return path.replace(/^\/home\/[^/]+/, "~");
 }
 
 /** One conversation: its live transcript and the composer under it. */
@@ -128,7 +147,7 @@ export function Conversation(props: {
 		}
 		const agent = provider()?.name;
 		try {
-			await notesStore.add(token, current.project, {
+			const note = await notesStore.add(token, current.project, {
 				body: text,
 				source: agent ? `${agent} in ${current.title}` : current.title,
 				threadId: current.id,
@@ -136,7 +155,7 @@ export function Conversation(props: {
 			notify({
 				title: "Added to notes",
 				tone: "success",
-				action: { label: "Open", run: () => navigate(`/notes/${current.project}`) },
+				action: { label: "Open", run: () => navigate(`/notes/${current.project}/${note.id}`) },
 			});
 		} catch (cause) {
 			notify({
@@ -364,125 +383,263 @@ export function Conversation(props: {
 		return true;
 	}
 
+	const facts = createMemo(() => threadFacts(transcript().blocks));
+	// What the agent is waiting on, docked over the composer where the answer is given.
+	const waitingOn = createMemo(() => pendingApprovals(transcript()));
+	const subtitle = () =>
+		[
+			facts().files.length
+				? `${facts().files.length} file${facts().files.length === 1 ? "" : "s"} changed`
+				: null,
+			facts().waiting ? "Needs approval" : running() ? "Working" : null,
+		]
+			.filter(Boolean)
+			.join(" · ");
+	const modelName = () => currentModel()?.name ?? (model() || undefined);
+	const machine = () =>
+		environmentsStore.labelOf(placementsStore.environmentOf(session()?.project)) ?? "This machine";
+	const status = () =>
+		facts().waiting ? (
+			<Badge tone="warning" dot>
+				Needs approval
+			</Badge>
+		) : running() ? (
+			<Badge tone="accent" dot>
+				Working
+			</Badge>
+		) : facts().failed ? (
+			<Badge tone="danger" dot>
+				Failed
+			</Badge>
+		) : undefined;
+	const people = (): ThreadPeople | undefined => {
+		const current = session();
+		if (!current) return undefined;
+		return {
+			agentId: current.provider,
+			agentName: provider()?.name ?? current.provider,
+			model: modelName(),
+			you: auth.user()?.username ?? "You",
+		};
+	};
+
 	return (
-		<div class="flex min-h-0 flex-1 flex-col">
-			<Show
-				when={
-					connection() === "reconnecting" ||
-					connection() === "gone" ||
-					connection() === "signed-out"
-				}
-			>
-				<Banner tone="quiet">
-					{connection() === "reconnecting"
-						? "Connection lost — reconnecting…"
-						: connection() === "gone"
-							? "This chat no longer exists."
-							: "Your session ended. Sign in again."}
-				</Banner>
-			</Show>
-			<div
-				ref={(el) => {
-					scroller = el;
-				}}
-				onScroll={(event) => {
-					const el = event.currentTarget;
-					pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
-				}}
-				class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 md:px-6"
-			>
-				<div class="mx-auto w-full max-w-3xl">
-					<TranscriptView
-						loadAttachment={(id, signal) =>
-							chatService.attachment(auth.token() ?? "", props.id, id, props.scope, signal)
-						}
-						blocks={transcript().blocks}
-						running={running()}
-						onRegenerate={handleRegenerate}
-						onNote={(text) => void saveNote(text)}
-						onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
-					/>
+		<div class="flex min-h-0 flex-1">
+			<div class="flex min-h-0 min-w-0 flex-1 flex-col">
+				<Show when={subtitle()}>
+					<ShellSlot name="subtitle">{subtitle()}</ShellSlot>
+				</Show>
+				<Show
+					when={
+						connection() === "reconnecting" ||
+						connection() === "gone" ||
+						connection() === "signed-out"
+					}
+				>
+					<Banner tone="quiet">
+						{connection() === "reconnecting"
+							? "Connection lost — reconnecting…"
+							: connection() === "gone"
+								? "This chat no longer exists."
+								: "Your session ended. Sign in again."}
+					</Banner>
+				</Show>
+				<div
+					ref={(el) => {
+						scroller = el;
+					}}
+					onScroll={(event) => {
+						const el = event.currentTarget;
+						pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+					}}
+					class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 md:px-6"
+				>
+					<div class="mx-auto flex w-full max-w-160 flex-col gap-6">
+						<Show when={session()}>
+							{(current) => (
+								<div class="hidden md:block">
+									<ThreadHeader
+										title={current().title}
+										status={status()}
+										facts={[
+											...(current().role
+												? [
+														{
+															icon: <RoleMark icon={current().role?.icon ?? "code"} size="sm" />,
+															label: current().role?.name ?? "",
+														},
+													]
+												: []),
+											...(place()?.worktree
+												? [{ icon: <BranchIcon />, label: place()?.worktree?.branch ?? "" }]
+												: []),
+											{ icon: <LaptopIcon />, label: machine() },
+											{
+												icon: (
+													<AgentLogo id={current().provider} name={people()?.agentName ?? ""} />
+												),
+												label: [people()?.agentName, modelName()].filter(Boolean).join(" · "),
+											},
+											{
+												icon: <ClockIcon />,
+												label: `Started ${relativeTime(current().createdAt)}`,
+											},
+										]}
+									/>
+								</div>
+							)}
+						</Show>
+						<TranscriptView
+							people={people()}
+							loadAttachment={(id, signal) =>
+								chatService.attachment(auth.token() ?? "", props.id, id, props.scope, signal)
+							}
+							blocks={transcript().blocks}
+							running={running()}
+							onRegenerate={handleRegenerate}
+							onNote={(text) => void saveNote(text)}
+							onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
+						/>
+					</div>
 				</div>
-			</div>
-			<div class="shrink-0 px-3 pt-1 pb-safe md:px-6 md:pb-4">
-				<div class="mx-auto w-full max-w-3xl">
-					<Show when={error()}>
-						{(message) => (
-							<div class="mb-2">
-								<Alert tone="danger" title={message()} />
-							</div>
-						)}
-					</Show>
-					<Show when={restartNotice()}>
-						{(notice) => (
-							<div class="mb-2">
-								<Alert tone="accent" title={notice()} />
-							</div>
-						)}
-					</Show>
-					<Composer
-						project={session()?.project}
-						running={running()}
-						commands={commands()}
-						onCommand={runCommand}
-						disabled={connection() === "gone" || connection() === "signed-out"}
-						onSend={send}
-						onStop={() => socket?.send({ t: "cancel" })}
-						header={
-							<Show when={place()}>
-								{(current) => (
-									<>
-										<Row gap={1.5} class="min-w-0">
-											<FolderIcon size="sm" />
-											<Text as="span" size="caption" tone="subtle" truncate>
-												{current().worktree ? "Own worktree" : shortPath(current().cwd)}
-											</Text>
-										</Row>
-										<GitControl
-											folder={current().cwd}
-											scope={placementsStore.scopeOf(current().project)}
-											inWorktree={Boolean(current().worktree)}
-										/>
-									</>
-								)}
-							</Show>
-						}
-						controls={
-							<>
-								<Show when={models().length > 0}>
-									<ModelPicker
-										agent={session()?.provider}
-										models={models()}
-										model={model()}
-										onModel={chooseModel}
-										efforts={efforts()}
-										effort={effort()}
-										onEffort={(next) => socket?.send({ t: "configure", effort: next })}
-										control={(control) => {
-											modelPicker = control;
-										}}
+				<div class="shrink-0 px-3 pt-1 pb-safe md:px-6 md:pb-4">
+					<div class="mx-auto w-full max-w-160">
+						<Show when={error()}>
+							{(message) => (
+								<div class="mb-2">
+									<Alert tone="danger" title={message()} />
+								</div>
+							)}
+						</Show>
+						<Show when={restartNotice()}>
+							{(notice) => (
+								<div class="mb-2">
+									<Alert tone="accent" title={notice()} />
+								</div>
+							)}
+						</Show>
+						<For each={waitingOn()}>
+							{(approval) => (
+								<div class="mb-2">
+									<ApprovalCard
+										approval={approval}
+										onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
 									/>
-								</Show>
-								<Show when={modes().length > 0}>
-									<ModePicker
-										modes={modes()}
-										mode={mode()}
-										onMode={(next) => socket?.send({ t: "configure", mode: next })}
-										control={(control) => {
-											modePicker = control;
-										}}
-									/>
-								</Show>
-								<Show when={transcript().usage?.contextWindow}>
-									{(total) => (
-										<ContextMeter used={transcript().usage?.contextUsed ?? 0} total={total()} />
+								</div>
+							)}
+						</For>
+						<Composer
+							project={session()?.project}
+							running={running()}
+							commands={commands()}
+							onCommand={runCommand}
+							disabled={connection() === "gone" || connection() === "signed-out"}
+							onSend={send}
+							onStop={() => socket?.send({ t: "cancel" })}
+							header={
+								<Show when={place()}>
+									{(current) => (
+										<>
+											<GitControl
+												folder={current().cwd}
+												scope={placementsStore.scopeOf(current().project)}
+												inWorktree={Boolean(current().worktree)}
+											/>
+										</>
 									)}
 								</Show>
-							</>
-						}
-					/>
+							}
+							controls={
+								<>
+									<Show when={models().length > 0}>
+										<ModelPicker
+											agent={session()?.provider}
+											agentName={provider()?.name}
+											models={models()}
+											model={model()}
+											onModel={chooseModel}
+											efforts={efforts()}
+											effort={effort()}
+											onEffort={(next) => socket?.send({ t: "configure", effort: next })}
+											control={(control) => {
+												modelPicker = control;
+											}}
+										/>
+									</Show>
+									<Show when={modes().length > 0}>
+										<ModePicker
+											modes={modes()}
+											mode={mode()}
+											onMode={(next) => socket?.send({ t: "configure", mode: next })}
+											control={(control) => {
+												modePicker = control;
+											}}
+										/>
+									</Show>
+									<Show when={transcript().usage?.contextWindow}>
+										{(total) => (
+											<ContextMeter used={transcript().usage?.contextUsed ?? 0} total={total()} />
+										)}
+									</Show>
+								</>
+							}
+						/>
+					</div>
 				</div>
 			</div>
+			<Show when={session()}>
+				{(current) => (
+					<aside
+						aria-label="Run"
+						class="hidden w-72 shrink-0 overflow-y-auto border-line border-l xl:block"
+					>
+						<FactGroup
+							label="Run"
+							rows={[
+								{ label: "Agent", value: people()?.agentName ?? current().provider },
+								...(modelName() ? [{ label: "Model", value: modelName() }] : []),
+								...(place()?.worktree
+									? [{ label: "Branch", value: place()?.worktree?.branch ?? "" }]
+									: []),
+								{ label: "Machine", value: machine() },
+								...(facts().workedMs > 0
+									? [{ label: "Time", value: formatDuration(facts().workedMs) }]
+									: []),
+							]}
+						/>
+						<FactGroup label="Changes">
+							<Show
+								when={facts().files.length > 0}
+								fallback={
+									<Text size="caption" tone="subtle">
+										No files changed yet.
+									</Text>
+								}
+							>
+								<p class="flex items-center gap-2 text-body text-fg">
+									{facts().files.length} file{facts().files.length === 1 ? "" : "s"} changed
+									<DiffStat added={facts().added} removed={facts().removed} />
+								</p>
+								<ul class="flex flex-col gap-1">
+									<For each={facts().files}>
+										{(file) => (
+											<li class="flex items-center gap-2 text-caption">
+												<span
+													class="min-w-0 flex-1 truncate font-mono text-fg-muted"
+													title={file.path}
+												>
+													{file.path.split("/").slice(-2).join("/")}
+												</span>
+												<DiffStat added={file.added} removed={file.removed} />
+											</li>
+										)}
+									</For>
+								</ul>
+							</Show>
+						</FactGroup>
+					</aside>
+				)}
+			</Show>
 		</div>
 	);
 }

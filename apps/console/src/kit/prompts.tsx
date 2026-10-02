@@ -3,6 +3,7 @@ import { createSignal, For, onSettled, Show } from "solid-js";
 
 import { Button } from "./button";
 import { Kbd } from "./badge";
+import { ShieldIcon } from "./icons";
 
 /**
  * An agent asking you to pick: numbered options, arrows or the number keys to choose, Enter to
@@ -173,28 +174,47 @@ export function Checklist(props: {
 export function DecisionCard(props: {
 	title: string;
 	detail?: JSX.Element;
-	options: readonly { id: string; label: string; primary?: boolean }[];
+	options: readonly {
+		id: string;
+		label: string;
+		primary?: boolean;
+		/** How the button looks: Approve is ink, Always allow outlined, Deny quiet. */
+		kind?: "allow" | "allow_always" | "deny";
+	}[];
 	/** What was chosen (its label), "Dismissed", or undefined while it waits. */
 	resolved?: string;
 	onChoose: (id: string) => void;
 }): JSX.Element {
+	const variant = (option: (typeof props.options)[number]) =>
+		option.kind === "deny"
+			? "ghost"
+			: option.kind === "allow_always"
+				? "secondary"
+				: option.primary || option.kind === "allow"
+					? "primary"
+					: "secondary";
 	return (
-		<div
-			class={`flex flex-col gap-2.5 rounded-kit-lg px-3.5 py-3 ${props.resolved === undefined ? "bg-warning/5 ring-1 ring-warning/40" : "ring-line"}`}
-		>
-			<p class="font-medium text-body text-fg">{props.title}</p>
-			{props.detail}
+		<div class="surface-card flex flex-col gap-3 p-3 md:flex-row md:items-center md:gap-4">
+			<div class="flex min-w-0 flex-1 items-start gap-3">
+				<span
+					aria-hidden="true"
+					class={`grid size-7 shrink-0 place-items-center rounded-kit [&_svg]:size-3.5 ${props.resolved === undefined ? "tint-warning" : "bg-fill-strong text-fg-subtle"}`}
+				>
+					<ShieldIcon />
+				</span>
+				<div class="flex min-w-0 flex-col gap-1">
+					<p class="font-medium text-body text-fg">{props.title}</p>
+					{props.detail}
+				</div>
+			</div>
 			<Show
 				when={props.resolved === undefined}
-				fallback={<p class="text-caption text-fg-subtle">{props.resolved}</p>}
+				fallback={<p class="shrink-0 text-caption text-fg-subtle">{props.resolved}</p>}
 			>
-				<div class="flex flex-wrap gap-2">
+				<div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
 					<For each={props.options}>
 						{(option) => (
-							<Button
-								variant={option.primary ? "primary" : "secondary"}
-								onClick={() => props.onChoose(option.id)}
-							>
+							<Button size="sm" variant={variant(option)} onClick={() => props.onChoose(option.id)}>
 								{option.label}
 							</Button>
 						)}

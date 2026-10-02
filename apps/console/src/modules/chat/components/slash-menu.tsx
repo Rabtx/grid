@@ -22,6 +22,7 @@ export function SlashMenu(props: SlashMenuProps): JSX.Element {
 		<AutocompleteList
 			id={props.id}
 			label="Commands"
+			heading="Commands"
 			items={props.commands.map((command) => ({
 				id: command.id,
 				icon: command.group === GRID ? undefined : <AgentMark name={command.group} size="sm" />,

@@ -36,11 +36,16 @@ const taskView = (r: q.TaskRecord) => ({
 	createdAt: r.createdAt.toISOString(),
 	updatedAt: r.updatedAt.toISOString(),
 });
-const noteView = (r: q.NoteRecord) => ({
+const noteView = (r: q.NoteWithPeople) => ({
 	id: r.id,
 	body: r.body,
 	source: r.source,
 	threadId: r.threadId,
+	pinned: r.pinned,
+	shared: r.shared,
+	icon: r.icon,
+	author: r.authorName ? { name: r.authorName } : null,
+	editor: r.editorName ? { name: r.editorName } : null,
 	createdAt: r.createdAt.toISOString(),
 	updatedAt: r.updatedAt.toISOString(),
 });
@@ -144,6 +149,12 @@ export async function listNotes(db: Database, scope: WorkspaceScope, slug: strin
 	const project = await requireProject(db, scope, slug);
 	return (await q.listNotes(db, project.id)).map(noteView);
 }
+/** A note as just written or changed, read back with the people's names. */
+async function readNote(db: Database, projectId: string, id: string) {
+	const note = await q.findNote(db, projectId, id);
+	if (!note) throw notFound("Note not found");
+	return noteView(note);
+}
 export async function createNote(
 	db: Database,
 	scope: WorkspaceScope,
@@ -151,14 +162,18 @@ export async function createNote(
 	input: CreateNoteInput,
 ) {
 	const project = await requireProject(db, scope, slug);
-	return noteView(
-		await q.createNote(db, {
-			projectId: project.id,
-			body: input.body,
-			source: input.source ?? null,
-			threadId: input.threadId ?? null,
-		}),
-	);
+	const note = await q.createNote(db, {
+		projectId: project.id,
+		body: input.body,
+		source: input.source ?? null,
+		threadId: input.threadId ?? null,
+		pinned: input.pinned ?? false,
+		shared: input.shared ?? false,
+		icon: input.icon ?? null,
+		createdBy: scope.userId,
+		updatedBy: scope.userId,
+	});
+	return readNote(db, project.id, note.id);
 }
 export async function updateNote(
 	db: Database,
@@ -168,9 +183,18 @@ export async function updateNote(
 	input: UpdateNoteInput,
 ) {
 	const project = await requireProject(db, scope, slug);
-	const note = await q.updateNote(db, project.id, id, input.body);
+	// Pinning, sharing or a new glyph is not an edit: only a new text moves "edited" and its author.
+	const changes: q.NoteChanges = {
+		...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
+		...(input.shared !== undefined ? { shared: input.shared } : {}),
+		...(input.icon !== undefined ? { icon: input.icon } : {}),
+		...(input.body !== undefined
+			? { body: input.body, updatedBy: scope.userId, updatedAt: new Date() }
+			: {}),
+	};
+	const note = await q.updateNote(db, project.id, id, changes);
 	if (!note) throw notFound("Note not found");
-	return noteView(note);
+	return readNote(db, project.id, id);
 }
 export async function deleteNote(db: Database, scope: WorkspaceScope, slug: string, id: string) {
 	const project = await requireProject(db, scope, slug);

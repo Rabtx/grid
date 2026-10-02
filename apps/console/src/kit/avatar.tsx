@@ -117,3 +117,44 @@ export function AgentMark(props: { name: string; size?: "sm" | "md" | "lg" }): J
 		</span>
 	);
 }
+
+/** The agents Grid knows by their own logo (Figma 00 · Brand, Agent logos). */
+const AGENT_LOGOS: Record<string, string> = {
+	codex: "/agents/codex.svg",
+	antigravity: "/agents/antigravity.svg",
+};
+
+/**
+ * An agent by its own logo where Grid has it (Claude Code, Codex, opencode, Antigravity), and by
+ * its initial otherwise. Claude Code and opencode are drawn inline so they follow the theme.
+ */
+export function AgentLogo(props: { id: string; name: string; class?: string }): JSX.Element {
+	const size = () => props.class ?? "size-4";
+	if (props.id === "claude") {
+		return (
+			<svg viewBox="0 0 24 24" aria-hidden="true" class={`shrink-0 ${size()}`}>
+				<path
+					fill-rule="evenodd"
+					d="M20.998 10.949H24V14.051H21V17.079H19.513V20H18V17.079H16.513V20H15V17.079H9V20H7.488V17.079H6V20H4.487V17.079H3V14.05H0V10.95H3V5H20.998V10.949ZM6 10.949H7.488V8.102H6V10.949ZM16.51 10.949H18V8.102H16.51V10.949Z"
+					class="fill-provider-anthropic"
+				/>
+			</svg>
+		);
+	}
+	if (props.id === "opencode") {
+		return (
+			<svg viewBox="0 0 24 24" aria-hidden="true" class={`shrink-0 ${size()}`}>
+				<path fill-rule="evenodd" d="M16 6H8V18H16V6ZM20 22H4V2H20V22Z" class="fill-fg" />
+			</svg>
+		);
+	}
+	const src = AGENT_LOGOS[props.id];
+	if (src) {
+		return <img src={src} alt="" aria-hidden="true" class={`shrink-0 ${size()}`} />;
+	}
+	return (
+		<span class="font-medium text-caption text-fg-muted uppercase">
+			{props.name.trim().slice(0, 2)}
+		</span>
+	);
+}

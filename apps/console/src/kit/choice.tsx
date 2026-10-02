@@ -270,3 +270,70 @@ export function GlyphChoices<T extends string>(props: {
 		</fieldset>
 	);
 }
+
+export type ChoiceCardOption<T extends string> = RadioOption<T> & {
+	/** A status beside the name: Online, Ready, Install. */
+	badge?: JSX.Element;
+};
+
+/**
+ * One of a few, as the Figma setup lists draw them: an icon on a round tile, the name with its
+ * status, a line under it, and a radio at the end. The chosen one sits on the accent's tint.
+ */
+export function ChoiceCards<T extends string>(props: {
+	label: string;
+	options: readonly ChoiceCardOption<T>[];
+	value: T;
+	onChange: (value: T) => void;
+}): JSX.Element {
+	const name = createUniqueId();
+	return (
+		<fieldset class="flex min-w-0 flex-col gap-2 border-0 p-0">
+			<legend class="sr-only">{props.label}</legend>
+			<For each={props.options}>
+				{(option) => (
+					<label
+						aria-labelledby={`${name}-${option.value}-name`}
+						class="flex cursor-pointer items-center gap-3 rounded-kit-lg bg-surface px-2 py-2 ring-line-strong transition-[background-color,box-shadow] duration-fast hover:bg-fill has-checked:tint-accent has-checked:text-fg has-focus-visible:outline-2 has-focus-visible:outline-accent"
+					>
+						<input
+							type="radio"
+							name={name}
+							value={option.value}
+							checked={props.value === option.value}
+							aria-labelledby={`${name}-${option.value}-name`}
+							aria-describedby={`${name}-${option.value}-more`}
+							onChange={() => {
+								tap();
+								props.onChange(option.value);
+							}}
+							class="peer sr-only"
+						/>
+						<Show when={option.icon}>
+							<span class="grid size-8 shrink-0 place-items-center rounded-full bg-fill-strong text-fg-muted ring-line [&_svg]:size-4">
+								{option.icon}
+							</span>
+						</Show>
+						<span class="flex min-w-0 flex-1 flex-col">
+							<span class="flex min-w-0 items-center gap-2">
+								<span
+									id={`${name}-${option.value}-name`}
+									class="truncate font-medium text-body text-fg"
+								>
+									{option.label}
+								</span>
+								<span id={`${name}-${option.value}-more`} class="contents">
+									{option.badge}
+								</span>
+							</span>
+							<Show when={option.description}>
+								<span class="truncate text-caption text-fg-muted">{option.description}</span>
+							</Show>
+						</span>
+						<span class="mr-1 grid size-4 shrink-0 place-items-center rounded-full bg-surface ring-line-strong peer-checked:bg-accent peer-checked:ring-0 after:size-1.5 after:rounded-full after:bg-white after:opacity-0 peer-checked:after:opacity-100" />
+					</label>
+				)}
+			</For>
+		</fieldset>
+	);
+}

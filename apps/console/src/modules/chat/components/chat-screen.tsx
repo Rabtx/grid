@@ -13,11 +13,11 @@ import {
 	BranchIcon,
 	Button,
 	CheckIcon,
-	FolderIcon,
 	IdeaIcon,
-	LinkButton,
 	notify,
 	type PopoverControl,
+	ProjectTile,
+	RoleChipGroup,
 	Stack,
 	Suggestions,
 	Text,
@@ -29,16 +29,29 @@ import { availableCommands, type SlashCommand } from "../lib/slash-commands";
 import { chatService } from "../services/chat.service";
 import { draftsStore } from "../stores/drafts";
 import { offeredProviders, providersStore } from "../stores/providers";
+import { rolesStore } from "../stores/roles";
 import { threadsStore } from "../stores/threads";
-import type { ChatProvider, ChatSession } from "../types/chat.types";
+import type { ChatProvider, ChatSession, Role, RoleDraft } from "../types/chat.types";
 
 import { GitControl, type WorkPlace } from "./git-control";
 import { Composer, type ComposerControl } from "./composer";
 import { Conversation, queueFirstMessage } from "./conversation";
 import { ModelPicker, ModePicker } from "./pickers";
+import { RoleDialog, RoleMenu, RoleSettings } from "./roles";
 import { SessionTabs } from "./session-list";
 
 const AGENT_KEY = "grid.chat.agent";
+// The role the last thread started as, so the next one does too.
+const ROLE_KEY = "grid.chat.role";
+
+function rememberRole(id: string | null): void {
+	try {
+		if (id) localStorage.setItem(ROLE_KEY, id);
+		else localStorage.removeItem(ROLE_KEY);
+	} catch {
+		// Not remembered; the next thread starts without a role.
+	}
+}
 
 function remembered(key: string): string | null {
 	try {
@@ -300,6 +313,125 @@ function NewChat(props: {
 		);
 	};
 
+	// The team: roles preset the agent, model and effort; a thread can change them for itself.
+	// Read again each time this screen opens, so a teammate's change is seen.
+	const roleScope = () => placementsStore.scopeOf(props.project ?? "");
+	createEffect(
+		() => [auth.token(), roleScope()] as const,
+		([token, where]) => {
+			if (token) void rolesStore.reload(token, where);
+		},
+	);
+	const roles = () => rolesStore.roles(roleScope());
+	/** A role can be used here only when its agent is offered on this project's machine. */
+	const offered = (item: Role) => available().some((provider) => provider.id === item.provider);
+	const [roleId, setRoleId] = createSignal<string | null>(remembered(ROLE_KEY));
+	const role = () => {
+		const found = roles().find((item) => item.id === roleId());
+		return found && offered(found) ? found : null;
+	};
+	const [editing, setEditing] = createSignal<{ role: Role | null } | null>(null);
+	let roleSettings: PopoverControl | undefined;
+
+	/** What a role runs here: its own picks, else the agent's defaults, as the thread resolves them. */
+	function roleChoices(item: Role): {
+		model: string | null;
+		effort: string | null;
+		mode: string | null;
+	} {
+		const provider = available().find((entry) => entry.id === item.provider);
+		const list = provider?.models ?? [];
+		const chosenModel =
+			list.find((entry) => entry.id === item.model) ??
+			list.find((entry) => entry.id === provider?.settings?.model) ??
+			list[0];
+		return {
+			model: chosenModel?.id ?? null,
+			effort:
+				chosenModel?.efforts?.find((level) => level.id === item.effort)?.id ??
+				chosenModel?.defaultEffort ??
+				null,
+			mode:
+				item.mode ??
+				provider?.settings?.mode ??
+				provider?.defaultMode ??
+				provider?.modes[0]?.id ??
+				null,
+		};
+	}
+
+	/** Sets the thread to the role's choices; false when its agent is not offered here. */
+	function applyRole(next: Role): boolean {
+		if (!offered(next)) return false;
+		const choices = roleChoices(next);
+		setAgent(next.provider);
+		setPickedModel(choices.model);
+		setPickedEffort(choices.effort);
+		setMode(choices.mode);
+		return true;
+	}
+	function pickRole(id: string | null): void {
+		setRoleId(id);
+		rememberRole(id);
+		const next = roles().find((item) => item.id === id);
+		if (next && applyRole(next)) applied = next.id;
+	}
+	// The remembered role takes effect once the team and its agent are known.
+	let applied: string | null = null;
+	createEffect(
+		() => role(),
+		(current) => {
+			if (!current || applied === current.id) return;
+			if (applyRole(current)) applied = current.id;
+		},
+	);
+	const currentMode = () => {
+		const provider = chosen();
+		return (
+			mode() ?? provider?.settings?.mode ?? provider?.defaultMode ?? provider?.modes[0]?.id ?? null
+		);
+	};
+	/** What this thread runs that the role does not, as a change to save to the role. */
+	const roleChanges = (): Partial<RoleDraft> => {
+		const current = role();
+		const provider = chosen();
+		if (!current || !provider) return {};
+		if (provider.id !== current.provider)
+			return { provider: provider.id, model: model(), effort: effort(), mode: currentMode() };
+		const choices = roleChoices(current);
+		const patch: Partial<RoleDraft> = {};
+		if (model() !== choices.model) patch.model = model();
+		if (effort() !== choices.effort) patch.effort = effort();
+		if (currentMode() !== choices.mode) patch.mode = currentMode();
+		return patch;
+	};
+	const roleChanged = () => Object.keys(roleChanges()).length > 0;
+
+	function chooseAgent(id: string): void {
+		setAgent(id);
+		setPickedModel(null);
+		setPickedEffort(null);
+		setMode(null);
+	}
+	function chooseModel(id: string): void {
+		// Keep the chosen effort when the new model has that level too.
+		const levels = models().find((item) => item.id === id)?.efforts ?? [];
+		if (!levels.some((level) => level.id === effort())) setPickedEffort(null);
+		else setPickedEffort(effort());
+		setPickedModel(id);
+	}
+
+	async function saveRole(draft: Parameters<typeof rolesStore.create>[1]): Promise<void> {
+		const token = auth.token();
+		if (!token) throw new Error("Sign in again to save the role");
+		const target = editing()?.role;
+		const saved = target
+			? await rolesStore.update(token, target.id, draft, roleScope())
+			: await rolesStore.create(token, draft, roleScope());
+		applied = null;
+		pickRole(saved.id);
+	}
+
 	// Where the new thread will work: chosen in the git control, the folder unless changed.
 	const [place, setPlace] = createSignal<WorkPlace>({ worktree: false, branch: "" });
 
@@ -323,13 +455,19 @@ function NewChat(props: {
 					mode: mode() ?? provider.settings?.mode ?? undefined,
 					worktree: place().worktree,
 					...(place().worktree && place().branch.trim() ? { branch: place().branch.trim() } : {}),
+					...(role() ? { role: role()?.id } : {}),
+					// The notes the project shares with agents go with the first message.
+					notes: await notesStore.sharedText(token, props.project),
 				},
 				placementsStore.scopeOf(props.project),
 			);
 			created = session;
-			remember(AGENT_KEY, provider.id);
-			remember(modelKey(provider.id), model());
-			remember(effortKey(provider.id), effort());
+			// A role's choices are the role's: the next thread without one starts from your own.
+			if (!role()) {
+				remember(AGENT_KEY, provider.id);
+				remember(modelKey(provider.id), model());
+				remember(effortKey(provider.id), effort());
+			}
 			const attachments = await chatService.upload(
 				token,
 				session.id,
@@ -352,6 +490,11 @@ function NewChat(props: {
 				} catch {
 					message += " The empty chat could not be removed; delete it from the thread list.";
 				}
+			}
+			// A teammate removed the role: read the team again and start without it.
+			if (role() && /role is gone/i.test(message)) {
+				void rolesStore.reload(token, roleScope());
+				pickRole(null);
 			}
 			setError(message);
 			return false;
@@ -377,11 +520,14 @@ function NewChat(props: {
 			return;
 		}
 		try {
-			await notesStore.add(token, slug, { body: text, source: chosen()?.name ?? "Composer" });
+			const note = await notesStore.add(token, slug, {
+				body: text,
+				source: chosen()?.name ?? "Composer",
+			});
 			notify({
 				title: "Added to notes",
 				tone: "success",
-				action: { label: "Open", run: () => navigate(`/notes/${slug}`) },
+				action: { label: "Open", run: () => navigate(`/notes/${slug}/${note.id}`) },
 			});
 		} catch (cause) {
 			notify({
@@ -396,7 +542,8 @@ function NewChat(props: {
 		// No `newThread`: this screen is the new thread already.
 		return runSlashCommand(command, argument, {
 			running: false,
-			openModel: modelPicker?.open,
+			// With a role, the model is in its settings.
+			openModel: role() ? roleSettings?.open : modelPicker?.open,
 			openMode: modePicker?.open,
 			efforts: efforts(),
 			setEffort: setPickedEffort,
@@ -411,25 +558,40 @@ function NewChat(props: {
 
 	return (
 		<div class="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-3 pb-3 md:justify-center md:px-6 md:pt-12 md:pb-24">
-			<Stack gap={5} class="mx-auto w-full max-w-2xl">
-				{/* "…work on in" ends the first line; the project keeps its icon and name together. */}
-				<Text
-					as="h1"
-					size="heading"
-					tone="strong"
-					weight="medium"
-					class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-2 text-center"
+			<Stack gap={4} class="mx-auto w-full max-w-160">
+				{/* The project the thread starts in (Figma "First thread"): its tile, where it lives and
+				    how many threads it has, and its name. */}
+				<Show
+					when={project()}
+					fallback={
+						<Text as="h1" size="headline" tone="strong" weight="medium" class="text-center">
+							What should we work on?
+						</Text>
+					}
 				>
-					What should we work on{project() ? " in" : ""}
-					<Show when={project()}>
-						{(current) => (
-							<span class="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+					{(current) => (
+						<div class="flex items-center gap-3 px-1">
+							<ProjectTile>
 								<ProjectIcon project={current()} class="size-5" />
-								<span class="truncate">{current().name}</span>
-							</span>
-						)}
-					</Show>
-				</Text>
+							</ProjectTile>
+							<div class="flex min-w-0 flex-col">
+								<Text size="caption" tone="subtle" truncate>
+									{[
+										threadsStore.threads(current().slug).length
+											? `${threadsStore.threads(current().slug).length} threads`
+											: "No threads yet",
+										props.folder ? props.folder.replace(/^\/home\/[^/]+/, "~") : null,
+									]
+										.filter(Boolean)
+										.join(" · ")}
+								</Text>
+								<Text as="h1" size="headline" tone="strong" weight="medium" truncate>
+									{current().name}
+								</Text>
+							</div>
+						</div>
+					)}
+				</Show>
 				<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
 				<Show when={!props.folder && props.project}>
 					<Alert
@@ -444,8 +606,7 @@ function NewChat(props: {
 						A project is a folder: its threads work inside it.
 					</Alert>
 				</Show>
-				{/* Phones: suggestions sit above the composer as chips in thumb reach; desktop lists
-				    them under it. */}
+				{/* Suggestions sit above the composer as chips: a row to scroll on phones, wrapped on desktop. */}
 				<Stack gap={3}>
 					<Show when={ready()}>
 						<Suggestions
@@ -455,7 +616,6 @@ function NewChat(props: {
 									SUGGESTIONS.find((item) => item.label.trim() === label)?.label ?? label,
 								)
 							}
-							class="md:order-last"
 						/>
 					</Show>
 					<Show
@@ -475,11 +635,13 @@ function NewChat(props: {
 								composer = control;
 							}}
 							running={false}
+							placeholder={
+								role() ? `Describe a task for your ${role()?.name.toLowerCase()}…` : undefined
+							}
 							disabled={!chosen() || !props.project || !props.folder}
 							onSend={start}
 							header={
 								<>
-									<FolderLine folder={props.folder} onChoose={props.onChooseFolder} />
 									<Show when={props.folder && props.project}>
 										<GitControl
 											folder={props.folder ?? ""}
@@ -494,31 +656,67 @@ function NewChat(props: {
 								<Show when={chosen()}>
 									{(provider) => (
 										<>
-											<ModelPicker
-												agents={available()}
-												agent={provider().id}
-												onAgent={(id) => {
-													setAgent(id);
-													setPickedModel(null);
-													setPickedEffort(null);
-													setMode(null);
-												}}
-												models={models()}
-												model={model() ?? ""}
-												onModel={(id) => {
-													// Keep the chosen effort when the new model has that level too.
-													const levels = models().find((item) => item.id === id)?.efforts ?? [];
-													if (!levels.some((level) => level.id === effort())) setPickedEffort(null);
-													else setPickedEffort(effort());
-													setPickedModel(id);
-												}}
-												efforts={efforts()}
-												effort={effort()}
-												onEffort={setPickedEffort}
-												control={(control) => {
-													modelPicker = control;
-												}}
-											/>
+											<Show when={rolesStore.loaded(roleScope())}>
+												<RoleChipGroup>
+													<RoleMenu
+														roles={roles()}
+														usable={offered}
+														providers={props.providers}
+														value={role()?.id ?? null}
+														onPick={pickRole}
+														onNew={() => setEditing({ role: null })}
+														onEdit={(target) => setEditing({ role: target })}
+													/>
+													<Show when={role()}>
+														{(current) => (
+															<RoleSettings
+																role={current()}
+																agents={available()}
+																agent={provider().id}
+																onAgent={chooseAgent}
+																models={models()}
+																model={model()}
+																onModel={chooseModel}
+																efforts={efforts()}
+																effort={effort()}
+																onEffort={setPickedEffort}
+																changed={roleChanged()}
+																onSave={async () => {
+																	const token = auth.token();
+																	if (!token) throw new Error("Sign in again to save the role");
+																	const saved = await rolesStore.update(
+																		token,
+																		current().id,
+																		roleChanges(),
+																		roleScope(),
+																	);
+																	applyRole(saved);
+																}}
+																control={(control) => {
+																	roleSettings = control;
+																}}
+																onEdit={() => setEditing({ role: current() })}
+															/>
+														)}
+													</Show>
+												</RoleChipGroup>
+											</Show>
+											<Show when={!role()}>
+												<ModelPicker
+													agents={available()}
+													agent={provider().id}
+													onAgent={chooseAgent}
+													models={models()}
+													model={model() ?? ""}
+													onModel={chooseModel}
+													efforts={efforts()}
+													effort={effort()}
+													onEffort={setPickedEffort}
+													control={(control) => {
+														modelPicker = control;
+													}}
+												/>
+											</Show>
 											<Show when={provider().modes.length > 0}>
 												<ModePicker
 													modes={provider().modes}
@@ -542,30 +740,20 @@ function NewChat(props: {
 					</Show>
 				</Stack>
 			</Stack>
+			<RoleDialog
+				open={editing() !== null}
+				target={editing()?.role ?? null}
+				agents={available()}
+				onClose={() => setEditing(null)}
+				onSave={saveRole}
+				onDelete={async () => {
+					const token = auth.token();
+					const target = editing()?.role;
+					if (!token || !target) return;
+					await rolesStore.remove(token, target.id, roleScope());
+					if (roleId() === target.id) pickRole(null);
+				}}
+			/>
 		</div>
-	);
-}
-
-/** Where the agent will work: the project's folder, or a prompt to choose one. */
-function FolderLine(props: { folder: string | undefined; onChoose: () => void }): JSX.Element {
-	return (
-		<Show
-			when={props.folder}
-			fallback={
-				<LinkButton tone="accent" icon={<FolderIcon size="sm" />} onClick={() => props.onChoose()}>
-					Choose this project's folder
-				</LinkButton>
-			}
-		>
-			{(path) => (
-				<LinkButton
-					title={`${path()} — change`}
-					icon={<FolderIcon size="sm" />}
-					onClick={() => props.onChoose()}
-				>
-					{path().replace(/^\/home\/[^/]+/, "~")}
-				</LinkButton>
-			)}
-		</Show>
 	);
 }

@@ -46,6 +46,8 @@ describe("LoginForm", () => {
 		verifyBody = SESSION;
 		verifyStatus = 200;
 		verifyCalls = [];
+		// A browser that can use passkeys (jsdom has none of its own).
+		vi.stubGlobal("PublicKeyCredential", class PublicKeyCredential {});
 
 		vi.stubGlobal(
 			"fetch",
@@ -91,13 +93,22 @@ describe("LoginForm", () => {
 		await new Promise((r) => setTimeout(r, 0));
 	}
 
-	/** Fill the password step in and submit it. */
-	async function submitPassword(email: string, password: string) {
+	const tick = () => new Promise((r) => setTimeout(r, 0));
+
+	/** The email step: type it and Continue. */
+	async function submitEmail(email: string) {
 		await type(container.querySelector<HTMLInputElement>('input[type="email"]')!, email);
+		container.querySelector<HTMLFormElement>("form")!.requestSubmit();
+		await tick();
+	}
+
+	/** The email step, then the password step, submitted. */
+	async function submitPassword(email: string, password: string) {
+		await submitEmail(email);
 		await type(container.querySelector<HTMLInputElement>('input[type="password"]')!, password);
 		container.querySelector<HTMLFormElement>("form")!.requestSubmit();
-		await new Promise((r) => setTimeout(r, 0));
-		await new Promise((r) => setTimeout(r, 0));
+		await tick();
+		await tick();
 	}
 
 	/** Type a code into the second step and submit it. */
@@ -111,15 +122,20 @@ describe("LoginForm", () => {
 		await new Promise((r) => setTimeout(r, 0));
 	}
 
-	it("renders email, password inputs and submit button", () => {
-		const emailInput = container.querySelector<HTMLInputElement>('input[type="email"]');
-		const passwordInput = container.querySelector<HTMLInputElement>('input[type="password"]');
-		const submitButton = container.querySelector<HTMLButtonElement>('button[type="submit"]');
+	it("asks for the email first, then the password for it", async () => {
+		expect(container.querySelector('input[type="email"]')).not.toBeNull();
+		expect(container.querySelector('input[type="password"]')).toBeNull();
+		expect(container.querySelector('button[type="submit"]')?.textContent).toBe("Continue");
+		expect(container.textContent).toContain("No account? Ask a workspace owner for an invite.");
 
-		expect(emailInput).not.toBeNull();
-		expect(passwordInput).not.toBeNull();
-		expect(submitButton).not.toBeNull();
-		expect(submitButton?.textContent).toBe("Sign in");
+		await submitEmail("a@example.com");
+		expect(container.querySelector('input[type="password"]')).not.toBeNull();
+		expect(container.querySelector('button[type="submit"]')?.textContent).toBe("Sign in");
+		// The account is named, with a way back to change it.
+		expect(container.textContent).toContain("a@example.com");
+		[...container.querySelectorAll("button")].find((b) => b.textContent === "Change")!.click();
+		await tick();
+		expect(container.querySelector('input[type="email"]')).not.toBeNull();
 	});
 
 	it("shows error on invalid credentials", async () => {
@@ -128,6 +144,101 @@ describe("LoginForm", () => {
 		const errorText = container.querySelector('[role="alert"]');
 		expect(errorText).not.toBeNull();
 		expect(errorText?.textContent).toBe("Invalid email or password");
+	});
+
+	it("signs in with a passkey on this device", async () => {
+		const calls: string[] = [];
+		const credential = Object.assign(Object.create(PublicKeyCredential.prototype), {
+			id: "cred",
+			rawId: new Uint8Array([1, 2]).buffer,
+			type: "public-key",
+			authenticatorAttachment: "platform",
+			getClientExtensionResults: () => ({}),
+			response: {
+				clientDataJSON: new Uint8Array([3]).buffer,
+				authenticatorData: new Uint8Array([4]).buffer,
+				signature: new Uint8Array([5]).buffer,
+				userHandle: null,
+			},
+		});
+		vi.stubGlobal("navigator", {
+			...navigator,
+			credentials: { get: vi.fn(async () => credential) },
+		});
+		const base = globalThis.fetch;
+		vi.stubGlobal(
+			"fetch",
+			vi.fn((url: string | URL | Request, init?: RequestInit) => {
+				const path = url.toString();
+				if (path.includes("/passkeys/options")) {
+					calls.push(`options ${String(init?.body)}`);
+					return Promise.resolve(
+						json(
+							{
+								success: true,
+								statusCode: 201,
+								data: { challengeId: "c1", options: { challenge: "AQID" } },
+							},
+							201,
+						),
+					);
+				}
+				if (path.includes("/passkeys/verify")) {
+					calls.push(`verify ${String(init?.body)}`);
+					return Promise.resolve(json(SESSION, 200));
+				}
+				return base(url, init);
+			}),
+		);
+		[...container.querySelectorAll("button")]
+			.find((b) => b.textContent === "Sign in with a passkey")!
+			.click();
+		await tick();
+		await tick();
+		await tick();
+
+		expect(container.querySelector('[role="alert"]')?.textContent ?? "").toBe("");
+		expect(calls[0]).toBe("options {}");
+		expect(calls[1]).toContain('"challengeId":"c1"');
+		expect(calls[1]).toContain('"rawId":"AQI"');
+		expect(container.querySelector('[role="alert"]')).toBeNull();
+	});
+
+	it("explains a cancelled passkey prompt and keeps the email step", async () => {
+		vi.stubGlobal("navigator", {
+			credentials: {
+				get: vi.fn(async () => {
+					throw new DOMException("cancelled", "NotAllowedError");
+				}),
+			},
+		});
+		const base = globalThis.fetch;
+		vi.stubGlobal(
+			"fetch",
+			vi.fn((url: string | URL | Request, init?: RequestInit) =>
+				url.toString().includes("/passkeys/options")
+					? Promise.resolve(
+							json(
+								{
+									success: true,
+									statusCode: 201,
+									data: { challengeId: "c1", options: { challenge: "AQID" } },
+								},
+								201,
+							),
+						)
+					: base(url, init),
+			),
+		);
+		[...container.querySelectorAll("button")]
+			.find((b) => b.textContent === "Sign in with a passkey")!
+			.click();
+		await tick();
+		await tick();
+		expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+			"No passkey was used. Try again, or continue with your email.",
+		);
+		expect(container.querySelector('input[type="email"]')).not.toBeNull();
 	});
 
 	describe("with a second factor", () => {

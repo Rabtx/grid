@@ -24,14 +24,19 @@ const moved = urlWithWorkspace();
 if (moved) {
 	window.location.replace(moved);
 } else {
-	render(
-		() => (
-			<>
-				<App />
-				<Toasts />
-				<TooltipLayer />
-			</>
-		),
-		root,
-	);
+	try {
+		render(
+			() => (
+				<>
+					<App />
+					<Toasts />
+					<TooltipLayer />
+				</>
+			),
+			root,
+		);
+	} finally {
+		// The app has drawn its first frame (or failed to): the static splash steps aside.
+		requestAnimationFrame(() => document.getElementById("boot")?.remove());
+	}
 }

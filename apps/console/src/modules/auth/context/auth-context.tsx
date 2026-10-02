@@ -3,6 +3,7 @@ import { createContext, createSignal, onSettled, useContext } from "solid-js";
 
 import { ApiError, registerTokenRenewal } from "@/lib/api-client";
 import { localStore } from "@/lib/local-store";
+import { getPasskeyAssertion } from "@/lib/webauthn";
 
 import { authService } from "../services/auth.service";
 import {
@@ -41,6 +42,8 @@ type AuthState = {
 	 * for a few minutes, so a refused code leaves the caller to ask for another.
 	 */
 	verifyTwoFactor: (input: TwoFactorInput) => Promise<void>;
+	/** Signs in with a passkey on this device; with an email, only that account's passkeys. */
+	signInWithPasskey: (email?: string) => Promise<void>;
 	/** First run: create the owner and sign in as them. */
 	setUp: (input: SetupInput) => Promise<void>;
 	logout: () => Promise<void>;
@@ -175,6 +178,14 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 		},
 		verifyTwoFactor: async (input) => {
 			const session = await authService.verifyTwoFactor(input);
+			generation++;
+			renewing = null;
+			acceptSession(session);
+		},
+		signInWithPasskey: async (email) => {
+			const { challengeId, options } = await authService.passkeyOptions(email);
+			const response = await getPasskeyAssertion(options);
+			const session = await authService.passkeyVerify({ challengeId, response });
 			generation++;
 			renewing = null;
 			acceptSession(session);

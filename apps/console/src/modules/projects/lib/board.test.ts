@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { TASK_STATUSES, type Task } from "../types/project.types";
 import {
+	BOARD_LANES,
+	doneByDay,
 	filterTasks,
+	laneOf,
+	laneStatus,
+	ownedBy,
 	groupByOwner,
 	groupByStatus,
 	ownerKey,
@@ -166,5 +171,58 @@ describe("ownerOptions", () => {
 			{ value: "human:Zoe", label: "Zoe" },
 			{ value: "agent:Zoe", label: "Zoe" },
 		]);
+	});
+});
+
+describe("the board's columns", () => {
+	const task = (status: Task["status"], over: Partial<Task> = {}): Task => ({
+		key: "TASK-1",
+		number: 1,
+		title: "A task",
+		description: null,
+		status,
+		owner: null,
+		branch: null,
+		position: 0,
+		createdAt: "2026-10-01T00:00:00.000Z",
+		updatedAt: "2026-10-01T00:00:00.000Z",
+		...over,
+	});
+
+	it("puts every stage in one of four columns, and a dropped task takes the column's first", () => {
+		expect(
+			(["backlog", "ready", "in_progress", "blocked", "review", "qa", "done"] as const).map(laneOf),
+		).toEqual(["todo", "todo", "doing", "doing", "review", "review", "done"]);
+		expect(BOARD_LANES.map((lane) => laneStatus(lane.id))).toEqual([
+			"ready",
+			"in_progress",
+			"review",
+			"done",
+		]);
+		expect(laneStatus("human:Sam")).toBeNull();
+	});
+
+	it("knows what agents hold and what is yours", () => {
+		const agent = task("ready", { owner: { kind: "agent", name: "claude" } });
+		const mine = task("ready", { owner: { kind: "human", name: "Person" } });
+		expect(ownedBy(agent, "agents", "person")).toBe(true);
+		expect(ownedBy(mine, "agents", "person")).toBe(false);
+		expect(ownedBy(mine, "me", "person")).toBe(true);
+		expect(ownedBy(mine, "me", null)).toBe(false);
+		expect(ownedBy(agent, "agent:claude", null)).toBe(true);
+	});
+
+	it("counts finished tasks per day, oldest first", () => {
+		const now = new Date("2026-10-02T12:00:00");
+		const counts = doneByDay(
+			[
+				task("done", { updatedAt: new Date("2026-10-02T09:00:00").toISOString() }),
+				task("done", { updatedAt: new Date("2026-10-01T09:00:00").toISOString() }),
+				task("done", { updatedAt: new Date("2026-09-01T09:00:00").toISOString() }),
+				task("ready", { updatedAt: new Date("2026-10-02T09:00:00").toISOString() }),
+			],
+			now,
+		);
+		expect(counts).toEqual([0, 0, 0, 0, 0, 1, 1]);
 	});
 });

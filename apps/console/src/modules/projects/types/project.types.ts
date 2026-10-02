@@ -77,6 +77,21 @@ export type CreateTaskInput = {
 
 export type UpdateTaskInput = Partial<CreateTaskInput> & { position?: number };
 
+/** The glyphs a note can wear in the list (the API keeps the same set). */
+export const NOTE_ICONS = [
+	"note",
+	"flag",
+	"layers",
+	"rules",
+	"check",
+	"calendar",
+	"bolt",
+	"code",
+	"globe",
+	"shield",
+] as const;
+export type NoteIcon = (typeof NOTE_ICONS)[number];
+
 /** Something kept on a project: a decision, a snippet, an agent's answer. Markdown. */
 export type Note = {
 	id: string;
@@ -85,8 +100,24 @@ export type Note = {
 	source: string | null;
 	/** The chat it came from. */
 	threadId: string | null;
+	/** Kept at the top of the list. */
+	pinned: boolean;
+	/** Given to agents: new threads in the project start with it. */
+	shared: boolean;
+	/** Its glyph; null for the plain note. */
+	icon: NoteIcon | null;
+	/** Who wrote it, and who last changed its text. */
+	author: { name: string } | null;
+	editor: { name: string } | null;
 	createdAt: string;
 	updatedAt: string;
 };
 
-export type CreateNoteInput = { body: string; source?: string | null; threadId?: string | null };
+/** What can change on a note: its text, and whether it is pinned, shared, and its glyph. */
+export type NotePatch = Partial<Pick<Note, "body" | "pinned" | "shared" | "icon">>;
+
+export type CreateNoteInput = {
+	body: string;
+	source?: string | null;
+	threadId?: string | null;
+} & Omit<NotePatch, "body">;

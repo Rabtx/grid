@@ -1,6 +1,21 @@
 import { MAX_ATTACHMENT_BYTES } from "./attachments";
 import type { Who } from "../auth";
+import type { RoleStore } from "../roles/store";
+import type { ChatSessionRow } from "./store";
+
 import { ChatError, type ChatHub } from "./hub";
+
+/**
+ * A thread as devices are sent it: the notes it started with stay on this machine (they can be
+ * long, and every thread list would carry them); only whether it has them is said.
+ */
+function listed(session: ChatSessionRow): Omit<ChatSessionRow, "notes"> & { sharedNotes: boolean } {
+	const { notes, ...rest } = session;
+	return { ...rest, sharedNotes: Boolean(notes) };
+}
+
+/** What a thread may start with from its project's shared notes (characters). */
+const MAX_SHARED_NOTES = 64_000;
 
 /**
  * Chat over HTTP: which agents exist, and the session list. Returns null for paths it does not
@@ -11,6 +26,8 @@ export async function chatRequest(
 	url: URL,
 	who: Who,
 	hub: ChatHub,
+	/** The workspace's roles, for a thread started as one. */
+	roles?: RoleStore,
 ): Promise<Response | null> {
 	const { userId, workspace } = who;
 	if (url.pathname === "/chat/providers" && request.method === "GET") {
@@ -45,7 +62,7 @@ export async function chatRequest(
 	if (url.pathname === "/chat/sessions" && request.method === "GET") {
 		const project = url.searchParams.get("project");
 		if (!project) return failure(400, "Say which project");
-		return Response.json({ data: hub.list(workspace, project) });
+		return Response.json({ data: hub.list(workspace, project).map(listed) });
 	}
 	if (url.pathname === "/chat/sessions" && request.method === "POST") {
 		const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
@@ -67,7 +84,20 @@ export async function chatRequest(
 					? body.pull
 					: undefined,
 			fork: body.fork === true,
+			role: undefined as { id: string; name: string; icon: string; brief: string } | undefined,
+			notes: undefined as { text: string } | undefined,
 		};
+		// The notes the project shares with agents, which the console reads from the API.
+		if (body.notes !== undefined) {
+			if (typeof body.notes !== "string" || body.notes.length > MAX_SHARED_NOTES)
+				return failure(400, "The shared notes are too long to start a thread with");
+			input.notes = { text: body.notes };
+		}
+		if (body.role !== undefined) {
+			const role = typeof body.role === "string" ? roles?.get(workspace, body.role) : null;
+			if (!role) return failure(400, "That role is gone; choose another");
+			input.role = { id: role.id, name: role.name, icon: role.icon, brief: role.brief };
+		}
 		// An existing branch is fetched first, without blocking the runner while it waits.
 		if (input.worktree && (input.existing || input.pull !== undefined)) {
 			try {
@@ -77,7 +107,7 @@ export async function chatRequest(
 				return failure(cause.status, cause.message);
 			}
 		}
-		return run(() => Response.json({ data: hub.create(who, input) }, { status: 201 }));
+		return run(() => Response.json({ data: listed(hub.create(who, input)) }, { status: 201 }));
 	}
 	// A project's chat settings on this machine: whether new chats get their own worktree.
 	const settings = url.pathname.match(/^\/chat\/projects\/([a-z0-9-]+)\/settings$/);

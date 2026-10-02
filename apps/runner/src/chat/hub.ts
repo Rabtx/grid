@@ -31,6 +31,8 @@ import type {
 	ProjectSettings,
 	ProviderCatalog,
 	ProviderSettings,
+	SessionNotes,
+	SessionRole,
 } from "./store";
 import {
 	createWorktree,
@@ -158,6 +160,29 @@ export function agentPromptText(provider: string, text: string): string {
 	return text.startsWith(prefix) ? `/${text.slice(prefix.length)}` : text;
 }
 
+/**
+ * A thread's first message as the agent gets it when the thread was started as a role: who it is
+ * on the team and what the team asked of that role, then the message. The transcript keeps only
+ * what the person typed.
+ */
+export function withRoleBrief(role: SessionRole, text: string): string {
+	const brief = role.brief.trim();
+	const about = brief
+		? `You are working as the team's ${role.name}. What this role does:\n${brief}`
+		: `You are working as the team's ${role.name}.`;
+	return `${about}\n\n---\n\n${text}`;
+}
+
+/**
+ * The same for the notes the project shares with agents: what the team keeps there (rules,
+ * decisions, a brief), then the message.
+ */
+export function withSharedNotes(notes: SessionNotes, text: string): string {
+	const shared = notes.text.trim();
+	if (!shared) return text;
+	return `Notes the team shares with agents working on this project. Follow them unless the message says otherwise:\n\n${shared}\n\n---\n\n${text}`;
+}
+
 function isDirectory(path: string): boolean {
 	try {
 		return statSync(path).isDirectory();
@@ -278,6 +303,11 @@ export class ChatHub {
 		throw new ChatError("Choose this project's folder first: chats work inside it.", 409);
 	}
 
+	/** Whether this runner has an agent by that id (installed or not). */
+	knowsProvider(id: string): boolean {
+		return this.providers.has(id);
+	}
+
 	projectFolders(workspace: string): Record<string, string> {
 		return this.store.projectFolders(workspace);
 	}
@@ -306,6 +336,10 @@ export class ChatHub {
 			pull?: number;
 			/** That pull request comes from a fork. */
 			fork?: boolean;
+			/** The role it is started as (see `SessionRole`). */
+			role?: SessionRole | null;
+			/** The project's shared notes it starts with (see `SessionNotes`). */
+			notes?: SessionNotes | null;
 		},
 	): ChatSessionRow {
 		const provider = this.providers.get(input.provider);
@@ -338,6 +372,8 @@ export class ChatHub {
 			mode: input.mode ?? provider.info().defaultMode ?? null,
 			effort: input.effort ?? null,
 			worktree: own?.worktree ?? null,
+			role: input.role ?? null,
+			notes: input.notes?.text.trim() ? { text: input.notes.text } : null,
 		});
 	}
 
@@ -711,13 +747,24 @@ export class ChatHub {
 		this.record(id, { type: "turn_start", at: new Date().toISOString() });
 
 		let result: Awaited<ReturnType<AgentSession["prompt"]>>;
+		let briefRole = false;
+		let briefNotes = false;
 		try {
 			const agent = await this.agentFor(session, live);
 			const paths = attachments
 				.map((item) => `${JSON.stringify(item.metadata.name)}: ${JSON.stringify(item.path)}`)
 				.join("\n");
 			// An agent command the menu prefixed is the agent's own command, sent as it typed.
-			const text = agentPromptText(session.provider, message);
+			const typed = agentPromptText(session.provider, message);
+			// A thread started as a role gives the agent its brief with the first message that gets
+			// through, and the project's shared notes the same way. A command goes as typed (the agent
+			// would not read it as one after a brief), and the brief waits for the next message.
+			const command = typed.startsWith("/");
+			briefRole = Boolean(session.role && !session.role.briefed && !command);
+			briefNotes = Boolean(session.notes && !session.notes.briefed && !command);
+			let text = typed;
+			if (briefNotes && session.notes) text = withSharedNotes(session.notes, text);
+			if (briefRole && session.role) text = withRoleBrief(session.role, text);
 			const prompt = paths
 				? `${text}\n\nAttached files (absolute paths on this machine):\n${paths}`
 				: text;
@@ -726,6 +773,12 @@ export class ChatHub {
 			result = { reason: "error", error: cause instanceof Error ? cause.message : String(cause) };
 			// A failed start leaves nothing to reuse.
 			live.agent = null;
+		}
+		if (result.reason !== "error") {
+			if (briefRole && session.role)
+				this.store.update(id, { role: { ...session.role, briefed: true } });
+			if (briefNotes && session.notes)
+				this.store.update(id, { notes: { ...session.notes, briefed: true } });
 		}
 		const failure =
 			result.reason === "error" && result.error ? this.explainFailure(session, result.error) : null;

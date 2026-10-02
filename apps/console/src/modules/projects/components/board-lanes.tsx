@@ -5,25 +5,30 @@ import { useAuth } from "@/modules/auth";
 import {
 	Alert,
 	BoardColumn,
+	DoneRow,
 	IconButton,
 	InlineAdd,
 	LaneStrip,
+	LinkButton,
 	notify,
 	PlusIcon,
 	Text,
 } from "@/kit";
+import { workspaceHref } from "@/lib/active-workspace";
 
 import { type NewTaskDefaults, useWorkspace } from "../context/workspace-context";
-import { ownerKey } from "../lib/board";
+import { laneOf, laneStatus as statusForLane, ownerKey } from "../lib/board";
 import { applyMove, nextPosition } from "../lib/move-task";
 import { projectsService } from "../services/projects.service";
-import { TASK_STATUSES, type Task, type TaskStatus } from "../types/project.types";
+import { type Task, type TaskStatus } from "../types/project.types";
 
-import { TaskCard } from "./task-card";
+import { OwnerMark, TaskCard } from "./task-card";
 
 export type BoardLane = {
 	id: string;
 	title: string;
+	/** Its name in the phone tabs: "Doing" for In progress. */
+	short: string;
 	/** Drawn fresh for each place that shows it: one DOM node can only sit in one place. */
 	icon: () => JSX.Element;
 	tasks: Task[];
@@ -99,7 +104,7 @@ export function BoardLanes(props: {
 		const laneIds = new Set(props.lanes.map((lane) => lane.id));
 		const buckets = new Map<string, Task[]>();
 		for (const task of movedTasks()) {
-			const key = laneIds.has(task.status) ? task.status : ownerKey(task);
+			const key = laneIds.has(laneOf(task.status)) ? laneOf(task.status) : ownerKey(task);
 			const bucket = buckets.get(key);
 			if (bucket) bucket.push(task);
 			else buckets.set(key, [task]);
@@ -137,8 +142,21 @@ export function BoardLanes(props: {
 	}
 
 	function laneStatus(id: string): TaskStatus | null {
-		return TASK_STATUSES.find((status) => status === id) ?? null;
+		return statusForLane(id);
 	}
+	// Done shows its newest few; the rest wait behind "Show more".
+	const [showAllDone, setShowAllDone] = createSignal(false);
+	const DONE_SHOWN = 5;
+	// A new project, view or filter starts folded again.
+	createEffect(
+		() => `${workspace.activeSlug()}|${props.lanes.map((lane) => lane.id).join(",")}`,
+		() => {
+			setShowAllDone(false);
+		},
+	);
+	/** Done, newest first: what was just finished is what you look for. */
+	const newestFirst = (tasks: Task[]) =>
+		[...tasks].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
 	function endDrag(): void {
 		setDragging(null);
@@ -207,21 +225,31 @@ export function BoardLanes(props: {
 								// Phones name the lane in the stage tabs above, so the header only shows from md.
 								headerFromMd
 								action={
-									// Stages add inline below; owner lanes open the sheet with the owner set.
-									<Show when={!laneStatus(lane().id)}>
-										<IconButton
-											size="xs"
-											label={`Add a task to ${lane().title}`}
-											onClick={() => workspace.openNewTask(laneDefaults(lane().id))}
-										>
-											<PlusIcon size="sm" />
-										</IconButton>
-									</Show>
+									<IconButton
+										size="xs"
+										label={`Add a task to ${lane().title}`}
+										onClick={() => workspace.openNewTask(laneDefaults(lane().id))}
+									>
+										<PlusIcon size="sm" />
+									</IconButton>
 								}
-								top={
-									<Show when={laneStatus(lane().id)}>
-										{(status) => <QuickAdd status={status()} />}
-									</Show>
+								bottom={
+									<>
+										<Show when={lane().id === "done" && laneTasks().length > DONE_SHOWN}>
+											<LinkButton
+												onClick={() => setShowAllDone((open) => !open)}
+												class="self-start px-2 py-1"
+											>
+												{showAllDone()
+													? "Show less"
+													: `Show ${laneTasks().length - DONE_SHOWN} more`}
+											</LinkButton>
+										</Show>
+										{/* Typing a title at the foot of Todo adds it there (Figma "Add a task"). */}
+										<Show when={lane().id === "todo"}>
+											<QuickAdd status="ready" />
+										</Show>
+									</>
 								}
 								onDragOver={(event) => {
 									// Only a stage lane can receive the task, and only mid-drag.
@@ -242,7 +270,8 @@ export function BoardLanes(props: {
 									const number = dragging();
 									const task = movedTasks().find((item) => item.number === number);
 									endDrag();
-									if (status === null || !task) return;
+									// Dropped back in its own column (a blocked task on In progress): it stays as it is.
+									if (status === null || !task || laneOf(task.status) === lane().id) return;
 									void move(task, status);
 								}}
 							>
@@ -254,18 +283,42 @@ export function BoardLanes(props: {
 										</Text>
 									}
 								>
-									<For each={laneTasks()}>
-										{(task) => (
-											<TaskCard
-												task={task}
-												canDrag={canDrag}
-												dragging={dragging() === task.number}
-												onDragStart={() => setDragging(task.number)}
-												onDragEnd={endDrag}
-												onMove={(status) => void move(task, status)}
-											/>
-										)}
-									</For>
+									<Show
+										when={lane().id === "done"}
+										fallback={
+											<For each={laneTasks()}>
+												{(task) => (
+													<TaskCard
+														task={task}
+														canDrag={canDrag}
+														dragging={dragging() === task.number}
+														onDragStart={() => setDragging(task.number)}
+														onDragEnd={endDrag}
+														onMove={(status) => void move(task, status)}
+													/>
+												)}
+											</For>
+										}
+									>
+										<For
+											each={
+												showAllDone()
+													? newestFirst(laneTasks())
+													: newestFirst(laneTasks()).slice(0, DONE_SHOWN)
+											}
+										>
+											{(task) => (
+												<DoneRow
+													title={task.title}
+													label={`${task.key} ${task.title}, done${task.owner?.name ? `, ${task.owner.name}` : ""}`}
+													href={workspaceHref(
+														`/board/${workspace.activeSlug()}/tasks/${task.number}`,
+													)}
+													owner={<OwnerMark task={task} />}
+												/>
+											)}
+										</For>
+									</Show>
 								</Show>
 							</BoardColumn>
 						);
@@ -278,8 +331,8 @@ export function BoardLanes(props: {
 
 /** What a task added from a lane starts with: the lane's stage, or its owner. */
 function laneDefaults(laneId: string): NewTaskDefaults {
-	if ((TASK_STATUSES as readonly string[]).includes(laneId))
-		return { status: laneId as TaskStatus };
+	const status = statusForLane(laneId);
+	if (status) return { status };
 	if (laneId === "unassigned") return {};
 	const [kind, ...name] = laneId.split(":");
 	return kind === "human" || kind === "agent"

@@ -1,4 +1,4 @@
-import { useLocation } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { For } from "solid-js";
 
@@ -7,13 +7,14 @@ import {
 	BellIcon,
 	BranchIcon,
 	GlobeIcon,
+	IconButton,
 	InfoIcon,
 	LinkIcon,
 	NavLink,
 	NavSection,
+	PanelHeader,
 	RocketIcon,
 	SunIcon,
-	Text,
 	UserAddIcon,
 	UserIcon,
 } from "@/kit";
@@ -38,28 +39,25 @@ export function settingsIcon(href: SettingsHref): JSX.Element {
 }
 
 /**
- * While settings are open they take the sidebar's place, as a native app's preferences do: the
- * way back to where you were, then the pages in their groups. The same list is the phone drawer.
+ * While settings are open they take the panel's place beside the rail, as the Figma settings
+ * screens draw it: the way back to where you were, then the pages in their groups. The same
+ * list is the phone drawer's panel.
  */
 export function SettingsSidebar(): JSX.Element {
 	const location = useLocation();
+	const navigate = useNavigate();
 
 	return (
 		<nav aria-label="Settings" class="flex h-full min-h-0 flex-col">
-			<div class="flex h-12 shrink-0 items-center px-2 pointer-coarse:h-14">
-				<NavLink
-					href={workspaceHref(settingsReturn.path())}
-					icon={<BackIcon />}
-					label="Back to app"
-					class="flex-1"
-				/>
-			</div>
-			<div class="px-4.5 pb-2">
-				<Text as="h2" size="heading" tone="strong" weight="medium">
-					Settings
-				</Text>
-			</div>
-			<div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-2 pb-4">
+			<PanelHeader
+				title="Settings"
+				actions={
+					<IconButton label="Back to app" size="sm" onClick={() => navigate(settingsReturn.path())}>
+						<BackIcon />
+					</IconButton>
+				}
+			/>
+			<div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-2 pb-4">
 				<For each={SETTINGS_SECTIONS}>
 					{(section) => (
 						<NavSection label={section.label}>

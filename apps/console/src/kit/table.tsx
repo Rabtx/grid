@@ -5,9 +5,16 @@ import type { JSX } from "@solidjs/web";
  * elements so screens compose columns freely; on phones wrap it for horizontal scroll or swap it
  * for a list.
  */
-export function Table(props: { children: JSX.Element; class?: string }): JSX.Element {
+export function Table(props: {
+	children: JSX.Element;
+	class?: string;
+	/** Framed as a card of its own (Figma 13 · Files). */
+	framed?: boolean;
+}): JSX.Element {
 	return (
-		<div class={`overflow-x-auto ${props.class ?? ""}`}>
+		<div
+			class={`overflow-x-auto ${props.framed ? "surface-card rounded-kit-2xl [&_tr:last-child_td]:border-b-0" : ""} ${props.class ?? ""}`}
+		>
 			<table class="w-full border-separate border-spacing-0 text-body">{props.children}</table>
 		</div>
 	);

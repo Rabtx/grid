@@ -21,21 +21,41 @@
 
 :root {
 	--kit-fg: var(--ink);
-	--kit-fg-muted: color-mix(in srgb, var(--ink) 76%, transparent);
-	--kit-fg-subtle: color-mix(in srgb, var(--ink) 58%, transparent);
-	--kit-fg-faint: color-mix(in srgb, var(--ink) 38%, transparent);
+	/* Strengths tuned per theme so the defaults land on the Figma design system's values:
+	   light text/secondary #5d5d5d, text/tertiary #9e9e9e; dark #a3a3a3, #7f7f7f. */
+	--kit-fg-muted-strength: 75.5%;
+	--kit-fg-subtle-strength: 45.3%;
+	--kit-fg-faint-strength: 32%;
+	--kit-line-strength: 6%;
+	--kit-line-strong-strength: 13%;
+	--kit-fill-strength: 2.3%;
+	--kit-fill-strong-strength: 4.7%;
+	--kit-line-hover-strength: 20%;
+	--kit-fg-muted: color-mix(in srgb, var(--ink) var(--kit-fg-muted-strength), transparent);
+	--kit-fg-subtle: color-mix(in srgb, var(--ink) var(--kit-fg-subtle-strength), transparent);
+	--kit-fg-faint: color-mix(in srgb, var(--ink) var(--kit-fg-faint-strength), transparent);
 	--kit-radius-scale: 1;
 	--kit-density: 1;
 	--kit-line-scale: 1;
 
-	--kit-line: color-mix(in srgb, var(--ink) calc(7% * var(--kit-line-scale)), transparent);
-	--kit-line-strong: color-mix(in srgb, var(--ink) calc(11% * var(--kit-line-scale)), transparent);
-	--kit-line-hover: color-mix(in srgb, var(--ink) calc(20% * var(--kit-line-scale)), transparent);
+	--kit-line: color-mix(
+		in srgb,
+		var(--ink) calc(var(--kit-line-strength) * var(--kit-line-scale)),
+		transparent
+	);
+	--kit-line-strong: color-mix(
+		in srgb,
+		var(--ink) calc(var(--kit-line-strong-strength) * var(--kit-line-scale)),
+		transparent
+	);
+	--kit-line-hover: color-mix(in srgb, var(--ink) calc(var(--kit-line-hover-strength) * var(--kit-line-scale)), transparent);
 	--kit-line-focus: color-mix(in srgb, var(--ink) calc(35% * var(--kit-line-scale)), transparent);
-	--kit-fill: color-mix(in srgb, var(--ink) 3.5%, transparent);
-	--kit-fill-strong: color-mix(in srgb, var(--ink) 6%, transparent);
+	--kit-fill: color-mix(in srgb, var(--ink) var(--kit-fill-strength), transparent);
+	--kit-fill-strong: color-mix(in srgb, var(--ink) var(--kit-fill-strong-strength), transparent);
 	--kit-surface: var(--canvas);
 	--kit-surface-sunken: var(--backdrop);
+	/* Figma bg/field: what you type into, a step below the card (#f5f5f5 / #141414). */
+	--kit-field: var(--backdrop);
 	--kit-surface-raised: var(--canvas);
 	--kit-inverse: var(--primary-fill);
 	--kit-inverse-fg: var(--primary-ink);
@@ -43,12 +63,15 @@
 	--kit-shadow-color: 0 0 0;
 	--kit-shadow-strength: 0.1;
 	/*
-	 * Depth, an Appearance choice (`data-depth="on"` on the root; off by default). Off, every one
+	 * Depth, an Appearance choice (`data-depth="on"` on the root; on by default, as the Figma
+	 * design system's Depth/Card draws cards: a soft 32px ambient and a lit top edge). Off, every one
 	 * of these is the flat look; on, raised things catch light on their top edge, floating layers
 	 * get a softer two-layer shadow, the canvas a faint top light and primaries a pressable finish.
 	 */
 	--kit-highlight: transparent;
-	--kit-highlight-on: rgb(255 255 255 / 0.9);
+	--kit-highlight-on: rgb(255 255 255 / 1);
+	--kit-card-ambient: 0 0 #0000;
+	--kit-card-ambient-on: 0 0 32px rgb(0 0 0 / 0.04);
 	--kit-float-contact: 0 2px 6px -2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.5));
 	--kit-float-ambient: 0 12px 32px -8px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 1.2));
 	--kit-outline-drop: 0 0 #0000;
@@ -61,18 +84,22 @@
 	--kit-halo: color-mix(in srgb, var(--signal-accent) 14%, transparent);
 	--kit-halo-edge: color-mix(in srgb, var(--signal-accent) 38%, transparent);
 
-	/* Type (phone; the desktop scale starts at md). Inter, regular and medium only. */
-	--kit-font: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+	/* Type: the Figma scale, 12 · 13 · 14 · 24, on phone and desktop alike. SF Pro where the
+	   system has it, Inter elsewhere; regular and medium only, tracked -0.15px. */
+	--kit-font:
+		"SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter Variable", "Inter",
+		system-ui, "Segoe UI", sans-serif;
+	--kit-tracking: -0.15px;
 	--kit-fs-caption: 0.75rem; /* 12 */
-	--kit-fs-body: 0.9375rem; /* 15 */
-	--kit-fs-body-lg: 1rem; /* 16 */
-	--kit-fs-heading: 1.0625rem; /* 17 */
-	--kit-fs-headline: 1.25rem; /* 20 */
+	--kit-fs-body: 0.8125rem; /* 13 */
+	--kit-fs-body-lg: 0.875rem; /* 14 */
+	--kit-fs-heading: 0.875rem; /* 14 */
+	--kit-fs-headline: 1.5rem; /* 24 */
 	--kit-fs-display: 1.5rem; /* 24 */
 	--kit-fs-field: 1rem; /* 16: iOS zooms smaller inputs */
 
-	/* Navigation labels: a step above body, as the sidebar reads. */
-	--kit-fs-nav: 1rem; /* 16 */
+	/* Navigation labels. */
+	--kit-fs-nav: 0.8125rem; /* 13 */
 
 	/* Heights (base values; the density knob scales them): touch sizes on phones. */
 	--kit-h-row-base: 2.75rem;
@@ -95,14 +122,7 @@
 
 @media (width >= 48rem) {
 	:root {
-		--kit-fs-caption: 0.75rem; /* 12 */
-		--kit-fs-body: 0.8125rem; /* 13 */
-		--kit-fs-body-lg: 0.875rem; /* 14 */
-		--kit-fs-heading: 1rem; /* 16 */
-		--kit-fs-headline: 1.125rem; /* 18 */
-		--kit-fs-display: 1.5rem; /* 24 */
 		--kit-fs-field: 0.875rem; /* 14 */
-		--kit-fs-nav: 0.875rem; /* 14 */
 
 		--kit-h-row-base: 2rem; /* 32 */
 		--kit-h-control-sm-base: 1.75rem; /* 28 */
@@ -123,20 +143,43 @@
 
 @media (prefers-color-scheme: dark) {
 	:root:not(.light) {
-		--kit-surface-raised: color-mix(in srgb, var(--ink) 5%, var(--canvas));
+		/* Dark strengths: #a3a3a3, #7f7f7f, border #303030 / #3d3d3d, surface #212121. */
+		--kit-fg-muted-strength: 66.5%;
+		--kit-fg-subtle-strength: 49.8%;
+		--kit-fg-faint-strength: 34%;
+		--kit-line-strength: 13%;
+		--kit-line-strong-strength: 19%;
+		--kit-fill-strength: 3.3%;
+		--kit-fill-strong-strength: 6%;
+		--kit-line-hover-strength: 26%;
+		--kit-surface-raised: color-mix(in srgb, var(--ink) 6%, var(--canvas));
+		--kit-field: var(--canvas);
 		--kit-shadow-strength: 0.45;
 		--kit-highlight-on: rgb(255 255 255 / 0.06);
+		--kit-card-ambient-on: 0 0 32px rgb(0 0 0 / 0.24);
 	}
 }
 
 :root.dark {
-	--kit-surface-raised: color-mix(in srgb, var(--ink) 5%, var(--canvas));
+	/* Dark strengths: #a3a3a3, #7f7f7f, border #303030 / #3d3d3d, surface #212121. */
+	--kit-fg-muted-strength: 66.5%;
+	--kit-fg-subtle-strength: 49.8%;
+	--kit-fg-faint-strength: 34%;
+	--kit-line-strength: 13%;
+	--kit-line-strong-strength: 19%;
+	--kit-fill-strength: 3.3%;
+	--kit-fill-strong-strength: 6%;
+	--kit-line-hover-strength: 26%;
+	--kit-surface-raised: color-mix(in srgb, var(--ink) 6%, var(--canvas));
+	--kit-field: var(--canvas);
 	--kit-shadow-strength: 0.45;
 	--kit-highlight-on: rgb(255 255 255 / 0.06);
+	--kit-card-ambient-on: 0 0 32px rgb(0 0 0 / 0.24);
 }
 
 :root[data-depth="on"] {
 	--kit-highlight: var(--kit-highlight-on);
+	--kit-card-ambient: var(--kit-card-ambient-on);
 	--kit-float-contact: 0 1px 2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.4));
 	--kit-float-ambient: 0 16px 40px -12px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 1.3));
 	--kit-outline-drop: 0 1px 1px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.25));
@@ -175,17 +218,17 @@
 	--text-caption: var(--kit-fs-caption);
 	--text-caption--line-height: 1rem;
 	--text-body: var(--kit-fs-body);
-	--text-body--line-height: 1.45;
+	--text-body--line-height: 1.25rem; /* 20 */
 	--text-body-lg: var(--kit-fs-body-lg);
-	--text-body-lg--line-height: 1.45;
+	--text-body-lg--line-height: 1.25rem; /* 20 */
 	--text-heading: var(--kit-fs-heading);
-	--text-heading--line-height: 1.35;
+	--text-heading--line-height: 1.25rem; /* 20 */
 	--text-headline: var(--kit-fs-headline);
-	--text-headline--line-height: 1.3;
+	--text-headline--line-height: 2rem; /* 32 */
 	--text-display: var(--kit-fs-display);
-	--text-display--line-height: 1.25;
+	--text-display--line-height: 2rem; /* 32 */
 	--text-nav: var(--kit-fs-nav);
-	--text-nav--line-height: 1.3;
+	--text-nav--line-height: 1.25rem; /* 20 */
 	--text-field: var(--kit-fs-field);
 	--text-field--line-height: 1.4;
 
@@ -243,6 +286,36 @@
 		0 1px 2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.3));
 }
 
+/*
+ * A signal's tint, as the Figma Inbox glyphs draw it: the signal at 12% for the fill, 35% for the
+ * edge, and the signal itself for the glyph. Dark keeps the same mix, which reads as a deep tint.
+ */
+@utility tint-accent {
+	color: var(--signal-accent);
+	background: color-mix(in srgb, var(--signal-accent) 10%, var(--kit-surface));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-accent) 22%, transparent);
+}
+@utility tint-violet {
+	color: var(--signal-violet);
+	background: color-mix(in srgb, var(--signal-violet) 12%, var(--kit-surface));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-violet) 45%, transparent);
+}
+@utility tint-success {
+	color: var(--signal-success);
+	background: color-mix(in srgb, var(--signal-success) 12%, var(--kit-surface));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-success) 50%, transparent);
+}
+@utility tint-warning {
+	color: var(--signal-warning);
+	background: color-mix(in srgb, var(--signal-warning) 12%, var(--kit-surface));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-warning) 45%, transparent);
+}
+@utility tint-danger {
+	color: var(--signal-danger);
+	background: color-mix(in srgb, var(--signal-danger) 10%, var(--kit-surface));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-danger) 45%, transparent);
+}
+
 /* Hairline edges drawn inside the box, so they never shift layout. */
 @utility ring-line {
 	box-shadow: inset 0 0 0 1px var(--kit-line);
@@ -262,7 +335,8 @@
 	background: var(--kit-surface);
 	box-shadow:
 		inset 0 1px 0 var(--kit-highlight),
-		inset 0 0 0 1px var(--kit-line);
+		inset 0 0 0 1px var(--kit-line),
+		var(--kit-card-ambient);
 	border-radius: var(--radius-kit-lg);
 }
 @utility surface-well {
@@ -283,6 +357,49 @@
 	&:focus,
 	&:focus-within,
 	&[aria-expanded="true"] {
+		box-shadow:
+			inset 0 0 0 1px var(--kit-line-focus),
+			0 0 0 3px var(--kit-fill-strong);
+	}
+	&[aria-invalid="true"] {
+		box-shadow: inset 0 0 0 1px var(--signal-danger);
+	}
+}
+
+/*
+ * The sign-in and setup card (Figma Card / Sheet): the card depth on a strong hairline, its top
+ * corners rounded as a sheet from the bottom on phones, every corner from md as a card.
+ */
+@utility surface-auth {
+	background: var(--kit-surface);
+	box-shadow:
+		inset 0 1px 0 var(--kit-highlight),
+		inset 0 0 0 1px var(--kit-line-strong),
+		var(--kit-card-ambient);
+	border-radius: var(--radius-kit-2xl) var(--radius-kit-2xl) 0 0;
+	@media (width >= 48rem) {
+		border-radius: var(--radius-kit-2xl);
+	}
+}
+
+/*
+ * A field set into the surface (the Figma Input, Shape: Pill, Depth: Inner): the field fill, a
+ * strong hairline and a soft inner shadow at the top, as the sign-in and setup forms draw it.
+ */
+@utility surface-recessed {
+	background: var(--kit-field);
+	box-shadow:
+		inset 0 0 0 1px var(--kit-line-strong),
+		inset 0 1px 2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.6));
+	border-radius: 999px;
+	transition: box-shadow var(--duration-fast) var(--ease-out-grid);
+	&:hover {
+		box-shadow:
+			inset 0 0 0 1px var(--kit-line-hover),
+			inset 0 1px 2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.6));
+	}
+	&:focus,
+	&:focus-within {
 		box-shadow:
 			inset 0 0 0 1px var(--kit-line-focus),
 			0 0 0 3px var(--kit-fill-strong);
@@ -524,6 +641,21 @@
 	}
 	.kit-effort-glow {
 		animation: kit-effort-glow 1.8s ease-in-out infinite;
+	}
+	/* The lit fill: the accent running into violet, a scatter of small stars over it. */
+	.kit-effort-fill {
+		background:
+			radial-gradient(1.2px 1.2px at 18% 38%, rgb(255 255 255 / 0.9) 99%, transparent),
+			radial-gradient(1px 1px at 31% 70%, rgb(255 255 255 / 0.7) 99%, transparent),
+			radial-gradient(1.4px 1.4px at 46% 24%, rgb(255 255 255 / 0.85) 99%, transparent),
+			radial-gradient(1px 1px at 58% 62%, rgb(255 255 255 / 0.75) 99%, transparent),
+			radial-gradient(1.4px 1.4px at 71% 40%, rgb(255 255 255 / 0.9) 99%, transparent),
+			radial-gradient(1px 1px at 84% 72%, rgb(255 255 255 / 0.7) 99%, transparent),
+			linear-gradient(
+				90deg,
+				var(--color-accent),
+				color-mix(in oklab, var(--color-accent) 45%, var(--color-violet))
+			);
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.kit-effort-sweep {

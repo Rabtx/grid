@@ -3,9 +3,12 @@ import { Show, omit } from "solid-js";
 
 import { variants } from "./variants";
 
-/** The button recipe: exported so links and triggers that must look like buttons share it. */
+/**
+ * The button recipe: a pill, as the Figma Button (Shape: Pill). Exported so links and triggers
+ * that must look like buttons share it.
+ */
 export const button = variants({
-	base: "focus-ring inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-kit font-medium transition-[background-color,color,box-shadow,transform] duration-fast ease-out-grid active:scale-[0.98] disabled:pointer-events-none",
+	base: "focus-ring inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-medium transition-[background-color,color,box-shadow,transform] duration-fast ease-out-grid active:scale-[0.98] disabled:pointer-events-none",
 	variants: {
 		variant: {
 			primary:
@@ -17,9 +20,11 @@ export const button = variants({
 				"surface-primary bg-accent text-white hover:bg-accent/90 depth:active:translate-y-px disabled:opacity-40 disabled:shadow-none",
 		},
 		size: {
-			sm: "h-kit-control-sm px-2.5 text-caption",
-			md: "h-kit-control px-3 text-body",
-			lg: "h-kit-control-lg px-4 text-body",
+			sm: "h-kit-control-sm px-3 text-caption",
+			md: "h-kit-control px-3.5 text-body",
+			lg: "h-kit-control-lg px-5 text-body",
+			/** 44px: the Figma Button X-Large, for sign-in, setup and other focused forms. */
+			xl: "h-11 px-5 text-body",
 		},
 	},
 	defaults: { variant: "secondary", size: "md" },
@@ -37,7 +42,7 @@ export const ICON_SIZE = {
 } as const;
 
 export const iconButton = variants({
-	base: "focus-ring inline-grid shrink-0 select-none place-items-center rounded-kit transition-[background-color,color,transform] duration-fast ease-out-grid active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40",
+	base: "focus-ring inline-grid shrink-0 select-none place-items-center transition-[background-color,color,transform] duration-fast ease-out-grid active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40",
 	variants: {
 		variant: {
 			ghost: "icon-tile text-fg-muted hover:text-fg aria-expanded:text-fg",
@@ -50,14 +55,21 @@ export const iconButton = variants({
 			xs: `size-6 pointer-coarse:size-10 ${ICON_SIZE.xs}`,
 			sm: `size-kit-control-sm ${ICON_SIZE.sm}`,
 			md: `size-kit-control ${ICON_SIZE.md}`,
+			/** 44px: the Figma mobile header's round buttons. */
+			lg: "size-11 [&_svg]:size-5",
+		},
+		// The Figma Icon Button's Shape: Square (8px corners) or Round (mobile headers).
+		shape: {
+			square: "rounded-kit",
+			round: "rounded-full",
 		},
 	},
-	defaults: { variant: "ghost", size: "md" },
+	defaults: { variant: "ghost", size: "md", shape: "square" },
 });
 
 type ButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 	variant?: "primary" | "secondary" | "ghost" | "danger" | "accent";
-	size?: "sm" | "md" | "lg";
+	size?: "sm" | "md" | "lg" | "xl";
 	/** An icon before the label. */
 	icon?: JSX.Element;
 	/** A keyboard hint after the label, e.g. ↵ or Esc. */
@@ -88,7 +100,8 @@ type IconButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 	/** The accessible name, also the tooltip. */
 	label: string;
 	/** xs is a 24px glyph button inside rows and headers (44px on touch). */
-	size?: "xs" | "sm" | "md";
+	size?: "xs" | "sm" | "md" | "lg";
+	shape?: "square" | "round";
 	/** A tooltip other than the label, e.g. why it is disabled. */
 	tooltip?: string;
 	/** Its keyboard shortcut, shown in the tooltip: "C", "Mod K" (⌘ or Ctrl). */
@@ -98,7 +111,17 @@ type IconButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 
 /** A square button holding one icon; its label is its name and its tooltip (on pointers). */
 export function IconButton(props: IconButtonProps): JSX.Element {
-	const rest = omit(props, "label", "size", "variant", "class", "children", "tooltip", "shortcut");
+	const rest = omit(
+		props,
+		"label",
+		"size",
+		"shape",
+		"variant",
+		"class",
+		"children",
+		"tooltip",
+		"shortcut",
+	);
 	return (
 		<button
 			type="button"
@@ -107,7 +130,12 @@ export function IconButton(props: IconButtonProps): JSX.Element {
 			data-tooltip={props.tooltip ?? props.label}
 			data-shortcut={props.shortcut}
 			{...rest}
-			class={iconButton({ variant: props.variant, size: props.size, class: props.class })}
+			class={iconButton({
+				variant: props.variant,
+				size: props.size,
+				shape: props.shape,
+				class: props.class,
+			})}
 		>
 			{props.children}
 		</button>

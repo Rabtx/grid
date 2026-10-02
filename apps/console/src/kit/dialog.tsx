@@ -125,6 +125,24 @@ export function PanelBar(props: { children: JSX.Element; actions?: JSX.Element }
 	);
 }
 
+/**
+ * A form along the bottom of a panel (the task drawer's message box), clear of the phone's home
+ * indicator.
+ */
+export function PanelFooter(props: { onSubmit: () => void; children: JSX.Element }): JSX.Element {
+	return (
+		<form
+			class="flex shrink-0 items-center gap-2 border-line border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+			onSubmit={(event) => {
+				event.preventDefault();
+				props.onSubmit();
+			}}
+		>
+			{props.children}
+		</form>
+	);
+}
+
 /** Are you sure: what will happen, and a button that says so. Danger in red when it cannot be undone. */
 export function ConfirmDialog(props: {
 	open: boolean;

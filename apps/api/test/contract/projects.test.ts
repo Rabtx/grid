@@ -172,4 +172,34 @@ describe("projects, tasks and notes", () => {
 		expect((await request(`/${slug}/notes/${id}`, { method: "DELETE" })).status).toBe(204);
 		expect((await request(`/${slug}/notes`)).body).toMatchObject({ data: [] });
 	});
+
+	it("pins, shares and marks a note without counting that as an edit, naming its author", async () => {
+		const created = await request(`/${slug}/notes`, json({ body: "# Rules\n\nRound to 5" }));
+		const note = payload(created);
+		expect(note).toMatchObject({ pinned: false, shared: false, icon: null });
+		expect(note.author).toEqual({ name: expect.any(String) });
+		expect(note.editor).toEqual(note.author);
+		const id = note.id as string;
+		const flagged = payload(
+			await request(
+				`/${slug}/notes/${id}`,
+				json({ pinned: true, shared: true, icon: "rules" }, { method: "PATCH" }),
+			),
+		);
+		expect(flagged).toMatchObject({ pinned: true, shared: true, icon: "rules", body: note.body });
+		expect(flagged.updatedAt).toBe(note.updatedAt);
+		const edited = payload(
+			await request(
+				`/${slug}/notes/${id}`,
+				json({ body: "# Rules\n\nRound to 10" }, { method: "PATCH" }),
+			),
+		);
+		expect(edited).toMatchObject({ pinned: true, shared: true, body: "# Rules\n\nRound to 10" });
+		expect(edited.updatedAt).not.toBe(note.updatedAt);
+		for (const bad of [{}, { icon: "rocket" }, { pinned: "yes" }]) {
+			const reply = await request(`/${slug}/notes/${id}`, json(bad, { method: "PATCH" }));
+			expect(reply.status).toBe(400);
+		}
+		expect((await request(`/${slug}/notes/${id}`, { method: "DELETE" })).status).toBe(204);
+	});
 });

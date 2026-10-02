@@ -1,4 +1,7 @@
 import Add01Icon from "@hugeicons/core-free-icons/Add01Icon";
+import AtGlyph from "@hugeicons/core-free-icons/AtIcon";
+import CheckmarkSquare02Glyph from "@hugeicons/core-free-icons/CheckmarkSquare02Icon";
+import LeftToRightListBulletGlyph from "@hugeicons/core-free-icons/LeftToRightListBulletIcon";
 import SparklesGlyph from "@hugeicons/core-free-icons/SparklesIcon";
 import ViewGlyph from "@hugeicons/core-free-icons/ViewIcon";
 import ViewOffGlyph from "@hugeicons/core-free-icons/ViewOffIcon";
@@ -26,6 +29,10 @@ import File01Icon from "@hugeicons/core-free-icons/File01Icon";
 import FilterHorizontalGlyph from "@hugeicons/core-free-icons/FilterHorizontalIcon";
 import Flag02Glyph from "@hugeicons/core-free-icons/Flag02Icon";
 import FlashIcon from "@hugeicons/core-free-icons/FlashIcon";
+import KanbanGlyph from "@hugeicons/core-free-icons/KanbanIcon";
+import Shield01Glyph from "@hugeicons/core-free-icons/Shield01Icon";
+import LaptopGlyph from "@hugeicons/core-free-icons/LaptopIcon";
+import AsteriskGlyph from "@hugeicons/core-free-icons/AsteriskIcon";
 import Folder01Icon from "@hugeicons/core-free-icons/Folder01Icon";
 import GitBranchIcon from "@hugeicons/core-free-icons/GitBranchIcon";
 import GitPullRequestGlyph from "@hugeicons/core-free-icons/GitPullRequestIcon";
@@ -156,8 +163,24 @@ export function AlertIcon(props: IconProps): JSX.Element {
 	return <Icon icon={AlertCircleIcon} size={props.size} class={props.class} />;
 }
 
+/** The board: a kanban, as the Figma rail draws it. */
 export function BoardIcon(props: IconProps): JSX.Element {
+	return <Icon icon={KanbanGlyph} size={props.size} class={props.class} />;
+}
+
+/** Automations: a bolt. */
+export function BoltIcon(props: IconProps): JSX.Element {
 	return <Icon icon={FlashIcon} size={props.size} class={props.class} />;
+}
+
+/** A machine that runs Grid. */
+export function LaptopIcon(props: IconProps): JSX.Element {
+	return <Icon icon={LaptopGlyph} size={props.size} class={props.class} />;
+}
+
+/** Agents. */
+export function AsteriskIcon(props: IconProps): JSX.Element {
+	return <Icon icon={AsteriskGlyph} size={props.size} class={props.class} />;
 }
 
 export function SignOutIcon(props: IconProps): JSX.Element {
@@ -390,4 +413,24 @@ export function EyeOffIcon(props: IconProps): JSX.Element {
 
 export function CameraIcon(props: IconProps): JSX.Element {
 	return <Icon icon={Camera01Glyph} size={props.size} class={props.class} />;
+}
+
+/** Something asking permission: an approval. */
+export function ShieldIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Shield01Glyph} size={props.size} class={props.class} />;
+}
+
+/** A bulleted list (the note's format bar). */
+export function ListIcon(props: IconProps): JSX.Element {
+	return <Icon icon={LeftToRightListBulletGlyph} size={props.size} class={props.class} />;
+}
+
+/** A checklist: a ticked box (the note's format bar). */
+export function ChecklistIcon(props: IconProps): JSX.Element {
+	return <Icon icon={CheckmarkSquare02Glyph} size={props.size} class={props.class} />;
+}
+
+/** Name something: a file in a note. */
+export function AtIcon(props: IconProps): JSX.Element {
+	return <Icon icon={AtGlyph} size={props.size} class={props.class} />;
 }

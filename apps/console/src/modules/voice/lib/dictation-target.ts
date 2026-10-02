@@ -13,6 +13,11 @@ export type DictationTarget = {
 	label: string;
 	/** False when the surface has its own mic control (the terminal key bar). */
 	floatingMic: boolean;
+	/**
+	 * Who the target belongs to, when it draws dictation itself (the composer's recording bar):
+	 * the app-wide status bubble then stays away.
+	 */
+	owner?: object;
 };
 
 type Registration = {
@@ -20,6 +25,7 @@ type Registration = {
 	label: string;
 	focus?: () => void;
 	floatingMic?: boolean;
+	owner?: object;
 };
 
 const registered = new Map<Element, Registration>();
@@ -85,6 +91,7 @@ export function targetFor(element: Element | null): DictationTarget | null {
 				label: custom.label,
 				focus: custom.focus ?? (() => (element as HTMLElement).focus?.()),
 				floatingMic: custom.floatingMic ?? true,
+				owner: custom.owner,
 			};
 		}
 	}

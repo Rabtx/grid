@@ -6,6 +6,7 @@ import type {
 	CreateProjectInput,
 	CreateTaskInput,
 	Note,
+	NotePatch,
 	Project,
 	Task,
 	UpdateProjectInput,
@@ -31,8 +32,8 @@ export const projectsService = {
 		apiClient.get<Note[]>(inWorkspace(`/projects/${slug}/notes`), { accessToken }),
 	createNote: (accessToken: string, slug: string, input: CreateNoteInput) =>
 		apiClient.post<Note>(inWorkspace(`/projects/${slug}/notes`), input, { accessToken }),
-	updateNote: (accessToken: string, slug: string, id: string, body: string) =>
-		apiClient.patch<Note>(inWorkspace(`/projects/${slug}/notes/${id}`), { body }, { accessToken }),
+	updateNote: (accessToken: string, slug: string, id: string, patch: NotePatch) =>
+		apiClient.patch<Note>(inWorkspace(`/projects/${slug}/notes/${id}`), patch, { accessToken }),
 	deleteNote: (accessToken: string, slug: string, id: string) =>
 		apiClient.delete<void>(inWorkspace(`/projects/${slug}/notes/${id}`), { accessToken }),
 };

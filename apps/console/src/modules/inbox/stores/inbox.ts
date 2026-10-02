@@ -163,6 +163,13 @@ export const inboxStore = {
 		await inboxStore.count(token);
 	},
 
+	/** One item dealt with, from its own Mark done: only that row, wherever it points. */
+	async readItem(token: string, id: string): Promise<void> {
+		markReadLocally((row) => row.id === id);
+		await Promise.all(untrack(placementsStore.scopes).map((scope) => ask(token, scope, { id })));
+		await inboxStore.count(token);
+	},
+
 	/** Everything dealt with, from the page's own action. */
 	async readAll(token: string): Promise<void> {
 		markReadLocally(() => true);

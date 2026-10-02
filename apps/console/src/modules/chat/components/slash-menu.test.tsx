@@ -52,7 +52,7 @@ describe("SlashMenu", () => {
 	it("lists Grid's commands with their argument hint", () => {
 		mount(GRID_COMMANDS);
 
-		expect(container.textContent).toContain("Commands · 8");
+		expect(container.querySelectorAll('[role="option"]')).toHaveLength(8);
 		expect(container.textContent).toContain("/new");
 		expect(container.textContent).toContain("/task");
 		expect(container.textContent).toContain("<title>");

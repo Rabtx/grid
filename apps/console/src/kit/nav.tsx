@@ -1,16 +1,20 @@
 import type { JSX } from "@solidjs/web";
 import { omit, onSettled, Show } from "solid-js";
 
+import { BrandMark } from "./brand";
 import { attachContextMenu, type MenuPoint } from "./context-menu";
 import { variants } from "./variants";
 
 const row = variants({
-	base: "focus-ring group/nav flex w-full min-w-0 items-center gap-2.5 rounded-kit-md text-left text-fg-muted transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill hover:text-fg aria-[current=page]:bg-fill-strong aria-[current=page]:text-fg depth:aria-[current=page]:bg-surface depth:aria-[current=page]:shadow-lift",
+	// The Figma panel row: 13px medium in the muted ink, a flat grey selection (bg/selected).
+	base: "focus-ring group/nav flex w-full min-w-0 gap-2 rounded-kit text-left font-medium text-fg-muted transition-[background-color,color] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg",
 	variants: {
 		// Top-level destinations and projects; threads and a project's pages one step down.
 		level: {
-			0: "h-kit-row px-2.5 text-nav",
-			1: "h-[calc(var(--kit-h-row)-0.25rem)] px-2 text-body pointer-coarse:h-11",
+			0: "h-kit-row items-center px-2 text-nav",
+			1: "h-[calc(var(--kit-h-row)-0.25rem)] items-center px-2 text-body pointer-coarse:h-11",
+			/** A row with a second line under its label: as tall as its two lines. */
+			2: "min-h-kit-row items-start px-2 py-2 text-nav",
 		},
 		tone: {
 			default: "",
@@ -24,6 +28,8 @@ const row = variants({
 type NavItemProps = {
 	icon?: JSX.Element;
 	label: JSX.Element;
+	/** A second line under the label (the Figma Home panel: "3 things need you"). */
+	detail?: string;
 	/** Right-hand detail at rest: a count, a shortcut, a time, a badge. Hidden while actions show. */
 	trailing?: JSX.Element;
 	/**
@@ -34,7 +40,7 @@ type NavItemProps = {
 	/** Right-click (desktop) and long press (touch) on the row. */
 	onMenuAt?: (point: MenuPoint) => void;
 	current?: boolean;
-	level?: 0 | 1;
+	level?: 0 | 1 | 2;
 	tone?: "default" | "accent" | "danger";
 	/** Layout only. */
 	class?: string;
@@ -43,6 +49,7 @@ type NavItemProps = {
 const OWN = [
 	"icon",
 	"label",
+	"detail",
 	"trailing",
 	"actions",
 	"onMenuAt",
@@ -56,11 +63,21 @@ function Content(props: NavItemProps): JSX.Element {
 	return (
 		<>
 			<Show when={props.icon}>
-				<span class="grid size-4 shrink-0 place-items-center text-fg-subtle group-hover/nav:text-fg-muted group-aria-[current=page]/nav:text-fg [&_svg]:size-4">
+				<span
+					class={`${props.detail ? "mt-0.75" : ""} grid size-3.5 shrink-0 place-items-center text-fg-subtle group-hover/nav:text-fg-muted group-aria-[current=page]/nav:text-fg [&_svg]:size-3.5 pointer-coarse:size-4 pointer-coarse:[&_svg]:size-4`}
+				>
 					{props.icon}
 				</span>
 			</Show>
-			<span class="min-w-0 flex-1 truncate">{props.label}</span>
+			<Show
+				when={props.detail}
+				fallback={<span class="min-w-0 flex-1 truncate">{props.label}</span>}
+			>
+				<span class="flex min-w-0 flex-1 flex-col">
+					<span class="truncate">{props.label}</span>
+					<span class="truncate font-normal text-caption text-fg-subtle">{props.detail}</span>
+				</span>
+			</Show>
 			<Show when={props.trailing}>
 				<span
 					class={`flex shrink-0 items-center gap-1 ${props.actions ? "group-hover/row:invisible group-focus-within/row:invisible pointer-coarse:visible" : ""}`}
@@ -108,9 +125,11 @@ export function NavLink(
 				// Always set, so the router's own link marking never overrides the caller's choice.
 				aria-current={props.current ? "page" : "false"}
 				class={row({
-					level: props.level,
+					level: props.detail ? 2 : props.level,
 					tone: props.tone,
-					class: props.actions ? "pr-14 pointer-coarse:pr-2.5" : "",
+					class: props.actions
+						? "group-hover/row:pr-14 group-focus-within/row:pr-14 pointer-coarse:pr-2"
+						: "",
 				})}
 			>
 				<Content {...props} />
@@ -133,7 +152,9 @@ export function NavButton(
 				class={row({
 					level: props.level,
 					tone: props.tone,
-					class: props.actions ? "pr-14 pointer-coarse:pr-2.5" : "",
+					class: props.actions
+						? "group-hover/row:pr-14 group-focus-within/row:pr-14 pointer-coarse:pr-2"
+						: "",
 				})}
 			>
 				<Content {...props} />
@@ -144,9 +165,7 @@ export function NavButton(
 
 /** Rows nested under a parent (a project's pages and threads), set in behind a guide line. */
 export function NavGroup(props: { children: JSX.Element }): JSX.Element {
-	return (
-		<div class="mb-1 ml-4 flex flex-col gap-px border-line border-l pl-1.5">{props.children}</div>
-	);
+	return <div class="mb-1 ml-3 flex flex-col gap-px">{props.children}</div>;
 }
 
 /** A quiet line inside a nav group: nothing here yet, or why it could not load. */
@@ -163,7 +182,7 @@ export function NavSection(props: {
 	return (
 		<section class="flex flex-col gap-px">
 			<div class="group/section flex h-8 items-center justify-between pr-1 pl-2.5 pointer-coarse:h-9">
-				<h3 class="text-body text-fg-subtle">{props.label}</h3>
+				<h3 class="font-medium text-caption text-fg-subtle">{props.label}</h3>
 				<Show when={props.action}>
 					<span class="opacity-0 transition-opacity duration-fast group-hover/section:opacity-100 group-focus-within/section:opacity-100 pointer-coarse:opacity-100">
 						{props.action}
@@ -172,5 +191,121 @@ export function NavSection(props: {
 			</div>
 			{props.children}
 		</section>
+	);
+}
+
+export const railItem = variants({
+	base: "focus-ring relative grid size-9 shrink-0 place-items-center rounded-kit text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:surface-outline aria-[current=page]:bg-surface aria-[current=page]:text-fg [&_svg]:size-4 pointer-coarse:size-11 pointer-coarse:[&_svg]:size-5",
+	variants: {},
+	defaults: {},
+});
+
+type RailItemProps = {
+	/** The destination's name: its accessible name and its tooltip. */
+	label: string;
+	/** A fuller name for screen readers when the tile carries news ("Inbox, 3 unread"). */
+	spoken?: string;
+	icon: JSX.Element;
+	current?: boolean;
+	/** A dot on the corner for something waiting (unread Inbox items). */
+	dot?: boolean;
+	shortcut?: string;
+};
+
+function RailDot(props: { when?: boolean }): JSX.Element {
+	return (
+		<Show when={props.when}>
+			<span class="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-accent ring-2 ring-surface" />
+		</Show>
+	);
+}
+
+/** One destination on the icon rail (the Figma Grid/Sidebar/Rail): a 36px tile, its name a tooltip. */
+export function RailLink(
+	props: RailItemProps & Omit<JSX.AnchorHTMLAttributes<HTMLAnchorElement>, "children">,
+): JSX.Element {
+	const rest = omit(props, "label", "spoken", "icon", "current", "dot", "shortcut", "class");
+	return (
+		<a
+			{...rest}
+			aria-label={props.spoken ?? props.label}
+			aria-current={props.current ? "page" : "false"}
+			data-tooltip={props.label}
+			data-shortcut={props.shortcut}
+			class={railItem({ class: props.class })}
+		>
+			{props.icon}
+			<RailDot when={props.dot} />
+		</a>
+	);
+}
+
+/** A rail tile that does something rather than going somewhere (the account menu, a toggle). */
+export function RailButton(
+	props: RailItemProps & Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "children">,
+): JSX.Element {
+	const rest = omit(props, "label", "spoken", "icon", "current", "dot", "shortcut", "class");
+	return (
+		<button
+			type="button"
+			{...rest}
+			aria-label={props.spoken ?? props.label}
+			data-tooltip={props.label}
+			data-shortcut={props.shortcut}
+			class={railItem({ class: props.class })}
+		>
+			{props.icon}
+			<RailDot when={props.dot} />
+		</button>
+	);
+}
+
+/** The panel's 52px head (the Figma Grid/Sidebar/Panel header): its title and a few icon actions. */
+export function PanelHeader(props: { title: JSX.Element; actions?: JSX.Element }): JSX.Element {
+	return (
+		<div class="flex h-13 shrink-0 items-center gap-0.5 border-line border-b pr-3 pl-4 pointer-coarse:h-14">
+			<h2 class="min-w-0 flex-1 truncate font-medium text-body-lg text-fg">{props.title}</h2>
+			<Show when={props.actions}>{props.actions}</Show>
+		</div>
+	);
+}
+
+/** The mark on a 28px outlined tile, as the rail's head and the drawer show it. */
+export function BrandTile(): JSX.Element {
+	return (
+		<span class="surface-outline grid size-7 place-items-center rounded-kit">
+			<BrandMark class="size-4" />
+		</span>
+	);
+}
+
+/**
+ * The panel's foot (the Figma Grid/Sidebar/Machine card): a machine's tile, its name and state,
+ * and a dot that is green while it is online.
+ */
+export function MachineCard(props: {
+	href: string;
+	name: string;
+	detail: string;
+	online: boolean;
+	icon: JSX.Element;
+}): JSX.Element {
+	return (
+		<a
+			href={props.href}
+			class="focus-ring surface-card flex items-center gap-2 p-2 transition-colors duration-fast hover:bg-fill"
+		>
+			<span class="grid size-7 shrink-0 place-items-center rounded-kit bg-fill-strong text-fg-muted ring-line [&_svg]:size-3.5">
+				{props.icon}
+			</span>
+			<span class="flex min-w-0 flex-1 flex-col">
+				<span class="truncate font-medium text-body text-fg">{props.name}</span>
+				<span class="truncate text-caption text-fg-subtle">{props.detail}</span>
+			</span>
+			<span
+				aria-hidden="true"
+				class={`mr-1.5 size-2 shrink-0 rounded-full ${props.online ? "bg-success" : "bg-fg-faint"}`}
+			/>
+		</a>
 	);
 }

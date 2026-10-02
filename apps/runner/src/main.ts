@@ -17,6 +17,7 @@ import { PullRequests } from "./github/pulls";
 import { inboxItem } from "./inbox/attention";
 import { GithubInbox } from "./inbox/github";
 import { InboxStore } from "./inbox/store";
+import { RoleStore } from "./roles/store";
 import { attentionMessage, PushNotifier } from "./push/notifier";
 import { spawnPty } from "./pty";
 import { startServer } from "./server";
@@ -117,6 +118,7 @@ const server = startServer(config, store, verify, chat, {
 	pulls,
 	inbox: { store: inbox, github: githubInbox, projectsDir: config.projectsDir },
 	automations,
+	roles: { store: new RoleStore(config.chatDb), knownProvider: (id) => chat.knowsProvider(id) },
 });
 
 console.log(

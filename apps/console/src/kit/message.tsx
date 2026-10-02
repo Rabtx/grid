@@ -3,6 +3,7 @@ import { createMemo, createSignal, For, onSettled, Show, untrack } from "solid-j
 
 import { attachContextMenu, type MenuPoint } from "./context-menu";
 import { CloseIcon, FileIcon, RestoreIcon } from "./icons";
+import { EntryIcon } from "./file-icon";
 
 /** Wires a long press on touch screens to a message's menu; the hover bar is for pointers. */
 function useTouchMenu(open: (() => ((point: MenuPoint) => void) | undefined) | undefined) {
@@ -37,6 +38,8 @@ function ActionBar(props: { children: JSX.Element; align: "start" | "end" }): JS
  */
 export function UserMessage(props: {
 	children: JSX.Element;
+	/** Who sent it and when, under the bubble ("You · 2m ago"). */
+	meta?: string;
 	attachments?: readonly string[];
 	attachmentContent?: JSX.Element;
 	/** Clamp to four lines, with the actions offering "Show more". */
@@ -47,20 +50,23 @@ export function UserMessage(props: {
 	const [open, setOpen] = createSignal(false);
 	const ref = useTouchMenu(() => props.onMenuAt);
 	return (
-		<div ref={ref} class="group/message flex flex-col gap-1.5">
+		<div ref={ref} class="group/message flex flex-col items-end gap-1.5">
 			{props.attachmentContent}
 			<Show when={props.attachments?.length}>
 				<div class="flex flex-wrap gap-1.5">
 					<For each={props.attachments}>{(name) => <Attachment name={name} />}</For>
 				</div>
 			</Show>
-			<div class="surface-well px-4 py-3 text-body-lg text-fg">
+			<div class="max-w-xl rounded-kit-2xl bg-selection px-4 py-2.5 text-body-lg text-fg">
 				<div
 					class={`whitespace-pre-wrap break-words ${props.clamp && !open() ? "line-clamp-4" : ""}`}
 				>
 					{props.children}
 				</div>
 			</div>
+			<Show when={props.meta}>
+				<span class="px-1 text-caption text-fg-subtle">{props.meta}</span>
+			</Show>
 			<Show when={props.actions || props.clamp}>
 				<ActionBar align="end">
 					<Show when={props.clamp}>
@@ -137,44 +143,63 @@ export function Attachment(props: {
 	onRemove?: () => void;
 	disabled?: boolean;
 }): JSX.Element {
+	// A project file is named by its path: the name on top, its folder under it.
+	const shownName = () =>
+		props.reference ? (props.name.split("/").pop() ?? props.name) : props.name;
+	const folder = () => {
+		if (!props.reference) return "";
+		const parts = props.name.split("/");
+		parts.pop();
+		return parts.join("/");
+	};
+	const second = () =>
+		props.error
+			? null
+			: props.progress !== undefined && props.progress < 100
+				? `${props.progress}%`
+				: props.reference
+					? folder() || "Project file"
+					: props.size !== undefined
+						? formatFileSize(props.size)
+						: null;
 	const content = () => (
 		<>
 			<Show
-				when={props.reference}
+				when={props.preview && !props.reference}
 				fallback={
-					<Show
-						when={props.preview}
-						fallback={<FileIcon size="sm" class="shrink-0 text-fg-subtle" />}
-					>
-						<img
-							src={props.preview}
-							alt={props.name}
-							class="size-8 shrink-0 rounded-kit-sm object-cover object-top"
-						/>
-					</Show>
+					<span class="grid size-9 shrink-0 place-items-center rounded-kit-md tint-accent">
+						<EntryIcon name={shownName()} folder={false} />
+					</span>
 				}
 			>
-				<FileIcon size="sm" class="shrink-0 text-accent" />
+				<img
+					src={props.preview}
+					alt={props.name}
+					class="size-9 shrink-0 rounded-kit-md object-cover object-top"
+				/>
 			</Show>
-			<span class="min-w-0 max-w-44 truncate md:max-w-56">{props.name}</span>
-			<Show when={props.size !== undefined && !props.reference}>
-				<span class="shrink-0 text-caption text-fg-subtle">{formatFileSize(props.size ?? 0)}</span>
-			</Show>
-			<Show when={props.progress !== undefined && props.progress < 100 && !props.error}>
-				<span class="shrink-0 text-caption text-accent tabular-nums">{props.progress}%</span>
-			</Show>
-			<Show when={props.error}>
-				<span class="shrink-0 text-caption text-danger" title={props.error ?? undefined}>
-					{props.error}
+			<span class="flex min-w-0 flex-col">
+				<span class="min-w-0 max-w-40 truncate text-fg md:max-w-52" title={props.name}>
+					{shownName()}
 				</span>
-			</Show>
+				<Show when={second()}>
+					{(line) => (
+						<span class="truncate text-caption text-fg-subtle tabular-nums">{line()}</span>
+					)}
+				</Show>
+				<Show when={props.error}>
+					<span class="truncate text-caption text-danger" title={props.error ?? undefined}>
+						{props.error}
+					</span>
+				</Show>
+			</span>
 		</>
 	);
 
 	return (
 		<span
-			class={`relative inline-flex min-h-11 max-w-full items-center gap-1.5 overflow-hidden rounded-kit surface-outline px-2 text-body text-fg-muted md:max-w-80 ${
-				props.error ? "bg-danger/5 ring-danger/30" : ""
+			class={`relative inline-flex min-h-12 max-w-full items-center gap-1 overflow-hidden rounded-kit-lg py-1.5 pr-1 pl-1.5 text-body md:max-w-80 ${
+				props.error ? "bg-danger/8 ring-1 ring-danger/30" : "bg-fill"
 			}`}
 		>
 			<Show
@@ -182,13 +207,13 @@ export function Attachment(props: {
 				fallback={
 					<Show
 						when={props.onOpen}
-						fallback={<span class="flex min-w-0 items-center gap-1.5 py-1">{content()}</span>}
+						fallback={<span class="flex min-w-0 items-center gap-2.5 pr-1">{content()}</span>}
 					>
 						<button
 							type="button"
 							onClick={() => props.onOpen?.()}
 							disabled={props.disabled}
-							class="focus-ring flex min-h-11 min-w-0 items-center gap-1.5 py-1 text-left"
+							class="focus-ring flex min-w-0 items-center gap-2.5 rounded-kit-md pr-1 text-left"
 						>
 							{content()}
 						</button>
@@ -199,7 +224,7 @@ export function Attachment(props: {
 					href={props.href}
 					target="_blank"
 					rel="noopener noreferrer"
-					class="focus-ring flex min-h-11 min-w-0 items-center gap-1.5 py-1 text-left"
+					class="focus-ring flex min-w-0 items-center gap-2.5 rounded-kit-md pr-1 text-left"
 				>
 					{content()}
 				</a>
@@ -221,7 +246,7 @@ export function Attachment(props: {
 					aria-label={`Remove ${props.name}`}
 					disabled={props.disabled}
 					onClick={() => props.onRemove?.()}
-					class="focus-ring grid size-8 shrink-0 place-items-center rounded-kit hover:bg-fill disabled:opacity-40 pointer-coarse:size-11"
+					class="focus-ring grid size-7 shrink-0 place-items-center rounded-full text-fg-subtle hover:bg-fill-strong hover:text-fg disabled:opacity-40 pointer-coarse:size-10"
 				>
 					<CloseIcon size="sm" />
 				</button>
@@ -290,13 +315,14 @@ export function DiffCard(props: {
 	const added = () => props.added ?? props.lines.filter((line) => line.kind === "add").length;
 	const removed = () => props.removed ?? props.lines.filter((line) => line.kind === "del").length;
 	return (
-		<figure class="min-w-0 overflow-hidden rounded-kit-lg ring-line">
-			<figcaption class="flex h-9 min-w-0 items-center gap-2 border-line border-b bg-fill px-3 text-caption">
-				<FileIcon size="sm" class="text-fg-subtle" />
-				<span class="min-w-0 flex-1 truncate font-mono text-fg-muted" title={props.path}>
+		<figure class="min-w-0 overflow-hidden rounded-kit-lg ring-line-strong">
+			<figcaption class="flex h-11 min-w-0 items-center gap-2 border-line border-b bg-surface px-3.5 text-body">
+				<FileIcon size="sm" class="text-accent" />
+				<span class="min-w-0 truncate font-medium text-fg" title={props.path}>
 					{props.path.replace(/^\/home\/[^/]+/, "~")}
 				</span>
 				<DiffStat added={added()} removed={removed()} />
+				<span class="flex-1" />
 			</figcaption>
 			<Show
 				when={props.lines.length > 0}
@@ -369,5 +395,89 @@ export function DiffCard(props: {
 				</Show>
 			</Show>
 		</figure>
+	);
+}
+
+/**
+ * Who answered (the Figma thread's agent line): the agent's logo on a small tile, its name, the
+ * model in the quiet ink, and when, on the right.
+ */
+export function AgentHeader(props: {
+	logo: JSX.Element;
+	name: string;
+	model?: string;
+	time?: string;
+}): JSX.Element {
+	return (
+		<div class="flex min-w-0 items-center gap-2.5">
+			<span class="grid size-7 shrink-0 place-items-center rounded-kit bg-surface ring-line-strong [&>*]:size-4">
+				{props.logo}
+			</span>
+			<span class="min-w-0 truncate font-medium text-body text-fg">{props.name}</span>
+			<Show when={props.model}>
+				<span class="truncate text-body text-fg-subtle">{props.model}</span>
+			</Show>
+			<span class="flex-1" />
+			<Show when={props.time}>
+				<span class="shrink-0 text-caption text-fg-subtle">{props.time}</span>
+			</Show>
+		</div>
+	);
+}
+
+/**
+ * A thread's title over what it is about (the Figma thread header): a 24px title with a status
+ * on its right, then a row of quiet facts, each with its glyph (branch, machine, agent, started).
+ */
+export function ThreadHeader(props: {
+	title: string;
+	status?: JSX.Element;
+	facts: readonly { icon: JSX.Element; label: string }[];
+}): JSX.Element {
+	return (
+		<header class="flex flex-col gap-2 pb-2">
+			<div class="flex items-start gap-3">
+				<h1 class="min-w-0 flex-1 font-medium text-fg text-headline">{props.title}</h1>
+				<Show when={props.status}>
+					<span class="mt-1.5 shrink-0">{props.status}</span>
+				</Show>
+			</div>
+			<ul class="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-fg-muted">
+				<For each={props.facts}>
+					{(fact) => (
+						<li class="flex min-w-0 items-center gap-1.5 [&_svg]:size-3.5 [&_svg]:text-fg-subtle">
+							{fact.icon}
+							<span class="truncate">{fact.label}</span>
+						</li>
+					)}
+				</For>
+			</ul>
+		</header>
+	);
+}
+
+/** A side panel's group (the Figma Run panel): a quiet label, then label–value rows. */
+export function FactGroup(props: {
+	label: string;
+	rows?: readonly { label: string; value: JSX.Element }[];
+	children?: JSX.Element;
+}): JSX.Element {
+	return (
+		<section class="flex flex-col gap-2 border-line border-b px-4 py-4 last:border-b-0">
+			<h3 class="text-caption text-fg-subtle">{props.label}</h3>
+			<Show when={props.rows?.length}>
+				<dl class="flex flex-col gap-2">
+					<For each={props.rows}>
+						{(row) => (
+							<div class="flex items-center justify-between gap-3 text-caption">
+								<dt class="text-fg-subtle">{row.label}</dt>
+								<dd class="min-w-0 truncate text-fg">{row.value}</dd>
+							</div>
+						)}
+					</For>
+				</dl>
+			</Show>
+			{props.children}
+		</section>
 	);
 }

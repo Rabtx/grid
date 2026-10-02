@@ -23,6 +23,8 @@ export type EngineHandlers = {
 	/** Listening stopped, after the last `onFinal`. */
 	onEnd: () => void;
 	onError: (error: DictationError) => void;
+	/** How loud the microphone is, 0 to 1, a few times a second (runner engine only). */
+	onLevel?: (level: number) => void;
 };
 
 export type Engine = { kind: EngineKind; stop: () => void; cancel: () => void };
@@ -138,6 +140,41 @@ function recordingType(): string | undefined {
 	return undefined;
 }
 
+/**
+ * Read the microphone's loudness while it records, for the composer's waveform: the RMS of each
+ * frame, eased so speech fills the bar. Returns the stop function. Silently does nothing where
+ * the browser has no Web Audio.
+ */
+function meter(stream: MediaStream, onLevel: (level: number) => void): () => void {
+	const Context =
+		globalThis.AudioContext ??
+		(globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+	if (!Context) return () => {};
+	let context: AudioContext;
+	try {
+		context = new Context();
+	} catch {
+		return () => {};
+	}
+	// Created after the microphone prompt, so some browsers (Safari) start it suspended.
+	void context.resume().catch(() => {});
+	const analyser = context.createAnalyser();
+	analyser.fftSize = 512;
+	context.createMediaStreamSource(stream).connect(analyser);
+	const samples = new Float32Array(analyser.fftSize);
+	const timer = setInterval(() => {
+		analyser.getFloatTimeDomainData(samples);
+		let sum = 0;
+		for (const sample of samples) sum += sample * sample;
+		const rms = Math.sqrt(sum / samples.length);
+		onLevel(Math.min(1, Math.sqrt(rms) * 1.6));
+	}, 80);
+	return () => {
+		clearInterval(timer);
+		void context.close().catch(() => {});
+	};
+}
+
 export async function startRunnerEngine(
 	transcribe: (audio: Blob) => Promise<string>,
 	handlers: EngineHandlers,
@@ -153,6 +190,7 @@ export async function startRunnerEngine(
 	}
 	const type = recordingType();
 	const recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+	const stopMeter = handlers.onLevel ? meter(stream, handlers.onLevel) : () => {};
 	const chunks: Blob[] = [];
 	let cancelled = false;
 
@@ -160,6 +198,7 @@ export async function startRunnerEngine(
 		if (event.data.size > 0) chunks.push(event.data);
 	};
 	recorder.onstop = () => {
+		stopMeter();
 		for (const track of stream.getTracks()) track.stop();
 		if (cancelled || chunks.length === 0) {
 			handlers.onEnd();

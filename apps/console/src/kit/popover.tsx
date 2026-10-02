@@ -1,7 +1,15 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, createUniqueId, Show } from "solid-js";
+import {
+	createContext,
+	createEffect,
+	createSignal,
+	createUniqueId,
+	Show,
+	useContext,
+} from "solid-js";
 
 import type { MenuPoint } from "./context-menu";
+import { CloseIcon } from "./icons";
 
 export type Placement = "bottom-start" | "bottom-end" | "top-start" | "top-end";
 
@@ -19,6 +27,12 @@ const AREA: Record<Placement, string> = {
 	"top-start": "md:[position-area:block-start_span-inline-end] md:-mt-1.5",
 	"top-end": "md:[position-area:block-start_span-inline-start] md:-mt-1.5",
 };
+
+/**
+ * What popovers inside it open against, instead of their trigger: the composer, so a menu on its
+ * toolbar opens above the whole card (Figma 10 · Composer) rather than over its text.
+ */
+export const PopoverAnchor = createContext<() => HTMLElement | undefined>(() => undefined);
 
 const anchoring = () =>
 	typeof CSS !== "undefined" &&
@@ -44,12 +58,15 @@ export function Popover(props: {
 	 * press on the row instead, as native lists do, so no dots are drawn there.
 	 */
 	pointerOnly?: boolean;
+	/** The phone sheet's heading, with a close button beside it (Figma's sheets). */
+	title?: string;
 	children: (close: () => void) => JSX.Element;
 }): JSX.Element {
 	const uid = createUniqueId().replace(/[^a-zA-Z0-9_-]/g, "");
 	const id = `kit-popover-${uid}`;
 	const anchor = `--kit-anchor-${uid}`;
 	const anchored = anchoring();
+	const surround = useContext(PopoverAnchor);
 	const [open, setOpen] = createSignal(false);
 	let trigger: HTMLButtonElement | undefined;
 	let panel: (HTMLDivElement & { hidePopover?: () => void; showPopover?: () => void }) | undefined;
@@ -75,17 +92,54 @@ export function Popover(props: {
 			panel.style.left = `${Math.max(8, Math.min(at.x, innerWidth - box.width - 8))}px`;
 			return;
 		}
-		if (anchored || !trigger) return;
+		const around = surround();
+		if ((anchored && !around) || !trigger) return;
 		const rect = trigger.getBoundingClientRect();
-		const box = panel.getBoundingClientRect();
 		const placement = props.placement ?? "bottom-start";
-		const top = placement.startsWith("top") ? rect.top - box.height - 6 : rect.bottom + 6;
-		const left = placement.endsWith("end") ? rect.right - box.width : rect.left;
 		panel.style.position = "fixed";
 		panel.style.margin = "0";
+		panel.style.setProperty("position-area", "none");
+		if (around) {
+			// Against the surrounding card (the composer): its bottom edge held just above the card,
+			// so it stays put as its content changes, or under the card when there is more room
+			// there. It scrolls inside rather than cover the card.
+			panel.style.maxHeight = "";
+			panel.style.top = "";
+			panel.style.bottom = "";
+			const edge = around.getBoundingClientRect();
+			const natural = panel.getBoundingClientRect().height;
+			const above = edge.top - 16;
+			const below = innerHeight - edge.bottom - 16;
+			const up = placement.startsWith("top")
+				? natural <= above || above >= below
+				: natural > below && above > below;
+			if (up) {
+				panel.style.top = "auto";
+				panel.style.bottom = `${innerHeight - edge.top + 8}px`;
+				panel.style.maxHeight = `${Math.max(120, above)}px`;
+			} else {
+				panel.style.top = `${edge.bottom + 8}px`;
+				panel.style.maxHeight = `${Math.max(120, below)}px`;
+			}
+			const width = panel.getBoundingClientRect().width;
+			const left = placement.endsWith("end") ? rect.right - width : rect.left;
+			panel.style.left = `${Math.max(8, Math.min(left, innerWidth - width - 8))}px`;
+			return;
+		}
+		const box = panel.getBoundingClientRect();
+		const top = placement.startsWith("top") ? rect.top - box.height - 6 : rect.bottom + 6;
+		const left = placement.endsWith("end") ? rect.right - box.width : rect.left;
 		panel.style.top = `${Math.max(8, Math.min(top, innerHeight - box.height - 8))}px`;
 		panel.style.left = `${Math.max(8, Math.min(left, innerWidth - box.width - 8))}px`;
 	}
+
+	// Measured placement follows the window as it resizes.
+	createEffect(open, (isOpen) => {
+		if (!isOpen) return;
+		const again = () => place();
+		addEventListener("resize", again);
+		return () => removeEventListener("resize", again);
+	});
 
 	return (
 		<>
@@ -116,7 +170,15 @@ export function Popover(props: {
 					if (isOpen) requestAnimationFrame(place);
 					else {
 						at = null;
-						for (const property of ["position", "margin", "top", "left", "position-area"])
+						for (const property of [
+							"position",
+							"margin",
+							"top",
+							"left",
+							"position-area",
+							"max-height",
+							"bottom",
+						])
 							panel?.style.removeProperty(property);
 						if (trigger && !trigger.disabled) trigger.focus();
 					}
@@ -128,6 +190,19 @@ export function Popover(props: {
 					aria-hidden="true"
 					class="mx-auto mt-2 mb-1 h-1 w-9 rounded-full bg-fill-strong md:hidden"
 				/>
+				<Show when={props.title && open()}>
+					<div class="flex items-center justify-between gap-3 px-4 pt-1 pb-2 md:hidden">
+						<h2 class="font-medium text-body-lg text-fg">{props.title}</h2>
+						<button
+							type="button"
+							aria-label="Close"
+							onClick={() => panel?.hidePopover?.()}
+							class="surface-outline focus-ring grid size-10 shrink-0 place-items-center rounded-full text-fg-muted transition-colors duration-fast hover:text-fg"
+						>
+							<CloseIcon size="sm" />
+						</button>
+					</div>
+				</Show>
 				<Show when={open()}>{props.children(() => panel?.hidePopover?.())}</Show>
 			</div>
 		</>

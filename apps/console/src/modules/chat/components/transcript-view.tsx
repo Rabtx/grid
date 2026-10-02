@@ -1,13 +1,24 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, Match, Show, Switch } from "solid-js";
+import {
+	createEffect,
+	createMemo,
+	createSignal,
+	For,
+	Match,
+	Show,
+	Switch,
+	untrack,
+} from "solid-js";
 
 import {
+	AgentHeader,
+	AgentLogo,
 	AgentMessage,
-	AlertIcon,
 	Badge,
 	Button,
 	CheckIcon,
 	CloseIcon,
+	CodeChip,
 	CopyIcon,
 	DecisionCard,
 	DiffCard,
@@ -26,18 +37,22 @@ import {
 	type PopoverControl,
 	Pre,
 	Prose,
-	Rail,
 	RestoreIcon,
 	RunStatus,
 	SearchIcon,
 	SpinnerIcon,
 	Stack,
+	StepGlyph,
+	type StepTone,
 	TerminalIcon,
-	Text,
 	ToolIcon,
 	TurnHeader,
 	UserMessage,
+	WorkCard,
+	WorkStep,
 } from "@/kit";
+
+import { relativeTime } from "@/modules/projects/lib/relative-time";
 
 import { diffRows } from "../lib/diff";
 import { copyCodeFrom, renderMarkdown } from "../lib/markdown";
@@ -49,7 +64,6 @@ import {
 	type Row as TranscriptRow,
 	summariseTools,
 	toolFile,
-	toolTag,
 	type Turn,
 } from "../lib/transcript";
 import type { ChatAttachment, FileDiff, ToolKind } from "../types/chat.types";
@@ -118,12 +132,21 @@ function useNow(active: () => boolean): () => number {
 	return now;
 }
 
+/** Who works this thread and who asks: for the agent's line and the message's sender. */
+export type ThreadPeople = {
+	agentId: string;
+	agentName: string;
+	model?: string;
+	you: string;
+};
+
 /**
- * The conversation, turn by turn: what you asked in a soft card, how long the agent has been
- * working (or took), its steps as quiet lines, its reply, and Done when it finished.
+ * The conversation, turn by turn: what you asked on the right, the agent's line, its steps as one
+ * card with the change that matters most under it, and its reply.
  */
 export function TranscriptView(props: {
 	loadAttachment?: LoadAttachment;
+	people?: ThreadPeople;
 	blocks: Block[];
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
@@ -141,6 +164,7 @@ export function TranscriptView(props: {
 				{(turn, index) => (
 					<TurnView
 						turn={turn()}
+						people={props.people}
 						loadAttachment={props.loadAttachment}
 						live={props.running && index === turns().length - 1}
 						blocks={props.blocks}
@@ -157,6 +181,7 @@ export function TranscriptView(props: {
 
 function TurnView(props: {
 	loadAttachment?: LoadAttachment;
+	people?: ThreadPeople;
 	turn: Turn;
 	/** The agent is working on this turn now. */
 	live: boolean;
@@ -181,20 +206,58 @@ function TurnView(props: {
 				{(user) => (
 					<UserMessageView
 						text={user().text}
+						meta={
+							props.people
+								? [props.people.you, user().startedAt ? relativeTime(user().startedAt ?? "") : null]
+										.filter(Boolean)
+										.join(" · ")
+								: undefined
+						}
 						attachments={user().attachments}
 						loadAttachment={props.loadAttachment}
 						onNote={props.onNote}
 					/>
 				)}
 			</Show>
-			<Show when={header()}>{(line) => <TurnHeader live={props.live}>{line()}</TurnHeader>}</Show>
+			{/* No steps to carry the turn's time (a plain answer, or still thinking): it gets its own line. */}
+			<Show
+				when={props.live || !props.turn.rows.some((row) => row.kind === "work") ? header() : null}
+			>
+				{(line) => <TurnHeader live={props.live}>{line()}</TurnHeader>}
+			</Show>
+			<Show when={props.people && props.turn.rows.length > 0 ? props.people : null}>
+				{(people) => (
+					<div class="pt-3">
+						<AgentHeader
+							logo={<AgentLogo id={people().agentId} name={people().agentName} />}
+							name={people().agentName}
+							model={people().model}
+							time={
+								props.turn.user?.endedAt
+									? relativeTime(props.turn.user.endedAt)
+									: props.live
+										? "now"
+										: undefined
+							}
+						/>
+					</div>
+				)}
+			</Show>
 			<For each={props.turn.rows} keyed={false}>
 				{(row) => (
 					<Switch>
 						<Match
 							when={row().kind === "work" && (row() as Extract<TranscriptRow, { kind: "work" }>)}
 						>
-							{(work) => <WorkGroup tools={work().tools} />}
+							{(work) => (
+								<WorkGroup
+									tools={work().tools}
+									live={props.live}
+									title={
+										props.turn.rows.find((item) => item.kind === "work") === row() ? header() : null
+									}
+								/>
+							)}
 						</Match>
 						<Match
 							when={
@@ -215,9 +278,6 @@ function TurnView(props: {
 					</Switch>
 				)}
 			</For>
-			<Show when={!props.live && props.turn.user?.outcome === "done"}>
-				<RunStatus status="done">Done</RunStatus>
-			</Show>
 		</section>
 	);
 }
@@ -286,12 +346,11 @@ function BlockView(props: {
 				}
 			>
 				{(approval) => (
-					<Stack gap={2}>
-						<Show when={approval().resolved === undefined}>
-							<RunStatus status="waiting">Needs your input</RunStatus>
-						</Show>
+					// A waiting approval is docked over the composer (Conversation); answered ones stay
+					// here as part of the record.
+					<Show when={approval().resolved !== undefined}>
 						<ApprovalCard approval={approval()} onApprove={props.onApprove} />
-					</Stack>
+					</Show>
 				)}
 			</Match>
 			<Match
@@ -380,6 +439,7 @@ function TouchMenu(props: {
 /** What you sent: a right-aligned bubble, clamped to four lines until opened, with copy & note actions. */
 function UserMessageView(props: {
 	text: string;
+	meta?: string;
 	attachments?: ChatAttachment[];
 	loadAttachment?: LoadAttachment;
 	onNote?: (text: string) => void;
@@ -403,6 +463,7 @@ function UserMessageView(props: {
 				}}
 			/>
 			<UserMessage
+				meta={props.meta}
 				attachmentContent={
 					<Show when={props.attachments?.length}>
 						<MessageAttachments attachments={props.attachments ?? []} load={props.loadAttachment} />
@@ -508,119 +569,169 @@ function FileChange(props: { diff: FileDiff }): JSX.Element {
 	);
 }
 
+/** How each kind of step is drawn: its glyph and tint. */
+function stepLook(tool: ToolBlock): { tone: StepTone; glyph: () => JSX.Element; verb: string } {
+	const created =
+		tool.tool === "edit" &&
+		(tool.diffs ?? []).length > 0 &&
+		(tool.diffs ?? []).every((diff) => diff.removed === 0) &&
+		/^(write|create)/i.test(tool.title);
+	if (tool.status === "failed")
+		return { tone: "danger", glyph: () => <CloseIcon />, verb: toolParts(tool)[0] };
+	if (created) return { tone: "success", glyph: () => <NoteAddIcon />, verb: "Created" };
+	switch (tool.tool) {
+		case "edit":
+			return { tone: "accent", glyph: () => <EditIcon />, verb: "Edited" };
+		case "execute":
+			return { tone: "violet", glyph: () => <TerminalIcon />, verb: "Ran" };
+		case "fetch":
+			return { tone: "accent", glyph: () => <GlobeIcon />, verb: toolParts(tool)[0] };
+		default:
+			return { tone: "neutral", glyph: TOOL_ICONS[tool.tool], verb: toolParts(tool)[0] };
+	}
+}
+
+/** What a step reports on the right: lines changed, or a command's last line. */
+function stepFigure(tool: ToolBlock): JSX.Element | undefined {
+	const diffs = tool.diffs;
+	if (diffs?.length) {
+		const added = diffs.reduce((sum, diff) => sum + diff.added, 0);
+		const removed = diffs.reduce((sum, diff) => sum + diff.removed, 0);
+		return <DiffStat added={added} removed={removed} />;
+	}
+	if (tool.tool === "execute" && tool.output) {
+		const last = tool.output.trim().split("\n").at(-1) ?? "";
+		return last.length > 40 ? `${last.slice(0, 40)}…` : last;
+	}
+	return undefined;
+}
+
 /**
- * A run of tool calls. A few show as they are, one quiet line each; a long run folds into one
- * counted line — "18 steps, edited 5 files, ran 2 commands" — that opens to a rail of every call.
- * While a long run works, its line is the latest call with a spinner.
+ * A run of tool calls as one card (Figma "Worked for 1m 12s · 3 steps"): the kinds of step as small
+ * tiles, the turn's time or a summary, and each step as a row that opens to its detail. A short run
+ * is open; a long one is closed to its count. After it, the biggest change it made, as a diff.
  */
-function WorkGroup(props: { tools: ToolBlock[] }): JSX.Element {
+function WorkGroup(props: {
+	tools: ToolBlock[];
+	live: boolean;
+	title: string | null;
+}): JSX.Element {
+	// A stopped or failed turn leaves its last tools "running" in the log: only a live turn spins.
 	const busy = () =>
+		props.live &&
 		props.tools.some((tool) => tool.status === "running" || tool.status === "pending");
 	const failed = () => props.tools.some((tool) => tool.status === "failed");
-	return (
-		<Show
-			when={props.tools.length > OPEN_STEPS}
-			fallback={
-				<ul class="flex flex-col">
-					<For each={props.tools} keyed={false}>
-						{(tool) => <ToolRow tool={tool()} />}
-					</For>
-				</ul>
+	// One glyph per kind of step, in the order they first happen, at most three.
+	const glyphs = () => {
+		const seen = new Map<StepTone, ToolBlock>();
+		for (const tool of props.tools) {
+			const look = stepLook(tool);
+			if (!seen.has(look.tone)) seen.set(look.tone, tool);
+		}
+		return [...seen.values()].slice(0, 3);
+	};
+	// The change worth seeing without opening anything: the edit that changed the most lines.
+	const highlight = () => {
+		if (busy()) return null;
+		// An edit to existing code says more than a new file, so it wins over a bigger new one.
+		const size = (diff: FileDiff) => diff.added + diff.removed + (diff.removed > 0 ? 10_000 : 0);
+		let best: FileDiff | null = null;
+		for (const tool of props.tools) {
+			for (const diff of tool.diffs ?? []) {
+				if (!best || size(diff) > size(best)) best = diff;
 			}
-		>
-			<Disclosure
-				chevron
-				icon={
+		}
+		return best;
+	};
+	const steps = () => `${props.tools.length} step${props.tools.length === 1 ? "" : "s"}`;
+	return (
+		<>
+			<WorkCard
+				open={untrack(() => props.tools.length <= OPEN_STEPS)}
+				glyphs={
 					<Show
-						when={busy()}
+						when={!busy()}
 						fallback={
-							<Show when={failed()} fallback={TOOL_ICONS[props.tools[0]?.tool ?? "other"]()}>
-								<AlertIcon size="sm" class="text-danger" />
-							</Show>
+							<StepGlyph tone="neutral">
+								<SpinnerIcon class="animate-spin" />
+							</StepGlyph>
 						}
 					>
-						<SpinnerIcon size="sm" class="animate-spin" />
+						<For each={glyphs()}>
+							{(tool) => {
+								const look = stepLook(tool);
+								return <StepGlyph tone={look.tone}>{look.glyph()}</StepGlyph>;
+							}}
+						</For>
 					</Show>
 				}
-				summary={
-					<Text as="span" size="inherit" tone="inherit" truncate>
-						{busy()
-							? (props.tools.at(-1)?.title ?? "Working…")
-							: props.tools.length > OPEN_STEPS * 2 &&
-								  props.tools.some((tool) => tool.tool === "edit" || tool.tool === "execute")
+				title={
+					busy()
+						? (props.tools.at(-1)?.title ?? "Working…")
+						: (props.title ??
+							(props.tools.some((tool) => tool.tool === "edit" || tool.tool === "execute")
 								? countWork(props.tools)
-								: summariseTools(props.tools)}
-					</Text>
+								: summariseTools(props.tools)))
+				}
+				detail={props.title || busy() ? steps() : undefined}
+				trailing={
+					<Show when={failed()}>
+						<Badge tone="danger">Failed</Badge>
+					</Show>
 				}
 			>
-				<Rail>
-					<For each={props.tools} keyed={false}>
-						{(tool) => <ToolRow tool={tool()} />}
-					</For>
-				</Rail>
-			</Disclosure>
-		</Show>
+				<For each={props.tools} keyed={false}>
+					{(tool) => <StepView tool={tool()} live={props.live} hide={highlight()} />}
+				</For>
+			</WorkCard>
+			<Show when={highlight()}>{(diff) => <FileChange diff={diff()} />}</Show>
+		</>
 	);
 }
 
-function ToolRow(props: { tool: ToolBlock }): JSX.Element {
-	const parts = () => toolParts(props.tool);
-	// Lines an edit added and removed, across its files.
-	const changed = () => {
-		const diffs = props.tool.diffs;
-		if (!diffs?.length) return null;
-		return diffs.reduce(
-			(sum, diff) => ({ added: sum.added + diff.added, removed: sum.removed + diff.removed }),
-			{ added: 0, removed: 0 },
-		);
-	};
+function StepView(props: { tool: ToolBlock; live: boolean; hide: FileDiff | null }): JSX.Element {
+	const look = () => stepLook(props.tool);
+	// The change already shown under the card is not drawn again inside its step.
+	const diffs = () => (props.tool.diffs ?? []).filter((diff) => diff !== props.hide);
+	const hasDetail = () => Boolean(props.tool.input || props.tool.output || diffs().length);
 	return (
-		<li>
-			<Disclosure
-				icon={TOOL_ICONS[props.tool.tool]()}
-				summary={
-					<>
-						<Text as="span" size="inherit" tone="subtle" class="shrink-0">
-							{parts()[0]}
-						</Text>
-						<Text as="span" tone="default" mono truncate class="flex-1 pl-1">
-							{parts()[1]}
-						</Text>
-						<Show when={changed()}>
-							{(count) => <DiffStat added={count().added} removed={count().removed} />}
-						</Show>
-						<Show when={props.tool.status === "failed"}>
-							<CloseIcon size="sm" class="text-danger" />
-						</Show>
-						<Show when={props.tool.status === "running" || props.tool.status === "pending"}>
-							<SpinnerIcon size="xs" class="animate-spin" />
-						</Show>
-					</>
-				}
-				trailing={<Show when={toolTag(props.tool)}>{(tag) => <Badge>{tag()}</Badge>}</Show>}
-			>
-				<Show when={props.tool.input || props.tool.output || props.tool.diffs?.length}>
-					<Stack gap={1.5} class="mt-1 mb-1.5">
-						<Show
-							when={!props.tool.diffs?.length}
-							fallback={<For each={props.tool.diffs}>{(diff) => <FileChange diff={diff} />}</For>}
-						>
-							<Show when={props.tool.input}>
-								<Pre tone="input">{props.tool.input}</Pre>
-							</Show>
-						</Show>
-						<Show when={props.tool.output}>
-							<Pre tone="output">{props.tool.output}</Pre>
-						</Show>
-					</Stack>
+		<WorkStep
+			glyph={
+				<Show
+					when={props.live && (props.tool.status === "running" || props.tool.status === "pending")}
+					fallback={<StepGlyph tone={look().tone}>{look().glyph()}</StepGlyph>}
+				>
+					<StepGlyph tone="neutral">
+						<SpinnerIcon class="animate-spin" />
+					</StepGlyph>
 				</Show>
-			</Disclosure>
-		</li>
+			}
+			verb={look().verb}
+			failed={props.tool.status === "failed"}
+			target={toolParts(props.tool)[1]}
+			trailing={stepFigure(props.tool)}
+		>
+			<Show when={hasDetail()}>
+				<Stack gap={1.5}>
+					<Show
+						when={!props.tool.diffs?.length}
+						fallback={<For each={diffs()}>{(diff) => <FileChange diff={diff} />}</For>}
+					>
+						<Show when={props.tool.input}>
+							<Pre tone="input">{props.tool.input}</Pre>
+						</Show>
+					</Show>
+					<Show when={props.tool.output}>
+						<Pre tone="output">{props.tool.output}</Pre>
+					</Show>
+				</Stack>
+			</Show>
+		</WorkStep>
 	);
 }
 
 /** The agent is waiting: what it wants to do, and the choices it offered. */
-function ApprovalCard(props: {
+export function ApprovalCard(props: {
 	approval: Extract<Block, { kind: "approval" }>;
 	onApprove: (id: string, optionId: string | null) => void;
 }): JSX.Element {
@@ -635,13 +746,14 @@ function ApprovalCard(props: {
 			title={props.approval.title}
 			detail={
 				<Show when={props.approval.detail}>
-					<Pre tone="input">{props.approval.detail}</Pre>
+					<CodeChip>{props.approval.detail}</CodeChip>
 				</Show>
 			}
 			options={props.approval.options.map((option) => ({
 				id: option.id,
 				label: option.label,
 				primary: option.kind !== "deny",
+				kind: option.kind,
 			}))}
 			resolved={resolved()}
 			onChoose={(id) => props.onApprove(props.approval.id, id)}

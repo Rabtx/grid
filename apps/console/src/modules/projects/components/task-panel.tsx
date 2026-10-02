@@ -4,18 +4,28 @@ import { createEffect, createSignal, Loading, Show, untrack } from "solid-js";
 
 import {
 	Alert,
+	BranchIcon,
 	Button,
 	ChatIcon,
+	CheckIcon,
 	CloseIcon,
 	ConfirmDialog,
 	Dialog,
 	EmptyState,
 	IconButton,
+	iconButton,
 	Input,
+	LinkIcon,
+	Menu,
+	MoreIcon,
+	notify,
 	PanelBar,
+	PanelFooter,
 	PropertyRow,
-	Segmented,
+	QuietInput,
 	Select,
+	SEND_BUTTON,
+	SendIcon,
 	Skeleton,
 	Stack,
 	Text,
@@ -52,9 +62,10 @@ const STATUS_GROUPS = [
 ];
 
 const OWNER_OPTIONS = [
-	{ value: "none", label: "None" },
-	{ value: "human", label: "Human" },
-	{ value: "agent", label: "Agent" },
+	{ value: "none", label: "Nobody" },
+	{ value: "me", label: "Me" },
+	{ value: "human", label: "A person" },
+	{ value: "agent", label: "An agent" },
 ] as const;
 
 type OwnerChoice = (typeof OWNER_OPTIONS)[number]["value"];
@@ -107,7 +118,12 @@ function TaskFields(props: { task: Task }): JSX.Element {
 	const [deleting, setDeleting] = createSignal(false);
 
 	const saving = () => saveCount() > 0;
-	const ownerChoice = () => ownerKind() ?? "none";
+	const me = () => auth.user()?.username ?? null;
+	// Yours when it names you: the board's "Assigned to me" matches the same way.
+	const ownerChoice = (): OwnerChoice =>
+		ownerKind() === "human" && me() !== null && ownerName().toLowerCase() === me()?.toLowerCase()
+			? "me"
+			: (ownerKind() ?? "none");
 
 	// Seeding is keyed on the task's number, not on the task object: a board refresh after a save
 	// must not overwrite an edit the user is still typing in another field. The read is untracked
@@ -166,6 +182,18 @@ function TaskFields(props: { task: Task }): JSX.Element {
 	}
 
 	async function changeOwnerKind(next: OwnerChoice): Promise<void> {
+		if (next === "me") {
+			const name = me();
+			if (!name) return;
+			const previous = { kind: props.task.owner?.kind ?? null, name: props.task.owner?.name ?? "" };
+			setOwnerKind("human");
+			setOwnerName(name);
+			await save({ ownerKind: "human", ownerName: name }, () => {
+				setOwnerKind(previous.kind);
+				setOwnerName(previous.name);
+			});
+			return;
+		}
 		const kind: TaskOwnerKind | null = next === "none" ? null : next;
 		const previous = props.task.owner?.kind ?? null;
 		if (kind === previous) return;
@@ -218,46 +246,86 @@ function TaskFields(props: { task: Task }): JSX.Element {
 		}
 	}
 
+	const [message, setMessage] = createSignal("");
+	const [copied, setCopied] = createSignal(false);
+	const ownerIsAgent = () => props.task.owner?.kind === "agent";
+	const agentName = () => (ownerIsAgent() ? props.task.owner?.name : null) ?? null;
+
+	/** Start a thread about this task: the task, then what you wrote, ready to send. */
+	function runWithAgent(note = ""): void {
+		const slug = workspace.activeSlug();
+		if (!slug) return;
+		const draft = taskDraft(props.task);
+		draftsStore.set(slug, note.trim() ? `${draft}\n\n${note.trim()}` : draft);
+		navigate(`/chat/${slug}`);
+	}
+
+	async function copyLink(): Promise<void> {
+		try {
+			await navigator.clipboard.writeText(window.location.href);
+			setCopied(true);
+			setTimeout(() => setCopied(false), 1500);
+		} catch {
+			notify({ title: "Could not copy the link", tone: "danger" });
+		}
+	}
+
 	return (
 		<div class="flex h-full min-h-0 flex-col">
 			<PanelBar
 				actions={
 					<>
-						<Button
-							size="sm"
-							icon={<ChatIcon size="sm" />}
-							onClick={() => {
-								const slug = workspace.activeSlug();
-								if (!slug) return;
-								draftsStore.set(slug, taskDraft(props.task));
-								navigate(`/chat/${slug}`);
-							}}
-						>
-							Run with agent
-						</Button>
 						<IconButton
 							size="sm"
-							variant="danger"
-							label="Delete task"
-							onClick={() => setConfirming(true)}
+							label={copied() ? "Link copied" : "Copy link"}
+							onClick={() => void copyLink()}
 						>
-							<TrashIcon />
+							<Show when={copied()} fallback={<LinkIcon />}>
+								<CheckIcon />
+							</Show>
 						</IconButton>
+						<Menu
+							label={`Actions for ${props.task.key}`}
+							trigger={<MoreIcon />}
+							triggerClass={iconButton({ size: "sm" })}
+							placement="bottom-end"
+							groups={[
+								{
+									items: [{ id: "run", label: "Run with agent", icon: <ChatIcon size="sm" /> }],
+								},
+								{
+									items: [
+										{
+											id: "delete",
+											label: "Delete task",
+											icon: <TrashIcon size="sm" />,
+											danger: true,
+										},
+									],
+								},
+							]}
+							onSelect={(id) => {
+								if (id === "run") runWithAgent();
+								else if (id === "delete") setConfirming(true);
+							}}
+						/>
 						<IconButton size="sm" label="Close task" onClick={workspace.closeTask}>
 							<CloseIcon />
 						</IconButton>
 					</>
 				}
 			>
-				<Text as="span" size="caption" tone="subtle" mono class="shrink-0">
+				<Text as="span" size="body" tone="strong" mono class="shrink-0">
 					{props.task.key}
 				</Text>
-				<Text as="span" size="caption" tone="faint" truncate>
-					{saving() ? "Saving…" : `Updated ${relativeTime(props.task.updatedAt)}`}
+				<Text as="span" size="caption" tone="subtle" truncate>
+					{saving()
+						? "Saving…"
+						: `${TASK_STATUS_LABELS[status()]} · updated ${relativeTime(props.task.updatedAt)}`}
 				</Text>
 			</PanelBar>
 
-			<Stack gap={4} class="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
+			<Stack gap={5} class="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
 				<Show when={error()}>
 					{(message) => <Alert tone="danger" title={message()} onDismiss={() => setError(null)} />}
 				</Show>
@@ -272,47 +340,49 @@ function TaskFields(props: { task: Task }): JSX.Element {
 					maxlength={200}
 				/>
 
-				<Stack gap={3}>
+				<Stack gap={1}>
 					<PropertyRow label="Status">
-						<div class="w-full min-w-0 md:w-56">
-							<Select<TaskStatus>
-								label="Status"
-								groups={STATUS_GROUPS}
-								value={status()}
-								onChange={(value) => void changeStatus(value)}
-							/>
-						</div>
+						<Select<TaskStatus>
+							label="Status"
+							look="chip"
+							groups={STATUS_GROUPS}
+							value={status()}
+							onChange={(value) => void changeStatus(value)}
+						/>
 					</PropertyRow>
 
-					<PropertyRow label="Owner">
-						<Segmented<OwnerChoice>
-							label="Owner"
-							options={OWNER_OPTIONS}
+					<PropertyRow label="Assignee">
+						<Select<OwnerChoice>
+							label="Assignee"
+							look="chip"
+							groups={[{ options: OWNER_OPTIONS.map((option) => ({ ...option })) }]}
 							value={ownerChoice()}
 							onChange={(next) => void changeOwnerKind(next)}
 						/>
 						<Show when={ownerKind()}>
-							<Input
+							<QuietInput
 								value={ownerName()}
 								onInput={(event) => setOwnerName(event.currentTarget.value)}
 								onBlur={() => void commitOwnerName()}
 								onKeyDown={saveOnEnter}
-								aria-label="Owner name"
-								placeholder={ownerKind() === "agent" ? "Agent name" : "Person's name"}
-								class="w-full min-w-0 md:w-48"
+								aria-label={ownerKind() === "agent" ? "Agent name" : "Person's name"}
+								placeholder={ownerKind() === "agent" ? "Which agent" : "Who"}
 							/>
 						</Show>
 					</PropertyRow>
 
 					<PropertyRow label="Branch">
-						<Input
+						<span class="shrink-0 text-fg-subtle [&_svg]:size-4">
+							<BranchIcon />
+						</span>
+						<QuietInput
 							value={branch()}
 							onInput={(event) => setBranch(event.currentTarget.value)}
 							onBlur={() => void commitBranch()}
 							onKeyDown={saveOnEnter}
 							aria-label="Branch"
-							placeholder="agent/role/card-slug"
-							class="w-full min-w-0 font-mono"
+							placeholder="No branch yet"
+							class="font-mono"
 						/>
 					</PropertyRow>
 				</Stack>
@@ -327,6 +397,35 @@ function TaskFields(props: { task: Task }): JSX.Element {
 					rows={6}
 				/>
 			</Stack>
+
+			{/* Ask an agent about the task (Figma's message box): it opens a thread with the task in it. */}
+			<PanelFooter
+				onSubmit={() => {
+					if (!message().trim()) return;
+					runWithAgent(message());
+					setMessage("");
+				}}
+			>
+				<Input
+					shape="pill"
+					value={message()}
+					onInput={(event) => setMessage(event.currentTarget.value)}
+					aria-label="Message an agent about this task"
+					placeholder={
+						agentName()
+							? `Message ${agentName()} about this task…`
+							: "Ask an agent about this task…"
+					}
+				/>
+				<button
+					type="submit"
+					aria-label="Start a thread"
+					disabled={!message().trim()}
+					class={SEND_BUTTON}
+				>
+					<SendIcon />
+				</button>
+			</PanelFooter>
 
 			<ConfirmDialog
 				open={confirming()}

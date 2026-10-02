@@ -1,84 +1,103 @@
-import { useLocation } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, For, Loading, Show } from "solid-js";
+import { Loading, Show } from "solid-js";
 
 import {
-	BoardIcon,
-	ClockIcon,
 	CloseIcon,
-	Count,
-	EditIcon,
-	FileIcon,
 	IconButton,
-	InboxIcon,
-	Kbd,
-	NavButton,
-	NavLink,
+	LaptopIcon,
+	MachineCard,
 	NavSection,
-	NoteIcon,
+	PanelHeader,
 	PlusIcon,
-	PullRequestIcon,
-	Row,
 	SearchIcon,
 	Skeleton,
 	Stack,
-	TerminalIcon,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
-import { useAuth } from "@/modules/auth";
-import { inboxStore } from "@/modules/inbox";
+import { runnerUp } from "@/lib/runner-health";
 import { useWorkspace } from "@/modules/projects";
 import { WorkspaceSwitcher } from "@/modules/workspaces";
 
 import { useShell } from "../context/shell-context";
 
-import { AccountMenu } from "./account-menu";
 import { ProjectTree } from "./project-tree";
 
-/** The pages every project has, listed once at the top rather than under each project. */
-const PROJECT_PAGES = [
-	{ path: "board", label: "Board", icon: () => <BoardIcon /> },
-	{ path: "files", label: "Files", icon: () => <FileIcon /> },
-	{ path: "pulls", label: "Pull requests", icon: () => <PullRequestIcon /> },
-	{ path: "notes", label: "Notes", icon: () => <NoteIcon /> },
-] as const;
+// The panel is titled by the rail destination you are on, as the Figma panel header is.
+const SECTIONS: [prefix: string, title: string][] = [
+	["/home", "Home"],
+	["/inbox", "Inbox"],
+	["/chat", "Threads"],
+	["/board", "Board"],
+	["/files", "Files"],
+	["/notes", "Notes"],
+	["/terminal", "Terminal"],
+	["/pulls", "Pull requests"],
+	["/automations", "Automations"],
+	["/settings", "Settings"],
+];
+
+export function sectionTitle(path: string): string {
+	return (
+		SECTIONS.find(([prefix]) => path === prefix || path.startsWith(`${prefix}/`))?.[1] ?? "Grid"
+	);
+}
+
+/** The panel's default body: the workspace's projects, each with its threads. */
+function ProjectsBody(): JSX.Element {
+	const workspace = useWorkspace();
+	return (
+		<div class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-2">
+			<NavSection
+				label="Projects"
+				action={
+					<IconButton
+						size="sm"
+						label="Open a folder as a project"
+						onClick={() => workspace.setAddProjectOpen(true)}
+					>
+						<PlusIcon size="sm" />
+					</IconButton>
+				}
+			>
+				<Loading
+					fallback={
+						<Stack gap={1}>
+							<Skeleton class="h-8" />
+							<Skeleton class="h-8" />
+						</Stack>
+					}
+				>
+					<ProjectTree />
+				</Loading>
+			</NavSection>
+		</div>
+	);
+}
 
 /**
- * The navigation: the workspace and its switcher, the everyday destinations (a project's board,
- * files, pull requests and notes among them, for the project you are in), the workspace's
- * projects with their threads, and who is signed in. The same component is the
- * desktop column and the phone drawer.
+ * The panel beside the rail (the Figma Grid/Sidebar/Panel): the section's name with search and a
+ * new thread, the workspace and its projects with their threads, and this machine at the foot.
+ * The same component is the desktop column and, beside the rail, the phone drawer.
  */
 export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 	const shell = useShell();
 	const workspace = useWorkspace();
-	const auth = useAuth();
 	const location = useLocation();
-	const newChat = () => {
+	const navigate = useNavigate();
+	const newThread = () => {
 		const slug = workspace.currentSlug();
-		return slug ? `/chat/${slug}` : "/chat";
+		navigate(slug ? `/chat/${slug}` : "/chat");
 	};
-	// A project's pages open on the project you are in; each page switches project from its bar.
-	const pageHref = (path: string) => {
-		const slug = workspace.currentSlug();
-		return slug ? `/${path}/${slug}` : "/board";
-	};
-	// The count of what is waiting, which the Inbox and its own actions keep true. Read once per
-	// sign-in: push already tells someone about a new item, and a stale count is not worth a poll.
-	createEffect(
-		() => auth.token(),
-		(token) => {
-			if (token) void inboxStore.count(token);
-		},
-	);
-
 	return (
-		<nav aria-label="Navigation" class="flex h-full min-h-0 flex-col">
-			<Row gap={1} class="h-12 shrink-0 px-2 pointer-coarse:h-14">
-				<WorkspaceSwitcher />
-				<Show
-					when={props.onClose}
-					fallback={
+		<nav aria-label="Workspace" class="flex h-full min-h-0 flex-col">
+			<PanelHeader
+				title={sectionTitle(location.pathname)}
+				actions={
+					<Show
+						when={props.onClose || !shell.panelActions()}
+						fallback={<>{shell.panelActions()?.()}</>}
+					>
 						<IconButton
 							label="Search"
 							shortcut="Mod K"
@@ -87,100 +106,43 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 						>
 							<SearchIcon />
 						</IconButton>
-					}
-				>
-					{(close) => (
-						<IconButton label="Close" onClick={() => close()()}>
-							<CloseIcon size="lg" />
-						</IconButton>
-					)}
-				</Show>
-			</Row>
-
-			<Stack gap={0.5} class="shrink-0 px-2 pb-4">
-				<Loading fallback={<Skeleton class="h-8" />}>
-					<NavLink
-						href={workspaceHref(newChat())}
-						icon={<EditIcon />}
-						label="New chat"
-						current={location.pathname === newChat()}
-					/>
-				</Loading>
-				<Show when={props.onClose}>
-					<NavButton
-						icon={<SearchIcon />}
-						label="Search"
-						onClick={() => shell.setPaletteOpen(true)}
-					/>
-				</Show>
-				<NavLink
-					href={workspaceHref("/inbox")}
-					icon={<InboxIcon />}
-					label="Inbox"
-					current={location.pathname.startsWith("/inbox")}
-					trailing={
-						<Show when={inboxStore.unread() > 0}>
-							<Count>{inboxStore.unread() > 99 ? "99+" : inboxStore.unread()}</Count>
-						</Show>
-					}
-				/>
-				<NavLink
-					href={workspaceHref("/automations")}
-					icon={<ClockIcon />}
-					label="Automations"
-					current={location.pathname.startsWith("/automations")}
-				/>
-				<For each={PROJECT_PAGES}>
-					{(page) => (
-						<NavLink
-							href={workspaceHref(pageHref(page.path))}
-							icon={page.icon()}
-							label={page.label}
-							current={location.pathname.startsWith(`/${page.path}/`)}
-						/>
-					)}
-				</For>
-				<NavLink
-					href={workspaceHref("/terminal")}
-					icon={<TerminalIcon />}
-					label="Terminal"
-					current={location.pathname.startsWith("/terminal")}
-					trailing={
-						<Show when={!props.onClose}>
-							<Kbd>g t</Kbd>
-						</Show>
-					}
-				/>
-			</Stack>
-
-			<div class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2 pb-2">
-				<NavSection
-					label="Projects"
-					action={
-						<IconButton
-							size="sm"
-							label="Open a folder as a project"
-							onClick={() => workspace.setAddProjectOpen(true)}
+						<Show
+							when={props.onClose}
+							fallback={
+								<IconButton label="New thread" size="sm" onClick={newThread}>
+									<PlusIcon />
+								</IconButton>
+							}
 						>
-							<PlusIcon size="sm" />
-						</IconButton>
-					}
-				>
-					<Loading
-						fallback={
-							<Stack gap={1}>
-								<Skeleton class="h-8" />
-								<Skeleton class="h-8" />
-							</Stack>
-						}
-					>
-						<ProjectTree />
-					</Loading>
-				</NavSection>
-			</div>
+							{(close) => (
+								<IconButton label="Close" size="sm" onClick={() => close()()}>
+									<CloseIcon />
+								</IconButton>
+							)}
+						</Show>
+					</Show>
+				}
+			/>
 
+			<div class="shrink-0 px-2 pt-2">
+				<WorkspaceSwitcher />
+			</div>
+			<Show when={shell.panel()} fallback={<ProjectsBody />}>
+				{(panel) => (
+					<div class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-2">
+						{panel()()}
+					</div>
+				)}
+			</Show>
 			<div class="shrink-0 p-2 pb-safe">
-				<AccountMenu />
+				{/* The runner this console drives: whether it is online, and the way to every machine. */}
+				<MachineCard
+					href={workspaceHref("/settings/environments")}
+					name="Runner"
+					detail={runnerUp() ? "Runner online" : "Runner offline"}
+					online={runnerUp()}
+					icon={<LaptopIcon />}
+				/>
 			</div>
 		</nav>
 	);

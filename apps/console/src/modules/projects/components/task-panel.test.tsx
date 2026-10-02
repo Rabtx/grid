@@ -3,6 +3,7 @@ import { render } from "@solidjs/web";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/modules/auth";
+import { ShellProvider } from "@/modules/shell";
 import { draftsStore } from "@/modules/chat/stores/drafts";
 import { WorkspaceProvider } from "../context/workspace-context";
 
@@ -140,8 +141,10 @@ describe("TaskPanel", () => {
 					<Router>
 						{(route) => (
 							<WorkspaceProvider>
-								{route.children}
-								<TaskPanel />
+								<ShellProvider>
+									{route.children}
+									<TaskPanel />
+								</ShellProvider>
 							</WorkspaceProvider>
 						)}
 					</Router>
@@ -149,6 +152,14 @@ describe("TaskPanel", () => {
 			),
 			container,
 		);
+	}
+
+	/** Opens the panel's ⋯ menu and returns its entries. */
+	async function panelMenu(): Promise<HTMLButtonElement[]> {
+		container.querySelector<HTMLButtonElement>('dialog button[aria-label^="Actions for"]')?.click();
+		await settle();
+		const panel = document.querySelector<HTMLElement>("[data-test-popover-open]");
+		return [...(panel?.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]') ?? [])];
 	}
 
 	/** Opens the status picker and returns its options. */
@@ -177,7 +188,7 @@ describe("TaskPanel", () => {
 		const branch = container.querySelector<HTMLInputElement>('input[aria-label="Branch"]');
 		expect(branch?.value).toBe("feature/first-task");
 
-		const owner = container.querySelector<HTMLInputElement>('input[aria-label="Owner name"]');
+		const owner = container.querySelector<HTMLInputElement>('input[aria-label="Person\'s name"]');
 		expect(owner?.value).toBe("Alice");
 
 		const description = container.querySelector<HTMLTextAreaElement>("textarea");
@@ -203,8 +214,8 @@ describe("TaskPanel", () => {
 		mount("/board/alpha/tasks/1");
 		await settle();
 
-		const remove = container.querySelector<HTMLButtonElement>('button[aria-label="Delete task"]');
-		expect(remove).not.toBeNull();
+		const remove = (await panelMenu()).find((item) => item.textContent?.trim() === "Delete task");
+		expect(remove).toBeDefined();
 		if (!remove) return;
 		remove.click();
 		await settle();
@@ -241,8 +252,7 @@ describe("TaskPanel", () => {
 		mount("/board/alpha/tasks/1");
 		await settle();
 
-		const panel = dialogs(container)[0];
-		const runButton = [...panel.querySelectorAll<HTMLButtonElement>("header button")].find(
+		const runButton = (await panelMenu()).find(
 			(button) => button.textContent?.trim() === "Run with agent",
 		);
 		expect(runButton).toBeDefined();
@@ -260,8 +270,7 @@ describe("TaskPanel", () => {
 		mount("/board/alpha/tasks/2");
 		await settle();
 
-		const panel = dialogs(container)[0];
-		const runButton = [...panel.querySelectorAll<HTMLButtonElement>("header button")].find(
+		const runButton = (await panelMenu()).find(
 			(button) => button.textContent?.trim() === "Run with agent",
 		);
 		expect(runButton).toBeDefined();
@@ -271,6 +280,27 @@ describe("TaskPanel", () => {
 
 		expect(draftsStore.take("alpha")).toBe(
 			"TASK-2: Second task ready for work\n\nWork on branch feature/second-task",
+		);
+		expect(container.querySelector('[data-testid="chat-screen"]')).not.toBeNull();
+	});
+
+	it("starts a thread about the task with what was written in its message box", async () => {
+		mount("/board/alpha/tasks/2");
+		await settle();
+
+		const box = container.querySelector<HTMLInputElement>(
+			'input[aria-label="Message an agent about this task"]',
+		);
+		expect(box?.placeholder).toBe("Message Morgan about this task…");
+		if (!box) return;
+		box.value = "Start with the tests";
+		box.dispatchEvent(new Event("input", { bubbles: true }));
+		await settle();
+		box.closest("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+		await settle();
+
+		expect(draftsStore.take("alpha")).toBe(
+			"TASK-2: Second task ready for work\n\nWork on branch feature/second-task\n\nStart with the tests",
 		);
 		expect(container.querySelector('[data-testid="chat-screen"]')).not.toBeNull();
 	});

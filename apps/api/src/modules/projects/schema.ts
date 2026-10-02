@@ -93,15 +93,40 @@ export const updateTaskSchema = z
 	.strict()
 	.refine((input) => Object.keys(input).length > 0, "At least one task field is required");
 
+/** The glyphs a note can wear in the list; the console draws each. */
+export const NOTE_ICONS = [
+	"note",
+	"flag",
+	"layers",
+	"rules",
+	"check",
+	"calendar",
+	"bolt",
+	"code",
+	"globe",
+	"shield",
+] as const;
+
+const noteBody = z.string().trim().min(1).max(20_000);
+const noteFlags = {
+	pinned: z.boolean().optional(),
+	shared: z.boolean().optional(),
+	icon: z.enum(NOTE_ICONS).nullable().optional(),
+};
+
 export const createNoteSchema = z
 	.object({
-		body: z.string().trim().min(1).max(20_000),
+		body: noteBody,
 		source: optionalText(200),
 		threadId: optionalText(120),
+		...noteFlags,
 	})
 	.strict();
 
-export const updateNoteSchema = z.object({ body: z.string().trim().min(1).max(20_000) }).strict();
+export const updateNoteSchema = z
+	.object({ body: noteBody.optional(), ...noteFlags })
+	.strict()
+	.refine((input) => Object.keys(input).length > 0, "At least one note field is required");
 
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;

@@ -99,7 +99,7 @@ describe("AppShell", () => {
 		// Project rows are the links that fold open.
 		const links = [
 			...container.querySelectorAll<HTMLAnchorElement>(
-				'nav[aria-label="Navigation"] a[aria-expanded]',
+				'nav[aria-label="Workspace"] a[aria-expanded]',
 			),
 		];
 		expect(links.map((link) => link.querySelector(".truncate")?.textContent)).toEqual([
@@ -107,11 +107,11 @@ describe("AppShell", () => {
 			"Beta",
 		]);
 
-		// The project in the URL is open, and the page you are on inside it is the current row.
+		// The project in the URL is open, and the rail marks the page you are on.
 		expect(links.map((link) => link.getAttribute("aria-expanded"))).toEqual(["false", "true"]);
 		const current = [
 			...container.querySelectorAll<HTMLAnchorElement>(
-				'nav[aria-label="Navigation"] a[aria-current="page"]',
+				'nav[aria-label="Destinations"] a[aria-current="page"]',
 			),
 		];
 		expect(current.map((link) => link.getAttribute("href"))).toEqual(["/board/beta"]);
@@ -190,7 +190,7 @@ describe("AppShell top bar", () => {
 		dispose();
 	});
 
-	it("gives the phone bar one action, New chat, on every screen", async () => {
+	it("gives the phone bar one action, New thread, on every screen", async () => {
 		// A phone: the desktop query does not match.
 		vi.stubGlobal("matchMedia", (query: string) => ({
 			matches: false,
@@ -200,12 +200,12 @@ describe("AppShell top bar", () => {
 		}));
 		// The board's own "New task" is in its pane header, not the phone bar.
 		const board = await mountAt("/board/beta");
-		expect(board.header.querySelector('button[aria-label="New chat"]')).not.toBeNull();
+		expect(board.header.querySelector('button[aria-label="New thread"]')).not.toBeNull();
 		expect(board.header.querySelector('button[aria-label="New task"]')).toBeNull();
 		board.dispose();
 		document.body.replaceChildren();
 		const terminal = await mountAt("/terminal");
-		expect(terminal.header.querySelector('button[aria-label="New chat"]')).not.toBeNull();
+		expect(terminal.header.querySelector('button[aria-label="New thread"]')).not.toBeNull();
 		expect(terminal.header.querySelector('button[aria-label="New task"]')).toBeNull();
 		terminal.dispose();
 	});
@@ -279,13 +279,19 @@ describe("login polish", () => {
 	function location() {
 		return container.querySelector("[data-location]")?.textContent;
 	}
-	async function signIn() {
+	/** The email step, then the password step. */
+	async function toPassword() {
 		const email = container.querySelector<HTMLInputElement>('input[type="email"]')!;
+		email.value = "person@example.com";
+		email.dispatchEvent(new Event("input", { bubbles: true }));
+		container.querySelector("form")!.requestSubmit();
+		await settle();
+	}
+	async function signIn() {
+		await toPassword();
 		const password = container.querySelector<HTMLInputElement>(
 			'input[autocomplete="current-password"]',
 		)!;
-		email.value = "person@example.com";
-		email.dispatchEvent(new Event("input", { bubbles: true }));
 		password.value = "password";
 		password.dispatchEvent(new Event("input", { bubbles: true }));
 		container.querySelector("form")!.requestSubmit();
@@ -322,6 +328,7 @@ describe("login polish", () => {
 	it("toggles password visibility without submitting or losing autocomplete", async () => {
 		mount("/login");
 		await settle();
+		await toPassword();
 		const input = container.querySelector<HTMLInputElement>(
 			'input[autocomplete="current-password"]',
 		)!;
@@ -351,16 +358,16 @@ describe("login polish", () => {
 				}),
 		);
 		await vi.advanceTimersByTimeAsync(299);
-		expect(container.querySelector('output[aria-label="Checking your session"]')).toBeNull();
+		expect(container.querySelector('output[aria-label^="Connecting"]')).toBeNull();
 		await vi.advanceTimersByTimeAsync(1);
 		flush();
-		expect(
-			container.querySelector('output[aria-label="Checking your session"] img')?.className,
-		).toContain("motion-safe:animate-pulse");
+		// The splash: the mark, the wordmark and the running bar.
+		expect(container.querySelector("output svg title")).not.toBeNull();
+		expect(container.querySelector("output .kit-progress")).not.toBeNull();
 		finish(json(session()));
 		await vi.advanceTimersByTimeAsync(0);
 		flush();
-		expect(container.querySelector('output[aria-label="Checking your session"]')).toBeNull();
+		expect(container.querySelector('output[aria-label^="Connecting"]')).toBeNull();
 		expect(container.textContent).toContain("Protected content");
 	});
 	it("never flashes the loading mark for a fast session check", async () => {
@@ -368,7 +375,7 @@ describe("login polish", () => {
 		mount("/board/alpha", async () => json(session()));
 		await vi.advanceTimersByTimeAsync(300);
 		flush();
-		expect(container.querySelector('output[aria-label="Checking your session"]')).toBeNull();
+		expect(container.querySelector('output[aria-label^="Connecting"]')).toBeNull();
 		expect(container.textContent).toContain("Protected content");
 	});
 });
@@ -425,7 +432,7 @@ describe("AppShell opening for someone signed in last time", () => {
 		window.removeEventListener("error", onError);
 
 		expect(errors).toEqual([]);
-		expect(container.querySelector('nav[aria-label="Navigation"]')).not.toBeNull();
+		expect(container.querySelector('nav[aria-label="Workspace"]')).not.toBeNull();
 		expect(container.textContent).toContain("workspace");
 		dispose();
 	});

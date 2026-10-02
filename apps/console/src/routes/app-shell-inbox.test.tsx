@@ -102,9 +102,9 @@ describe("the shell's inbox", () => {
 		expect(calls.find((call) => call.path.endsWith("/inbox/read"))?.body).toBe(
 			JSON.stringify({ path: "/chat/grid/s1" }),
 		);
-		// The sidebar has an Inbox, first among the pages, carrying the count.
+		// The rail has an Inbox, first among the destinations, named for screen readers and tooltips.
 		const entry = container.querySelector<HTMLAnchorElement>('a[href$="/inbox"]');
-		expect(entry?.textContent).toContain("Inbox");
+		expect(entry?.getAttribute("aria-label")).toBe("Inbox");
 	});
 
 	it("marks a project's pull requests read when they are opened", async () => {
@@ -121,8 +121,8 @@ describe("the shell's inbox", () => {
 		await settle();
 
 		expect(calls.filter((call) => call.path.endsWith("/inbox/read"))).toEqual([]);
-		// The count is still read, for the sidebar to show.
-		expect(calls.some((call) => call.path.endsWith("/inbox/unread"))).toBe(true);
+		// The list is still read, for the rail's dot and the thread list to show what waits.
+		expect(calls.some((call) => /\/inbox(\?|$)/.test(call.path))).toBe(true);
 	});
 
 	it("marks the same thread read when the address bar names the workspace first", async () => {

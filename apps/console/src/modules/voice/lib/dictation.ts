@@ -37,11 +37,18 @@ const [status, setStatus] = createSignal<DictationStatus>("idle");
 const [interim, setInterim] = createSignal("");
 const [error, setError] = createSignal<string | null>(null);
 const [targetLabel, setTargetLabel] = createSignal<string | null>(null);
+const [owner, setOwner] = createSignal<object | null>(null);
+const [startedAt, setStartedAt] = createSignal<number | null>(null);
+// The latest loudness readings, oldest first, for a waveform; empty when the engine has none.
+const [levels, setLevels] = createSignal<readonly number[]>([]);
+const LEVELS_KEPT = 96;
 
 let engine: Engine | null = null;
 // Starting can take a moment (the microphone permission prompt); a tap meanwhile means "stop".
 let starting = false;
 let stopRequested = false;
+// Cancelled while starting: the engine that arrives is dropped unheard.
+let cancelRequested = false;
 let target: DictationTarget | null = null;
 let transcribe: ((audio: Blob) => Promise<string>) | null = null;
 
@@ -54,12 +61,19 @@ function finish(): void {
 	engine = null;
 	setStatus("idle");
 	setInterim("");
+	setOwner(null);
+	setStartedAt(null);
+	setLevels([]);
 }
 
 async function start(into: DictationTarget, kind: EngineKind): Promise<void> {
 	target = into;
 	setError(null);
 	setTargetLabel(into.label);
+	cancelRequested = false;
+	setOwner(into.owner ?? null);
+	setStartedAt(Date.now());
+	setLevels([]);
 	setStatus("listening");
 
 	const handlers: EngineHandlers = {
@@ -67,6 +81,11 @@ async function start(into: DictationTarget, kind: EngineKind): Promise<void> {
 		onFinal: (text) => target?.insert(text),
 		onTranscribing: () => setStatus("transcribing"),
 		onEnd: finish,
+		onLevel: (level) => {
+			// A reading or two can land after a cancel; the bar is gone by then.
+			if (status() === "idle") return;
+			setLevels((kept) => [...kept.slice(1 - LEVELS_KEPT), level]);
+		},
 		onError: (cause) => {
 			engine = null;
 			if (cause.unsupported && kind === "device") {
@@ -90,9 +109,18 @@ async function start(into: DictationTarget, kind: EngineKind): Promise<void> {
 		}
 	} catch (cause) {
 		finish();
-		setError(cause instanceof Error ? cause.message : "Voice input could not start.");
+		if (!cancelRequested) {
+			setError(cause instanceof Error ? cause.message : "Voice input could not start.");
+		}
 	} finally {
 		starting = false;
+	}
+	if (cancelRequested) {
+		cancelRequested = false;
+		stopRequested = false;
+		engine?.cancel();
+		finish();
+		return;
 	}
 	if (stopRequested) {
 		stopRequested = false;
@@ -105,6 +133,12 @@ export const dictation = {
 	interim,
 	error,
 	targetLabel,
+	/** Whose own dictation UI is showing this, if the target draws it (the composer). */
+	owner,
+	/** When listening began, for a timer. */
+	startedAt,
+	/** Recent microphone loudness, 0 to 1, oldest first; empty for the device engine. */
+	levels,
 	/** Start listening into `into`, or stop (and insert what was said) if already listening. */
 	toggle(into: DictationTarget | null): void {
 		if (engine) {
@@ -126,6 +160,8 @@ export const dictation = {
 	/** Stop without inserting anything. */
 	cancel(): void {
 		stopRequested = false;
+		// Still waiting on the microphone (its permission prompt): drop it when it comes.
+		if (starting) cancelRequested = true;
 		engine?.cancel();
 		finish();
 	},

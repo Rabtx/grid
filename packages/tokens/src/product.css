@@ -31,19 +31,22 @@
 
 	/* Light (the base values; dark overrides below). The canvas is where content sits; the
 	   backdrop is the quieter frame around it that the navigation lives on. */
-	--canvas-lightness: 99.6%;
-	--backdrop-lightness: 98%;
+	/* Defaults match the Figma design system: app #ffffff, canvas #f5f5f5, text #292929. */
+	/* White at the default; a tint pulls it down a breath so the hue still reads. */
+	--canvas-lightness: calc(100% - var(--saturation) * 0.04);
+	--backdrop-lightness: 96.1%;
 	--ink-lightness: 16%;
-	--selection-subtle-strength: 5%;
-	--selection-strength: 6%;
-	--selection-strong-strength: 7%;
-	--selection-hover-strength: 10%;
-	--selection-emphasis-strength: 14%;
-	--signal-accent: hsl(211 92% 50%);
-	--signal-link: hsl(211 92% 40%);
-	--signal-success: #059669;
-	--signal-danger: #dc2626;
-	--signal-warning: #d97706;
+	--selection-subtle-strength: 4.7%;
+	--selection-strength: 9.3%;
+	--selection-strong-strength: 11%;
+	--selection-hover-strength: 14%;
+	--selection-emphasis-strength: 16%;
+	--signal-accent: #2d7cf6;
+	--signal-link: #1f66d6;
+	--signal-violet: #8e5cf0;
+	--signal-success: #30a46c;
+	--signal-danger: #e5484d;
+	--signal-warning: #f0803c;
 	--primary-fill: var(--ink);
 	--primary-ink: var(--canvas);
 
@@ -52,19 +55,20 @@
 
 @media (prefers-color-scheme: dark) {
 	:root:not(.light) {
-		--canvas-lightness: var(--dark-lightness, 9%);
-		--backdrop-lightness: max(0%, calc(var(--dark-lightness, 9%) - 3%));
+		--canvas-lightness: var(--dark-lightness, 8%);
+		--backdrop-lightness: max(0%, calc(var(--dark-lightness, 8%) - 2.5%));
 		--ink-lightness: 92%;
-		--selection-subtle-strength: 8%;
-		--selection-strength: 10%;
+		--selection-subtle-strength: 3.3%;
+		--selection-strength: 9.8%;
 		--selection-strong-strength: 12%;
 		--selection-hover-strength: 15%;
 		--selection-emphasis-strength: 20%;
-		--signal-accent: hsl(211 92% 62%);
-		--signal-link: #7dd3fc;
-		--signal-success: #34d399;
-		--signal-danger: #f87171;
-		--signal-warning: #fbbf24;
+		--signal-accent: #2d7cf6;
+		--signal-link: #6aa3f8;
+		--signal-violet: #a382f5;
+		--signal-success: #4bbe88;
+		--signal-danger: #f0686d;
+		--signal-warning: #f5985c;
 		--primary-fill: #fff;
 		--primary-ink: #000;
 
@@ -73,19 +77,20 @@
 }
 
 :root.dark {
-	--canvas-lightness: var(--dark-lightness, 9%);
-	--backdrop-lightness: max(0%, calc(var(--dark-lightness, 9%) - 3%));
+	--canvas-lightness: var(--dark-lightness, 8%);
+	--backdrop-lightness: max(0%, calc(var(--dark-lightness, 8%) - 2.5%));
 	--ink-lightness: 92%;
-	--selection-subtle-strength: 8%;
-	--selection-strength: 10%;
+	--selection-subtle-strength: 3.3%;
+	--selection-strength: 9.8%;
 	--selection-strong-strength: 12%;
 	--selection-hover-strength: 15%;
 	--selection-emphasis-strength: 20%;
-	--signal-accent: hsl(211 92% 62%);
-	--signal-link: #7dd3fc;
-	--signal-success: #34d399;
-	--signal-danger: #f87171;
-	--signal-warning: #fbbf24;
+	--signal-accent: #2d7cf6;
+	--signal-link: #6aa3f8;
+	--signal-violet: #a382f5;
+	--signal-success: #4bbe88;
+	--signal-danger: #f0686d;
+	--signal-warning: #f5985c;
 	--primary-fill: #fff;
 	--primary-ink: #000;
 
@@ -141,11 +146,12 @@
 	--sidebar-foreground: var(--ink);
 	--sidebar-border: var(--stroke);
 
-	/* ── Type (phone defaults; the desktop scale starts at md) ── */
-	/* Inter, self-hosted by the console (@fontsource-variable/inter); the system font until it loads. */
+	/* ── Type ── */
+	/* SF Pro where the system has it; Inter (self-hosted, @fontsource-variable/inter) elsewhere.
+	   The same list as the kit's --kit-font. */
 	--font-sans:
-		"Inter Variable", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-		sans-serif;
+		"SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter Variable", "Inter",
+		system-ui, "Segoe UI", Roboto, sans-serif;
 	--font-mono:
 		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
 		monospace;
@@ -245,6 +251,7 @@
 	--color-success: var(--signal-success);
 	--color-danger: var(--signal-danger);
 	--color-warning: var(--signal-warning);
+	--color-violet: var(--signal-violet);
 
 	--color-status-backlog: var(--status-backlog);
 	--color-status-ready: var(--status-ready);
@@ -304,6 +311,8 @@
 		font-size: calc(var(--ui-scale, 1) * 100%);
 	}
 	body {
-		font-family: var(--font-sans);
+		/* The kit's face and tracking (SF Pro, -0.15px), the Figma design system's text styles. */
+		font-family: var(--kit-font, var(--font-sans));
+		letter-spacing: var(--kit-tracking, normal);
 	}
 }
