@@ -7,6 +7,7 @@ import { createApp } from "../../app";
 import { createConfig } from "../../config/config";
 import { parseEnv } from "../../config/env";
 import { sessionLookup } from "../../sessions";
+import { upsertSubscriptionFromWebhook } from "./repository";
 
 /** Needs a database (the dev one): skipped without DATABASE_URL, e.g. `bun run test` in CI. */
 const suite = process.env.DATABASE_URL ? describe : describe.skip;
@@ -68,6 +69,74 @@ suite("billing webhook handling and signatures", () => {
 		if (dbInstance) {
 			await dbInstance.close();
 		}
+	});
+
+	describe("subscription upsert from a webhook", () => {
+		it("converges on one row when the same event is delivered twice at once", async () => {
+			// Payment providers deliver webhooks at least once and concurrently. Resolving the
+			// existing row and then inserting had both deliveries miss the lookup, so the loser
+			// died on subscriptions_provider_sub_unique and the provider retried forever.
+			const subId = `sub_test_race_${Date.now()}`;
+			createdSubIds.push(subId);
+			const [workspace] = await db.select().from(schema.workspaces).limit(1);
+			if (!workspace) throw new Error("no workspace to bill");
+			const periodEnd = new Date(Date.now() + 30 * 86_400_000);
+			const event = {
+				userId: testUserId,
+				workspaceId: workspace.id,
+				provider: "stripe" as const,
+				providerSubscriptionId: subId,
+				planCode: "team" as const,
+				billingInterval: "monthly" as const,
+				status: "active" as const,
+				currentPeriodEnd: periodEnd,
+			};
+
+			const [first, second] = await Promise.all([
+				upsertSubscriptionFromWebhook(db, event),
+				upsertSubscriptionFromWebhook(db, event),
+			]);
+			expect(second.id).toBe(first.id);
+
+			const rows = await db
+				.select()
+				.from(schema.subscriptions)
+				.where(eq(schema.subscriptions.providerSubscriptionId, subId));
+			expect(rows).toHaveLength(1);
+			expect(rows[0]?.status).toBe("active");
+		});
+
+		it("keeps what a later event leaves out", async () => {
+			// `subscription.charged` carries no customer id, and the stored one still applies.
+			const subId = `sub_test_partial_${Date.now()}`;
+			createdSubIds.push(subId);
+			const [workspace] = await db.select().from(schema.workspaces).limit(1);
+			if (!workspace) throw new Error("no workspace to bill");
+			const providerCustomerId = `cus_test_${Date.now()}`;
+			const base = {
+				userId: testUserId,
+				workspaceId: workspace.id,
+				provider: "stripe" as const,
+				providerSubscriptionId: subId,
+				planCode: "team" as const,
+				billingInterval: "monthly" as const,
+			};
+
+			await upsertSubscriptionFromWebhook(db, {
+				...base,
+				providerCustomerId,
+				status: "active",
+				cancelAtPeriodEnd: true,
+			});
+			const updated = await upsertSubscriptionFromWebhook(db, {
+				...base,
+				status: "canceled",
+			});
+
+			expect(updated.providerCustomerId).toBe(providerCustomerId);
+			expect(updated.cancelAtPeriodEnd).toBe(true);
+			expect(updated.status).toBe("canceled");
+		});
 	});
 
 	describe("Stripe webhooks", () => {

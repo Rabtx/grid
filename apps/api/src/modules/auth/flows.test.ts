@@ -82,6 +82,30 @@ suite("sign-in rules", () => {
 		});
 	});
 
+	it("counts wrong passwords sent in parallel, so they still lock the account", async () => {
+		// Counting from the row read before the password check lost every increment but one when
+		// the guesses arrived together, which is how a brute-forcer avoids the lockout: ten at
+		// once counted as one.
+		const user = await account("parallel");
+		const attempts = await Promise.all(
+			Array.from({ length: 3 }, () =>
+				failure(flows.login(deps, { email: user.email, password: "wrong" }, meta)),
+			),
+		);
+		expect(attempts).toEqual(
+			Array.from({ length: 3 }, () => ({ status: 401, code: "AUTH_INVALID_CREDENTIALS" })),
+		);
+		const [row] = await database.db.select().from(schema.users).where(eq(schema.users.id, user.id));
+		expect(row?.failedLoginAttempts).toBe(3);
+		expect(row?.lockedUntil).not.toBeNull();
+		expect(
+			await failure(flows.login(deps, { email: user.email, password: PASSWORD }, meta)),
+		).toEqual({
+			status: 423,
+			code: "AUTH_ACCOUNT_LOCKED",
+		});
+	});
+
 	it("forgets failed attempts after a successful sign-in", async () => {
 		const user = await account("reset");
 		await failure(flows.login(deps, { email: user.email, password: "wrong" }, meta));
