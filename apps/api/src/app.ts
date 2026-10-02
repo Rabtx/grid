@@ -75,11 +75,19 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 	};
 	api.route("/auth", authRoutes(auth));
 	api.route("/instance", instanceRoutes(auth));
-	const workspaces = { db: deps.db, sessions: deps.sessions, send: deps.send };
+	const workspaces = {
+		db: deps.db,
+		sessions: deps.sessions,
+		send: deps.send,
+		uploadsDir: config.uploadsDir,
+	};
 	api.route("/workspaces", workspaceRoutes(workspaces));
 	api.route("/invites", inviteRoutes(workspaces));
 	// The user's default workspace, for clients that do not pick one yet.
-	api.route("/projects", projectRoutes({ db: deps.db, sessions: deps.sessions }));
+	api.route(
+		"/projects",
+		projectRoutes({ db: deps.db, sessions: deps.sessions, uploadsDir: config.uploadsDir }),
+	);
 	api.route(
 		"/users/me",
 		profileRoutes({ db: deps.db, sessions: deps.sessions, uploadsDir: config.uploadsDir }),

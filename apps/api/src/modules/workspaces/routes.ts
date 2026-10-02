@@ -21,7 +21,7 @@ const uuid = (value: string) => {
 	return value;
 };
 
-type Deps = { db: Database; sessions: SessionLookup; send: EmailSender };
+type Deps = { db: Database; sessions: SessionLookup; send: EmailSender; uploadsDir: string };
 
 /** `/workspaces`: the ones you belong to, their members and invites, and each one's projects. */
 export function workspaceRoutes(deps: Deps): Hono<AppEnv> {

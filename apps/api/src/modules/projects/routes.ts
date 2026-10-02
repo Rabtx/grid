@@ -1,9 +1,12 @@
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
+
 import type { Database } from "@grid/db";
 import { Hono } from "hono";
 
 import { requireUser, type SessionLookup } from "../../http/auth";
 import type { AppContext, AppEnv } from "../../http/context";
-import { badRequest } from "../../http/errors";
+import { ApiError, badRequest } from "../../http/errors";
 import { noContent, ok } from "../../http/respond";
 import { body } from "../../http/validate";
 import type { WorkspaceScope } from "../workspaces/access";
@@ -20,7 +23,20 @@ const uuid = (value: string) => {
 	return value;
 };
 
-export function projectRoutes(deps: { db: Database; sessions: SessionLookup }): Hono<AppEnv> {
+/** The images a note can hold, and how large. */
+const NOTE_IMAGE_TYPES: Record<string, string> = {
+	"image/png": ".png",
+	"image/jpeg": ".jpg",
+	"image/webp": ".webp",
+	"image/gif": ".gif",
+};
+const NOTE_IMAGE_BYTES = 5 * 1024 * 1024;
+
+export function projectRoutes(deps: {
+	db: Database;
+	sessions: SessionLookup;
+	uploadsDir: string;
+}): Hono<AppEnv> {
 	const app = new Hono<AppEnv>();
 	app.use("*", requireUser(deps.sessions));
 	// Under `/workspaces/:ws/projects` the workspace comes from the URL; the bare `/projects` means
@@ -109,6 +125,20 @@ export function projectRoutes(deps: { db: Database; sessions: SessionLookup }): 
 			),
 		),
 	);
+	// An image for a note: kept with the uploads, its address goes into the note's Markdown.
+	app.post("/:slug/notes/:id/images", async (c) => {
+		await service.requireNote(deps.db, user(c), c.req.param("slug"), uuid(c.req.param("id")));
+		const form = await c.req.formData().catch(() => null);
+		const file = form?.get("file");
+		if (!(file instanceof File)) throw badRequest("An image is required");
+		const extension = NOTE_IMAGE_TYPES[file.type];
+		if (!extension) throw badRequest("Images must be PNG, JPEG, WebP or GIF");
+		if (file.size > NOTE_IMAGE_BYTES) throw new ApiError(413, "Images can be up to 5 MB");
+		const name = `${crypto.randomUUID()}${extension}`;
+		await mkdir(join(deps.uploadsDir, "notes"), { recursive: true });
+		await Bun.write(join(deps.uploadsDir, "notes", name), file);
+		return ok(c, { url: `/uploads/notes/${name}` }, 201);
+	});
 	app.delete("/:slug/notes/:id", async (c) => {
 		await service.deleteNote(deps.db, user(c), c.req.param("slug"), uuid(c.req.param("id")));
 		return noContent(c);

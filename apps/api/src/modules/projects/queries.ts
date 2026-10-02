@@ -145,7 +145,7 @@ export async function createNote(db: Database, input: schema.NewNoteRecord) {
 	return note;
 }
 export type NoteChanges = Partial<
-	Pick<NoteRecord, "body" | "pinned" | "shared" | "icon" | "updatedBy" | "updatedAt">
+	Pick<NoteRecord, "body" | "pinned" | "shared" | "icon" | "agents" | "updatedBy" | "updatedAt">
 >;
 export async function updateNote(
 	db: Database,

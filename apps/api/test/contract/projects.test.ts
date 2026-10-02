@@ -3,7 +3,7 @@ import { createDatabase, schema } from "@grid/db";
 import { createPersonalWorkspace } from "@grid/db/workspaces";
 import { and, eq } from "drizzle-orm";
 
-import { call, demoToken, json, stable } from "./client";
+import { API_URL, call, demoToken, json, stable } from "./client";
 
 // These tests set up and clean their own rows. `bun run test:contract` loads DATABASE_URL.
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is needed: run bun run test:contract");
@@ -200,6 +200,56 @@ describe("projects, tasks and notes", () => {
 			const reply = await request(`/${slug}/notes/${id}`, json(bad, { method: "PATCH" }));
 			expect(reply.status).toBe(400);
 		}
+		expect((await request(`/${slug}/notes/${id}`, { method: "DELETE" })).status).toBe(204);
+	});
+
+	it("names which agents a shared note goes to, every agent by default", async () => {
+		const note = payload(await request(`/${slug}/notes`, json({ body: "Agents read this" })));
+		expect(note.agents).toBeNull();
+		const id = note.id as string;
+		const chosen = payload(
+			await request(
+				`/${slug}/notes/${id}`,
+				json({ agents: ["claude", "codex", "claude"] }, { method: "PATCH" }),
+			),
+		);
+		expect(chosen.agents).toEqual(["claude", "codex"]);
+		expect(chosen.updatedAt).toBe(note.updatedAt);
+		const everyone = payload(
+			await request(`/${slug}/notes/${id}`, json({ agents: [] }, { method: "PATCH" })),
+		);
+		expect(everyone.agents).toBeNull();
+		const bad = await request(
+			`/${slug}/notes/${id}`,
+			json({ agents: ["Not An Id"] }, { method: "PATCH" }),
+		);
+		expect(bad.status).toBe(400);
+		expect((await request(`/${slug}/notes/${id}`, { method: "DELETE" })).status).toBe(204);
+	});
+
+	it("keeps a note's image and serves it, refusing other files", async () => {
+		const note = payload(await request(`/${slug}/notes`, json({ body: "With a picture" })));
+		const id = note.id as string;
+		const upload = (file: File) => {
+			const form = new FormData();
+			form.set("file", file);
+			return request(`/${slug}/notes/${id}/images`, { method: "POST", body: form });
+		};
+		const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+		const added = await upload(new File([bytes], "eta.png", { type: "image/png" }));
+		expect(added.status).toBe(201);
+		const url = (payload(added) as { url: string }).url;
+		expect(url).toMatch(/^\/uploads\/notes\/[0-9a-f-]{36}\.png$/);
+		const served = await fetch(`${API_URL}${url}`);
+		expect(served.status).toBe(200);
+		expect(new Uint8Array(await served.arrayBuffer())).toEqual(bytes);
+		const text = await upload(new File(["hi"], "x.txt", { type: "text/plain" }));
+		expect(text.status).toBe(400);
+		const missing = await request(`/${slug}/notes/00000000-0000-4000-8000-000000000000/images`, {
+			method: "POST",
+			body: new FormData(),
+		});
+		expect(missing.status).toBe(404);
 		expect((await request(`/${slug}/notes/${id}`, { method: "DELETE" })).status).toBe(204);
 	});
 });
