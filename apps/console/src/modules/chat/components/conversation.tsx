@@ -147,7 +147,7 @@ export function Conversation(props: {
 		}
 		const agent = provider()?.name;
 		try {
-			await notesStore.add(token, current.project, {
+			const note = await notesStore.add(token, current.project, {
 				body: text,
 				source: agent ? `${agent} in ${current.title}` : current.title,
 				threadId: current.id,
@@ -155,7 +155,7 @@ export function Conversation(props: {
 			notify({
 				title: "Added to notes",
 				tone: "success",
-				action: { label: "Open", run: () => navigate(`/notes/${current.project}`) },
+				action: { label: "Open", run: () => navigate(`/notes/${current.project}/${note.id}`) },
 			});
 		} catch (cause) {
 			notify({

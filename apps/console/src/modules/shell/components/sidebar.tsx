@@ -94,7 +94,10 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 			<PanelHeader
 				title={sectionTitle(location.pathname)}
 				actions={
-					<>
+					<Show
+						when={props.onClose || !shell.panelActions()}
+						fallback={<>{shell.panelActions()?.()}</>}
+					>
 						<IconButton
 							label="Search"
 							shortcut="Mod K"
@@ -117,7 +120,7 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 								</IconButton>
 							)}
 						</Show>
-					</>
+					</Show>
 				}
 			/>
 

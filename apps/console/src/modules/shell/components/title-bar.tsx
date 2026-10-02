@@ -123,60 +123,71 @@ export function TopBar(): JSX.Element {
 	return (
 		<header class="z-30 shrink-0 bg-surface pt-safe">
 			<Row gap={2} class="h-16 px-4">
-				<IconButton
-					label="Open navigation"
-					aria-haspopup="dialog"
-					variant="secondary"
-					shape="round"
-					size="lg"
-					onClick={() => shell.setDrawerOpen(true)}
+				<Show
+					when={shell.leading()}
+					fallback={
+						<IconButton
+							label="Open navigation"
+							aria-haspopup="dialog"
+							variant="secondary"
+							shape="round"
+							size="lg"
+							onClick={() => shell.setDrawerOpen(true)}
+						>
+							<SidebarIcon />
+						</IconButton>
+					}
 				>
-					<SidebarIcon />
-				</IconButton>
+					{(leading) => <>{leading()()}</>}
+				</Show>
 				<div class="flex min-w-0 flex-1 items-center justify-center overflow-x-auto [scrollbar-width:none]">
-					<Show
-						when={shell.tabs()}
-						fallback={
-							<Show
-								when={PROJECT_PAGE.test(location.pathname)}
-								fallback={
-									<div class="flex min-w-0 flex-col items-center">
-										<Text as="h1" tone="strong" weight="medium" size="body-lg" truncate>
-											{sectionTitle(location.pathname)}
-										</Text>
-										<Show when={shell.subtitle()}>
-											{(subtitle) => (
-												<Text size="caption" tone="subtle" truncate>
-													{subtitle()()}
-												</Text>
-											)}
-										</Show>
-									</div>
-								}
-							>
-								<Loading fallback={<span />}>
-									<h1 class="min-w-0">
-										<ProjectSwitcher />
-									</h1>
-								</Loading>
-							</Show>
-						}
-					>
-						{(tabs) => (
-							<div class="flex min-w-0 flex-col items-center">
-								{tabs()()}
-								<Show when={shell.subtitle()}>
-									{(subtitle) => (
-										<Text size="caption" tone="subtle" truncate>
-											{subtitle()()}
-										</Text>
-									)}
+					<Show when={!shell.heading()} fallback={<>{shell.heading()?.()}</>}>
+						<Show
+							when={shell.tabs()}
+							fallback={
+								<Show
+									when={PROJECT_PAGE.test(location.pathname)}
+									fallback={
+										<div class="flex min-w-0 flex-col items-center">
+											<Text as="h1" tone="strong" weight="medium" size="body-lg" truncate>
+												{sectionTitle(location.pathname)}
+											</Text>
+											<Show when={shell.subtitle()}>
+												{(subtitle) => (
+													<Text size="caption" tone="subtle" truncate>
+														{subtitle()()}
+													</Text>
+												)}
+											</Show>
+										</div>
+									}
+								>
+									<Loading fallback={<span />}>
+										<h1 class="min-w-0">
+											<ProjectSwitcher />
+										</h1>
+									</Loading>
 								</Show>
-							</div>
-						)}
+							}
+						>
+							{(tabs) => (
+								<div class="flex min-w-0 flex-col items-center">
+									{tabs()()}
+									<Show when={shell.subtitle()}>
+										{(subtitle) => (
+											<Text size="caption" tone="subtle" truncate>
+												{subtitle()()}
+											</Text>
+										)}
+									</Show>
+								</div>
+							)}
+						</Show>
 					</Show>
 				</div>
-				<PhoneAction />
+				<Show when={shell.trailing()} fallback={<PhoneAction />}>
+					{(trailing) => <>{trailing()()}</>}
+				</Show>
 			</Row>
 		</header>
 	);

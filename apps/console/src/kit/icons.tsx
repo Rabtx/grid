@@ -1,4 +1,7 @@
 import Add01Icon from "@hugeicons/core-free-icons/Add01Icon";
+import AtGlyph from "@hugeicons/core-free-icons/AtIcon";
+import CheckmarkSquare02Glyph from "@hugeicons/core-free-icons/CheckmarkSquare02Icon";
+import LeftToRightListBulletGlyph from "@hugeicons/core-free-icons/LeftToRightListBulletIcon";
 import SparklesGlyph from "@hugeicons/core-free-icons/SparklesIcon";
 import ViewGlyph from "@hugeicons/core-free-icons/ViewIcon";
 import ViewOffGlyph from "@hugeicons/core-free-icons/ViewOffIcon";
@@ -415,4 +418,19 @@ export function CameraIcon(props: IconProps): JSX.Element {
 /** Something asking permission: an approval. */
 export function ShieldIcon(props: IconProps): JSX.Element {
 	return <Icon icon={Shield01Glyph} size={props.size} class={props.class} />;
+}
+
+/** A bulleted list (the note's format bar). */
+export function ListIcon(props: IconProps): JSX.Element {
+	return <Icon icon={LeftToRightListBulletGlyph} size={props.size} class={props.class} />;
+}
+
+/** A checklist: a ticked box (the note's format bar). */
+export function ChecklistIcon(props: IconProps): JSX.Element {
+	return <Icon icon={CheckmarkSquare02Glyph} size={props.size} class={props.class} />;
+}
+
+/** Name something: a file in a note. */
+export function AtIcon(props: IconProps): JSX.Element {
+	return <Icon icon={AtGlyph} size={props.size} class={props.class} />;
 }

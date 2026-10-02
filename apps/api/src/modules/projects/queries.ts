@@ -1,5 +1,6 @@
 import { type Database, schema } from "@grid/db";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 const { projects, tasks, notes } = schema;
 export type ProjectRecord = schema.ProjectRecord;
@@ -87,17 +88,74 @@ export async function updateTask(db: Database, id: string, input: Partial<schema
 export async function deleteTask(db: Database, id: string) {
 	return (await db.delete(tasks).where(eq(tasks.id, id)).returning()).length > 0;
 }
-export const listNotes = (db: Database, projectId: string) =>
-	db.select().from(notes).where(eq(notes.projectId, projectId)).orderBy(desc(notes.createdAt));
+const authorUser = alias(schema.users, "note_author");
+const authorProfile = alias(schema.userProfiles, "note_author_profile");
+const editorUser = alias(schema.users, "note_editor");
+const editorProfile = alias(schema.userProfiles, "note_editor_profile");
+
+/** A note with the names of who wrote it and who last changed it (their display name, else username). */
+export type NoteWithPeople = NoteRecord & { authorName: string | null; editorName: string | null };
+
+const notesWithPeople = (db: Database) =>
+	db
+		.select({
+			note: notes,
+			authorName: sql<
+				string | null
+			>`coalesce(${authorProfile.displayName}, ${authorUser.username})`,
+			editorName: sql<
+				string | null
+			>`coalesce(${editorProfile.displayName}, ${editorUser.username})`,
+		})
+		.from(notes)
+		.leftJoin(authorUser, eq(authorUser.id, notes.createdBy))
+		.leftJoin(authorProfile, eq(authorProfile.userId, notes.createdBy))
+		.leftJoin(editorUser, eq(editorUser.id, notes.updatedBy))
+		.leftJoin(editorProfile, eq(editorProfile.userId, notes.updatedBy));
+
+const flatten = (row: {
+	note: NoteRecord;
+	authorName: string | null;
+	editorName: string | null;
+}) => ({
+	...row.note,
+	authorName: row.authorName,
+	editorName: row.editorName,
+});
+
+export async function listNotes(db: Database, projectId: string): Promise<NoteWithPeople[]> {
+	const rows = await notesWithPeople(db)
+		.where(eq(notes.projectId, projectId))
+		.orderBy(desc(notes.createdAt));
+	return rows.map(flatten);
+}
+export async function findNote(
+	db: Database,
+	projectId: string,
+	id: string,
+): Promise<NoteWithPeople | null> {
+	const [row] = await notesWithPeople(db).where(
+		and(eq(notes.projectId, projectId), eq(notes.id, id)),
+	);
+	return row ? flatten(row) : null;
+}
 export async function createNote(db: Database, input: schema.NewNoteRecord) {
 	const [note] = await db.insert(notes).values(input).returning();
 	if (!note) throw new Error("Note insert did not return a record");
 	return note;
 }
-export async function updateNote(db: Database, projectId: string, id: string, body: string) {
+export type NoteChanges = Partial<
+	Pick<NoteRecord, "body" | "pinned" | "shared" | "icon" | "updatedBy" | "updatedAt">
+>;
+export async function updateNote(
+	db: Database,
+	projectId: string,
+	id: string,
+	changes: NoteChanges,
+) {
 	const [note] = await db
 		.update(notes)
-		.set({ body, updatedAt: new Date() })
+		.set(changes)
 		.where(and(eq(notes.projectId, projectId), eq(notes.id, id)))
 		.returning();
 	return note ?? null;

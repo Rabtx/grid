@@ -456,6 +456,8 @@ function NewChat(props: {
 					worktree: place().worktree,
 					...(place().worktree && place().branch.trim() ? { branch: place().branch.trim() } : {}),
 					...(role() ? { role: role()?.id } : {}),
+					// The notes the project shares with agents go with the first message.
+					notes: await notesStore.sharedText(token, props.project),
 				},
 				placementsStore.scopeOf(props.project),
 			);
@@ -518,11 +520,14 @@ function NewChat(props: {
 			return;
 		}
 		try {
-			await notesStore.add(token, slug, { body: text, source: chosen()?.name ?? "Composer" });
+			const note = await notesStore.add(token, slug, {
+				body: text,
+				source: chosen()?.name ?? "Composer",
+			});
 			notify({
 				title: "Added to notes",
 				tone: "success",
-				action: { label: "Open", run: () => navigate(`/notes/${slug}`) },
+				action: { label: "Open", run: () => navigate(`/notes/${slug}/${note.id}`) },
 			});
 		} catch (cause) {
 			notify({

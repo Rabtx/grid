@@ -31,6 +31,7 @@ import type {
 	ProjectSettings,
 	ProviderCatalog,
 	ProviderSettings,
+	SessionNotes,
 	SessionRole,
 } from "./store";
 import {
@@ -170,6 +171,16 @@ export function withRoleBrief(role: SessionRole, text: string): string {
 		? `You are working as the team's ${role.name}. What this role does:\n${brief}`
 		: `You are working as the team's ${role.name}.`;
 	return `${about}\n\n---\n\n${text}`;
+}
+
+/**
+ * The same for the notes the project shares with agents: what the team keeps there (rules,
+ * decisions, a brief), then the message.
+ */
+export function withSharedNotes(notes: SessionNotes, text: string): string {
+	const shared = notes.text.trim();
+	if (!shared) return text;
+	return `Notes the team shares with agents working on this project. Follow them unless the message says otherwise:\n\n${shared}\n\n---\n\n${text}`;
 }
 
 function isDirectory(path: string): boolean {
@@ -327,6 +338,8 @@ export class ChatHub {
 			fork?: boolean;
 			/** The role it is started as (see `SessionRole`). */
 			role?: SessionRole | null;
+			/** The project's shared notes it starts with (see `SessionNotes`). */
+			notes?: SessionNotes | null;
 		},
 	): ChatSessionRow {
 		const provider = this.providers.get(input.provider);
@@ -360,6 +373,7 @@ export class ChatHub {
 			effort: input.effort ?? null,
 			worktree: own?.worktree ?? null,
 			role: input.role ?? null,
+			notes: input.notes?.text.trim() ? { text: input.notes.text } : null,
 		});
 	}
 
@@ -733,7 +747,8 @@ export class ChatHub {
 		this.record(id, { type: "turn_start", at: new Date().toISOString() });
 
 		let result: Awaited<ReturnType<AgentSession["prompt"]>>;
-		let briefing = false;
+		let briefRole = false;
+		let briefNotes = false;
 		try {
 			const agent = await this.agentFor(session, live);
 			const paths = attachments
@@ -742,10 +757,14 @@ export class ChatHub {
 			// An agent command the menu prefixed is the agent's own command, sent as it typed.
 			const typed = agentPromptText(session.provider, message);
 			// A thread started as a role gives the agent its brief with the first message that gets
-			// through. A command goes as typed (the agent would not read it as one after a brief),
-			// and the brief waits for the next message.
-			briefing = Boolean(session.role && !session.role.briefed && !typed.startsWith("/"));
-			const text = briefing && session.role ? withRoleBrief(session.role, typed) : typed;
+			// through, and the project's shared notes the same way. A command goes as typed (the agent
+			// would not read it as one after a brief), and the brief waits for the next message.
+			const command = typed.startsWith("/");
+			briefRole = Boolean(session.role && !session.role.briefed && !command);
+			briefNotes = Boolean(session.notes && !session.notes.briefed && !command);
+			let text = typed;
+			if (briefNotes && session.notes) text = withSharedNotes(session.notes, text);
+			if (briefRole && session.role) text = withRoleBrief(session.role, text);
 			const prompt = paths
 				? `${text}\n\nAttached files (absolute paths on this machine):\n${paths}`
 				: text;
@@ -755,8 +774,11 @@ export class ChatHub {
 			// A failed start leaves nothing to reuse.
 			live.agent = null;
 		}
-		if (briefing && session.role && result.reason !== "error") {
-			this.store.update(id, { role: { ...session.role, briefed: true } });
+		if (result.reason !== "error") {
+			if (briefRole && session.role)
+				this.store.update(id, { role: { ...session.role, briefed: true } });
+			if (briefNotes && session.notes)
+				this.store.update(id, { notes: { ...session.notes, briefed: true } });
 		}
 		const failure =
 			result.reason === "error" && result.error ? this.explainFailure(session, result.error) : null;

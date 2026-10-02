@@ -15,6 +15,14 @@ type ShellState = {
 	subtitle: () => Slot | null;
 	/** The screen's own panel body beside the rail, in place of the projects tree. */
 	panel: () => Slot | null;
+	/** The panel header's actions in place of search and a new thread: a screen's own (a new note). */
+	panelActions: () => Slot | null;
+	/** The phone header's middle in place of the section's name: a screen's own title and line. */
+	heading: () => Slot | null;
+	/** The phone header's left button in place of the drawer's: a way back. */
+	leading: () => Slot | null;
+	/** The phone header's right button in place of a new thread: the screen's own action. */
+	trailing: () => Slot | null;
 	setSlot: (name: SlotName, slot: Slot | null) => void;
 	/** Empties a slot only if it still holds `mine`: the next screen may already have filled it. */
 	clearSlot: (name: SlotName, mine: Slot) => void;
@@ -29,7 +37,16 @@ type ShellState = {
 	desktop: () => boolean;
 };
 
-type SlotName = "tabs" | "crumb" | "actions" | "subtitle" | "panel";
+type SlotName =
+	| "tabs"
+	| "crumb"
+	| "actions"
+	| "subtitle"
+	| "panel"
+	| "panelActions"
+	| "heading"
+	| "leading"
+	| "trailing";
 
 const COLLAPSED_KEY = "grid.shell.collapsed";
 const DESKTOP_QUERY = "(min-width: 64rem)";
@@ -50,12 +67,20 @@ export function ShellProvider(props: { children: JSX.Element }): JSX.Element {
 	const [actions, setActions] = createSignal<Slot | null>(null);
 	const [subtitle, setSubtitle] = createSignal<Slot | null>(null);
 	const [panel, setPanel] = createSignal<Slot | null>(null);
+	const [panelActions, setPanelActions] = createSignal<Slot | null>(null);
+	const [heading, setHeading] = createSignal<Slot | null>(null);
+	const [leading, setLeading] = createSignal<Slot | null>(null);
+	const [trailing, setTrailing] = createSignal<Slot | null>(null);
 	const setters = {
 		tabs: setTabs,
 		crumb: setCrumb,
 		actions: setActions,
 		subtitle: setSubtitle,
 		panel: setPanel,
+		panelActions: setPanelActions,
+		heading: setHeading,
+		leading: setLeading,
+		trailing: setTrailing,
 	};
 	const [collapsed, setCollapsed] = createSignal(rememberedCollapsed());
 	const [drawerOpen, setDrawerOpen] = createSignal(false);
@@ -75,6 +100,10 @@ export function ShellProvider(props: { children: JSX.Element }): JSX.Element {
 		actions,
 		subtitle,
 		panel,
+		panelActions,
+		heading,
+		leading,
+		trailing,
 		// The setter takes the slot through a function so Solid does not call it as an updater.
 		setSlot: (name, slot) => setters[name](() => slot),
 		clearSlot: (name, mine) => setters[name]((current) => (current === mine ? null : current)),

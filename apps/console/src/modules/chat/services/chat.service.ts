@@ -283,6 +283,8 @@ export const chatService = {
 			fork?: boolean;
 			/** The role it starts as: its brief goes with the first message. */
 			role?: string;
+			/** The project's notes shared with agents; they go with the first message too. */
+			notes?: string;
 		},
 		scope = "",
 	) =>

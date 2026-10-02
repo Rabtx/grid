@@ -592,6 +592,39 @@ describe("ChatHub", () => {
 		expect(typed).toEqual(["/compact", "Add a retry", "Add a retry", "Thanks"]);
 	});
 
+	it("gives the project's shared notes with the first message, under a role's brief, and keeps them", async () => {
+		const { provider, sent } = commandsProvider(null);
+		const store = new ChatStore(":memory:");
+		const chat = new ChatHub(store, new Map([["echo", provider]]), tmpdir());
+		const session = chat.create(
+			{ userId: "me", workspace: "me" },
+			{
+				project: "alpha",
+				provider: "echo",
+				cwd: "/tmp",
+				role: { id: "r1", name: "Engineer", icon: "code", brief: "" },
+				notes: { text: "# ETA rules\n\n- Round to 5 min" },
+			},
+		);
+		await chat.prompt("me", session.id, "Fix the ETA");
+		await chat.prompt("me", session.id, "Thanks");
+		expect(sent).toEqual([
+			"You are working as the team's Engineer.\n\n---\n\nNotes the team shares with agents working on this project. Follow them unless the message says otherwise:\n\n# ETA rules\n\n- Round to 5 min\n\n---\n\nFix the ETA",
+			"Thanks",
+		]);
+		// The thread keeps the notes it started with, marked as given.
+		expect(store.get(session.id)?.notes).toEqual({
+			text: "# ETA rules\n\n- Round to 5 min",
+			briefed: true,
+		});
+		// Blank notes are not kept at all.
+		const plain = chat.create(
+			{ userId: "me", workspace: "me" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp", notes: { text: "  " } },
+		);
+		expect(plain.notes).toBeNull();
+	});
+
 	const COMMANDS: AgentCommand[] = [
 		{ name: "compact", description: "Summarise the conversation" },
 		{ name: "clear", description: "Clear the screen" },

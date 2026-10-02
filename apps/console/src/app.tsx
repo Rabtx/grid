@@ -46,7 +46,8 @@ const Router = createRouter({
 		{ path: "/board", component: RedirectRoute },
 		{ path: "/board/:slug", component: BoardRoute },
 		{ path: "/files/:slug", component: FilesRoute },
-		{ path: "/notes/:slug", component: NotesRoute },
+		// A project's notes; the open one (or `new`) after it.
+		{ path: "/notes/:slug/:note?", component: NotesRoute },
 		// A project's pull requests on GitHub; the open one is `?pr=`.
 		{ path: "/pulls/:slug", component: PullsRoute },
 		// The same board with one task open in the panel over it.

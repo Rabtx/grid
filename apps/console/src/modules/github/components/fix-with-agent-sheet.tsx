@@ -10,7 +10,7 @@ import { chatService } from "@/modules/chat/services/chat.service";
 import { offeredProviders, providersStore } from "@/modules/chat/stores/providers";
 import { threadsStore } from "@/modules/chat/stores/threads";
 import { placementsStore } from "@/modules/environments";
-import { useWorkspace } from "@/modules/projects";
+import { notesStore, useWorkspace } from "@/modules/projects";
 
 import { pullsService } from "../services/pulls.service";
 import type { FixInclude, FixPlan } from "../types/github.types";
@@ -147,6 +147,7 @@ export function FixWithAgentSheet(props: {
 					existing: true,
 					pull: props.number,
 					fork: plan()?.fork ?? false,
+					notes: await notesStore.sharedText(token, props.project),
 				},
 				scope(),
 			);
