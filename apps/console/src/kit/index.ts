@@ -113,7 +113,6 @@ export {
 } from "./message";
 export {
 	BrandTile,
-	MachineCard,
 	NavButton,
 	NavGroup,
 	NavLink,

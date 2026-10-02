@@ -45,7 +45,7 @@ export function AppFrame(props: {
 			<Show when={props.rail || props.sidebar}>
 				<div class="hidden shrink-0 border-line border-r bg-fill lg:flex">
 					<Show when={props.rail}>
-						<div class="w-19 shrink-0">{props.rail}</div>
+						<div class="w-12 shrink-0">{props.rail}</div>
 					</Show>
 					<Show when={props.sidebar}>
 						<aside class={`w-55 shrink-0 ${props.rail ? "border-line border-l" : ""}`}>

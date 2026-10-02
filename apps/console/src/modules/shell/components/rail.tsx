@@ -106,7 +106,7 @@ const SETTINGS_PAGES = /^\/settings(?!\/(environments|agents)(\/|$))(\/|$)/;
 
 /**
  * The icon rail (the Figma Grid/Sidebar/Rail): the mark, which folds the panel away on desktop,
- * then every destination as a 36px tile with its name as a tooltip, and at the foot the machines,
+ * then every destination as a 32px tile with its name as a tooltip, and at the foot the machines,
  * agents, settings and who is signed in.
  */
 export function Rail(): JSX.Element {
@@ -128,7 +128,7 @@ export function Rail(): JSX.Element {
 					/>
 				</Show>
 			</div>
-			<div class="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto pt-3 [scrollbar-width:none]">
+			<div class="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto pt-2 [scrollbar-width:none]">
 				<For each={VIEWS}>
 					{(view) => (
 						<RailLink
@@ -147,7 +147,7 @@ export function Rail(): JSX.Element {
 					)}
 				</For>
 			</div>
-			<div class="flex shrink-0 flex-col items-center gap-1 pt-2 pb-3">
+			<div class="flex shrink-0 flex-col items-center gap-1 pt-2 pb-2">
 				<For each={FOOT}>
 					{(item) => (
 						<RailLink

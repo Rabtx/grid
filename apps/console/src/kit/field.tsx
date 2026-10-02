@@ -143,7 +143,7 @@ export function QuietInput(props: JSX.InputHTMLAttributes<HTMLInputElement>): JS
 	return (
 		<input
 			{...rest}
-			class={`focus-ring h-8 w-full min-w-0 rounded-kit-md bg-transparent px-2 text-body text-fg outline-none transition-colors duration-fast placeholder:text-fg-faint hover:bg-fill focus:bg-fill pointer-coarse:h-10 ${props.class ?? ""}`}
+			class={`focus-ring h-kit-control w-full min-w-0 rounded-kit-md bg-transparent px-2 text-body text-fg outline-none transition-colors duration-fast placeholder:text-fg-faint hover:bg-fill focus:bg-fill ${props.class ?? ""}`}
 		/>
 	);
 }

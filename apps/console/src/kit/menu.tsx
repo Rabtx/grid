@@ -49,11 +49,11 @@ const TILE_ICON =
 export const menuTrigger = variants({
 	base: "focus-ring flex min-w-0 items-center gap-2 rounded-kit px-1.5 text-left transition-colors duration-fast hover:bg-fill aria-expanded:bg-fill-strong",
 	variants: {
-		size: { sm: "h-8 pointer-coarse:h-11", md: "h-9 text-body-lg pointer-coarse:h-12" },
+		size: { sm: "h-kit-control", md: "h-kit-control-lg text-body-lg" },
 		width: { auto: "", fill: "flex-1", full: "w-full" },
 		shape: {
 			default: "",
-			icon: `icon-tile size-8 shrink-0 justify-center px-0 text-fg-muted hover:text-fg pointer-coarse:size-11 ${ICON_SIZE.md}`,
+			icon: `icon-tile size-kit-control shrink-0 justify-center px-0 text-fg-muted hover:text-fg ${ICON_SIZE.md}`,
 		},
 	},
 	defaults: { size: "sm", width: "auto", shape: "default" },

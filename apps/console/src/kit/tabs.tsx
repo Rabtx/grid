@@ -44,7 +44,7 @@ export function Tabs<T extends string>(props: {
 							if (props.value !== option.value) tap();
 							props.onChange(option.value);
 						}}
-						class="focus-ring relative flex h-9 shrink-0 items-center gap-1.5 text-body text-fg-subtle transition-colors duration-fast hover:text-fg aria-selected:text-fg after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent aria-selected:after:bg-fg pointer-coarse:h-11"
+						class="focus-ring relative flex h-kit-control shrink-0 items-center gap-1.5 text-body text-fg-subtle transition-colors duration-fast hover:text-fg aria-selected:text-fg after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent aria-selected:after:bg-fg"
 					>
 						{option.icon}
 						{option.label}
@@ -66,6 +66,11 @@ export function Segmented<T extends string>(props: {
 	onChange: (value: T) => void;
 	/** Stretch to the container, each segment an equal share. */
 	block?: boolean;
+	/**
+	 * Its height on the control scale: `md` (the default) matches inputs and buttons, `sm` sits
+	 * among small buttons (a toolbar, a path bar).
+	 */
+	size?: "sm" | "md";
 	/** Icons only (labels stay for screen readers and tooltips): tight bars on phones. */
 	iconsOnly?: boolean;
 }): JSX.Element {
@@ -85,7 +90,7 @@ export function Segmented<T extends string>(props: {
 							if (props.value !== option.value) tap();
 							props.onChange(option.value);
 						}}
-						class={`focus-ring flex h-[calc(var(--kit-h-control-sm)-0.25rem)] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-kit-sm px-2.5 text-body text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid hover:text-fg aria-pressed:bg-surface aria-pressed:font-medium aria-pressed:text-fg aria-pressed:shadow-knob ${props.block ? "flex-1" : ""}`}
+						class={`focus-ring flex ${props.size === "sm" ? "h-[calc(var(--kit-h-control-sm)-0.25rem)]" : "h-[calc(var(--kit-h-control)-0.25rem)]"} shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-kit-sm px-2.5 text-body text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid hover:text-fg aria-pressed:bg-surface aria-pressed:font-medium aria-pressed:text-fg aria-pressed:shadow-knob ${props.block ? "flex-1" : ""}`}
 					>
 						{option.icon}
 						<span class={props.iconsOnly ? "sr-only" : ""}>{option.label}</span>

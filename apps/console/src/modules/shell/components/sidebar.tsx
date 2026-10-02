@@ -5,8 +5,6 @@ import { Loading, Show } from "solid-js";
 import {
 	CloseIcon,
 	IconButton,
-	LaptopIcon,
-	MachineCard,
 	NavSection,
 	PanelHeader,
 	PlusIcon,
@@ -14,10 +12,7 @@ import {
 	Skeleton,
 	Stack,
 } from "@/kit";
-import { workspaceHref } from "@/lib/active-workspace";
-import { runnerUp } from "@/lib/runner-health";
 import { useWorkspace } from "@/modules/projects";
-import { WorkspaceSwitcher } from "@/modules/workspaces";
 
 import { useShell } from "../context/shell-context";
 
@@ -77,7 +72,8 @@ function ProjectsBody(): JSX.Element {
 
 /**
  * The panel beside the rail (the Figma Grid/Sidebar/Panel): the section's name with search and a
- * new thread, the workspace and its projects with their threads, and this machine at the foot.
+ * new thread, then the workspace's projects with their threads (or the section's own panel). The
+ * workspace is switched from the account menu; machines live under the rail's Machines.
  * The same component is the desktop column and, beside the rail, the phone drawer.
  */
 export function Sidebar(props: { onClose?: () => void }): JSX.Element {
@@ -124,9 +120,6 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 				}
 			/>
 
-			<div class="shrink-0 px-2 pt-2">
-				<WorkspaceSwitcher />
-			</div>
 			<Show when={shell.panel()} fallback={<ProjectsBody />}>
 				{(panel) => (
 					<div class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-2">
@@ -134,16 +127,6 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 					</div>
 				)}
 			</Show>
-			<div class="shrink-0 p-2 pb-safe">
-				{/* The runner this console drives: whether it is online, and the way to every machine. */}
-				<MachineCard
-					href={workspaceHref("/settings/environments")}
-					name="Runner"
-					detail={runnerUp() ? "Runner online" : "Runner offline"}
-					online={runnerUp()}
-					icon={<LaptopIcon />}
-				/>
-			</div>
 		</nav>
 	);
 }

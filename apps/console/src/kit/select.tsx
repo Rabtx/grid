@@ -39,7 +39,7 @@ export function Select<T extends string>(props: {
 		props.groups.flatMap((group) => group.options).find((option) => option.value === props.value);
 	const trigger = () =>
 		props.look === "chip"
-			? "focus-ring inline-flex h-7 max-w-60 shrink-0 items-center gap-1.5 rounded-kit px-2 text-body-lg text-fg-muted hover:bg-fill hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:h-10"
+			? "focus-ring inline-flex h-kit-control-sm max-w-60 shrink-0 items-center gap-1.5 rounded-kit px-2 text-body-lg text-fg-muted hover:bg-fill hover:text-fg aria-expanded:bg-fill-strong"
 			: "surface-field focus-ring flex h-kit-control w-full items-center gap-2 px-3 text-left text-field text-fg disabled:opacity-50";
 
 	return (

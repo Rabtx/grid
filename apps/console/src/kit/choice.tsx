@@ -149,7 +149,7 @@ export function ChoiceChips<T extends string>(props: {
 								tap();
 								props.onChange(option.value);
 							}}
-							class="focus-ring inline-flex h-7 items-center gap-1.5 rounded-kit px-2 text-body text-fg-subtle ring-line-strong transition-colors duration-fast hover:text-fg aria-pressed:bg-fill-strong aria-pressed:text-fg pointer-coarse:h-10"
+							class="focus-ring inline-flex h-kit-control-sm items-center gap-1.5 rounded-kit px-2 text-body text-fg-subtle ring-line-strong transition-colors duration-fast hover:text-fg aria-pressed:bg-fill-strong aria-pressed:text-fg pointer-coarse:h-10"
 						>
 							{option.icon}
 							{option.label}

@@ -60,19 +60,21 @@
 	--kit-inverse: var(--primary-fill);
 	--kit-inverse-fg: var(--primary-ink);
 	--kit-accent: var(--signal-accent);
-	--kit-shadow-color: 0 0 0;
-	--kit-shadow-strength: 0.1;
 	/*
-	 * Depth, an Appearance choice (`data-depth="on"` on the root; off by default, and when on it
-	 * draws cards as the Figma design system's Depth/Card does: a soft 32px ambient and a lit top
-	 * edge). Off, every one
-	 * of these is the flat look; on, raised things catch light on their top edge, floating layers
-	 * get a softer two-layer shadow, the canvas a faint top light and primaries a pressable finish.
+	 * Grid draws no shadows: surfaces part by hairlines and fills. Every shadow the utilities below
+	 * once cast is scaled by this strength, which is zero, so none of them falls anywhere.
+	 */
+	--kit-shadow-color: 0 0 0;
+	--kit-shadow-strength: 0;
+	/*
+	 * Depth, an Appearance choice (`data-depth="on"` on the root; off by default). It is light, never
+	 * shadow: raised things catch light on their top edge, the canvas a faint top light and
+	 * primaries a pressable sheen. Off, every one of these is the flat look.
 	 */
 	--kit-highlight: transparent;
 	--kit-highlight-on: rgb(255 255 255 / 1);
 	--kit-card-ambient: 0 0 #0000;
-	--kit-card-ambient-on: 0 0 32px rgb(0 0 0 / 0.04);
+	--kit-card-ambient-on: 0 0 #0000;
 	--kit-float-contact: 0 2px 6px -2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.5));
 	--kit-float-ambient: 0 12px 32px -8px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 1.2));
 	--kit-outline-drop: 0 0 #0000;
@@ -155,9 +157,7 @@
 		--kit-line-hover-strength: 26%;
 		--kit-surface-raised: color-mix(in srgb, var(--ink) 6%, var(--canvas));
 		--kit-field: var(--canvas);
-		--kit-shadow-strength: 0.45;
 		--kit-highlight-on: rgb(255 255 255 / 0.06);
-		--kit-card-ambient-on: 0 0 32px rgb(0 0 0 / 0.24);
 	}
 }
 
@@ -173,9 +173,7 @@
 	--kit-line-hover-strength: 26%;
 	--kit-surface-raised: color-mix(in srgb, var(--ink) 6%, var(--canvas));
 	--kit-field: var(--canvas);
-	--kit-shadow-strength: 0.45;
 	--kit-highlight-on: rgb(255 255 255 / 0.06);
-	--kit-card-ambient-on: 0 0 32px rgb(0 0 0 / 0.24);
 }
 
 :root[data-depth="on"] {
@@ -503,9 +501,7 @@
 		margin-top: -6px;
 		border-radius: 9999px;
 		background: #fff;
-		box-shadow:
-			0 0 0 1px var(--kit-line-strong),
-			0 1px 3px rgb(0 0 0 / 0.2);
+		box-shadow: 0 0 0 1px var(--kit-line-strong);
 	}
 	.kit-slider::-moz-range-thumb {
 		width: 16px;
@@ -513,9 +509,7 @@
 		border: 0;
 		border-radius: 9999px;
 		background: #fff;
-		box-shadow:
-			0 0 0 1px var(--kit-line-strong),
-			0 1px 3px rgb(0 0 0 / 0.2);
+		box-shadow: 0 0 0 1px var(--kit-line-strong);
 	}
 	.kit-slider:focus-visible {
 		outline: none;
@@ -572,7 +566,6 @@
 	box-shadow:
 		inset 0 1px 0 var(--kit-highlight),
 		0 0 0 1px var(--kit-line),
-		0 1px 2px rgb(0 0 0 / 0.12),
 		var(--kit-outline-drop);
 }
 
@@ -621,8 +614,7 @@
 		0%,
 		100% {
 			box-shadow:
-				0 0 0 0 color-mix(in oklab, var(--color-accent) 45%, transparent),
-				0 1px 3px rgb(0 0 0 / 0.25);
+				0 0 0 0 color-mix(in oklab, var(--color-accent) 45%, transparent);
 		}
 		50% {
 			box-shadow:

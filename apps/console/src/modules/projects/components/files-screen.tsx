@@ -1228,6 +1228,7 @@ function FilePane(props: {
 			value={view()}
 			onChange={setView}
 			block={block}
+			size={block ? "md" : "sm"}
 			options={[
 				{ value: "code", label: "Code" },
 				...(change() && before() !== null

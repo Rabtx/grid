@@ -8,6 +8,7 @@ import {
 	Menu,
 	menuTrigger,
 	MoonIcon,
+	PlusIcon,
 	railItem,
 	Row,
 	SettingsIcon,
@@ -15,9 +16,11 @@ import {
 	Stack,
 	SunIcon,
 	Text,
+	WorkspaceMark,
 } from "@/kit";
 import { appearance, type Theme, updateAppearance } from "@/lib/appearance";
 import { useAuth } from "@/modules/auth";
+import { useWorkspaces } from "@/modules/workspaces";
 
 const THEMES: { id: Theme; label: string; icon: () => JSX.Element }[] = [
 	{ id: "light", label: "Light", icon: () => <SunIcon /> },
@@ -26,11 +29,13 @@ const THEMES: { id: Theme; label: string; icon: () => JSX.Element }[] = [
 ];
 
 /**
- * Who is signed in, and what belongs to them rather than the workspace: the theme, settings and
- * signing out. Opens above the row on desktop and as a bottom sheet on phones.
+ * Who is signed in and what belongs to them: the workspace they are in (and the others they can
+ * move to, or a new one), the theme, settings and signing out. Opens above the row on desktop and
+ * as a bottom sheet on phones.
  */
 export function AccountMenu(props: { compact?: boolean }): JSX.Element {
 	const auth = useAuth();
+	const workspaces = useWorkspaces();
 	const navigate = useNavigate();
 	const name = () => auth.user()?.username ?? "Account";
 
@@ -67,6 +72,18 @@ export function AccountMenu(props: { compact?: boolean }): JSX.Element {
 			}
 			groups={[
 				{
+					label: "Workspace",
+					items: [
+						...workspaces.list().map((workspace) => ({
+							id: `ws:${workspace.slug}`,
+							label: workspace.name,
+							icon: <WorkspaceMark name={workspace.name} color={workspace.color} size="xs" />,
+							trailing: workspace.slug === workspaces.current()?.slug ? <CheckIcon /> : undefined,
+						})),
+						{ id: "create", label: "Create workspace", icon: <PlusIcon /> },
+					],
+				},
+				{
 					label: "Theme",
 					items: THEMES.map((theme) => ({
 						id: `theme:${theme.id}`,
@@ -84,6 +101,10 @@ export function AccountMenu(props: { compact?: boolean }): JSX.Element {
 			]}
 			onSelect={(id) => {
 				if (id.startsWith("theme:")) updateAppearance({ theme: id.slice(6) as Theme });
+				else if (id.startsWith("ws:")) {
+					const target = workspaces.list().find((workspace) => `ws:${workspace.slug}` === id);
+					if (target && target.slug !== workspaces.current()?.slug) workspaces.switchTo(target);
+				} else if (id === "create") workspaces.setCreateOpen(true);
 				else if (id === "settings") navigate("/settings/appearance");
 				else void auth.logout();
 			}}

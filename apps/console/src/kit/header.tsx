@@ -74,7 +74,7 @@ export function HeaderTabs(props: {
 				{(tab) => (
 					<div
 						aria-current={props.current === tab.id ? "page" : undefined}
-						class="group/tab relative flex h-7 min-w-0 max-w-60 shrink items-center rounded-kit text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg pointer-coarse:h-10"
+						class="group/tab relative flex h-kit-control-sm min-w-0 max-w-60 shrink items-center rounded-kit text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg pointer-coarse:h-10"
 					>
 						<a
 							href={tab.href}

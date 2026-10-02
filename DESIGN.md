@@ -149,21 +149,23 @@ build on a fixed corner in the kit or the stylesheets.
 
 ### Surfaces
 
-Four levels, no shadows on in-flow content: the backdrop (`bg-backdrop`), which the desktop
+Four levels and **no shadows anywhere**, floating layers included: the backdrop (`bg-backdrop`), which the desktop
 sidebar sits on; the canvas, the screen itself, drawn on desktop as one panel inset 8px from the
 backdrop (`rounded-xl`, `border-ink/8`) and edge to edge on phones; the phone navigation layer
 (`glass`: canvas at 85%, blurred); raised cards (`bg-ink/5 border-ink/10 rounded-lg`, flat); floating layers
-(sheets, menus, dialogs: solid canvas, `border-ink/10`, the only shadows). Regions are separated
-by 1px `stroke` lines, never gaps or shadows.
+(sheets, menus, dialogs: solid canvas and a hairline ring). Regions are separated by 1px `stroke`
+lines, never gaps or shadows. The kit's shadow utilities (`shadow-float`, `shadow-raise`,
+`shadow-lift`, `shadow-knob`, `shadow-page`, `shadow-pane`) keep only their hairline: every
+shadow they once cast is scaled by `--kit-shadow-strength`, which is 0. Do not add a shadow.
 
 ### Depth and material
 
 Depth is an Appearance choice, **off by default**, even where a Figma frame draws it. When on it
-is the Figma `Depth/Card` effect: a 0 0 32px ambient at 4% and a white 1px top edge; in dark a
-deeper ambient and a 6% white edge. Settings → Appearance → Material → Depth sets
+is light, never shadow: a white 1px top edge (6% white in dark) where Figma's `Depth/Card` also
+draws an ambient shadow, which Grid leaves out. Settings → Appearance → Material → Depth sets
 `data-depth="on"` on the root (saved per device, applied before the first paint). People opt in;
 nothing turns it on for them. Off, the
-console is the flat look above. On, depth comes from light, not from stacking shadows. Every rule
+console is the flat look above. On, depth comes from light only. Every rule
 below is a `--kit-*` variable that is flat by default and switched in `:root[data-depth="on"]`
 in `kit.css`; what a variable cannot switch uses the `depth:` variant (`depth:active:…`). New
 depth detailing goes behind the same switch.
@@ -171,17 +173,15 @@ depth detailing goes behind the same switch.
 - **Lit edges.** Anything raised (cards, outlined controls, the composer, menus, knobs) carries a
   1px inner highlight along its top edge (`--kit-highlight`: strong on light, 6% white on dark).
   It is a line of light, not a shadow, so in-flow cards stay flat.
-- **Two-layer shadows on floating things only.** A tight contact shadow and a soft ambient one
-  (`shadow-float`, `shadow-raise`). In-flow content never gets more than `shadow-lift`.
 - **The canvas breathes.** The screen's panel has a faint light at its top (`surface-canvas`), so a
   dark canvas is not a flat void.
 - **Pressable primaries.** Ink and accent buttons get `surface-primary`: light on the top edge, the
   fill deepening downward, a 1px nudge down when pressed.
 - **Selection is lifted.** The selected sidebar row is a raised pill on the sunken frame
-  (`bg-surface` + `shadow-lift`), not only a fill.
+  (`bg-surface` and its hairline), not only a fill.
 - **Fading hairlines.** A horizontal `Divider` fades out at its ends (`hairline-fade`).
 
-Keep it small: one highlight, at most two shadow layers, no coloured glows beyond the composer's
+Keep it small: one highlight, no shadows, no coloured glows beyond the composer's
 halo and the effort knob at its top level. Those two are part of the composer and picker design
 and show whatever the depth setting: the composer glows in the accent while focused
 (`shadow-focus`); every other control keeps the keyboard-only `focus-ring`.
@@ -211,8 +211,8 @@ primary action.
 
 - Icon buttons name themselves on hover (pointers only) in one app-wide tooltip that stays on
   screen (`TooltipLayer`); pass `shortcut` to show the key ("C", "Mod K" for ⌘/Ctrl).
-- A pane header keeps its divider and gains a soft shade (`shadow-pane`) once its content scrolls
-  under it.
+- A pane header keeps its divider while its content scrolls under it (`data-scrolled`); it casts
+  no shade.
 - A sideways scroller fades out at whichever end has more (`edge-fade` + `attachEdgeFade`).
 - Times like "2m" and "in 13 h" stay current: the time helpers read the shared clock (`lib/clock`).
 - Switching theme, accent or depth cross-fades the screen; sliders stay instant; reduced motion
@@ -261,8 +261,8 @@ are gone.
   `bg-surface-raised` menus and dialogs; `line` / `line-strong` hairlines; `fill` hover,
   `fill-strong` selected.
 - **Shape:** rows 30px and controls 32px on desktop (44px on touch); radius 6 chips, 8 controls,
-  12 cards, 14 floating surfaces, 18 the composer; `shadow-float` for floating layers,
-  `shadow-raise` for the composer and prompts.
+  12 cards, 14 floating surfaces, 18 the composer; floating layers and the composer are
+  outlined by a hairline (`shadow-float`, `shadow-raise`), never shadowed.
 - **Layout:** the sidebar sits on the sunken frame and the screen sits flush beside it with a
   hairline; open things are tabs along the top. Phones get a top bar and a drawer; every menu
   and dialog is a bottom sheet there.
