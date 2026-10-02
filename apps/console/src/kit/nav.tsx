@@ -195,7 +195,7 @@ export function NavSection(props: {
 }
 
 export const railItem = variants({
-	base: "focus-ring relative grid size-9 shrink-0 place-items-center rounded-kit text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:surface-outline aria-[current=page]:bg-surface aria-[current=page]:text-fg [&_svg]:size-4 pointer-coarse:size-11 pointer-coarse:[&_svg]:size-5",
+	base: "focus-ring relative grid size-8 shrink-0 place-items-center rounded-kit text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:surface-outline aria-[current=page]:bg-surface aria-[current=page]:text-fg [&_svg]:size-4 pointer-coarse:size-11 pointer-coarse:[&_svg]:size-5",
 	variants: {},
 	defaults: {},
 });
@@ -276,36 +276,5 @@ export function BrandTile(): JSX.Element {
 		<span class="surface-outline grid size-7 place-items-center rounded-kit">
 			<BrandMark class="size-4" />
 		</span>
-	);
-}
-
-/**
- * The panel's foot (the Figma Grid/Sidebar/Machine card): a machine's tile, its name and state,
- * and a dot that is green while it is online.
- */
-export function MachineCard(props: {
-	href: string;
-	name: string;
-	detail: string;
-	online: boolean;
-	icon: JSX.Element;
-}): JSX.Element {
-	return (
-		<a
-			href={props.href}
-			class="focus-ring surface-card flex items-center gap-2 p-2 transition-colors duration-fast hover:bg-fill"
-		>
-			<span class="grid size-7 shrink-0 place-items-center rounded-kit bg-fill-strong text-fg-muted ring-line [&_svg]:size-3.5">
-				{props.icon}
-			</span>
-			<span class="flex min-w-0 flex-1 flex-col">
-				<span class="truncate font-medium text-body text-fg">{props.name}</span>
-				<span class="truncate text-caption text-fg-subtle">{props.detail}</span>
-			</span>
-			<span
-				aria-hidden="true"
-				class={`mr-1.5 size-2 shrink-0 rounded-full ${props.online ? "bg-success" : "bg-fg-faint"}`}
-			/>
-		</a>
 	);
 }
