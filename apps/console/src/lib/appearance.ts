@@ -45,7 +45,7 @@ export const APPEARANCE_DEFAULTS: Appearance = {
 	spacing: 1,
 	lines: 1,
 	celebrations: true,
-	depth: true,
+	depth: false,
 };
 
 export const APPEARANCE_LIMITS = {
@@ -170,7 +170,7 @@ export function applyAppearance(
 	if (root === document.documentElement) syncThemeColor(value);
 }
 
-/** The saved appearance, and whether it was saved before the Figma design and needs writing back. */
+/** The saved appearance, and whether it was saved under an older design generation and needs writing back. */
 function readStored(): { value: Appearance; migrated: boolean } {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
@@ -196,20 +196,26 @@ function readStored(): { value: Appearance; migrated: boolean } {
 }
 
 /**
- * The design generation stored with the settings. Generation 2 is the Figma design system:
- * a deeper dark canvas (8%, was 9%) and depth on by default. Settings saved before it carried
- * the old defaults, so those two move to the new ones; anything else the person chose stays.
+ * The design generation stored with the settings. Generation 2 is the Figma design system's
+ * deeper dark canvas (8%, was 9%); settings saved before it move to the new default. Generation 3
+ * puts depth back to off by default: generation 2 had switched it on for everyone and saved that,
+ * so a stored `true` from before 3 is not a choice anyone made, and it goes back to off once.
+ * Anything else the person chose stays.
  */
-const DESIGN_GENERATION = 2;
+const DESIGN_GENERATION = 3;
 
 function migrateStored(input: unknown): unknown {
 	if (typeof input !== "object" || input === null) return input;
 	const raw = input as Record<string, unknown>;
 	if (raw.design === DESIGN_GENERATION) return raw;
+	const beforeFigma = raw.design !== 2;
 	return {
 		...raw,
-		darkLightness: raw.darkLightness === 9 ? APPEARANCE_DEFAULTS.darkLightness : raw.darkLightness,
-		depth: raw.depth === false ? APPEARANCE_DEFAULTS.depth : raw.depth,
+		darkLightness:
+			beforeFigma && raw.darkLightness === 9
+				? APPEARANCE_DEFAULTS.darkLightness
+				: raw.darkLightness,
+		depth: APPEARANCE_DEFAULTS.depth,
 	};
 }
 
@@ -261,7 +267,7 @@ export function resetAppearance(): void {
 /** Load the saved appearance and apply it; call once before the first render. */
 export function restoreAppearance(): void {
 	const stored = readStored();
-	// Settings saved before the Figma design are written back once, so the pre-paint script in
+	// Settings saved under an older design generation are written back once, so the pre-paint script in
 	// index.html (which reads them raw) sees the migrated values too.
 	commit(stored.value, stored.migrated);
 	if (window.matchMedia && !watchingSystemTheme) {

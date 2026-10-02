@@ -86,11 +86,11 @@ describe("applyAppearance", () => {
 		expect(root.style.getPropertyValue("--user-accent-ink")).toBe("#ffffff");
 		expect(root.classList.contains("dark")).toBe(true);
 		expect(root.getAttribute("data-density")).toBe("comfortable");
-		// Depth is on by default, as the Figma design system draws cards; it can be turned off.
-		expect(root.getAttribute("data-depth")).toBe("on");
-
-		applyAppearance({ ...APPEARANCE_DEFAULTS, theme: "system", depth: false }, root);
+		// Depth is off by default; people opt in from Appearance.
 		expect(root.getAttribute("data-depth")).toBe("off");
+
+		applyAppearance({ ...APPEARANCE_DEFAULTS, theme: "system", depth: true }, root);
+		expect(root.getAttribute("data-depth")).toBe("on");
 		expect(root.style.getPropertyValue("--user-accent")).toBe("");
 		expect(root.classList.contains("dark")).toBe(false);
 		expect(root.classList.contains("light")).toBe(false);
@@ -123,24 +123,39 @@ describe("persistence", () => {
 	it("moves settings saved before the Figma design onto its defaults", () => {
 		localStorage.setItem(
 			"grid.appearance",
-			JSON.stringify({ ...APPEARANCE_DEFAULTS, darkLightness: 9, depth: false, hue: 30 }),
+			JSON.stringify({ ...APPEARANCE_DEFAULTS, darkLightness: 9, depth: true, hue: 30 }),
 		);
 		restoreAppearance();
 		flush();
-		expect(appearance()).toMatchObject({ darkLightness: 8, depth: true, hue: 30 });
+		expect(appearance()).toMatchObject({ darkLightness: 8, depth: false, hue: 30 });
 		// Written back once, so the pre-paint script reads the migrated values too.
 		expect(JSON.parse(localStorage.getItem("grid.appearance") ?? "{}")).toMatchObject({
 			darkLightness: 8,
-			depth: true,
-			design: 2,
+			depth: false,
+			design: 3,
 		});
 	});
 
-	it("keeps a choice made under the Figma design", () => {
-		updateAppearance({ depth: false, darkLightness: 9 });
+	it("turns depth back off once for settings saved when it was on by default", () => {
+		localStorage.setItem(
+			"grid.appearance",
+			JSON.stringify({ ...APPEARANCE_DEFAULTS, darkLightness: 9, depth: true, design: 2 }),
+		);
 		restoreAppearance();
 		flush();
-		expect(appearance()).toMatchObject({ depth: false, darkLightness: 9 });
+		// The dark canvas was already chosen under generation 2, so it stays.
+		expect(appearance()).toMatchObject({ darkLightness: 9, depth: false });
+		expect(JSON.parse(localStorage.getItem("grid.appearance") ?? "{}")).toMatchObject({
+			depth: false,
+			design: 3,
+		});
+	});
+
+	it("keeps a choice made under the current design", () => {
+		updateAppearance({ depth: true, darkLightness: 9 });
+		restoreAppearance();
+		flush();
+		expect(appearance()).toMatchObject({ depth: true, darkLightness: 9 });
 	});
 
 	it("migrates the earlier theme and density keys", () => {
