@@ -106,6 +106,8 @@ export type Note = {
 	shared: boolean;
 	/** Its glyph; null for the plain note. */
 	icon: NoteIcon | null;
+	/** The agents (provider ids) it goes to when shared; null for every agent. */
+	agents: string[] | null;
 	/** Who wrote it, and who last changed its text. */
 	author: { name: string } | null;
 	editor: { name: string } | null;
@@ -114,7 +116,19 @@ export type Note = {
 };
 
 /** What can change on a note: its text, and whether it is pinned, shared, and its glyph. */
-export type NotePatch = Partial<Pick<Note, "body" | "pinned" | "shared" | "icon">>;
+export type NotePatch = Partial<Pick<Note, "body" | "pinned" | "shared" | "icon" | "agents">>;
+
+/** An addition an agent suggested to a note, kept by the runner until someone adds or dismisses it. */
+export type NoteSuggestion = {
+	id: string;
+	project: string;
+	noteId: string;
+	/** The agent that suggested it, and the thread it was working in. */
+	provider: string;
+	sessionId: string;
+	text: string;
+	createdAt: string;
+};
 
 export type CreateNoteInput = {
 	body: string;

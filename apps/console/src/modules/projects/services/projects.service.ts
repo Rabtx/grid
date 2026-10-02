@@ -36,4 +36,14 @@ export const projectsService = {
 		apiClient.patch<Note>(inWorkspace(`/projects/${slug}/notes/${id}`), patch, { accessToken }),
 	deleteNote: (accessToken: string, slug: string, id: string) =>
 		apiClient.delete<void>(inWorkspace(`/projects/${slug}/notes/${id}`), { accessToken }),
+	/** Keep an image with a note; the answer is its address, for the note's Markdown. */
+	addNoteImage: (accessToken: string, slug: string, id: string, file: File) => {
+		const form = new FormData();
+		form.set("file", file);
+		return apiClient.upload<{ url: string }>(
+			inWorkspace(`/projects/${slug}/notes/${id}/images`),
+			form,
+			{ accessToken },
+		);
+	},
 };

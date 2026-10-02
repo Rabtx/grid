@@ -11,6 +11,7 @@ import { tap } from "./haptics";
 import {
 	BoltIcon,
 	CalendarIcon,
+	CheckIcon,
 	ChatIcon,
 	CodeIcon,
 	FlagIcon,
@@ -350,8 +351,10 @@ export const NOTE_TITLE =
 export function NoteMeta(props: {
 	who: string | null;
 	when: JSX.Element;
-	/** "Context for agents in grid": shown when the note is shared with them. */
+	/** "Context for Claude Code in grid": shown when the note is shared with agents. */
 	context?: string | null;
+	/** The agents it goes to, by their logos beside the words. */
+	contextAgents?: readonly NoteAgent[];
 	source?: JSX.Element;
 }): JSX.Element {
 	return (
@@ -370,7 +373,7 @@ export function NoteMeta(props: {
 							·
 						</span>
 						<span class="flex min-w-0 items-center gap-1 md:text-fg-muted">
-							<AgentLogo id="claude" name="Claude Code" class="size-3" />
+							<AgentLogos agents={props.contextAgents ?? []} size="size-3" />
 							<span class="truncate">{context()}</span>
 						</span>
 					</>
@@ -444,32 +447,90 @@ export function FormatAsk(props: {
 	);
 }
 
-/**
- * Whether agents get this note, as the top bar's chip (Figma Context chip): the agents' logos and
- * "Shared with agents"; pressing it shares or stops sharing.
- */
-export function SharedChip(props: { shared: boolean; onToggle: () => void }): JSX.Element {
+/** An agent a note can go to: its provider id and name. */
+export type NoteAgent = { id: string; name: string };
+
+/** A few agents' logos, overlapping: the ones a note goes to. */
+function AgentLogos(props: { agents: readonly NoteAgent[]; size: string }): JSX.Element {
 	return (
-		<button
-			type="button"
-			aria-pressed={props.shared ? "true" : "false"}
-			onClick={() => {
-				tap();
-				props.onToggle();
-			}}
-			title={
-				props.shared
-					? "New threads in this project start with this note. Press to stop sharing it."
-					: "Give this note to agents: new threads in this project start with it."
-			}
-			class="focus-ring inline-flex h-6.5 shrink-0 items-center gap-1.5 rounded-full bg-fill py-1 pr-3 pl-2 font-medium text-caption text-fg-muted ring-line transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-pressed:text-fg"
-		>
-			<span class={`flex -space-x-1 ${props.shared ? "" : "opacity-50 grayscale"}`}>
-				<AgentLogo id="claude" name="Claude Code" class="size-3.5" />
-				<AgentLogo id="codex" name="Codex" class="size-3.5" />
+		<span class="flex -space-x-1">
+			<For each={props.agents.slice(0, 3)}>
+				{(agent) => <AgentLogo id={agent.id} name={agent.name} class={props.size} />}
+			</For>
+		</span>
+	);
+}
+
+/** The top bar's chip (Figma Context chip) as a menu's trigger: who gets the note, and how. */
+export const SHARED_CHIP =
+	"focus-ring inline-flex h-kit-control-sm shrink-0 items-center gap-1.5 rounded-full bg-fill pr-3 pl-2 font-medium text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong";
+
+/**
+ * What the chip says: the logos of the agents the note goes to and "Shared with agents", or
+ * faded logos and "Share with agents" while it is the team's alone.
+ */
+export function SharedChipFace(props: {
+	shared: boolean;
+	agents: readonly NoteAgent[];
+}): JSX.Element {
+	return (
+		<>
+			<span class={props.shared ? "" : "opacity-50 grayscale"}>
+				<AgentLogos agents={props.agents} size="size-3.5" />
 			</span>
-			{props.shared ? "Shared with agents" : "Share with agents"}
-		</button>
+			<span class={props.shared ? "text-fg" : ""}>
+				{props.shared ? "Shared with agents" : "Share with agents"}
+			</span>
+		</>
+	);
+}
+
+/**
+ * An agent's suggested addition to the note (Figma Agent suggestion): who suggests it, the words,
+ * and Dismiss or Add to note.
+ */
+export function NoteSuggestionCard(props: {
+	agent: NoteAgent;
+	text: string;
+	busy?: boolean;
+	onDismiss: () => void;
+	onAdd: () => void;
+}): JSX.Element {
+	return (
+		<section
+			aria-label={`${props.agent.name} suggests an addition`}
+			class="flex gap-3 rounded-kit-xl bg-accent/10 p-4"
+		>
+			<span class="grid size-7 shrink-0 place-items-center rounded-kit-md bg-surface">
+				<AgentLogo id={props.agent.id} name={props.agent.name} class="size-4" />
+			</span>
+			<div class="flex min-w-0 flex-1 flex-col gap-2">
+				<p class="font-medium text-body text-fg">{props.agent.name} suggests an addition</p>
+				<p class="whitespace-pre-wrap text-body text-fg-muted">{props.text}</p>
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						disabled={props.busy}
+						onClick={() => props.onDismiss()}
+						class="focus-ring inline-flex h-kit-control-sm items-center rounded-full px-3 text-caption text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg disabled:opacity-40"
+					>
+						Dismiss
+					</button>
+					<button
+						type="button"
+						disabled={props.busy}
+						onClick={() => {
+							tap();
+							props.onAdd();
+						}}
+						class="focus-ring inline-flex h-kit-control-sm items-center gap-1.5 rounded-full bg-inverse px-3 font-medium text-caption text-inverse-fg transition-opacity duration-fast hover:opacity-90 disabled:opacity-40 [&_svg]:size-3.5"
+					>
+						<CheckIcon />
+						Add to note
+					</button>
+				</div>
+			</div>
+		</section>
 	);
 }
 
@@ -515,6 +576,8 @@ export type NoteInline =
 	/** A file the note names, in backticks: `src/jobs/eta.ts` or `@eta.ts`. */
 	| { kind: "file"; path: string; line: number | null }
 	| { kind: "link"; href: string; children: NoteInline[] }
+	/** An image kept with the note (its own upload, never a remote one). */
+	| { kind: "image"; src: string; alt: string }
 	| { kind: "break" };
 
 export type NoteListItem = {
@@ -613,6 +676,16 @@ function Words(props: { content: NoteInline[]; context: BlockContext }): JSX.Ele
 							</a>
 						)}
 					</Match>
+					<Match when={part.kind === "image" && part}>
+						{(image) => (
+							<img
+								src={image().src}
+								alt={image().alt}
+								loading="lazy"
+								class="my-2 block max-h-96 max-w-full rounded-kit-lg border border-line"
+							/>
+						)}
+					</Match>
 					<Match when={part.kind === "break"}>
 						<br />
 					</Match>
@@ -632,7 +705,9 @@ function plainWords(content: NoteInline[]): string {
 					? part.path
 					: part.kind === "break"
 						? " "
-						: plainWords(part.children),
+						: part.kind === "image"
+							? part.alt
+							: plainWords(part.children),
 		)
 		.join("");
 }

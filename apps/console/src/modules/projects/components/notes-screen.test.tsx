@@ -25,6 +25,7 @@ const base = {
 	pinned: false,
 	shared: false,
 	icon: null,
+	agents: null,
 	author: { name: "Sam" },
 	editor: { name: "Sam" },
 	createdAt: "2026-09-24T00:00:00.000Z",
@@ -44,6 +45,7 @@ const rules: Note = {
 	pinned: true,
 	shared: true,
 	icon: "rules",
+	agents: null,
 	updatedAt: "2026-09-25T00:00:00.000Z",
 };
 const release: Note = {
@@ -234,7 +236,13 @@ describe("NotesScreen", () => {
 		mount("/notes/beta/n3");
 		await settle();
 		const actions = container.querySelector<HTMLElement>('[data-slot="actions"]') as HTMLElement;
-		button(actions, "Share with agents")?.click();
+		// The chip opens who the note goes to; sharing is its first choice.
+		button(actions, "Shared with agents")?.click();
+		await settle();
+		const share = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(
+			(item) => item.textContent?.includes("Share with agents"),
+		);
+		share?.click();
 		await settle();
 		button(actions, "Pin to the top")?.click();
 		await settle();
@@ -242,7 +250,9 @@ describe("NotesScreen", () => {
 			{ id: "n3", body: { shared: true } },
 			{ id: "n3", body: { pinned: true } },
 		]);
-		expect(button(actions, "Shared with agents")?.getAttribute("aria-pressed")).toBe("true");
+		expect(button(actions, "Shared with agents")?.textContent?.includes("Shared with agents")).toBe(
+			true,
+		);
 		expect(button(actions, "Unpin")?.getAttribute("aria-pressed")).toBe("true");
 		expect([...panel().querySelectorAll("h3")][0]?.textContent).toBe("Pinned");
 	});

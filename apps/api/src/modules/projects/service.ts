@@ -44,6 +44,7 @@ const noteView = (r: q.NoteWithPeople) => ({
 	pinned: r.pinned,
 	shared: r.shared,
 	icon: r.icon,
+	agents: r.agents ?? null,
 	author: r.authorName ? { name: r.authorName } : null,
 	editor: r.editorName ? { name: r.editorName } : null,
 	createdAt: r.createdAt.toISOString(),
@@ -170,6 +171,7 @@ export async function createNote(
 		pinned: input.pinned ?? false,
 		shared: input.shared ?? false,
 		icon: input.icon ?? null,
+		agents: uniqueAgents(input.agents),
 		createdBy: scope.userId,
 		updatedBy: scope.userId,
 	});
@@ -188,6 +190,7 @@ export async function updateNote(
 		...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
 		...(input.shared !== undefined ? { shared: input.shared } : {}),
 		...(input.icon !== undefined ? { icon: input.icon } : {}),
+		...(input.agents !== undefined ? { agents: uniqueAgents(input.agents) } : {}),
 		...(input.body !== undefined
 			? { body: input.body, updatedBy: scope.userId, updatedAt: new Date() }
 			: {}),
@@ -196,6 +199,18 @@ export async function updateNote(
 	if (!note) throw notFound("Note not found");
 	return readNote(db, project.id, id);
 }
+/** Each agent once; an empty list is no choice, so the note goes to every agent. */
+function uniqueAgents(agents: readonly string[] | null | undefined): string[] | null {
+	const unique = [...new Set(agents ?? [])];
+	return unique.length ? unique : null;
+}
+
+/** The note an image is being added to, so the upload is refused for anyone who cannot edit it. */
+export async function requireNote(db: Database, scope: WorkspaceScope, slug: string, id: string) {
+	const project = await requireProject(db, scope, slug);
+	return readNote(db, project.id, id);
+}
+
 export async function deleteNote(db: Database, scope: WorkspaceScope, slug: string, id: string) {
 	const project = await requireProject(db, scope, slug);
 	if (!(await q.deleteNote(db, project.id, id))) throw notFound("Note not found");

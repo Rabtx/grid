@@ -12,6 +12,7 @@ import {
 } from "solid-js";
 
 import {
+	AgentLogo,
 	Alert,
 	BackIcon,
 	Button,
@@ -28,6 +29,7 @@ import {
 	IconButton,
 	iconButton,
 	Menu,
+	type MenuGroup,
 	MoreIcon,
 	NOTE_FIELD,
 	NOTE_TITLE,
@@ -48,7 +50,11 @@ import {
 	Popover,
 	type PopoverControl,
 	SearchIcon,
-	SharedChip,
+	SHARED_CHIP,
+	SharedChipFace,
+	NoteSuggestionCard,
+	type NoteAgent,
+	ImageIcon,
 	Skeleton,
 	Spinner,
 	StarIcon,
@@ -67,7 +73,9 @@ import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/modules/auth";
 import { highlightLines } from "@/modules/chat/lib/markdown";
 import { draftsStore } from "@/modules/chat/stores/drafts";
+import { offeredProviders, providersStore } from "@/modules/chat/stores/providers";
 import { threadsStore } from "@/modules/chat/stores/threads";
+import { placementsStore } from "@/modules/environments";
 import { ShellSlot, useShell } from "@/modules/shell";
 
 import { useWorkspace } from "../context/workspace-context";
@@ -82,6 +90,7 @@ import {
 import { code, type Edit, link, markLines, mention, wrap } from "../lib/note-edit";
 import { relativeTime } from "../lib/relative-time";
 import { filesService } from "../services/files.service";
+import { projectsService } from "../services/projects.service";
 import { notesStore } from "../stores/notes";
 import type { Note, NoteIcon as NoteGlyph, NotePatch } from "../types/project.types";
 
@@ -904,6 +913,138 @@ function NoteView(props: {
 	};
 	const missing = () => noteId() !== "new" && notesStore.loaded(props.slug) && !note();
 
+	// The agents on the machine the project runs on: who a shared note can go to.
+	const scope = () => placementsStore.scopeOf(props.slug);
+	createEffect(
+		() => [auth.token(), scope(), props.slug] as const,
+		([token, machine, slug]) => {
+			if (!token) return;
+			void providersStore.load(token, machine);
+			void notesStore.loadSuggestions(token, slug);
+		},
+	);
+	const agents = (): NoteAgent[] =>
+		offeredProviders(providersStore.providers(scope())).map((provider) => ({
+			id: provider.id,
+			name: provider.name,
+		}));
+	const agentNamed = (id: string): NoteAgent =>
+		agents().find((agent) => agent.id === id) ?? { id, name: id };
+	/** Who the note goes to: every agent, or the ones it names. */
+	const goesTo = (): NoteAgent[] => {
+		const chosen = note()?.agents;
+		return chosen ? chosen.map(agentNamed) : agents();
+	};
+	/** "Context for Claude Code in grid": who gets the note, in words. */
+	const contextLine = () => {
+		const current = note();
+		if (!current?.shared) return null;
+		const names = current.agents ? goesTo().map((agent) => agent.name) : [];
+		const who =
+			names.length === 0
+				? "agents"
+				: names.length === 1
+					? names[0]
+					: `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+		return `Context for ${who} in ${props.projectName}`;
+	};
+	/** The chip's menu: share or stop, then which agents it goes to. */
+	const sharingGroups = (current: Note): MenuGroup[] => [
+		{
+			items: [
+				{
+					id: "share",
+					label: current.shared ? "Stop sharing with agents" : "Share with agents",
+					description: current.shared
+						? "New threads stop starting with this note"
+						: "New threads in this project start with this note",
+				},
+			],
+		},
+		{
+			label: "Goes to",
+			items: [
+				{
+					id: "every",
+					label: "Every agent",
+					trailing: current.agents === null ? <CheckIcon /> : undefined,
+				},
+				...agents().map((agent) => ({
+					id: `agent:${agent.id}`,
+					label: agent.name,
+					icon: <AgentLogo id={agent.id} name={agent.name} class="size-4" />,
+					trailing: current.agents?.includes(agent.id) ? <CheckIcon /> : undefined,
+				})),
+			],
+		},
+	];
+	function chooseSharing(current: Note, id: string): void {
+		if (id === "share") return void props.onChange(current, { shared: !current.shared });
+		// Choosing who it goes to shares it too: that is what the choice is for.
+		const shared = current.shared ? {} : { shared: true };
+		if (id === "every") return void props.onChange(current, { ...shared, agents: null });
+		const agent = id.slice("agent:".length);
+		const now = current.agents ?? [];
+		const next = now.includes(agent) ? now.filter((item) => item !== agent) : [...now, agent];
+		void props.onChange(current, { ...shared, agents: next.length ? next : null });
+	}
+
+	const suggestions = () => (note() ? notesStore.suggestions(props.slug, note()?.id ?? "") : []);
+	const [settling, setSettling] = createSignal<string | null>(null);
+	async function settleSuggestion(id: string, add: boolean): Promise<void> {
+		const token = auth.token();
+		const suggestion = untrack(suggestions).find((item) => item.id === id);
+		if (!token || !suggestion) return;
+		setSettling(id);
+		try {
+			// What is waiting to be saved goes first, so the addition lands on the latest text.
+			await flush();
+			if (add) await notesStore.acceptSuggestion(token, props.slug, suggestion);
+			else await notesStore.dismissSuggestion(token, props.slug, id);
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not change the note",
+				tone: "danger",
+			});
+		} finally {
+			setSettling(null);
+		}
+	}
+
+	let picker: HTMLInputElement | undefined;
+	/** Keep images with the note and put them where the cursor is, as Markdown. */
+	async function addImages(files: readonly File[]): Promise<void> {
+		const token = auth.token();
+		const images = files.filter((file) => file.type.startsWith("image/"));
+		if (!token || images.length === 0) return;
+		// A note not saved yet has no address to keep images under: save it first.
+		if (untrack(noteId) === "new") {
+			schedule(joinNote("", untrack(titleDraft) || "Untitled note", untrack(restDraft)), true);
+			await flush();
+		}
+		const id = untrack(noteId);
+		if (id === "new") return;
+		for (const file of images) {
+			try {
+				const { url } = await projectsService.addNoteImage(token, props.slug, id, file);
+				const alt = file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[[\]]/g, "") || "image";
+				format((edit) => {
+					const before = edit.text.slice(0, edit.start);
+					const gap =
+						before && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
+					const inserted = `${gap}![${alt}](${url})\n`;
+					const at = edit.start + inserted.length;
+					return { text: before + inserted + edit.text.slice(edit.end), start: at, end: at };
+				});
+			} catch (cause) {
+				notify({
+					title: cause instanceof Error ? cause.message : "Could not add the image",
+					tone: "danger",
+				});
+			}
+		}
+	}
+
 	const formatButtons = (phone: boolean) => (
 		<>
 			<button
@@ -947,6 +1088,16 @@ function NoteView(props: {
 				onClick={() => format(link)}
 			>
 				<LinkIcon />
+			</button>
+			<button
+				type="button"
+				aria-label="Image"
+				title="Image"
+				class={FORMAT_BUTTON}
+				onPointerDown={(event) => event.preventDefault()}
+				onClick={() => picker?.click()}
+			>
+				<ImageIcon />
 			</button>
 			<MentionPicker
 				slug={props.slug}
@@ -997,9 +1148,13 @@ function NoteView(props: {
 				<Show when={note()}>
 					{(current) => (
 						<>
-							<SharedChip
-								shared={current().shared}
-								onToggle={() => void props.onChange(current(), { shared: !current().shared })}
+							<Menu
+								label="Shared with agents"
+								trigger={<SharedChipFace shared={current().shared} agents={goesTo()} />}
+								triggerClass={SHARED_CHIP}
+								placement="bottom-end"
+								groups={sharingGroups(current())}
+								onSelect={(id) => chooseSharing(current(), id)}
 							/>
 							<IconButton
 								label={current().pinned ? "Unpin" : "Pin to the top"}
@@ -1105,7 +1260,8 @@ function NoteView(props: {
 											{shell.desktop() ? editedLine() : editedLabel()}
 										</span>
 									}
-									context={note()?.shared ? `Context for agents in ${props.projectName}` : null}
+									context={contextLine()}
+									contextAgents={goesTo()}
 									source={note()?.source ? <>Saved from {note()?.source}</> : undefined}
 								/>
 							</div>
@@ -1191,9 +1347,40 @@ function NoteView(props: {
 										grow();
 									}}
 									onKeyDown={keys}
+									onPaste={(event) => {
+										const files = [...(event.clipboardData?.files ?? [])];
+										if (!files.some((file) => file.type.startsWith("image/"))) return;
+										event.preventDefault();
+										void addImages(files);
+									}}
 									class={`${NOTE_FIELD} min-h-48`}
 								/>
 							</Show>
+							<For each={suggestions()}>
+								{(suggestion) => (
+									<NoteSuggestionCard
+										agent={agentNamed(suggestion.provider)}
+										text={suggestion.text}
+										busy={settling() === suggestion.id}
+										onDismiss={() => void settleSuggestion(suggestion.id, false)}
+										onAdd={() => void settleSuggestion(suggestion.id, true)}
+									/>
+								)}
+							</For>
+							<input
+								ref={(el) => {
+									picker = el;
+								}}
+								type="file"
+								accept="image/png,image/jpeg,image/webp,image/gif"
+								multiple
+								class="hidden"
+								onChange={(event) => {
+									const files = [...(event.currentTarget.files ?? [])];
+									event.currentTarget.value = "";
+									void addImages(files);
+								}}
+							/>
 							<Show when={note()?.threadId}>
 								{(id) => (
 									<div class="flex flex-col gap-2 pt-1">

@@ -24,6 +24,11 @@ export const notes = pgTable(
 		pinned: boolean("pinned").notNull().default(false),
 		/** Given to agents: new threads in the project start with the shared notes. */
 		shared: boolean("shared").notNull().default(false),
+		/**
+		 * Which agents a shared note goes to, by their provider id (`claude`, `codex`); null for
+		 * every agent.
+		 */
+		agents: text("agents").array(),
 		/** Its glyph in the list (a fixed set the console knows); null for the plain note. */
 		icon: varchar("icon", { length: 24 }),
 		/** Who wrote it and who last changed it; kept as null when they leave. */

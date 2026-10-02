@@ -1,6 +1,7 @@
 import { Lexer, type Token, type Tokens } from "marked";
 
 import type { NoteBlock as Block, NoteInline as Inline, NoteListItem as ListItem } from "@/kit";
+import { getApiOrigin } from "@/lib/api-client";
 
 /*
  * A note as the document view draws it. Notes are Markdown; this reads them into a few plain
@@ -11,6 +12,9 @@ import type { NoteBlock as Block, NoteInline as Inline, NoteListItem as ListItem
 // Backticked text that is a file path, maybe with a line: `src/jobs/eta.ts:12`, `README.md`.
 const FILE_PATH =
 	/^@?((?:\.{0,2}\/)?(?:[\w@.-]+\/)*[\w@-][\w.@-]*\.[a-z][a-z0-9]{0,7})(?::(\d+)(?::\d+)?)?$/i;
+
+/** An image uploaded for a note, as the API names it. */
+const NOTE_IMAGE = /^\/uploads\/notes\/[0-9a-f-]{36}\.(?:png|jpg|webp|gif)$/;
 
 /** Links may only go to the web or mail, never `javascript:`. */
 function safeHref(href: string): string | null {
@@ -63,9 +67,14 @@ function inline(tokens: Token[] | undefined): Inline[] {
 				out.push({ kind: "text", text: (token as Tokens.Escape).text });
 				break;
 			case "image": {
-				// No remote images in the console: the words stand in for it.
+				// Only the note's own images (kept with Grid's uploads); a remote one would tell its
+				// host who reads the note, so its words stand in for it.
 				const image = token as Tokens.Image;
-				out.push({ kind: "text", text: image.text || image.href });
+				out.push(
+					NOTE_IMAGE.test(image.href)
+						? { kind: "image", src: `${getApiOrigin()}${image.href}`, alt: image.text }
+						: { kind: "text", text: image.text || image.href },
+				);
 				break;
 			}
 			default:

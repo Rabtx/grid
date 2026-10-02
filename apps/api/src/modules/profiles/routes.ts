@@ -127,11 +127,13 @@ export function profileRoutes(deps: {
 	return app;
 }
 
+/** What `/uploads/…` serves: avatars and notes' images, each under a random name. */
+const UPLOADED = /^\/uploads\/(avatars|notes)\/([0-9a-f-]{36}\.(?:jpg|png|webp|gif))$/;
+
 export async function uploadedFile(c: AppContext, uploadsDir: string): Promise<Response> {
-	const name = c.req.path.slice("/uploads/avatars/".length);
-	if (!c.req.path.startsWith("/uploads/avatars/") || !/^[0-9a-f-]{36}\.(jpg|png|webp)$/.test(name))
-		return c.notFound();
-	const file = Bun.file(join(uploadsDir, "avatars", name));
+	const match = UPLOADED.exec(c.req.path);
+	if (!match || (match[1] === "avatars" && match[2].endsWith(".gif"))) return c.notFound();
+	const file = Bun.file(join(uploadsDir, match[1], match[2]));
 	if (!(await file.exists())) return c.notFound();
 	return new Response(file, { headers: { "content-type": file.type } });
 }

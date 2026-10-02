@@ -112,6 +112,12 @@ const noteFlags = {
 	pinned: z.boolean().optional(),
 	shared: z.boolean().optional(),
 	icon: z.enum(NOTE_ICONS).nullable().optional(),
+	/** The agents (provider ids) a shared note goes to; null for every agent. */
+	agents: z
+		.array(z.string().regex(/^[a-z0-9][a-z0-9-]{0,31}$/, "An agent is named by its id"))
+		.max(16)
+		.nullable()
+		.optional(),
 };
 
 export const createNoteSchema = z
