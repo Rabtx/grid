@@ -306,3 +306,75 @@ describe("Codex session", () => {
 		expect(events.filter((event) => event.type === "error")).toHaveLength(1);
 	});
 });
+
+describe("Codex start failures", () => {
+	/** A spawn that reports whether the process it made was killed. */
+	function trackedSpawn(answer: (message: Rpc) => unknown) {
+		let killed = 0;
+		const spawn: Spawn = (_command, options) => {
+			const proc: JsonProcess = {
+				send: (raw) => {
+					const message = raw as Rpc;
+					if (message.method && message.id !== undefined) {
+						const result = answer(message);
+						if (result !== undefined)
+							queueMicrotask(() => options.onMessage({ id: message.id, result }));
+					}
+				},
+				kill: () => {
+					killed++;
+				},
+				exited: new Promise(() => undefined),
+			};
+			return proc;
+		};
+		return { spawn, killed: () => killed };
+	}
+
+	const context = { cwd: "/tmp", emit: () => undefined, onResumeToken: () => undefined };
+
+	it("ends the process when the handshake fails", async () => {
+		// The process is spawned before the handshake and nothing else holds it until `start`
+		// returns. Throwing from it left `codex app-server` running with no handle to close it.
+		const tracked = trackedSpawn(() => {
+			throw new Error("the agent refused to start");
+		});
+		const provider = codexProvider({
+			binary: "codex",
+			available: () => true,
+			spawn: tracked.spawn,
+		});
+		await expect(provider.start(context)).rejects.toThrow("the agent refused to start");
+		expect(tracked.killed()).toBe(1);
+	});
+
+	it("ends the process when the thread will not start", async () => {
+		const tracked = trackedSpawn((message) => {
+			if (message.method === "initialize") return { userAgent: "codex" };
+			throw new Error("no thread for you");
+		});
+		const provider = codexProvider({
+			binary: "codex",
+			available: () => true,
+			spawn: tracked.spawn,
+		});
+		await expect(provider.start(context)).rejects.toThrow("no thread for you");
+		expect(tracked.killed()).toBe(1);
+	});
+
+	it("leaves a started session running", async () => {
+		const tracked = trackedSpawn((message) => {
+			if (message.method === "initialize") return { userAgent: "codex" };
+			if (message.method === "thread/start") return { thread: { id: "t1" } };
+			return undefined;
+		});
+		const session = await codexProvider({
+			binary: "codex",
+			available: () => true,
+			spawn: tracked.spawn,
+		}).start(context);
+		expect(tracked.killed()).toBe(0);
+		session.close();
+		expect(tracked.killed()).toBe(1);
+	});
+});

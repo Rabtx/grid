@@ -52,7 +52,7 @@ chat.onTurnFailed((session) => {
 });
 chat.onUnwatchedAttention((session, event) => {
 	const message = attentionMessage(session, event);
-	if (message) void push.notify(session.ownerId, message);
+	if (message) void push.notify(session.ownerId, message).catch(() => undefined);
 	const item = inboxItem(session, event);
 	if (item) inbox.keep(item);
 });
@@ -137,6 +137,9 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 		chat.closeAll();
 		automations.stop();
 		void server.stop(true);
-		process.exit(0);
+		// Agents are stdio children, not shells, so nothing signals them when this process ends.
+		// `closeAll` only schedules their `close()` as a microtask, and `exit` below discards the
+		// queue, which is what left them running: give those microtasks the one tick they need.
+		setTimeout(() => process.exit(0), 0);
 	});
 }

@@ -58,13 +58,19 @@ export function createGh(binary = "gh"): Gh {
 			// `gh auth login --web` asks for Enter before it starts waiting; there is no one to press it.
 			child.stdin.write("\n");
 			child.stdin.flush();
-			const decoder = new TextDecoder();
+			// One decoder per stream, and it keeps partial characters between reads: the device
+			// code and the paste-back text are typed by hand, and a character split across two
+			// chunks decoded without `stream` came out mangled. Sharing one decoder across both
+			// streams spliced their bytes together instead.
 			for (const stream of [child.stdout, child.stderr]) {
+				const decoder = new TextDecoder();
 				void (async () => {
 					for await (const chunk of stream as ReadableStream<Uint8Array>) {
-						const text = decoder.decode(chunk);
+						const text = decoder.decode(chunk, { stream: true });
 						for (const listener of listeners) listener(text);
 					}
+					const rest = decoder.decode();
+					if (rest) for (const listener of listeners) listener(rest);
 				})();
 			}
 			return {

@@ -421,38 +421,46 @@ async function startCodexSession(
 		});
 	});
 
-	await rpc.request("initialize", { clientInfo: CLIENT_INFO, capabilities: null });
-	rpc.notify("initialized", undefined);
-
 	const policy = () => codexPolicy(mode, context.cwd);
 	type Started = { thread: { id: string }; model?: string; reasoningEffort?: string | null };
-	let started: Started | null = null;
-	if (context.resume) {
-		started = await rpc
-			.request<Started>("thread/resume", {
-				threadId: context.resume,
-				cwd: context.cwd,
-				approvalPolicy: policy().approvalPolicy,
-				sandbox: policy().sandbox,
-			})
-			.catch(() => null);
+
+	// The process is ours and, until this returns, nothing else holds it: a handshake that fails
+	// must not leave `codex app-server` running with nothing left to close it.
+	try {
+		await rpc.request("initialize", { clientInfo: CLIENT_INFO, capabilities: null });
+		rpc.notify("initialized", undefined);
+
+		let started: Started | null = null;
+		if (context.resume) {
+			started = await rpc
+				.request<Started>("thread/resume", {
+					threadId: context.resume,
+					cwd: context.cwd,
+					approvalPolicy: policy().approvalPolicy,
+					sandbox: policy().sandbox,
+				})
+				.catch(() => null);
+		}
+		started ??= await rpc.request<Started>("thread/start", {
+			cwd: context.cwd,
+			model: model ?? null,
+			approvalPolicy: policy().approvalPolicy,
+			sandbox: policy().sandbox,
+		});
+		threadId = started.thread.id;
+		context.onResumeToken(threadId);
+		model ??= started.model;
+		context.emit({
+			type: "info",
+			modes: MODES,
+			mode,
+			...(model ? { model } : {}),
+			...(effort ? { effort } : {}),
+		});
+	} catch (cause) {
+		proc.kill();
+		throw cause;
 	}
-	started ??= await rpc.request<Started>("thread/start", {
-		cwd: context.cwd,
-		model: model ?? null,
-		approvalPolicy: policy().approvalPolicy,
-		sandbox: policy().sandbox,
-	});
-	threadId = started.thread.id;
-	context.onResumeToken(threadId);
-	model ??= started.model;
-	context.emit({
-		type: "info",
-		modes: MODES,
-		mode,
-		...(model ? { model } : {}),
-		...(effort ? { effort } : {}),
-	});
 
 	return {
 		prompt: (text) =>

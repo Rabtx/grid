@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { Provider } from "../agents/provider";
+import type { Provider, TurnResult } from "../agents/provider";
 import { ChatError, ChatHub } from "./hub";
 import { ChatStore } from "./store";
 
@@ -267,5 +267,163 @@ describe("ChatHub running threads", () => {
 		await hub.prompt("u1", session.id, "go");
 		expect(failed).toEqual([session.id]);
 		hub.closeAll();
+	});
+});
+
+describe("ChatHub session settings", () => {
+	function hubWith(provider: Provider) {
+		const store = new ChatStore(":memory:");
+		return { store, hub: new ChatHub(store, new Map([["fake", provider]]), root) };
+	}
+
+	it("leaves model, mode and effort alone when a change leaves them out", async () => {
+		// The console sends all three on every `configure`, as `undefined` for the ones it did
+		// not change. Binding undefined writes NULL, so a configure with nothing in it used to
+		// wipe the chat's saved choices while the running agent kept its own.
+		const { store, hub } = hubWith({
+			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+			catalog: async () => ({ models: [] }),
+			start: async () => {
+				throw new Error("not used");
+			},
+		});
+		const chat = hub.create(
+			{ userId: "u1", workspace: "u1" },
+			{ project: "shop", provider: "fake", model: "gpt-5", mode: "plan", effort: "high" },
+		);
+		await hub.configure("u1", chat.id, {
+			model: undefined,
+			mode: undefined,
+			effort: undefined,
+		});
+		expect(store.get(chat.id)).toMatchObject({ model: "gpt-5", mode: "plan", effort: "high" });
+
+		// A change that is there still lands.
+		await hub.configure("u1", chat.id, { model: "gpt-6", mode: undefined, effort: undefined });
+		expect(store.get(chat.id)).toMatchObject({ model: "gpt-6", mode: "plan", effort: "high" });
+	});
+});
+
+describe("ChatHub deleting a chat", () => {
+	/** An agent whose turn only ends when the test says so. */
+	function providerHoldingTurn(): { provider: Provider; finish: () => void } {
+		let release: (result: TurnResult) => void = () => undefined;
+		const provider: Provider = {
+			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+			catalog: async () => ({ models: [] }),
+			start: async () => ({
+				prompt: () =>
+					new Promise((resolve) => {
+						release = resolve;
+					}),
+				cancel: () => undefined,
+				approve: () => undefined,
+				setModel: async () => undefined,
+				setMode: async () => undefined,
+				setEffort: async () => undefined,
+				close: () => undefined,
+			}),
+		};
+		return { provider, finish: () => release({ reason: "done" }) };
+	}
+
+	it("refuses to delete a chat whose agent is still working", async () => {
+		// Deleting it anyway left the turn in flight writing events for a session row that was
+		// gone (its events go with it, `turn_end` among them), and removed the worktree the
+		// agent may still have been writing in.
+		const { provider, finish } = providerHoldingTurn();
+		const store = new ChatStore(":memory:");
+		const hub = new ChatHub(store, new Map([["fake", provider]]), root);
+		const chat = hub.create(
+			{ userId: "u1", workspace: "u1" },
+			{ project: "shop", provider: "fake" },
+		);
+		const prompting = hub.prompt("u1", chat.id, "go");
+		await until(() => store.events(chat.id).some((event) => event.type === "turn_start"));
+
+		expect(() => hub.delete("u1", chat.id)).toThrow("Stop the agent first");
+		// Still there, and still safe to end the turn against.
+		expect(store.get(chat.id)).not.toBeNull();
+		finish();
+		await prompting;
+		await until(() => store.events(chat.id).some((event) => event.type === "turn_end"));
+
+		hub.delete("u1", chat.id);
+		expect(store.get(chat.id)).toBeNull();
+	});
+});
+
+describe("ChatHub starting an agent", () => {
+	it("keeps a newer agent when an earlier start fails late", async () => {
+		// A start still in flight when the chat is parked (the idle timer, a worktree change)
+		// and prompted again. Its late rejection used to clear whatever agent was current, so
+		// the live one was no longer tracked: `closeAll` could not reach it and it stayed up
+		// until the runner itself died.
+		const store = new ChatStore(":memory:");
+		let attempt = 0;
+		const closed: string[] = [];
+		const provider: Provider = {
+			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+			catalog: async () => ({ models: [] }),
+			start: async () => {
+				attempt++;
+				if (attempt === 1) {
+					// The first start hangs, is given up on, and reports it afterwards.
+					await Bun.sleep(40);
+					throw new Error("the first start gave up");
+				}
+				return {
+					prompt: async () => ({ reason: "done" as const }),
+					cancel: () => undefined,
+					approve: () => undefined,
+					setModel: async () => undefined,
+					setMode: async () => undefined,
+					setEffort: async () => undefined,
+					close: () => closed.push("second"),
+				};
+			},
+		};
+		const hub = new ChatHub(store, new Map([["fake", provider]]), root);
+		const chat = hub.create(
+			{ userId: "u1", workspace: "u1" },
+			{ project: "shop", provider: "fake" },
+		);
+		// A device watching is what keeps the live entry alive across the park, so the stale
+		// rejection lands on the same one the newer agent is now held in.
+		hub.attach("u1", chat.id, { event: () => {}, state: () => {} });
+
+		const first = hub.prompt("u1", chat.id, "go").catch(() => undefined);
+		await Bun.sleep(5);
+		hub.closeAll();
+		await hub.prompt("u1", chat.id, "go again");
+		await Bun.sleep(80);
+		await first;
+
+		hub.closeAll();
+		await Bun.sleep(5);
+		expect(closed).toEqual(["second"]);
+	});
+
+	it("does not take the runner down when cancel arrives before the agent exists", async () => {
+		// An unhandled rejection is fatal here, and `agentFor` rejects when the agent will not
+		// start. The derived promise from `.then()` needed a handler of its own.
+		const store = new ChatStore(":memory:");
+		const provider: Provider = {
+			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+			catalog: async () => ({ models: [] }),
+			start: async () => {
+				throw new Error("this agent is not installed");
+			},
+		};
+		const hub = new ChatHub(store, new Map([["fake", provider]]), root);
+		const chat = hub.create(
+			{ userId: "u1", workspace: "u1" },
+			{ project: "shop", provider: "fake" },
+		);
+		await hub.prompt("u1", chat.id, "go").catch(() => undefined);
+		hub.cancel("u1", chat.id);
+		hub.approve("u1", chat.id, "a1", null);
+		await Bun.sleep(20);
+		expect(true).toBe(true);
 	});
 });
