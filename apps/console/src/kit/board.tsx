@@ -82,6 +82,10 @@ export function TaskCard(props: {
 	/** Accessible name for the whole card; the key and title by default. */
 	label?: string;
 	assignee?: string;
+	/** The owner's own mark (an agent's logo) in place of the initials. */
+	ownerMark?: JSX.Element;
+	/** A chip before the labels: the task's finer stage when its column holds several. */
+	tag?: JSX.Element;
 }): JSX.Element {
 	let frame: HTMLDivElement | undefined;
 	onSettled(() => {
@@ -93,46 +97,42 @@ export function TaskCard(props: {
 		props.statusIcon ??
 		(props.status ? <TaskStatus status={props.status} class="size-3.5" /> : null);
 	const body = () => (
-		<article class="flex flex-col gap-2 p-3">
-			<div class="flex items-center gap-2 text-caption text-fg-subtle">
-				{icon()}
-				<span class="font-mono">{props.id}</span>
-			</div>
-			<p class="line-clamp-3 break-words text-body text-fg leading-snug">{props.title}</p>
-			<Show when={props.labels?.length || props.agent}>
-				<div class="flex flex-wrap gap-1">
+		<article class="flex flex-col gap-2.5 p-3">
+			<Show when={props.labels?.length || props.agent || props.tag}>
+				<div class="flex flex-wrap gap-1.5">
 					<Show when={props.agent}>
-						<span class="inline-flex h-5 items-center gap-1 rounded-kit-sm bg-accent/10 px-1.5 text-caption text-accent">
-							<span class="size-1.5 animate-pulse rounded-full bg-accent" />
+						<span class="surface-outline inline-flex h-6 items-center gap-1.5 rounded-full px-2 text-caption text-accent">
+							<span class="size-1.5 animate-pulse rounded-full bg-accent motion-reduce:animate-none" />
 							Agent working
 						</span>
 					</Show>
+					{props.tag}
 					<For each={props.labels}>
 						{(label) => (
-							<span class="inline-flex h-5 items-center rounded-kit-sm px-1.5 text-caption text-fg-subtle ring-line-strong">
+							<span class="surface-outline inline-flex h-6 items-center gap-1.5 rounded-full px-2 text-caption text-fg-muted">
+								<span class="size-1.5 rounded-full bg-fg-faint" />
 								{label}
 							</span>
 						)}
 					</For>
 				</div>
 			</Show>
+			<p class="line-clamp-3 break-words font-medium text-body text-fg leading-snug">
+				{props.title}
+			</p>
 			<div class="flex min-w-0 items-center gap-2 text-caption text-fg-subtle">
+				{icon()}
 				<Show
-					when={owner()}
+					when={props.ownerMark}
 					fallback={
-						<>
-							<NobodyMark size="xs" />
-							<span>Unassigned</span>
-						</>
+						<Show when={owner()} fallback={<NobodyMark size="xs" />}>
+							{(name) => <Avatar name={name()} size="xs" />}
+						</Show>
 					}
 				>
-					{(name) => (
-						<>
-							<Avatar name={name()} size="xs" />
-							<span class="max-w-[60%] shrink-0 truncate">{name()}</span>
-						</>
-					)}
+					{props.ownerMark}
 				</Show>
+				<span class="shrink-0 font-mono">{props.id}</span>
 				<Show when={props.meta}>
 					<span class="ml-auto min-w-0 truncate font-mono" title={props.meta}>
 						{props.meta}
@@ -142,7 +142,7 @@ export function TaskCard(props: {
 		</article>
 	);
 	const SURFACE =
-		"focus-ring block w-full rounded-kit-lg bg-surface text-left shadow-lift transition-[box-shadow,transform] duration-fast hover:shadow-lift-hover active:scale-[0.98]";
+		"surface-card focus-ring block w-full rounded-kit-xl text-left transition-[box-shadow,transform] duration-fast hover:shadow-lift-hover active:scale-[0.98]";
 	return (
 		<div
 			ref={(el) => {
@@ -199,6 +199,8 @@ export function BoardColumn(props: {
 	headerFromMd?: boolean;
 	/** Content before the cards: an inline add. */
 	top?: JSX.Element;
+	/** Content after the cards: "Add a task", "Show 2 more". */
+	bottom?: JSX.Element;
 	id?: string;
 	onDragOver?: (event: DragEvent) => void;
 	onDragLeave?: (event: DragEvent) => void;
@@ -210,19 +212,19 @@ export function BoardColumn(props: {
 			id={props.id}
 			data-lane={props.id?.replace(/^lane-/, "")}
 			aria-label={props.title}
-			class="flex min-h-0 w-full shrink-0 snap-start flex-col md:w-72"
+			class="flex min-h-0 w-full shrink-0 snap-start flex-col md:w-auto md:min-w-64 md:flex-1 md:basis-0"
 		>
 			<div
 				onDragOver={(event) => props.onDragOver?.(event)}
 				onDragLeave={(event) => props.onDragLeave?.(event)}
 				onDrop={(event) => props.onDrop?.(event)}
-				class={`flex min-h-0 flex-1 flex-col gap-2 rounded-kit-xl p-2 transition-colors duration-fast ${props.highlight ? "bg-fill-strong" : "bg-surface-sunken"}`}
+				class={`flex min-h-0 flex-1 flex-col gap-2 rounded-kit-2xl transition-colors duration-fast md:p-2 ${props.highlight ? "bg-fill-strong" : "md:bg-surface-sunken"}`}
 			>
 				<header
 					class={`h-8 items-center gap-2 px-1.5 ${props.headerFromMd ? "hidden md:flex" : "flex"}`}
 				>
 					{props.icon}
-					<h2 class="text-body text-fg">{props.title}</h2>
+					<h2 class="font-medium text-body text-fg">{props.title}</h2>
 					<span data-count class="text-caption text-fg-subtle tabular-nums">
 						{String(props.count)}
 					</span>
@@ -232,6 +234,7 @@ export function BoardColumn(props: {
 				{props.top}
 				<div class="-mx-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2 pb-1">
 					{props.children}
+					{props.bottom}
 				</div>
 			</div>
 		</section>
@@ -272,5 +275,128 @@ export function BoardSkeleton(): JSX.Element {
 				)}
 			</For>
 		</div>
+	);
+}
+
+/** The tone of a board column's dot: waiting, moving, in review, finished. */
+export type LaneTone = "todo" | "doing" | "review" | "done";
+
+const LANE_DOT: Record<LaneTone, string> = {
+	todo: "bg-fg-faint",
+	doing: "bg-accent",
+	review: "bg-violet",
+	done: "bg-success",
+};
+
+/** A board column's coloured dot, before its name (Figma 12 · Board). */
+export function LaneDot(props: { tone: LaneTone }): JSX.Element {
+	return <span aria-hidden="true" class={`size-2 shrink-0 rounded-full ${LANE_DOT[props.tone]}`} />;
+}
+
+/** A small outlined chip on a card: a finer stage ("Blocked", "QA") or a label. */
+export function CardChip(props: {
+	children: JSX.Element;
+	tone?: "danger" | "accent";
+}): JSX.Element {
+	return (
+		<span
+			class={`surface-outline inline-flex h-6 items-center gap-1.5 rounded-full px-2 text-caption ${props.tone === "danger" ? "text-danger" : props.tone === "accent" ? "text-accent" : "text-fg-muted"}`}
+		>
+			<span
+				class={`size-1.5 rounded-full ${props.tone === "danger" ? "bg-danger" : props.tone === "accent" ? "bg-accent" : "bg-fg-faint"}`}
+			/>
+			{props.children}
+		</span>
+	);
+}
+
+/** A finished task in the Done column: a tick, its title, and who did it. One line. */
+export function DoneRow(props: {
+	title: string;
+	href: string;
+	owner?: JSX.Element;
+	label?: string;
+}): JSX.Element {
+	return (
+		<a
+			href={props.href}
+			aria-label={props.label ?? props.title}
+			class="surface-card focus-ring flex h-11 min-w-0 items-center gap-2.5 rounded-kit-xl px-3 text-body text-fg transition-shadow duration-fast hover:shadow-lift-hover"
+		>
+			<span class="shrink-0 text-success [&_svg]:size-3.5">
+				<svg
+					viewBox="0 0 16 16"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.8"
+					aria-hidden="true"
+				>
+					<path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke-linecap="round" stroke-linejoin="round" />
+				</svg>
+			</span>
+			<span class="min-w-0 flex-1 truncate">{props.title}</span>
+			{props.owner}
+		</a>
+	);
+}
+
+/**
+ * The strip across the top of the board (Figma 12 · Board): a few tiles side by side, each a mark,
+ * a line in ink and a quieter line under it. Stacked in a scroller on phones.
+ */
+export function BoardStats(props: { children: JSX.Element }): JSX.Element {
+	return (
+		<div class="surface-card mb-3 grid shrink-0 grid-cols-2 overflow-hidden rounded-kit-2xl md:grid-cols-4 [&>*]:border-line [&>*+*]:border-l max-md:[&>*:nth-child(3)]:border-l-0 max-md:[&>*:nth-child(n+3)]:border-t">
+			{props.children}
+		</div>
+	);
+}
+
+export function BoardStat(props: {
+	mark: JSX.Element;
+	title: string;
+	detail?: string;
+	href?: string;
+}): JSX.Element {
+	const body = () => (
+		<>
+			<span class="flex h-8 min-w-8 shrink-0 items-center justify-center">{props.mark}</span>
+			<span class="flex min-w-0 flex-col">
+				<span class="truncate text-body text-fg">{props.title}</span>
+				<Show when={props.detail}>
+					<span class="truncate text-caption text-fg-subtle">{props.detail}</span>
+				</Show>
+			</span>
+		</>
+	);
+	const frame = "flex min-w-0 items-center gap-3 px-4 py-3.5";
+	return (
+		<Show when={props.href} fallback={<div class={frame}>{body()}</div>}>
+			<a
+				href={props.href}
+				class={`focus-ring ${frame} transition-colors duration-fast hover:bg-fill`}
+			>
+				{body()}
+			</a>
+		</Show>
+	);
+}
+
+/** A row of small bars, one per value: a week of finished work, oldest first. */
+export function MiniBars(props: { values: readonly number[]; label: string }): JSX.Element {
+	const top = () => Math.max(1, ...props.values);
+	return (
+		<span class="flex h-6 items-end gap-0.5">
+			<span class="sr-only">{props.label}</span>
+			<For each={props.values}>
+				{(value) => (
+					<span
+						aria-hidden="true"
+						class={`w-1 rounded-full ${value > 0 ? "bg-success" : "bg-fill-strong"}`}
+						style={{ height: `${Math.max(15, Math.round((value / top()) * 100))}%` }}
+					/>
+				)}
+			</For>
+		</span>
 	);
 }

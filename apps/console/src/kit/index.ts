@@ -19,7 +19,14 @@ export { Button, button, IconButton, iconButton, LinkButton, linkButton, TextLin
 export {
 	BoardColumn,
 	BoardSkeleton,
+	BoardStat,
+	BoardStats,
+	CardChip,
+	DoneRow,
+	LaneDot,
+	type LaneTone,
 	LaneStrip,
+	MiniBars,
 	TaskCard,
 	TaskStatus,
 	type TaskStatusKind,
@@ -36,7 +43,7 @@ export {
 	Slider,
 } from "./choice";
 export { CodeEditor, type CodeEditorProps } from "./code-editor";
-export { ConfirmDialog, Dialog, PanelBar } from "./dialog";
+export { ConfirmDialog, Dialog, PanelBar, PanelFooter } from "./dialog";
 export { diffLines } from "./diff";
 export { PreviewFrame, RadiusScale, Specimen, SurfaceSwatches } from "./docs";
 export { ActivityItem, DropZone, InlineAdd, SplitLayout, WorkspacePreview } from "./extras";
@@ -68,6 +75,7 @@ export { AppFrame, AuthCard, AuthFrame, AuthHead } from "./frame";
 export {
 	Field,
 	InlineInput,
+	QuietInput,
 	Input,
 	PasswordInput,
 	SearchInput,

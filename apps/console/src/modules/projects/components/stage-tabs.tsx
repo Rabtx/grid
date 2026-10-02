@@ -37,7 +37,7 @@ export function StageTabs(props: {
 				onChange={props.onSelect}
 				options={props.lanes.map((lane) => ({
 					value: lane.id,
-					label: lane.title,
+					label: lane.short,
 					icon: lane.icon(),
 					count: lane.tasks.length,
 					countTone: "quiet",

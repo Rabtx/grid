@@ -1,7 +1,11 @@
 import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
+import { Show } from "solid-js";
 
 import {
+	AgentLogo,
+	Avatar,
+	CardChip,
 	ChatIcon,
 	iconButton,
 	Menu,
@@ -14,6 +18,7 @@ import { workspaceHref } from "@/lib/active-workspace";
 import { draftsStore, taskDraft } from "@/modules/chat/stores/drafts";
 
 import { useWorkspace } from "../context/workspace-context";
+import { laneOf, laneStatus } from "../lib/board";
 import {
 	TASK_STATUS_LABELS,
 	TASK_STATUSES,
@@ -79,6 +84,20 @@ export function TaskCard(props: {
 				`/board/${workspace.activeSlug()}/tasks/${props.task.number}${location.search}`,
 			)}
 			owner={props.task.owner ? (props.task.owner.name ?? props.task.owner.kind) : null}
+			label={[
+				`${props.task.key} ${props.task.title}`,
+				TASK_STATUS_LABELS[props.task.status],
+				props.task.owner?.name ?? (props.task.owner ? props.task.owner.kind : "unassigned"),
+			].join(", ")}
+			ownerMark={props.task.owner ? <OwnerMark task={props.task} /> : undefined}
+			tag={
+				// Its column holds more than one stage: say which one this is (Backlog, Blocked, QA).
+				laneStatus(laneOf(props.task.status)) !== props.task.status ? (
+					<CardChip tone={props.task.status === "blocked" ? "danger" : undefined}>
+						{TASK_STATUS_LABELS[props.task.status]}
+					</CardChip>
+				) : undefined
+			}
 			meta={props.task.branch ?? undefined}
 			draggable={props.canDrag}
 			dragging={props.dragging}
@@ -105,5 +124,26 @@ export function TaskCard(props: {
 				/>
 			}
 		/>
+	);
+}
+
+/** A task's owner as a small mark: an agent's logo, a person's initials, nothing when nobody. */
+export function OwnerMark(props: { task: Task }): JSX.Element {
+	return (
+		<Show when={props.task.owner}>
+			{(owner) => (
+				<span class="flex shrink-0 items-center" title={owner().name ?? undefined}>
+					<span class="sr-only">
+						{owner().name ?? (owner().kind === "agent" ? "An agent" : "Someone")}
+					</span>
+					<Show
+						when={owner().kind === "agent"}
+						fallback={<Avatar name={owner().name ?? "Someone"} size="xs" />}
+					>
+						<AgentLogo id={(owner().name ?? "").toLowerCase()} name={owner().name ?? "Agent"} />
+					</Show>
+				</span>
+			)}
+		</Show>
 	);
 }

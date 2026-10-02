@@ -137,6 +137,17 @@ export function TitleInput(props: JSX.InputHTMLAttributes<HTMLInputElement>): JS
 	);
 }
 
+/** A value that edits in place (a task's branch, an owner's name): plain until hovered or focused. */
+export function QuietInput(props: JSX.InputHTMLAttributes<HTMLInputElement>): JSX.Element {
+	const rest = omit(props, "class");
+	return (
+		<input
+			{...rest}
+			class={`focus-ring h-8 w-full min-w-0 rounded-kit-md bg-transparent px-2 text-body text-fg outline-none transition-colors duration-fast placeholder:text-fg-faint hover:bg-fill focus:bg-fill pointer-coarse:h-10 ${props.class ?? ""}`}
+		/>
+	);
+}
+
 /**
  * A password with a way to see what was typed: the eye inside the field's end flips it between
  * dots and text. Takes everything an input does, `type` aside.
