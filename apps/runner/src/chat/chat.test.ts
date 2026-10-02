@@ -424,6 +424,40 @@ describe("Claude adapter", () => {
 			costUsd: 0.01,
 		});
 	});
+
+	it("ends a turn as cancelled when the model is changed under it, not as a crash", async () => {
+		// Changing the model restarts the process, and the exit that follows was reported as
+		// "Claude Code exited (code 143)" with the turn failed, because the exit handler still
+		// held the turn. Changing a model is not something to apologise for.
+		const claude = fakeSpawn(() => undefined);
+		const { events, context } = collector();
+		const session = await claudeProvider({
+			binary: "claude",
+			available: () => true,
+			spawn: claude.spawn,
+		}).start(context);
+		const turn = session.prompt("what is here?");
+		await Bun.sleep(5);
+		await session.setModel("claude-sonnet-5");
+		expect(await turn).toEqual({ reason: "cancelled" });
+		expect(events.filter((event) => event.type === "error")).toEqual([]);
+		session.close();
+	});
+
+	it("ends a turn as cancelled when the effort is changed under it, not as a crash", async () => {
+		const claude = fakeSpawn(() => undefined);
+		const { context } = collector();
+		const session = await claudeProvider({
+			binary: "claude",
+			available: () => true,
+			spawn: claude.spawn,
+		}).start(context);
+		const turn = session.prompt("what is here?");
+		await Bun.sleep(5);
+		await session.setEffort("high");
+		expect(await turn).toEqual({ reason: "cancelled" });
+		session.close();
+	});
 });
 
 describe("ChatHub", () => {

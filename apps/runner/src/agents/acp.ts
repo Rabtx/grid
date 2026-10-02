@@ -323,38 +323,48 @@ async function startAcpSession(
 		});
 	}
 
-	const init = await rpc.request<{
+	type Init = {
 		agentCapabilities?: { loadSession?: boolean; promptCapabilities?: { image?: boolean } };
-	}>("initialize", {
-		protocolVersion: 1,
-		clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
-		clientInfo: { name: "grid", version: "0.1.0" },
-	});
+	};
+	let init: Init;
 
-	let session: NewSessionResult | null = null;
-	if (context.resume && init.agentCapabilities?.loadSession) {
-		replaying = true;
-		try {
-			session = await rpc.request<NewSessionResult>("session/load", {
-				sessionId: context.resume,
-				cwd: context.cwd,
-				mcpServers: [],
-			});
-			session = { ...session, sessionId: context.resume };
-		} catch {
-			// The agent no longer has it; start fresh below.
-			session = null;
-		} finally {
-			replaying = false;
+	// The process is ours and, until this returns, nothing else holds it: a handshake that fails
+	// must not leave the agent running with nothing left to close it.
+	try {
+		init = await rpc.request<Init>("initialize", {
+			protocolVersion: 1,
+			clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
+			clientInfo: { name: "grid", version: "0.1.0" },
+		});
+
+		let session: NewSessionResult | null = null;
+		if (context.resume && init.agentCapabilities?.loadSession) {
+			replaying = true;
+			try {
+				session = await rpc.request<NewSessionResult>("session/load", {
+					sessionId: context.resume,
+					cwd: context.cwd,
+					mcpServers: [],
+				});
+				session = { ...session, sessionId: context.resume };
+			} catch {
+				// The agent no longer has it; start fresh below.
+				session = null;
+			} finally {
+				replaying = false;
+			}
 		}
+		session ??= await rpc.request<NewSessionResult>("session/new", {
+			cwd: context.cwd,
+			mcpServers: [],
+		});
+		sessionId = session.sessionId;
+		context.onResumeToken(sessionId);
+		report(session);
+	} catch (cause) {
+		proc.kill();
+		throw cause;
 	}
-	session ??= await rpc.request<NewSessionResult>("session/new", {
-		cwd: context.cwd,
-		mcpServers: [],
-	});
-	sessionId = session.sessionId;
-	context.onResumeToken(sessionId);
-	report(session);
 
 	const setModel = async (model: string) => {
 		if (modelConfigId) {

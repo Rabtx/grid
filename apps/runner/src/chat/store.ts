@@ -331,7 +331,12 @@ export class ChatStore {
 			role: "role",
 			notes: "notes",
 		};
-		const entries = Object.entries(fields).filter(([key]) => key in columns);
+		// `undefined` means "leave it alone", not "clear it": callers pass whole shapes, and
+		// binding undefined stores NULL, which is how one `configure` with no fields in it
+		// silently wiped a chat's model, mode and effort.
+		const entries = Object.entries(fields).filter(
+			([key, value]) => key in columns && value !== undefined,
+		);
 		if (entries.length === 0) return;
 		const sets = entries.map(([key]) => `${columns[key]} = ?`).join(", ");
 		const values = entries.map(([key, value]) =>

@@ -143,6 +143,96 @@ describe("runner server", () => {
 	});
 });
 
+describe("the hello handshake", () => {
+	// A verify slow enough that the next frame lands while it is still awaiting. Bun does not hold
+	// a socket's next frame for its message handler's promise, so this is the real race: the
+	// person who signs in and types at once, which is what a fast terminal does on its first tap.
+	const slowProjects = mkdtempSync(join(tmpdir(), "grid-hello-projects-"));
+	const slowConfig = {
+		...readConfig({ RUNNER_PROJECTS_DIR: slowProjects, RUNNER_CWD: slowProjects }),
+		port: 0,
+		shell: "/bin/sh",
+	};
+	const slowStore = new TerminalStore(slowConfig, spawnPty);
+	const slow = startServer(
+		slowConfig,
+		slowStore,
+		async (token) => {
+			await new Promise((resolve) => setTimeout(resolve, 60));
+			return token === "good" ? { who: { userId: "user-1", workspace: "ws-1" } } : signedOut;
+		},
+		new ChatHub(new ChatStore(":memory:"), new Map(), slowProjects),
+	);
+
+	afterAll(() => {
+		slowStore.closeAll();
+		void slow.stop(true);
+		rmSync(slowProjects, { recursive: true, force: true });
+	});
+
+	/** A terminal socket that keeps everything the terminal printed to it. */
+	async function slowSocket(): Promise<{
+		ws: WebSocket;
+		closed: Promise<number>;
+		text: () => string;
+		id: string;
+	}> {
+		const response = await fetch(`http://127.0.0.1:${slow.port}/terminals`, {
+			method: "POST",
+			headers: { ...auth, "Content-Type": "application/json" },
+			body: JSON.stringify({ cols: 100, rows: 30 }),
+		});
+		expect(response.status).toBe(201);
+		const id = ((await response.json()) as { data: { id: string } }).data.id;
+		const ws = new WebSocket(`ws://127.0.0.1:${slow.port}/terminal`);
+		ws.binaryType = "arraybuffer";
+		const closed = new Promise<number>((resolve) =>
+			ws.addEventListener("close", (event) => resolve(event.code)),
+		);
+		let seen = "";
+		ws.addEventListener("message", (event) => {
+			if (typeof event.data !== "string")
+				seen += new TextDecoder().decode(event.data as ArrayBuffer);
+		});
+		await new Promise((resolve) => ws.addEventListener("open", resolve));
+		return { ws, closed, text: () => seen, id };
+	}
+
+	const occurrences = (text: string, needle: string) => text.split(needle).length - 1;
+
+	it("keeps the socket when the first keystrokes arrive with the hello", async () => {
+		const { ws, closed, text, id } = await slowSocket();
+		// Both frames go out before either is handled. The second is terminal input, not a hello,
+		// and used to reach the handshake, which answered an ordinary keystroke by closing the
+		// socket: the terminal was gone before the person had seen a prompt.
+		ws.send(JSON.stringify({ t: "hello", token: "good", id, cols: 100, rows: 30 }));
+		ws.send(JSON.stringify({ t: "input", d: "echo typed-right-after-hello\r" }));
+		await waitForOutput(ws, "typed-right-after-hello");
+		expect(occurrences(text(), "typed-right-after-hello")).toBe(1);
+		ws.close();
+		expect(await closed).not.toBe(CLOSE_UNAUTHORIZED);
+	});
+
+	it("attaches one channel when the hello is sent twice at once", async () => {
+		const { ws, text, id } = await slowSocket();
+		ws.send(JSON.stringify({ t: "hello", token: "good", id }));
+		ws.send(JSON.stringify({ t: "hello", token: "good", id }));
+		const printed = waitForOutput(ws, "attached-once");
+		ws.send(JSON.stringify({ t: "input", d: "echo attached-once\r" }));
+		await printed;
+		// Two channels on the one socket each got the same output, and the first was never
+		// detached, so it stayed attached to the terminal long after the socket was gone.
+		expect(occurrences(text(), "attached-once")).toBe(1);
+		ws.close();
+	});
+
+	it("still closes a socket that says hello with nothing to attach", async () => {
+		const { ws, closed } = await slowSocket();
+		ws.send(JSON.stringify({ t: "hello", token: "good", id: "no-such-terminal" }));
+		expect(await closed).toBe(CLOSE_NOT_FOUND);
+	});
+});
+
 describe("folders and project links", () => {
 	it("scopes project files to the signed-in project's linked folder", async () => {
 		const root = mkdtempSync(join(projectsDir, "grid-project-route-"));

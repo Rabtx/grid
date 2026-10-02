@@ -58,6 +58,10 @@ type SocketData = {
 	} | null;
 	/** Who said hello, once they have. */
 	who: Who | null;
+	/** A hello is being checked right now: frames that arrive meanwhile are not another one. */
+	helloing: boolean;
+	/** Frames that arrived while the hello was being checked; replayed once it is open. */
+	early: (string | Buffer)[] | null;
 	/** When this socket opened, to measure how long it was up. */
 	openedAt: number | null;
 	/** The session or terminal named in hello, when it carries one. */
@@ -211,6 +215,8 @@ export function startServer(
 							kind,
 							relay: null,
 							who: null,
+							helloing: false,
+							early: null,
 							openedAt: null,
 							sessionId: null,
 							linkChannels: null,
@@ -240,6 +246,8 @@ export function startServer(
 								kind: path === "/chat" ? "chat" : path === "/link" ? "link" : "terminal",
 								relay: { environmentId, path, link: null, early: null },
 								who: null,
+								helloing: false,
+								early: null,
 								openedAt: null,
 								sessionId: null,
 								linkChannels: null,
@@ -462,6 +470,13 @@ export function startServer(
 					return;
 				}
 				if (!ws.data.who) {
+					if (ws.data.helloing) {
+						// Held rather than treated as a hello of its own, and given to the channel
+						// below once it opens: this is a keystroke typed while signing in. The relay
+						// path keeps its early frames the same way.
+						if (ws.data.early && ws.data.early.length < 256) ws.data.early.push(message);
+						return;
+					}
 					await hello(ws, message);
 					return;
 				}
@@ -478,20 +493,7 @@ export function startServer(
 				}
 				const channel = ws.data.channel;
 				if (!channel) return;
-				if (typeof message === "string") {
-					const control = parse<{ t?: string; visible?: unknown }>(message);
-					if (control?.t === "ping") {
-						ws.send(JSON.stringify({ t: "pong" }));
-						return;
-					}
-					if (control?.t === "visibility") {
-						channel.visible(control.visible !== false);
-						return;
-					}
-					channel.input(message);
-					return;
-				}
-				channel.input(message);
+				toChannel(ws, channel, message);
 			},
 			close(ws, code, reason) {
 				const durationMs = Math.max(0, Date.now() - (ws.data.openedAt ?? Date.now()));
@@ -581,7 +583,46 @@ export function startServer(
 		relay.early = null;
 	}
 
+	/** One frame from a device to the terminal or chat session it is attached to. */
+	function toChannel(
+		ws: ServerWebSocket<SocketData>,
+		channel: Channel,
+		message: string | Buffer,
+	): void {
+		if (typeof message === "string") {
+			const control = parse<{ t?: string; visible?: unknown }>(message);
+			if (control?.t === "ping") {
+				ws.send(JSON.stringify({ t: "pong" }));
+				return;
+			}
+			if (control?.t === "visibility") {
+				channel.visible(control.visible !== false);
+				return;
+			}
+			channel.input(message);
+			return;
+		}
+		channel.input(message);
+	}
+
 	async function hello(ws: ServerWebSocket<SocketData>, message: string | Buffer): Promise<void> {
+		// Verifying the token awaits, and Bun hands the next frame to `message` without waiting for
+		// this one. `who` is only set at the end, so a frame arriving mid-hello looked like the
+		// start of a new one: an ordinary keystroke was closed as "Expected hello", and a second
+		// hello opened a second channel on the one socket, leaving the first attached for good.
+		ws.data.helloing = true;
+		ws.data.early = [];
+		try {
+			await openHello(ws, message);
+		} finally {
+			ws.data.helloing = false;
+		}
+	}
+
+	async function openHello(
+		ws: ServerWebSocket<SocketData>,
+		message: string | Buffer,
+	): Promise<void> {
 		const first = typeof message === "string" ? parse<Hello>(message) : null;
 		const needsId = ws.data.kind !== "link";
 		if (
@@ -612,10 +653,16 @@ export function startServer(
 			close: (code, reason) => ws.close(code, reason),
 		};
 		const sessionHello = { ...first, id: first.id as string };
-		ws.data.channel =
+		ws.data.channel?.detach();
+		const channel =
 			ws.data.kind === "chat"
 				? openChat(chat, who.workspace, sessionHello, sink)
 				: openTerminal(store, who.userId, sessionHello, sink);
+		ws.data.channel = channel;
+		// Nothing to attach: the sink has already closed the socket, and the frames held for it
+		// have nowhere to go.
+		if (channel) for (const early of ws.data.early ?? []) toChannel(ws, channel, early);
+		ws.data.early = null;
 	}
 }
 

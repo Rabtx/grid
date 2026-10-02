@@ -1,6 +1,6 @@
 import type { Database } from "@grid/db";
 import { schema } from "@grid/db";
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql, type SQL } from "drizzle-orm";
 
 import type { BillingInterval, PaymentProviderName, PlanCode, SubscriptionStatus } from "./types";
 
@@ -16,24 +16,6 @@ export async function findLatestSubscriptionForWorkspace(
 		.from(schema.subscriptions)
 		.where(eq(schema.subscriptions.workspaceId, workspaceId))
 		.orderBy(desc(schema.subscriptions.updatedAt))
-		.limit(1);
-	return rows[0] ?? null;
-}
-
-export async function findSubscriptionByProvider(
-	db: Database,
-	provider: PaymentProviderName,
-	providerSubscriptionId: string,
-): Promise<SubscriptionRecord | null> {
-	const rows = await db
-		.select()
-		.from(schema.subscriptions)
-		.where(
-			and(
-				eq(schema.subscriptions.provider, provider),
-				eq(schema.subscriptions.providerSubscriptionId, providerSubscriptionId),
-			),
-		)
 		.limit(1);
 	return rows[0] ?? null;
 }
@@ -73,29 +55,10 @@ export async function upsertSubscriptionFromWebhook(
 		cancelAtPeriodEnd?: boolean;
 	},
 ): Promise<SubscriptionRecord> {
-	const existing = input.providerSubscriptionId
-		? await findSubscriptionByProvider(db, input.provider, input.providerSubscriptionId)
-		: null;
-
-	if (existing) {
-		const [updated] = await db
-			.update(schema.subscriptions)
-			.set({
-				userId: input.userId,
-				workspaceId: input.workspaceId,
-				providerCustomerId: input.providerCustomerId ?? existing.providerCustomerId,
-				planCode: input.planCode,
-				billingInterval: input.billingInterval,
-				status: input.status,
-				currentPeriodEnd: input.currentPeriodEnd ?? existing.currentPeriodEnd,
-				cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? existing.cancelAtPeriodEnd,
-				updatedAt: new Date(),
-			})
-			.where(eq(schema.subscriptions.id, existing.id))
-			.returning();
-		return updated;
-	}
-
+	// One statement, not a lookup followed by an insert. Payment providers deliver webhooks at
+	// least once and concurrently, so two deliveries of the same event both missed the lookup and
+	// both inserted; the loser died on subscriptions_provider_sub_unique and the provider retried
+	// forever. The upsert makes the second delivery converge on the row the first one made.
 	const values: NewSubscriptionRecord = {
 		userId: input.userId,
 		workspaceId: input.workspaceId,
@@ -108,9 +71,40 @@ export async function upsertSubscriptionFromWebhook(
 		currentPeriodEnd: input.currentPeriodEnd,
 		cancelAtPeriodEnd: input.cancelAtPeriodEnd ?? false,
 	};
+	const [record] = await db
+		.insert(schema.subscriptions)
+		.values(values)
+		.onConflictDoUpdate({
+			target: [schema.subscriptions.provider, schema.subscriptions.providerSubscriptionId],
+			set: {
+				userId: input.userId,
+				workspaceId: input.workspaceId,
+				// Whatever this particular event did not carry, the stored value still holds.
+				providerCustomerId: keepStored(
+					input.providerCustomerId,
+					sql`${schema.subscriptions.providerCustomerId}`,
+				),
+				planCode: input.planCode,
+				billingInterval: input.billingInterval,
+				status: input.status,
+				currentPeriodEnd: keepStored(
+					input.currentPeriodEnd,
+					sql`${schema.subscriptions.currentPeriodEnd}`,
+				),
+				cancelAtPeriodEnd: keepStored(
+					input.cancelAtPeriodEnd,
+					sql`${schema.subscriptions.cancelAtPeriodEnd}`,
+				),
+				updatedAt: new Date(),
+			},
+		})
+		.returning();
+	return record;
+}
 
-	const [created] = await db.insert(schema.subscriptions).values(values).returning();
-	return created;
+/** The value the webhook carried, or a reference to what is already stored. */
+function keepStored<T>(provided: T | undefined, stored: SQL): T | SQL {
+	return provided ?? stored;
 }
 
 export async function findUserById(

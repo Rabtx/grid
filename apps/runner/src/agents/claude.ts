@@ -492,8 +492,13 @@ async function startClaudeSession(
 
 	function restart(): void {
 		// Takes effect on the next message; the conversation continues through --resume.
+		// The turn in flight did not crash, we asked for this exit: claim its result first, or the
+		// `exited` handler above would report it as "Claude Code exited (code 143)".
+		const stopping = finishTurn;
+		finishTurn = null;
 		proc?.kill();
 		proc = null;
+		stopping?.({ reason: "cancelled" });
 	}
 
 	context.emit({

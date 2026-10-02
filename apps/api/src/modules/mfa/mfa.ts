@@ -4,7 +4,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import QRCode from "qrcode";
 
 import type { AppConfig } from "../../config/config";
-import { badRequest, unauthorized } from "../../http/errors";
+import { badRequest, conflict, unauthorized } from "../../http/errors";
 import {
 	decryptSecret,
 	encryptSecret,
@@ -48,6 +48,14 @@ export async function mfaStatus(deps: Deps, userId: string) {
 /** Start 2FA setup: a new secret (kept encrypted, not yet on), its URI and a QR code. */
 export async function beginTotpSetup(deps: Deps, userId: string) {
 	const user = await currentUser(deps.db, userId);
+	// Enrolling again replaces the pending secret below. It must never replace a factor that is
+	// already on: the upsert would clear isEnabled and leave the account with no second factor
+	// until (and unless) the new one is confirmed. Turning 2FA off means proving a code first.
+	if ((await factor(deps.db, userId))?.isEnabled)
+		throw conflict({
+			code: "MFA_ALREADY_ENABLED",
+			message: "Two-factor authentication is already on: turn it off before setting it up again",
+		});
 	const secret = generateTotpSecret();
 	const uri = totpUri({ issuer: deps.config.appName, label: user.email, secret });
 	const secretEncrypted = await encryptSecret(deps.config.authTokenSecret, secret);

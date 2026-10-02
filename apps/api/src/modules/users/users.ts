@@ -1,6 +1,6 @@
 import type { Database } from "@grid/db";
 import { schema } from "@grid/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { conflict, unauthorized } from "../../http/errors";
 
@@ -159,14 +159,18 @@ export async function recordFailedLogin(
 	user: UserRecord,
 	limits: { maxAttempts: number; lockMinutes: number },
 ): Promise<void> {
-	const attempts = user.failedLoginAttempts + 1;
-	const lockedUntil =
-		attempts >= limits.maxAttempts
-			? new Date(Date.now() + limits.lockMinutes * 60_000)
-			: user.lockedUntil;
+	// Counted in SQL rather than from the `user` row, which was read before the password check:
+	// parallel wrong-password attempts all read the same value, so counting from it lost those
+	// increments and a brute-forcer never reached the lockout by sending guesses in parallel.
 	await db
 		.update(schema.users)
-		.set({ failedLoginAttempts: attempts, lockedUntil, updatedAt: new Date() })
+		.set({
+			failedLoginAttempts: sql`${schema.users.failedLoginAttempts} + 1`,
+			lockedUntil: sql`case when ${schema.users.failedLoginAttempts} + 1 >= ${limits.maxAttempts}
+				then now() + make_interval(mins => ${limits.lockMinutes})
+				else ${schema.users.lockedUntil} end`,
+			updatedAt: new Date(),
+		})
 		.where(eq(schema.users.id, user.id));
 }
 

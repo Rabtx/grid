@@ -590,6 +590,10 @@ export class ChatHub {
 	 */
 	delete(workspace: string, id: string): void {
 		const session = this.owned(workspace, id);
+		// As `discardWorktree` does: the turn still in flight would keep writing into a row that
+		// no longer exists (its events are gone with it, `turn_end` among them), and the worktree
+		// below is removed while the agent may still be working in it.
+		if (this.live.get(id)?.running) throw new ChatError("Stop the agent first", 409);
 		this.park(id);
 		if (session.worktree) {
 			try {
@@ -749,8 +753,9 @@ export class ChatHub {
 		let result: Awaited<ReturnType<AgentSession["prompt"]>>;
 		let briefRole = false;
 		let briefNotes = false;
+		const opening = this.agentFor(session, live);
 		try {
-			const agent = await this.agentFor(session, live);
+			const agent = await opening;
 			const paths = attachments
 				.map((item) => `${JSON.stringify(item.metadata.name)}: ${JSON.stringify(item.path)}`)
 				.join("\n");
@@ -771,8 +776,10 @@ export class ChatHub {
 			result = await agent.prompt(prompt, images);
 		} catch (cause) {
 			result = { reason: "error", error: cause instanceof Error ? cause.message : String(cause) };
-			// A failed start leaves nothing to reuse.
-			live.agent = null;
+			// A failed start leaves nothing to reuse, but only if this is still the start that
+			// failed: the chat may have been parked and prompted again while it was in flight, and
+			// clearing then dropped the live agent, which nothing was left to close.
+			if (live.agent === opening) live.agent = null;
 		}
 		if (result.reason !== "error") {
 			if (briefRole && session.role)
@@ -874,12 +881,20 @@ export class ChatHub {
 
 	cancel(workspace: string, id: string): void {
 		this.owned(workspace, id);
-		void this.live.get(id)?.agent?.then((agent) => agent.cancel());
+		// `agentFor` rejects when the agent will not start; an unhandled rejection is fatal to the
+		// runner, so this derived promise needs a handler of its own (`park` carries one too).
+		void this.live
+			.get(id)
+			?.agent?.then((agent) => agent.cancel())
+			.catch(() => undefined);
 	}
 
 	approve(workspace: string, id: string, approvalId: string, optionId: string | null): void {
 		this.owned(workspace, id);
-		void this.live.get(id)?.agent?.then((agent) => agent.approve(approvalId, optionId));
+		void this.live
+			.get(id)
+			?.agent?.then((agent) => agent.approve(approvalId, optionId))
+			.catch(() => undefined);
 	}
 
 	async configure(
@@ -943,7 +958,7 @@ export class ChatHub {
 		if (live.agent) return live.agent;
 		const provider = this.providers.get(session.provider);
 		if (!provider) return Promise.reject(new ChatError("That agent is no longer available", 400));
-		live.agent = (async () => {
+		const opening = (async () => {
 			const fresh = this.store.get(session.id) ?? session;
 			const root = await realpath(this.projectsDir);
 			const cwd = await realpath(fresh.cwd);
@@ -960,10 +975,14 @@ export class ChatHub {
 				onResumeToken: (token) => this.store.update(session.id, { resumeToken: token }),
 			});
 		})();
-		live.agent.catch(() => {
-			live.agent = null;
+		live.agent = opening;
+		opening.catch(() => {
+			// Only forget this start if it is still the one we are waiting on: a chat that was
+			// parked and prompted again has a newer agent by now, and clearing it here would drop
+			// the live agent on the floor, never to be closed.
+			if (live.agent === opening) live.agent = null;
 		});
-		return live.agent;
+		return opening;
 	}
 
 	/** Log an event and send it to every device watching. Streamed text is merged before it is written. */
