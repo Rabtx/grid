@@ -91,6 +91,31 @@ export type FileDiff = {
 };
 
 /** A chat session as the runner lists it. */
+/** A role on the workspace's team (Figma 11 · Agent roles): a named preset a thread starts as. */
+export type Role = {
+	id: string;
+	name: string;
+	/** One of the kit's role glyphs. */
+	icon: string;
+	/** What the role does; the agent is given it with a thread's first message. */
+	brief: string;
+	provider: string;
+	/** Unset means the agent's own default. */
+	model: string | null;
+	effort: string | null;
+	mode: string | null;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type RoleDraft = Pick<
+	Role,
+	"name" | "icon" | "brief" | "provider" | "model" | "effort" | "mode"
+>;
+
+/** The role a thread was started as, as the role was then. */
+export type SessionRole = { id: string; name: string; icon: string; brief: string };
+
 export type ChatSession = {
 	id: string;
 	project: string;
@@ -108,6 +133,8 @@ export type ChatSession = {
 		base: string | null;
 		origin: string;
 	} | null;
+	/** The role it was started as, if any. */
+	role?: SessionRole | null;
 	createdAt: string;
 	updatedAt: string;
 };

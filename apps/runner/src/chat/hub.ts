@@ -31,6 +31,7 @@ import type {
 	ProjectSettings,
 	ProviderCatalog,
 	ProviderSettings,
+	SessionRole,
 } from "./store";
 import {
 	createWorktree,
@@ -158,6 +159,19 @@ export function agentPromptText(provider: string, text: string): string {
 	return text.startsWith(prefix) ? `/${text.slice(prefix.length)}` : text;
 }
 
+/**
+ * A thread's first message as the agent gets it when the thread was started as a role: who it is
+ * on the team and what the team asked of that role, then the message. The transcript keeps only
+ * what the person typed.
+ */
+export function withRoleBrief(role: SessionRole, text: string): string {
+	const brief = role.brief.trim();
+	const about = brief
+		? `You are working as the team's ${role.name}. What this role does:\n${brief}`
+		: `You are working as the team's ${role.name}.`;
+	return `${about}\n\n---\n\n${text}`;
+}
+
 function isDirectory(path: string): boolean {
 	try {
 		return statSync(path).isDirectory();
@@ -278,6 +292,11 @@ export class ChatHub {
 		throw new ChatError("Choose this project's folder first: chats work inside it.", 409);
 	}
 
+	/** Whether this runner has an agent by that id (installed or not). */
+	knowsProvider(id: string): boolean {
+		return this.providers.has(id);
+	}
+
 	projectFolders(workspace: string): Record<string, string> {
 		return this.store.projectFolders(workspace);
 	}
@@ -306,6 +325,8 @@ export class ChatHub {
 			pull?: number;
 			/** That pull request comes from a fork. */
 			fork?: boolean;
+			/** The role it is started as (see `SessionRole`). */
+			role?: SessionRole | null;
 		},
 	): ChatSessionRow {
 		const provider = this.providers.get(input.provider);
@@ -338,6 +359,7 @@ export class ChatHub {
 			mode: input.mode ?? provider.info().defaultMode ?? null,
 			effort: input.effort ?? null,
 			worktree: own?.worktree ?? null,
+			role: input.role ?? null,
 		});
 	}
 
@@ -711,13 +733,19 @@ export class ChatHub {
 		this.record(id, { type: "turn_start", at: new Date().toISOString() });
 
 		let result: Awaited<ReturnType<AgentSession["prompt"]>>;
+		let briefing = false;
 		try {
 			const agent = await this.agentFor(session, live);
 			const paths = attachments
 				.map((item) => `${JSON.stringify(item.metadata.name)}: ${JSON.stringify(item.path)}`)
 				.join("\n");
 			// An agent command the menu prefixed is the agent's own command, sent as it typed.
-			const text = agentPromptText(session.provider, message);
+			const typed = agentPromptText(session.provider, message);
+			// A thread started as a role gives the agent its brief with the first message that gets
+			// through. A command goes as typed (the agent would not read it as one after a brief),
+			// and the brief waits for the next message.
+			briefing = Boolean(session.role && !session.role.briefed && !typed.startsWith("/"));
+			const text = briefing && session.role ? withRoleBrief(session.role, typed) : typed;
 			const prompt = paths
 				? `${text}\n\nAttached files (absolute paths on this machine):\n${paths}`
 				: text;
@@ -726,6 +754,9 @@ export class ChatHub {
 			result = { reason: "error", error: cause instanceof Error ? cause.message : String(cause) };
 			// A failed start leaves nothing to reuse.
 			live.agent = null;
+		}
+		if (briefing && session.role && result.reason !== "error") {
+			this.store.update(id, { role: { ...session.role, briefed: true } });
 		}
 		const failure =
 			result.reason === "error" && result.error ? this.explainFailure(session, result.error) : null;

@@ -176,3 +176,16 @@ export { FilterChip, Toolbar, ToolbarButton } from "./toolbar";
 export { EntryIcon, type FileIconResolver, setFileIcons } from "./file-icon";
 export { type FolderEntry, FileTree, FolderTree, type TreeNode } from "./tree";
 export { type VariantProps, variants } from "./variants";
+export {
+	ROLE_CHIP,
+	ROLE_CHIP_ICON,
+	ROLE_ICONS,
+	NoRoleMark,
+	NoRoleRow,
+	PANEL_ACTION,
+	RoleChipGroup,
+	type RoleIcon,
+	RoleIconChoices,
+	RoleMark,
+	TeamRow,
+} from "./role";

@@ -7,6 +7,8 @@ import type {
 	ChatSession,
 	ProjectChatSettings,
 	ProviderSettings,
+	Role,
+	RoleDraft,
 	WorktreeStatus,
 } from "../types/chat.types";
 
@@ -66,6 +68,13 @@ const uploadKey = (scope: string, id: string) => `${scope}\n${id}`;
 
 /** Every call takes the machine's `scope` last: empty for this machine. */
 export const chatService = {
+	roles: (token: string, scope = "") => call<Role[]>("/roles", token, {}, scope),
+	createRole: (token: string, draft: RoleDraft, scope = "") =>
+		call<Role>("/roles", token, { method: "POST", body: JSON.stringify(draft) }, scope),
+	updateRole: (token: string, id: string, patch: Partial<RoleDraft>, scope = "") =>
+		call<Role>(`/roles/${id}`, token, { method: "PATCH", body: JSON.stringify(patch) }, scope),
+	removeRole: (token: string, id: string, scope = "") =>
+		call<void>(`/roles/${id}`, token, { method: "DELETE" }, scope),
 	uploadOne: async (
 		token: string,
 		id: string,
@@ -272,6 +281,8 @@ export const chatService = {
 			pull?: number;
 			/** That pull request comes from a fork: its ref is fetched onto `branch`. */
 			fork?: boolean;
+			/** The role it starts as: its brief goes with the first message. */
+			role?: string;
 		},
 		scope = "",
 	) =>

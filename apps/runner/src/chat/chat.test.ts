@@ -540,6 +540,58 @@ describe("ChatHub", () => {
 		return { provider, sent };
 	}
 
+	it("gives a role's brief with the first message that gets through, and only that one", async () => {
+		const { provider, sent } = commandsProvider(null);
+		let fail = true;
+		const flaky: Provider = {
+			...provider,
+			start: async (context) => {
+				const agent = await provider.start(context);
+				return {
+					...agent,
+					prompt: async (text, images) => {
+						if (fail) {
+							sent.push(text);
+							return { reason: "error", error: "busy" };
+						}
+						return agent.prompt(text, images);
+					},
+				};
+			},
+		};
+		const chat = new ChatHub(new ChatStore(":memory:"), new Map([["echo", flaky]]), tmpdir());
+		const session = chat.create(
+			{ userId: "me", workspace: "me" },
+			{
+				project: "alpha",
+				provider: "echo",
+				cwd: "/tmp",
+				role: { id: "r1", name: "Engineer", icon: "code", brief: "Builds features." },
+			},
+		);
+		// A command first goes as typed; the brief waits.
+		fail = false;
+		await chat.prompt("me", session.id, "/compact");
+		// A turn that fails does not count as briefed.
+		fail = true;
+		await chat.prompt("me", session.id, "Add a retry");
+		fail = false;
+		await chat.prompt("me", session.id, "Add a retry");
+		await chat.prompt("me", session.id, "Thanks");
+		expect(sent).toEqual([
+			"/compact",
+			"You are working as the team's Engineer. What this role does:\nBuilds features.\n\n---\n\nAdd a retry",
+			"You are working as the team's Engineer. What this role does:\nBuilds features.\n\n---\n\nAdd a retry",
+			"Thanks",
+		]);
+		// The transcript keeps what the person typed.
+		const typed = chat
+			.attach("me", session.id, { event: () => {}, state: () => {} })
+			.history.filter((event) => event.type === "user")
+			.map((event) => (event as { text: string }).text);
+		expect(typed).toEqual(["/compact", "Add a retry", "Add a retry", "Thanks"]);
+	});
+
 	const COMMANDS: AgentCommand[] = [
 		{ name: "compact", description: "Summarise the conversation" },
 		{ name: "clear", description: "Clear the screen" },

@@ -1,5 +1,6 @@
 import { MAX_ATTACHMENT_BYTES } from "./attachments";
 import type { Who } from "../auth";
+import type { RoleStore } from "../roles/store";
 import { ChatError, type ChatHub } from "./hub";
 
 /**
@@ -11,6 +12,8 @@ export async function chatRequest(
 	url: URL,
 	who: Who,
 	hub: ChatHub,
+	/** The workspace's roles, for a thread started as one. */
+	roles?: RoleStore,
 ): Promise<Response | null> {
 	const { userId, workspace } = who;
 	if (url.pathname === "/chat/providers" && request.method === "GET") {
@@ -67,7 +70,13 @@ export async function chatRequest(
 					? body.pull
 					: undefined,
 			fork: body.fork === true,
+			role: undefined as { id: string; name: string; icon: string; brief: string } | undefined,
 		};
+		if (body.role !== undefined) {
+			const role = typeof body.role === "string" ? roles?.get(workspace, body.role) : null;
+			if (!role) return failure(400, "That role is gone; choose another");
+			input.role = { id: role.id, name: role.name, icon: role.icon, brief: role.brief };
+		}
 		// An existing branch is fetched first, without blocking the runner while it waits.
 		if (input.worktree && (input.existing || input.pull !== undefined)) {
 			try {

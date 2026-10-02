@@ -24,6 +24,7 @@ import {
 	DiffStat,
 	FactGroup,
 	LaptopIcon,
+	RoleMark,
 	ThreadHeader,
 	notify,
 	type PopoverControl,
@@ -461,6 +462,14 @@ export function Conversation(props: {
 										title={current().title}
 										status={status()}
 										facts={[
+											...(current().role
+												? [
+														{
+															icon: <RoleMark icon={current().role?.icon ?? "code"} size="sm" />,
+															label: current().role?.name ?? "",
+														},
+													]
+												: []),
 											...(place()?.worktree
 												? [{ icon: <BranchIcon />, label: place()?.worktree?.branch ?? "" }]
 												: []),

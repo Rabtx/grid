@@ -26,8 +26,20 @@ export type ChatSessionRow = {
 	resumeToken: string | null;
 	/** The chat's own git worktree, when it has one (`cwd` is inside it). */
 	worktree: Worktree | null;
+	/** The role it was started as, as the role was then: its brief goes with the first message. */
+	role?: SessionRole | null;
 	createdAt: string;
 	updatedAt: string;
+};
+
+/** A role as a thread keeps it: renaming or removing the role later does not change the thread. */
+export type SessionRole = {
+	id: string;
+	name: string;
+	icon: string;
+	brief: string;
+	/** The agent has had the brief: a turn carrying it ended without failing. */
+	briefed?: boolean;
 };
 
 /** What each project is set to on this machine. */
@@ -51,6 +63,7 @@ type Row = {
 	effort: string | null;
 	resume_token: string | null;
 	worktree: string | null;
+	role?: string | null;
 	created_at: string;
 	updated_at: string;
 };
@@ -59,6 +72,15 @@ function readWorktree(raw: string | null): Worktree | null {
 	if (!raw) return null;
 	try {
 		return JSON.parse(raw) as Worktree;
+	} catch {
+		return null;
+	}
+}
+
+function readRole(raw: string | null): SessionRole | null {
+	if (!raw) return null;
+	try {
+		return JSON.parse(raw) as SessionRole;
 	} catch {
 		return null;
 	}
@@ -78,6 +100,7 @@ function toSession(row: Row): ChatSessionRow {
 		effort: row.effort,
 		resumeToken: row.resume_token,
 		worktree: readWorktree(row.worktree),
+		role: readRole(row.role ?? null),
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -175,6 +198,9 @@ export class ChatStore {
 		if (!hasColumn(this.db, "sessions", "worktree")) {
 			this.db.exec("ALTER TABLE sessions ADD COLUMN worktree TEXT");
 		}
+		if (!hasColumn(this.db, "sessions", "role")) {
+			this.db.exec("ALTER TABLE sessions ADD COLUMN role TEXT");
+		}
 		this.db.exec(`
 			CREATE TABLE IF NOT EXISTS project_settings (
 				workspace_id TEXT NOT NULL,
@@ -207,8 +233,8 @@ export class ChatStore {
 		const now = new Date().toISOString();
 		this.db
 			.query(
-				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, worktree, created_at, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
+				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, worktree, role, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
 			)
 			.run(
 				session.id,
@@ -222,10 +248,17 @@ export class ChatStore {
 				session.mode,
 				session.effort,
 				session.worktree ? JSON.stringify(session.worktree) : null,
+				session.role ? JSON.stringify(session.role) : null,
 				now,
 				now,
 			);
-		return { ...session, resumeToken: null, createdAt: now, updatedAt: now };
+		return {
+			...session,
+			role: session.role ?? null,
+			resumeToken: null,
+			createdAt: now,
+			updatedAt: now,
+		};
 	}
 
 	get(id: string): ChatSessionRow | null {
@@ -247,7 +280,7 @@ export class ChatStore {
 		fields: Partial<
 			Pick<
 				ChatSessionRow,
-				"title" | "model" | "mode" | "effort" | "resumeToken" | "cwd" | "worktree"
+				"title" | "model" | "mode" | "effort" | "resumeToken" | "cwd" | "worktree" | "role"
 			>
 		>,
 	): void {
@@ -259,12 +292,17 @@ export class ChatStore {
 			resumeToken: "resume_token",
 			cwd: "cwd",
 			worktree: "worktree",
+			role: "role",
 		};
 		const entries = Object.entries(fields).filter(([key]) => key in columns);
 		if (entries.length === 0) return;
 		const sets = entries.map(([key]) => `${columns[key]} = ?`).join(", ");
 		const values = entries.map(([key, value]) =>
-			key === "worktree" ? (value ? JSON.stringify(value) : null) : (value as string | null),
+			key === "worktree" || key === "role"
+				? value
+					? JSON.stringify(value)
+					: null
+				: (value as string | null),
 		);
 		this.db
 			.query(`UPDATE sessions SET ${sets}, updated_at = ? WHERE id = ?`)
