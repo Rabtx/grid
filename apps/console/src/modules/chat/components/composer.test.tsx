@@ -304,7 +304,7 @@ describe("Composer", () => {
 		typeInto(textarea, "/tas");
 		await settle();
 
-		expect(container.textContent).toContain("Commands · 1");
+		expect(container.querySelectorAll('[role="option"]')).toHaveLength(1);
 		expect(container.textContent).toContain("/task");
 		expect(container.textContent).not.toContain("/new");
 	});
@@ -746,7 +746,7 @@ describe("Composer", () => {
 		expect(container.querySelector('[aria-label="Remove src/app.ts"]')).toBeNull();
 	});
 
-	it("renders camera option on touch devices and triggers camera input", async () => {
+	it("offers Photos on touch devices, which opens the photo picker", async () => {
 		const originalTouch = navigator.maxTouchPoints;
 		Object.defineProperty(navigator, "maxTouchPoints", { value: 1, configurable: true });
 
@@ -759,11 +759,13 @@ describe("Composer", () => {
 		await settle();
 
 		const cameraItem = [...container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(
-			(btn) => btn.textContent?.includes("Take a photo"),
+			(btn) => btn.textContent?.includes("Photos"),
 		);
 		expect(cameraItem).toBeDefined();
 
-		const cameraInput = container.querySelector<HTMLInputElement>('input[capture="environment"]');
+		const cameraInput = container.querySelector<HTMLInputElement>(
+			'input[aria-label="Choose photos"]',
+		);
 		expect(cameraInput).not.toBeNull();
 		const clickSpy = vi.spyOn(cameraInput!, "click");
 

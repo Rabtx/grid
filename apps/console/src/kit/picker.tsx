@@ -3,44 +3,81 @@ import { For, onSettled, Show } from "solid-js";
 
 import { attachEdgeFade } from "./edge-fade";
 
-import { StarIcon } from "./icons";
+import { CheckIcon, StarIcon } from "./icons";
 
-export type RailItem = { id: string; label: string; icon: JSX.Element };
+export type AgentChoice = {
+	id: string;
+	name: string;
+	/** Who makes it, where it runs: "Anthropic", "Any provider". */
+	detail?: string;
+	logo: JSX.Element;
+};
 
 /**
- * What a picker's list shows, chosen from a rail: favourites, then each agent or provider. A
- * named column down the left of the panel from md, a row of chips across its top on phones.
+ * Which agent a thread is for (Figma 10 · Composer, Model picker): rows with the agent's logo in
+ * a tile and a line about it, the chosen one lit and checked, from md; a row of pills across the
+ * sheet on phones.
  */
-export function ChoiceRail(props: {
+export function AgentChoices(props: {
 	label: string;
-	items: readonly RailItem[];
+	items: readonly AgentChoice[];
 	value: string;
 	onChange: (id: string) => void;
 }): JSX.Element {
-	let rail: HTMLDivElement | undefined;
-	onSettled(() => (rail ? attachEdgeFade(rail) : undefined));
+	let row: HTMLDivElement | undefined;
+	onSettled(() => (row ? attachEdgeFade(row) : undefined));
 	return (
+		// oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- focus sits on its radios, one tab stop among them
 		<div
 			ref={(el) => {
-				rail = el;
+				row = el;
 			}}
-			role="tablist"
+			role="radiogroup"
 			aria-label={props.label}
-			class="edge-fade flex shrink-0 gap-1 overflow-x-auto border-line border-b px-2 py-1.5 [scrollbar-width:none] md:w-40 md:flex-col md:overflow-y-auto md:border-r md:border-b-0 md:bg-fill md:p-1.5"
+			onKeyDown={(event) => {
+				// A radio group: one tab stop, the arrows move the choice.
+				const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+				if (!step || props.items.length === 0) return;
+				event.preventDefault();
+				const at = Math.max(
+					0,
+					props.items.findIndex((item) => item.id === props.value),
+				);
+				const next = props.items[(at + step + props.items.length) % props.items.length];
+				props.onChange(next.id);
+				requestAnimationFrame(() =>
+					row?.querySelector<HTMLElement>(`[data-agent="${next.id}"]`)?.focus(),
+				);
+			}}
+			class="edge-fade flex gap-2 overflow-x-auto [scrollbar-width:none] md:flex-col md:gap-0.5 md:overflow-visible"
 		>
 			<For each={props.items}>
 				{(item) => (
 					<button
 						type="button"
-						role="tab"
-						title={item.label}
-						aria-label={item.label}
-						aria-selected={props.value === item.id ? "true" : "false"}
+						// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a radio input cannot hold a logo and a second line
+						role="radio"
+						data-agent={item.id}
+						tabindex={props.value === item.id ? 0 : -1}
+						aria-checked={props.value === item.id ? "true" : "false"}
 						onClick={() => props.onChange(item.id)}
-						class="focus-ring flex h-8 shrink-0 items-center gap-2 rounded-kit-md px-2 text-body text-fg-subtle transition-[background-color,color,box-shadow] duration-fast hover:bg-fill-strong hover:text-fg aria-selected:bg-surface-raised aria-selected:text-fg aria-selected:shadow-lift pointer-coarse:h-10 md:w-full"
+						class="surface-outline focus-ring flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-body-lg text-fg transition-colors duration-fast hover:bg-fill aria-checked:bg-fill-strong aria-checked:shadow-none md:h-auto md:min-h-12 md:gap-3 md:rounded-kit-lg md:px-2 md:py-1.5 md:bg-transparent md:text-body md:shadow-none md:hover:bg-fill md:aria-checked:bg-fill"
 					>
-						<span class="grid size-5 shrink-0 place-items-center">{item.icon}</span>
-						<span class="min-w-0 truncate whitespace-nowrap">{item.label}</span>
+						<span class="grid shrink-0 place-items-center md:size-8 md:rounded-kit-md md:icon-tile">
+							{item.logo}
+						</span>
+						<span class="flex min-w-0 flex-col text-left md:flex-1">
+							<span class="truncate">{item.name}</span>
+							<Show when={item.detail}>
+								<span class="hidden truncate text-caption text-fg-subtle md:block">
+									{item.detail}
+								</span>
+							</Show>
+						</span>
+						<CheckIcon
+							size="sm"
+							class={`hidden shrink-0 text-fg ${props.value === item.id ? "md:block" : ""}`}
+						/>
 					</button>
 				)}
 			</For>
@@ -49,15 +86,18 @@ export function ChoiceRail(props: {
 }
 
 /**
- * A model in a picker: its name and a line about it, a badge (a flagship's sparkle), a detail
- * on the right (how many efforts), the chosen one lit and checked. The star marks a favourite;
- * it shows on hover for pointers and always on touch, and is a button of its own.
+ * A model in a picker (Figma 10 · Composer, Model picker): a tile, its name and a line about it,
+ * the chosen one lit — checked from md, a filled radio on phones. A shortcut or a badge may sit on
+ * the right. The star marks a favourite; it shows on hover for pointers, always on touch, and
+ * is a button of its own.
  */
 export function ModelRow(props: {
 	name: string;
 	description?: string;
 	/** On hover: the model's id, for when the name is not enough. */
 	title?: string;
+	/** In the tile on the left. */
+	icon?: JSX.Element;
 	badge?: JSX.Element;
 	detail?: JSX.Element;
 	selected: boolean;
@@ -72,7 +112,7 @@ export function ModelRow(props: {
 	return (
 		<div
 			data-index={props.index}
-			class={`group/model relative flex min-w-0 items-center rounded-kit-md transition-colors duration-fast ${props.selected ? "bg-fill-strong" : props.active ? "bg-fill" : "hover:bg-fill"}`}
+			class={`group/model relative flex min-w-0 items-center rounded-kit-lg transition-colors duration-fast ${props.selected || props.active ? "bg-fill" : "hover:bg-fill"}`}
 		>
 			<button
 				type="button"
@@ -81,21 +121,39 @@ export function ModelRow(props: {
 				aria-pressed={props.selected ? "true" : "false"}
 				onMouseEnter={() => props.onHover?.()}
 				onClick={(event) => props.onPick(event)}
-				class="focus-ring flex min-h-kit-row min-w-0 flex-1 items-center gap-2.5 rounded-kit-md py-1.5 pr-9 pl-2.5 text-left pointer-coarse:min-h-12"
+				class="focus-ring flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-kit-lg py-1.5 pr-16 pl-2 text-left pointer-coarse:min-h-14"
 			>
+				<span
+					class={`grid size-8 shrink-0 place-items-center rounded-kit-md ${props.selected ? "tint-warning" : "icon-tile text-fg-muted"}`}
+				>
+					{props.icon}
+				</span>
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="flex min-w-0 items-center gap-1.5">
-						<span class="truncate text-body-lg text-fg">{props.name}</span>
+						<span class="truncate text-body text-fg">{props.name}</span>
 						{props.badge}
 					</span>
 					<Show when={props.description}>
 						<span class="truncate text-caption text-fg-subtle">{props.description}</span>
 					</Show>
 				</span>
-				<Show when={props.detail}>
-					<span class="shrink-0 text-caption text-fg-faint">{props.detail}</span>
-				</Show>
 			</button>
+			<span class="pointer-events-none absolute right-2 flex items-center gap-1">
+				<Show when={props.detail}>
+					<span class="text-caption text-fg-faint">{props.detail}</span>
+				</Show>
+				<Show when={props.selected}>
+					<CheckIcon size="sm" class="hidden text-fg md:block" />
+				</Show>
+				<span
+					aria-hidden="true"
+					class={`grid size-5 place-items-center rounded-full md:hidden ${props.selected ? "bg-accent" : "ring-line-strong"}`}
+				>
+					<Show when={props.selected}>
+						<span class="size-2 rounded-full bg-white" />
+					</Show>
+				</span>
+			</span>
 			<button
 				type="button"
 				aria-label={
@@ -105,7 +163,7 @@ export function ModelRow(props: {
 				}
 				aria-pressed={props.favorite ? "true" : "false"}
 				onClick={() => props.onFavorite()}
-				class={`focus-ring absolute right-1.5 grid size-7 place-items-center rounded-kit-sm transition-opacity duration-fast hover:bg-fill-strong aria-pressed:text-warning aria-pressed:opacity-100 pointer-coarse:opacity-100 ${props.favorite ? "" : "text-fg-faint opacity-0 group-hover/model:opacity-100 focus-visible:opacity-100"}`}
+				class={`focus-ring absolute right-8 grid size-7 place-items-center rounded-kit-sm transition-opacity duration-fast hover:bg-fill-strong aria-pressed:text-warning ${props.favorite ? "" : "text-fg-faint opacity-0 group-hover/model:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}`}
 			>
 				<StarIcon size="sm" />
 			</button>

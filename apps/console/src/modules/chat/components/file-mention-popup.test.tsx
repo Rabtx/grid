@@ -42,7 +42,9 @@ describe("FileMentionPopup", () => {
 			selectedIndex: 0,
 		});
 
-		expect(container.textContent).toContain("File mentions · 3");
+		// Under a caption naming where the files are, one option each.
+		expect(container.textContent).toContain("Files");
+		expect(container.querySelectorAll('[role="option"]')).toHaveLength(3);
 		expect(container.textContent).toContain("app.ts");
 		expect(container.textContent).toContain("src");
 		expect(container.textContent).toContain("main.tsx");

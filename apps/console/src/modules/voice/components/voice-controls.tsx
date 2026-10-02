@@ -28,7 +28,9 @@ export function VoiceControls(): JSX.Element {
 	});
 
 	const active = () => dictation.status() !== "idle";
-	const showMic = () => active() || focused()?.floatingMic === true;
+	// A target that draws dictation itself (the composer's recording bar) needs neither.
+	const drawnHere = () => active() && dictation.owner() === null;
+	const showMic = () => drawnHere() || (!active() && focused()?.floatingMic === true);
 
 	onSettled(() => {
 		const stopTracking = trackFocus(setFocused);
@@ -66,7 +68,7 @@ export function VoiceControls(): JSX.Element {
 
 	return (
 		<VoiceDock bottom={bottom()}>
-			<Show when={active()}>
+			<Show when={drawnHere()}>
 				<VoiceStatus
 					label={
 						dictation.status() === "transcribing"

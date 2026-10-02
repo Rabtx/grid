@@ -642,6 +642,21 @@
 	.kit-effort-glow {
 		animation: kit-effort-glow 1.8s ease-in-out infinite;
 	}
+	/* The lit fill: the accent running into violet, a scatter of small stars over it. */
+	.kit-effort-fill {
+		background:
+			radial-gradient(1.2px 1.2px at 18% 38%, rgb(255 255 255 / 0.9) 99%, transparent),
+			radial-gradient(1px 1px at 31% 70%, rgb(255 255 255 / 0.7) 99%, transparent),
+			radial-gradient(1.4px 1.4px at 46% 24%, rgb(255 255 255 / 0.85) 99%, transparent),
+			radial-gradient(1px 1px at 58% 62%, rgb(255 255 255 / 0.75) 99%, transparent),
+			radial-gradient(1.4px 1.4px at 71% 40%, rgb(255 255 255 / 0.9) 99%, transparent),
+			radial-gradient(1px 1px at 84% 72%, rgb(255 255 255 / 0.7) 99%, transparent),
+			linear-gradient(
+				90deg,
+				var(--color-accent),
+				color-mix(in oklab, var(--color-accent) 45%, var(--color-violet))
+			);
+	}
 	@media (prefers-reduced-motion: reduce) {
 		.kit-effort-sweep {
 			display: none;

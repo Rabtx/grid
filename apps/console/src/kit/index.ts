@@ -113,10 +113,12 @@ export {
 	PROMPT_FIELD,
 	PROMPT_ICON,
 	PromptBox,
+	PromptHints,
 	SEND_BUTTON,
 	STOP_BUTTON,
 	Suggestions,
 	ContextMeter,
+	VoiceBar,
 	WorkingRing,
 } from "./prompt-box";
 export { Checklist, ChoicePrompt, DecisionCard, ProgressRing } from "./prompts";
@@ -145,7 +147,7 @@ export {
 export { type EffortLevel, EffortSlider } from "./effort";
 export { type ArrivalOptions, playArrival } from "./arrival";
 export { ListDetail, ListRow, PaneHeader } from "./pane";
-export { ChoiceRail, FlagshipMark, ModelRow, type RailItem } from "./picker";
+export { type AgentChoice, AgentChoices, FlagshipMark, ModelRow } from "./picker";
 export { PixelMark, ProjectMark, type ProjectMarkShape } from "./project-mark";
 export { FLOATING_MIC, VoiceDock, VoiceError, VoiceStatus } from "./voice";
 export { Select, type SelectGroup, type SelectOption } from "./select";

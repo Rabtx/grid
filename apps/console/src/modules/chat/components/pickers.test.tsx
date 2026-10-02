@@ -67,7 +67,7 @@ describe("ModelPicker", () => {
 	});
 
 	async function open(): Promise<void> {
-		document.querySelector<HTMLButtonElement>('button[aria-label="Model"]')?.click();
+		document.querySelector<HTMLButtonElement>('button[aria-label="Agent and model"]')?.click();
 		await settle();
 	}
 
@@ -77,16 +77,27 @@ describe("ModelPicker", () => {
 			.filter((label) => !label.includes("favourites"));
 	}
 
-	it("lists the current agent's models, with the other agents on the rail", async () => {
-		await open();
-		expect(rows()).toEqual(["Opus 5.5", "Sonnet 5"]);
-		const rail = [...document.querySelectorAll('[aria-label="Show models from"] [role="tab"]')];
-		expect(rail.map((tab) => tab.getAttribute("aria-label"))).toEqual(["Claude Code", "Codex"]);
+	it("names the agent and the model on its chip", () => {
+		const chip = document.querySelector('button[aria-label="Agent and model"]');
+		expect(chip?.textContent).toContain("Claude Code · Sonnet 5");
 	});
 
-	it("switches agent when a model of another agent is picked", async () => {
+	it("lists the agents, then the current agent's models", async () => {
 		await open();
-		document.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Codex"]')?.click();
+		const agentRows = [...document.querySelectorAll('[role="radiogroup"] [role="radio"]')];
+		expect(agentRows.map((row) => row.textContent)).toEqual([
+			"Claude CodeAnthropic",
+			"CodexOpenAI",
+		]);
+		expect(agentRows[0].getAttribute("aria-checked")).toBe("true");
+		expect(rows()).toEqual(["Opus 5.5", "Sonnet 5"]);
+	});
+
+	it("switches agent from the list and keeps the panel open to pick its model", async () => {
+		await open();
+		[...document.querySelectorAll<HTMLButtonElement>('[role="radio"]')]
+			.find((row) => row.textContent?.startsWith("Codex"))
+			?.click();
 		await settle();
 		expect(rows()).toEqual(["GPT-5.5"]);
 		document.querySelector<HTMLButtonElement>('button[aria-label="GPT-5.5"]')?.click();
@@ -94,19 +105,50 @@ describe("ModelPicker", () => {
 		expect(picked).toEqual({ agent: "codex", model: "gpt-5.5" });
 	});
 
-	it("keeps starred models under Favourites, across agents", async () => {
+	it("keeps a starred model as a favourite", async () => {
 		await open();
 		document
 			.querySelector<HTMLButtonElement>('button[aria-label="Add Opus 5.5 to favourites"]')
 			?.click();
 		await settle();
-		const favourites = document.querySelector<HTMLButtonElement>(
-			'[role="tab"][aria-label="Favourites"]',
-		);
-		expect(favourites).not.toBeNull();
-		favourites?.click();
-		await settle();
-		expect(rows()).toEqual(["Opus 5.5"]);
 		expect(favoritesStore.has("claude", "claude-opus-5-5")).toBe(true);
+		expect(
+			document.querySelector('button[aria-label="Remove Opus 5.5 from favourites"]'),
+		).not.toBeNull();
+	});
+
+	it("gives a long list a search, its favourites first and its labs as headings", async () => {
+		dispose();
+		document.body.replaceChildren();
+		const many: Choice[] = Array.from({ length: 10 }, (_, index) => ({
+			id: `m${index}`,
+			name: `Model ${index}`,
+			group: index < 5 ? "Lab A" : "Lab B",
+		}));
+		favoritesStore.toggle("opencode", "m7");
+		const host = document.createElement("div");
+		document.body.append(host);
+		dispose = render(
+			() => (
+				<ModelPicker
+					agent="opencode"
+					agentName="opencode"
+					models={many}
+					model="m0"
+					onModel={() => {}}
+					efforts={[]}
+					effort={null}
+					onEffort={() => {}}
+				/>
+			),
+			host,
+		);
+		await open();
+		expect(document.querySelector('input[aria-label="Search models"]')).not.toBeNull();
+		expect(rows()[0]).toBe("Model 7");
+		const headings = [...document.querySelectorAll("[data-model-list] section")].map((section) =>
+			section.getAttribute("aria-label"),
+		);
+		expect(headings).toEqual(["Favourites", "Lab A", "Lab B"]);
 	});
 });

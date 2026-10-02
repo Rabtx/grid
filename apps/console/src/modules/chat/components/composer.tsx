@@ -1,18 +1,27 @@
 import type { JSX } from "@solidjs/web";
 import { useParams } from "@solidjs/router";
-import { createSignal, createUniqueId, For, onSettled, Show, untrack } from "solid-js";
+import {
+	createEffect,
+	createSignal,
+	createUniqueId,
+	For,
+	onSettled,
+	Show,
+	untrack,
+} from "solid-js";
 
 import { useAuth } from "@/modules/auth";
 import { placementsStore } from "@/modules/environments";
 import { useWorkspace } from "@/modules/projects";
-import { insertIntoField, MicButton, registerDictationTarget } from "@/modules/voice";
+import { dictation, insertIntoField, MicButton, registerDictationTarget } from "@/modules/voice";
 import {
+	AttachIcon,
 	Attachment,
 	BranchIcon,
 	CameraIcon,
 	EditIcon,
-	FileIcon,
 	FolderIcon,
+	ImageIcon,
 	Menu,
 	type MenuGroup,
 	type MenuItem,
@@ -21,6 +30,7 @@ import {
 	PROMPT_FIELD,
 	PROMPT_ADD,
 	PromptBox,
+	PromptHints,
 	Row,
 	SEND_BUTTON,
 	SendIcon,
@@ -31,6 +41,7 @@ import {
 	TerminalIcon,
 	Text,
 	UploadIcon,
+	VoiceBar,
 } from "@/kit";
 
 import {
@@ -111,6 +122,7 @@ export function Composer(props: {
 	} | null>(null);
 
 	let filePicker: HTMLInputElement | undefined;
+	let photoPicker: HTMLInputElement | undefined;
 	let cameraPicker: HTMLInputElement | undefined;
 	let textarea: HTMLTextAreaElement | undefined;
 	let form: HTMLFormElement | undefined;
@@ -313,16 +325,34 @@ export function Composer(props: {
 		return null;
 	};
 
+	// Dictation into this box draws its recording bar here, not the app-wide bubble.
+	const voiceOwner = {};
+	const voiceTarget = {
+		insert: (text: string) => {
+			if (textarea) insertIntoField(textarea, text);
+		},
+		focus: () => textarea?.focus(),
+		label: "Message",
+		floatingMic: false,
+		owner: voiceOwner,
+	};
+	const dictating = () => dictation.status() !== "idle" && dictation.owner() === voiceOwner;
+
+	// The field is hidden while the bar shows; when it ends, the cursor goes back into it.
+	let wasDictating = false;
+	createEffect(dictating, (now) => {
+		if (wasDictating && !now) requestAnimationFrame(() => textarea?.focus());
+		wasDictating = now;
+	});
+
+	// Leaving with the bar open (another thread, another screen) would leave nothing to stop it.
+	onSettled(() => () => {
+		if (dictation.owner() === voiceOwner) dictation.cancel();
+	});
+
 	onSettled(() => {
 		if (!form) return;
-		return registerDictationTarget(form, {
-			insert: (text) => {
-				if (textarea) insertIntoField(textarea, text);
-			},
-			focus: () => textarea?.focus(),
-			label: "Message",
-			floatingMic: false,
-		});
+		return registerDictationTarget(form, voiceTarget);
 	});
 
 	props.control?.({
@@ -380,6 +410,8 @@ export function Composer(props: {
 		if (id === "files") {
 			filePicker?.click();
 		} else if (id === "photo") {
+			photoPicker?.click();
+		} else if (id === "camera") {
 			cameraPicker?.click();
 		} else if (id === "project") {
 			setProjectPickerOpen(true);
@@ -391,27 +423,45 @@ export function Composer(props: {
 	}
 
 	const plusMenuGroups = (): MenuGroup[] => {
-		const items: MenuItem[] = [
-			{ id: "files", label: "Add files or photos", icon: <FileIcon size="sm" /> },
-		];
+		const add: MenuItem[] = [];
 		if (isTouchDevice()) {
-			items.push({ id: "photo", label: "Take a photo", icon: <CameraIcon size="sm" /> });
+			add.push(
+				{ id: "photo", label: "Photos", icon: <ImageIcon />, tone: "accent" },
+				{ id: "camera", label: "Camera", icon: <CameraIcon />, tone: "violet" },
+			);
 		}
-		items.push({
-			id: "project",
-			label: "Add from project",
-			icon: <FolderIcon size="sm" />,
-			disabled: !projectSlug(),
-		});
+		add.push(
+			{
+				id: "files",
+				label: isTouchDevice() ? "Files" : "Upload files",
+				icon: <AttachIcon />,
+				tone: "success",
+				shortcut: "Mod U",
+			},
+			{
+				id: "project",
+				label: isTouchDevice() ? "Project" : "Add from project",
+				icon: <FolderIcon />,
+				tone: "warning",
+				disabled: !projectSlug(),
+			},
+		);
 
 		return [
-			{ items },
+			{ look: "tiles", items: add },
 			{
 				items: [
-					{ id: "mention", label: "Mention a file", icon: <EditIcon size="sm" />, shortcut: "@" },
+					{
+						id: "mention",
+						label: "Mention a file",
+						description: "Type @ in the composer",
+						icon: <EditIcon size="sm" />,
+						shortcut: "@",
+					},
 					{
 						id: "commands",
 						label: "Commands",
+						description: "Type / in the composer",
 						icon: <TerminalIcon size="sm" />,
 						shortcut: "/",
 					},
@@ -484,64 +534,81 @@ export function Composer(props: {
 						addFiles(Array.from(event.dataTransfer?.files ?? []));
 					}}
 					attachments={
-						<>
-							<For each={projectFiles()}>
-								{(path) => (
-									<Attachment
-										name={path}
-										reference
-										disabled={sending()}
-										onRemove={() => setProjectFiles((current) => current.filter((p) => p !== path))}
-									/>
-								)}
-							</For>
-							<For each={files()}>
-								{(item) => (
-									<Attachment
-										name={item.name}
-										size={item.size}
-										preview={item.preview}
-										progress={item.status === "uploading" ? item.progress : undefined}
-										error={item.status === "error" ? item.error : null}
-										onRetry={() => retryFile(item)}
-										onOpen={
-											item.preview
-												? () =>
-														setPreviewTarget({
-															name: item.name,
-															size: item.size,
-															preview: item.preview,
-														})
-												: undefined
-										}
-										disabled={sending()}
-										onRemove={() => removeFile(item)}
-									/>
-								)}
-							</For>
-							<Show when={hasPendingUploads()}>
-								<Row gap={1} class="text-caption text-fg-subtle">
-									<SpinnerIcon class="size-3 animate-spin" />
-									<span>Uploading files…</span>
-								</Row>
-							</Show>
-							<Show when={sending()}>
-								<Text size="caption">Sending…</Text>
-							</Show>
-							<Show when={fileError()}>
-								<Text tone="danger">{fileError()}</Text>
-							</Show>
-						</>
+						files().length > 0 || projectFiles().length > 0 || sending() || fileError() ? (
+							<>
+								<For each={projectFiles()}>
+									{(path) => (
+										<Attachment
+											name={path}
+											reference
+											disabled={sending()}
+											onRemove={() =>
+												setProjectFiles((current) => current.filter((p) => p !== path))
+											}
+										/>
+									)}
+								</For>
+								<For each={files()}>
+									{(item) => (
+										<Attachment
+											name={item.name}
+											size={item.size}
+											preview={item.preview}
+											progress={item.status === "uploading" ? item.progress : undefined}
+											error={item.status === "error" ? item.error : null}
+											onRetry={() => retryFile(item)}
+											onOpen={
+												item.preview
+													? () =>
+															setPreviewTarget({
+																name: item.name,
+																size: item.size,
+																preview: item.preview,
+															})
+													: undefined
+											}
+											disabled={sending()}
+											onRemove={() => removeFile(item)}
+										/>
+									)}
+								</For>
+								<Show when={hasPendingUploads()}>
+									<Row gap={1} class="text-caption text-fg-subtle">
+										<SpinnerIcon class="size-3 animate-spin" />
+										<span>Uploading files…</span>
+									</Row>
+								</Show>
+								<Show when={sending()}>
+									<Text size="caption">Sending…</Text>
+								</Show>
+								<Show when={fileError()}>
+									<Text tone="danger">{fileError()}</Text>
+								</Show>
+							</>
+						) : undefined
 					}
 					formRef={(el) => {
 						form = el;
 					}}
+					voice={
+						dictating() ? (
+							<VoiceBar
+								startedAt={dictation.startedAt() ?? Date.now()}
+								levels={dictation.levels()}
+								heard={dictation.interim()}
+								transcribing={dictation.status() === "transcribing"}
+								onCancel={() => dictation.cancel()}
+								onDone={() => dictation.toggle(voiceTarget)}
+							/>
+						) : undefined
+					}
 					onSubmit={() => void send()}
 					overlay={
 						<>
 							<Show when={mentions.open()}>
 								<FileMentionPopup
 									id={mentionsId}
+									project={projectSlug()}
 									files={mentions.files()}
 									loading={mentions.loading()}
 									selectedIndex={mentions.selectedIndex()}
@@ -600,6 +667,16 @@ export function Composer(props: {
 								if (mentions.handleKeyDown(event)) return;
 								if (slash.handleKeyDown(event)) return;
 								if (
+									(event.metaKey || event.ctrlKey) &&
+									!event.shiftKey &&
+									!event.altKey &&
+									event.key.toLowerCase() === "u"
+								) {
+									event.preventDefault();
+									filePicker?.click();
+									return;
+								}
+								if (
 									event.key === "Enter" &&
 									!event.shiftKey &&
 									!event.isComposing &&
@@ -641,8 +718,25 @@ export function Composer(props: {
 									event.currentTarget.value = "";
 								}}
 							/>
+							<input
+								ref={(el) => {
+									photoPicker = el;
+								}}
+								type="file"
+								accept="image/*"
+								multiple
+								hidden
+								aria-label="Choose photos"
+								onChange={(event) => {
+									addFiles(Array.from(event.currentTarget.files ?? []));
+									event.currentTarget.value = "";
+								}}
+							/>
 							<Menu
 								label="Add or attach"
+								title="Add to message"
+								width="md:w-64"
+								placement="top-start"
 								triggerClass={PROMPT_ADD}
 								trigger={<PlusIcon class="size-4" />}
 								groups={plusMenuGroups()}
@@ -651,21 +745,7 @@ export function Composer(props: {
 							{props.controls}
 						</>
 					}
-					options={
-						<MicButton
-							target={() =>
-								textarea
-									? {
-											insert: (text) => textarea && insertIntoField(textarea, text),
-											focus: () => textarea?.focus(),
-											label: "Message",
-											floatingMic: false,
-										}
-									: null
-							}
-							class={MIC_BUTTON}
-						/>
-					}
+					options={<MicButton target={() => (textarea ? voiceTarget : null)} class={MIC_BUTTON} />}
 					send={
 						<Show
 							when={props.running}
@@ -722,6 +802,7 @@ export function Composer(props: {
 						) : undefined
 					}
 				/>
+				<PromptHints />
 				<Show when={isDraggingOver()}>
 					<div class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-surface/90 ring-2 ring-accent">
 						<Row gap={2} class="font-medium text-accent">

@@ -545,6 +545,7 @@ export function Conversation(props: {
 									<Show when={models().length > 0}>
 										<ModelPicker
 											agent={session()?.provider}
+											agentName={provider()?.name}
 											models={models()}
 											model={model()}
 											onModel={chooseModel}

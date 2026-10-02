@@ -3,6 +3,7 @@ import { createMemo, createSignal, For, onSettled, Show, untrack } from "solid-j
 
 import { attachContextMenu, type MenuPoint } from "./context-menu";
 import { CloseIcon, FileIcon, RestoreIcon } from "./icons";
+import { EntryIcon } from "./file-icon";
 
 /** Wires a long press on touch screens to a message's menu; the hover bar is for pointers. */
 function useTouchMenu(open: (() => ((point: MenuPoint) => void) | undefined) | undefined) {
@@ -142,44 +143,63 @@ export function Attachment(props: {
 	onRemove?: () => void;
 	disabled?: boolean;
 }): JSX.Element {
+	// A project file is named by its path: the name on top, its folder under it.
+	const shownName = () =>
+		props.reference ? (props.name.split("/").pop() ?? props.name) : props.name;
+	const folder = () => {
+		if (!props.reference) return "";
+		const parts = props.name.split("/");
+		parts.pop();
+		return parts.join("/");
+	};
+	const second = () =>
+		props.error
+			? null
+			: props.progress !== undefined && props.progress < 100
+				? `${props.progress}%`
+				: props.reference
+					? folder() || "Project file"
+					: props.size !== undefined
+						? formatFileSize(props.size)
+						: null;
 	const content = () => (
 		<>
 			<Show
-				when={props.reference}
+				when={props.preview && !props.reference}
 				fallback={
-					<Show
-						when={props.preview}
-						fallback={<FileIcon size="sm" class="shrink-0 text-fg-subtle" />}
-					>
-						<img
-							src={props.preview}
-							alt={props.name}
-							class="size-8 shrink-0 rounded-kit-sm object-cover object-top"
-						/>
-					</Show>
+					<span class="grid size-9 shrink-0 place-items-center rounded-kit-md tint-accent">
+						<EntryIcon name={shownName()} folder={false} />
+					</span>
 				}
 			>
-				<FileIcon size="sm" class="shrink-0 text-accent" />
+				<img
+					src={props.preview}
+					alt={props.name}
+					class="size-9 shrink-0 rounded-kit-md object-cover object-top"
+				/>
 			</Show>
-			<span class="min-w-0 max-w-44 truncate md:max-w-56">{props.name}</span>
-			<Show when={props.size !== undefined && !props.reference}>
-				<span class="shrink-0 text-caption text-fg-subtle">{formatFileSize(props.size ?? 0)}</span>
-			</Show>
-			<Show when={props.progress !== undefined && props.progress < 100 && !props.error}>
-				<span class="shrink-0 text-caption text-accent tabular-nums">{props.progress}%</span>
-			</Show>
-			<Show when={props.error}>
-				<span class="shrink-0 text-caption text-danger" title={props.error ?? undefined}>
-					{props.error}
+			<span class="flex min-w-0 flex-col">
+				<span class="min-w-0 max-w-40 truncate text-fg md:max-w-52" title={props.name}>
+					{shownName()}
 				</span>
-			</Show>
+				<Show when={second()}>
+					{(line) => (
+						<span class="truncate text-caption text-fg-subtle tabular-nums">{line()}</span>
+					)}
+				</Show>
+				<Show when={props.error}>
+					<span class="truncate text-caption text-danger" title={props.error ?? undefined}>
+						{props.error}
+					</span>
+				</Show>
+			</span>
 		</>
 	);
 
 	return (
 		<span
-			class={`relative inline-flex min-h-11 max-w-full items-center gap-1.5 overflow-hidden rounded-kit surface-outline px-2 text-body text-fg-muted md:max-w-80 ${
-				props.error ? "bg-danger/5 ring-danger/30" : ""
+			class={`relative inline-flex min-h-12 max-w-full items-center gap-1 overflow-hidden rounded-kit-lg py-1.5 pr-1 pl-1.5 text-body md:max-w-80 ${
+				props.error ? "bg-danger/8 ring-1 ring-danger/30" : "bg-fill"
 			}`}
 		>
 			<Show
@@ -187,13 +207,13 @@ export function Attachment(props: {
 				fallback={
 					<Show
 						when={props.onOpen}
-						fallback={<span class="flex min-w-0 items-center gap-1.5 py-1">{content()}</span>}
+						fallback={<span class="flex min-w-0 items-center gap-2.5 pr-1">{content()}</span>}
 					>
 						<button
 							type="button"
 							onClick={() => props.onOpen?.()}
 							disabled={props.disabled}
-							class="focus-ring flex min-h-11 min-w-0 items-center gap-1.5 py-1 text-left"
+							class="focus-ring flex min-w-0 items-center gap-2.5 rounded-kit-md pr-1 text-left"
 						>
 							{content()}
 						</button>
@@ -204,7 +224,7 @@ export function Attachment(props: {
 					href={props.href}
 					target="_blank"
 					rel="noopener noreferrer"
-					class="focus-ring flex min-h-11 min-w-0 items-center gap-1.5 py-1 text-left"
+					class="focus-ring flex min-w-0 items-center gap-2.5 rounded-kit-md pr-1 text-left"
 				>
 					{content()}
 				</a>
@@ -226,7 +246,7 @@ export function Attachment(props: {
 					aria-label={`Remove ${props.name}`}
 					disabled={props.disabled}
 					onClick={() => props.onRemove?.()}
-					class="focus-ring grid size-8 shrink-0 place-items-center rounded-kit hover:bg-fill disabled:opacity-40 pointer-coarse:size-11"
+					class="focus-ring grid size-7 shrink-0 place-items-center rounded-full text-fg-subtle hover:bg-fill-strong hover:text-fg disabled:opacity-40 pointer-coarse:size-10"
 				>
 					<CloseIcon size="sm" />
 				</button>
