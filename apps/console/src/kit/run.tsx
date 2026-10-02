@@ -303,3 +303,125 @@ export function InlineNotice(props: {
 		</p>
 	);
 }
+
+export type StepTone = "accent" | "success" | "violet" | "warning" | "danger" | "neutral";
+
+const STEP_TINT: Record<StepTone, string> = {
+	accent: "tint-accent",
+	success: "tint-success",
+	violet: "tint-violet",
+	warning: "tint-warning",
+	danger: "tint-danger",
+	neutral: "bg-fill-strong text-fg-muted",
+};
+
+/** A step's glyph on its tinted 20px tile: blue edits, green new files, violet commands. */
+export function StepGlyph(props: { tone: StepTone; children: JSX.Element }): JSX.Element {
+	return (
+		<span
+			aria-hidden="true"
+			class={`grid size-5 shrink-0 place-items-center rounded-kit-sm [&_svg]:size-3 ${STEP_TINT[props.tone]}`}
+		>
+			{props.children}
+		</span>
+	);
+}
+
+/**
+ * An agent's run of steps as one card (the Figma "Worked for 1m 12s · 3 steps"): the kinds of
+ * step it took as small tiles, how long it worked and how many steps, a status on the right, and
+ * the steps one per row when opened.
+ */
+export function WorkCard(props: {
+	glyphs: JSX.Element;
+	title: JSX.Element;
+	detail?: string;
+	trailing?: JSX.Element;
+	open?: boolean;
+	children: JSX.Element;
+}): JSX.Element {
+	return (
+		<details
+			class="group/work overflow-hidden rounded-kit-lg bg-surface ring-line-strong"
+			open={props.open}
+		>
+			<summary class="flex h-11 cursor-pointer list-none items-center gap-2 px-2.5 transition-colors duration-fast hover:bg-fill pointer-coarse:h-12 [&::-webkit-details-marker]:hidden">
+				<span class="flex shrink-0 items-center gap-0.5">{props.glyphs}</span>
+				<span class="ml-1 min-w-0 truncate font-medium text-body text-fg">{props.title}</span>
+				<Show when={props.detail}>
+					<span class="shrink-0 text-caption text-fg-subtle">{props.detail}</span>
+				</Show>
+				<span class="flex-1" />
+				{props.trailing}
+				<ChevronDownIcon
+					size="xs"
+					class="shrink-0 text-fg-subtle transition-transform duration-fast group-open/work:rotate-180"
+				/>
+			</summary>
+			<div class="flex flex-col border-line border-t py-1">{props.children}</div>
+		</details>
+	);
+}
+
+/** One step in a `WorkCard` (WorkStep): its glyph, a verb, what it acted on as a chip, and a figure. */
+export function WorkStep(props: {
+	glyph: JSX.Element;
+	verb: string;
+	target: string;
+	trailing?: JSX.Element;
+	/** The step failed: said for screen readers, the glyph shows it for eyes. */
+	failed?: boolean;
+	children?: JSX.Element;
+}): JSX.Element {
+	const line = (
+		<>
+			{props.glyph}
+			<span class="shrink-0 text-body text-fg-muted">{props.verb}</span>
+			<span class="min-w-0 truncate rounded-kit-sm bg-fill-strong px-1.5 py-0.5 font-mono text-caption text-fg">
+				{props.target}
+			</span>
+			<Show when={props.failed}>
+				<span class="sr-only">(failed)</span>
+			</Show>
+			<span class="flex-1" />
+			<Show when={props.trailing}>
+				<span class="shrink-0 text-caption text-fg-subtle tabular-nums">{props.trailing}</span>
+			</Show>
+		</>
+	);
+	return (
+		<Show
+			when={props.children}
+			fallback={
+				<div class="flex min-h-9 items-center gap-2.5 px-2.5 py-1 pointer-coarse:min-h-11">
+					{line}
+				</div>
+			}
+		>
+			<details class="group/step">
+				<summary class="flex min-h-9 cursor-pointer list-none items-center gap-2.5 px-2.5 py-1 transition-colors duration-fast hover:bg-fill pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
+					{line}
+				</summary>
+				<div class="px-2.5 pt-1 pb-2">{props.children}</div>
+			</details>
+		</Show>
+	);
+}
+
+/** A command or a path inline, on the fill (the Figma approval's `git push …`). */
+export function CodeChip(props: { children: JSX.Element }): JSX.Element {
+	return (
+		<code class="w-fit max-w-full truncate rounded-kit-sm bg-fill-strong px-1.5 py-0.5 font-mono text-caption text-fg">
+			{props.children}
+		</code>
+	);
+}
+
+/** A project's mark on a 44px outlined tile, at the head of a new thread. */
+export function ProjectTile(props: { children: JSX.Element }): JSX.Element {
+	return (
+		<span class="surface-outline grid size-11 shrink-0 place-items-center rounded-kit-lg">
+			{props.children}
+		</span>
+	);
+}

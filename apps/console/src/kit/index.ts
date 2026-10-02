@@ -79,13 +79,16 @@ export { Divider, Grid, MainAside, Page, PageHeader, Row, Section, Spacer, Stack
 export { Breadcrumbs, type HeaderTab, HeaderTabs } from "./header";
 export { Menu, MENU_ITEM, type MenuGroup, type MenuItem, MenuList, menuTrigger } from "./menu";
 export {
+	AgentHeader,
 	AgentMessage,
 	Attachment,
 	DiffCard,
 	type DiffLine,
 	DiffStat,
+	FactGroup,
 	formatFileSize,
 	Prose,
+	ThreadHeader,
 	UserMessage,
 } from "./message";
 export {
@@ -119,6 +122,7 @@ export {
 export { Checklist, ChoicePrompt, DecisionCard, ProgressRing } from "./prompts";
 export {
 	CodeBlock,
+	CodeChip,
 	CodeView,
 	Disclosure,
 	InlineNotice,
@@ -126,12 +130,17 @@ export {
 	type PlanEntry,
 	PlanList,
 	Pre,
+	ProjectTile,
 	Rail,
 	RunStatus,
 	type RunStep,
 	RunSteps,
+	StepGlyph,
 	type StepStatus,
+	type StepTone,
 	TurnHeader,
+	WorkCard,
+	WorkStep,
 } from "./run";
 export { type EffortLevel, EffortSlider } from "./effort";
 export { type ArrivalOptions, playArrival } from "./arrival";

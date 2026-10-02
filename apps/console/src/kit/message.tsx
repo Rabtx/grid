@@ -37,6 +37,8 @@ function ActionBar(props: { children: JSX.Element; align: "start" | "end" }): JS
  */
 export function UserMessage(props: {
 	children: JSX.Element;
+	/** Who sent it and when, under the bubble ("You · 2m ago"). */
+	meta?: string;
 	attachments?: readonly string[];
 	attachmentContent?: JSX.Element;
 	/** Clamp to four lines, with the actions offering "Show more". */
@@ -47,20 +49,23 @@ export function UserMessage(props: {
 	const [open, setOpen] = createSignal(false);
 	const ref = useTouchMenu(() => props.onMenuAt);
 	return (
-		<div ref={ref} class="group/message flex flex-col gap-1.5">
+		<div ref={ref} class="group/message flex flex-col items-end gap-1.5">
 			{props.attachmentContent}
 			<Show when={props.attachments?.length}>
 				<div class="flex flex-wrap gap-1.5">
 					<For each={props.attachments}>{(name) => <Attachment name={name} />}</For>
 				</div>
 			</Show>
-			<div class="surface-well px-4 py-3 text-body-lg text-fg">
+			<div class="max-w-xl rounded-kit-2xl bg-selection px-4 py-2.5 text-body-lg text-fg">
 				<div
 					class={`whitespace-pre-wrap break-words ${props.clamp && !open() ? "line-clamp-4" : ""}`}
 				>
 					{props.children}
 				</div>
 			</div>
+			<Show when={props.meta}>
+				<span class="px-1 text-caption text-fg-subtle">{props.meta}</span>
+			</Show>
 			<Show when={props.actions || props.clamp}>
 				<ActionBar align="end">
 					<Show when={props.clamp}>
@@ -290,13 +295,14 @@ export function DiffCard(props: {
 	const added = () => props.added ?? props.lines.filter((line) => line.kind === "add").length;
 	const removed = () => props.removed ?? props.lines.filter((line) => line.kind === "del").length;
 	return (
-		<figure class="min-w-0 overflow-hidden rounded-kit-lg ring-line">
-			<figcaption class="flex h-9 min-w-0 items-center gap-2 border-line border-b bg-fill px-3 text-caption">
-				<FileIcon size="sm" class="text-fg-subtle" />
-				<span class="min-w-0 flex-1 truncate font-mono text-fg-muted" title={props.path}>
+		<figure class="min-w-0 overflow-hidden rounded-kit-lg ring-line-strong">
+			<figcaption class="flex h-11 min-w-0 items-center gap-2 border-line border-b bg-surface px-3.5 text-body">
+				<FileIcon size="sm" class="text-accent" />
+				<span class="min-w-0 truncate font-medium text-fg" title={props.path}>
 					{props.path.replace(/^\/home\/[^/]+/, "~")}
 				</span>
 				<DiffStat added={added()} removed={removed()} />
+				<span class="flex-1" />
 			</figcaption>
 			<Show
 				when={props.lines.length > 0}
@@ -369,5 +375,89 @@ export function DiffCard(props: {
 				</Show>
 			</Show>
 		</figure>
+	);
+}
+
+/**
+ * Who answered (the Figma thread's agent line): the agent's logo on a small tile, its name, the
+ * model in the quiet ink, and when, on the right.
+ */
+export function AgentHeader(props: {
+	logo: JSX.Element;
+	name: string;
+	model?: string;
+	time?: string;
+}): JSX.Element {
+	return (
+		<div class="flex min-w-0 items-center gap-2.5">
+			<span class="grid size-7 shrink-0 place-items-center rounded-kit bg-surface ring-line-strong [&>*]:size-4">
+				{props.logo}
+			</span>
+			<span class="min-w-0 truncate font-medium text-body text-fg">{props.name}</span>
+			<Show when={props.model}>
+				<span class="truncate text-body text-fg-subtle">{props.model}</span>
+			</Show>
+			<span class="flex-1" />
+			<Show when={props.time}>
+				<span class="shrink-0 text-caption text-fg-subtle">{props.time}</span>
+			</Show>
+		</div>
+	);
+}
+
+/**
+ * A thread's title over what it is about (the Figma thread header): a 24px title with a status
+ * on its right, then a row of quiet facts, each with its glyph (branch, machine, agent, started).
+ */
+export function ThreadHeader(props: {
+	title: string;
+	status?: JSX.Element;
+	facts: readonly { icon: JSX.Element; label: string }[];
+}): JSX.Element {
+	return (
+		<header class="flex flex-col gap-2 pb-2">
+			<div class="flex items-start gap-3">
+				<h1 class="min-w-0 flex-1 font-medium text-fg text-headline">{props.title}</h1>
+				<Show when={props.status}>
+					<span class="mt-1.5 shrink-0">{props.status}</span>
+				</Show>
+			</div>
+			<ul class="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-fg-muted">
+				<For each={props.facts}>
+					{(fact) => (
+						<li class="flex min-w-0 items-center gap-1.5 [&_svg]:size-3.5 [&_svg]:text-fg-subtle">
+							{fact.icon}
+							<span class="truncate">{fact.label}</span>
+						</li>
+					)}
+				</For>
+			</ul>
+		</header>
+	);
+}
+
+/** A side panel's group (the Figma Run panel): a quiet label, then label–value rows. */
+export function FactGroup(props: {
+	label: string;
+	rows?: readonly { label: string; value: JSX.Element }[];
+	children?: JSX.Element;
+}): JSX.Element {
+	return (
+		<section class="flex flex-col gap-2 border-line border-b px-4 py-4 last:border-b-0">
+			<h3 class="text-caption text-fg-subtle">{props.label}</h3>
+			<Show when={props.rows?.length}>
+				<dl class="flex flex-col gap-2">
+					<For each={props.rows}>
+						{(row) => (
+							<div class="flex items-center justify-between gap-3 text-caption">
+								<dt class="text-fg-subtle">{row.label}</dt>
+								<dd class="min-w-0 truncate text-fg">{row.value}</dd>
+							</div>
+						)}
+					</For>
+				</dl>
+			</Show>
+			{props.children}
+		</section>
 	);
 }

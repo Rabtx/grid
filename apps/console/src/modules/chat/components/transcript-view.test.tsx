@@ -114,7 +114,7 @@ describe("TranscriptView - User Message", () => {
 
 		const userWrapper = root.querySelector(".group\\/message");
 		expect(userWrapper).not.toBeNull();
-		const bubble = userWrapper?.querySelector(".surface-well");
+		const bubble = userWrapper?.querySelector(".bg-selection");
 		expect(bubble).not.toBeNull();
 		expect(bubble?.textContent).toContain("Hello world");
 
@@ -280,7 +280,7 @@ describe("TranscriptView - Turns", () => {
 		input: kind === "execute" ? undefined : JSON.stringify({ path: `src/file-${n}.ts` }),
 	});
 
-	it("says how long a finished turn worked, then Done", () => {
+	it("says how long a finished turn worked, with no Done line", () => {
 		const blocks: Block[] = [
 			{
 				kind: "user",
@@ -297,7 +297,7 @@ describe("TranscriptView - Turns", () => {
 		));
 		flush();
 		expect(root.textContent).toContain("Worked for 1m 28s");
-		expect(root.textContent).toContain("Done");
+		expect(root.textContent).not.toContain("Done");
 	});
 
 	it("shows the agent working, and no Done, while the turn runs", () => {
@@ -310,7 +310,7 @@ describe("TranscriptView - Turns", () => {
 		expect(root.textContent).not.toContain("Done");
 	});
 
-	it("lists a few steps line by line, each tagged with what it touched", () => {
+	it("lists a few steps in an open card, one row each with what it touched", () => {
 		const blocks: Block[] = [
 			{ kind: "user", key: "b0", text: "Look around" },
 			tool(1),
@@ -320,11 +320,15 @@ describe("TranscriptView - Turns", () => {
 			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
 		));
 		flush();
-		const lines = [...root.querySelectorAll("summary")].map((line) => line.textContent ?? "");
+		// The card's own line, then one per step.
+		const card = root.querySelector("details");
+		expect(card?.open).toBe(true);
+		const lines = [...root.querySelectorAll("details details summary")].map(
+			(line) => line.textContent ?? "",
+		);
 		expect(lines).toHaveLength(2);
 		expect(lines[0]).toContain("file-1.ts");
-		expect(lines[0]).toContain("file");
-		expect(lines[1]).toContain("command");
+		expect(lines[1]).toContain("Ran");
 	});
 
 	it("folds a long run into one counted line", () => {
@@ -352,7 +356,7 @@ describe("TranscriptView - Turns", () => {
 		));
 		flush();
 		expect(root.textContent).toContain("Needs a fix");
-		expect(root.querySelector(".surface-well")?.textContent ?? "").toContain("Deploy");
+		expect(root.querySelector(".bg-selection")?.textContent ?? "").toContain("Deploy");
 		expect(root.textContent).toContain("Access expired mid-read.");
 		expect(root.textContent).not.toContain("Done");
 	});
@@ -491,4 +495,58 @@ it("renders replayed attachments, loads images and offers a retry on failure", a
 	);
 	expect(load).toHaveBeenCalledTimes(2);
 	expect(load.mock.calls.every((call) => call[0] === "image")).toBe(true);
+});
+
+describe("TranscriptView - approvals and stopped turns", () => {
+	it("keeps a waiting approval out of the record, and shows an answered one there", () => {
+		const approval = (resolved?: string | null): Block => ({
+			kind: "approval",
+			key: `a-${String(resolved)}`,
+			id: `a-${String(resolved)}`,
+			title: "Wants to push a branch",
+			detail: "git push",
+			options: [{ id: "allow", label: "Approve", kind: "allow" }],
+			resolved,
+		});
+		const waiting = mount(() => (
+			<TranscriptView
+				blocks={[{ kind: "user", key: "u", text: "Push" }, approval()]}
+				running={true}
+				onApprove={() => {}}
+			/>
+		));
+		flush();
+		// Docked over the composer instead (Conversation), so not drawn twice.
+		expect(waiting.textContent).not.toContain("Wants to push a branch");
+
+		const answered = mount(() => (
+			<TranscriptView
+				blocks={[{ kind: "user", key: "u", text: "Push" }, approval("allow")]}
+				running={false}
+				onApprove={() => {}}
+			/>
+		));
+		flush();
+		expect(answered.textContent).toContain("Wants to push a branch");
+		expect(answered.textContent).toContain("Approve");
+	});
+
+	it("does not spin a stopped turn's unfinished step", () => {
+		const blocks: Block[] = [
+			{ kind: "user", key: "u", text: "Build", outcome: "cancelled" },
+			{
+				kind: "tool",
+				key: "t",
+				id: "t",
+				title: "bun run build",
+				tool: "execute",
+				status: "running",
+			},
+		];
+		const root = mount(() => (
+			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
+		));
+		flush();
+		expect(root.querySelector(".animate-spin")).toBeNull();
+	});
 });

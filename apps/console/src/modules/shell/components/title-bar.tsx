@@ -162,7 +162,18 @@ export function TopBar(): JSX.Element {
 							</Show>
 						}
 					>
-						{(tabs) => <>{tabs()()}</>}
+						{(tabs) => (
+							<div class="flex min-w-0 flex-col items-center">
+								{tabs()()}
+								<Show when={shell.subtitle()}>
+									{(subtitle) => (
+										<Text size="caption" tone="subtle" truncate>
+											{subtitle()()}
+										</Text>
+									)}
+								</Show>
+							</div>
+						)}
 					</Show>
 				</div>
 				<PhoneAction />

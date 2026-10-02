@@ -6,6 +6,7 @@ import {
 	BoardIcon,
 	BranchIcon,
 	CheckIcon,
+	ChevronDownIcon,
 	ConfirmDialog,
 	EditIcon,
 	FileIcon,
@@ -31,12 +32,14 @@ import {
 	Text,
 	TrashIcon,
 	WorkingDots,
+	StatusDot,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
 import { now } from "@/lib/clock";
 import { useAuth } from "@/modules/auth";
 import { chatService } from "@/modules/chat/services/chat.service";
 import { threadsStore } from "@/modules/chat/stores/threads";
+import { inboxStore } from "@/modules/inbox";
 import { placementsStore } from "@/modules/environments/stores/placements";
 import type { ChatSession } from "@/modules/chat/types/chat.types";
 import { type Project, ProjectIcon, useWorkspace } from "@/modules/projects";
@@ -286,6 +289,17 @@ function ProjectNode(props: {
 				aria-expanded={props.open ? "true" : "false"}
 				icon={<ProjectIcon project={props.project} running={threadsStore.runningIn(slug()) > 0} />}
 				label={props.project.name}
+				trailing={
+					<span class="flex items-center gap-1.5 text-caption text-fg-subtle tabular-nums">
+						<Show when={threadsStore.loaded(slug()) && threadsStore.threads(slug()).length > 0}>
+							{threadsStore.threads(slug()).length}
+						</Show>
+						<ChevronDownIcon
+							size="xs"
+							class={`transition-transform duration-fast ${props.open ? "" : "-rotate-90"}`}
+						/>
+					</span>
+				}
 				onMenuAt={(point) => menu?.open(point)}
 				onClick={(event: MouseEvent) => {
 					if (event.metaKey || event.ctrlKey || event.shiftKey) return;
@@ -349,6 +363,16 @@ function ProjectNode(props: {
 								)}
 							</For>
 						</Show>
+						<Show when={folder()}>
+							<NavLink
+								level={1}
+								href={workspaceHref(`/chat/${slug()}`)}
+								icon={<PlusIcon size="sm" />}
+								label="New thread"
+								tone="default"
+								class="text-fg-subtle"
+							/>
+						</Show>
 					</Show>
 				</NavGroup>
 			</Show>
@@ -367,6 +391,14 @@ function ThreadRow(props: {
 	const [error, setError] = createSignal<string | null>(null);
 	const active = () => inThread()?.params.id === props.session.id;
 	const running = () => threadsStore.isRunning(props.session.id);
+	// Something in the Inbox points at this thread and is unread: an approval, a finished run.
+	const waiting = () =>
+		inboxStore
+			.items()
+			.some(
+				(item) =>
+					item.readAt === null && item.url === `/chat/${props.session.project}/${props.session.id}`,
+			);
 	let menu: PopoverControl | undefined;
 
 	async function save(title: string): Promise<void> {
@@ -401,12 +433,19 @@ function ThreadRow(props: {
 				current={active()}
 				tone={error() ? "danger" : "default"}
 				title={error() ?? props.session.title}
+				icon={
+					<StatusDot
+						size="sm"
+						status={running() ? "busy" : waiting() ? "unread" : "offline"}
+						label={running() ? "Working" : waiting() ? "Waiting on you" : undefined}
+					/>
+				}
 				label={<Shimmer active={running()}>{props.session.title}</Shimmer>}
 				trailing={
 					<Show
 						when={running()}
 						fallback={
-							<Text as="span" size="micro" tone="faint" tabular>
+							<Text as="span" size="caption" tone="subtle" tabular>
 								{relative(props.session.updatedAt)}
 							</Text>
 						}

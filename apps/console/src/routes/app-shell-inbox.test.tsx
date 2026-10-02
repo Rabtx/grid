@@ -121,8 +121,8 @@ describe("the shell's inbox", () => {
 		await settle();
 
 		expect(calls.filter((call) => call.path.endsWith("/inbox/read"))).toEqual([]);
-		// The count is still read, for the sidebar to show.
-		expect(calls.some((call) => call.path.endsWith("/inbox/unread"))).toBe(true);
+		// The list is still read, for the rail's dot and the thread list to show what waits.
+		expect(calls.some((call) => /\/inbox(\?|$)/.test(call.path))).toBe(true);
 	});
 
 	it("marks the same thread read when the address bar names the workspace first", async () => {

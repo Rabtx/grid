@@ -13,11 +13,10 @@ import {
 	BranchIcon,
 	Button,
 	CheckIcon,
-	FolderIcon,
 	IdeaIcon,
-	LinkButton,
 	notify,
 	type PopoverControl,
+	ProjectTile,
 	Stack,
 	Suggestions,
 	Text,
@@ -411,25 +410,40 @@ function NewChat(props: {
 
 	return (
 		<div class="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-3 pb-3 md:justify-center md:px-6 md:pt-12 md:pb-24">
-			<Stack gap={5} class="mx-auto w-full max-w-2xl">
-				{/* "…work on in" ends the first line; the project keeps its icon and name together. */}
-				<Text
-					as="h1"
-					size="heading"
-					tone="strong"
-					weight="medium"
-					class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-2 text-center"
+			<Stack gap={4} class="mx-auto w-full max-w-160">
+				{/* The project the thread starts in (Figma "First thread"): its tile, where it lives and
+				    how many threads it has, and its name. */}
+				<Show
+					when={project()}
+					fallback={
+						<Text as="h1" size="headline" tone="strong" weight="medium" class="text-center">
+							What should we work on?
+						</Text>
+					}
 				>
-					What should we work on{project() ? " in" : ""}
-					<Show when={project()}>
-						{(current) => (
-							<span class="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+					{(current) => (
+						<div class="flex items-center gap-3 px-1">
+							<ProjectTile>
 								<ProjectIcon project={current()} class="size-5" />
-								<span class="truncate">{current().name}</span>
-							</span>
-						)}
-					</Show>
-				</Text>
+							</ProjectTile>
+							<div class="flex min-w-0 flex-col">
+								<Text size="caption" tone="subtle" truncate>
+									{[
+										threadsStore.threads(current().slug).length
+											? `${threadsStore.threads(current().slug).length} threads`
+											: "No threads yet",
+										props.folder ? props.folder.replace(/^\/home\/[^/]+/, "~") : null,
+									]
+										.filter(Boolean)
+										.join(" · ")}
+								</Text>
+								<Text as="h1" size="headline" tone="strong" weight="medium" truncate>
+									{current().name}
+								</Text>
+							</div>
+						</div>
+					)}
+				</Show>
 				<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
 				<Show when={!props.folder && props.project}>
 					<Alert
@@ -444,8 +458,7 @@ function NewChat(props: {
 						A project is a folder: its threads work inside it.
 					</Alert>
 				</Show>
-				{/* Phones: suggestions sit above the composer as chips in thumb reach; desktop lists
-				    them under it. */}
+				{/* Suggestions sit above the composer as chips: a row to scroll on phones, wrapped on desktop. */}
 				<Stack gap={3}>
 					<Show when={ready()}>
 						<Suggestions
@@ -455,7 +468,6 @@ function NewChat(props: {
 									SUGGESTIONS.find((item) => item.label.trim() === label)?.label ?? label,
 								)
 							}
-							class="md:order-last"
 						/>
 					</Show>
 					<Show
@@ -479,7 +491,6 @@ function NewChat(props: {
 							onSend={start}
 							header={
 								<>
-									<FolderLine folder={props.folder} onChoose={props.onChooseFolder} />
 									<Show when={props.folder && props.project}>
 										<GitControl
 											folder={props.folder ?? ""}
@@ -543,29 +554,5 @@ function NewChat(props: {
 				</Stack>
 			</Stack>
 		</div>
-	);
-}
-
-/** Where the agent will work: the project's folder, or a prompt to choose one. */
-function FolderLine(props: { folder: string | undefined; onChoose: () => void }): JSX.Element {
-	return (
-		<Show
-			when={props.folder}
-			fallback={
-				<LinkButton tone="accent" icon={<FolderIcon size="sm" />} onClick={() => props.onChoose()}>
-					Choose this project's folder
-				</LinkButton>
-			}
-		>
-			{(path) => (
-				<LinkButton
-					title={`${path()} — change`}
-					icon={<FolderIcon size="sm" />}
-					onClick={() => props.onChoose()}
-				>
-					{path().replace(/^\/home\/[^/]+/, "~")}
-				</LinkButton>
-			)}
-		</Show>
 	);
 }

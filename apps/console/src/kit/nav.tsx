@@ -127,7 +127,9 @@ export function NavLink(
 				class={row({
 					level: props.detail ? 2 : props.level,
 					tone: props.tone,
-					class: props.actions ? "pr-14 pointer-coarse:pr-2.5" : "",
+					class: props.actions
+						? "group-hover/row:pr-14 group-focus-within/row:pr-14 pointer-coarse:pr-2"
+						: "",
 				})}
 			>
 				<Content {...props} />
@@ -150,7 +152,9 @@ export function NavButton(
 				class={row({
 					level: props.level,
 					tone: props.tone,
-					class: props.actions ? "pr-14 pointer-coarse:pr-2.5" : "",
+					class: props.actions
+						? "group-hover/row:pr-14 group-focus-within/row:pr-14 pointer-coarse:pr-2"
+						: "",
 				})}
 			>
 				<Content {...props} />
@@ -161,9 +165,7 @@ export function NavButton(
 
 /** Rows nested under a parent (a project's pages and threads), set in behind a guide line. */
 export function NavGroup(props: { children: JSX.Element }): JSX.Element {
-	return (
-		<div class="mb-1 ml-4 flex flex-col gap-px border-line border-l pl-1.5">{props.children}</div>
-	);
+	return <div class="mb-1 ml-3 flex flex-col gap-px">{props.children}</div>;
 }
 
 /** A quiet line inside a nav group: nothing here yet, or why it could not load. */

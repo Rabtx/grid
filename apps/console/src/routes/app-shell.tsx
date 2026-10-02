@@ -90,13 +90,14 @@ function SignedIn(props: { children: JSX.Element }): JSX.Element {
 		},
 	);
 
-	// The count of what is waiting, for the rail's Inbox dot and the app badge, which the Inbox
+	// What is waiting, for the rail's Inbox dot, the thread list's dots and the app badge, which the Inbox
 	// and its own actions keep true. Read once per sign-in: push already tells someone about a new
 	// item, and a stale count is not worth a poll.
 	createEffect(
 		() => auth.token(),
 		(token) => {
-			if (token) void inboxStore.count(token);
+			// The list too, not only the count: the thread list marks threads with something waiting.
+			if (token) void inboxStore.load(token);
 		},
 	);
 

@@ -21,7 +21,7 @@ export function PromptBox(props: {
 	/** Right of the toolbar, before send: the model, the mic. */
 	options?: JSX.Element;
 	send: JSX.Element;
-	/** Under the card: where the agent works, the branch. */
+	/** In the toolbar after the tools: where the agent works, the branch. */
 	tray?: JSX.Element;
 	/** Floats inside the card over the text: the @-mention list. */
 	overlay?: JSX.Element;
@@ -44,7 +44,7 @@ export function PromptBox(props: {
 					event.preventDefault();
 					props.onSubmit?.(event);
 				}}
-				class="relative z-10 flex flex-col rounded-kit-2xl bg-surface-raised shadow-raise transition-shadow duration-base ease-out-grid focus-within:shadow-focus"
+				class="surface-card relative z-10 flex flex-col rounded-kit-2xl transition-shadow duration-base ease-out-grid focus-within:shadow-focus"
 			>
 				{props.overlay}
 				{props.field}
@@ -59,15 +59,17 @@ export function PromptBox(props: {
 						class="edge-fade flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]"
 					>
 						{props.tools}
+						<Show when={props.tray}>
+							<span class="flex min-w-0 shrink-0 items-center gap-1.5 text-body text-fg-muted">
+								{props.tray}
+							</span>
+						</Show>
 					</div>
 					{props.options}
 					{props.send}
 				</div>
-				<Show when={props.tray}>
-					<div class="flex min-h-9 items-center gap-3 rounded-b-kit-2xl border-line border-t bg-fill px-4 text-body text-fg-subtle pointer-coarse:min-h-11">
-						{props.tray}
-					</div>
-				</Show>
+				{/* Where the agent works (the branch) sits in the toolbar as chips, as the Figma composer
+				    draws it, so the card has no strip of its own under it. */}
 			</form>
 		</div>
 	);
@@ -75,11 +77,11 @@ export function PromptBox(props: {
 
 /** The composer's text field: grows with its text, no chrome of its own. */
 export const PROMPT_FIELD =
-	"block max-h-52 min-h-16 w-full resize-none bg-transparent px-4 pt-4 pb-2 text-fg text-field outline-none placeholder:text-fg-faint";
+	"block max-h-52 min-h-14 w-full resize-none bg-transparent px-4 pt-3.5 pb-2 text-fg text-field outline-none placeholder:text-fg-subtle";
 
 /** A tool chip on the composer's toolbar: plus, a mode, a project. */
 export const PROMPT_CHIP =
-	"focus-ring inline-flex h-7 shrink-0 items-center gap-1.5 rounded-kit px-2 text-body-lg text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:h-10";
+	"focus-ring inline-flex h-7 shrink-0 items-center gap-1.5 rounded-kit bg-fill-strong px-2 text-body text-fg transition-colors duration-fast hover:bg-selection aria-expanded:bg-selection pointer-coarse:h-9";
 
 /** The bordered square at the start of the toolbar: add files, context, tools. */
 export const PROMPT_ADD = `focus-ring grid size-7 shrink-0 place-items-center rounded-kit icon-tile text-fg-muted transition-colors duration-fast hover:text-fg pointer-coarse:size-10 ${ICON_SIZE.md}`;
@@ -94,10 +96,10 @@ const TOUCH_32 = "pointer-coarse:size-8 after:absolute after:-inset-1";
  * The send button: the same shape as the tiles beside it, quiet until there is something to send,
  * then it fills with ink.
  */
-export const SEND_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-kit bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${TOUCH_32} ${ICON_SIZE.md}`;
+export const SEND_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${TOUCH_32} ${ICON_SIZE.md}`;
 
 /** Stop, in place of send while the agent works: a ring turns inside it until it is done. */
-export const STOP_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-kit bg-fill-strong text-fg transition-transform duration-fast active:scale-95 ${TOUCH_32} ${ICON_SIZE.md}`;
+export const STOP_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-full bg-fill-strong text-fg transition-transform duration-fast active:scale-95 ${TOUCH_32} ${ICON_SIZE.md}`;
 
 /** The ring turning inside the stop button while the agent works. */
 export function WorkingRing(): JSX.Element {
@@ -168,7 +170,7 @@ export const PROMPT_ICON = `focus-ring grid size-7 shrink-0 place-items-center r
 export function Suggestions(props: {
 	items: readonly { icon: JSX.Element; label: string }[];
 	onPick: (label: string) => void;
-	/** Layout only, e.g. `md:order-last` to sit under the composer on desktop. */
+	/** Layout only. */
 	class?: string;
 }): JSX.Element {
 	let list: HTMLUListElement | undefined;
@@ -178,7 +180,7 @@ export function Suggestions(props: {
 			ref={(el) => {
 				list = el;
 			}}
-			class={`edge-fade flex gap-2 overflow-x-auto [scrollbar-width:none] md:flex-col md:gap-0.5 md:px-1 ${props.class ?? ""}`}
+			class={`edge-fade flex gap-2 overflow-x-auto [scrollbar-width:none] md:flex-wrap md:overflow-visible ${props.class ?? ""}`}
 		>
 			<For each={props.items}>
 				{(item) => (
@@ -186,9 +188,9 @@ export function Suggestions(props: {
 						<button
 							type="button"
 							onClick={() => props.onPick(item.label)}
-							class="focus-ring flex h-9 items-center gap-2.5 whitespace-nowrap rounded-full px-3 text-body text-fg-muted ring-line-strong transition-colors duration-fast hover:bg-fill hover:text-fg md:h-8 md:w-full md:rounded-kit md:px-2 md:shadow-none"
+							class="surface-outline focus-ring flex h-8 items-center gap-2 whitespace-nowrap rounded-full px-3 text-body text-fg transition-colors duration-fast hover:bg-fill pointer-coarse:h-9"
 						>
-							<span class="text-fg-subtle">{item.icon}</span>
+							<span class="text-fg-muted [&_svg]:size-3.5">{item.icon}</span>
 							{item.label}
 						</button>
 					</li>

@@ -2,7 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { Show } from "solid-js";
 
 import { workspaceHref } from "@/lib/active-workspace";
-import { ChatIcon, EditIcon, HeaderTabs, Shimmer, Text } from "@/kit";
+import { ChatIcon, HeaderTabs, Shimmer, Text } from "@/kit";
 
 import { threadsStore } from "../stores/threads";
 import type { ChatProvider, ChatSession } from "../types/chat.types";
@@ -36,7 +36,7 @@ export function SessionTabs(props: {
 				// Phones: just the thread's title in the header — no tab, no chrome — shimmering while it runs.
 				<Text as="h1" tone="strong" weight="medium" truncate>
 					<Shimmer active={threadsStore.isRunning(active()?.id ?? "")}>
-						{active()?.title ?? "New chat"}
+						{active()?.title ?? "New thread"}
 					</Shimmer>
 				</Text>
 			}
@@ -55,15 +55,17 @@ export function SessionTabs(props: {
 						: [
 								{
 									id: "new",
-									label: "New chat",
+									label: "New thread",
 									href: workspaceHref(props.hrefFor("")),
-									icon: <EditIcon size="sm" />,
+									icon: <ChatIcon size="sm" />,
 									closable: false,
 								},
 							]),
 				]}
 				current={props.activeId ?? "new"}
 				onClose={props.onClose}
+				newHref={props.activeId ? workspaceHref(props.hrefFor("")) : undefined}
+				newLabel="New thread"
 			/>
 		</Show>
 	);
