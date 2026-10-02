@@ -44,9 +44,13 @@ export {
 } from "./choice";
 export { CodeEditor, type CodeEditorProps } from "./code-editor";
 export {
+	type BlameBlock,
+	BlameLines,
+	type Caret,
 	CodeAskAction,
 	CodeAskBar,
 	CodeLines,
+	CodeMinimap,
 	type LineMark,
 	type LineRange,
 	StatusStrip,

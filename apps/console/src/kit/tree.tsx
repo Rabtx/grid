@@ -280,6 +280,8 @@ export function FileRow(props: {
 	/** Beside the name: lines added and removed. */
 	stat?: JSX.Element;
 	detail?: string;
+	/** Before the detail: who it is about (an agent's logo). */
+	detailLead?: JSX.Element;
 	/** Before the chevron: how it stands in git (M, A). */
 	mark?: JSX.Element;
 	label?: string;
@@ -296,7 +298,10 @@ export function FileRow(props: {
 					{props.stat}
 				</span>
 				<Show when={props.detail}>
-					<span class="truncate text-caption text-fg-subtle">{props.detail}</span>
+					<span class="flex min-w-0 items-center gap-1.5 text-caption text-fg-subtle [&_img]:size-3 [&_svg]:size-3">
+						{props.detailLead}
+						<span class="truncate">{props.detail}</span>
+					</span>
 				</Show>
 			</span>
 			{props.mark}

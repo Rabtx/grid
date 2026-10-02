@@ -4,14 +4,19 @@ import { createEffect, createMemo, createSignal, For, Loading, Show, untrack } f
 
 import { workspaceHref } from "@/lib/active-workspace";
 import {
+	AgentLogo,
 	Alert,
 	Avatar,
+	type BlameBlock,
+	BlameLines,
 	BranchIcon,
 	Button,
 	ChevronRightIcon,
 	CodeAskAction,
 	CodeAskBar,
 	CodeLines,
+	CodeMinimap,
+	type Caret,
 	ConfirmDialog,
 	CopyIcon,
 	DiffCard,
@@ -61,13 +66,16 @@ import { diffLines } from "@/kit/diff";
 import { useAuth } from "@/modules/auth";
 import { highlightLines, languageFor, renderMarkdown } from "@/modules/chat/lib/markdown";
 import { draftsStore } from "@/modules/chat/stores/drafts";
+import { providersStore } from "@/modules/chat/stores/providers";
 import { environmentsStore, placementsStore } from "@/modules/environments";
 import { ShellSlot } from "@/modules/shell";
 
 import { useWorkspace } from "../context/workspace-context";
-import { changeOf, changesIn, lineMarks } from "../lib/file-git";
+import { blameRuns, changeOf, changesIn, indentation, isMine, lineMarks } from "../lib/file-git";
+import { type CodeSymbol, fileSymbols, symbolsAt } from "../lib/symbols";
 import { relativeTime } from "../lib/relative-time";
 import {
+	type FileBlame,
 	type FileChange,
 	filesService,
 	type LastChange,
@@ -105,6 +113,24 @@ async function copy(value: string, what: string): Promise<void> {
 function lastLine(last: LastChange | null | undefined): string | undefined {
 	if (!last) return undefined;
 	return [last.subject, relativeTime(last.at)].filter(Boolean).join(" · ");
+}
+
+/** Agents by their own name, for when a machine's agent list has not been read yet. */
+const AGENT_NAMES: Record<string, string> = {
+	claude: "Claude Code",
+	codex: "Codex",
+	opencode: "opencode",
+	antigravity: "Antigravity",
+	freebuff: "Freebuff",
+};
+
+/** An agent's name from the machine's agent list, by its provider id. */
+function agentName(id: string, scope: string): string {
+	return (
+		providersStore.providers(scope).find((provider) => provider.id === id)?.name ??
+		AGENT_NAMES[id] ??
+		id
+	);
 }
 
 const tabsKey = (slug: string) => `grid.files.tabs.${slug}`;
@@ -466,9 +492,10 @@ function FilesView(): JSX.Element {
 							changes={changesIn(changes(), dir())}
 							lasts={lasts()}
 							branch={repo()?.branch ?? null}
-							changedOnly={search.show === "changed"}
-							onChangedOnly={(on) =>
-								setSearch({ show: on ? "changed" : undefined }, { replace: true })
+							inGit={repo() !== null && repo() !== undefined}
+							show={search.show === "changed" || search.show === "mine" ? search.show : "all"}
+							onShow={(show) =>
+								setSearch({ show: show === "all" ? undefined : show }, { replace: true })
 							}
 							href={href}
 						/>
@@ -575,6 +602,9 @@ function Crumbs(props: {
  * entries with their last commit and when — a table on desktop; on phones a list, with what is
  * changed in it first. A README in the folder is shown under it.
  */
+/** What a folder lists: everything, what is changed, or what was changed by me. */
+type FolderShow = "all" | "changed" | "mine";
+
 function FolderView(props: {
 	slug: string;
 	path: string;
@@ -584,26 +614,39 @@ function FolderView(props: {
 	changes: FileChange[];
 	lasts: Record<string, LastChange>;
 	branch: string | null;
-	changedOnly: boolean;
-	onChangedOnly: (on: boolean) => void;
+	/** The project is in git, so changes and who made them can be told apart. */
+	inGit: boolean;
+	show: FolderShow;
+	onShow: (show: FolderShow) => void;
 	href: (params: { file?: string; dir?: string }) => string;
 }): JSX.Element {
 	const auth = useAuth();
+	const scope = () => placementsStore.scopeOf(props.slug);
 	const [filter, setFilter] = createSignal("");
+	const changeFor = (path: string) => props.changes.find((change) => change.path === path);
+	/** A file is mine by its own change or last commit; a folder by anything inside it. */
+	const mine = (entry: FolderEntry) =>
+		entry.kind === "file"
+			? isMine(changeFor(entry.path), props.lasts[entry.path])
+			: props.changes.some(
+					(change) => change.path.startsWith(`${entry.path}/`) && isMine(change, null),
+				) || props.lasts[entry.path]?.mine === true;
 	const shown = createMemo(() => {
 		const query = filter().trim().toLowerCase();
 		const entries = props.entries ?? [];
-		const listed = props.changedOnly
-			? props.changes.map((change) => ({
-					name: change.path.slice(props.path ? props.path.length + 1 : 0),
-					path: change.path,
-					kind: "file" as const,
-				}))
-			: entries;
+		const listed =
+			props.show === "changed"
+				? props.changes.map((change) => ({
+						name: change.path.slice(props.path ? props.path.length + 1 : 0),
+						path: change.path,
+						kind: "file" as const,
+					}))
+				: props.show === "mine"
+					? entries.filter(mine)
+					: entries;
 		return query ? listed.filter((entry) => entry.name.toLowerCase().includes(query)) : listed;
 	});
-	const deleted = (path: string) =>
-		props.changes.some((change) => change.path === path && change.status === "deleted");
+	const deleted = (path: string) => changeFor(path)?.status === "deleted";
 	// A deleted file has nothing to open: its row stays where it is.
 	const linkTo = (entry: FolderEntry) =>
 		deleted(entry.path)
@@ -613,6 +656,29 @@ function FolderView(props: {
 				: props.href({ dir: entry.path });
 	const statusOf = (entry: FolderEntry) =>
 		changeOf(props.changes, entry.path, entry.kind === "folder");
+	/** The changes agents made here, newest first; the rest were made by hand on this machine. */
+	const byAgents = createMemo(() =>
+		props.changes
+			.filter((change) => change.agent)
+			.sort((a, b) => (b.editedAt ?? "").localeCompare(a.editedAt ?? "")),
+	);
+	const byHand = () => props.changes.filter((change) => !change.agent);
+	/**
+	 * An entry's latest change: an agent's work not committed yet (named by its thread), or else
+	 * the last commit to touch it.
+	 */
+	const latest = (path: string): LastChange | undefined => {
+		const change = changeFor(path);
+		if (change?.agent && change.editedAt) {
+			return {
+				author: agentName(change.agent, scope()),
+				at: change.editedAt,
+				subject: change.thread?.title || "Not committed yet",
+				agent: change.agent,
+			};
+		}
+		return props.lasts[path];
+	};
 
 	// The folder's README, read when there is one.
 	const readme = () =>
@@ -640,6 +706,35 @@ function FolderView(props: {
 	);
 
 	const last = () => props.lasts[props.path];
+	/** Who made a commit: its agent by name, or its author. */
+	const who = (change: LastChange | undefined) =>
+		change?.agent ? agentName(change.agent, scope()) : (change?.author ?? "");
+	/**
+	 * The folder's story under its name (Figma: "Claude Code changed 2 files · 2m ago · Round job
+	 * ETAs"): what agents changed and when, what else is changed, then the last commit.
+	 */
+	const story = createMemo(() => {
+		const agents = byAgents();
+		const ids = new Set(agents.map((change) => change.agent));
+		const lead = agents[0]?.agent ?? null;
+		const others = byHand().length;
+		const parts = [
+			agents.length
+				? `${ids.size === 1 && lead ? agentName(lead, scope()) : "Agents"} changed ${agents.length} file${agents.length === 1 ? "" : "s"} · ${relativeTime(agents[0]?.editedAt ?? "")}`
+				: null,
+			others ? `${others} ${agents.length ? "more " : ""}changed since the last commit` : null,
+			last()
+				? agents.length || others
+					? last()?.subject
+					: `${who(last())} · ${lastLine(last())}`
+				: null,
+		].filter(Boolean);
+		return {
+			agent: agents.length ? (ids.size === 1 ? lead : null) : (last()?.agent ?? null),
+			text: parts.join(" · ") || "Not in a git repository",
+		};
+	});
+
 	return (
 		<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
 			<div class="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 pt-4 pb-8 md:px-8 md:pt-10">
@@ -651,20 +746,18 @@ function FolderView(props: {
 						<Text as="h1" size="headline" tone="strong" weight="medium" truncate>
 							{props.name}
 						</Text>
-						<Text size="caption" tone="subtle" truncate>
-							{[
-								last() ? `${last()?.author} · ${lastLine(last())}` : null,
-								props.changes.length
-									? `${props.changes.length} changed since the last commit`
-									: null,
-							]
-								.filter(Boolean)
-								.join(" · ") || "Not in a git repository"}
-						</Text>
+						<span class="flex min-w-0 items-center gap-1.5 text-caption text-fg-subtle">
+							<Show when={story().agent}>
+								{(agent) => (
+									<AgentLogo id={agent()} name={agentName(agent(), scope())} class="size-3.5" />
+								)}
+							</Show>
+							<span class="truncate">{story().text}</span>
+						</span>
 					</div>
 				</header>
 
-				<div class="flex items-center gap-2">
+				<div class="flex flex-col gap-2 sm:flex-row sm:items-center">
 					<SearchInput
 						icon={<SearchIcon />}
 						type="search"
@@ -674,14 +767,19 @@ function FolderView(props: {
 						onInput={(event) => setFilter(event.currentTarget.value)}
 						class="min-w-0 flex-1"
 					/>
-					<Show when={props.changes.length > 0}>
-						<Segmented
+					<Show when={props.inGit}>
+						<Segmented<FolderShow>
 							label="Show"
-							value={props.changedOnly ? "changed" : "all"}
-							onChange={(value) => props.onChangedOnly(value === "changed")}
+							value={props.show}
+							onChange={props.onShow}
 							options={[
 								{ value: "all", label: "All" },
-								{ value: "changed", label: "Changed", count: props.changes.length },
+								{
+									value: "changed",
+									label: "Changed",
+									count: props.changes.length || undefined,
+								},
+								{ value: "mine", label: "Mine" },
 							]}
 						/>
 					</Show>
@@ -698,29 +796,43 @@ function FolderView(props: {
 						</Stack>
 					}
 				>
-					{/* Phones: what is changed here first, then everything in the folder. */}
+					{/* Phones: what agents changed here, then what else is changed, then the folder. */}
 					<div class="flex flex-col md:hidden">
-						<Show when={!props.changedOnly && props.changes.length > 0}>
-							<p class="px-1 pt-1 pb-1 text-caption text-fg-subtle">
-								Changed since the last commit
-							</p>
-							<For each={props.changes.slice(0, 5)}>
+						<Show when={props.show === "all" && byAgents().length > 0}>
+							<div class="flex items-center justify-between px-1 pt-1 pb-1">
+								<p class="text-caption text-fg-subtle">Changed by agents</p>
+								<Button size="sm" variant="ghost" onClick={() => props.onShow("changed")}>
+									Review
+								</Button>
+							</div>
+							<For each={byAgents().slice(0, 5)}>
 								{(change) => (
-									<FileRow
+									<ChangeRow
+										change={change}
+										scope={scope()}
 										href={
 											change.status === "deleted" ? undefined : props.href({ file: change.path })
 										}
-										name={baseName(change.path)}
-										folder={false}
-										stat={
-											change.added !== null ? (
-												<DiffStat added={change.added} removed={change.removed ?? 0} />
-											) : undefined
+									/>
+								)}
+							</For>
+							<div class="my-2 h-px bg-line" />
+						</Show>
+						<Show when={props.show === "all" && byHand().length > 0}>
+							<p class="px-1 pt-1 pb-1 text-caption text-fg-subtle">
+								Changed since the last commit
+							</p>
+							<For each={byHand().slice(0, 5)}>
+								{(change) => (
+									<ChangeRow
+										change={change}
+										scope={scope()}
+										href={
+											change.status === "deleted" ? undefined : props.href({ file: change.path })
 										}
 										detail={
 											parent(change.path).slice(props.path ? props.path.length + 1 : 0) || undefined
 										}
-										mark={<GitMark status={change.status} />}
 									/>
 								)}
 							</For>
@@ -735,7 +847,7 @@ function FolderView(props: {
 									href={linkTo(entry)}
 									name={entry.name}
 									folder={entry.kind === "folder"}
-									detail={lastLine(props.lasts[entry.path])}
+									detail={lastLine(latest(entry.path))}
 									mark={
 										statusOf(entry) && entry.kind === "file" ? (
 											<GitMark status={statusOf(entry) ?? "modified"} />
@@ -773,13 +885,20 @@ function FolderView(props: {
 											</Td>
 											<Td>
 												<Show
-													when={props.lasts[entry.path]}
+													when={latest(entry.path)}
 													fallback={<span class="text-fg-faint">—</span>}
 												>
 													{(change) => (
 														<span class="flex min-w-0 items-center gap-2">
-															<Avatar name={change().author} size="xs" />
-															<span class="max-w-96 truncate" title={change().author}>
+															<ChangeMark
+																agent={change().agent}
+																author={change().author}
+																scope={scope()}
+															/>
+															<span
+																class="max-w-96 truncate"
+																title={`${who(change())}: ${change().subject}`}
+															>
 																{change().subject}
 															</span>
 														</span>
@@ -788,7 +907,7 @@ function FolderView(props: {
 											</Td>
 											<Td align="right">
 												<span class="text-caption text-fg-subtle">
-													{props.lasts[entry.path] ? relativeTime(props.lasts[entry.path].at) : ""}
+													{latest(entry.path) ? relativeTime(latest(entry.path)?.at ?? "") : ""}
 												</span>
 											</Td>
 										</Tr>
@@ -799,7 +918,13 @@ function FolderView(props: {
 					</div>
 					<Show when={shown().length === 0}>
 						<Text tone="subtle" class="py-6 text-center">
-							{filter() ? `Nothing here matches “${filter()}”.` : "This folder is empty."}
+							{filter()
+								? `Nothing here matches “${filter()}”.`
+								: props.show === "mine"
+									? "Nothing here was last changed by you."
+									: props.show === "changed"
+										? "Nothing here is changed since the last commit."
+										: "This folder is empty."}
 						</Text>
 					</Show>
 				</Show>
@@ -823,6 +948,59 @@ function FolderView(props: {
 	);
 }
 
+/** Who made a change, as a mark: the agent's logo, or the person's initial. */
+function ChangeMark(props: { agent?: string | null; author: string; scope: string }): JSX.Element {
+	return (
+		<Show when={props.agent} fallback={<Avatar name={props.author || "?"} size="xs" />}>
+			{(agent) => (
+				<AgentLogo id={agent()} name={agentName(agent(), props.scope)} class="size-3.5" />
+			)}
+		</Show>
+	);
+}
+
+/**
+ * A changed file on phones: its name and how much changed, then who changed it (the agent, in
+ * which thread, when) or where it is.
+ */
+function ChangeRow(props: {
+	change: FileChange;
+	scope: string;
+	href: string | undefined;
+	detail?: string;
+}): JSX.Element {
+	const agent = () => props.change.agent ?? null;
+	return (
+		<FileRow
+			href={props.href}
+			name={baseName(props.change.path)}
+			folder={false}
+			stat={
+				props.change.added !== null ? (
+					<DiffStat added={props.change.added} removed={props.change.removed ?? 0} />
+				) : undefined
+			}
+			detailLead={
+				agent() ? (
+					<AgentLogo id={agent() ?? ""} name={agentName(agent() ?? "", props.scope)} />
+				) : undefined
+			}
+			detail={
+				agent()
+					? [
+							agentName(agent() ?? "", props.scope),
+							props.change.thread?.title,
+							props.change.editedAt ? relativeTime(props.change.editedAt) : null,
+						]
+							.filter(Boolean)
+							.join(" · ")
+					: props.detail
+			}
+			mark={<GitMark status={props.change.status} />}
+		/>
+	);
+}
+
 /** Language names for the status strip, by the highlighter's language. */
 const LANGUAGE_NAME: Record<string, string> = {
 	typescript: "TypeScript",
@@ -839,7 +1017,7 @@ const LANGUAGE_NAME: Record<string, string> = {
 	yaml: "YAML",
 };
 
-type FileView = "code" | "changes";
+type FileView = "code" | "changes" | "blame";
 
 /**
  * The open file (Figma 13 · Editor): where it is and who last changed it over its lines, with what
@@ -869,7 +1047,18 @@ function FilePane(props: {
 	const [view, setView] = createSignal<FileView>("code");
 	/** The lines picked in the code, for the bar's Ask. */
 	const [selected, setSelected] = createSignal<LineRange | null>(null);
+	/** Where the caret is, for the status strip and the symbol in the path. */
+	const [caret, setCaret] = createSignal<Caret | null>(null);
+	/** The file's functions and classes, from the editor's parser. */
+	const [symbols, setSymbols] = createSignal<CodeSymbol[]>([]);
+	/** Who wrote each line; read when Blame is first opened. */
+	const [blamed, setBlamed] = createSignal<FileBlame | null>(null);
+	const [blameError, setBlameError] = createSignal<string | null>(null);
+	/** The element the code scrolls in, for the minimap. */
+	const [scroller, setScroller] = createSignal<HTMLElement>();
+	const scope = () => placementsStore.scopeOf(props.slug);
 	let request = 0;
+	let blameRequest = 0;
 
 	createEffect(
 		() => [auth.token(), props.slug, props.path] as const,
@@ -882,6 +1071,11 @@ function FilePane(props: {
 			setError(null);
 			setEditing(false);
 			setView("code");
+			setCaret(null);
+			setSelected(null);
+			setSymbols([]);
+			setBlamed(null);
+			setBlameError(null);
 			if (!token) return;
 			void filesService.read(token, slug, path).then(
 				(value) => {
@@ -923,6 +1117,91 @@ function FilePane(props: {
 		return text !== null && text !== undefined && base !== null ? diffLines(base, text) : [];
 	});
 
+	// The functions and classes in the file, for naming where the caret is.
+	createEffect(
+		() => [props.path, content()?.text ?? null] as const,
+		([path, text]) => {
+			if (!text) return;
+			let current = true;
+			void fileSymbols(path, text).then(
+				(found) => {
+					if (current) setSymbols(found);
+				},
+				() => {
+					if (current) setSymbols([]);
+				},
+			);
+			return () => {
+				current = false;
+			};
+		},
+	);
+	/** The declarations around the caret (or the picked lines), outermost first. */
+	const here = createMemo(() => {
+		const line = caret()?.line ?? selected()?.from ?? null;
+		return line === null ? [] : symbolsAt(symbols(), line);
+	});
+
+	// Blame is read when it is first shown, and again for a file that changed since.
+	createEffect(
+		() => [view(), auth.token(), props.slug, props.path, content()?.hash ?? null] as const,
+		([shown, token, slug, path]) => {
+			if (shown !== "blame" || !token) return;
+			const current = ++blameRequest;
+			setBlameError(null);
+			void filesService.blame(token, slug, path).then(
+				(value) => {
+					if (current === blameRequest) setBlamed(value);
+				},
+				(cause) => {
+					if (current === blameRequest)
+						setBlameError(message(cause, "Could not read who wrote this"));
+				},
+			);
+		},
+	);
+	const blameBlocks = createMemo((): BlameBlock[] => {
+		const result = blamed();
+		if (!result) return [];
+		return blameRuns(result.commits, result.lines).map((run) => {
+			const commit = run.commit;
+			const name = commit.agent
+				? agentName(commit.agent, scope())
+				: commit.sha === null
+					? "You"
+					: commit.author;
+			const when = commit.at ? relativeTime(commit.at) : "";
+			return {
+				from: run.from,
+				to: run.to,
+				who: <ChangeMark agent={commit.agent} author={name} scope={scope()} />,
+				subject: commit.subject,
+				when,
+				label: `${name}: ${commit.subject}${when ? `, ${when}` : ""} (lines ${run.from}–${run.to})`,
+			};
+		});
+	});
+	/** The file is in git's history, so it has lines to blame. */
+	const tracked = () => Boolean(git()?.last);
+	const indent = createMemo(() => indentation(content()?.text ?? ""));
+	/** Who changed the file last: the agent editing it now, or its last commit. */
+	const lastWord = () => {
+		const changed = change();
+		if (changed?.agent) {
+			return {
+				agent: changed.agent,
+				text: `Edited by ${agentName(changed.agent, scope())}${changed.editedAt ? ` · ${relativeTime(changed.editedAt)}` : ""}`,
+			};
+		}
+		if (changed) return { agent: null, text: "Changed since the last commit" };
+		const last = git()?.last;
+		if (!last) return null;
+		return {
+			agent: last.agent ?? null,
+			text: `${last.agent ? `Committed by ${agentName(last.agent, scope())}` : `Last commit by ${last.author}`} · ${relativeTime(last.at)}`,
+		};
+	};
+
 	function ask(range: LineRange | null, ending = ""): void {
 		const text = content()?.text ?? "";
 		if (!range) {
@@ -941,6 +1220,29 @@ function FilePane(props: {
 	}
 
 	const folder = () => parent(props.path);
+	/** Code, the changes and Blame: what there is to switch between for this file. */
+	const showViews = () => !editing() && ((change() !== null && before() !== null) || tracked());
+	const views = (block: boolean) => (
+		<Segmented<FileView>
+			label="View"
+			value={view()}
+			onChange={setView}
+			block={block}
+			options={[
+				{ value: "code", label: "Code" },
+				...(change() && before() !== null
+					? [
+							{
+								value: "changes" as const,
+								label: "Changes",
+								count: (change()?.added ?? 0) + (change()?.removed ?? 0) || undefined,
+							},
+						]
+					: []),
+				...(tracked() ? [{ value: "blame" as const, label: "Blame" }] : []),
+			]}
+		/>
+	);
 	return (
 		<div class="flex min-h-0 flex-1 flex-col">
 			{/* Where the file is, who last changed it, and how to look at it. */}
@@ -957,28 +1259,29 @@ function FilePane(props: {
 					<span class="truncate">{name()}</span>
 					<Show when={change()}>{(changed) => <GitMark status={changed().status} />}</Show>
 				</span>
+				<For each={editing() || view() !== "code" ? [] : here()}>
+					{(symbol) => (
+						<span class="hidden min-w-0 items-center gap-1 text-body text-fg md:flex">
+							<ChevronRightIcon size="xs" class="shrink-0 text-fg-faint" />
+							<span class="truncate">{symbol.name}</span>
+						</span>
+					)}
+				</For>
 				<span class="flex-1" />
-				<Text size="caption" tone="subtle" truncate class="hidden lg:block">
-					{change()
-						? "Changed since the last commit"
-						: git()?.last
-							? `Last commit by ${git()?.last?.author} · ${relativeTime(git()?.last?.at ?? "")}`
-							: ""}
-				</Text>
-				<Show when={!editing() && change() && before() !== null}>
-					<Segmented<FileView>
-						label="View"
-						value={view()}
-						onChange={setView}
-						options={[
-							{ value: "code", label: "Code" },
-							{
-								value: "changes",
-								label: "Changes",
-								count: (change()?.added ?? 0) + (change()?.removed ?? 0) || undefined,
-							},
-						]}
-					/>
+				<Show when={lastWord()}>
+					{(word) => (
+						<span class="hidden min-w-0 items-center gap-1.5 text-caption text-fg-subtle lg:flex">
+							<Show when={word().agent}>
+								{(agent) => (
+									<AgentLogo id={agent()} name={agentName(agent(), scope())} class="size-3.5" />
+								)}
+							</Show>
+							<span class="truncate">{word().text}</span>
+						</span>
+					)}
+				</Show>
+				<Show when={showViews()}>
+					<span class="hidden md:contents">{views(false)}</span>
 				</Show>
 				<Show when={!editing() && editable()}>
 					{/* Phones edit from the bar along the foot. */}
@@ -999,108 +1302,152 @@ function FilePane(props: {
 					<CopyIcon />
 				</IconButton>
 			</div>
+			{/* Phones: the views get a row of their own under the path. */}
+			<Show when={showViews()}>
+				<div class="shrink-0 border-line border-b px-3 py-2 md:hidden">{views(true)}</div>
+			</Show>
 
 			<Show
 				when={editing() && content()}
 				fallback={
-					<div class="min-h-0 flex-1 overflow-auto overscroll-contain">
-						<Show
-							when={content()}
-							fallback={
-								<Show
-									when={error()}
-									fallback={
-										<Stack gap={2} class="p-4">
-											<Skeleton class="h-4 w-2/3" />
-											<Skeleton class="h-4 w-1/2" />
-											<Skeleton class="h-4 w-3/4" />
-										</Stack>
-									}
-								>
-									{(text) => (
-										<div class="p-4">
-											<Alert tone="danger" title={text()} />
-										</div>
-									)}
-								</Show>
-							}
-						>
-							{(file) => (
-								<Show
-									when={file().text !== null}
-									fallback={
-										<EmptyState
-											icon={<FileIcon size="lg" />}
-											title={file().binary ? "Not a text file" : "Too large to show"}
-											description={
-												file().binary
-													? "This file is binary, so there is nothing to read here."
-													: `This file is ${Math.round(file().size / 1024)} KB; files over 512 KB are not shown.`
-											}
-										/>
-									}
-								>
+					<div class="flex min-h-0 flex-1">
+						<div ref={setScroller} class="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain">
+							<Show
+								when={content()}
+								fallback={
 									<Show
-										when={(file().text ?? "").length > 0}
+										when={error()}
+										fallback={
+											<Stack gap={2} class="p-4">
+												<Skeleton class="h-4 w-2/3" />
+												<Skeleton class="h-4 w-1/2" />
+												<Skeleton class="h-4 w-3/4" />
+											</Stack>
+										}
+									>
+										{(text) => (
+											<div class="p-4">
+												<Alert tone="danger" title={text()} />
+											</div>
+										)}
+									</Show>
+								}
+							>
+								{(file) => (
+									<Show
+										when={file().text !== null}
 										fallback={
 											<EmptyState
-												title="Empty file"
-												description="There is nothing in it yet."
-												action={
-													<Button size="sm" variant="primary" onClick={() => setEditing(true)}>
-														Write in it
-													</Button>
+												icon={<FileIcon size="lg" />}
+												title={file().binary ? "Not a text file" : "Too large to show"}
+												description={
+													file().binary
+														? "This file is binary, so there is nothing to read here."
+														: `This file is ${Math.round(file().size / 1024)} KB; files over 512 KB are not shown.`
 												}
 											/>
 										}
 									>
 										<Show
-											when={view() === "changes"}
+											when={(file().text ?? "").length > 0}
 											fallback={
-												<CodeLines
-													label={props.path}
-													lines={lines()}
-													marks={marks()}
-													onSelect={setSelected}
-													actions={(range) => (
-														<CodeAskBar>
-															<CodeAskAction
-																primary
-																icon={<SparklesIcon />}
-																onClick={() => ask(range)}
-															>
-																Ask about{" "}
-																{range.from === range.to
-																	? `line ${range.from}`
-																	: `lines ${range.from}–${range.to}`}
-															</CodeAskAction>
-															<CodeAskAction
-																onClick={() => ask(range, "Explain what these lines do.")}
-															>
-																Explain
-															</CodeAskAction>
-															<CodeAskAction
-																onClick={() => ask(range, "Write a test that covers these lines.")}
-															>
-																Add test
-															</CodeAskAction>
-														</CodeAskBar>
-													)}
+												<EmptyState
+													title="Empty file"
+													description="There is nothing in it yet."
+													action={
+														<Button size="sm" variant="primary" onClick={() => setEditing(true)}>
+															Write in it
+														</Button>
+													}
 												/>
 											}
 										>
-											<div class="p-4 md:p-6">
-												<DiffCard
-													path={props.path}
-													lines={diff()}
-													added={change()?.added ?? undefined}
-													removed={change()?.removed ?? undefined}
-												/>
-											</div>
+											<Show
+												when={view() === "changes"}
+												fallback={
+													<Show
+														when={view() === "blame"}
+														fallback={
+															<CodeLines
+																label={props.path}
+																lines={lines()}
+																marks={marks()}
+																onSelect={setSelected}
+																onCaret={setCaret}
+																actions={(range) => (
+																	<CodeAskBar>
+																		<CodeAskAction
+																			primary
+																			icon={<SparklesIcon />}
+																			onClick={() => ask(range)}
+																		>
+																			Ask about{" "}
+																			{range.from === range.to
+																				? `line ${range.from}`
+																				: `lines ${range.from}–${range.to}`}
+																		</CodeAskAction>
+																		<CodeAskAction
+																			onClick={() => ask(range, "Explain what these lines do.")}
+																		>
+																			Explain
+																		</CodeAskAction>
+																		<CodeAskAction
+																			onClick={() =>
+																				ask(range, "Write a test that covers these lines.")
+																			}
+																		>
+																			Add test
+																		</CodeAskAction>
+																	</CodeAskBar>
+																)}
+															/>
+														}
+													>
+														<Show
+															when={blamed()}
+															fallback={
+																<Show
+																	when={blameError()}
+																	fallback={
+																		<Stack gap={2} class="p-4">
+																			<Skeleton class="h-4 w-2/3" />
+																			<Skeleton class="h-4 w-1/2" />
+																		</Stack>
+																	}
+																>
+																	{(text) => (
+																		<div class="p-4">
+																			<Alert tone="danger" title={text()} />
+																		</div>
+																	)}
+																</Show>
+															}
+														>
+															<BlameLines
+																label={`Who wrote ${props.path}`}
+																lines={lines()}
+																blocks={blameBlocks()}
+															/>
+														</Show>
+													</Show>
+												}
+											>
+												<div class="p-4 md:p-6">
+													<DiffCard
+														path={props.path}
+														lines={diff()}
+														added={change()?.added ?? undefined}
+														removed={change()?.removed ?? undefined}
+													/>
+												</div>
+											</Show>
 										</Show>
 									</Show>
-								</Show>
-							)}
+								)}
+							</Show>
+						</div>
+						<Show when={view() === "code" && content()?.text}>
+							{(text) => <CodeMinimap text={text()} marks={marks()} scroller={scroller()} />}
 						</Show>
 					</div>
 				}
@@ -1149,6 +1496,14 @@ function FilePane(props: {
 					}
 					end={
 						<>
+							<Show when={view() === "code" ? caret() : null}>
+								{(at) => (
+									<span class="tabular-nums">
+										Ln {at().line}, Col {at().column}
+									</span>
+								)}
+							</Show>
+							<Show when={indent()}>{(text) => <span>{text()}</span>}</Show>
 							<Show when={language()}>{(id) => <span>{LANGUAGE_NAME[id()] ?? id()}</span>}</Show>
 							<span class="flex items-center gap-1.5">
 								<LaptopIcon />
@@ -1168,6 +1523,14 @@ function FilePane(props: {
 						>
 							<EditIcon />
 						</IconButton>
+					</Show>
+					<Show when={view() === "code" ? caret() : null}>
+						{(at) => (
+							<span class="flex items-center gap-1.5 text-caption text-fg-subtle tabular-nums [&_svg]:size-3.5">
+								<BranchIcon />
+								Ln {at().line}
+							</span>
+						)}
 					</Show>
 					<span class="flex-1" />
 					<Button variant="primary" size="xl" icon={<SparklesIcon />} onClick={() => ask(null)}>
