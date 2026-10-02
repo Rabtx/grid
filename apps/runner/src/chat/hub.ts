@@ -28,6 +28,7 @@ import {
 import type {
 	AgentEdit,
 	ChatSessionRow,
+	NoteSuggestion,
 	ChatStore,
 	ProjectSettings,
 	ProviderCatalog,
@@ -35,6 +36,7 @@ import type {
 	SessionNotes,
 	SessionRole,
 } from "./store";
+import { noteSuggestions, sharedNoteIds, SUGGEST_HOW } from "./note-suggestions";
 import {
 	createWorktree,
 	createWorktreeAsync,
@@ -181,7 +183,9 @@ export function withRoleBrief(role: SessionRole, text: string): string {
 export function withSharedNotes(notes: SessionNotes, text: string): string {
 	const shared = notes.text.trim();
 	if (!shared) return text;
-	return `Notes the team shares with agents working on this project. Follow them unless the message says otherwise:\n\n${shared}\n\n---\n\n${text}`;
+	// Notes that carry their ids can take a suggested addition; older ones are only read.
+	const how = sharedNoteIds(shared).size > 0 ? `\n\n${SUGGEST_HOW}` : "";
+	return `Notes the team shares with agents working on this project. Follow them unless the message says otherwise:\n\n${shared}${how}\n\n---\n\n${text}`;
 }
 
 function isDirectory(path: string): boolean {
@@ -800,6 +804,7 @@ export class ChatHub {
 		this.setRunning(id, live, false);
 		this.store.touch(id);
 		this.scheduleIdle(id, live);
+		if (result.reason === "done") this.keepNoteSuggestions(id);
 		// The model list can take a while (agy's does): the turn has ended by now, not after it.
 		if (failure?.kind === "model-gone" && failure.model) {
 			const model = failure.model;
@@ -810,6 +815,36 @@ export class ChatHub {
 				);
 			});
 		}
+	}
+
+	/**
+	 * What the agent suggested adding to the shared notes it was given, from the turn just ended,
+	 * kept for the team to add or dismiss on the note.
+	 */
+	private keepNoteSuggestions(id: string): void {
+		const session = this.store.get(id);
+		if (!session?.notes) return;
+		const known = sharedNoteIds(session.notes.text);
+		if (known.size === 0) return;
+		const events = this.store.events(id);
+		const start = events.findLastIndex((event) => event.type === "turn_start");
+		const reply = events
+			.slice(start + 1)
+			.map((event) => (event.type === "message" ? event.text : ""))
+			.join("");
+		const drafts = noteSuggestions(reply, known);
+		if (drafts.length) this.store.addNoteSuggestions(session, drafts);
+	}
+
+	/** A project's suggested additions to its notes, waiting on someone. */
+	noteSuggestions(workspace: string, project: string): NoteSuggestion[] {
+		return this.store.noteSuggestions(workspace, project);
+	}
+
+	/** Someone added or dismissed a suggestion. */
+	dropNoteSuggestion(workspace: string, id: string): void {
+		if (!this.store.dropNoteSuggestion(workspace, id))
+			throw new ChatError("That suggestion is no longer there", 404);
 	}
 
 	/** The most recent turn outcome, including the same error shown in its transcript. */

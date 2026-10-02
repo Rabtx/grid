@@ -467,3 +467,56 @@ describe("ChatHub agent edits", () => {
 		expect(edits.size).toBe(1);
 	});
 });
+
+describe("ChatHub note suggestions", () => {
+	it("keeps what an agent suggests adding to a shared note, until it is dropped", async () => {
+		const note = "6f1c2a3b-1d2e-4f50-8a9b-0c1d2e3f4a5b";
+		const store = new ChatStore(":memory:");
+		let prompted = "";
+		const provider: Provider = {
+			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+			catalog: async () => ({ models: [{ id: "m1", name: "m1" }] }),
+			start: async (context) => ({
+				prompt: async (text) => {
+					prompted = text;
+					context.emit({ type: "message", text: "Fixed.\n\n```grid-note " + note + "\n" });
+					context.emit({ type: "message", text: "Under 2 minutes, say Arriving now.\n```" });
+					return { reason: "done" } as TurnResult;
+				},
+				cancel: () => undefined,
+				approve: () => undefined,
+				setModel: async () => undefined,
+				setMode: async () => undefined,
+				setEffort: async () => undefined,
+				close: () => undefined,
+			}),
+		};
+		const hub = new ChatHub(store, new Map([["fake", provider]]), root);
+		const chat = hub.create(
+			{ userId: "u1", workspace: "u1" },
+			{
+				project: "shop",
+				provider: "fake",
+				model: "m1",
+				notes: { text: `## ETA rules\nnote id: ${note}\n\nRound to 5.` },
+			},
+		);
+		await hub.prompt("u1", chat.id, "go");
+		hub.closeAll();
+		// The agent was told how to suggest one.
+		expect(prompted).toContain("```grid-note <note id>");
+		const kept = hub.noteSuggestions("u1", "shop");
+		expect(kept).toEqual([
+			expect.objectContaining({
+				noteId: note,
+				provider: "fake",
+				sessionId: chat.id,
+				text: "Under 2 minutes, say Arriving now.",
+			}),
+		]);
+		expect(hub.noteSuggestions("u2", "shop")).toEqual([]);
+		expect(() => hub.dropNoteSuggestion("u2", kept[0].id)).toThrow(ChatError);
+		hub.dropNoteSuggestion("u1", kept[0].id);
+		expect(hub.noteSuggestions("u1", "shop")).toEqual([]);
+	});
+});

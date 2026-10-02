@@ -109,6 +109,20 @@ export async function chatRequest(
 		}
 		return run(() => Response.json({ data: listed(hub.create(who, input)) }, { status: 201 }));
 	}
+	// What agents suggested adding to a project's notes, and someone adding or dismissing one.
+	const suggestions = url.pathname.match(
+		/^\/chat\/notes\/([a-z0-9-]+)\/suggestions(?:\/([\w-]+))?$/,
+	);
+	if (suggestions && !suggestions[2] && request.method === "GET") {
+		return Response.json({ data: hub.noteSuggestions(workspace, suggestions[1]) });
+	}
+	if (suggestions?.[2] && request.method === "DELETE") {
+		const id = suggestions[2];
+		return run(() => {
+			hub.dropNoteSuggestion(workspace, id);
+			return new Response(null, { status: 204 });
+		});
+	}
 	// A project's chat settings on this machine: whether new chats get their own worktree.
 	const settings = url.pathname.match(/^\/chat\/projects\/([a-z0-9-]+)\/settings$/);
 	if (settings && request.method === "GET") {

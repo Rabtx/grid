@@ -12,6 +12,18 @@ import type { Worktree } from "./worktrees";
 /** The last time an agent edited a file: which agent, in which thread, and when. */
 export type AgentEdit = { provider: string; sessionId: string; at: string };
 
+/** An addition an agent suggested to one of the project's notes. */
+export type NoteSuggestion = {
+	id: string;
+	project: string;
+	noteId: string;
+	/** The agent that suggested it, and the thread it was working in. */
+	provider: string;
+	sessionId: string;
+	text: string;
+	createdAt: string;
+};
+
 export type ChatSessionRow = {
 	id: string;
 	/** Who started it: told when it needs attention. */
@@ -230,6 +242,21 @@ export class ChatStore {
 		if (!hasColumn(this.db, "sessions", "notes")) {
 			this.db.exec("ALTER TABLE sessions ADD COLUMN notes TEXT");
 		}
+		// Additions agents suggested to the project's shared notes, until someone adds or dismisses them.
+		this.db.exec(`
+			CREATE TABLE IF NOT EXISTS note_suggestions (
+				id TEXT PRIMARY KEY,
+				workspace_id TEXT NOT NULL,
+				project TEXT NOT NULL,
+				note_id TEXT NOT NULL,
+				provider TEXT NOT NULL,
+				session_id TEXT NOT NULL,
+				text TEXT NOT NULL,
+				created_at TEXT NOT NULL
+			);
+			CREATE INDEX IF NOT EXISTS note_suggestions_project
+				ON note_suggestions (workspace_id, project, created_at);
+		`);
 		this.db.exec(`
 			CREATE TABLE IF NOT EXISTS project_settings (
 				workspace_id TEXT NOT NULL,
@@ -282,6 +309,79 @@ export class ChatStore {
 	 * Moves what a person kept before workspaces (keyed by their own id) into their default
 	 * workspace. Runs whenever they act there; after the first time it finds nothing.
 	 */
+	/** Keep what an agent in `session` suggested adding to the project's notes. */
+	addNoteSuggestions(
+		session: Pick<ChatSessionRow, "id" | "workspaceId" | "project" | "provider">,
+		drafts: readonly { noteId: string; text: string }[],
+	): NoteSuggestion[] {
+		const insert = this.db.query(
+			`INSERT INTO note_suggestions (id, workspace_id, project, note_id, provider, session_id, text, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		);
+		const made: NoteSuggestion[] = drafts.map((draft) => ({
+			id: crypto.randomUUID(),
+			project: session.project,
+			noteId: draft.noteId,
+			provider: session.provider,
+			sessionId: session.id,
+			text: draft.text,
+			createdAt: new Date().toISOString(),
+		}));
+		this.db.transaction(() => {
+			for (const item of made)
+				insert.run(
+					item.id,
+					session.workspaceId,
+					item.project,
+					item.noteId,
+					item.provider,
+					item.sessionId,
+					item.text,
+					item.createdAt,
+				);
+		})();
+		return made;
+	}
+
+	/** A project's suggestions waiting on someone, oldest first. */
+	noteSuggestions(workspace: string, project: string): NoteSuggestion[] {
+		return this.db
+			.query<
+				{
+					id: string;
+					project: string;
+					note_id: string;
+					provider: string;
+					session_id: string;
+					text: string;
+					created_at: string;
+				},
+				[string, string]
+			>(
+				`SELECT id, project, note_id, provider, session_id, text, created_at FROM note_suggestions
+				WHERE workspace_id = ? AND project = ? ORDER BY created_at`,
+			)
+			.all(workspace, project)
+			.map((row) => ({
+				id: row.id,
+				project: row.project,
+				noteId: row.note_id,
+				provider: row.provider,
+				sessionId: row.session_id,
+				text: row.text,
+				createdAt: row.created_at,
+			}));
+	}
+
+	/** Done with a suggestion (added or dismissed); false when there was no such one. */
+	dropNoteSuggestion(workspace: string, id: string): boolean {
+		return (
+			this.db
+				.query("DELETE FROM note_suggestions WHERE workspace_id = ? AND id = ?")
+				.run(workspace, id).changes > 0
+		);
+	}
+
 	adopt(userId: string, workspace: string): void {
 		if (userId === workspace) return;
 		this.db.transaction(() => {
