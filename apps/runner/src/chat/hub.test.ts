@@ -427,3 +427,43 @@ describe("ChatHub starting an agent", () => {
 		expect(true).toBe(true);
 	});
 });
+
+describe("ChatHub agent edits", () => {
+	it("remembers which agent last edited each file, and not an edit that failed", async () => {
+		const store = new ChatStore(":memory:");
+		const provider: Provider = {
+			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+			catalog: async () => ({ models: [{ id: "m1", name: "m1" }] }),
+			start: async (context) => ({
+				prompt: async () => {
+					const diff = (path: string) => ({ path, patch: "", added: 1, removed: 0 });
+					context.emit({ type: "tool", id: "t1", diffs: [diff("eta.ts")] });
+					context.emit({
+						type: "tool",
+						id: "t2",
+						status: "failed",
+						diffs: [diff(join(root, "shop", "queue.ts"))],
+					});
+					return { reason: "done" } as TurnResult;
+				},
+				cancel: () => undefined,
+				approve: () => undefined,
+				setModel: async () => undefined,
+				setMode: async () => undefined,
+				setEffort: async () => undefined,
+				close: () => undefined,
+			}),
+		};
+		const hub = new ChatHub(store, new Map([["fake", provider]]), root);
+		const chat = hub.create(
+			{ userId: "u1", workspace: "u1" },
+			{ project: "shop", provider: "fake", model: "m1" },
+		);
+		await hub.prompt("u1", chat.id, "go");
+		hub.closeAll();
+		const eta = join(chat.cwd, "eta.ts");
+		const edits = hub.agentEdits([eta, join(root, "shop", "queue.ts")]);
+		expect(edits.get(eta)).toMatchObject({ provider: "fake", sessionId: chat.id });
+		expect(edits.size).toBe(1);
+	});
+});

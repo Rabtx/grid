@@ -9,6 +9,9 @@ import type { ChatEvent, Choice } from "../agents/events";
 import type { Worktree } from "./worktrees";
 
 /** A conversation with an agent, as the console lists it. */
+/** The last time an agent edited a file: which agent, in which thread, and when. */
+export type AgentEdit = { provider: string; sessionId: string; at: string };
+
 export type ChatSessionRow = {
 	id: string;
 	/** Who started it: told when it needs attention. */
@@ -235,6 +238,44 @@ export class ChatStore {
 				PRIMARY KEY (workspace_id, project)
 			);
 		`);
+		// The last agent to edit each file (by absolute path), so Files can say a change not yet
+		// committed was an agent's. One row per file: only the latest edit matters.
+		this.db.exec(`
+			CREATE TABLE IF NOT EXISTS agent_edits (
+				path TEXT PRIMARY KEY,
+				provider TEXT NOT NULL,
+				session_id TEXT NOT NULL,
+				at TEXT NOT NULL
+			);
+		`);
+	}
+
+	/** An agent in `sessionId` just edited these files (absolute paths). */
+	recordAgentEdits(sessionId: string, provider: string, paths: readonly string[]): void {
+		if (paths.length === 0) return;
+		const at = new Date().toISOString();
+		const upsert = this.db.query(
+			`INSERT INTO agent_edits (path, provider, session_id, at) VALUES (?, ?, ?, ?)
+			ON CONFLICT(path) DO UPDATE SET provider = excluded.provider,
+				session_id = excluded.session_id, at = excluded.at`,
+		);
+		this.db.transaction(() => {
+			for (const path of new Set(paths)) upsert.run(path, provider, sessionId, at);
+		})();
+	}
+
+	/** The last agent edit of each of `paths` (absolute) that has one. */
+	agentEdits(paths: readonly string[]): Map<string, AgentEdit> {
+		const found = new Map<string, AgentEdit>();
+		const read = this.db.query<
+			{ path: string; provider: string; session_id: string; at: string },
+			[string]
+		>("SELECT path, provider, session_id, at FROM agent_edits WHERE path = ?");
+		for (const path of new Set(paths)) {
+			const row = read.get(path);
+			if (row) found.set(path, { provider: row.provider, sessionId: row.session_id, at: row.at });
+		}
+		return found;
 	}
 
 	/**

@@ -1,5 +1,12 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -318,6 +325,54 @@ describe("folders and project links", () => {
 		expect(streamed.status).toBe(413);
 		expect(readFileSync(join(root, "notes.md"), "utf8")).toBe("second");
 	});
+	it("says which agent made a change, and who wrote each line", async () => {
+		const root = mkdtempSync(join(projectsDir, "grid-git-route-"));
+		const git = (...args: string[]) =>
+			Bun.spawnSync(["git", "-C", root, ...args], {
+				env: {
+					...process.env,
+					GIT_AUTHOR_NAME: "Sam",
+					GIT_AUTHOR_EMAIL: "sam@example.com",
+					GIT_COMMITTER_NAME: "Sam",
+					GIT_COMMITTER_EMAIL: "sam@example.com",
+				},
+			});
+		git("init", "-q", "-b", "main");
+		writeFileSync(join(root, "eta.ts"), "export const step = 5;\n");
+		writeFileSync(join(root, "queue.ts"), "export const retries = 3;\n");
+		git("add", ".");
+		git("commit", "-q", "-m", "Round job ETAs");
+		await fetch(`${base}/projects/folders/demo`, {
+			method: "PUT",
+			headers: { ...auth, "Content-Type": "application/json" },
+			body: JSON.stringify({ path: root }),
+		});
+		// An agent edits eta.ts after the commit; queue.ts is changed by hand.
+		await Bun.sleep(1100);
+		writeFileSync(join(root, "eta.ts"), "export const step = 5;\nexport const max = 60;\n");
+		writeFileSync(join(root, "queue.ts"), "export const retries = 4;\n");
+		chatStore.recordAgentEdits("s1", "claude", [join(realpathSync(root), "eta.ts")]);
+
+		const listing = (await (
+			await fetch(`${base}/projects/files/demo?git=1`, { headers: auth })
+		).json()) as { data: { git: { changes: { path: string; agent: string | null }[] } } };
+		expect(listing.data.git.changes).toEqual([
+			expect.objectContaining({ path: "eta.ts", agent: "claude" }),
+			expect.objectContaining({ path: "queue.ts", agent: null }),
+		]);
+
+		const blamed = (await (
+			await fetch(`${base}/projects/files/demo/blame?path=eta.ts`, { headers: auth })
+		).json()) as {
+			data: { lines: number[]; commits: { subject: string; agent: string | null }[] };
+		};
+		const [first, second] = blamed.data.lines.map((at) => blamed.data.commits[at]);
+		expect(first).toMatchObject({ subject: "Round job ETAs", agent: null });
+		expect(second).toMatchObject({ subject: "Not committed yet", agent: "claude" });
+		const outside = await fetch(`${base}/projects/files/demo/blame?path=../x`, { headers: auth });
+		expect(outside.status).toBe(400);
+	});
+
 	it("browses folders, reads a folder's details and links a project to it", async () => {
 		const folder = mkdtempSync(join(projectsDir, "grid-folder-route-"));
 		const encoded = encodeURIComponent(folder);

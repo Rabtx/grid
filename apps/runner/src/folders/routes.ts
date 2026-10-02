@@ -1,3 +1,6 @@
+import { realpathSync } from "node:fs";
+import { join } from "node:path";
+
 import type { ChatHub } from "../chat/hub";
 import { ChatError } from "../chat/hub";
 import { expandPath, FolderError, insideProjectsDir, inspectFolder, listFolders } from "./folders";
@@ -5,12 +8,22 @@ import { checkout, GitError, gitInfo } from "./git";
 import {
 	createProjectFile,
 	listProjectFiles,
+	projectFilePath,
 	type ProjectFileWrite,
 	readProjectFile,
 	searchProjectFiles,
 	writeProjectFile,
 } from "./project-files";
-import { committedText, lastChanges, projectGit, repoPrefix } from "./project-git";
+import {
+	blame,
+	committedText,
+	type FileChange,
+	gitUser,
+	headTime,
+	lastChanges,
+	projectGit,
+	repoPrefix,
+} from "./project-git";
 
 /** A save's JSON: the file's text (at most 512 KB) plus escaping and the other fields. */
 const MAX_SAVE_BODY_BYTES = 1024 * 1024;
@@ -33,6 +46,28 @@ export async function folderRequest(
 			if (root instanceof Response) return root;
 			return Response.json({ data: searchProjectFiles(root, url.searchParams.get("q") ?? "") });
 		}
+		// Who wrote each line of a file, and in which commit.
+		const blamed = url.pathname.match(/^\/projects\/files\/([a-z0-9-]+)\/blame$/);
+		if (blamed && request.method === "GET") {
+			const root = linkedRoot(hub, userId, blamed[1], projectsDir);
+			if (root instanceof Response) return root;
+			const path = projectFilePath(root, url.searchParams.get("path") ?? "");
+			if ((await repoPrefix(root)) === null) return failure(409, "This folder is not in git");
+			const lines = await blame(root, path, await gitUser(root));
+			if (!lines) return failure(404, "git has nothing to say about this file yet");
+			// Lines not committed yet are the agent's when an agent was the last to edit the file.
+			const [change] = await byAgents(hub, root, [
+				{ path, status: "modified", added: null, removed: null },
+			]);
+			const commits = lines.commits.map((commit) =>
+				commit.sha === null && change?.agent
+					? { ...commit, agent: change.agent, at: change.editedAt ?? null }
+					: commit.sha === null
+						? { ...commit, mine: true }
+						: commit,
+			);
+			return Response.json({ data: { path, commits, lines: lines.lines } });
+		}
 		// One file's contents: GET reads it, PUT saves an edit onto the version that was read.
 		const content = url.pathname.match(/^\/projects\/files\/([a-z0-9-]+)\/content$/);
 		if (content && (request.method === "GET" || request.method === "PUT")) {
@@ -45,11 +80,13 @@ export async function folderRequest(
 				const prefix = await repoPrefix(root);
 				if (prefix === null) return Response.json({ data: { ...file, git: null } });
 				const folder = file.path.split("/").slice(0, -1).join("/");
+				const me = await gitUser(root);
 				const [repo, last] = await Promise.all([
 					projectGit(root, prefix),
-					lastChanges(root, prefix, folder, [file.path]),
+					lastChanges(root, prefix, folder, [file.path], me),
 				]);
-				const change = repo.changes.find((item) => item.path === file.path) ?? null;
+				const changes = await byAgents(hub, root, repo.changes);
+				const change = changes.find((item) => item.path === file.path) ?? null;
 				// The committed text only where there is a change to show against it.
 				const base =
 					change && change.status !== "added" && file.text !== null
@@ -60,7 +97,7 @@ export async function folderRequest(
 						...file,
 						git: {
 							branch: repo.branch,
-							changed: repo.changes.length,
+							changed: changes.length,
 							change,
 							last: last[file.path] ?? null,
 							base,
@@ -88,6 +125,7 @@ export async function folderRequest(
 				// The folder's git story: the branch, what is changed, and each entry's last commit.
 				const prefix = url.searchParams.get("git") === "1" ? await repoPrefix(root) : null;
 				if (prefix === null) return Response.json({ data: { ...listing, git: null } });
+				const me = await gitUser(root);
 				const [repo, last] = await Promise.all([
 					projectGit(root, prefix),
 					lastChanges(
@@ -95,9 +133,11 @@ export async function folderRequest(
 						prefix,
 						listing.path,
 						listing.entries.map((entry) => entry.path),
+						me,
 					),
 				]);
-				return Response.json({ data: { ...listing, git: { ...repo, last } } });
+				const changes = await byAgents(hub, root, repo.changes);
+				return Response.json({ data: { ...listing, git: { ...repo, changes, last } } });
 			}
 			const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
 			if (
@@ -173,6 +213,48 @@ export async function folderRequest(
 		throw cause;
 	}
 	return null;
+}
+
+/**
+ * A change not committed yet, and the agent that made it when an agent was the last to edit: when,
+ * and the thread it was working in.
+ */
+type AttributedChange = FileChange & {
+	agent: string | null;
+	editedAt: string | null;
+	thread: { id: string; title: string | null } | null;
+};
+
+/**
+ * Says which changes an agent made: a file an agent edited after the checked-out commit was
+ * made is that agent's change. Edits before it were committed (or undone) since.
+ */
+async function byAgents(
+	hub: ChatHub,
+	root: string,
+	changes: readonly FileChange[],
+): Promise<AttributedChange[]> {
+	if (changes.length === 0) return [];
+	let base = root;
+	try {
+		base = realpathSync(root);
+	} catch {
+		// The folder went away mid-request; nothing will match, and that is the honest answer.
+	}
+	const since = await headTime(base);
+	const edits = hub.agentEdits(changes.map((change) => join(base, change.path)));
+	return changes.map((change) => {
+		const edit = edits.get(join(base, change.path));
+		const after = edit && (since === null || Date.parse(edit.at) > Date.parse(since));
+		return after
+			? {
+					...change,
+					agent: edit.provider,
+					editedAt: edit.at,
+					thread: { id: edit.sessionId, title: edit.title },
+				}
+			: { ...change, agent: null, editedAt: null, thread: null };
+	});
 }
 
 function linkedRoot(

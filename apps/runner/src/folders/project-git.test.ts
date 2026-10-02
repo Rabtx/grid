@@ -3,7 +3,15 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { committedText, lastChanges, projectGit, repoPrefix } from "./project-git";
+import {
+	agentOf,
+	blame,
+	committedText,
+	gitUser,
+	lastChanges,
+	projectGit,
+	repoPrefix,
+} from "./project-git";
 
 const repo = mkdtempSync(join(tmpdir(), "grid-project-git-"));
 const run = (...args: string[]) =>
@@ -25,6 +33,16 @@ writeFileSync(join(project, "README.md"), "Jobs\n");
 writeFileSync(join(repo, "other.txt"), "elsewhere\n");
 run("add", ".");
 run("commit", "-q", "-m", "Round job ETAs");
+// An agent's commit: authored as Sam, signed by the agent as its co-author.
+writeFileSync(join(project, "src", "queue.ts"), "export const retries = 3;\n");
+run("add", ".");
+run(
+	"commit",
+	"-q",
+	"-m",
+	"Retry failed jobs\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>",
+);
+run("config", "user.email", "Sam@Example.com");
 writeFileSync(join(project, "src", "eta.ts"), "export const step = 5;\nexport const max = 60;\n");
 writeFileSync(join(project, "src", "eta.test.ts"), "test\n");
 writeFileSync(join(repo, "other.txt"), "changed outside the project\n");
@@ -48,12 +66,53 @@ describe("project git", () => {
 
 	it("says who last changed each entry of a folder, and the folder itself", async () => {
 		const root = await lastChanges(project, "apps/web/", "", ["src", "README.md"]);
-		expect(root[""]).toMatchObject({ author: "Sam", subject: "Round job ETAs" });
-		expect(root.src).toMatchObject({ subject: "Round job ETAs" });
+		expect(root[""]).toMatchObject({ author: "Sam", subject: "Retry failed jobs" });
+		expect(root.src).toMatchObject({ subject: "Retry failed jobs" });
 		expect(root["README.md"]).toMatchObject({ subject: "Round job ETAs" });
 		const src = await lastChanges(project, "apps/web/", "src", ["src/eta.ts", "src/eta.test.ts"]);
 		expect(src["src/eta.ts"]).toMatchObject({ author: "Sam" });
 		expect(src["src/eta.test.ts"]).toBeUndefined();
+	});
+
+	it("names the agent behind a commit, by its author or a co-author trailer", () => {
+		expect(agentOf("Sam", "sam@example.com", [])).toBeNull();
+		expect(agentOf("Sam", "sam@example.com", ["Claude Opus 5.5 <noreply@anthropic.com>"])).toBe(
+			"claude",
+		);
+		expect(agentOf("Codex", "codex@example.com", [])).toBe("codex");
+		expect(agentOf("Sam", "sam@example.com", ["Ada <ada@example.com>"])).toBeNull();
+	});
+
+	it("says which agent made a commit and whether it was mine", async () => {
+		const me = await gitUser(project);
+		expect(me).toBe("sam@example.com");
+		const src = await lastChanges(project, "apps/web/", "src", ["src/eta.ts", "src/queue.ts"], me);
+		expect(src["src/queue.ts"]).toMatchObject({
+			subject: "Retry failed jobs",
+			agent: "claude",
+			mine: true,
+		});
+		expect(src["src/eta.ts"]).toMatchObject({ agent: null, mine: true });
+		const others = await lastChanges(
+			project,
+			"apps/web/",
+			"src",
+			["src/eta.ts"],
+			"ada@example.com",
+		);
+		expect(others["src/eta.ts"]).toMatchObject({ mine: false });
+	});
+
+	it("blames each line on its commit, and lines not committed on no commit", async () => {
+		const result = await blame(project, "src/eta.ts", "sam@example.com");
+		expect(result?.lines).toHaveLength(2);
+		const [first, second] = (result?.lines ?? []).map((at) => result?.commits[at]);
+		expect(first).toMatchObject({ subject: "Round job ETAs", author: "Sam", mine: true });
+		expect(first?.sha).toMatch(/^[0-9a-f]{40}$/);
+		expect(second).toMatchObject({ sha: null, subject: "Not committed yet" });
+		const queue = await blame(project, "src/queue.ts", null);
+		expect(queue?.commits[0]).toMatchObject({ agent: "claude", mine: false });
+		expect(await blame(project, "src/eta.test.ts", null)).toBeNull();
 	});
 
 	it("gives a file as it was committed, and nothing for a new one", async () => {
