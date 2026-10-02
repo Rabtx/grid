@@ -246,6 +246,9 @@ export {
 	NoteMeta,
 	NoteSearchField,
 	NotePanelRow,
-	SharedChip,
+	type NoteAgent,
+	NoteSuggestionCard,
+	SHARED_CHIP,
+	SharedChipFace,
 	ThreadChip,
 } from "./note";

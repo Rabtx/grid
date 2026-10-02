@@ -123,4 +123,24 @@ describe("a note's text", () => {
 		expect(noteSummary(NOTE).preview.startsWith("ETAs must match the app.")).toBe(true);
 		expect(noteSummary("")).toEqual({ title: "Untitled note", preview: "" });
 	});
+
+	it("draws the note's own images and leaves remote ones as their words", () => {
+		const [block] = parseNote(
+			"![eta chart](/uploads/notes/0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d.png) and ![x](https://example.com/t.png)",
+		);
+		expect(block).toMatchObject({
+			kind: "paragraph",
+			content: [
+				{
+					kind: "image",
+					src: expect.stringMatching(
+						/\/uploads\/notes\/0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d\.png$/,
+					),
+					alt: "eta chart",
+				},
+				{ kind: "text", text: " and " },
+				{ kind: "text", text: "x" },
+			],
+		});
+	});
 });

@@ -68,6 +68,10 @@ export const apiClient = {
 	delete<T>(path: string, options?: ApiRequestOptions): Promise<T> {
 		return request<T>(path, { ...options, method: "DELETE" });
 	},
+	/** Send a file (or several) as a form, the way the API takes uploads. */
+	upload<T>(path: string, form: FormData, options?: ApiRequestOptions): Promise<T> {
+		return request<T>(path, { ...options, method: "POST", body: form });
+	},
 };
 
 export function getApiOrigin(): string {
@@ -77,7 +81,9 @@ export function getApiOrigin(): string {
 async function request<T>(path: string, options: ApiRequestOptions = {}, retry = true): Promise<T> {
 	const { accessToken, ...init } = options;
 	const headers = new Headers(init.headers);
-	if (init.body) headers.set("Content-Type", "application/json");
+	// A form sets its own type (with the boundary between its parts).
+	if (init.body && !(init.body instanceof FormData))
+		headers.set("Content-Type", "application/json");
 	// The API rejects state-changing requests without this header as a CSRF guard.
 	if (init.method && init.method !== "GET") headers.set("X-Requested-With", "XMLHttpRequest");
 	if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);

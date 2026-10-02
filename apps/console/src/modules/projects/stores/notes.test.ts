@@ -24,6 +24,7 @@ const note = (id: string, body: string, flags: Partial<Note> = {}): Note => ({
 	pinned: false,
 	shared: false,
 	icon: null,
+	agents: null,
 	author: null,
 	editor: null,
 	createdAt: "2026-09-24T00:00:00.000Z",
@@ -43,10 +44,25 @@ describe("the notes store", () => {
 			note("n2", "# Rules", { shared: true }),
 			note("n3", "# Brief", { shared: true, pinned: true }),
 		]);
-		expect(await notesStore.sharedText("token", "alpha")).toBe("# Brief\n\n---\n\n# Rules");
+		expect(await notesStore.sharedText("token", "alpha")).toBe(
+			"## Brief\nnote id: n3\n\n---\n\n## Rules\nnote id: n2",
+		);
 		list.mockResolvedValue([note("n1", "# Plain")]);
 		await notesStore.load("token", "beta");
 		expect(await notesStore.sharedText("token", "beta")).toBeUndefined();
+	});
+
+	it("gives a thread only the shared notes meant for its agent, each with its id", async () => {
+		list.mockResolvedValue([
+			note("n1", "# Everyone\n\nRound to 5.", { shared: true }),
+			note("n2", "# Codex only", { shared: true, agents: ["codex"] }),
+			note("n3", "# Claude only", { shared: true, agents: ["claude"] }),
+		]);
+		await notesStore.load("token", "delta");
+		const forClaude = await notesStore.sharedText("token", "delta", "claude");
+		expect(forClaude).toContain("## Everyone\nnote id: n1\n\nRound to 5.");
+		expect(forClaude).toContain("## Claude only");
+		expect(forClaude).not.toContain("Codex only");
 	});
 
 	it("shows a pin at once and puts it back when the API refuses", async () => {

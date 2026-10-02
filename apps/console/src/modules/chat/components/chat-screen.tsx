@@ -457,7 +457,7 @@ function NewChat(props: {
 					...(place().worktree && place().branch.trim() ? { branch: place().branch.trim() } : {}),
 					...(role() ? { role: role()?.id } : {}),
 					// The notes the project shares with agents go with the first message.
-					notes: await notesStore.sharedText(token, props.project),
+					notes: await notesStore.sharedText(token, props.project, provider.id),
 				},
 				placementsStore.scopeOf(props.project),
 			);

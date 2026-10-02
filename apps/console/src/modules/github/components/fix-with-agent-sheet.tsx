@@ -147,7 +147,7 @@ export function FixWithAgentSheet(props: {
 					existing: true,
 					pull: props.number,
 					fork: plan()?.fork ?? false,
-					notes: await notesStore.sharedText(token, props.project),
+					notes: await notesStore.sharedText(token, props.project, provider.id),
 				},
 				scope(),
 			);
