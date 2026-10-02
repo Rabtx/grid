@@ -158,10 +158,11 @@ by 1px `stroke` lines, never gaps or shadows.
 
 ### Depth and material
 
-Depth is an Appearance choice, **on by default** (the Figma `Depth/Card` effect: a 0 0 32px
-ambient at 4% and a white 1px top edge; in dark a deeper ambient and a 6% white edge): Settings →
-Appearance → Material → Depth sets `data-depth="on"` on the root (saved per device, applied
-before the first paint). Settings saved before the Figma design move to it once. Off, the
+Depth is an Appearance choice, **off by default**, even where a Figma frame draws it. When on it
+is the Figma `Depth/Card` effect: a 0 0 32px ambient at 4% and a white 1px top edge; in dark a
+deeper ambient and a 6% white edge. Settings → Appearance → Material → Depth sets
+`data-depth="on"` on the root (saved per device, applied before the first paint). People opt in;
+nothing turns it on for them. Off, the
 console is the flat look above. On, depth comes from light, not from stacking shadows. Every rule
 below is a `--kit-*` variable that is flat by default and switched in `:root[data-depth="on"]`
 in `kit.css`; what a variable cannot switch uses the `depth:` variant (`depth:active:…`). New

@@ -63,8 +63,9 @@
 	--kit-shadow-color: 0 0 0;
 	--kit-shadow-strength: 0.1;
 	/*
-	 * Depth, an Appearance choice (`data-depth="on"` on the root; on by default, as the Figma
-	 * design system's Depth/Card draws cards: a soft 32px ambient and a lit top edge). Off, every one
+	 * Depth, an Appearance choice (`data-depth="on"` on the root; off by default, and when on it
+	 * draws cards as the Figma design system's Depth/Card does: a soft 32px ambient and a lit top
+	 * edge). Off, every one
 	 * of these is the flat look; on, raised things catch light on their top edge, floating layers
 	 * get a softer two-layer shadow, the canvas a faint top light and primaries a pressable finish.
 	 */
