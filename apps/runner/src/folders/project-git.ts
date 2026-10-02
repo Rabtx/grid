@@ -16,8 +16,33 @@ export type FileChange = {
 	removed: number | null;
 };
 
-/** The last commit that touched a path. */
-export type LastChange = { author: string; at: string; subject: string };
+/**
+ * The last commit that touched a path. `agent` is the agent that made it (a provider id such as
+ * `claude`), read from the commit's author or its `Co-authored-by` trailers; `mine` is whether it
+ * was committed as the person this machine's git signs commits for.
+ */
+export type LastChange = {
+	author: string;
+	email: string;
+	at: string;
+	subject: string;
+	agent: string | null;
+	mine: boolean;
+};
+
+/** Who wrote a run of lines, for Blame. `sha` is null for lines not committed yet. */
+export type BlameCommit = {
+	sha: string | null;
+	author: string;
+	email: string;
+	at: string | null;
+	subject: string;
+	agent: string | null;
+	mine: boolean;
+};
+
+/** Each line's commit (an index into `commits`), in order: line 1 is `lines[0]`. */
+export type Blame = { commits: BlameCommit[]; lines: number[] };
 
 export type ProjectGit = {
 	branch: string | null;
@@ -30,6 +55,35 @@ const MAX_COMMITS = 400;
 const MAX_CHANGES = 500;
 /** The committed version is sent for showing a diff, up to this size. */
 const MAX_BASE_BYTES = 512 * 1024;
+
+/**
+ * The agents a commit can name, by the provider id the runner knows them by. Agents sign their
+ * work as a `Co-authored-by` trailer ("Claude Opus <noreply@anthropic.com>") or commit under
+ * their own name ("Codex"); either way the name or address says which one it was.
+ */
+const AGENT_SIGNS: { id: string; sign: RegExp }[] = [
+	{ id: "claude", sign: /\bclaude\b|@anthropic\.com\b/i },
+	{ id: "codex", sign: /\bcodex\b|@openai\.com\b/i },
+	{ id: "opencode", sign: /\bopencode\b/i },
+	{ id: "antigravity", sign: /\bantigravity\b|\bgemini\b/i },
+	{ id: "freebuff", sign: /\bfreebuff\b/i },
+];
+
+/** The agent behind a commit, from its author and co-authors, or null for a person's own. */
+export function agentOf(
+	author: string,
+	email: string,
+	coauthors: readonly string[],
+): string | null {
+	for (const who of [`${author} ${email}`, ...coauthors]) {
+		const found = AGENT_SIGNS.find((agent) => agent.sign.test(who));
+		if (found) return found.id;
+	}
+	return null;
+}
+
+/** The co-author trailers, NUL-free and one per entry, as `%(trailers…)` printed them. */
+const TRAILERS = "%(trailers:key=Co-authored-by,valueonly,separator=%x1d)";
 
 async function git(cwd: string, args: string[]): Promise<{ ok: boolean; out: string }> {
 	try {
@@ -49,6 +103,18 @@ async function git(cwd: string, args: string[]): Promise<{ ok: boolean; out: str
 	} catch {
 		return { ok: false, out: "" };
 	}
+}
+
+/** The address this machine's git signs commits with in this folder, or null when it has none. */
+export async function gitUser(root: string): Promise<string | null> {
+	const email = await git(root, ["config", "user.email"]);
+	return email.ok ? email.out.trim().toLowerCase() || null : null;
+}
+
+/** When the checked-out commit was made, or null before the first commit. */
+export async function headTime(root: string): Promise<string | null> {
+	const head = await git(root, ["log", "-1", "--format=%cI"]);
+	return head.ok ? head.out.trim() || null : null;
 }
 
 /** Where the project sits in its repository ("" at the top, "apps/web/" inside), or null. */
@@ -124,12 +190,13 @@ export async function lastChanges(
 	prefix: string,
 	folder: string,
 	entries: readonly string[],
+	me: string | null = null,
 ): Promise<Record<string, LastChange>> {
 	const log = await git(root, [
 		"log",
 		`-n${MAX_COMMITS}`,
 		"--name-only",
-		"--format=%x1e%an%x1f%aI%x1f%s",
+		`--format=%x1e%an%x1f%ae%x1f%aI%x1f%s%x1f${TRAILERS}`,
 		"--",
 		folder || ".",
 	]);
@@ -139,9 +206,16 @@ export async function lastChanges(
 	for (const block of log.out.split("\x1e")) {
 		if (!block.trim()) continue;
 		const [header, ...files] = block.split("\n");
-		const [author, at, subject] = header.split("\x1f");
+		const [author, email = "", at, subject = "", trailers = ""] = header.split("\x1f");
 		if (!author || !at) continue;
-		const change = { author, at, subject: subject ?? "" };
+		const change: LastChange = {
+			author,
+			email,
+			at,
+			subject,
+			agent: agentOf(author, email, trailers.split("\x1d").filter(Boolean)),
+			mine: me !== null && email.toLowerCase() === me,
+		};
 		if (!(folder in found)) found[folder] = change;
 		for (const file of files) {
 			if (!file || !file.startsWith(prefix)) continue;
@@ -164,4 +238,85 @@ export async function committedText(root: string, path: string): Promise<string 
 	const shown = await git(root, ["show", `HEAD:./${path}`]);
 	if (!shown.ok || shown.out.slice(0, 8000).includes("\0")) return null;
 	return shown.out;
+}
+
+/** Lines blamed at most: past this a file is read, not annotated. */
+const MAX_BLAME_LINES = 20_000;
+/** A commit sha of all zeros is git's name for lines not committed yet. */
+const UNCOMMITTED = /^0{40}$/;
+
+/**
+ * Who wrote each line of a file and in which commit, from `git blame`: lines grouped by commit,
+ * each commit with its author, time, subject and the agent that made it. Lines not committed yet
+ * carry a commit with no sha. Null when the file is not in git or too long to annotate.
+ */
+export async function blame(root: string, path: string, me: string | null): Promise<Blame | null> {
+	const out = await git(root, ["blame", "--porcelain", "--", path]);
+	if (!out.ok) return null;
+	const order: string[] = [];
+	const info = new Map<string, { author: string; email: string; time: number; subject: string }>();
+	const lines: string[] = [];
+	let current = "";
+	for (const row of out.out.split("\n")) {
+		if (row.startsWith("\t")) {
+			lines.push(current);
+			if (lines.length > MAX_BLAME_LINES) return null;
+			continue;
+		}
+		const header = /^([0-9a-f]{40}) \d+ \d+/.exec(row);
+		if (header) {
+			current = header[1];
+			if (!info.has(current)) {
+				info.set(current, { author: "", email: "", time: 0, subject: "" });
+				order.push(current);
+			}
+			continue;
+		}
+		const entry = info.get(current);
+		if (!entry) continue;
+		const space = row.indexOf(" ");
+		const key = space < 0 ? row : row.slice(0, space);
+		const value = space < 0 ? "" : row.slice(space + 1);
+		if (key === "author") entry.author = value;
+		else if (key === "author-mail") entry.email = value.replace(/^<|>$/g, "");
+		else if (key === "author-time") entry.time = Number(value);
+		else if (key === "summary") entry.subject = value;
+	}
+	// Blame prints the subject, never the trailers: read those for every commit at once.
+	const committed = order.filter((sha) => !UNCOMMITTED.test(sha));
+	const trailers = new Map<string, string[]>();
+	if (committed.length > 0) {
+		const shown = await git(root, ["show", "-s", `--format=%H%x1f${TRAILERS}%x1e`, ...committed]);
+		if (shown.ok) {
+			for (const record of shown.out.split("\x1e")) {
+				const [sha, values = ""] = record.trim().split("\x1f");
+				if (sha) trailers.set(sha, values.split("\x1d").filter(Boolean));
+			}
+		}
+	}
+	const index = new Map(order.map((sha, at) => [sha, at]));
+	const commits: BlameCommit[] = order.map((sha) => {
+		const entry = info.get(sha) ?? { author: "", email: "", time: 0, subject: "" };
+		if (UNCOMMITTED.test(sha)) {
+			return {
+				sha: null,
+				author: "",
+				email: "",
+				at: null,
+				subject: "Not committed yet",
+				agent: null,
+				mine: false,
+			};
+		}
+		return {
+			sha,
+			author: entry.author,
+			email: entry.email,
+			at: entry.time ? new Date(entry.time * 1000).toISOString() : null,
+			subject: entry.subject,
+			agent: agentOf(entry.author, entry.email, trailers.get(sha) ?? []),
+			mine: me !== null && entry.email.toLowerCase() === me,
+		};
+	});
+	return { commits, lines: lines.map((sha) => index.get(sha) ?? 0) };
 }

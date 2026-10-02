@@ -3,15 +3,45 @@ import { placementsStore } from "@/modules/environments";
 
 export type ProjectFile = { name: string; path: string; kind: "file" | "folder" };
 
-/** A file changed since the last commit, as git counts it. */
+/**
+ * A file changed since the last commit, as git counts it. `agent` is the agent (a provider id)
+ * that made the change, when an agent was the last to edit the file, and `editedAt` when.
+ */
 export type FileChange = {
 	path: string;
 	status: "modified" | "added" | "deleted" | "renamed";
 	added: number | null;
 	removed: number | null;
+	agent?: string | null;
+	editedAt?: string | null;
+	/** The thread the agent was working in. */
+	thread?: { id: string; title: string | null } | null;
 };
-/** The last commit that touched a path. */
-export type LastChange = { author: string; at: string; subject: string };
+/**
+ * The last commit that touched a path: who and when, the agent that made it (a provider id, read
+ * from the commit's co-author), and whether it was committed as this machine's git user.
+ */
+export type LastChange = {
+	author: string;
+	email?: string;
+	at: string;
+	subject: string;
+	agent?: string | null;
+	mine?: boolean;
+};
+
+/** A commit lines are blamed on; `sha` is null for lines not committed yet. */
+export type BlameCommit = {
+	sha: string | null;
+	author: string;
+	email: string;
+	at: string | null;
+	subject: string;
+	agent: string | null;
+	mine: boolean;
+};
+/** Who wrote each line: `lines[n]` is line n+1's index into `commits`. */
+export type FileBlame = { path: string; commits: BlameCommit[]; lines: number[] };
 
 export type ProjectFileListing = {
 	path: string;
@@ -65,6 +95,11 @@ export const filesService = {
 				method: "POST",
 				body: JSON.stringify({ path, name, kind }),
 			},
+		),
+	blame: (token: string, project: string, path: string) =>
+		runnerCall<FileBlame>(
+			`${placementsStore.scopeOf(project)}/projects/files/${project}/blame?path=${encodeURIComponent(path)}`,
+			token,
 		),
 	search: (token: string, project: string, query = "") =>
 		runnerCall<string[]>(

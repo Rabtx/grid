@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, For, onSettled, Show } from "solid-js";
+import { createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import {
 	Alert,
@@ -53,9 +53,12 @@ export function FolderBrowser(props: {
 		}
 	}
 
+	// Where to start, read once here: a caller's conditional `start` is a memo the first time it
+	// is read, and `onSettled` may not create one (doing so halts the whole console).
+	const start = untrack(() => props.start);
 	onSettled(() => {
 		// The usual place for code first; home when there is no such folder.
-		void open(props.start ?? "~/Projects").then(() => {
+		void open(start ?? "~/Projects").then(() => {
 			if (!listing()) void open("~");
 		});
 	});

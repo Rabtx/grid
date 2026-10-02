@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { changeOf, changesIn, lineMarks } from "./file-git";
+import { blameRuns, changeOf, changesIn, indentation, isMine, lineMarks } from "./file-git";
 
 describe("file git", () => {
 	it("marks new lines added and replaced lines modified", () => {
@@ -24,5 +24,28 @@ describe("file git", () => {
 		expect(changeOf(changes, "src", true)).toBe("modified");
 		expect(changeOf(changes, "README.md", false)).toBe("added");
 		expect(changeOf(changes, "docs", true)).toBeNull();
+	});
+
+	it("says how a file is indented", () => {
+		expect(indentation("a\n  b\n    c\n  d\n")).toBe("Spaces: 2");
+		expect(indentation("a {\n\tb\n\t\tc\n}\n")).toBe("Tabs");
+		expect(indentation("one\ntwo\n")).toBeNull();
+	});
+
+	it("groups blamed lines into runs by commit", () => {
+		const commits = ["a", "b"];
+		expect(blameRuns(commits, [0, 0, 1, 0])).toEqual([
+			{ commit: "a", from: 1, to: 2 },
+			{ commit: "b", from: 3, to: 3 },
+			{ commit: "a", from: 4, to: 4 },
+		]);
+		expect(blameRuns(commits, [])).toEqual([]);
+	});
+
+	it("calls a change mine when no agent made it, else the last commit decides", () => {
+		expect(isMine({ agent: null }, { mine: false })).toBe(true);
+		expect(isMine({ agent: "claude" }, { mine: true })).toBe(false);
+		expect(isMine(null, { mine: true })).toBe(true);
+		expect(isMine(undefined, undefined)).toBe(false);
 	});
 });

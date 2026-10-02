@@ -8,10 +8,10 @@ import {
 	MAX_SESSION_ATTACHMENTS,
 	MAX_SESSION_BYTES,
 } from "./attachments";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import type { AgentCommand, ChatEvent } from "../agents/events";
 import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
@@ -26,6 +26,7 @@ import {
 	turnRetryable,
 } from "./errors";
 import type {
+	AgentEdit,
 	ChatSessionRow,
 	ChatStore,
 	ProjectSettings,
@@ -985,6 +986,14 @@ export class ChatHub {
 		return opening;
 	}
 
+	/** The last agent edit of each of these files (absolute paths), and its thread's title, for Files. */
+	agentEdits(paths: readonly string[]): Map<string, AgentEdit & { title: string | null }> {
+		const edits = new Map<string, AgentEdit & { title: string | null }>();
+		for (const [path, edit] of this.store.agentEdits(paths))
+			edits.set(path, { ...edit, title: this.store.get(edit.sessionId)?.title ?? null });
+		return edits;
+	}
+
 	/** Log an event and send it to every device watching. Streamed text is merged before it is written. */
 	private record(id: string, event: ChatEvent): void {
 		const live = this.liveFor(id);
@@ -1000,6 +1009,16 @@ export class ChatHub {
 			if (event.mode) change.mode = event.mode;
 			if (event.effort) change.effort = event.effort;
 			if (change.model || change.mode || change.effort) this.store.update(id, change);
+		}
+		if (event.type === "tool" && event.diffs?.length && event.status !== "failed") {
+			// Remembered per file, so Files can say which agent made a change not yet committed.
+			const session = this.store.get(id);
+			if (session)
+				this.store.recordAgentEdits(
+					id,
+					session.provider,
+					event.diffs.map((diff) => realPath(resolve(session.cwd, diff.path))),
+				);
 		}
 		const n = this.journalPush(live, event);
 		for (const client of live.clients) client.event(event, n);
@@ -1110,5 +1129,18 @@ export class ChatHub {
 		live.agent = null;
 		live.running = false;
 		if (live.clients.size === 0) this.live.delete(id);
+	}
+}
+
+/**
+ * A file's path with symlinks in its folder followed, as Files compares them: the agent names
+ * the path it was given, which may run through a linked projects folder. The file itself may be
+ * gone (an agent deleted it), so only its folder is resolved; failing that, the path as given.
+ */
+function realPath(path: string): string {
+	try {
+		return join(realpathSync(dirname(path)), basename(path));
+	} catch {
+		return path;
 	}
 }

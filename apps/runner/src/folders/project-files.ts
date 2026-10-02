@@ -88,6 +88,11 @@ function inside(root: string, path: string, missing: string): Resolved {
 	return { base, target, relative: inner };
 }
 
+/** A file's path in the project, checked to be inside it (symlinks followed) and not in `.git`. */
+export function projectFilePath(root: string, path: string): string {
+	return inside(root, path, "That file is not available").relative;
+}
+
 function directory(root: string, path: string): Resolved {
 	const current = inside(root, path, "That folder is not available");
 	if (!statSync(current.target).isDirectory())
