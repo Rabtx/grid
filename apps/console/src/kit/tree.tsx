@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, For, onSettled, Show } from "solid-js";
+import { createEffect, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { attachContextMenu, type MenuPoint } from "./context-menu";
 import { EntryIcon } from "./file-icon";
@@ -102,6 +102,8 @@ type FolderTreeProps = {
 	actions?: (entry: FolderEntry) => JSX.Element;
 	/** Right-click and long press on a row. */
 	onMenuAt?: (entry: FolderEntry, point: MenuPoint) => void;
+	/** A path to show: its folders open, as when a link lands on a file deep in the tree. */
+	reveal?: string;
 };
 
 /**
@@ -110,6 +112,25 @@ type FolderTreeProps = {
  */
 export function FolderTree(props: FolderTreeProps): JSX.Element {
 	const [open, setOpen] = createSignal<ReadonlySet<string>>(new Set());
+	createEffect(
+		() => props.reveal ?? "",
+		(path) => {
+			const parts = path.split("/").filter(Boolean);
+			const folders = parts.map((_, index) => parts.slice(0, index + 1).join("/"));
+			const current = untrack(open);
+			const missing = folders.filter((folder) => !current.has(folder));
+			if (missing.length === 0) return;
+			for (const folder of missing) props.onExpand(folder);
+			setOpen(new Set([...current, ...missing]));
+		},
+	);
+	// An open folder whose entries went away (the tree was read again) asks for them again.
+	createEffect(
+		() => [...open()].filter((path) => props.entries(path) === undefined && !props.error?.(path)),
+		(missing) => {
+			for (const path of missing) props.onExpand(path);
+		},
+	);
 	function toggle(path: string): void {
 		const next = new Set(open());
 		if (next.has(path)) next.delete(path);
@@ -244,5 +265,97 @@ function FolderRow(props: {
 				</div>
 			</Show>
 		</div>
+	);
+}
+
+/**
+ * A file or folder as a row in a list (Figma 13 · Files on phones): its icon on a tile, its name
+ * with a stat beside it, a line under it, a mark and a chevron on the right. The whole row is a link.
+ */
+export function FileRow(props: {
+	/** Where it opens; none for something that cannot be opened (a deleted file). */
+	href?: string;
+	name: string;
+	folder: boolean;
+	/** Beside the name: lines added and removed. */
+	stat?: JSX.Element;
+	detail?: string;
+	/** Before the chevron: how it stands in git (M, A). */
+	mark?: JSX.Element;
+	label?: string;
+}): JSX.Element {
+	const ROW = "flex min-h-14 min-w-0 items-center gap-3 rounded-kit-lg px-1 py-2";
+	const inside = () => (
+		<>
+			<span class="grid size-9 shrink-0 place-items-center [&_img]:size-7 [&_svg]:size-6">
+				<EntryIcon name={props.name} folder={props.folder} />
+			</span>
+			<span class="flex min-w-0 flex-1 flex-col">
+				<span class="flex min-w-0 items-baseline gap-2">
+					<span class="truncate text-body-lg text-fg">{props.name}</span>
+					{props.stat}
+				</span>
+				<Show when={props.detail}>
+					<span class="truncate text-caption text-fg-subtle">{props.detail}</span>
+				</Show>
+			</span>
+			{props.mark}
+		</>
+	);
+	return (
+		<Show when={props.href} fallback={<div class={`${ROW} opacity-70`}>{inside()}</div>}>
+			{(href) => (
+				<a
+					href={href()}
+					aria-label={props.label}
+					class={`focus-ring ${ROW} transition-colors duration-fast hover:bg-fill`}
+				>
+					{inside()}
+					<ChevronRightIcon size="sm" class="shrink-0 text-fg-faint" />
+				</a>
+			)}
+		</Show>
+	);
+}
+
+/** How a file stands in git, as a letter in its colour: M (amber), A (green), D (red). */
+export function GitMark(props: {
+	status: "modified" | "added" | "deleted" | "renamed";
+}): JSX.Element {
+	const look = () =>
+		({
+			modified: { letter: "M", tone: "text-warning", label: "Modified" },
+			added: { letter: "A", tone: "text-success", label: "Added" },
+			deleted: { letter: "D", tone: "text-danger", label: "Deleted" },
+			renamed: { letter: "R", tone: "text-accent", label: "Renamed" },
+		})[props.status];
+	return (
+		<span
+			title={look().label}
+			class={`w-4 shrink-0 text-center font-medium text-caption ${look().tone}`}
+		>
+			<span aria-hidden="true">{look().letter}</span>
+			<span class="sr-only">{look().label}</span>
+		</span>
+	);
+}
+
+/** A file's state in git as a tinted word beside its name (Modified, Added) in a table. */
+export function GitBadge(props: {
+	status: "modified" | "added" | "deleted" | "renamed";
+}): JSX.Element {
+	const look = () =>
+		({
+			modified: { label: "Modified", tint: "tint-warning" },
+			added: { label: "Added", tint: "tint-success" },
+			deleted: { label: "Deleted", tint: "tint-danger" },
+			renamed: { label: "Renamed", tint: "tint-accent" },
+		})[props.status];
+	return (
+		<span
+			class={`inline-flex h-5 shrink-0 items-center rounded-kit-sm px-1.5 text-caption ${look().tint}`}
+		>
+			{look().label}
+		</span>
 	);
 }

@@ -466,3 +466,55 @@
 		animation: none;
 	}
 }
+
+/* The same syntax colours for a file read in Files (kit CodeLines). */
+.code-lines {
+	/* Syntax colours: restrained, from the theme's signal colours so light and dark both hold. */
+	& .hljs-comment,
+	& .hljs-quote {
+		color: color-mix(in srgb, var(--ink) 45%, transparent);
+		font-style: italic;
+	}
+	& .hljs-keyword,
+	& .hljs-selector-tag,
+	& .hljs-meta .hljs-keyword,
+	& .hljs-doctag {
+		color: color-mix(in srgb, var(--color-link, var(--ink)) 85%, var(--ink));
+	}
+	& .hljs-string,
+	& .hljs-regexp,
+	& .hljs-addition,
+	& .hljs-template-tag {
+		color: var(--color-success, var(--ink));
+	}
+	& .hljs-number,
+	& .hljs-literal,
+	& .hljs-attr,
+	& .hljs-attribute,
+	& .hljs-variable,
+	& .hljs-template-variable {
+		color: var(--color-warning, var(--ink));
+	}
+	& .hljs-title,
+	& .hljs-title.function_,
+	& .hljs-title.class_,
+	& .hljs-section,
+	& .hljs-name {
+		color: var(--color-accent, var(--ink));
+	}
+	& .hljs-built_in,
+	& .hljs-type,
+	& .hljs-symbol,
+	& .hljs-bullet {
+		color: color-mix(in srgb, var(--color-accent, var(--ink)) 70%, var(--ink));
+	}
+	& .hljs-deletion {
+		color: var(--color-danger, var(--ink));
+	}
+	& .hljs-emphasis {
+		font-style: italic;
+	}
+	& .hljs-strong {
+		font-weight: 600;
+	}
+}

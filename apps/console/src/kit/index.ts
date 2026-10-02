@@ -43,6 +43,14 @@ export {
 	Slider,
 } from "./choice";
 export { CodeEditor, type CodeEditorProps } from "./code-editor";
+export {
+	CodeAskAction,
+	CodeAskBar,
+	CodeLines,
+	type LineMark,
+	type LineRange,
+	StatusStrip,
+} from "./code-lines";
 export { ConfirmDialog, Dialog, PanelBar, PanelFooter } from "./dialog";
 export { diffLines } from "./diff";
 export { PreviewFrame, RadiusScale, Specimen, SurfaceSwatches } from "./docs";
@@ -182,7 +190,15 @@ export { TooltipLayer } from "./tooltip-layer";
 export { attachEdgeFade } from "./edge-fade";
 export { FilterChip, Toolbar, ToolbarButton } from "./toolbar";
 export { EntryIcon, type FileIconResolver, setFileIcons } from "./file-icon";
-export { type FolderEntry, FileTree, FolderTree, type TreeNode } from "./tree";
+export {
+	FileRow,
+	type FolderEntry,
+	FileTree,
+	FolderTree,
+	GitBadge,
+	GitMark,
+	type TreeNode,
+} from "./tree";
 export { type VariantProps, variants } from "./variants";
 export {
 	ROLE_CHIP,

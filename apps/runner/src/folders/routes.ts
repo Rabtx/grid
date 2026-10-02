@@ -10,6 +10,7 @@ import {
 	searchProjectFiles,
 	writeProjectFile,
 } from "./project-files";
+import { committedText, lastChanges, projectGit, repoPrefix } from "./project-git";
 
 /** A save's JSON: the file's text (at most 512 KB) plus escaping and the other fields. */
 const MAX_SAVE_BODY_BYTES = 1024 * 1024;
@@ -37,10 +38,36 @@ export async function folderRequest(
 		if (content && (request.method === "GET" || request.method === "PUT")) {
 			const root = linkedRoot(hub, userId, content[1], projectsDir);
 			if (root instanceof Response) return root;
-			if (request.method === "GET")
+			if (request.method === "GET") {
+				const file = readProjectFile(root, url.searchParams.get("path") ?? "");
+				// What git says about it: how it stands, who last changed it, and the committed text
+				// (so the console can show what changed). Only for a path already checked as inside.
+				const prefix = await repoPrefix(root);
+				if (prefix === null) return Response.json({ data: { ...file, git: null } });
+				const folder = file.path.split("/").slice(0, -1).join("/");
+				const [repo, last] = await Promise.all([
+					projectGit(root, prefix),
+					lastChanges(root, prefix, folder, [file.path]),
+				]);
+				const change = repo.changes.find((item) => item.path === file.path) ?? null;
+				// The committed text only where there is a change to show against it.
+				const base =
+					change && change.status !== "added" && file.text !== null
+						? await committedText(root, file.path)
+						: null;
 				return Response.json({
-					data: readProjectFile(root, url.searchParams.get("path") ?? ""),
+					data: {
+						...file,
+						git: {
+							branch: repo.branch,
+							changed: repo.changes.length,
+							change,
+							last: last[file.path] ?? null,
+							base,
+						},
+					},
 				});
+			}
 			const body = await boundedJson(request, MAX_SAVE_BODY_BYTES);
 			if (body instanceof Response) return body;
 			if (
@@ -56,8 +83,22 @@ export async function folderRequest(
 		if (files && (request.method === "GET" || request.method === "POST")) {
 			const root = linkedRoot(hub, userId, files[1], projectsDir);
 			if (root instanceof Response) return root;
-			if (request.method === "GET")
-				return Response.json({ data: listProjectFiles(root, url.searchParams.get("path") ?? "") });
+			if (request.method === "GET") {
+				const listing = listProjectFiles(root, url.searchParams.get("path") ?? "");
+				// The folder's git story: the branch, what is changed, and each entry's last commit.
+				const prefix = url.searchParams.get("git") === "1" ? await repoPrefix(root) : null;
+				if (prefix === null) return Response.json({ data: { ...listing, git: null } });
+				const [repo, last] = await Promise.all([
+					projectGit(root, prefix),
+					lastChanges(
+						root,
+						prefix,
+						listing.path,
+						listing.entries.map((entry) => entry.path),
+					),
+				]);
+				return Response.json({ data: { ...listing, git: { ...repo, last } } });
+			}
 			const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
 			if (
 				typeof body.path !== "string" ||

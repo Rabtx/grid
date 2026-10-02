@@ -2,7 +2,27 @@ import { runnerCall, RunnerError } from "@/lib/runner-client";
 import { placementsStore } from "@/modules/environments";
 
 export type ProjectFile = { name: string; path: string; kind: "file" | "folder" };
-export type ProjectFileListing = { path: string; entries: ProjectFile[] };
+
+/** A file changed since the last commit, as git counts it. */
+export type FileChange = {
+	path: string;
+	status: "modified" | "added" | "deleted" | "renamed";
+	added: number | null;
+	removed: number | null;
+};
+/** The last commit that touched a path. */
+export type LastChange = { author: string; at: string; subject: string };
+
+export type ProjectFileListing = {
+	path: string;
+	entries: ProjectFile[];
+	/** Asked for with `git`: the branch, what is changed, and each entry's last commit. */
+	git?: {
+		branch: string | null;
+		changes: FileChange[];
+		last: Record<string, LastChange>;
+	} | null;
+};
 /** One file to read; `text` is null when it is binary or too large to show. */
 export type ProjectFileContent = {
 	path: string;
@@ -13,13 +33,23 @@ export type ProjectFileContent = {
 	tooLarge: boolean;
 	/** Of `text`, the version a save is based on; null when there is no text. */
 	hash: string | null;
+	/** How it stands in git, when the project is a repository. */
+	git?: {
+		branch: string | null;
+		/** Files changed in the project. */
+		changed: number;
+		change: FileChange | null;
+		last: LastChange | null;
+		/** The file at the last commit, to show what changed; null when new or large. */
+		base: string | null;
+	} | null;
 };
 
 /** A project's files, on whichever machine the project runs. */
 export const filesService = {
-	list: (token: string, project: string, path: string) =>
+	list: (token: string, project: string, path: string, git = false) =>
 		runnerCall<ProjectFileListing>(
-			`${placementsStore.scopeOf(project)}/projects/files/${project}?path=${encodeURIComponent(path)}`,
+			`${placementsStore.scopeOf(project)}/projects/files/${project}?path=${encodeURIComponent(path)}${git ? "&git=1" : ""}`,
 			token,
 		),
 	read: (token: string, project: string, path: string) =>
