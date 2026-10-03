@@ -38,7 +38,9 @@ export function createWorkspace(
 export async function updateWorkspace(
 	db: Database,
 	id: string,
-	input: Partial<Pick<schema.WorkspaceRecord, "slug" | "name" | "icon" | "color">>,
+	input: Partial<
+		Pick<schema.WorkspaceRecord, "slug" | "name" | "icon" | "color" | "logoUrl" | "settings">
+	>,
 ) {
 	const [workspace] = await db
 		.update(workspaces)

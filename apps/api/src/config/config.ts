@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 
 import { type Env, parseEnv } from "./env";
 import { isLocalNetworkVariant } from "./local-network";
@@ -29,6 +30,8 @@ export type AppConfig = {
 	cookieDomain?: string;
 	cookieSameSite: "lax" | "strict" | "none";
 	uploadsDir: string;
+	/** Where nightly and on-demand database backups are written. */
+	backupsDir: string;
 	corsOrigin: string;
 	trustProxy: boolean;
 	authDevExposeCodes: boolean;
@@ -85,6 +88,7 @@ export function createConfig(env: Env = parseEnv()): AppConfig {
 		...(env.COOKIE_DOMAIN ? { cookieDomain: env.COOKIE_DOMAIN } : {}),
 		cookieSameSite: env.COOKIE_SAME_SITE,
 		uploadsDir: env.GRID_UPLOADS_DIR ?? resolve(import.meta.dir, "../../uploads"),
+		backupsDir: env.GRID_BACKUPS_DIR ?? join(homedir(), ".local", "share", "grid", "backups"),
 		corsOrigin: env.CORS_ORIGIN,
 		trustProxy: env.TRUST_PROXY,
 		authDevExposeCodes: env.AUTH_DEV_EXPOSE_CODES,

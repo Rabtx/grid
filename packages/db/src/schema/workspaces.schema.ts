@@ -1,5 +1,6 @@
 import {
 	index,
+	jsonb,
 	pgEnum,
 	pgTable,
 	primaryKey,
@@ -10,6 +11,23 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { users } from "./users.schema";
+
+/** Who may start an agent in a workspace. */
+export type AgentAccess = "everyone" | "admins";
+
+/** What applies to everyone in a workspace; a missing field is its default. */
+export type WorkspaceSettings = {
+	/** New tasks and worktrees branch from here. */
+	defaultBranch?: string;
+	/** Used when a task does not pick an agent. */
+	defaultAgent?: string;
+	/** The board, automations and reports start their weeks here. */
+	weekStartsOn?: "monday" | "sunday" | "saturday";
+	/** Agent transcripts and terminal output older than this many days are cleared; 0 keeps them. */
+	logRetentionDays?: number;
+	/** Per agent id, who may start it; everyone when not set. */
+	agentAccess?: Record<string, AgentAccess>;
+};
 
 /**
  * A workspace is the company: it owns projects, billing and (later) environments, agents and
@@ -25,6 +43,13 @@ export const workspaces = pgTable(
 		/** How the workspace is drawn, like a project: an icon id and a colour. */
 		icon: varchar("icon", { length: 64 }),
 		color: varchar("color", { length: 32 }),
+		/** An uploaded logo, as a path on the API (`/uploads/logos/…`); drawn instead of the icon. */
+		logoUrl: varchar("logo_url", { length: 2048 }),
+		/**
+		 * What applies to everyone in it (Settings → General): the default branch and agent, the
+		 * first day of the week, how long run logs are kept, and who may start each agent.
+		 */
+		settings: jsonb("settings").$type<WorkspaceSettings>().notNull().default({}),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 	},
