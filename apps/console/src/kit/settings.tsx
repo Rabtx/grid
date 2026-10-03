@@ -12,7 +12,7 @@ export function SettingsGroup(props: {
 	children: JSX.Element;
 }): JSX.Element {
 	return (
-		<section class="flex flex-col gap-3">
+		<section class="flex flex-col gap-2 md:gap-3">
 			<div class="flex items-end justify-between gap-3">
 				<div class="min-w-0">
 					<h2 class="font-medium text-body-lg text-fg max-md:px-1 max-md:font-normal max-md:text-caption max-md:text-fg-subtle">
@@ -47,7 +47,7 @@ export function SettingsRow(props: {
 }): JSX.Element {
 	return (
 		<div
-			class={`flex min-h-16 gap-3 px-4 py-3 ${props.inline ? "items-center" : "flex-col md:flex-row md:items-center"}`}
+			class={`flex min-h-12 gap-3 px-4 py-2.5 md:min-h-16 md:py-3 ${props.inline ? "items-center" : "flex-col md:flex-row md:items-center"}`}
 		>
 			<div class="flex min-w-0 flex-1 items-center gap-3">
 				<Show when={props.mark}>
@@ -61,7 +61,9 @@ export function SettingsRow(props: {
 					</span>
 				</Show>
 				<div class="min-w-0 flex-1">
-					<p class={`text-body ${props.danger ? "text-danger" : "text-fg"}`}>{props.label}</p>
+					<p class={`text-body-lg md:text-body ${props.danger ? "text-danger" : "text-fg"}`}>
+						{props.label}
+					</p>
 					<Show when={props.description}>
 						<p class="text-caption text-fg-subtle">{props.description}</p>
 					</Show>
@@ -89,7 +91,7 @@ export function SettingsLinkRow(props: {
 		<button
 			type="button"
 			onClick={() => props.onClick()}
-			class="focus-ring flex min-h-13 w-full min-w-0 items-center gap-3 px-4 py-3 text-left active:bg-fill"
+			class="focus-ring flex min-h-12 w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left active:bg-fill"
 		>
 			<Show when={props.leading}>
 				<span class="grid size-8 shrink-0 place-items-center rounded-kit bg-fill text-fg-muted [&_svg]:size-4">
@@ -148,7 +150,7 @@ export function SettingsColumn(props: {
 }): JSX.Element {
 	return (
 		<div class="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
-			<div class="mx-auto flex w-full max-w-180 flex-col gap-8 px-4 pt-2 pb-12 md:pt-12">
+			<div class="mx-auto flex w-full max-w-180 flex-col gap-4 px-4 pt-2 pb-12 md:gap-8 md:pt-12">
 				<header class="flex flex-col gap-1 max-md:hidden">
 					<h1 class="font-medium text-title text-fg">{props.title}</h1>
 					<Show when={props.description}>
@@ -169,7 +171,7 @@ export function IdentityCard(props: {
 	action?: JSX.Element;
 }): JSX.Element {
 	return (
-		<div class="flex min-w-0 items-center gap-3 rounded-kit-lg bg-surface p-4 ring-line">
+		<div class="flex min-w-0 items-center gap-3 rounded-kit-lg bg-surface p-3.5 ring-line md:p-4">
 			<span class="shrink-0">{props.mark}</span>
 			<div class="min-w-0 flex-1">
 				<p class="truncate text-body-lg text-fg">{props.name}</p>
