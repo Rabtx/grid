@@ -45,7 +45,7 @@ export function Select<T extends string>(props: {
 		props.look === "chip"
 			? "focus-ring inline-flex h-kit-control-sm max-w-60 shrink-0 items-center gap-1.5 rounded-kit px-2 text-body-lg text-fg-muted hover:bg-fill hover:text-fg aria-expanded:bg-fill-strong"
 			: props.look === "value"
-				? "focus-ring -mr-1 inline-flex h-kit-control max-w-48 shrink-0 items-center gap-1 rounded-kit px-1 text-body text-fg-subtle"
+				? "focus-ring -mr-1 inline-flex max-w-48 shrink-0 items-center gap-1 rounded-kit px-1 py-1.5 text-body text-fg-subtle"
 				: props.look === "pill"
 					? "focus-ring inline-flex h-kit-control max-w-72 shrink-0 items-center gap-1.5 rounded-full bg-fill pr-3 pl-3.5 text-body text-fg transition-colors duration-fast hover:bg-fill-strong aria-expanded:bg-fill-strong disabled:opacity-50"
 					: "surface-field focus-ring flex h-kit-control w-full items-center gap-2 px-3 text-left text-field text-fg disabled:opacity-50";

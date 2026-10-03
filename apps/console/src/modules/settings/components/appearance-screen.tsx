@@ -89,6 +89,8 @@ export function AppearanceScreen(): JSX.Element {
 	const shell = useShell();
 	// Desktop rows show their value as a pill; phones as quiet text with a chevron.
 	const rowLook = () => (shell.desktop() ? "pill" : "value");
+	// Phones keep rows to their names, as the Figma phone frame does.
+	const desktopOnly = (text: string) => (shell.desktop() ? text : undefined);
 	const swatches = (spread: boolean) => (
 		<SwatchRow
 			label="Accent color"
@@ -117,7 +119,7 @@ export function AppearanceScreen(): JSX.Element {
 				() => resetAppearance(),
 			)}
 		>
-			<section class="flex flex-col gap-3">
+			<section class="flex flex-col gap-2 md:gap-3">
 				<div>
 					<h2 class="font-medium text-body-lg text-fg max-md:px-1 max-md:font-normal max-md:text-caption max-md:text-fg-subtle">
 						Theme
@@ -151,7 +153,7 @@ export function AppearanceScreen(): JSX.Element {
 			</SettingsGroup>
 
 			<SettingsGroup title="Text & layout">
-				<SettingsRow inline label="Text size" description="Interface text, not code">
+				<SettingsRow inline label="Text size" description={desktopOnly("Interface text, not code")}>
 					<Select
 						look={rowLook()}
 						label="Text size"
@@ -170,7 +172,11 @@ export function AppearanceScreen(): JSX.Element {
 						]}
 					/>
 				</SettingsRow>
-				<SettingsRow inline label="Density" description="How much room lists and boards get">
+				<SettingsRow
+					inline
+					label="Density"
+					description={desktopOnly("How much room lists and boards get")}
+				>
 					<Select<Density>
 						look={rowLook()}
 						label="Density"
@@ -187,7 +193,11 @@ export function AppearanceScreen(): JSX.Element {
 						]}
 					/>
 				</SettingsRow>
-				<SettingsRow inline label="Code font" description="Terminals, diffs and the harness">
+				<SettingsRow
+					inline
+					label="Code font"
+					description={desktopOnly("Terminals, diffs and the harness")}
+				>
 					<Select<CodeFont>
 						look={rowLook()}
 						label="Code font"
@@ -218,7 +228,7 @@ export function AppearanceScreen(): JSX.Element {
 				<SettingsRow
 					inline
 					label="Reduce motion"
-					description="Fewer animations and no cursor trails"
+					description={desktopOnly("Fewer animations and no cursor trails")}
 				>
 					<Switch
 						label="Reduce motion"
@@ -229,7 +239,7 @@ export function AppearanceScreen(): JSX.Element {
 				<SettingsRow
 					inline
 					label="Agent cursors"
-					description="See where agents point and type in Browser and Notes"
+					description={desktopOnly("See where agents point and type in Browser and Notes")}
 				>
 					<Switch
 						label="Agent cursors"
@@ -237,7 +247,13 @@ export function AppearanceScreen(): JSX.Element {
 						onChange={(agentCursors) => updateAppearance({ agentCursors })}
 					/>
 				</SettingsRow>
-				<SettingsRow inline label="Sounds" description="A soft chime when an agent needs you">
+				<SettingsRow
+					inline
+					label="Sounds"
+					description={
+						shell.desktop() ? "A soft chime when an agent needs you" : "When an agent needs you"
+					}
+				>
 					<Button variant="ghost" size="sm" onClick={() => playChime()}>
 						Play
 					</Button>
@@ -250,7 +266,7 @@ export function AppearanceScreen(): JSX.Element {
 				<SettingsRow
 					inline
 					label="Celebrations"
-					description="A warp arrival when you pick a flagship model, on desktop"
+					description={desktopOnly("A warp arrival when you pick a flagship model, on desktop")}
 				>
 					<Button
 						variant="ghost"
