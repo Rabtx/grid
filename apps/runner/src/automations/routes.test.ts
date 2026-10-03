@@ -117,6 +117,22 @@ describe("automation routes", () => {
 	});
 });
 
+test("the list carries each job's recent runs, oldest first, and its machine", async () => {
+	const { store, call } = harness();
+	const item = store.create("alpha", "alice", body);
+	for (const pullNumber of [null, 9]) {
+		const run = store.start(item.id, "manual", null, null);
+		store.finish(run?.id ?? "", "succeeded", null, null, { pullNumber });
+	}
+	const list = (
+		(await (await call("GET", "/automations")).json()) as {
+			data: { recent: { status: string; pullNumber: number | null }[]; machine: string }[];
+		}
+	).data;
+	expect(list[0].recent.map((run) => run.pullNumber)).toEqual([null, 9]);
+	expect(list[0].machine).toBeTruthy();
+});
+
 describe("automation options", () => {
 	test("missing options are the defaults and valid ones pass through", () => {
 		expect(optionsOf(undefined)).toEqual(DEFAULT_OPTIONS);

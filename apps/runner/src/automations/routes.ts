@@ -1,3 +1,5 @@
+import { hostname } from "node:os";
+
 import type { Who } from "../auth";
 import type { ChatHub } from "../chat/hub";
 import { AutomationError, type Automations } from "./service";
@@ -8,6 +10,9 @@ import {
 	type AutomationOptions,
 	DEFAULT_OPTIONS,
 } from "./store";
+
+/** How many of its last runs the list carries, for the strip of dots under each. */
+const RECENT_RUNS = 28;
 
 export const TEMPLATES = [
 	{
@@ -43,6 +48,8 @@ export const TEMPLATES = [
 		prompt:
 			"Inspect this project for critical bugs. Fix clear defects, run relevant tests, and explain what changed.",
 		cadence: "daily",
+		icon: "code",
+		description: "Daily · find and fix critical bugs",
 	},
 	{
 		id: "review-pulls",
@@ -50,6 +57,8 @@ export const TEMPLATES = [
 		prompt:
 			"Review newly opened pull requests for correctness, security, and missing tests. Report actionable findings.",
 		event: "pull_opened",
+		icon: "eye",
+		description: "On every new PR · review it",
 	},
 	{
 		id: "failing-checks",
@@ -57,12 +66,16 @@ export const TEMPLATES = [
 		prompt:
 			"Investigate failing checks on my pull request. Fix the cause when safe and report the result.",
 		event: "checks_failed",
+		icon: "bug",
+		description: "When checks fail · find the cause",
 	},
 	{
 		id: "test-coverage",
 		name: "Add test coverage",
 		prompt: "Find an important untested behavior in this project and add a focused test for it.",
 		cadence: "weekly",
+		icon: "code",
+		description: "Weekly · add missing tests",
 	},
 	{
 		id: "dependencies",
@@ -70,6 +83,8 @@ export const TEMPLATES = [
 		prompt:
 			"Audit this project's dependencies for known security issues and propose the smallest safe updates.",
 		cadence: "weekly",
+		icon: "layers",
+		description: "Weekly · update dependencies",
 	},
 	{
 		id: "changelog",
@@ -77,6 +92,8 @@ export const TEMPLATES = [
 		prompt:
 			"Summarize this week's merged changes as a concise changelog with links and user impact.",
 		cadence: "weekly",
+		icon: "file-edit",
+		description: "Weekly · draft the changelog",
 	},
 ] as const;
 
@@ -237,9 +254,19 @@ export async function automationRequest(
 		if (path.length === 1) {
 			if (method === "GET")
 				return Response.json({
-					data: service.store
-						.list(who.workspace)
-						.map((item) => ({ ...item, lastRun: service.store.last(who.workspace, item.id) })),
+					data: service.store.list(who.workspace).map((item) => {
+						const runs = service.store.runs(who.workspace, item.id);
+						return {
+							...item,
+							lastRun: runs[0] ?? null,
+							// The strip of its last runs (oldest first) and the machine it runs on.
+							recent: runs
+								.slice(0, RECENT_RUNS)
+								.reverse()
+								.map(({ status, pullNumber, startedAt }) => ({ status, pullNumber, startedAt })),
+							machine: hostname(),
+						};
+					}),
 				});
 			if (method === "POST") {
 				if (service.store.list(who.workspace).length >= 200)
