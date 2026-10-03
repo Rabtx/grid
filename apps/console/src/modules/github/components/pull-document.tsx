@@ -492,9 +492,12 @@ export function PullDocument(props: {
 									detail={mergeLine(current(), history()?.ahead ?? null)}
 									actions={
 										<>
-											<a href={props.changesHref} class={button({ size: "md" })}>
-												Request changes
-											</a>
+											{/* GitHub does not let authors review their own pull requests. */}
+											<Show when={review() && review()?.viewer !== current().author}>
+												<a href={props.changesHref} class={button({ size: "md" })}>
+													Request changes
+												</a>
+											</Show>
 											<Button
 												size="md"
 												variant="primary"
