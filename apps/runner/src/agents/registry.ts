@@ -16,6 +16,26 @@ function installed(binary: string): () => boolean {
 
 type ExtraAcpAgent = { id: string; name: string; command: string[] };
 
+/** The program each agent runs as, for asking its version. */
+const BINARIES = new Map<string, string>([
+	["claude", "claude"],
+	["opencode", "opencode"],
+	["antigravity", "agy"],
+	["codex", "codex"],
+	["freebuff", "freebuff"],
+]);
+
+export function agentBinary(id: string): string | null {
+	return BINARIES.get(id) ?? null;
+}
+
+/** Drive an ACP agent by its command, alongside the built-in ones (no runner restart needed). */
+export function addAcpAgent(providers: Map<string, Provider>, agent: ExtraAcpAgent): void {
+	const binary = agent.command[0] ?? "";
+	BINARIES.set(agent.id, binary);
+	providers.set(agent.id, acpProvider({ ...agent, available: installed(binary) }));
+}
+
 /**
  * Extra ACP agents from `RUNNER_ACP_AGENTS`, a JSON list such as
  * `[{"id":"gemini","name":"Gemini","command":["gemini","--experimental-acp"]}]` — any agent
@@ -61,8 +81,6 @@ export function providerRegistry(
 		"freebuff",
 		freebuffProvider({ binary: "freebuff", available: installed("freebuff") }),
 	);
-	for (const agent of extraAgents(env.RUNNER_ACP_AGENTS)) {
-		providers.set(agent.id, acpProvider({ ...agent, available: installed(agent.command[0]) }));
-	}
+	for (const agent of extraAgents(env.RUNNER_ACP_AGENTS)) addAcpAgent(providers, agent);
 	return providers;
 }

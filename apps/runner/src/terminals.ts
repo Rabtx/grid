@@ -121,6 +121,11 @@ export class TerminalStore {
 		private readonly spawnPty: SpawnPty,
 	) {}
 
+	/** How many terminals are open on this machine, everyone's. */
+	count(): number {
+		return this.terminals.size;
+	}
+
 	list(ownerId: string): TerminalInfo[] {
 		return [...this.terminals.values()]
 			.filter((terminal) => terminal.ownerId === ownerId)

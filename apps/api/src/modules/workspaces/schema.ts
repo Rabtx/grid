@@ -30,6 +30,7 @@ export const createWorkspaceSchema = z
 	.strict();
 
 const agentId = z.string().regex(/^[a-z0-9-]{1,40}$/, "Use an agent id");
+const rule = z.enum(["allow", "ask", "never"]);
 
 /** A change to what applies to everyone in the workspace; each field is optional. */
 export const workspaceSettingsSchema = z
@@ -45,6 +46,25 @@ export const workspaceSettingsSchema = z
 		weekStartsOn: z.enum(["monday", "sunday", "saturday"]).optional(),
 		logRetentionDays: z.union([z.literal(0), z.number().int().min(7).max(3650)]).optional(),
 		agentAccess: z.record(agentId, z.enum(["everyone", "admins"])).optional(),
+		agentPolicy: z
+			.object({
+				rules: z
+					.object({
+						read: rule,
+						edit: rule,
+						commands: rule,
+						packages: rule,
+						network: rule,
+						push: rule,
+					})
+					.partial()
+					.strict()
+					.optional(),
+				newBranch: z.boolean().optional(),
+				showCommands: z.boolean().optional(),
+			})
+			.strict()
+			.optional(),
 	})
 	.strict();
 
