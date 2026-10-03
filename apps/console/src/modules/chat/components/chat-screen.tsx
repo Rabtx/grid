@@ -8,6 +8,7 @@ import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
 import { notesStore, ProjectIcon, useWorkspace } from "@/modules/projects";
 import { ShellSlot, useShell } from "@/modules/shell";
+import { useWorkspaces } from "@/modules/workspaces";
 import {
 	Alert,
 	BranchIcon,
@@ -279,13 +280,22 @@ function NewChat(props: {
 	let modePicker: PopoverControl | undefined;
 	// A draft left for this project (a thread started from a task), taken once.
 	const initial = untrack(() => (props.project ? draftsStore.take(props.project) : undefined));
-	// Installed agents that are not turned off in Settings → Agents.
-	const available = () => offeredProviders(props.providers);
+	const workspaces = useWorkspaces();
+	// Installed agents that are not turned off in Settings → Agents, less any the workspace keeps
+	// to its admins when you are a member (Settings → Members → Agents).
+	const available = () => {
+		const current = workspaces.current();
+		return offeredProviders(props.providers).filter(
+			(provider) =>
+				current?.role !== "member" || current.settings?.agentAccess?.[provider.id] !== "admins",
+		);
+	};
 	const [agent, setAgent] = createSignal<string | null>(null);
 	const [error, setError] = createSignal<string | null>(null);
 
 	const chosen = () => {
-		const wanted = agent() ?? remembered(AGENT_KEY);
+		// Your pick, else the last one you used, else the workspace's default agent.
+		const wanted = agent() ?? remembered(AGENT_KEY) ?? workspaces.current()?.settings?.defaultAgent;
 		return available().find((provider) => provider.id === wanted) ?? available()[0] ?? null;
 	};
 	const [pickedModel, setPickedModel] = createSignal<string | null>(null);

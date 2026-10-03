@@ -40,6 +40,8 @@ export function SettingsRow(props: {
 	/** Keep the control beside the text even on phones (a switch). */
 	inline?: boolean;
 	leading?: JSX.Element;
+	/** Before the words as it is, without a tile (a person's avatar, an agent's logo). */
+	mark?: JSX.Element;
 	/** The label in the danger colour (Delete workspace). */
 	danger?: boolean;
 }): JSX.Element {
@@ -48,6 +50,11 @@ export function SettingsRow(props: {
 			class={`flex min-h-16 gap-3 px-4 py-3 ${props.inline ? "items-center" : "flex-col md:flex-row md:items-center"}`}
 		>
 			<div class="flex min-w-0 flex-1 items-center gap-3">
+				<Show when={props.mark}>
+					<span class="grid size-8 shrink-0 place-items-center [&_img]:size-5 [&_svg]:size-5">
+						{props.mark}
+					</span>
+				</Show>
 				<Show when={props.leading}>
 					<span class="grid size-8 shrink-0 place-items-center rounded-kit bg-fill text-fg-muted [&_svg]:size-4">
 						{props.leading}
@@ -102,6 +109,34 @@ export function SettingsLinkRow(props: {
 			</Show>
 			<ChevronRightIcon class="size-4 shrink-0 text-fg-faint" />
 		</button>
+	);
+}
+
+/**
+ * Inviting people (Figma Members): who (emails), as what, and send; a line under it with how many
+ * there are and another way in. Side by side on desktop, stacked on phones.
+ */
+export function InviteCard(props: {
+	field: JSX.Element;
+	role: JSX.Element;
+	action: JSX.Element;
+	footer?: JSX.Element;
+}): JSX.Element {
+	return (
+		<section aria-label="Invite people" class="overflow-hidden rounded-kit-lg bg-surface ring-line">
+			<div class="flex flex-col gap-2 p-3 md:flex-row md:items-center">
+				<div class="min-w-0 flex-1 [&_label]:md:w-full">{props.field}</div>
+				<div class="flex items-center gap-2 [&>*:last-child]:max-md:flex-1">
+					{props.role}
+					{props.action}
+				</div>
+			</div>
+			<Show when={props.footer}>
+				<div class="flex items-center justify-between gap-3 border-line border-t px-4 py-2.5 text-caption text-fg-subtle max-md:hidden">
+					{props.footer}
+				</div>
+			</Show>
+		</section>
 	);
 }
 

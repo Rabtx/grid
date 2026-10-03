@@ -29,6 +29,11 @@ export const SETTINGS_SECTIONS = [
 		label: "Workspace",
 		pages: [
 			{
+				href: "/settings/general",
+				label: "General",
+				description: "The workspace's name, defaults and data",
+			},
+			{
 				href: "/settings/members",
 				label: "Members",
 				description: "Who is in this workspace, their roles and invites",

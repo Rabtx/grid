@@ -27,6 +27,8 @@ type WorkspacesState = {
 	create: (input: CreateWorkspaceInput) => Promise<void>;
 	createOpen: () => boolean;
 	setCreateOpen: (open: boolean) => void;
+	/** Read the list again, after a change made here (a rename, a setting, a logo). */
+	refresh: () => void;
 };
 
 const WorkspacesContext = createContext<WorkspacesState>();
@@ -44,10 +46,12 @@ export function openWorkspace(slug: string): void {
 export function WorkspacesProvider(props: { children: JSX.Element }): JSX.Element {
 	const auth = useAuth();
 	const [createOpen, setCreateOpen] = createSignal(false);
+	const [revision, setRevision] = createSignal(0);
 
 	// Kept on the device like the projects, so the switcher shows names while the session is
 	// confirmed on opening.
 	const list = createMemo(async () => {
+		revision();
 		const token = auth.token();
 		if (!token) return (await localStore.get<Workspace[]>("workspaces")) ?? [];
 		const workspaces = await workspacesService.list(token);
@@ -108,6 +112,7 @@ export function WorkspacesProvider(props: { children: JSX.Element }): JSX.Elemen
 		},
 		createOpen,
 		setCreateOpen,
+		refresh: () => setRevision((n) => n + 1),
 	};
 
 	return (

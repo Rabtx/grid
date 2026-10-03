@@ -16,6 +16,7 @@ import {
 	PaletteIcon,
 	PanelHeader,
 	PlugIcon,
+	SettingsIcon,
 	UserIcon,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
@@ -27,6 +28,7 @@ const ICONS: Record<SettingsHref, { icon: () => JSX.Element; tone: FeedTone }> =
 	"/settings/profile": { icon: () => <UserIcon />, tone: "accent" },
 	"/settings/notifications": { icon: () => <BellIcon />, tone: "danger" },
 	"/settings/appearance": { icon: () => <PaletteIcon />, tone: "violet" },
+	"/settings/general": { icon: () => <SettingsIcon />, tone: "neutral" },
 	"/settings/members": { icon: () => <UserIcon />, tone: "warning" },
 	"/settings/connectors": { icon: () => <PlugIcon />, tone: "accent" },
 	"/settings/agents": { icon: () => <AsteriskIcon />, tone: "violet" },

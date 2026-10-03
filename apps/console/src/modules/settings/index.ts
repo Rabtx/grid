@@ -1,6 +1,7 @@
 export { AgentsScreen } from "./components/agents-screen";
 export { AppearanceScreen } from "./components/appearance-screen";
 export { DiagnosticsScreen } from "./components/diagnostics-screen";
+export { GeneralScreen } from "./components/general-screen";
 export { MembersScreen } from "./components/members-screen";
 export { NotificationsScreen } from "./components/notifications-screen";
 export { ProfileScreen } from "./components/profile-screen";

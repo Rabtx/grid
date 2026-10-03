@@ -7,11 +7,40 @@ export interface Workspace {
 	name: string;
 	icon: string | null;
 	color: string | null;
+	/** An uploaded logo (a path on the API), drawn instead of the icon. */
+	logoUrl?: string | null;
+	/** What applies to everyone in it (Settings → General). */
+	settings?: WorkspaceSettings;
 	role: WorkspaceRole;
 	/** The one requests without a workspace act in. */
 	isDefault: boolean;
 	createdAt: string;
 	updatedAt: string;
+}
+
+/** Who may start an agent in a workspace. */
+export type AgentAccess = "everyone" | "admins";
+
+/** What applies to everyone in a workspace; a missing field is its default. */
+export interface WorkspaceSettings {
+	defaultBranch?: string;
+	defaultAgent?: string;
+	weekStartsOn?: "monday" | "sunday" | "saturday";
+	/** Run logs older than this many days are cleared; 0 or missing keeps them. */
+	logRetentionDays?: number;
+	agentAccess?: Record<string, AgentAccess>;
+}
+
+/** Where the workspace's data lives: the database, and its backups. */
+export interface DataStatus {
+	host: string;
+	database: { version: string; sizeBytes: number; healthy: boolean };
+	backups: {
+		available: boolean;
+		hour: number;
+		last: { file: string; at: string; sizeBytes: number } | null;
+		count: number;
+	};
 }
 
 export interface CreateWorkspaceInput {
@@ -32,6 +61,7 @@ export interface InvitePreview {
 export interface Member {
 	userId: string;
 	username: string;
+	email?: string;
 	displayName: string | null;
 	avatarUrl: string | null;
 	role: WorkspaceRole;
