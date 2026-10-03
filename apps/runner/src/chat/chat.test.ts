@@ -875,3 +875,42 @@ describe("attachment content blocks", () => {
 			session.close();
 		});
 });
+
+describe("a person's setup for their agents", () => {
+	it("starts agents with their environment and gives the note with the first message only", async () => {
+		const sent: string[] = [];
+		const envs: (Record<string, string> | undefined)[] = [];
+		const provider: Provider = {
+			info: () => ({ id: "echo", name: "Echo", available: true, models: [], modes: [] }),
+			start: async (context) => {
+				envs.push(context.env);
+				return {
+					prompt: async (text) => {
+						sent.push(text);
+						return { reason: "done" };
+					},
+					cancel: () => {},
+					approve: () => {},
+					setModel: async () => {},
+					setMode: async () => {},
+					setEffort: async () => {},
+					close: () => {},
+				};
+			},
+		};
+		const chat = new ChatHub(new ChatStore(":memory:"), new Map([["echo", provider]]), tmpdir());
+		chat.setPersonal((ownerId) => ({
+			env: { GIT_AUTHOR_NAME: ownerId },
+			note: "No co-author lines.",
+		}));
+		const session = chat.create(
+			{ userId: "me", workspace: "me" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
+		await chat.prompt("me", session.id, "/compact");
+		await chat.prompt("me", session.id, "Add a retry");
+		await chat.prompt("me", session.id, "Thanks");
+		expect(sent).toEqual(["/compact", "No co-author lines.\n\n---\n\nAdd a retry", "Thanks"]);
+		expect(envs).toEqual([{ GIT_AUTHOR_NAME: "me" }]);
+	});
+});

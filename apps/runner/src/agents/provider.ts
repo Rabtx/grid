@@ -9,6 +9,8 @@ export type AgentContext = {
 	effort?: string;
 	/** The provider's own session id from an earlier run, to continue that conversation. */
 	resume?: string;
+	/** Environment for the agent's process beyond the runner's own: who its commits are by. */
+	env?: Record<string, string>;
 	emit: (event: ChatEvent) => void;
 	/** The provider's session id, once it has one: stored so a later run can resume. */
 	onResumeToken: (token: string) => void;

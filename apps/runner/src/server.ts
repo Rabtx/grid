@@ -24,7 +24,9 @@ import { type InboxDeps, inboxRequest } from "./inbox/routes";
 import { type RoleDeps, roleRequest } from "./roles/routes";
 import { closeLink, createLink, type LinkObserver, type LinkState, linkMessage } from "./link";
 import type { PushNotifier } from "./push/notifier";
-import { pushRequest } from "./push/routes";
+import { prefsRequest } from "./prefs/routes";
+import type { PrefsStore } from "./prefs/store";
+import { pushActRequest, pushRequest } from "./push/routes";
 import type { TerminalStore } from "./terminals";
 import { transcribe, TranscribeError } from "./transcribe";
 
@@ -96,6 +98,7 @@ export function startServer(
 	chat: ChatHub,
 	extras: {
 		push?: PushNotifier;
+		prefs?: PrefsStore;
 		diagnostics?: DiagnosticJournal;
 		/** This Grid's environments (the home side). */
 		environments?: EnvironmentDeps;
@@ -112,8 +115,18 @@ export function startServer(
 		roles?: RoleDeps;
 	} = {},
 ): Server<SocketData> {
-	const { push, diagnostics, environments, pairing, github, pulls, inbox, automations, roles } =
-		extras;
+	const {
+		push,
+		prefs,
+		diagnostics,
+		environments,
+		pairing,
+		github,
+		pulls,
+		inbox,
+		automations,
+		roles,
+	} = extras;
 	const diagnosticRoutes = diagnostics ? new DiagnosticRoutes(diagnostics) : null;
 	const recordDiagnostic = (entry: DiagnosticInput): void => {
 		try {
@@ -328,6 +341,24 @@ export function startServer(
 						chat,
 						config.projectsDir,
 					);
+					if (handled) return handled;
+				}
+
+				// A locked phone answering an approval: the one-time token is its sign-in.
+				if (push && url.pathname === "/push/act") {
+					const handled = await pushActRequest(
+						request,
+						url,
+						push,
+						(workspace, id, approval, option) => chat.approve(workspace, id, approval, option),
+					);
+					if (handled) return handled;
+				}
+
+				if (prefs && url.pathname === "/prefs") {
+					const who = await whoFrom(request, "Sign in to change your settings");
+					if (who instanceof Response) return who;
+					const handled = await prefsRequest(request, url, who.userId, prefs);
 					if (handled) return handled;
 				}
 

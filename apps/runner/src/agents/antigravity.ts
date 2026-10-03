@@ -283,6 +283,7 @@ async function startAgySession(
 			agyArgs(binary, { model: agyModelId(model, effort, choice), mode, resume, cwd: context.cwd }),
 			{
 				cwd: context.cwd,
+				env: context.env,
 				onMessage: (message) => handle(message as Record<string, unknown>),
 				onStderr: (line) => {
 					stderr.push(line);

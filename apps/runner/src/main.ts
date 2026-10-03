@@ -18,7 +18,15 @@ import { inboxItem } from "./inbox/attention";
 import { GithubInbox } from "./inbox/github";
 import { InboxStore } from "./inbox/store";
 import { RoleStore } from "./roles/store";
-import { attentionMessage, PushNotifier } from "./push/notifier";
+import { creditNote, gitEnvironment, signingKey } from "./prefs/git";
+import { PrefsStore } from "./prefs/store";
+import {
+	approvalActions,
+	attentionMessage,
+	lastReply,
+	notifyKind,
+	PushNotifier,
+} from "./push/notifier";
 import { spawnPty } from "./pty";
 import { startServer } from "./server";
 import { TerminalStore } from "./terminals";
@@ -48,6 +56,15 @@ const automations = new Automations(new AutomationStore(config.chatDb), chat, in
 // A turn that ends, or an approval that waits, while no device is looking becomes a notification
 // and a row on the Inbox: one decision about what deserves attention, two things done with it.
 const push = new PushNotifier(config.chatDb);
+// What each person set for themselves: who their agents' commits are by, and when to reach them.
+const prefs = new PrefsStore(config.chatDb);
+push.setPrefs((ownerId) => prefs.get(ownerId).notify);
+chat.setPersonal((ownerId) => {
+	const git = prefs.get(ownerId).git;
+	return { env: gitEnvironment(git, signingKey()), note: creditNote(git) };
+});
+// Updates held through quiet hours go out once they end.
+setInterval(() => void push.flushHeld().catch(() => undefined), 60_000);
 chat.onTurnFailed((session) => {
 	try {
 		diagnostics.record({
@@ -63,7 +80,21 @@ chat.onTurnFailed((session) => {
 });
 chat.onUnwatchedAttention((session, event) => {
 	const message = attentionMessage(session, event);
-	if (message) void push.notify(session.ownerId, message).catch(() => undefined);
+	if (message) {
+		const notify = prefs.get(session.ownerId).notify;
+		const kind = notifyKind(event, lastReply(chat.events(session.workspaceId, session.id)));
+		// A locked phone can answer an approval from the notification, with a one-time token.
+		if (event.type === "approval" && notify.lockScreen) {
+			message.act = push.createAct({
+				ownerId: session.ownerId,
+				workspace: session.workspaceId,
+				sessionId: session.id,
+				approvalId: event.id,
+			});
+			message.actions = approvalActions(event.options);
+		}
+		void push.notify(session.ownerId, message, kind).catch(() => undefined);
+	}
 	const item = inboxItem(session, event);
 	if (item) inbox.keep(item);
 });
@@ -108,8 +139,23 @@ const githubInbox = new GithubInbox(inbox, {
 		}
 	},
 	foldersOf: (workspaceId) => chat.projectFolders(workspaceId),
-	onEvents: (workspace, ownerId, project, type, itemId, openedAt) =>
-		automations.event(workspace, ownerId, project, type, itemId, openedAt),
+	onEvents: (workspace, ownerId, project, type, itemId, openedAt) => {
+		automations.event(workspace, ownerId, project, type, itemId, openedAt);
+		if (type === "review_requested")
+			void push
+				.notifyOnce(
+					ownerId,
+					`review:${workspace}:${project}:${itemId}`,
+					{
+						title: "Review requested",
+						body: `Pull request #${itemId} in ${project} is waiting for your review`,
+						url: `/pulls/${encodeURIComponent(project)}/${itemId}`,
+						tag: `review-${project}-${itemId}`,
+					},
+					"reviews",
+				)
+				.catch(() => undefined);
+	},
 	onError: (workspace, ownerId, project, message) =>
 		automations.eventError(workspace, ownerId, project, message),
 	needsOpen: (workspace, ownerId, project) =>
@@ -122,6 +168,7 @@ automations.setEventSync(async (workspace, ownerId) => {
 
 const server = startServer(config, store, verify, chat, {
 	push,
+	prefs,
 	diagnostics,
 	pairing,
 	environments,
