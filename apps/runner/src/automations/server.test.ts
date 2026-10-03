@@ -53,7 +53,7 @@ test("the actual runner gates automation routes and serves templates", async () 
 	const headers = { Authorization: "Bearer good" };
 	const templates = await fetch(`${base}/automations/templates`, { headers });
 	expect(templates.status).toBe(200);
-	expect(((await templates.json()) as { data: unknown[] }).data).toHaveLength(6);
+	expect(((await templates.json()) as { data: unknown[] }).data).toHaveLength(9);
 	expect((await fetch(`${base}/automations`, { headers })).status).toBe(200);
 	expect((await fetch(`${base}/automations`, { method: "DELETE", headers })).status).toBe(405);
 });

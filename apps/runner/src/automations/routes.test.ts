@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 
 import type { ChatHub } from "../chat/hub";
 import { InboxStore } from "../inbox/store";
-import { automationRequest } from "./routes";
+import { automationRequest, optionsOf } from "./routes";
 import { Automations } from "./service";
-import { AutomationStore, type AutomationInput } from "./store";
+import { AutomationStore, DEFAULT_OPTIONS, type AutomationInput } from "./store";
 
 const body: AutomationInput = {
 	name: "Check",
@@ -114,5 +114,64 @@ describe("automation routes", () => {
 				.data,
 		).toHaveLength(50);
 		service.stop();
+	});
+});
+
+test("the list carries each job's recent runs, oldest first, and its machine", async () => {
+	const { store, call } = harness();
+	const item = store.create("alpha", "alice", body);
+	for (const pullNumber of [null, 9]) {
+		const run = store.start(item.id, "manual", null, null);
+		store.finish(run?.id ?? "", "succeeded", null, null, { pullNumber });
+	}
+	const list = (
+		(await (await call("GET", "/automations")).json()) as {
+			data: { recent: { status: string; pullNumber: number | null }[]; machine: string }[];
+		}
+	).data;
+	expect(list[0].recent.map((run) => run.pullNumber)).toEqual([null, 9]);
+	expect(list[0].machine).toBeTruthy();
+});
+
+describe("automation options", () => {
+	test("missing options are the defaults and valid ones pass through", () => {
+		expect(optionsOf(undefined)).toEqual(DEFAULT_OPTIONS);
+		expect(
+			optionsOf({
+				role: "reviewer",
+				branch: "release/1.2",
+				pullRequest: true,
+				waitForReview: true,
+				minutes: 19.6,
+				budgetUsd: 2,
+				offLimits: [" migrations/ ", ".env"],
+				icon: "shield",
+			}),
+		).toEqual({
+			role: "reviewer",
+			branch: "release/1.2",
+			pullRequest: true,
+			waitForReview: true,
+			minutes: 20,
+			budgetUsd: 2,
+			offLimits: ["migrations/", ".env"],
+			icon: "shield",
+		});
+	});
+	test("waiting for review needs a pull request, and bad values are refused", () => {
+		expect(optionsOf({ waitForReview: true }).waitForReview).toBe(false);
+		for (const bad of [
+			[],
+			{ branch: "../main" },
+			{ branch: "-x" },
+			{ role: "a b" },
+			{ minutes: 0 },
+			{ minutes: 2000 },
+			{ budgetUsd: "5" },
+			{ offLimits: "migrations" },
+			{ offLimits: Array.from({ length: 21 }, (_, i) => `p${i}`) },
+			{ icon: "Shield!" },
+		])
+			expect(() => optionsOf(bad)).toThrow();
 	});
 });

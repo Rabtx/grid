@@ -42,7 +42,8 @@ const Router = createRouter({
 		{ path: "/home", component: () => <Authed screen={HomeScreen} /> },
 		// What is waiting on the people in this workspace, across every project.
 		{ path: "/inbox", component: InboxRoute },
-		{ path: "/automations", component: () => <Authed screen={AutomationsScreen} /> },
+		// Automations; the open one by its id.
+		{ path: "/automations/:id?", component: () => <Authed screen={AutomationsScreen} /> },
 		{ path: "/board", component: RedirectRoute },
 		{ path: "/board/:slug", component: BoardRoute },
 		{ path: "/files/:slug", component: FilesRoute },

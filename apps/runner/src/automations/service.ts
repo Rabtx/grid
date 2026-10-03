@@ -1,8 +1,28 @@
 import type { Who } from "../auth";
 import type { ChatHub } from "../chat/hub";
 import type { InboxStore } from "../inbox/store";
+import { automationPrompt, costSoFar, runOutcome, touchedOffLimits } from "./outcome";
 import { nextScheduled, type EventTrigger } from "./schedule";
-import type { AutomationStore, Automation, AutomationRun } from "./store";
+import type { AutomationStore, Automation, AutomationRun, RunOutcome } from "./store";
+
+/** What a run needs from the rest of the runner beyond chats and the inbox. */
+export type AutomationDeps = {
+	/** A role of the workspace, to run as. */
+	roleOf?: (
+		workspace: string,
+		id: string,
+	) => { id: string; name: string; icon: string; brief: string } | null;
+	/** The open pull request from a branch, to say a run opened one. */
+	pullOf?: (
+		ownerId: string,
+		project: string,
+		workspace: string,
+		branch: string,
+	) => Promise<number | null>;
+};
+
+/** How often a run with a budget is looked at for what it has cost so far. */
+const BUDGET_CHECK_MS = 10_000;
 
 const GRACE_MS = 30 * 60_000;
 const WAKE_MAX_MS = 3 * 60_000;
@@ -17,6 +37,7 @@ export class Automations {
 		readonly store: AutomationStore,
 		private readonly chat: ChatHub,
 		private readonly inbox: InboxStore,
+		private readonly deps: AutomationDeps = {},
 	) {
 		for (const run of store.recover()) {
 			const item = store.listForRun(run.automationId);
@@ -180,7 +201,13 @@ export class Automations {
 
 	private async execute(item: Automation, run: AutomationRun): Promise<void> {
 		let sessionId: string | null = null;
+		let limit: ReturnType<typeof setTimeout> | null = null;
+		let budget: ReturnType<typeof setInterval> | null = null;
+		const { options } = item;
 		try {
+			const role = options.role ? (this.deps.roleOf?.(item.workspace, options.role) ?? null) : null;
+			if (options.role && !role) throw new Error("Its role is gone: choose another");
+			const worktree = item.workspaceMode === "worktree";
 			const session = await this.chat.createAutomation(
 				{ userId: item.ownerId, workspace: item.workspace },
 				{
@@ -189,23 +216,71 @@ export class Automations {
 					model: item.model ?? undefined,
 					effort: item.effort ?? undefined,
 					mode: item.mode ?? undefined,
-					worktree: item.workspaceMode === "worktree",
+					worktree,
+					base: worktree ? (options.branch ?? undefined) : undefined,
+					role,
 				},
 			);
-			sessionId = session.id;
-			this.store.setSession(run.id, session.id);
-			this.chat.rename(item.workspace, session.id, item.name);
-			await this.chat.prompt(item.workspace, session.id, item.prompt);
-			const result = this.chat.turnOutcome(item.workspace, session.id);
+			const id = session.id;
+			sessionId = id;
+			this.store.setSession(run.id, id);
+			this.chat.rename(item.workspace, id, item.name);
+			// Its limits: stopped at its time, or once it has cost more than it may.
+			let stopped: string | null = null;
+			const stop = (why: string) => {
+				if (stopped) return;
+				stopped = why;
+				this.chat.cancel(item.workspace, id);
+			};
+			if (options.minutes)
+				limit = setTimeout(
+					() => stop(`Stopped at its ${options.minutes} min limit`),
+					options.minutes * 60_000,
+				);
+			if (options.budgetUsd) {
+				const most = options.budgetUsd;
+				budget = setInterval(() => {
+					if (costSoFar(this.chat.events(item.workspace, id)) > most)
+						stop(`Stopped over its $${most} budget`);
+				}, BUDGET_CHECK_MS);
+			}
+			await this.chat.prompt(item.workspace, id, automationPrompt(item.prompt, options));
+			const result = this.chat.turnOutcome(item.workspace, id);
 			if (!result) throw new Error("Agent turn ended without an outcome");
-			if (result.reason === "done") this.store.finish(run.id, "succeeded", null, session.id);
-			else this.failed(item, run.id, result.error ?? `Agent turn ${result.reason}`, session.id);
+			const events = this.chat.events(item.workspace, id);
+			const outcome = runOutcome(events);
+			const touched = touchedOffLimits(events, options.offLimits, session.cwd);
+			if (stopped) this.failed(item, run.id, stopped, id, outcome);
+			else if (touched.length)
+				this.failed(item, run.id, `Changed ${touched[0]}, which is off-limits`, id, outcome);
+			else if (result.reason !== "done")
+				this.failed(item, run.id, result.error ?? `Agent turn ${result.reason}`, id, outcome);
+			else {
+				const branch = session.worktree?.branch;
+				const pullNumber =
+					options.pullRequest && branch
+						? await (
+								this.deps.pullOf?.(item.ownerId, item.project, item.workspace, branch) ??
+								Promise.resolve(null)
+							).catch(() => null)
+						: null;
+				this.store.finish(run.id, "succeeded", null, id, { ...outcome, pullNumber });
+			}
 		} catch (cause) {
 			this.failed(item, run.id, cause instanceof Error ? cause.message : String(cause), sessionId);
+		} finally {
+			if (limit) clearTimeout(limit);
+			if (budget) clearInterval(budget);
 		}
 	}
-	private failed(item: Automation, runId: string, message: string, sessionId: string | null): void {
-		this.store.finish(runId, "failed", message, sessionId);
+	private failed(
+		item: Automation,
+		runId: string,
+		message: string,
+		sessionId: string | null,
+		outcome?: Omit<RunOutcome, "pullNumber">,
+	): void {
+		this.store.finish(runId, "failed", message, sessionId, outcome);
 		this.inbox.keep({
 			id: `automation:${runId}`,
 			workspaceId: item.workspace,

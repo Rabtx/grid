@@ -256,6 +256,8 @@ export async function createWorktreeAsync(
 	folder: string,
 	chatId: string,
 	projectsDir: string,
+	/** The branch to start from (here or on `origin`); what is checked out when not given. */
+	from?: string,
 ): Promise<{ cwd: string; worktree: Worktree } | null> {
 	const top = await gitResult(folder, ["rev-parse", "--show-toplevel"]);
 	if (!top.ok || !top.out) return null;
@@ -283,8 +285,19 @@ export async function createWorktreeAsync(
 	]);
 	if (existing.ok) throw new WorktreeError(`A branch called ${branch} already exists`, 409);
 	const head = await gitResult(repo, ["rev-parse", "--abbrev-ref", "HEAD"]);
-	const base = head.ok && head.out !== "HEAD" ? head.out : null;
-	const added = await gitResult(repo, ["worktree", "add", "-b", branch, path, "HEAD"]);
+	let base = head.ok && head.out !== "HEAD" ? head.out : null;
+	let start = "HEAD";
+	if (from) {
+		// The branch as it is here, else as the remote has it.
+		const local = await gitResult(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${from}`]);
+		const remote = local.ok
+			? local
+			: await gitResult(repo, ["rev-parse", "--verify", "--quiet", `refs/remotes/origin/${from}`]);
+		if (!remote.ok) throw new WorktreeError(`There is no branch called ${from} here`, 409);
+		start = local.ok ? from : `origin/${from}`;
+		base = from;
+	}
+	const added = await gitResult(repo, ["worktree", "add", "-b", branch, path, start]);
 	if (!added.ok) {
 		if (/already (?:checked out|used by worktree)/i.test(added.err))
 			throw new WorktreeError(`${branch} is already checked out elsewhere`, 409);
