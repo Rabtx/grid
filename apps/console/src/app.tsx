@@ -1,6 +1,6 @@
-import { createRouter } from "@solidjs/router";
+import { createRouter, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { lazy, Loading } from "solid-js";
+import { lazy, Loading, onSettled } from "solid-js";
 
 import { EmptyState, Text, TextLink } from "@/kit";
 import { AutomationsScreen } from "@/modules/automations";
@@ -11,11 +11,11 @@ import { HomeScreen } from "@/modules/home";
 import { ConnectorsScreen } from "@/modules/github";
 import { InboxScreen } from "@/modules/inbox";
 import {
-	AccountScreen,
 	AgentsScreen,
 	AppearanceScreen,
 	DiagnosticsScreen,
 	NotificationsScreen,
+	ProfileScreen,
 	SettingsIndexScreen,
 	MembersScreen,
 	WorktreesScreen,
@@ -71,7 +71,9 @@ const Router = createRouter({
 		{ path: "/settings/members", component: () => <Authed screen={MembersScreen} /> },
 		{ path: "/settings/worktrees", component: () => <Authed screen={WorktreesScreen} /> },
 		{ path: "/settings/diagnostics", component: () => <Authed screen={DiagnosticsScreen} /> },
-		{ path: "/settings/account", component: () => <Authed screen={AccountScreen} /> },
+		{ path: "/settings/profile", component: () => <Authed screen={ProfileScreen} /> },
+		// Account became Profile: old links land there.
+		{ path: "/settings/account", component: AccountRoute },
 		// The design system, every piece in every state; loads on its own when opened.
 		{ path: "/design", component: DesignRoute },
 		{ path: "*", component: NotFoundRoute },
@@ -122,6 +124,12 @@ function ProjectRoute(): JSX.Element {
 			<ProjectRedirect to="chat" />
 		</RequireAuth>
 	);
+}
+
+function AccountRoute(): JSX.Element {
+	const navigate = useNavigate();
+	onSettled(() => navigate("/settings/profile", { replace: true }));
+	return null;
 }
 
 function RedirectRoute(): JSX.Element {

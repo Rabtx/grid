@@ -33,6 +33,7 @@ const publicUser = (u: schema.UserRecord) => ({
 	isActive: u.isActive,
 	emailVerified: u.emailVerifiedAt !== null,
 	hasPassword: u.passwordHash !== null,
+	passwordChangedAt: u.passwordHash ? u.passwordChangedAt.toISOString() : null,
 	createdAt: u.createdAt.toISOString(),
 });
 

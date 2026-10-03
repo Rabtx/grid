@@ -196,6 +196,22 @@ function isDirectory(path: string): boolean {
 	}
 }
 
+/** Whether a thread has had a message (not a command) the agent finished a turn on. */
+function answeredMessage(events: readonly ChatEvent[]): boolean {
+	let message = false;
+	for (const event of events) {
+		if (event.type === "user") message = !event.text.trimStart().startsWith("/");
+		else if (event.type === "turn_end" && event.reason === "done" && message) return true;
+	}
+	return false;
+}
+
+/** A person's setup for their agents: environment for the process, a note for the first message. */
+export type PersonalSetup = (ownerId: string) => {
+	env: Record<string, string>;
+	note: string | null;
+};
+
 /**
  * Every chat session: starting the agent when it is first needed, logging what it does, fanning
  * events out to each attached device, and parking agents nobody is using.
@@ -204,12 +220,18 @@ export class ChatHub {
 	private readonly live = new Map<string, Live>();
 	private attention: AttentionListener | null = null;
 	private failedTurn: ((session: ChatSessionRow) => void) | null = null;
+	private personal: PersonalSetup = () => ({ env: {}, note: null });
 
 	constructor(
 		private readonly store: ChatStore,
 		private readonly providers: Map<string, Provider>,
 		private readonly projectsDir: string = join(homedir(), "Projects"),
 	) {}
+
+	/** What each person's agents start with: their git identity, and a note for the first message. */
+	setPersonal(setup: PersonalSetup): void {
+		this.personal = setup;
+	}
 
 	/**
 	 * Every agent, with its model list (exact names, effort levels) and this person's settings for
@@ -757,6 +779,7 @@ export class ChatHub {
 			text: message,
 			...(attachments.length ? { attachments: attachments.map((item) => item.metadata) } : {}),
 		});
+		const firstTurn = !answeredMessage(this.store.events(id));
 		this.setRunning(id, live, true);
 		this.record(id, { type: "turn_start", at: new Date().toISOString() });
 
@@ -778,6 +801,8 @@ export class ChatHub {
 			briefRole = Boolean(session.role && !session.role.briefed && !command);
 			briefNotes = Boolean(session.notes && !session.notes.briefed && !command);
 			let text = typed;
+			const note = firstTurn && !command ? this.personal(session.ownerId).note : null;
+			if (note) text = `${note}\n\n---\n\n${text}`;
 			if (briefNotes && session.notes) text = withSharedNotes(session.notes, text);
 			if (briefRole && session.role) text = withRoleBrief(session.role, text);
 			const prompt = paths
@@ -1018,6 +1043,7 @@ export class ChatHub {
 				mode: fresh.mode ?? undefined,
 				effort: fresh.effort ?? undefined,
 				resume: fresh.resumeToken ?? undefined,
+				env: this.personal(fresh.ownerId).env,
 				emit: (event) => this.record(session.id, event),
 				onResumeToken: (token) => this.store.update(session.id, { resumeToken: token }),
 			});

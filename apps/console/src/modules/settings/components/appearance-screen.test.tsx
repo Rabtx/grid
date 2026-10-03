@@ -1,10 +1,12 @@
 import { createRouter, memoryHistory } from "@solidjs/router";
-import { render } from "@solidjs/web";
+import { type JSX, render } from "@solidjs/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resetAppearance } from "@/lib/appearance";
 import { AuthProvider } from "@/modules/auth";
 import { WorkspaceProvider } from "@/modules/projects";
+import { ShellProvider, useShell } from "@/modules/shell";
+import { WorkspacesProvider } from "@/modules/workspaces";
 
 import { AppearanceScreen } from "./appearance-screen";
 
@@ -17,6 +19,12 @@ function json(data: unknown, status = 200): Response {
 
 async function settle(): Promise<void> {
 	for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/** The top bar's actions, where the page puts its menu. */
+function ShellActions(): JSX.Element {
+	const shell = useShell();
+	return <div data-slot="actions">{shell.actions()?.()}</div>;
 }
 
 describe("AppearanceScreen", () => {
@@ -52,7 +60,18 @@ describe("AppearanceScreen", () => {
 		dispose = render(
 			() => (
 				<AuthProvider>
-					<Router>{(route) => <WorkspaceProvider>{route.children}</WorkspaceProvider>}</Router>
+					<Router>
+						{(route) => (
+							<WorkspacesProvider>
+								<WorkspaceProvider>
+									<ShellProvider>
+										<ShellActions />
+										{route.children}
+									</ShellProvider>
+								</WorkspaceProvider>
+							</WorkspacesProvider>
+						)}
+					</Router>
 				</AuthProvider>
 			),
 			container,
@@ -72,13 +91,11 @@ describe("AppearanceScreen", () => {
 
 		const text = container.textContent ?? "";
 		expect(text).toContain("Appearance");
-		expect(text).toContain("Theme");
-		expect(text).toContain("Colour");
-		expect(text).toContain("Shape and density");
-		expect(text).toContain("Motion and fun");
-		for (const name of ["Corner roundness", "Spacing", "Line strength", "Interface scale"])
+		for (const group of ["Theme", "Accent", "Text & layout", "Motion & sound", "Colour", "Shape"])
+			expect(text).toContain(group);
+		for (const name of ["Hue", "Saturation", "Corner roundness", "Spacing", "Line strength"])
 			expect(container.querySelector(`input[aria-label="${name}"]`), name).not.toBeNull();
-		expect(text).toContain("These settings are saved on this device.");
+		expect(text).toContain("Make Grid feel like yours. Changes apply on this device.");
 	});
 
 	it("applies a hue change to the document root as it happens", async () => {
@@ -111,16 +128,29 @@ describe("AppearanceScreen", () => {
 		expect(document.documentElement.style.getPropertyValue("--kit-radius-scale")).toBe("0");
 	});
 
-	it("sets the accent from a preset swatch", async () => {
+	it("sets the accent and the button colour from their swatches", async () => {
 		await settle();
 
-		const swatch = container.querySelector<HTMLButtonElement>('button[aria-label="Blue"]');
-		expect(swatch).not.toBeNull();
-		swatch?.click();
+		const violet = container.querySelector<HTMLButtonElement>('button[aria-label="Violet"]');
+		violet?.click();
+		await settle();
+		expect(document.documentElement.style.getPropertyValue("--signal-accent")).toBe("#8e5cf0");
+		expect(violet?.getAttribute("aria-pressed")).toBe("true");
+
+		const pink = container.querySelector<HTMLButtonElement>('button[aria-label="Pink"]');
+		pink?.click();
+		await settle();
+		expect(document.documentElement.style.getPropertyValue("--user-accent")).toBe("#ec4899");
+	});
+
+	it("labels the rail and slows motion when asked", async () => {
 		await settle();
 
-		expect(document.documentElement.style.getPropertyValue("--user-accent")).toBe("#4da3f5");
-		expect(swatch?.getAttribute("aria-pressed")).toBe("true");
+		container.querySelector<HTMLButtonElement>('button[aria-label="Rail labels"]')?.click();
+		container.querySelector<HTMLButtonElement>('button[aria-label="Reduce motion"]')?.click();
+		await settle();
+		expect(document.documentElement.getAttribute("data-rail-labels")).toBe("on");
+		expect(document.documentElement.getAttribute("data-motion")).toBe("reduced");
 	});
 
 	it("switches to the dark theme", async () => {
@@ -136,7 +166,7 @@ describe("AppearanceScreen", () => {
 		expect(document.documentElement.classList.contains("dark")).toBe(true);
 	});
 
-	it("restores the defaults from the header button", async () => {
+	it("restores the defaults from the page's menu", async () => {
 		await settle();
 
 		const hue = container.querySelector<HTMLInputElement>('input[aria-label="Hue"]');
@@ -147,11 +177,11 @@ describe("AppearanceScreen", () => {
 		await settle();
 		expect(document.documentElement.style.getPropertyValue("--hue")).toBe("120");
 
-		const restore = container.querySelector<HTMLButtonElement>(
-			'button[aria-label="Restore defaults"]',
-		);
-		expect(restore).toBeDefined();
-		restore?.click();
+		container.querySelector<HTMLButtonElement>('button[aria-label="Appearance"]')?.click();
+		await settle();
+		[...document.querySelectorAll<HTMLButtonElement>("button")]
+			.find((button) => button.textContent?.trim() === "Restore defaults")
+			?.click();
 		await settle();
 
 		expect(document.documentElement.style.getPropertyValue("--hue")).toBe("240");

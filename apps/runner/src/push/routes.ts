@@ -18,14 +18,26 @@ export async function pushRequest(
 			data: { publicKey: await push.publicKey(), devices: push.count(userId) },
 		});
 	}
+	if (url.pathname === "/push/devices" && request.method === "GET") {
+		return Response.json({ data: push.devices(userId) });
+	}
 	if (url.pathname === "/push/test" && request.method === "POST") {
 		if (push.count(userId) === 0) return failure(409, "Turn notifications on first");
-		const sent = await push.notify(userId, {
-			title: "Grid",
-			body: "Notifications work. You'll hear from agents here.",
-			url: "/settings/agents",
-			tag: "grid-test",
-		});
+		const asked = (await request.json().catch(() => null)) as { device?: unknown } | null;
+		const device = typeof asked?.device === "string" ? asked.device : undefined;
+		if (device && !push.devices(userId).some((item) => item.id === device))
+			return failure(404, "That device no longer gets notifications");
+		const sent = await push.notify(
+			userId,
+			{
+				title: "Grid",
+				body: "Notifications work. You'll hear from agents here.",
+				url: "/settings/notifications",
+				tag: "grid-test",
+			},
+			undefined,
+			device,
+		);
 		return sent > 0
 			? new Response(null, { status: 204 })
 			: failure(
@@ -65,7 +77,37 @@ export async function pushRequest(
 		userId,
 		{ endpoint, p256dh, auth },
 		origin.startsWith("https://") ? origin : FALLBACK_SUBJECT,
+		request.headers.get("user-agent") ?? "",
 	);
+	return new Response(null, { status: 204 });
+}
+
+/**
+ * `POST /push/act`: a button on an approval's notification, pressed on a locked phone. The service
+ * worker has no sign-in, so the notification carried a one-time token for that approval instead.
+ */
+export async function pushActRequest(
+	request: Request,
+	url: URL,
+	push: PushNotifier,
+	approve: (workspace: string, sessionId: string, approvalId: string, optionId: string) => void,
+): Promise<Response | null> {
+	if (url.pathname !== "/push/act") return null;
+	if (request.method !== "POST") return failure(405, "Method not allowed");
+	const body = (await request.json().catch(() => null)) as {
+		token?: unknown;
+		option?: unknown;
+	} | null;
+	const token = typeof body?.token === "string" ? body.token : "";
+	const option = typeof body?.option === "string" ? body.option : "";
+	if (!token || !option || option.length > 200) return failure(400, "Send the token and option");
+	const act = push.takeAct(token);
+	if (!act) return failure(410, "That approval has already been answered or has expired");
+	try {
+		approve(act.workspace, act.sessionId, act.approvalId, option);
+	} catch (cause) {
+		return failure(409, cause instanceof Error ? cause.message : "That approval has moved on");
+	}
 	return new Response(null, { status: 204 });
 }
 

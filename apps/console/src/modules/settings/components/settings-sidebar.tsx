@@ -3,39 +3,44 @@ import type { JSX } from "@solidjs/web";
 import { For } from "solid-js";
 
 import {
+	AsteriskIcon,
 	BackIcon,
 	BellIcon,
 	BranchIcon,
-	GlobeIcon,
+	type FeedTone,
 	IconButton,
 	InfoIcon,
-	LinkIcon,
+	LaptopIcon,
 	NavLink,
 	NavSection,
+	PaletteIcon,
 	PanelHeader,
-	RocketIcon,
-	SunIcon,
-	UserAddIcon,
+	PlugIcon,
 	UserIcon,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
 
 import { SETTINGS_SECTIONS, type SettingsHref, settingsReturn } from "../lib/pages";
 
-const ICONS: Record<SettingsHref, () => JSX.Element> = {
-	"/settings/appearance": () => <SunIcon />,
-	"/settings/notifications": () => <BellIcon />,
-	"/settings/agents": () => <RocketIcon />,
-	"/settings/members": () => <UserAddIcon />,
-	"/settings/environments": () => <GlobeIcon />,
-	"/settings/connectors": () => <LinkIcon />,
-	"/settings/worktrees": () => <BranchIcon />,
-	"/settings/diagnostics": () => <InfoIcon />,
-	"/settings/account": () => <UserIcon />,
+/** Each page's glyph, and the tint it wears on the phone's settings list. */
+const ICONS: Record<SettingsHref, { icon: () => JSX.Element; tone: FeedTone }> = {
+	"/settings/profile": { icon: () => <UserIcon />, tone: "accent" },
+	"/settings/notifications": { icon: () => <BellIcon />, tone: "danger" },
+	"/settings/appearance": { icon: () => <PaletteIcon />, tone: "violet" },
+	"/settings/members": { icon: () => <UserIcon />, tone: "warning" },
+	"/settings/connectors": { icon: () => <PlugIcon />, tone: "accent" },
+	"/settings/agents": { icon: () => <AsteriskIcon />, tone: "violet" },
+	"/settings/environments": { icon: () => <LaptopIcon />, tone: "success" },
+	"/settings/worktrees": { icon: () => <BranchIcon />, tone: "neutral" },
+	"/settings/diagnostics": { icon: () => <InfoIcon />, tone: "neutral" },
 };
 
+export function settingsTone(href: SettingsHref): FeedTone {
+	return ICONS[href].tone;
+}
+
 export function settingsIcon(href: SettingsHref): JSX.Element {
-	return ICONS[href]();
+	return ICONS[href].icon();
 }
 
 /**

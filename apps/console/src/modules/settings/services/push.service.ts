@@ -84,3 +84,20 @@ export async function disablePush(token: string): Promise<void> {
 export async function sendTestPush(token: string): Promise<void> {
 	await runnerCall<void>("/push/test", token, { method: "POST" });
 }
+
+/**
+ * This device's id as the runner lists it (the start of its endpoint's SHA-256), so "Test
+ * notification" on a phone tests that phone; null when it gets no notifications.
+ */
+export async function thisDeviceId(): Promise<string | null> {
+	const subscription = await currentSubscription();
+	if (!subscription) return null;
+	const digest = await crypto.subtle.digest(
+		"SHA-256",
+		new TextEncoder().encode(subscription.endpoint),
+	);
+	return [...new Uint8Array(digest)]
+		.map((byte) => byte.toString(16).padStart(2, "0"))
+		.join("")
+		.slice(0, 16);
+}

@@ -31,7 +31,41 @@ export type Appearance = {
 	celebrations: boolean;
 	/** Lit edges, softer layered shadows and a lifted selection; off keeps the flat look. */
 	depth: boolean;
+	/**
+	 * The accent for selection, links, focus and the agent cursor: a `#rrggbb` colour, `ink`, or
+	 * null for the design's blue.
+	 */
+	signal: string | null;
+	/** The face terminals, diffs and code use. */
+	codeFont: CodeFont;
+	/** Names under the rail's icons. */
+	railLabels: boolean;
+	/** Fewer animations and no cursor trails. */
+	reduceMotion: boolean;
+	/** Where agents point and type in Browser and Notes. */
+	agentCursors: boolean;
+	/** A soft chime when an agent needs you. */
+	sounds: boolean;
 };
+
+/** The code faces offered, each a stack that falls back to the system's monospace. */
+export const CODE_FONTS = {
+	system: { label: "System mono", stack: null },
+	geist: { label: "Geist Mono", stack: '"Geist Mono", ui-monospace, monospace' },
+	jetbrains: { label: "JetBrains Mono", stack: '"JetBrains Mono", ui-monospace, monospace' },
+	fira: { label: "Fira Code", stack: '"Fira Code", ui-monospace, monospace' },
+	cascadia: { label: "Cascadia Code", stack: '"Cascadia Code", ui-monospace, monospace' },
+} as const;
+export type CodeFont = keyof typeof CODE_FONTS;
+
+/** The accents offered for selection and links (null is the design's blue). */
+export const SIGNAL_PRESETS = [
+	{ id: "Blue", value: null, swatch: "#2d7cf6" },
+	{ id: "Violet", value: "#8e5cf0", swatch: "#8e5cf0" },
+	{ id: "Green", value: "#30a46c", swatch: "#30a46c" },
+	{ id: "Orange", value: "#f0803c", swatch: "#f0803c" },
+	{ id: "Ink", value: "ink", swatch: "#262626" },
+] as const;
 
 export const APPEARANCE_DEFAULTS: Appearance = {
 	theme: "system",
@@ -46,6 +80,12 @@ export const APPEARANCE_DEFAULTS: Appearance = {
 	lines: 1,
 	celebrations: true,
 	depth: false,
+	signal: null,
+	codeFont: "system",
+	railLabels: false,
+	reduceMotion: false,
+	agentCursors: true,
+	sounds: true,
 };
 
 export const APPEARANCE_LIMITS = {
@@ -107,6 +147,17 @@ export function normalizeAppearance(input: unknown): Appearance {
 		lines: Math.round(clamp(raw.lines, l.lines.min, l.lines.max, d.lines) * 100) / 100,
 		celebrations: typeof raw.celebrations === "boolean" ? raw.celebrations : d.celebrations,
 		depth: typeof raw.depth === "boolean" ? raw.depth : d.depth,
+		signal:
+			raw.signal === "ink"
+				? "ink"
+				: typeof raw.signal === "string" && HEX_COLOR.test(raw.signal.toLowerCase())
+					? raw.signal.toLowerCase()
+					: null,
+		codeFont: oneOf(raw.codeFont, Object.keys(CODE_FONTS) as CodeFont[], d.codeFont),
+		railLabels: typeof raw.railLabels === "boolean" ? raw.railLabels : d.railLabels,
+		reduceMotion: typeof raw.reduceMotion === "boolean" ? raw.reduceMotion : d.reduceMotion,
+		agentCursors: typeof raw.agentCursors === "boolean" ? raw.agentCursors : d.agentCursors,
+		sounds: typeof raw.sounds === "boolean" ? raw.sounds : d.sounds,
 	};
 }
 
@@ -163,6 +214,19 @@ export function applyAppearance(
 		style.removeProperty("--user-accent");
 		style.removeProperty("--user-accent-ink");
 	}
+	if (value.signal) {
+		const signal = value.signal === "ink" ? "var(--ink)" : value.signal;
+		style.setProperty("--signal-accent", signal);
+		style.setProperty("--signal-link", signal);
+	} else {
+		style.removeProperty("--signal-accent");
+		style.removeProperty("--signal-link");
+	}
+	const mono = CODE_FONTS[value.codeFont].stack;
+	if (mono) style.setProperty("--font-mono", mono);
+	else style.removeProperty("--font-mono");
+	root.setAttribute("data-rail-labels", value.railLabels ? "on" : "off");
+	root.setAttribute("data-motion", value.reduceMotion ? "reduced" : "full");
 	root.classList.toggle("dark", value.theme === "dark");
 	root.classList.toggle("light", value.theme === "light");
 	root.setAttribute("data-density", value.density);

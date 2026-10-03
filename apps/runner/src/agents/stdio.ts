@@ -10,19 +10,21 @@ export type Spawn = (
 	command: string[],
 	options: {
 		cwd: string;
+		/** Added to the runner's own environment (the person's git identity, say). */
+		env?: Record<string, string>;
 		onMessage: (message: unknown) => void;
 		onStderr?: (text: string) => void;
 	},
 ) => JsonProcess;
 
 /** Real processes, via Bun. Tests pass a fake with the same shape. */
-export const spawnJsonProcess: Spawn = (command, { cwd, onMessage, onStderr }) => {
+export const spawnJsonProcess: Spawn = (command, { cwd, env, onMessage, onStderr }) => {
 	const proc = Bun.spawn(command, {
 		cwd,
 		stdin: "pipe",
 		stdout: "pipe",
 		stderr: "pipe",
-		env: { ...process.env, NO_COLOR: "1" },
+		env: { ...process.env, ...env, NO_COLOR: "1" },
 	});
 
 	void readLines(proc.stdout, (line) => {

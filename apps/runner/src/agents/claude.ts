@@ -472,6 +472,7 @@ async function startClaudeSession(
 		stderr = [];
 		const started = spawn(claudeArgs(binary, { model, mode, effort, resume }), {
 			cwd: context.cwd,
+			env: context.env,
 			onMessage: (message) => handle(message as Record<string, unknown>),
 			onStderr: (line) => {
 				stderr.push(line);

@@ -105,7 +105,7 @@ export function AccountMenu(props: { compact?: boolean }): JSX.Element {
 					const target = workspaces.list().find((workspace) => `ws:${workspace.slug}` === id);
 					if (target && target.slug !== workspaces.current()?.slug) workspaces.switchTo(target);
 				} else if (id === "create") workspaces.setCreateOpen(true);
-				else if (id === "settings") navigate("/settings/appearance");
+				else if (id === "settings") navigate("/settings");
 				else void auth.logout();
 			}}
 		/>

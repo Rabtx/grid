@@ -12,7 +12,8 @@
  *   That cache outlives deploys and is keyed to the icon set, so new icons replace the old.
  * - API and terminal calls (/api/…, /uploads/…, /runner/…) are never cached: they must be live.
  * - Pushes from the runner (an agent finished or needs approval while nobody was looking) show as
- *   notifications; tapping one opens that chat, in the open window when there is one.
+ *   notifications; tapping one opens that chat, in the open window when there is one. An
+ *   approval's Allow and Deny answer it straight from the notification.
  */
 const BUILD_ID = "__BUILD_ID__";
 const CACHE = `grid-shell-${BUILD_ID}`;
@@ -110,13 +111,27 @@ self.addEventListener("push", (event) => {
 			renotify: Boolean(message.tag),
 			icon: "/brand/app-icon-192.png",
 			badge: "/brand/grid-mark-96.png",
-			data: { url: message.url || "/" },
+			// An approval's Allow and Deny, answerable from a locked phone with its one-time token.
+			actions: Array.isArray(message.actions) && message.act ? message.actions.slice(0, 2) : [],
+			data: { url: message.url || "/", act: message.act || null },
 		}),
 	);
 });
 
 self.addEventListener("notificationclick", (event) => {
 	event.notification.close();
+	const act = event.notification.data?.act;
+	if (event.action && act) {
+		// Answered without opening Grid: the runner takes the token in place of a sign-in.
+		event.waitUntil(
+			fetch(`${self.location.origin}/runner/push/act`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ token: act, option: event.action }),
+			}).catch(() => undefined),
+		);
+		return;
+	}
 	const url = new URL(event.notification.data?.url || "/", self.location.origin).href;
 	event.waitUntil(
 		self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (windows) => {

@@ -158,6 +158,7 @@ async function startAcpSession(
 	let rpc: JsonRpc | null = null;
 	const proc = spawn(command, {
 		cwd: context.cwd,
+		env: context.env,
 		onMessage: (message) => rpc?.receive(message),
 		onStderr: (line) => {
 			stderr.push(line);
