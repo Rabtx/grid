@@ -2,9 +2,41 @@ import type { Who } from "../auth";
 import type { ChatHub } from "../chat/hub";
 import { AutomationError, type Automations } from "./service";
 import { validTriggers } from "./schedule";
-import type { Automation, AutomationInput } from "./store";
+import {
+	type Automation,
+	type AutomationInput,
+	type AutomationOptions,
+	DEFAULT_OPTIONS,
+} from "./store";
 
 export const TEMPLATES = [
+	{
+		id: "weekly-digest",
+		name: "Weekly PR digest",
+		prompt:
+			"Summarize the pull requests merged this week: what changed for users, what changed underneath, and anything still risky.",
+		cadence: "weekly",
+		icon: "calendar",
+		description: "Fridays · summarize merged PRs",
+	},
+	{
+		id: "docs-in-sync",
+		name: "Keep docs in sync",
+		prompt:
+			"Read what changed since the last run and update the README and docs where they no longer match the code. Keep the edits small.",
+		cadence: "daily",
+		icon: "file-edit",
+		description: "Daily · update the README",
+	},
+	{
+		id: "security-scan",
+		name: "Security scan",
+		prompt:
+			"Audit dependencies for known vulnerabilities and look for secrets committed to the repository. Report what you find and propose the smallest safe fixes.",
+		cadence: "daily",
+		icon: "shield",
+		description: "Nightly · audit deps and secrets",
+	},
 	{
 		id: "critical-bugs",
 		name: "Find critical bugs",
@@ -135,6 +167,48 @@ async function inputOf(
 		workspaceMode: value.workspaceMode,
 		enabled: value.enabled,
 		triggers: value.triggers,
+		options: optionsOf(value.options),
+	};
+}
+
+/** The recipe's role, branch and after, and its guardrails, checked one by one. */
+export function optionsOf(raw: unknown): AutomationOptions {
+	if (raw === undefined || raw === null) return { ...DEFAULT_OPTIONS };
+	if (typeof raw !== "object" || Array.isArray(raw))
+		throw new AutomationError("Invalid options", 400);
+	const value = raw as Record<string, unknown>;
+	const text = (key: string, max: number, pattern?: RegExp): string | null => {
+		const item = value[key];
+		if (item === undefined || item === null || item === "") return null;
+		if (typeof item !== "string" || item.length > max || (pattern && !pattern.test(item)))
+			throw new AutomationError(`Invalid ${key}`, 400);
+		return item;
+	};
+	const flag = (key: string) => value[key] === true;
+	const number = (key: string, min: number, max: number): number | null => {
+		const item = value[key];
+		if (item === undefined || item === null || item === "") return null;
+		if (typeof item !== "number" || !Number.isFinite(item) || item < min || item > max)
+			throw new AutomationError(`${key} must be between ${min} and ${max}`, 400);
+		return item;
+	};
+	const offLimits = value.offLimits ?? [];
+	if (
+		!Array.isArray(offLimits) ||
+		offLimits.length > 20 ||
+		offLimits.some((item) => typeof item !== "string" || !item.trim() || item.length > 200)
+	)
+		throw new AutomationError("List up to 20 off-limits paths", 400);
+	const minutes = number("minutes", 1, 24 * 60);
+	return {
+		role: text("role", 120, /^[\w-]+$/),
+		branch: text("branch", 200, /^(?!.*\.\.)(?!-)[\w./-]+$/),
+		pullRequest: flag("pullRequest"),
+		waitForReview: flag("pullRequest") && flag("waitForReview"),
+		minutes: minutes === null ? null : Math.round(minutes),
+		budgetUsd: number("budgetUsd", 0.01, 1000),
+		offLimits: (offLimits as string[]).map((item) => item.trim()),
+		icon: text("icon", 24, /^[a-z-]+$/),
 	};
 }
 

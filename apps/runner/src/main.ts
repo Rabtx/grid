@@ -33,7 +33,18 @@ const store = new TerminalStore(config, spawnPty);
 const chat = new ChatHub(new ChatStore(config.chatDb), providerRegistry(), config.projectsDir);
 // Everything waiting on the people in a workspace, kept in the same database as their chats.
 const inbox = new InboxStore(config.chatDb);
-const automations = new Automations(new AutomationStore(config.chatDb), chat, inbox);
+const roles = new RoleStore(config.chatDb);
+const automations = new Automations(new AutomationStore(config.chatDb), chat, inbox, {
+	roleOf: (workspace, id) => roles.get(workspace, id),
+	// The pull request a run opened: the open one from the branch its worktree is on. Asked only
+	// once a run ends, long after `pulls` below exists.
+	pullOf: async (ownerId, project, workspace, branch) => {
+		const folder = chat.projectFolders(workspace)[project];
+		if (!folder) return null;
+		const open = await pulls.list(ownerId, folder, "open");
+		return open.find((pull) => pull.branch === branch)?.number ?? null;
+	},
+});
 // A turn that ends, or an approval that waits, while no device is looking becomes a notification
 // and a row on the Inbox: one decision about what deserves attention, two things done with it.
 const push = new PushNotifier(config.chatDb);
@@ -118,7 +129,7 @@ const server = startServer(config, store, verify, chat, {
 	pulls,
 	inbox: { store: inbox, github: githubInbox, projectsDir: config.projectsDir },
 	automations,
-	roles: { store: new RoleStore(config.chatDb), knownProvider: (id) => chat.knowsProvider(id) },
+	roles: { store: roles, knownProvider: (id) => chat.knowsProvider(id) },
 });
 
 console.log(

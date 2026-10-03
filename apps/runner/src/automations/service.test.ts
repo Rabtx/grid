@@ -1,9 +1,15 @@
 import { describe, expect, test } from "bun:test";
 
+import type { ChatEvent } from "../agents/events";
 import type { ChatHub } from "../chat/hub";
 import { InboxStore } from "../inbox/store";
 import { Automations } from "./service";
-import { AutomationStore, type AutomationInput } from "./store";
+import {
+	AutomationStore,
+	DEFAULT_OPTIONS,
+	type AutomationInput,
+	type AutomationOptions,
+} from "./store";
 
 const input = (
 	triggers: AutomationInput["triggers"] = [{ kind: "event", event: "pull_opened" }],
@@ -35,6 +41,8 @@ function setup(pending = false) {
 					})
 				: Promise.resolve(),
 		turnOutcome: () => ({ type: "turn_end", reason: "done" }),
+		events: () => [],
+		cancel: () => {},
 	} as unknown as ChatHub;
 	const service = new Automations(store, chat, inbox);
 	return { store, inbox, service, created: () => created, finish: () => finish?.() };
@@ -94,9 +102,9 @@ describe("automation runs", () => {
 		).toBe(true);
 		expect(created()).toBe(2);
 		finish();
-		await Bun.sleep(1);
+		await Bun.sleep(5);
 		finish();
-		await Bun.sleep(1);
+		await Bun.sleep(5);
 		// The next refresh offers the same item again: the waiting job takes it, the others do not.
 		service.event("alpha", "alice", "grid", "pull_opened", "42");
 		expect(
@@ -166,6 +174,7 @@ describe("automation runs", () => {
 				rename: () => {},
 				prompt: async () => {},
 				turnOutcome: () => ({ type: "turn_end", reason: "done" }),
+				events: () => [],
 			} as unknown as ChatHub,
 			inbox,
 		);
@@ -174,5 +183,84 @@ describe("automation runs", () => {
 		expect(store.runs("alpha", item.id)[0].status).toBe("succeeded");
 		expect(created()).toBe(0);
 		restarted.stop();
+	});
+});
+
+describe("automation recipes", () => {
+	const recipe = (options: Partial<AutomationOptions>, events: ChatEvent[] = []) => {
+		const store = new AutomationStore(":memory:");
+		const inbox = new InboxStore(":memory:");
+		const calls: { create?: unknown; prompt?: string } = {};
+		const chat = {
+			createAutomation: async (_who: unknown, input: unknown) => {
+				calls.create = input;
+				return { id: "thread", cwd: "/work/grid", worktree: { branch: "grid/chat-thread" } };
+			},
+			rename: () => {},
+			prompt: async (_workspace: string, _id: string, text: string) => {
+				calls.prompt = text;
+			},
+			turnOutcome: () => ({ type: "turn_end", reason: "done" }),
+			events: () => events,
+			cancel: () => {},
+		} as unknown as ChatHub;
+		const service = new Automations(store, chat, inbox, {
+			roleOf: (_workspace, id) =>
+				id === "reviewer" ? { id, name: "Reviewer", icon: "eye", brief: "Review" } : null,
+			pullOf: async (_owner, _project, _workspace, branch) =>
+				branch === "grid/chat-thread" ? 31 : null,
+		});
+		const item = store.create("alpha", "alice", {
+			...input(),
+			workspaceMode: "worktree",
+			options: { ...DEFAULT_OPTIONS, ...options },
+		});
+		return { store, service, item, calls };
+	};
+	test("runs as its role from its branch and records the pull request it opened", async () => {
+		const { store, service, item, calls } = recipe(
+			{ role: "reviewer", branch: "main", pullRequest: true, waitForReview: true },
+			[{ type: "message", text: "Opened a fix" }],
+		);
+		service.runNow(who, item.id);
+		await Bun.sleep(5);
+		expect(calls.create).toMatchObject({ worktree: true, base: "main", role: { id: "reviewer" } });
+		expect(calls.prompt).toContain("gh pr create");
+		expect(store.runs("alpha", item.id)[0]).toMatchObject({
+			status: "succeeded",
+			pullNumber: 31,
+			summary: "Opened a fix",
+		});
+		service.stop();
+	});
+	test("a role that is gone fails the run before it starts", async () => {
+		const { store, service, item, calls } = recipe({ role: "nobody" });
+		service.runNow(who, item.id);
+		await Bun.sleep(5);
+		expect(calls.create).toBeUndefined();
+		expect(store.runs("alpha", item.id)[0]).toMatchObject({
+			status: "failed",
+			error: "Its role is gone: choose another",
+		});
+		service.stop();
+	});
+	test("changing an off-limits path fails the run", async () => {
+		const { store, service, item } = recipe({ offLimits: ["migrations/"] }, [
+			{
+				type: "tool",
+				id: "edit",
+				title: "Edit",
+				status: "completed",
+				diffs: [{ path: "/work/grid/migrations/1.sql", patch: "", added: 1, removed: 0 }],
+			},
+		]);
+		service.runNow(who, item.id);
+		await Bun.sleep(5);
+		expect(store.runs("alpha", item.id)[0]).toMatchObject({
+			status: "failed",
+			error: "Changed migrations/1.sql, which is off-limits",
+			steps: [{ title: "Edit", detail: null }],
+		});
+		service.stop();
 	});
 });

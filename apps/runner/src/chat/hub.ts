@@ -392,6 +392,10 @@ export class ChatHub {
 			mode?: string;
 			effort?: string;
 			worktree: boolean;
+			/** The branch its worktree starts from; what is checked out when not given. */
+			base?: string;
+			/** The role it runs as. */
+			role?: SessionRole | null;
 		},
 	): Promise<ChatSessionRow> {
 		const provider = this.providers.get(input.provider);
@@ -415,7 +419,7 @@ export class ChatHub {
 		let own: Awaited<ReturnType<typeof createWorktreeAsync>> = null;
 		if (input.worktree) {
 			try {
-				own = await createWorktreeAsync(boundedCwd, id, root);
+				own = await createWorktreeAsync(boundedCwd, id, root, input.base);
 			} catch (cause) {
 				if (cause instanceof WorktreeError) throw new ChatError(cause.message, cause.status);
 				throw cause;
@@ -434,6 +438,7 @@ export class ChatHub {
 			mode: input.mode ?? provider.info().defaultMode ?? null,
 			effort: input.effort ?? null,
 			worktree: own?.worktree ?? null,
+			role: input.role ?? null,
 		});
 	}
 
@@ -845,6 +850,12 @@ export class ChatHub {
 	dropNoteSuggestion(workspace: string, id: string): void {
 		if (!this.store.dropNoteSuggestion(workspace, id))
 			throw new ChatError("That suggestion is no longer there", 404);
+	}
+
+	/** Everything a thread has logged, for what an automation run left behind. */
+	events(workspace: string, id: string): ChatEvent[] {
+		this.owned(workspace, id);
+		return this.store.events(id);
 	}
 
 	/** The most recent turn outcome, including the same error shown in its transcript. */

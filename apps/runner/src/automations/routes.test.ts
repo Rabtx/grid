@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 
 import type { ChatHub } from "../chat/hub";
 import { InboxStore } from "../inbox/store";
-import { automationRequest } from "./routes";
+import { automationRequest, optionsOf } from "./routes";
 import { Automations } from "./service";
-import { AutomationStore, type AutomationInput } from "./store";
+import { AutomationStore, DEFAULT_OPTIONS, type AutomationInput } from "./store";
 
 const body: AutomationInput = {
 	name: "Check",
@@ -114,5 +114,48 @@ describe("automation routes", () => {
 				.data,
 		).toHaveLength(50);
 		service.stop();
+	});
+});
+
+describe("automation options", () => {
+	test("missing options are the defaults and valid ones pass through", () => {
+		expect(optionsOf(undefined)).toEqual(DEFAULT_OPTIONS);
+		expect(
+			optionsOf({
+				role: "reviewer",
+				branch: "release/1.2",
+				pullRequest: true,
+				waitForReview: true,
+				minutes: 19.6,
+				budgetUsd: 2,
+				offLimits: [" migrations/ ", ".env"],
+				icon: "shield",
+			}),
+		).toEqual({
+			role: "reviewer",
+			branch: "release/1.2",
+			pullRequest: true,
+			waitForReview: true,
+			minutes: 20,
+			budgetUsd: 2,
+			offLimits: ["migrations/", ".env"],
+			icon: "shield",
+		});
+	});
+	test("waiting for review needs a pull request, and bad values are refused", () => {
+		expect(optionsOf({ waitForReview: true }).waitForReview).toBe(false);
+		for (const bad of [
+			[],
+			{ branch: "../main" },
+			{ branch: "-x" },
+			{ role: "a b" },
+			{ minutes: 0 },
+			{ minutes: 2000 },
+			{ budgetUsd: "5" },
+			{ offLimits: "migrations" },
+			{ offLimits: Array.from({ length: 21 }, (_, i) => `p${i}`) },
+			{ icon: "Shield!" },
+		])
+			expect(() => optionsOf(bad)).toThrow();
 	});
 });

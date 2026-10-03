@@ -4,6 +4,41 @@ import { dirname } from "node:path";
 
 import { nextScheduled, type Trigger } from "./schedule";
 
+/**
+ * How an automation runs beyond its prompt (Figma 20 · Automations, the recipe and guardrails):
+ * the role it runs as, the branch it starts from, what it does after (open a pull request, then
+ * wait for your review), and the limits it keeps to.
+ */
+export type AutomationOptions = {
+	/** A role of the workspace (its brief goes with the prompt); null for none. */
+	role: string | null;
+	/** The branch a worktree run starts from; what is checked out when null. */
+	branch: string | null;
+	/** Open a pull request with the change when done. */
+	pullRequest: boolean;
+	/** And stop there: the run waits for your review rather than merging anything. */
+	waitForReview: boolean;
+	/** Stopped after this many minutes; null for no limit. */
+	minutes: number | null;
+	/** Stopped once a run costs more than this (US dollars, as the agent reports it). */
+	budgetUsd: number | null;
+	/** Paths it must not change: told to the agent, and a run that touches one fails. */
+	offLimits: string[];
+	/** Its glyph in the list (a fixed set the console knows); null for the default. */
+	icon: string | null;
+};
+
+export const DEFAULT_OPTIONS: AutomationOptions = {
+	role: null,
+	branch: null,
+	pullRequest: false,
+	waitForReview: false,
+	minutes: null,
+	budgetUsd: null,
+	offLimits: [],
+	icon: null,
+};
+
 export type Automation = {
 	id: string;
 	workspace: string;
@@ -18,6 +53,7 @@ export type Automation = {
 	workspaceMode: "folder" | "worktree";
 	enabled: boolean;
 	triggers: Trigger[];
+	options: AutomationOptions;
 	nextRunAt: string | null;
 	createdAt: string;
 	updatedAt: string;
@@ -34,7 +70,10 @@ export type AutomationInput = Pick<
 	| "project"
 	| "workspaceMode"
 	| "triggers"
-> & { enabled: boolean };
+> & { enabled: boolean; options?: AutomationOptions };
+
+/** A step of a run, as the agent's tools did it: what, and how it came out. */
+export type RunStep = { title: string; detail: string | null };
 
 export type AutomationRun = {
 	id: string;
@@ -47,7 +86,18 @@ export type AutomationRun = {
 	status: "running" | "succeeded" | "failed" | "skipped";
 	error: string | null;
 	sessionId: string | null;
+	/** What came of it, in the agent's words ("All 214 tests passed"). */
+	summary: string | null;
+	/** The pull request it opened, when it opened one. */
+	pullNumber: number | null;
+	/** What it cost, as the agent reported it. */
+	costUsd: number | null;
+	/** What its tools did, in order. */
+	steps: RunStep[];
 };
+
+/** What a finished run leaves besides its status. */
+export type RunOutcome = Pick<AutomationRun, "summary" | "pullNumber" | "costUsd" | "steps">;
 
 type AutomationRow = Omit<
 	Automation,
@@ -60,10 +110,19 @@ type AutomationRow = Omit<
 	updated_at: string;
 	triggers: string;
 	enabled: number;
+	options: string | null;
 };
 type RunRow = Omit<
 	AutomationRun,
-	"automationId" | "eventKey" | "scheduledFor" | "startedAt" | "finishedAt" | "sessionId"
+	| "automationId"
+	| "eventKey"
+	| "scheduledFor"
+	| "startedAt"
+	| "finishedAt"
+	| "sessionId"
+	| "pullNumber"
+	| "costUsd"
+	| "steps"
 > & {
 	automation_id: string;
 	event_key: string | null;
@@ -71,7 +130,20 @@ type RunRow = Omit<
 	started_at: string | null;
 	finished_at: string | null;
 	session_id: string | null;
+	pull_number: number | null;
+	cost_usd: number | null;
+	steps: string | null;
 };
+
+/** Options as stored, with anything a newer runner added filled in. */
+function readOptions(raw: string | null): AutomationOptions {
+	if (!raw) return { ...DEFAULT_OPTIONS };
+	try {
+		return { ...DEFAULT_OPTIONS, ...(JSON.parse(raw) as Partial<AutomationOptions>) };
+	} catch {
+		return { ...DEFAULT_OPTIONS };
+	}
+}
 
 function automation(row: AutomationRow): Automation {
 	return {
@@ -88,6 +160,7 @@ function automation(row: AutomationRow): Automation {
 		workspaceMode: row.workspace_mode,
 		enabled: Boolean(row.enabled),
 		triggers: JSON.parse(row.triggers) as Trigger[],
+		options: readOptions(row.options),
 		nextRunAt: row.next_run_at,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
@@ -105,7 +178,18 @@ function run(row: RunRow): AutomationRun {
 		status: row.status,
 		error: row.error,
 		sessionId: row.session_id,
+		summary: row.summary ?? null,
+		pullNumber: row.pull_number ?? null,
+		costUsd: row.cost_usd ?? null,
+		steps: row.steps ? (JSON.parse(row.steps) as RunStep[]) : [],
 	};
+}
+
+function hasColumn(db: Database, table: string, column: string): boolean {
+	return db
+		.query<{ name: string }, []>(`PRAGMA table_info(${table})`)
+		.all()
+		.some((row) => row.name === column);
 }
 
 export class AutomationStore {
@@ -129,6 +213,16 @@ export class AutomationStore {
 		);
 		CREATE UNIQUE INDEX IF NOT EXISTS automation_event_once ON automation_runs (automation_id, event_key) WHERE event_key IS NOT NULL;
 		CREATE INDEX IF NOT EXISTS automation_run_history ON automation_runs (automation_id, id);`);
+		if (!hasColumn(this.db, "automations", "options"))
+			this.db.exec("ALTER TABLE automations ADD COLUMN options TEXT");
+		for (const [column, type] of [
+			["summary", "TEXT"],
+			["pull_number", "INTEGER"],
+			["cost_usd", "REAL"],
+			["steps", "TEXT"],
+		])
+			if (!hasColumn(this.db, "automation_runs", column))
+				this.db.exec(`ALTER TABLE automation_runs ADD COLUMN ${column} ${type}`);
 	}
 
 	list(workspace: string): Automation[] {
@@ -157,7 +251,9 @@ export class AutomationStore {
 		const id = crypto.randomUUID(),
 			now = new Date().toISOString();
 		this.db
-			.query(`INSERT INTO automations VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+			.query(`INSERT INTO automations (id, workspace, owner_id, name, prompt, provider, model, effort,
+			mode, project, workspace_mode, enabled, triggers, next_run_at, created_at, updated_at, options)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 			.run(
 				id,
 				workspace,
@@ -175,6 +271,7 @@ export class AutomationStore {
 				input.enabled ? nextScheduled(input.triggers, new Date()) : null,
 				now,
 				now,
+				JSON.stringify(input.options ?? DEFAULT_OPTIONS),
 			);
 		return this.get(workspace, id) as Automation;
 	}
@@ -182,7 +279,7 @@ export class AutomationStore {
 		const now = new Date().toISOString();
 		this.db
 			.query(`UPDATE automations SET name=?, prompt=?, provider=?, model=?, effort=?, mode=?, project=?,
-			workspace_mode=?, enabled=?, triggers=?, next_run_at=?, updated_at=? WHERE id=? AND workspace=? AND owner_id=?`)
+			workspace_mode=?, enabled=?, triggers=?, next_run_at=?, updated_at=?, options=? WHERE id=? AND workspace=? AND owner_id=?`)
 			.run(
 				input.name,
 				input.prompt,
@@ -196,6 +293,7 @@ export class AutomationStore {
 				JSON.stringify(input.triggers),
 				input.enabled ? nextScheduled(input.triggers, new Date()) : null,
 				now,
+				JSON.stringify(input.options ?? item.options),
 				item.id,
 				item.workspace,
 				item.ownerId,
@@ -279,10 +377,22 @@ export class AutomationStore {
 		status: AutomationRun["status"],
 		error: string | null,
 		sessionId: string | null,
+		outcome?: Partial<RunOutcome>,
 	): void {
 		this.db
-			.query("UPDATE automation_runs SET status=?, error=?, session_id=?, finished_at=? WHERE id=?")
-			.run(status, error, sessionId, new Date().toISOString(), id);
+			.query(`UPDATE automation_runs SET status=?, error=?, session_id=?, finished_at=?,
+			summary=?, pull_number=?, cost_usd=?, steps=? WHERE id=?`)
+			.run(
+				status,
+				error,
+				sessionId,
+				new Date().toISOString(),
+				outcome?.summary ?? null,
+				outcome?.pullNumber ?? null,
+				outcome?.costUsd ?? null,
+				outcome?.steps ? JSON.stringify(outcome.steps) : null,
+				id,
+			);
 	}
 	active(id: string): boolean {
 		return Boolean(
