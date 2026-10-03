@@ -156,6 +156,8 @@ async function inputOf(
 	const providers = await chat.providerList(who.userId);
 	const info = providers.find((item) => item.id === provider && item.available);
 	if (!info) throw new AutomationError("Choose an installed agent", 400);
+	if (who.settings?.agentAccess?.[provider] === "admins" && who.role === "member")
+		throw new AutomationError(`Only admins can start ${info.name} in this workspace`, 403);
 	const optional = (key: string): string | null => {
 		const item = value[key];
 		if (item === null || item === undefined || item === "") return null;

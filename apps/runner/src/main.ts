@@ -2,7 +2,7 @@ import { providerRegistry } from "./agents/registry";
 import { Automations } from "./automations/service";
 import { AutomationStore } from "./automations/store";
 import { withAgentBins } from "./agents/setup";
-import { createTokenVerifier, signedOut, type Verify } from "./auth";
+import { createTokenVerifier, signedOut, type Verify, type WorkspaceSettings } from "./auth";
 import { ChatHub } from "./chat/hub";
 import { ChatStore } from "./chat/store";
 import { readConfig } from "./config";
@@ -107,10 +107,24 @@ const environments: EnvironmentDeps = {
 	checkUrl: (raw) => checkEnvironmentUrl(raw, config.environmentHosts),
 };
 // What people kept here before workspaces moves into their default workspace when they use it.
-const signIn = createTokenVerifier(config.apiUrl, fetch, (who) => {
-	chat.adopt(who);
-	environments.store.adopt(who.userId, who.workspace);
-});
+// What each workspace sets for everyone, as last heard from the API: the run-log retention below.
+const workspaceSettings = new Map<string, WorkspaceSettings>();
+setInterval(() => {
+	for (const [workspace, settings] of workspaceSettings) {
+		const days = settings.logRetentionDays ?? 0;
+		const cleared = days > 0 ? chat.prune(workspace, days) : 0;
+		if (cleared) console.log(`[runner] cleared ${cleared} threads older than ${days} days`);
+	}
+}, 3_600_000);
+const signIn = createTokenVerifier(
+	config.apiUrl,
+	fetch,
+	(who) => {
+		chat.adopt(who);
+		environments.store.adopt(who.userId, who.workspace);
+	},
+	(workspace, settings) => workspaceSettings.set(workspace, settings),
+);
 // A paired Grid acts under the key it paired with (its home workspace), whichever it names.
 const verify: Verify = async (token, workspace) => {
 	if (!pairing || !isEnvironmentToken(token)) return signIn(token, workspace);

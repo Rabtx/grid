@@ -122,6 +122,60 @@ describe("workspaces", () => {
 		expect(stranger.status).toBe(404);
 	});
 
+	it("keeps settings for everyone, merging each change into what is there", async () => {
+		const first = await request(
+			`/${slug}`,
+			json(
+				{ settings: { defaultBranch: "main", agentAccess: { codex: "admins" } } },
+				{ method: "PATCH" },
+			),
+		);
+		expect(first.status).toBe(200);
+		const second = await request(
+			`/${slug}`,
+			json(
+				{ settings: { logRetentionDays: 90, agentAccess: { claude: "everyone" } } },
+				{ method: "PATCH" },
+			),
+		);
+		expect(payload(second).settings).toEqual({
+			defaultBranch: "main",
+			logRetentionDays: 90,
+			agentAccess: { codex: "admins", claude: "everyone" },
+		});
+		const bad = await request(
+			`/${slug}`,
+			json({ settings: { logRetentionDays: 3 } }, { method: "PATCH" }),
+		);
+		expect(bad.status).toBe(400);
+	});
+
+	it("says where the data lives, exports it, and takes a logo", async () => {
+		const status = payload(await request(`/${slug}/data`)) as unknown as {
+			host: string;
+			database: { healthy: boolean; version: string; sizeBytes: number };
+			backups: { available: boolean };
+		};
+		expect(status.database.healthy).toBe(true);
+		expect(status.database.version).toStartWith("Postgres");
+		expect(status.database.sizeBytes).toBeGreaterThan(0);
+		const exported = await call(`/api/v1/workspaces/${slug}/export`, {
+			headers: { authorization: `Bearer ${token}` },
+		});
+		expect(exported.status).toBe(200);
+		expect(exported.body).toMatchObject({ format: "grid-workspace-export", workspace: { slug } });
+		const form = new FormData();
+		form.append(
+			"file",
+			new File(["<svg xmlns='http://www.w3.org/2000/svg'/>"], "logo.svg", {
+				type: "image/svg+xml",
+			}),
+		);
+		const logo = await request(`/${slug}/logo`, { method: "POST", body: form });
+		expect(logo.status).toBe(200);
+		expect(String(payload(logo).logoUrl)).toMatch(/^\/uploads\/logos\/.+\.svg$/);
+	});
+
 	it("renames and deletes a workspace", async () => {
 		const renamed = await request(
 			`/${slug}`,

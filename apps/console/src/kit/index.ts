@@ -176,6 +176,7 @@ export {
 	ChannelTable,
 	CopyField,
 	IdentityCard,
+	InviteCard,
 	MonoValue,
 	PillInput,
 	PropertyRow,

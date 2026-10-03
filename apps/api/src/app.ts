@@ -80,6 +80,8 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 		sessions: deps.sessions,
 		send: deps.send,
 		uploadsDir: config.uploadsDir,
+		databaseUrl: config.databaseUrl,
+		backupsDir: config.backupsDir,
 	};
 	api.route("/workspaces", workspaceRoutes(workspaces));
 	api.route("/invites", inviteRoutes(workspaces));

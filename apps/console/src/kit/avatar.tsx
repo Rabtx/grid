@@ -84,19 +84,35 @@ export function WorkspaceMark(props: {
 	name: string;
 	color?: string | null;
 	size?: keyof typeof SIZES;
+	/** Its uploaded logo, drawn instead of the letter. */
+	src?: string | null;
 }): JSX.Element {
+	const corner = "rounded-[calc(28%*var(--kit-radius-scale))]";
 	return (
-		<span
-			aria-hidden="true"
-			class={`grid shrink-0 place-items-center rounded-[calc(28%*var(--kit-radius-scale))] font-semibold text-white uppercase ${SIZES[props.size ?? "sm"]}`}
-			style={{
-				background: props.color?.startsWith("#")
-					? props.color
-					: `hsl(${hueOf(props.name)} 62% 52%)`,
-			}}
+		<Show
+			when={props.src}
+			fallback={
+				<span
+					aria-hidden="true"
+					class={`grid shrink-0 place-items-center ${corner} font-semibold text-white uppercase ${SIZES[props.size ?? "sm"]}`}
+					style={{
+						background: props.color?.startsWith("#")
+							? props.color
+							: `hsl(${hueOf(props.name)} 62% 52%)`,
+					}}
+				>
+					{props.name.trim().slice(0, 1) || "?"}
+				</span>
+			}
 		>
-			{props.name.trim().slice(0, 1) || "?"}
-		</span>
+			{(src) => (
+				<img
+					src={src()}
+					alt=""
+					class={`shrink-0 object-cover ${corner} ${SIZES[props.size ?? "sm"]}`}
+				/>
+			)}
+		</Show>
 	);
 }
 

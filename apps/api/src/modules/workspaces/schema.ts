@@ -29,12 +29,32 @@ export const createWorkspaceSchema = z
 	.object({ slug: workspaceSlugSchema, name: z.string().trim().min(1).max(120), icon, color })
 	.strict();
 
+const agentId = z.string().regex(/^[a-z0-9-]{1,40}$/, "Use an agent id");
+
+/** A change to what applies to everyone in the workspace; each field is optional. */
+export const workspaceSettingsSchema = z
+	.object({
+		defaultBranch: z
+			.string()
+			.trim()
+			.min(1)
+			.max(200)
+			.regex(/^(?!.*\.\.)(?!-)[\w./-]+$/, "Use a branch name")
+			.optional(),
+		defaultAgent: agentId.optional(),
+		weekStartsOn: z.enum(["monday", "sunday", "saturday"]).optional(),
+		logRetentionDays: z.union([z.literal(0), z.number().int().min(7).max(3650)]).optional(),
+		agentAccess: z.record(agentId, z.enum(["everyone", "admins"])).optional(),
+	})
+	.strict();
+
 export const updateWorkspaceSchema = z
 	.object({
 		slug: workspaceSlugSchema.optional(),
 		name: z.string().trim().min(1).max(120).optional(),
 		icon,
 		color,
+		settings: workspaceSettingsSchema.optional(),
 	})
 	.strict()
 	.refine((input) => Object.keys(input).length > 0, "At least one workspace field is required");

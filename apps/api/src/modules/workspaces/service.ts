@@ -18,6 +18,8 @@ const workspaceView = (w: schema.WorkspaceRecord, role: schema.WorkspaceRole) =>
 	name: w.name,
 	icon: w.icon,
 	color: w.color,
+	logoUrl: w.logoUrl,
+	settings: w.settings,
 	role,
 	createdAt: w.createdAt.toISOString(),
 	updatedAt: w.updatedAt.toISOString(),
@@ -60,7 +62,36 @@ export async function updateWorkspace(
 	requireRole(access, input.slug !== undefined ? "owner" : "admin");
 	if (input.slug && input.slug !== access.workspace.slug && (await q.slugTaken(db, input.slug)))
 		throw conflict(`Workspace "${input.slug}" already exists`);
-	const updated = await q.updateWorkspace(db, access.workspace.id, input);
+	// Settings merge into what is there: changing the default branch keeps who may start agents.
+	const { settings, ...rest } = input;
+	const updated = await q.updateWorkspace(db, access.workspace.id, {
+		...rest,
+		...(settings
+			? {
+					settings: {
+						...access.workspace.settings,
+						...settings,
+						...(settings.agentAccess
+							? {
+									agentAccess: {
+										...access.workspace.settings.agentAccess,
+										...settings.agentAccess,
+									},
+								}
+							: {}),
+					},
+				}
+			: {}),
+	});
+	if (!updated) throw notFound(`Workspace "${access.workspace.slug}" not found`);
+	return workspaceView(updated, access.role);
+}
+
+/** A new logo (a path on this API), set by an admin. */
+export async function updateLogo(db: Database, scope: WorkspaceScope, logoUrl: string | null) {
+	const access = await workspaceAccess(db, scope);
+	requireRole(access, "admin");
+	const updated = await q.updateWorkspace(db, access.workspace.id, { logoUrl });
 	if (!updated) throw notFound(`Workspace "${access.workspace.slug}" not found`);
 	return workspaceView(updated, access.role);
 }

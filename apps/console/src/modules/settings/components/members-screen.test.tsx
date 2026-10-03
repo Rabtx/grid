@@ -15,7 +15,28 @@ vi.mock("@/modules/auth", () => ({
 	useAuth: () => ({ token: () => "token", user: () => ({ id: "me", username: "demo" }) }),
 }));
 vi.mock("@/modules/workspaces", () => ({
-	useWorkspaces: () => ({ current: () => ({ slug: "demo", name: "Demo", role }) }),
+	useWorkspaces: () => ({
+		current: () => ({
+			slug: "demo",
+			name: "Demo",
+			role,
+			settings: { agentAccess: { codex: "admins" } },
+		}),
+		refresh: vi.fn(),
+	}),
+}));
+vi.mock("@/modules/chat/stores/providers", () => ({
+	offeredProviders: <T,>(list: T[]) => list,
+	providersStore: {
+		load: vi.fn(async () => {}),
+		providers: () => [
+			{ id: "claude", name: "Claude Code", available: true, models: [], modes: [] },
+			{ id: "codex", name: "Codex", available: true, models: [], modes: [] },
+		],
+	},
+}));
+vi.mock("@/lib/runner-client", () => ({
+	runnerCall: vi.fn(async () => [{ provider: "claude", people: 2, roles: ["Engineer"] }]),
 }));
 vi.mock("@/modules/workspaces/services/workspaces.service", () => ({
 	workspacesService: {
@@ -25,12 +46,15 @@ vi.mock("@/modules/workspaces/services/workspaces.service", () => ({
 		removeMember: vi.fn(),
 		createInvite: vi.fn(),
 		revokeInvite: vi.fn(),
+		resendInvite: vi.fn(),
+		update: vi.fn(),
 	},
 }));
 
 const person = (over: Partial<Member>): Member => ({
 	userId: "u2",
 	username: "sam",
+	email: "sam@example.com",
 	displayName: "Sam Lee",
 	avatarUrl: null,
 	role: "member",
@@ -106,13 +130,17 @@ describe("MembersScreen", () => {
 		);
 	}
 
-	it("shows owners the people, the pending invites and a way to invite", async () => {
+	it("shows owners the invite card, the people with their emails, invites and agents", async () => {
 		mount();
 		await settle();
-		expect(container.textContent).toContain("Demo (you)");
-		expect(container.textContent).toContain("Sam Lee");
-		expect(container.textContent).toContain("Invite link");
-		expect(document.querySelector('button[aria-label="Invite people"]')).toBeTruthy();
+		const text = container.textContent ?? "";
+		expect(text).toContain("Send invite");
+		expect(text).toContain("2 people · agents don't use seats");
+		expect(text).toContain("Sam Lee");
+		expect(text).toContain("sam@example.com");
+		expect(text).toContain("Pending");
+		expect(text).toContain("Engineer · used by 2 people");
+		expect(text).toContain("Not used yet");
 	});
 
 	it("shows a plain member the people only", async () => {
@@ -120,22 +148,54 @@ describe("MembersScreen", () => {
 		mount();
 		await settle();
 		expect(container.textContent).toContain("Sam Lee");
-		expect(container.textContent).not.toContain("Pending invites");
+		expect(container.textContent).not.toContain("Send invite");
+		expect(container.textContent).toContain("Admins only");
 		expect(workspacesService.invites).not.toHaveBeenCalled();
-		expect(container.textContent).toContain("Owners and admins invite people");
 	});
 
-	it("changes someone's role from their sheet", async () => {
-		vi.mocked(workspacesService.setRole).mockResolvedValue(person({ role: "admin" }));
+	it("invites several people by email at once, with a role", async () => {
+		vi.mocked(workspacesService.createInvite).mockResolvedValue({
+			id: "i2",
+			email: "a@x.dev",
+			role: "member",
+			expiresAt: "2099-01-01T00:00:00Z",
+			createdAt: "2026-09-28T00:00:00Z",
+			token: "abc",
+			url: "http://grid/invite/abc",
+		});
 		mount();
 		await settle();
-		buttonWith("Sam Lee")?.click();
+		const field = container.querySelector<HTMLInputElement>('input[aria-label="Emails to invite"]');
+		if (field) {
+			field.value = "a@x.dev, b@x.dev";
+			field.dispatchEvent(new Event("input", { bubbles: true }));
+		}
 		await settle();
-		document.querySelector<HTMLInputElement>('input[type="radio"][value="admin"]')?.click();
+		buttonWith("Send invite")?.click();
 		await settle();
-		buttonWith("Save role")?.click();
+		expect(workspacesService.createInvite).toHaveBeenCalledWith("token", "demo", {
+			email: "a@x.dev",
+			role: "member",
+		});
+		expect(workspacesService.createInvite).toHaveBeenCalledWith("token", "demo", {
+			email: "b@x.dev",
+			role: "member",
+		});
+	});
+
+	it("keeps an agent to admins from its row", async () => {
+		vi.mocked(workspacesService.update).mockResolvedValue({} as never);
+		mount();
 		await settle();
-		expect(workspacesService.setRole).toHaveBeenCalledWith("token", "demo", "u2", "admin");
+		document
+			.querySelector<HTMLButtonElement>('button[aria-label="Who can start Claude Code"]')
+			?.click();
+		await settle();
+		buttonWith("Admins only")?.click();
+		await settle();
+		expect(workspacesService.update).toHaveBeenCalledWith("token", "demo", {
+			settings: { agentAccess: { claude: "admins" } },
+		});
 	});
 
 	it("hands out an invite link on the console's own address", async () => {
@@ -150,7 +210,9 @@ describe("MembersScreen", () => {
 		});
 		mount();
 		await settle();
-		document.querySelector<HTMLButtonElement>('button[aria-label="Invite people"]')?.click();
+		[...container.querySelectorAll("button")]
+			.find((button) => button.textContent === "Invite link")
+			?.click();
 		await settle();
 		buttonWith("Create link")?.click();
 		await settle();

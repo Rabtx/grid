@@ -74,6 +74,8 @@ export const envSchema = z
 		RAZORPAY_PLAN_ENTERPRISE_YEARLY: z.string().min(1).optional(),
 		/** Where uploaded files (avatars) live; the launcher puts them in Grid's data folder. */
 		GRID_UPLOADS_DIR: z.string().min(1).optional(),
+		/** Where database backups go; Grid's data folder by default. */
+		GRID_BACKUPS_DIR: z.string().min(1).optional(),
 	})
 	.superRefine((env, context) => {
 		if (env.NODE_ENV !== "production") {

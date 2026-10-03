@@ -58,6 +58,22 @@ describe("chat worktrees", () => {
 		expect(branches(shop)).toContain("grid/chat-abcdef12");
 	});
 
+	it("starts a new branch from the workspace's default branch when there is one", () => {
+		const app = repo("defaulted");
+		git(app, "checkout", "-q", "-b", "feature/wip");
+		writeFileSync(join(app, "web", "wip.ts"), "export {};\n");
+		git(app, "add", ".");
+		git(app, "commit", "-q", "-m", "wip");
+		const made = createWorktree(join(app, "web"), "dddddddd-1111", projects, { from: "main" });
+		expect(made?.worktree.base).toBe("main");
+		expect(git(made?.worktree.path ?? "", "rev-parse", "HEAD")).toBe(
+			git(app, "rev-parse", "refs/heads/main"),
+		);
+		// A default branch this repository lacks starts from what is checked out instead.
+		const other = createWorktree(join(app, "web"), "eeeeeeee-1111", projects, { from: "develop" });
+		expect(other?.worktree.base).toBe("feature/wip");
+	});
+
 	it("is not made for a folder outside git", () => {
 		const plain = join(projects, "plain");
 		mkdirSync(plain);

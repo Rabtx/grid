@@ -914,3 +914,51 @@ describe("a person's setup for their agents", () => {
 		expect(envs).toEqual([{ GIT_AUTHOR_NAME: "me" }]);
 	});
 });
+
+describe("workspace settings for threads", () => {
+	const echo = (): Provider => ({
+		info: () => ({ id: "echo", name: "Echo", available: true, models: [], modes: [] }),
+		start: async () => ({
+			prompt: async () => ({ reason: "done" }),
+			cancel: () => {},
+			approve: () => {},
+			setModel: async () => {},
+			setMode: async () => {},
+			setEffort: async () => {},
+			close: () => {},
+		}),
+	});
+	it("keeps an agent to admins when the workspace says so", () => {
+		const chat = new ChatHub(new ChatStore(":memory:"), new Map([["echo", echo()]]), tmpdir());
+		const input = { project: "alpha", provider: "echo", cwd: "/tmp" };
+		const settings = { agentAccess: { echo: "admins" as const } };
+		expect(() =>
+			chat.create({ userId: "me", workspace: "w", role: "member", settings }, input),
+		).toThrow("Only admins can start Echo in this workspace");
+		expect(
+			chat.create({ userId: "me", workspace: "w", role: "admin", settings }, input).provider,
+		).toBe("echo");
+		expect(chat.create({ userId: "me", workspace: "w", role: "member" }, input).provider).toBe(
+			"echo",
+		);
+	});
+	it("clears threads untouched past the retention, and counts who uses each agent", () => {
+		const store = new ChatStore(":memory:");
+		const chat = new ChatHub(store, new Map([["echo", echo()]]), tmpdir());
+		const old = chat.create(
+			{ userId: "me", workspace: "w" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
+		chat.create(
+			{ userId: "you", workspace: "w" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
+		expect(chat.agentUsage("w")).toEqual({ echo: 2 });
+		// Ninety-one days on, both are past ninety days; a thread from today stays.
+		const later = Date.now() + 91 * 86_400_000;
+		expect(chat.prune("w", 0, later)).toBe(0);
+		expect(chat.prune("other", 90, later)).toBe(0);
+		expect(chat.prune("w", 90, later)).toBe(2);
+		expect(store.get(old.id)).toBeNull();
+	});
+});

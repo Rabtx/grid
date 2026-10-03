@@ -568,6 +568,29 @@ export class ChatStore {
 		this.db.query("DELETE FROM sessions WHERE id = ?").run(id);
 	}
 
+	/**
+	 * Threads in a workspace untouched since `before` that hold no worktree (a worktree may hold
+	 * work nobody has pushed): what a run-log retention clears.
+	 */
+	idleSince(workspaceId: string, before: string): string[] {
+		return this.db
+			.query<{ id: string }, [string, string]>(
+				"SELECT id FROM sessions WHERE workspace_id = ? AND updated_at < ? AND worktree IS NULL",
+			)
+			.all(workspaceId, before)
+			.map((row) => row.id);
+	}
+
+	/** How many people have started threads with each agent in a workspace. */
+	agentUsage(workspaceId: string): Record<string, number> {
+		const rows = this.db
+			.query<{ provider: string; people: number }, [string]>(
+				"SELECT provider, COUNT(DISTINCT owner_id) AS people FROM sessions WHERE workspace_id = ? GROUP BY provider",
+			)
+			.all(workspaceId);
+		return Object.fromEntries(rows.map((row) => [row.provider, row.people]));
+	}
+
 	append(sessionId: string, events: ChatEvent[]): void {
 		if (events.length === 0) return;
 		const next = this.db

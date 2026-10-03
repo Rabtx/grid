@@ -69,6 +69,35 @@ export async function createInvite(
 	return { ...inviteView(invite), token, url };
 }
 
+/**
+ * Sends an emailed invite again. Its token is only kept hashed, so it gets a new one (the old link
+ * stops working) and another week.
+ */
+export async function resendInvite(
+	deps: { db: Database; send: EmailSender; config: AppConfig },
+	scope: WorkspaceScope,
+	id: string,
+) {
+	const access = await workspaceAccess(deps.db, scope);
+	requireRole(access, "admin");
+	const token = randomSecret();
+	const [invite] = await deps.db
+		.update(workspaceInvites)
+		.set({ tokenHash: hashSecret(token), expiresAt: new Date(Date.now() + INVITE_TTL_MS) })
+		.where(
+			and(
+				eq(workspaceInvites.id, id),
+				eq(workspaceInvites.workspaceId, access.workspace.id),
+				isNull(workspaceInvites.acceptedAt),
+			),
+		)
+		.returning();
+	if (!invite) throw notFound("Invite not found");
+	const url = inviteUrl(deps.config, token);
+	if (invite.email) await sendWorkspaceInvite(deps.send, invite.email, access.workspace.name, url);
+	return { ...inviteView(invite), token, url };
+}
+
 /** Invites not yet accepted or expired. */
 export async function listInvites(db: Database, scope: WorkspaceScope) {
 	const access = await workspaceAccess(db, scope);
