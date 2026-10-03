@@ -6,6 +6,7 @@ import type { PullDetail, PullRequests, PullReviewComment } from "./pulls";
 const all: FixInclude = { checks: true, comments: true, description: true };
 
 const detail: PullDetail = {
+	agent: null,
 	number: 7,
 	title: "Add login",
 	author: "ana",

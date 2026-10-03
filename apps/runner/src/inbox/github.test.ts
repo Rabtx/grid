@@ -23,6 +23,7 @@ function projectsDir(...projects: string[]): string {
 }
 
 const pull = (over: Partial<PullSummary> = {}): PullSummary => ({
+	agent: null,
 	number: 12,
 	title: "Add the inbox",
 	author: "sam",

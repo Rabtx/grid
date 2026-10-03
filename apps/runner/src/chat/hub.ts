@@ -1021,6 +1021,31 @@ export class ChatHub {
 		return opening;
 	}
 
+	/**
+	 * The thread working on each branch of a project, by the branch of its own worktree: who made a
+	 * pull request from that branch (the agent, the role it was started as, the thread's title).
+	 */
+	branchThreads(
+		workspace: string,
+		project: string,
+	): Map<string, { id: string; title: string; provider: string; role: string | null }> {
+		const found = new Map<
+			string,
+			{ id: string; title: string; provider: string; role: string | null }
+		>();
+		for (const session of this.store.list(workspace, project)) {
+			const branch = session.worktree?.branch;
+			if (!branch || found.has(branch)) continue;
+			found.set(branch, {
+				id: session.id,
+				title: session.title,
+				provider: session.provider,
+				role: session.role?.name ?? null,
+			});
+		}
+		return found;
+	}
+
 	/** The last agent edit of each of these files (absolute paths), and its thread's title, for Files. */
 	agentEdits(paths: readonly string[]): Map<string, AgentEdit & { title: string | null }> {
 		const edits = new Map<string, AgentEdit & { title: string | null }>();

@@ -1,5 +1,9 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { diffFromPatch, type FileDiff } from "../agents/diff";
 import { remoteToUrl } from "../folders/folders";
+import { agentOf } from "../folders/project-git";
 import { GitHubError } from "./codespaces";
 import type { Gh } from "./gh";
 
@@ -11,6 +15,9 @@ import type { Gh } from "./gh";
  */
 
 export type PullFilter = "mine" | "review" | "open";
+
+/** Which pull requests a list holds: still open, merged, or closed without merging. */
+export type PullState = "open" | "merged" | "closed";
 
 export type CheckState = "passing" | "failing" | "pending" | "none";
 
@@ -41,6 +48,8 @@ export type PullSummary = {
 	/** The commit at the tip of its branch: a new push is a new head. */
 	head: string;
 	url: string;
+	/** The agent that made it (a provider id), from its author or the signature in its description. */
+	agent: string | null;
 };
 
 export type PullComment = {
@@ -91,6 +100,7 @@ type Rollup = {
 type Person = { login?: string } | null;
 
 type RawPull = {
+	body?: string;
 	number: number;
 	title: string;
 	author: Person;
@@ -158,8 +168,8 @@ const REVIEW_THREADS_QUERY = `query ReviewThreads($owner: String!, $name: String
 }`;
 
 const LIST_FIELDS =
-	"number,title,author,headRefName,baseRefName,isDraft,reviewDecision,statusCheckRollup,labels,additions,deletions,createdAt,updatedAt,headRefOid,url";
-const DETAIL_FIELDS = `${LIST_FIELDS},body,state,mergeable,files,comments,reviews,isCrossRepository`;
+	"number,title,author,headRefName,baseRefName,isDraft,reviewDecision,statusCheckRollup,labels,additions,deletions,createdAt,updatedAt,headRefOid,url,body";
+const DETAIL_FIELDS = `${LIST_FIELDS},state,mergeable,files,comments,reviews,isCrossRepository`;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 
 /** One check, whether GitHub Actions (a check run) or a commit status (a status context). */
@@ -219,7 +229,20 @@ function summary(raw: RawPull): PullSummary {
 		updatedAt: raw.updatedAt,
 		head: raw.headRefOid,
 		url: raw.url,
+		agent: pullAgent(raw.author?.login ?? "", raw.body ?? ""),
 	};
+}
+
+/**
+ * The agent behind a pull request: its author when an agent opened it under its own name, else
+ * the signature lines agents leave in a description ("Generated with Claude Code",
+ * "Co-Authored-By: …"). Only those lines are read: a description about Claude is not by it.
+ */
+export function pullAgent(author: string, body: string): string | null {
+	const signatures = body
+		.split("\n")
+		.filter((line) => /generated with|co-authored-by|created by/i.test(line));
+	return agentOf(author, "", signatures);
 }
 
 /** Reviews (with something to show) and comments, as one conversation in time order. */
@@ -323,10 +346,15 @@ export class PullRequests {
 		}
 	}
 
-	async list(userId: string, folder: string, filter: PullFilter): Promise<PullSummary[]> {
+	async list(
+		userId: string,
+		folder: string,
+		filter: PullFilter,
+		state: PullState = "open",
+	): Promise<PullSummary[]> {
 		this.assertOwner(userId);
 		const repo = await this.repository(folder);
-		const args = ["pr", "list", "--repo", repo, "--state", "open", "--limit", "100"];
+		const args = ["pr", "list", "--repo", repo, "--state", state, "--limit", "100"];
 		if (filter === "mine") args.push("--author", "@me");
 		if (filter === "review") args.push("--search", "review-requested:@me");
 		const rows = await this.json<RawPull[]>([...args, "--json", LIST_FIELDS]);
@@ -445,4 +473,360 @@ export class PullRequests {
 		const repo = await this.repository(folder);
 		await this.output(["pr", "comment", String(number), "--repo", repo, "--body", body]);
 	}
+
+	/**
+	 * How a pull request's branch sits on its base: its own commits (from the pull request, so a
+	 * merged one still shows what it brought), and while it is open, how far ahead and behind the
+	 * base it is, the base's newest commit, and where the branch left it.
+	 */
+	async history(userId: string, folder: string, number: number): Promise<PullHistory> {
+		this.assertOwner(userId);
+		const repo = await this.repository(folder);
+		const pull = await this.json<{
+			baseRefName: string;
+			headRefOid: string;
+			state: string;
+			commits: RawPullCommit[];
+		}>([
+			"pr",
+			"view",
+			String(number),
+			"--repo",
+			repo,
+			"--json",
+			"baseRefName,headRefOid,state,commits",
+		]);
+		const base = pull.baseRefName;
+		const tags = await this.json<{ name: string; commit: { sha: string } }[]>([
+			"api",
+			`repos/${repo}/tags?per_page=100`,
+		]).catch(() => []);
+		const tagsOf = (sha: string) =>
+			tags.filter((tag) => tag.commit.sha === sha).map((tag) => tag.name);
+		const commits = (pull.commits ?? []).map((raw) => pullCommitOf(raw, tagsOf(raw.oid))).reverse();
+		if (pull.state !== "OPEN")
+			return { base, ahead: commits.length, behind: 0, baseTip: null, commits, mergeBase: null };
+		const compare = await this.json<RawCompare>([
+			"api",
+			`repos/${repo}/compare/${encodeURIComponent(base)}...${pull.headRefOid}`,
+		]);
+		const tip =
+			compare.behind_by > 0
+				? await this.json<RawCommit>(["api", `repos/${repo}/commits/${encodeURIComponent(base)}`])
+				: null;
+		return {
+			base,
+			ahead: compare.ahead_by,
+			behind: compare.behind_by,
+			baseTip: tip ? commitOf(tip, tagsOf(tip.sha)) : null,
+			commits,
+			mergeBase: compare.merge_base_commit
+				? commitOf(compare.merge_base_commit, tagsOf(compare.merge_base_commit.sha))
+				: null,
+		};
+	}
+
+	/** Bring the branch up to date with its base by rebasing it on GitHub. */
+	async rebase(userId: string, folder: string, number: number): Promise<void> {
+		this.assertOwner(userId);
+		const repo = await this.repository(folder);
+		await this.output(["pr", "update-branch", String(number), "--repo", repo, "--rebase"]);
+	}
+
+	/** Merge it, deleting its branch after when asked (the merge bar's "then delete <branch>"). */
+	async mergeAndDelete(
+		userId: string,
+		folder: string,
+		number: number,
+		method: MergeMethod,
+		deleteBranch: boolean,
+	): Promise<void> {
+		this.assertOwner(userId);
+		const repo = await this.repository(folder);
+		await this.output([
+			"pr",
+			"merge",
+			String(number),
+			"--repo",
+			repo,
+			`--${method}`,
+			...(deleteBranch ? ["--delete-branch"] : []),
+		]);
+	}
+
+	/**
+	 * What a review needs: who is looking, every review thread with its file, line and comments,
+	 * which files the viewer marked viewed, and each reviewer's latest verdict.
+	 */
+	async review(userId: string, folder: string, number: number): Promise<PullReview> {
+		this.assertOwner(userId);
+		const [owner, name] = (await this.repository(folder)).split("/");
+		return readReview(
+			await this.json<ReviewAnswer>([
+				"api",
+				"graphql",
+				"-f",
+				`query=${REVIEW_QUERY}`,
+				"-f",
+				`owner=${owner}`,
+				"-f",
+				`name=${name}`,
+				"-F",
+				`number=${number}`,
+			]),
+		);
+	}
+
+	/** Mark a file viewed (or not) for the viewer, as GitHub's own checkbox does. */
+	async setViewed(
+		userId: string,
+		folder: string,
+		number: number,
+		path: string,
+		viewed: boolean,
+	): Promise<void> {
+		const { pullId } = await this.review(userId, folder, number);
+		const mutation = viewed ? "markFileAsViewed" : "unmarkFileAsViewed";
+		await this.output([
+			"api",
+			"graphql",
+			"-f",
+			`query=mutation($id: ID!, $path: String!) { ${mutation}(input: { pullRequestId: $id, path: $path }) { clientMutationId } }`,
+			"-f",
+			`id=${pullId}`,
+			"-f",
+			`path=${path}`,
+		]);
+	}
+
+	/** Submit a review: a verdict, a summary, and comments on lines of the changes. */
+	async submitReview(
+		userId: string,
+		folder: string,
+		number: number,
+		review: ReviewSubmission,
+	): Promise<void> {
+		this.assertOwner(userId);
+		const repo = await this.repository(folder);
+		// The comments ride in a JSON body, which `gh api` reads from a file.
+		const file = join(tmpdir(), `grid-review-${crypto.randomUUID()}.json`);
+		await Bun.write(
+			file,
+			JSON.stringify({
+				event: review.event,
+				...(review.body.trim() ? { body: review.body.trim() } : {}),
+				comments: review.comments.map((comment) => ({
+					path: comment.path,
+					line: comment.line,
+					side: comment.side,
+					body: comment.body,
+				})),
+			}),
+		);
+		try {
+			await this.output([
+				"api",
+				"-X",
+				"POST",
+				`repos/${repo}/pulls/${number}/reviews`,
+				"--input",
+				file,
+			]);
+		} finally {
+			await Bun.file(file)
+				.delete()
+				.catch(() => undefined);
+		}
+	}
+}
+
+/** A commit on a pull request's history. */
+export type PullCommit = {
+	sha: string;
+	subject: string;
+	at: string;
+	author: string;
+	/** The agent that made it, from its author or co-author trailers. */
+	agent: string | null;
+	/** Tags pointing at it ("v0.8.2"). */
+	tags: string[];
+};
+
+export type PullHistory = {
+	base: string;
+	/** Commits on the branch not on its base, and on the base not on the branch. */
+	ahead: number;
+	behind: number;
+	/** The base's newest commit, when the base has moved on since the branch left it. */
+	baseTip: PullCommit | null;
+	/** The branch's commits, newest first. */
+	commits: PullCommit[];
+	/** Where the branch left its base. */
+	mergeBase: PullCommit | null;
+};
+
+type RawCommit = {
+	sha: string;
+	author?: Person;
+	commit: { message: string; author?: { name?: string; email?: string; date?: string } };
+};
+
+/** A commit as `gh pr view --json commits` gives it. */
+type RawPullCommit = {
+	oid: string;
+	messageHeadline?: string;
+	messageBody?: string;
+	authoredDate?: string;
+	authors?: { login?: string; name?: string; email?: string }[];
+};
+
+export function pullCommitOf(raw: RawPullCommit, tags: string[] = []): PullCommit {
+	const [first] = raw.authors ?? [];
+	const author = first?.login || first?.name || "ghost";
+	const coauthors = [
+		...(raw.authors ?? []).slice(1).map((who) => `${who.name ?? ""} ${who.email ?? ""}`),
+		...[...(raw.messageBody ?? "").matchAll(/^co-authored-by:\s*(.+)$/gim)].map(
+			(match) => match[1],
+		),
+	];
+	return {
+		sha: raw.oid,
+		subject: raw.messageHeadline ?? "",
+		at: raw.authoredDate ?? "",
+		author,
+		agent: agentOf(author, first?.email ?? "", coauthors),
+		tags,
+	};
+}
+
+type RawCompare = {
+	ahead_by: number;
+	behind_by: number;
+	commits: RawCommit[];
+	merge_base_commit?: RawCommit;
+};
+
+export function commitOf(raw: RawCommit, tags: string[] = []): PullCommit {
+	const message = raw.commit.message ?? "";
+	const [subject = ""] = message.split("\n");
+	const author = raw.author?.login ?? raw.commit.author?.name ?? "ghost";
+	const coauthors = [...message.matchAll(/^co-authored-by:\s*(.+)$/gim)].map((match) => match[1]);
+	return {
+		sha: raw.sha,
+		subject,
+		at: raw.commit.author?.date ?? "",
+		author,
+		agent: agentOf(author, raw.commit.author?.email ?? "", coauthors),
+		tags,
+	};
+}
+
+/** One comment in a review thread. */
+export type ThreadComment = { author: string; agent: string | null; body: string; at: string };
+
+/** A review thread hanging on a line of a file. */
+export type ReviewThread = {
+	id: string;
+	resolved: boolean;
+	/** The code it was left on has changed since. */
+	outdated: boolean;
+	path: string;
+	line: number | null;
+	side: "LEFT" | "RIGHT";
+	comments: ThreadComment[];
+};
+
+export type PullReview = {
+	/** Who is looking, by their GitHub login. */
+	viewer: string;
+	pullId: string;
+	/** Files the viewer marked viewed. */
+	viewed: string[];
+	threads: ReviewThread[];
+	/** Each reviewer's latest verdict: APPROVED, CHANGES_REQUESTED, COMMENTED. */
+	reviews: { author: string; agent: string | null; state: string }[];
+};
+
+/** A review as the person submits it. */
+export type ReviewSubmission = {
+	event: "APPROVE" | "COMMENT" | "REQUEST_CHANGES";
+	body: string;
+	comments: { path: string; line: number; side: "LEFT" | "RIGHT"; body: string }[];
+};
+
+type ReviewAnswer = {
+	data?: {
+		viewer?: { login?: string } | null;
+		repository?: {
+			pullRequest?: {
+				id?: string;
+				files?: { nodes?: { path?: string; viewerViewedState?: string }[] } | null;
+				reviewThreads?: {
+					nodes?: {
+						id?: string;
+						isResolved?: boolean;
+						isOutdated?: boolean;
+						path?: string;
+						line?: number | null;
+						originalLine?: number | null;
+						diffSide?: string;
+						comments?: {
+							nodes?: { author?: Person; body?: string; createdAt?: string }[];
+						};
+					}[];
+				} | null;
+				latestReviews?: { nodes?: { author?: Person; state?: string }[] } | null;
+			} | null;
+		} | null;
+	} | null;
+};
+
+const REVIEW_QUERY = `query Review($owner: String!, $name: String!, $number: Int!) {
+  viewer { login }
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      id
+      files(first: 100) { nodes { path viewerViewedState } }
+      reviewThreads(first: 100) {
+        nodes {
+          id isResolved isOutdated path line originalLine diffSide
+          comments(first: 50) { nodes { author { login } body createdAt } }
+        }
+      }
+      latestReviews(first: 20) { nodes { author { login } state } }
+    }
+  }
+}`;
+
+export function readReview(answer: ReviewAnswer): PullReview {
+	const pull = answer.data?.repository?.pullRequest;
+	if (!pull?.id) throw new GitHubError("GitHub did not say what this pull request holds", 502);
+	return {
+		viewer: answer.data?.viewer?.login ?? "",
+		pullId: pull.id,
+		viewed: (pull.files?.nodes ?? [])
+			.filter((file) => file.viewerViewedState === "VIEWED" && file.path)
+			.map((file) => file.path as string),
+		threads: (pull.reviewThreads?.nodes ?? []).map((thread) => ({
+			id: thread.id ?? "",
+			resolved: thread.isResolved === true,
+			outdated: thread.isOutdated === true,
+			path: thread.path ?? "",
+			line: thread.line ?? thread.originalLine ?? null,
+			side: thread.diffSide === "LEFT" ? "LEFT" : "RIGHT",
+			comments: (thread.comments?.nodes ?? []).map((comment) => {
+				const author = comment.author?.login ?? "ghost";
+				return {
+					author,
+					agent: agentOf(author, "", []),
+					body: comment.body ?? "",
+					at: comment.createdAt ?? "",
+				};
+			}),
+		})),
+		reviews: (pull.latestReviews?.nodes ?? []).map((review) => {
+			const author = review.author?.login ?? "ghost";
+			return { author, agent: agentOf(author, "", []), state: review.state ?? "" };
+		}),
+	};
 }

@@ -1,14 +1,52 @@
 import type { Who } from "../auth";
 import { type CodespacesLink, GitHubError } from "./codespaces";
 import { type FixInclude, fixPlan } from "./fix";
-import type { MergeMethod, PullFilter, PullRequests } from "./pulls";
+import type { MergeMethod, PullFilter, PullRequests, PullState, ReviewSubmission } from "./pulls";
+
+/** The Grid thread working on a branch: who made a pull request from it. */
+export type BranchThread = { id: string; title: string; provider: string; role: string | null };
 
 /** Pull requests, and how to find a project's folder on this machine. */
 export type PullsDeps = {
 	service: PullRequests;
 	/** The folder a project is linked to here, or null. */
 	folderOf: (workspace: string, project: string) => string | null;
+	/** The threads working on each of a project's branches, by their worktree's branch. */
+	threadsOf?: (workspace: string, project: string) => Map<string, BranchThread>;
 };
+
+const STATES = new Set<PullState>(["open", "merged", "closed"]);
+const EVENTS = new Set<ReviewSubmission["event"]>(["APPROVE", "COMMENT", "REQUEST_CHANGES"]);
+
+/** A pull request with the Grid thread that made it, when one did. */
+function withThread<T extends { branch: string }>(
+	pull: T,
+	threads: Map<string, BranchThread> | undefined,
+): T & { thread: BranchThread | null } {
+	return { ...pull, thread: threads?.get(pull.branch) ?? null };
+}
+
+/** Review comments as the console sends them, checked one by one. */
+function readComments(raw: unknown): ReviewSubmission["comments"] | null {
+	if (!Array.isArray(raw) || raw.length > 100) return null;
+	const comments: ReviewSubmission["comments"] = [];
+	for (const item of raw as Record<string, unknown>[]) {
+		const { path, line, side, body } = item ?? {};
+		if (
+			typeof path !== "string" ||
+			!path ||
+			typeof line !== "number" ||
+			!Number.isInteger(line) ||
+			line < 1 ||
+			(side !== "LEFT" && side !== "RIGHT") ||
+			typeof body !== "string" ||
+			!body.trim()
+		)
+			return null;
+		comments.push({ path, line, side, body: body.trim() });
+	}
+	return comments;
+}
 
 const FILTERS = new Set<PullFilter>(["mine", "review", "open"]);
 const METHODS = new Set<MergeMethod>(["merge", "squash", "rebase"]);
@@ -97,15 +135,25 @@ async function pullRequest(
 	if (!folder) return failure(409, "Choose this project's folder first");
 	const { service } = pulls;
 	const { userId } = who;
+	const threads = pulls.threadsOf?.(who.workspace, project);
 	if (!rawNumber) {
 		if (request.method !== "GET") return failure(405, "Not allowed");
 		const filter = (url.searchParams.get("filter") ?? "open") as PullFilter;
 		if (!FILTERS.has(filter)) return failure(400, "Unknown filter");
-		return Response.json({ data: await service.list(userId, folder, filter) });
+		const state = (url.searchParams.get("state") ?? "open") as PullState;
+		if (!STATES.has(state)) return failure(400, "Open, merged or closed");
+		const list = await service.list(userId, folder, filter, state);
+		return Response.json({ data: list.map((pull) => withThread(pull, threads)) });
 	}
 	const number = Number(rawNumber);
 	if (!action && request.method === "GET") {
-		return Response.json({ data: await service.view(userId, folder, number) });
+		return Response.json({ data: withThread(await service.view(userId, folder, number), threads) });
+	}
+	if (action === "history" && request.method === "GET") {
+		return Response.json({ data: await service.history(userId, folder, number) });
+	}
+	if (action === "review" && request.method === "GET") {
+		return Response.json({ data: await service.review(userId, folder, number) });
 	}
 	if (action === "diff" && request.method === "GET") {
 		return Response.json({ data: await service.diff(userId, folder, number) });
@@ -122,7 +170,26 @@ async function pullRequest(
 		case "merge": {
 			const method = (body.method ?? "merge") as MergeMethod;
 			if (!METHODS.has(method)) return failure(400, "Merge, squash or rebase");
-			await service.merge(userId, folder, number, method);
+			await service.mergeAndDelete(userId, folder, number, method, body.deleteBranch === true);
+			break;
+		}
+		case "rebase":
+			await service.rebase(userId, folder, number);
+			break;
+		case "viewed": {
+			if (typeof body.path !== "string" || !body.path) return failure(400, "Say which file");
+			await service.setViewed(userId, folder, number, body.path, body.viewed !== false);
+			break;
+		}
+		case "review": {
+			const event = body.event as ReviewSubmission["event"];
+			if (!EVENTS.has(event)) return failure(400, "Approve, comment or request changes");
+			const comments = readComments(body.comments ?? []);
+			if (!comments) return failure(400, "Each comment needs a file, a line, a side and words");
+			const summary = typeof body.body === "string" ? body.body : "";
+			if (event !== "APPROVE" && !summary.trim() && comments.length === 0)
+				return failure(400, "Say something with the review");
+			await service.submitReview(userId, folder, number, { event, body: summary, comments });
 			break;
 		}
 		case "ready":

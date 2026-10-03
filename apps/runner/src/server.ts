@@ -305,6 +305,7 @@ export function startServer(
 									return null;
 								}
 							},
+							threadsOf: (workspace, project) => chat.branchThreads(workspace, project),
 						},
 					);
 					if (handled) return handled;

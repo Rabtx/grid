@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,7 +9,9 @@ import {
 	checksState,
 	conversation,
 	PullRequests,
+	pullAgent,
 	readCheck,
+	readReview,
 	repoOf,
 	reviewComments,
 	splitDiff,
@@ -250,6 +252,7 @@ describe("pull requests through gh", () => {
 		const list = await pulls.list("me", folder, "review");
 		expect(list).toEqual([
 			{
+				agent: null,
 				number: 7,
 				title: "Add login",
 				author: "ana",
@@ -349,5 +352,144 @@ describe("pull requests through gh", () => {
 		await expect(pulls.merge("me", folder, 7, "merge")).rejects.toThrow(
 			"Pull request is not mergeable",
 		);
+	});
+});
+
+describe("pull request history and review", () => {
+	const commit = (sha: string, message: string, login: string, date: string) => ({
+		sha,
+		author: { login },
+		commit: { message, author: { name: login, email: `${login}@example.com`, date } },
+	});
+
+	it("names the agent behind a pull request from its signature lines only", () => {
+		expect(pullAgent("sam", "Fix it.\n\n🤖 Generated with [Claude Code](https://claude.com)")).toBe(
+			"claude",
+		);
+		expect(pullAgent("sam", "Teaches the app to talk to Claude.")).toBeNull();
+		expect(pullAgent("codex[bot]", "")).toBe("codex");
+	});
+
+	it("reads how the branch sits on its base, newest commit first, with tags and agents", async () => {
+		const pullCommit = (oid: string, headline: string, body = "") => ({
+			oid,
+			messageHeadline: headline,
+			messageBody: body,
+			authoredDate: "2026-10-02T00:00:00Z",
+			authors: [{ login: "sam", name: "Sam", email: "sam@example.com" }],
+		});
+		let state = "OPEN";
+		const { gh, calls } = fakeGh((args) => {
+			if (args[0] === "pr")
+				return {
+					stdout: JSON.stringify({
+						baseRefName: "main",
+						headRefOid: "c3",
+						state,
+						commits: [
+							pullCommit("c2", "Reproduce the 0 min ETA"),
+							pullCommit(
+								"c3",
+								"Clamp before rounding",
+								"Co-Authored-By: Claude <noreply@anthropic.com>",
+							),
+						],
+					}),
+				};
+			if (args[1]?.includes("/compare/"))
+				return {
+					stdout: JSON.stringify({
+						ahead_by: 2,
+						behind_by: 1,
+						merge_base_commit: commit("b0", "Release 0.8.2", "sam", "2026-10-01T00:00:00Z"),
+						commits: [],
+					}),
+				};
+			if (args[1]?.includes("/tags"))
+				return { stdout: JSON.stringify([{ name: "v0.8.2", commit: { sha: "b0" } }]) };
+			if (args[1]?.includes("/commits/main"))
+				return {
+					stdout: JSON.stringify(commit("m1", "Update setup steps", "ana", "2026-10-02T02:00:00Z")),
+				};
+			return { stdout: "{}" };
+		});
+		const pulls = new PullRequests(gh, owner);
+		const folder = repoFolder("git@github.com:acme/app.git");
+		const history = await pulls.history("me", folder, 7);
+		expect(history).toMatchObject({ base: "main", ahead: 2, behind: 1 });
+		expect(history.commits.map((item) => [item.subject, item.agent])).toEqual([
+			["Clamp before rounding", "claude"],
+			["Reproduce the 0 min ETA", null],
+		]);
+		expect(history.mergeBase).toMatchObject({ subject: "Release 0.8.2", tags: ["v0.8.2"] });
+		expect(history.baseTip).toMatchObject({ subject: "Update setup steps", author: "ana" });
+		expect(calls.some((args) => args[1] === "repos/acme/app/compare/main...c3")).toBe(true);
+		// A merged one shows what it brought, without comparing it to a base that has moved on.
+		state = "MERGED";
+		const merged = await pulls.history("me", folder, 7);
+		expect(merged).toMatchObject({ ahead: 2, behind: 0, baseTip: null, mergeBase: null });
+	});
+
+	it("reads review threads, viewed files and verdicts", () => {
+		const review = readReview({
+			data: {
+				viewer: { login: "me" },
+				repository: {
+					pullRequest: {
+						id: "PR_1",
+						files: {
+							nodes: [
+								{ path: "eta.ts", viewerViewedState: "UNVIEWED" },
+								{ path: "eta.test.ts", viewerViewedState: "VIEWED" },
+							],
+						},
+						reviewThreads: {
+							nodes: [
+								{
+									id: "T1",
+									isResolved: true,
+									path: "eta.ts",
+									line: 9,
+									diffSide: "RIGHT",
+									comments: {
+										nodes: [{ author: { login: "codex" }, body: "Export it", createdAt: "x" }],
+									},
+								},
+							],
+						},
+						latestReviews: { nodes: [{ author: { login: "codex" }, state: "APPROVED" }] },
+					},
+				},
+			},
+		});
+		expect(review.viewed).toEqual(["eta.test.ts"]);
+		expect(review.threads[0]).toMatchObject({
+			resolved: true,
+			path: "eta.ts",
+			line: 9,
+			side: "RIGHT",
+			comments: [{ author: "codex", agent: "codex", body: "Export it" }],
+		});
+		expect(review.reviews).toEqual([{ author: "codex", agent: "codex", state: "APPROVED" }]);
+	});
+
+	it("submits a review with its line comments as JSON", async () => {
+		let sent: unknown = null;
+		const { gh } = fakeGh((args) => {
+			const input = args[args.indexOf("--input") + 1];
+			if (args.includes("--input")) sent = JSON.parse(readFileSync(input, "utf8"));
+			return { stdout: "{}" };
+		});
+		const pulls = new PullRequests(gh, owner);
+		await pulls.submitReview("me", repoFolder("git@github.com:acme/app.git"), 7, {
+			event: "REQUEST_CHANGES",
+			body: " Keep 2 minutes ",
+			comments: [{ path: "eta.ts", line: 9, side: "RIGHT", body: "Keep 2 minutes" }],
+		});
+		expect(sent).toEqual({
+			event: "REQUEST_CHANGES",
+			body: "Keep 2 minutes",
+			comments: [{ path: "eta.ts", line: 9, side: "RIGHT", body: "Keep 2 minutes" }],
+		});
 	});
 });

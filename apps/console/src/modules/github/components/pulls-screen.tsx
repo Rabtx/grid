@@ -1,246 +1,367 @@
-import { useMatch, useSearchParams } from "@solidjs/router";
+import { useMatch, useNavigate, useSearchParams } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 
 import {
+	AgentLogo,
 	Alert,
-	AlertIcon,
+	Avatar,
 	Button,
-	CheckCircleIcon,
 	EmptyState,
 	IconButton,
-	ListDetail,
-	ListRow,
-	PaneHeader,
+	PullGroupLabel,
+	PullListRow,
+	PullPanelRow,
 	PullRequestIcon,
 	RestoreIcon,
 	Segmented,
 	Skeleton,
-	SpinnerIcon,
+	Stack,
+	Text,
 	TextLink,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
 import { useAuth } from "@/modules/auth";
+import { agentName } from "@/modules/chat/stores/providers";
+import { placementsStore } from "@/modules/environments";
 import { useWorkspace } from "@/modules/projects";
 import { relativeTime } from "@/modules/projects/lib/relative-time";
+import { ShellSlot, useShell } from "@/modules/shell";
 
-import { pullSubtitle } from "../lib/pulls";
+import { agentOf, madeBy, pullLine, pullTone } from "../lib/pull-look";
 import { pullsService } from "../services/pulls.service";
-import type { CheckState, PullFilter, PullSummary } from "../types/github.types";
+import type { PullState, PullSummary } from "../types/github.types";
 
-import { PullDetailPane } from "./pull-detail";
-
-const FILTERS = [
-	{ value: "open", label: "Open" },
-	{ value: "mine", label: "Mine" },
-	{ value: "review", label: "To review" },
-] as const satisfies readonly { value: PullFilter; label: string }[];
+import { PullChanges } from "./pull-changes";
+import { PullDocument } from "./pull-document";
 
 const NEEDS_GITHUB = /connect github/i;
 const NEEDS_FOLDER = /choose this project's folder/i;
+
+const STATES = [
+	{ value: "open", label: "Open" },
+	{ value: "merged", label: "Merged" },
+	{ value: "closed", label: "Closed" },
+] as const satisfies readonly { value: PullState; label: string }[];
 
 function message(cause: unknown, fallback: string): string {
 	return cause instanceof Error ? cause.message : fallback;
 }
 
-/** A pull request's checks at a glance, as its row's icon. */
-function ChecksIcon(props: { checks: CheckState }): JSX.Element {
-	return (
-		<Show
-			when={props.checks !== "none"}
-			fallback={<PullRequestIcon size="sm" class="text-fg-subtle" />}
-		>
-			<Show when={props.checks === "passing"}>
-				<CheckCircleIcon size="sm" class="text-success" />
-			</Show>
-			<Show when={props.checks === "failing"}>
-				<AlertIcon size="sm" class="text-danger" />
-			</Show>
-			<Show when={props.checks === "pending"}>
-				<SpinnerIcon class="size-4 text-warning" />
-			</Show>
-		</Show>
-	);
-}
-
 /**
- * A project's pull requests on GitHub: open ones, yours, or those waiting for your review, beside
- * the one open. The open one and the filter are in the URL (`?pr=12&filter=mine`), so a link or a
- * reload lands on it; on phones the pull request covers the list, with a way back.
+ * A project's pull requests on GitHub (Figma 18 · Pull requests): those waiting on your review and
+ * the rest open, in the panel; the open one as a document, or its changes to review. Each has its
+ * own address (`/pulls/grid/142`, `/pulls/grid/142/changes`); phones list them first, with Open,
+ * Merged and Closed.
  */
 export function PullsScreen(): JSX.Element {
 	const auth = useAuth();
 	const workspace = useWorkspace();
-	const match = useMatch(() => "/pulls/:slug");
-	const [search, setSearch] = useSearchParams<{ pr?: string; filter?: string }>();
+	const shell = useShell();
+	const navigate = useNavigate();
+	const match = useMatch(() => "/pulls/:slug/:number?/:view?");
+	const [search, setSearch] = useSearchParams<{ pr?: string; state?: string }>();
 	const slug = () => match()?.params.slug ?? "";
-	const filter = (): PullFilter =>
-		FILTERS.some((option) => option.value === search.filter)
-			? (search.filter as PullFilter)
-			: "open";
-	const open = () => (search.pr ? Number(search.pr) : null);
-	const [pulls, setPulls] = createSignal<PullSummary[] | null>(null);
-	const [error, setError] = createSignal<string | null>(null);
-	const [revision, setRevision] = createSignal(0);
+	const number = () => {
+		const value = Number(match()?.params.number);
+		return Number.isInteger(value) && value > 0 ? value : null;
+	};
+	const reviewing = () => match()?.params.view === "changes";
+	const state = (): PullState =>
+		STATES.some((option) => option.value === search.state) ? (search.state as PullState) : "open";
+	const scope = () => placementsStore.scopeOf(slug());
+	const href = (pull: number, view?: "changes") =>
+		workspaceHref(`/pulls/${slug()}/${pull}${view ? `/${view}` : ""}`);
 
-	async function load(): Promise<void> {
-		const token = auth.token();
-		const project = slug();
-		const wanted = filter();
-		if (!token || !project) return;
-		setError(null);
-		try {
-			const list = await pullsService.list(token, project, wanted);
-			if (project !== slug() || wanted !== filter()) return;
-			setPulls(list);
-		} catch (cause) {
-			if (project !== slug()) return;
-			setPulls([]);
-			setError(message(cause, "Could not read the pull requests"));
-		}
-	}
-
+	// Links from before each pull request had its own address (`?pr=12`) land on it.
 	createEffect(
-		() => [auth.token(), slug(), filter(), workspace.folders()[slug()], revision()] as const,
-		() => {
-			setPulls(null);
-			void load();
+		() => [search.pr, slug()] as const,
+		([pr, project]) => {
+			if (pr && project) navigate(`/pulls/${project}/${pr}`, { replace: true });
 		},
 	);
 
-	const list = (
-		<>
-			<PaneHeader
-				title="Pull requests"
-				actions={
-					<IconButton label="Refresh" size="sm" onClick={() => setRevision((n) => n + 1)}>
-						<RestoreIcon size="sm" />
-					</IconButton>
-				}
-			/>
-			<div class="shrink-0 px-2 pt-2 md:px-3">
-				<Segmented
-					block
-					label="Which pull requests"
-					options={FILTERS}
-					value={filter()}
-					onChange={(value) => setSearch({ filter: value === "open" ? undefined : value })}
+	const [open, setOpen] = createSignal<PullSummary[] | null>(null);
+	const [waiting, setWaiting] = createSignal<Set<number>>(new Set());
+	const [others, setOthers] = createSignal<PullSummary[] | null>(null);
+	const [error, setError] = createSignal<string | null>(null);
+	const [revision, setRevision] = createSignal(0);
+
+	createEffect(
+		() => [auth.token(), slug(), workspace.folders()[slug()], revision()] as const,
+		([token, project]) => {
+			setOpen(null);
+			setError(null);
+			if (!token || !project) return;
+			void Promise.all([
+				pullsService.list(token, project, "open"),
+				pullsService.list(token, project, "review").catch(() => [] as PullSummary[]),
+			]).then(
+				([all, review]) => {
+					if (project !== untrack(slug)) return;
+					setWaiting(new Set(review.map((pull) => pull.number)));
+					setOpen(all);
+				},
+				(cause) => {
+					if (project !== untrack(slug)) return;
+					setOpen([]);
+					setError(message(cause, "Could not read the pull requests"));
+				},
+			);
+		},
+	);
+
+	// Merged and closed are read when the phone's list asks for them.
+	createEffect(
+		() => [auth.token(), slug(), state(), revision()] as const,
+		([token, project, wanted]) => {
+			setOthers(null);
+			if (!token || !project || wanted === "open") return;
+			void pullsService.list(token, project, "open", wanted).then(
+				(list) => {
+					if (project === untrack(slug) && wanted === untrack(state)) setOthers(list);
+				},
+				() => setOthers([]),
+			);
+		},
+	);
+
+	const needsYou = createMemo(() => (open() ?? []).filter((pull) => waiting().has(pull.number)));
+	const rest = createMemo(() => (open() ?? []).filter((pull) => !waiting().has(pull.number)));
+	const who = (pull: PullSummary) => {
+		const agent = agentOf(pull);
+		return agent ? (
+			<AgentLogo id={agent} name={agentName(agent, scope())} />
+		) : (
+			<Avatar name={pull.author} size="xs" />
+		);
+	};
+	const panelRows = (list: readonly PullSummary[], waitingOnYou: boolean) => (
+		<For each={list} keyed={(pull) => pull.number}>
+			{(pull) => (
+				<PullPanelRow
+					href={href(pull().number)}
+					title={pull().title}
+					time={relativeTime(pull().updatedAt)}
+					line={pullLine(pull())}
+					tone={pullTone(pull(), waitingOnYou)}
+					who={who(pull())}
+					current={number() === pull().number}
 				/>
-			</div>
-			<div class="min-h-0 flex-1 overflow-y-auto p-1.5 md:p-2">
-				<Show when={error()}>
-					{(reason) => (
+			)}
+		</For>
+	);
+	const listRows = (list: readonly PullSummary[], waitingOnYou: boolean, closed?: string) => (
+		<For each={list} keyed={(pull) => pull.number}>
+			{(pull) => (
+				<PullListRow
+					href={href(pull().number)}
+					title={pull().title}
+					line={`#${pull().number} · ${madeBy(pull())} · ${relativeTime(pull().updatedAt)}`}
+					tone={pullTone(pull(), waitingOnYou, closed)}
+					who={who(pull())}
+					checks={pull().checks}
+				/>
+			)}
+		</For>
+	);
+
+	/** Why there is nothing to list: GitHub to connect, a folder to choose, or something else. */
+	const problem = () => (
+		<Show when={error()}>
+			{(reason) => (
+				<Show
+					when={NEEDS_GITHUB.test(reason())}
+					fallback={
 						<Show
-							when={NEEDS_GITHUB.test(reason())}
+							when={NEEDS_FOLDER.test(reason())}
 							fallback={
-								<Show
-									when={NEEDS_FOLDER.test(reason())}
-									fallback={
-										<div class="p-2">
-											<Alert
-												tone="danger"
-												title={reason()}
-												action={
-													<Button size="sm" onClick={() => setRevision((n) => n + 1)}>
-														Try again
-													</Button>
-												}
-											/>
-										</div>
-									}
-								>
-									<EmptyState
-										icon={<PullRequestIcon size="md" />}
-										title="Choose this project's folder"
-										description="Pull requests come from the GitHub repository the folder pushes to."
+								<div class="p-2">
+									<Alert
+										tone="danger"
+										title={reason()}
 										action={
-											<Button size="sm" onClick={() => workspace.chooseFolderFor(slug())}>
-												Choose folder
+											<Button size="sm" onClick={() => setRevision((n) => n + 1)}>
+												Try again
 											</Button>
 										}
 									/>
-								</Show>
+								</div>
 							}
 						>
 							<EmptyState
 								icon={<PullRequestIcon size="md" />}
-								title="Connect GitHub"
-								description="Review, merge and comment on pull requests from Grid."
+								title="Choose this project's folder"
+								description="Pull requests come from the GitHub repository the folder pushes to."
 								action={
-									<TextLink tone="accent" href={workspaceHref("/settings/connectors")}>
-										Open Connectors
-									</TextLink>
+									<Button size="sm" onClick={() => workspace.chooseFolderFor(slug())}>
+										Choose folder
+									</Button>
 								}
 							/>
 						</Show>
-					)}
-				</Show>
-				<Show
-					when={pulls()}
-					fallback={
-						<div class="flex flex-col gap-1.5 p-1">
-							<Skeleton class="h-12" />
-							<Skeleton class="h-12" />
-							<Skeleton class="h-12" />
-						</div>
 					}
 				>
-					{(loaded) => (
-						<Show
-							when={loaded().length > 0 || error()}
-							fallback={
-								<EmptyState
-									icon={<PullRequestIcon size="md" />}
-									title={
-										filter() === "review"
-											? "Nothing waiting for your review"
-											: filter() === "mine"
-												? "No open pull requests of yours"
-												: "No open pull requests"
-									}
-								/>
-							}
-						>
-							<For each={loaded()}>
-								{(pull) => (
-									<ListRow
-										title={pull.draft ? `Draft: ${pull.title}` : pull.title}
-										subtitle={pullSubtitle(pull)}
-										trailing={relativeTime(pull.updatedAt)}
-										icon={<ChecksIcon checks={pull.checks} />}
-										current={open() === pull.number}
-										onClick={() => setSearch({ pr: String(pull.number) })}
-									/>
-								)}
-							</For>
-						</Show>
-					)}
-				</Show>
-			</div>
-		</>
-	);
-
-	return (
-		<ListDetail list={list} open={open() !== null}>
-			<Show
-				when={open()}
-				fallback={
 					<EmptyState
 						icon={<PullRequestIcon size="md" />}
-						title="Open a pull request"
-						description="Its description, checks, conversation and changed files show here."
+						title="Connect GitHub"
+						description="Review, merge and comment on pull requests from Grid."
+						action={
+							<TextLink tone="accent" href={workspaceHref("/settings/connectors")}>
+								Open Connectors
+							</TextLink>
+						}
 					/>
+				</Show>
+			)}
+		</Show>
+	);
+
+	const loading = () => (
+		<Stack gap={2} class="p-2">
+			<Skeleton class="h-12" />
+			<Skeleton class="h-12" />
+			<Skeleton class="h-12" />
+		</Stack>
+	);
+	const listing = () => !shell.desktop() && number() === null;
+	const openCount = () => open()?.length ?? 0;
+
+	return (
+		<div class="flex min-h-0 flex-1 flex-col">
+			<ShellSlot name="panelActions">
+				<IconButton label="Refresh" size="sm" onClick={() => setRevision((n) => n + 1)}>
+					<RestoreIcon size="sm" />
+				</IconButton>
+			</ShellSlot>
+			{/* The panel: what waits on your review, then the rest open. */}
+			<ShellSlot name="panel">
+				{problem()}
+				<Show when={open()} fallback={<Show when={!error()}>{loading()}</Show>}>
+					<Show when={needsYou().length}>
+						<PullGroupLabel>Needs your review</PullGroupLabel>
+						{panelRows(needsYou(), true)}
+					</Show>
+					<Show when={rest().length}>
+						<PullGroupLabel>Open</PullGroupLabel>
+						{panelRows(rest(), false)}
+					</Show>
+					<Show when={!error() && openCount() === 0}>
+						<Text size="caption" tone="subtle" class="px-2 py-2">
+							No open pull requests.
+						</Text>
+					</Show>
+				</Show>
+			</ShellSlot>
+			<Show when={listing()}>
+				<ShellSlot name="heading">
+					<div class="flex min-w-0 flex-col items-center">
+						<Text as="h1" tone="strong" weight="medium" size="body-lg" truncate>
+							Pull requests
+						</Text>
+						<Text size="caption" tone="subtle" truncate>
+							{open() ? `${slug()} · ${openCount()} open` : slug()}
+						</Text>
+					</div>
+				</ShellSlot>
+			</Show>
+
+			<Show
+				when={number()}
+				fallback={
+					<Show
+						when={listing()}
+						fallback={
+							<div class="grid min-h-0 flex-1 place-items-center p-4">
+								<Show when={!error()} fallback={problem()}>
+									<EmptyState
+										icon={<PullRequestIcon size="md" />}
+										title="Open a pull request"
+										description="Its description, history, checks and changes show here."
+									/>
+								</Show>
+							</div>
+						}
+					>
+						{/* Phones: Open, Merged and Closed, what waits on you first. */}
+						<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-6">
+							<Segmented<PullState>
+								block
+								label="Which pull requests"
+								value={state()}
+								onChange={(value) => setSearch({ state: value === "open" ? undefined : value })}
+								options={STATES.map((option) => ({
+									...option,
+									count: option.value === "open" && open() ? openCount() || undefined : undefined,
+									countTone: "quiet" as const,
+								}))}
+							/>
+							{problem()}
+							<Show
+								when={state() === "open"}
+								fallback={
+									<Show when={others()} fallback={loading()}>
+										{(list) => (
+											<Show
+												when={list().length}
+												fallback={
+													<EmptyState
+														icon={<PullRequestIcon size="md" />}
+														title={state() === "merged" ? "Nothing merged yet" : "Nothing closed"}
+													/>
+												}
+											>
+												<div class="flex flex-col pt-2">
+													{listRows(list(), false, state() === "merged" ? "MERGED" : "CLOSED")}
+												</div>
+											</Show>
+										)}
+									</Show>
+								}
+							>
+								<Show when={open()} fallback={<Show when={!error()}>{loading()}</Show>}>
+									<Show when={needsYou().length}>
+										<PullGroupLabel phone>Needs your review</PullGroupLabel>
+										{listRows(needsYou(), true)}
+									</Show>
+									<Show when={rest().length}>
+										<PullGroupLabel phone>Open</PullGroupLabel>
+										{listRows(rest(), false)}
+									</Show>
+									<Show when={!error() && openCount() === 0}>
+										<EmptyState
+											icon={<PullRequestIcon size="md" />}
+											title="No open pull requests"
+										/>
+									</Show>
+								</Show>
+							</Show>
+						</div>
+					</Show>
 				}
 			>
-				{(number) => (
-					<PullDetailPane
-						project={slug()}
-						number={number()}
-						onBack={() => setSearch({ pr: undefined })}
-						onChanged={() => setRevision((n) => n + 1)}
-					/>
+				{(pull) => (
+					<Show
+						when={reviewing()}
+						fallback={
+							<PullDocument
+								project={slug()}
+								number={pull()}
+								changesHref={href(pull(), "changes")}
+								onBack={() => navigate(workspaceHref(`/pulls/${slug()}`))}
+								onChanged={() => setRevision((n) => n + 1)}
+							/>
+						}
+					>
+						<PullChanges
+							project={slug()}
+							number={pull()}
+							onBack={() => navigate(href(pull()))}
+							onChanged={() => setRevision((n) => n + 1)}
+						/>
+					</Show>
 				)}
 			</Show>
-		</ListDetail>
+		</div>
 	);
 }
