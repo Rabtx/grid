@@ -26,7 +26,7 @@ const SECTIONS: [prefix: string, title: string][] = [
 	["/board", "Board"],
 	["/files", "Files"],
 	["/notes", "Notes"],
-	["/terminal", "Terminal"],
+	["/terminal", "Terminals"],
 	["/pulls", "Pull requests"],
 	["/automations", "Automations"],
 	["/settings", "Settings"],

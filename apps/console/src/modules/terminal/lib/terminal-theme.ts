@@ -66,11 +66,14 @@ function isLight(hex: string): boolean {
 	return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.5;
 }
 
-/** The terminal's colours, taken from the console's live tokens so it follows Appearance. */
+/**
+ * The terminal's colours: dark whatever the theme, as Figma's terminal is (the kit's terminal
+ * tokens), with the cursor in the person's accent.
+ */
 export function terminalTheme(): ITheme {
-	const background = resolveColor("var(--canvas)", "#171717");
+	const background = resolveColor("var(--kit-terminal-bg)", "#161616");
 	const light = isLight(background);
-	const foreground = resolveColor("var(--ink)", light ? "#2e2e2e" : "#ebebeb");
+	const foreground = resolveColor("var(--kit-terminal-fg)", light ? "#2e2e2e" : "#d4d4d4");
 	return {
 		background,
 		foreground,
