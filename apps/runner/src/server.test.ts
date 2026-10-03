@@ -130,6 +130,21 @@ describe("runner server", () => {
 		expect(await notFound).toBe(CLOSE_NOT_FOUND);
 	});
 
+	it("says what each terminal is doing when asked for its status", async () => {
+		const id = await openTerminal();
+		const reply = (await (await fetch(`${base}/terminals?status=1`, { headers: auth })).json()) as {
+			data: {
+				id: string;
+				endedAt: string | null;
+				status: { cwd: string | null; ports: number[]; preview: string[] };
+			}[];
+		};
+		const mine = reply.data.find((terminal) => terminal.id === id);
+		expect(mine?.endedAt).toBeNull();
+		expect(mine?.status).toMatchObject({ ports: [], preview: expect.any(Array) });
+		await fetch(`${base}/terminals/${id}`, { method: "DELETE", headers: auth });
+	});
+
 	it("ends the shell when the terminal is closed", async () => {
 		const id = await openTerminal();
 		const response = await fetch(`${base}/terminals/${id}`, { method: "DELETE", headers: auth });

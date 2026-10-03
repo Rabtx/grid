@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
-import { For } from "solid-js";
+import { For, Show } from "solid-js";
 
-import { ChevronDownIcon } from "./icons";
+import { ChevronDownIcon, CloseIcon, GlobeIcon, TerminalIcon } from "./icons";
 import { variants } from "./variants";
 
 /** A terminal's frame: dark whatever the theme, monospaced, the way a real one looks. */
@@ -170,5 +170,222 @@ export function PageDots(props: { count: number; current: number }): JSX.Element
 				)}
 			</For>
 		</span>
+	);
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Figma 15 · Terminals. Shells on a machine: listed in the panel with what each is doing, as tabs
+ * along the top of the dark terminal with where it is, and on phones as cards of their last lines.
+ * ---------------------------------------------------------------------------------------- */
+
+/** How a terminal is doing, as its dot: running something, serving, ended badly, or idle. */
+export type TerminalState = "running" | "serving" | "failed" | "idle";
+
+const STATE_DOT: Record<TerminalState, string> = {
+	running: "bg-warning",
+	serving: "bg-success",
+	failed: "bg-danger",
+	idle: "bg-fg-faint",
+};
+
+const STATE_TEXT: Record<TerminalState, string> = {
+	running: "text-warning",
+	serving: "text-fg-subtle",
+	failed: "text-danger",
+	idle: "text-fg-subtle",
+};
+
+/** A caption over a group of terminals: the machine, Recent. */
+export function TerminalGroupLabel(props: { children: JSX.Element }): JSX.Element {
+	return <h3 class="px-2 pt-2 pb-1 font-medium text-caption text-fg-subtle">{props.children}</h3>;
+}
+
+/**
+ * A terminal in the panel (Figma Terminals panel row): a shell, or a globe while it serves a port;
+ * its name; what it is doing ("localhost:5173", "bun test --watch", "exit 0 · 1d ago"); its dot.
+ */
+export function TerminalPanelRow(props: {
+	href: string;
+	title: string;
+	detail: string;
+	state: TerminalState;
+	/** Ended: listed under Recent, quieter and without a dot. */
+	ended?: boolean;
+	current?: boolean;
+}): JSX.Element {
+	return (
+		<a
+			href={props.href}
+			aria-current={props.current ? "page" : undefined}
+			class="focus-ring flex min-w-0 items-start gap-2 rounded-kit-md p-2 transition-colors duration-fast hover:bg-fill aria-[current=page]:bg-fill-strong"
+		>
+			<span
+				class={`grid size-4 shrink-0 place-items-center pt-0.5 [&_svg]:size-4 ${props.state === "serving" ? "text-success" : "text-fg-subtle"} ${props.ended ? "opacity-60" : ""}`}
+			>
+				{props.state === "serving" ? <GlobeIcon /> : <TerminalIcon />}
+			</span>
+			<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span class={`truncate text-body ${props.ended ? "text-fg-muted" : "font-medium text-fg"}`}>
+					{props.title}
+				</span>
+				<span
+					class={`truncate text-caption ${props.ended ? "text-fg-subtle" : STATE_TEXT[props.state]}`}
+				>
+					{props.detail}
+				</span>
+			</span>
+			<Show when={!props.ended}>
+				<span
+					aria-hidden="true"
+					class={`mt-1.5 size-1.5 shrink-0 rounded-full ${STATE_DOT[props.state]}`}
+				/>
+			</Show>
+		</a>
+	);
+}
+
+/**
+ * Where the live terminal sits (Figma Terminal · Simple): edge to edge under the top bar on
+ * desktop, a dark card inset from the screen's edges on phones.
+ */
+export function TerminalFrame(props: { hidden?: boolean; children: JSX.Element }): JSX.Element {
+	return (
+		<div
+			class={`min-h-0 flex-1 flex-col overflow-hidden bg-terminal max-md:mx-3 max-md:mb-2 max-md:rounded-kit-xl ${props.hidden ? "hidden" : "flex"}`}
+		>
+			{props.children}
+		</div>
+	);
+}
+
+/** One tab along the top of the terminal. */
+export type TerminalTab = { id: string; label: string; href: string; state: TerminalState };
+
+/**
+ * The terminal's own top strip (Figma Terminal tabs): each shell as a dot and its name, the one
+ * showing bright; on the right where it is (machine, folder, branch). Dark like the terminal.
+ */
+export function TerminalTabs(props: {
+	tabs: readonly TerminalTab[];
+	current: string | null;
+	onClose?: (id: string) => void;
+	/** On the right: the machine, the folder and the branch. */
+	where?: JSX.Element;
+}): JSX.Element {
+	return (
+		<div class="flex h-9 shrink-0 items-center gap-3 border-terminal-dim/20 border-b bg-terminal px-3 font-mono text-caption">
+			<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
+				<For each={props.tabs} keyed={(tab) => tab.id}>
+					{(tab) => {
+						return (
+							<div
+								aria-current={props.current === tab().id ? "page" : undefined}
+								class="group/tab flex shrink-0 items-center rounded-kit-sm text-terminal-dim transition-colors duration-fast hover:text-terminal-fg aria-[current=page]:text-terminal-fg"
+							>
+								<a
+									href={tab().href}
+									class="focus-ring flex items-center gap-1.5 rounded-kit-sm py-1 pl-1.5"
+								>
+									<span
+										aria-hidden="true"
+										class={`size-1.5 shrink-0 rounded-full ${STATE_DOT[tab().state]}`}
+									/>
+									<span class="max-w-40 truncate">{tab().label}</span>
+								</a>
+								<Show when={props.onClose} fallback={<span class="w-1.5" />}>
+									{(close) => (
+										<button
+											type="button"
+											aria-label={`Close ${tab().label}`}
+											onClick={() => close()(tab().id)}
+											class="focus-ring ml-0.5 grid size-5 place-items-center rounded-kit-sm opacity-0 transition-opacity duration-fast hover:bg-terminal-dim/20 focus-visible:opacity-100 group-hover/tab:opacity-100 pointer-coarse:opacity-100 [&_svg]:size-3"
+										>
+											<CloseIcon />
+										</button>
+									)}
+								</Show>
+							</div>
+						);
+					}}
+				</For>
+			</div>
+			<Show when={props.where}>
+				<div class="hidden min-w-0 shrink items-center gap-3 truncate text-terminal-dim md:flex">
+					{props.where}
+				</div>
+			</Show>
+		</div>
+	);
+}
+
+/** The branch a terminal is on, in the terminal's own accent, with how far ahead it is. */
+export function TerminalBranch(props: { name: string; ahead?: number | null }): JSX.Element {
+	return (
+		<span class="flex min-w-0 items-center gap-1">
+			<span class="truncate text-violet">{props.name}</span>
+			<Show when={props.ahead}>
+				<span class="text-terminal-dim">↑{props.ahead}</span>
+			</Show>
+		</span>
+	);
+}
+
+/** Under a phone's terminal (Figma Status line): its dot and branch on the left, what it does on the right. */
+export function TerminalStatusLine(props: {
+	state: TerminalState;
+	start?: JSX.Element;
+	end?: JSX.Element;
+}): JSX.Element {
+	return (
+		<div class="flex h-9 shrink-0 items-center gap-2 border-terminal-dim/20 border-t bg-terminal px-3 font-mono text-caption text-terminal-dim">
+			<span aria-hidden="true" class={`size-1.5 shrink-0 rounded-full ${STATE_DOT[props.state]}`} />
+			<span class="flex min-w-0 flex-1 items-center gap-2">{props.start}</span>
+			<span class="min-w-0 truncate">{props.end}</span>
+		</div>
+	);
+}
+
+/**
+ * A terminal on the phone's list (Figma Terminal · Sessions): its dot, name and what it is doing,
+ * then its last lines, all in the terminal's dark.
+ */
+export function TerminalSessionCard(props: {
+	href: string;
+	title: string;
+	detail?: string;
+	state: TerminalState;
+	lines: readonly string[];
+}): JSX.Element {
+	return (
+		<a
+			href={props.href}
+			aria-label={props.detail ? `${props.title}, ${props.detail}` : props.title}
+			class="focus-ring block overflow-hidden rounded-kit-xl bg-terminal font-mono text-caption"
+		>
+			<span class="flex items-center gap-2 border-terminal-dim/20 border-b px-3 py-2.5">
+				<span
+					aria-hidden="true"
+					class={`size-1.5 shrink-0 rounded-full ${STATE_DOT[props.state]}`}
+				/>
+				<span class="font-medium text-terminal-fg">{props.title}</span>
+				<Show when={props.detail}>
+					<span
+						class={`min-w-0 truncate ${props.state === "serving" ? "text-terminal-blue" : props.state === "failed" ? "text-danger" : props.state === "running" ? "text-warning" : "text-terminal-dim"}`}
+					>
+						{props.detail}
+					</span>
+				</Show>
+			</span>
+			<span class="flex flex-col px-3 py-2.5 text-terminal-fg leading-5">
+				<Show
+					when={props.lines.length}
+					fallback={<span class="text-terminal-dim">Nothing printed yet</span>}
+				>
+					<For each={props.lines}>
+						{(line) => <span class="truncate whitespace-pre">{line}</span>}
+					</For>
+				</Show>
+			</span>
+		</a>
 	);
 }

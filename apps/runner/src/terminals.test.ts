@@ -113,6 +113,7 @@ describe("TerminalStore", () => {
 		spawned[0].onExit(130);
 		expect(watcher.seen.exits).toEqual([130]);
 		expect(store.list("me")[0].exitCode).toBe(130);
+		expect(store.list("me")[0].endedAt).toEqual(expect.any(String));
 		expect(store.close("me", id)).toBe(true);
 		expect(store.list("me")).toHaveLength(0);
 	});

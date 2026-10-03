@@ -3,6 +3,7 @@ import { basename } from "node:path";
 
 import type { RunnerConfig } from "./config";
 import { insideProjectsDir } from "./folders/folders";
+import { readMachine, terminalStatus, type TerminalStatus } from "./terminal-status";
 
 /** What the console sees of a terminal: enough to draw its tab. */
 export type TerminalInfo = {
@@ -14,6 +15,8 @@ export type TerminalInfo = {
 	createdAt: string;
 	/** Null while the shell runs; its exit code once it has ended. */
 	exitCode: number | null;
+	/** When the shell ended, for the panel's Recent ("exit 0 · 1d ago"). */
+	endedAt: string | null;
 };
 
 /** One attached client. A terminal can have several (a phone and a laptop on the same shell). */
@@ -25,6 +28,8 @@ export type TerminalClient = {
 
 /** A handle on the PTY, so tests can stand in for a real shell. */
 export type Pty = {
+	/** The shell's process id, to read what it is doing; absent where the platform hides it. */
+	pid?: number;
 	write: (data: string | Uint8Array) => void;
 	resize: (cols: number, rows: number) => void;
 	kill: () => void;
@@ -124,6 +129,24 @@ export class TerminalStore {
 	}
 
 	/**
+	 * Each of a person's terminals with what it is doing now: where its shell is, what runs in it,
+	 * the ports it serves, the branch, and its last lines. Ended ones keep only their last lines.
+	 */
+	async statuses(ownerId: string): Promise<(TerminalInfo & { status: TerminalStatus })[]> {
+		const mine = [...this.terminals.values()]
+			.filter((terminal) => terminal.ownerId === ownerId)
+			.sort((a, b) => a.info.createdAt.localeCompare(b.info.createdAt));
+		if (mine.length === 0) return [];
+		const machine = await readMachine();
+		return Promise.all(
+			mine.map(async (terminal) => ({
+				...terminal.info,
+				status: await terminalStatus(terminal.pty?.pid ?? null, terminal.history(), machine),
+			})),
+		);
+	}
+
+	/**
 	 * Open a new shell, optionally typing a first command into it (an agent's installer or
 	 * sign-in, say). Returns null once the person already holds the maximum.
 	 */
@@ -151,6 +174,7 @@ export class TerminalStore {
 				rows,
 				createdAt: new Date().toISOString(),
 				exitCode: null,
+				endedAt: null,
 			},
 			this.config.replayBytes,
 		);
@@ -162,7 +186,7 @@ export class TerminalStore {
 			rows,
 			onData: (bytes) => terminal.record(bytes),
 			onExit: (code) => {
-				terminal.info = { ...terminal.info, exitCode: code };
+				terminal.info = { ...terminal.info, exitCode: code, endedAt: new Date().toISOString() };
 				terminal.pty = null;
 				for (const client of terminal.clients) client.exited(code);
 			},

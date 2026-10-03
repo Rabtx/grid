@@ -58,8 +58,16 @@ function on(environment: string | undefined) {
 }
 
 export const terminalsService = {
-	list: async (token: string, environment?: string) =>
-		(await call<TerminalInfo[]>("/terminals", token, {}, environment)).map(on(environment)),
+	/** The terminals on a machine; with `status`, what each one is doing too. */
+	list: async (token: string, environment?: string, status = false) =>
+		(
+			await call<TerminalInfo[]>(
+				status ? "/terminals?status=1" : "/terminals",
+				token,
+				{},
+				environment,
+			)
+		).map(on(environment)),
 	open: async (
 		token: string,
 		size: { cols: number; rows: number },
