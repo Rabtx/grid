@@ -397,7 +397,13 @@ export function startServer(
 					const id = url.pathname.slice("/terminals/".length);
 
 					if (request.method === "GET" && !id)
-						return Response.json({ data: store.list(who.userId) });
+						return Response.json({
+							// With `status`, what each one is doing too (the Terminals panel asks for it).
+							data:
+								url.searchParams.get("status") === "1"
+									? await store.statuses(who.userId)
+									: store.list(who.userId),
+						});
 					if (request.method === "POST" && !id) {
 						const body = (await request.json().catch(() => ({}))) as {
 							cols?: number;

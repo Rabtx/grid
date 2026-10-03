@@ -28,6 +28,7 @@ export const spawnPty: SpawnPty = ({ shell, cwd, cols, rows, onData, onExit }) =
 	});
 
 	return {
+		pid: proc.pid,
 		write: (data) => terminal.write(data),
 		resize: (nextCols, nextRows) => terminal.resize(nextCols, nextRows),
 		kill: () => proc.kill(),
