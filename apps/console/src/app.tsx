@@ -6,7 +6,7 @@ import { EmptyState, Text, TextLink } from "@/kit";
 import { AutomationsScreen } from "@/modules/automations";
 import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
-import { EnvironmentsScreen } from "@/modules/environments";
+import { MachinesScreen } from "@/modules/environments";
 import { HomeScreen } from "@/modules/home";
 import { ConnectorsScreen } from "@/modules/github";
 import { InboxScreen } from "@/modules/inbox";
@@ -67,7 +67,9 @@ const Router = createRouter({
 		{ path: "/settings/appearance", component: () => <Authed screen={AppearanceScreen} /> },
 		{ path: "/settings/notifications", component: () => <Authed screen={NotificationsScreen} /> },
 		{ path: "/settings/agents", component: () => <Authed screen={AgentsScreen} /> },
-		{ path: "/settings/environments", component: () => <Authed screen={EnvironmentsScreen} /> },
+		{ path: "/settings/machines", component: () => <Authed screen={MachinesScreen} /> },
+		// Environments became Machines: old links land there.
+		{ path: "/settings/environments", component: () => <Moved to="/settings/machines" /> },
 		{ path: "/settings/connectors", component: () => <Authed screen={ConnectorsScreen} /> },
 		{ path: "/settings/general", component: () => <Authed screen={GeneralScreen} /> },
 		{ path: "/settings/members", component: () => <Authed screen={MembersScreen} /> },
@@ -75,7 +77,7 @@ const Router = createRouter({
 		{ path: "/settings/diagnostics", component: () => <Authed screen={DiagnosticsScreen} /> },
 		{ path: "/settings/profile", component: () => <Authed screen={ProfileScreen} /> },
 		// Account became Profile: old links land there.
-		{ path: "/settings/account", component: AccountRoute },
+		{ path: "/settings/account", component: () => <Moved to="/settings/profile" /> },
 		// The design system, every piece in every state; loads on its own when opened.
 		{ path: "/design", component: DesignRoute },
 		{ path: "*", component: NotFoundRoute },
@@ -128,9 +130,10 @@ function ProjectRoute(): JSX.Element {
 	);
 }
 
-function AccountRoute(): JSX.Element {
+/** A page that moved: its old address goes to the new one. */
+function Moved(props: { to: string }): JSX.Element {
 	const navigate = useNavigate();
-	onSettled(() => navigate("/settings/profile", { replace: true }));
+	onSettled(() => navigate(props.to, { replace: true }));
 	return null;
 }
 

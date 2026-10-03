@@ -1,15 +1,13 @@
 import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { For } from "solid-js";
+import { createEffect, createSignal, For } from "solid-js";
 
 import {
 	AsteriskIcon,
 	BackIcon,
 	BellIcon,
-	BranchIcon,
 	type FeedTone,
 	IconButton,
-	InfoIcon,
 	LaptopIcon,
 	NavLink,
 	NavSection,
@@ -17,9 +15,14 @@ import {
 	PanelHeader,
 	PlugIcon,
 	SettingsIcon,
+	StatusDot,
 	UserIcon,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
+import { runnerUp } from "@/lib/runner-health";
+import { useAuth } from "@/modules/auth";
+import { useWorkspaces } from "@/modules/workspaces";
+import { workspacesService } from "@/modules/workspaces/services/workspaces.service";
 
 import { SETTINGS_SECTIONS, type SettingsHref, settingsReturn } from "../lib/pages";
 
@@ -32,9 +35,7 @@ const ICONS: Record<SettingsHref, { icon: () => JSX.Element; tone: FeedTone }> =
 	"/settings/members": { icon: () => <UserIcon />, tone: "warning" },
 	"/settings/connectors": { icon: () => <PlugIcon />, tone: "accent" },
 	"/settings/agents": { icon: () => <AsteriskIcon />, tone: "violet" },
-	"/settings/environments": { icon: () => <LaptopIcon />, tone: "success" },
-	"/settings/worktrees": { icon: () => <BranchIcon />, tone: "neutral" },
-	"/settings/diagnostics": { icon: () => <InfoIcon />, tone: "neutral" },
+	"/settings/machines": { icon: () => <LaptopIcon />, tone: "success" },
 };
 
 export function settingsTone(href: SettingsHref): FeedTone {
@@ -53,6 +54,32 @@ export function settingsIcon(href: SettingsHref): JSX.Element {
 export function SettingsSidebar(): JSX.Element {
 	const location = useLocation();
 	const navigate = useNavigate();
+	const auth = useAuth();
+	const workspaces = useWorkspaces();
+	const [members, setMembers] = createSignal<number | null>(null);
+	// How many people are in the workspace, beside Members (Figma 24's sidebar count).
+	createEffect(
+		() => [auth.token(), workspaces.current()?.slug] as const,
+		([token, slug]) => {
+			if (!token || !slug) return;
+			workspacesService.members(token, slug).then(
+				(list) => setMembers(list.length),
+				() => setMembers(null),
+			);
+		},
+	);
+	const trailing = (href: SettingsHref): JSX.Element => {
+		if (href === "/settings/members") return members() ?? undefined;
+		if (href === "/settings/machines")
+			return (
+				<StatusDot
+					status={runnerUp() ? "online" : "offline"}
+					size="sm"
+					label={runnerUp() ? "This machine is online" : "This machine is offline"}
+				/>
+			);
+		return undefined;
+	};
 
 	return (
 		<nav aria-label="Settings" class="flex h-full min-h-0 flex-col">
@@ -74,6 +101,7 @@ export function SettingsSidebar(): JSX.Element {
 										href={workspaceHref(page.href)}
 										icon={settingsIcon(page.href)}
 										label={page.label}
+										trailing={trailing(page.href)}
 										current={location.pathname === page.href}
 									/>
 								)}

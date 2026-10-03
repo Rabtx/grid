@@ -281,7 +281,7 @@ function MachineStep(props: { onNext: () => void }): JSX.Element {
 	const [choice, setChoice] = createSignal<Machine>("this");
 	const next = () => {
 		if (choice() === "this") props.onNext();
-		else window.location.replace(workspacePath("/settings/environments"));
+		else window.location.replace(workspacePath("/settings/machines"));
 	};
 	return (
 		<div class="flex flex-col gap-6">

@@ -126,7 +126,7 @@ export function ConnectorsScreen(): JSX.Element {
 								label="Codespaces"
 								description="Start, stop and connect Codespaces as environments."
 							>
-								<TextLink tone="accent" href={workspaceHref("/settings/environments")}>
+								<TextLink tone="accent" href={workspaceHref("/settings/machines")}>
 									Environments
 								</TextLink>
 							</SettingsRow>

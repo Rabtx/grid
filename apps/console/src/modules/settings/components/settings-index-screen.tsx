@@ -59,7 +59,7 @@ export function SettingsIndexScreen(): JSX.Element {
 		PHONE_ORDER.flatMap((label) => SETTINGS_SECTIONS.filter((section) => section.label === label));
 	const trailing = (href: SettingsHref): JSX.Element => {
 		if (href === "/settings/appearance") return THEME_LABEL[appearance().theme];
-		if (href === "/settings/environments") return runnerUp() ? "Online" : "Offline";
+		if (href === "/settings/machines") return runnerUp() ? "Online" : "Offline";
 		if (href === "/settings/agents")
 			return (
 				<For each={offeredProviders(providersStore.providers()).slice(0, 3)}>
