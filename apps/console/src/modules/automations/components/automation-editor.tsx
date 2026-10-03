@@ -3,6 +3,8 @@ import { createEffect, createSignal, For, Show, untrack } from "solid-js";
 
 import {
 	Alert,
+	AUTOMATION_GLYPHS,
+	AutomationGlyph,
 	BranchIcon,
 	Button,
 	ClockIcon,
@@ -10,6 +12,7 @@ import {
 	Dialog,
 	Field,
 	FolderIcon,
+	GlyphChoices,
 	IconButton,
 	Input,
 	ListCard,
@@ -26,7 +29,7 @@ import {
 	Textarea,
 } from "@/kit";
 import { ModelPicker, ModePicker } from "@/modules/chat/components/pickers";
-import type { ChatProvider } from "@/modules/chat/types/chat.types";
+import type { ChatProvider, Role } from "@/modules/chat/types/chat.types";
 
 import {
 	DAYS,
@@ -36,7 +39,7 @@ import {
 	triggerKind,
 	type TriggerKind,
 } from "../lib/triggers";
-import type { AutomationInput, Trigger } from "../services/automations.service";
+import type { AutomationInput, AutomationOptions, Trigger } from "../services/automations.service";
 
 const MAX_TRIGGERS = 5;
 
@@ -91,6 +94,7 @@ export function AutomationEditor(props: {
 	isNew: boolean;
 	projects: readonly { value: string; label: string }[];
 	agents: readonly ChatProvider[];
+	roles: readonly Role[];
 	busy: boolean;
 	error: string | null;
 	onClose: () => void;
@@ -99,6 +103,16 @@ export function AutomationEditor(props: {
 	const [form, setForm] = createSignal<AutomationInput>(untrack(() => props.value));
 	const change = (next: Partial<AutomationInput>) =>
 		setForm((current) => ({ ...current, ...next }));
+	const option = (next: Partial<AutomationOptions>) =>
+		setForm((current) => ({ ...current, options: { ...current.options, ...next } }));
+	// Off-limits are typed as one line; the list is what is between its commas.
+	const [offLimits, setOffLimits] = createSignal(
+		untrack(() => props.value.options.offLimits.join(", ")),
+	);
+	const amount = (text: string): number | null => {
+		const value = Number(text);
+		return text.trim() && Number.isFinite(value) && value > 0 ? value : null;
+	};
 
 	// A new automation starts on the first agent installed here, with that agent's own defaults;
 	// the agents may arrive after the drawer opens.
@@ -154,6 +168,20 @@ export function AutomationEditor(props: {
 				<Show when={props.error}>{(message) => <Alert tone="danger" title={message()} />}</Show>
 
 				<Stack gap={4}>
+					<Field label="Glyph">
+						{() => (
+							<GlyphChoices
+								label="Glyph"
+								value={form().options.icon ?? AUTOMATION_GLYPHS[0].id}
+								onChange={(icon) => option({ icon })}
+								options={AUTOMATION_GLYPHS.map((glyph) => ({
+									value: glyph.id,
+									label: glyph.label,
+									glyph: <AutomationGlyph icon={glyph.id} />,
+								}))}
+							/>
+						)}
+					</Field>
 					<Field label="Name">
 						{(id) => (
 							<Input
@@ -258,6 +286,26 @@ export function AutomationEditor(props: {
 							</Row>
 						)}
 					</Show>
+					<Show when={props.roles.length}>
+						<Field label="Role" hint="Its brief goes with the instructions on every run.">
+							{() => (
+								<Select
+									label="Role"
+									look="field"
+									value={form().options.role ?? ""}
+									onChange={(role) => option({ role: role || null })}
+									groups={[
+										{
+											options: [
+												{ value: "", label: "No role" },
+												...props.roles.map((role) => ({ value: role.id, label: role.name })),
+											],
+										},
+									]}
+								/>
+							)}
+						</Field>
+					</Show>
 				</Section>
 
 				<Section title="Where it works">
@@ -279,6 +327,107 @@ export function AutomationEditor(props: {
 						value={form().workspaceMode}
 						onChange={(workspaceMode) => change({ workspaceMode })}
 					/>
+					<Show when={form().workspaceMode === "worktree"}>
+						<Field
+							label="Start from branch"
+							hint="Left empty, it starts from what the project has checked out."
+						>
+							{(id) => (
+								<Input
+									id={id}
+									maxlength={200}
+									placeholder="main"
+									value={form().options.branch ?? ""}
+									onInput={(event) => option({ branch: event.currentTarget.value.trim() || null })}
+								/>
+							)}
+						</Field>
+					</Show>
+				</Section>
+
+				<Section title="When it is done">
+					<Row gap={3} justify="between">
+						<Stack gap={0.5}>
+							<Text weight="medium">Open a pull request</Text>
+							<Text tone="subtle">Commits its change, pushes it and opens a pull request.</Text>
+						</Stack>
+						<Switch
+							label="Open a pull request"
+							checked={form().options.pullRequest}
+							onChange={(pullRequest) =>
+								option({ pullRequest, waitForReview: pullRequest && form().options.waitForReview })
+							}
+						/>
+					</Row>
+					<Row gap={3} justify="between">
+						<Stack gap={0.5}>
+							<Text weight="medium">Wait for my review</Text>
+							<Text tone="subtle">Stops at the pull request; nothing is merged without you.</Text>
+						</Stack>
+						<Switch
+							label="Wait for my review"
+							checked={form().options.waitForReview}
+							disabled={!form().options.pullRequest}
+							onChange={(waitForReview) => option({ waitForReview })}
+						/>
+					</Row>
+				</Section>
+
+				<Section
+					title="Guardrails"
+					description="A run that goes past one of these stops and fails."
+				>
+					<Row gap={2} wrap>
+						<div class="min-w-0 flex-1">
+							<Field label="Time limit (min)">
+								{(id) => (
+									<Input
+										id={id}
+										type="number"
+										min={1}
+										max={1440}
+										placeholder="No limit"
+										value={form().options.minutes ?? ""}
+										onInput={(event) => option({ minutes: amount(event.currentTarget.value) })}
+									/>
+								)}
+							</Field>
+						</div>
+						<div class="min-w-0 flex-1">
+							<Field label="Budget per run ($)">
+								{(id) => (
+									<Input
+										id={id}
+										type="number"
+										min={0.01}
+										step={0.5}
+										placeholder="No budget"
+										value={form().options.budgetUsd ?? ""}
+										onInput={(event) => option({ budgetUsd: amount(event.currentTarget.value) })}
+									/>
+								)}
+							</Field>
+						</div>
+					</Row>
+					<Field label="Off-limits" hint="Paths it must not change, separated by commas.">
+						{(id) => (
+							<Input
+								id={id}
+								placeholder="migrations/, .env"
+								value={offLimits()}
+								onInput={(event) => {
+									setOffLimits(event.currentTarget.value);
+									option({
+										offLimits: event.currentTarget.value
+											.split(",")
+											.map((path) => path.trim())
+											.filter(Boolean)
+											.slice(0, 20),
+									});
+								}}
+							/>
+						)}
+					</Field>
 				</Section>
 
 				<Row gap={3} justify="between">

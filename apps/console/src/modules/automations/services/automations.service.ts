@@ -11,6 +11,29 @@ export type Trigger =
 	  }
 	| { kind: "event"; event: "pull_opened" | "review_requested" | "checks_failed" };
 
+/** How it runs beyond its prompt: its role, branch, what it does after, and its guardrails. */
+export type AutomationOptions = {
+	role: string | null;
+	branch: string | null;
+	pullRequest: boolean;
+	waitForReview: boolean;
+	minutes: number | null;
+	budgetUsd: number | null;
+	offLimits: string[];
+	icon: string | null;
+};
+
+export const DEFAULT_OPTIONS: AutomationOptions = {
+	role: null,
+	branch: null,
+	pullRequest: false,
+	waitForReview: false,
+	minutes: null,
+	budgetUsd: null,
+	offLimits: [],
+	icon: null,
+};
+
 export type AutomationInput = {
 	name: string;
 	prompt: string;
@@ -22,7 +45,10 @@ export type AutomationInput = {
 	workspaceMode: "folder" | "worktree";
 	enabled: boolean;
 	triggers: Trigger[];
+	options: AutomationOptions;
 };
+/** A step of a run as its tools did it. */
+export type RunStep = { title: string; detail: string | null };
 export type AutomationRun = {
 	id: string;
 	automationId: string;
@@ -33,7 +59,13 @@ export type AutomationRun = {
 	scheduledFor: string | null;
 	startedAt: string | null;
 	finishedAt: string | null;
+	summary: string | null;
+	pullNumber: number | null;
+	costUsd: number | null;
+	steps: RunStep[];
 };
+/** A run in the strip of recent ones. */
+export type RecentRun = Pick<AutomationRun, "status" | "pullNumber" | "startedAt">;
 export type Automation = AutomationInput & {
 	id: string;
 	workspace: string;
@@ -42,6 +74,10 @@ export type Automation = AutomationInput & {
 	createdAt: string;
 	updatedAt: string;
 	lastRun?: AutomationRun | null;
+	/** Its last runs, oldest first. */
+	recent?: RecentRun[];
+	/** The machine it runs on. */
+	machine?: string;
 };
 export type Template = {
 	id: string;
@@ -49,6 +85,8 @@ export type Template = {
 	prompt: string;
 	cadence?: "daily" | "weekly";
 	event?: "pull_opened" | "checks_failed";
+	icon?: string;
+	description?: string;
 };
 
 const path = "/automations";
