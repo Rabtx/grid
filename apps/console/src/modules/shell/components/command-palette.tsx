@@ -48,7 +48,7 @@ export function CommandPalette(): JSX.Element {
 				shell.setPaletteOpen(!shell.paletteOpen());
 			} else if (withModifier(event, ",")) {
 				event.preventDefault();
-				navigate("/settings/appearance");
+				navigate("/settings");
 			}
 		};
 		document.addEventListener("keydown", onKeydown);

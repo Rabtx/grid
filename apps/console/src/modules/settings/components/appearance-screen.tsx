@@ -1,34 +1,40 @@
 import type { JSX } from "@solidjs/web";
+import { Show } from "solid-js";
 
 import {
 	Badge,
 	Button,
 	ColorSwatches,
-	IconButton,
-	playArrival,
 	Input,
-	RestoreIcon,
+	playArrival,
 	Row,
-	Segmented,
+	Select,
 	SettingsGroup,
 	SettingsRow,
 	Slider,
 	SparklesIcon,
 	Stack,
 	Switch,
+	SwatchRow,
 	Text,
+	ThemeCards,
 } from "@/kit";
 import {
 	ACCENT_PRESETS,
 	APPEARANCE_LIMITS,
 	appearance,
+	CODE_FONTS,
+	type CodeFont,
 	type Density,
 	resetAppearance,
+	SIGNAL_PRESETS,
 	type Theme,
 	updateAppearance,
 } from "@/lib/appearance";
+import { playChime } from "@/lib/chime";
+import { useShell } from "@/modules/shell";
 
-import { SettingsPage } from "./settings-page";
+import { SettingsPage, settingsMenu } from "./settings-page";
 
 // The presets without the leading `null` (the default, which the swatches draw first).
 const ACCENT_NAMES = ["Blue", "Violet", "Pink", "Red", "Amber", "Green"];
@@ -62,56 +68,208 @@ function RowSlider(props: {
 	);
 }
 
+/** Text sizes as the interface scale they set: 13 is the design. */
+const TEXT_SIZES = [
+	{ value: "0.9", label: "12 · Small" },
+	{ value: "1", label: "13 · Default" },
+	{ value: "1.1", label: "14 · Large" },
+	{ value: "1.2", label: "15 · Larger" },
+	{ value: "1.3", label: "16 · Largest" },
+];
+
 /**
- * Settings → Appearance: how the console looks on this device. Theme and accent, the tint every
- * surface takes, the kit's shape — corners, spacing, hairlines, density and scale — with a live
- * preview, and the celebrations. Saved on this device, like a zoom level.
+ * Settings → Appearance (Figma 24): make Grid feel like yours, on this device. Theme, the accent,
+ * text and layout, motion and sound; then the finer controls Grid has always had — the tint every
+ * surface takes, the kit's corners, spacing, lines and depth, and the button colour. Saved on this
+ * device, like a zoom level.
  */
 export function AppearanceScreen(): JSX.Element {
+	const signal = () =>
+		SIGNAL_PRESETS.find((preset) => preset.value === appearance().signal)?.id ?? "Blue";
+	const shell = useShell();
+	// Desktop rows show their value as a pill; phones as quiet text with a chevron.
+	const rowLook = () => (shell.desktop() ? "pill" : "value");
+	const swatches = (spread: boolean) => (
+		<SwatchRow
+			label="Accent color"
+			spread={spread}
+			options={SIGNAL_PRESETS}
+			value={signal()}
+			onChange={(id) =>
+				updateAppearance({
+					signal: SIGNAL_PRESETS.find((preset) => preset.id === id)?.value ?? null,
+				})
+			}
+		/>
+	);
+	const textSize = () => {
+		const scale = String(appearance().uiScale);
+		return TEXT_SIZES.some((size) => size.value === scale) ? scale : "custom";
+	};
 	return (
 		<SettingsPage
 			title="Appearance"
-			description="These settings are saved on this device."
-			actions={
-				<IconButton size="sm" label="Restore defaults" onClick={() => resetAppearance()}>
-					<RestoreIcon />
-				</IconButton>
-			}
+			description="Make Grid feel like yours. Changes apply on this device."
+			subtitle="This device"
+			menu={settingsMenu(
+				"Appearance",
+				[{ items: [{ id: "reset", label: "Restore defaults" }] }],
+				() => resetAppearance(),
+			)}
 		>
-			<SettingsGroup
-				title="Theme"
-				description="Dark and light share the same tint, so the colour settings below apply to both."
-			>
-				<SettingsRow label="Theme" description="System follows your device's appearance.">
-					<Segmented<Theme>
-						label="Theme"
-						options={[
-							{ value: "system", label: "System" },
-							{ value: "dark", label: "Dark" },
-							{ value: "light", label: "Light" },
+			<section class="flex flex-col gap-3">
+				<div>
+					<h2 class="font-medium text-body-lg text-fg max-md:px-1 max-md:font-normal max-md:text-caption max-md:text-fg-subtle">
+						Theme
+					</h2>
+					<Text size="caption" tone="subtle" class="max-md:hidden">
+						Terminals and the harness follow it too.
+					</Text>
+				</div>
+				<ThemeCards<Theme>
+					label="Theme"
+					value={appearance().theme}
+					onChange={(theme) => updateAppearance({ theme })}
+					options={[
+						{ value: "light", label: "Light", look: "light" },
+						{ value: "dark", label: "Dark", look: "dark" },
+						{ value: "system", label: "System", look: "split" },
+					]}
+				/>
+			</section>
+
+			<SettingsGroup title="Accent">
+				<Show when={shell.desktop()} fallback={<div class="px-3 py-3">{swatches(true)}</div>}>
+					<SettingsRow
+						inline
+						label="Accent color"
+						description="Selection, links, focus and the agent cursor"
+					>
+						{swatches(false)}
+					</SettingsRow>
+				</Show>
+			</SettingsGroup>
+
+			<SettingsGroup title="Text & layout">
+				<SettingsRow inline label="Text size" description="Interface text, not code">
+					<Select
+						look={rowLook()}
+						label="Text size"
+						value={textSize()}
+						onChange={(value) => updateAppearance({ uiScale: Number(value) })}
+						groups={[
+							{
+								options:
+									textSize() === "custom"
+										? [
+												...TEXT_SIZES,
+												{ value: "custom", label: `${Math.round(appearance().uiScale * 100)}%` },
+											]
+										: TEXT_SIZES,
+							},
 						]}
-						value={appearance().theme}
-						onChange={(theme) => updateAppearance({ theme })}
+					/>
+				</SettingsRow>
+				<SettingsRow inline label="Density" description="How much room lists and boards get">
+					<Select<Density>
+						look={rowLook()}
+						label="Density"
+						value={appearance().density}
+						onChange={(density) => updateAppearance({ density })}
+						groups={[
+							{
+								options: [
+									{ value: "compact", label: "Compact" },
+									{ value: "comfortable", label: "Comfortable" },
+									{ value: "spacious", label: "Spacious" },
+								],
+							},
+						]}
+					/>
+				</SettingsRow>
+				<SettingsRow inline label="Code font" description="Terminals, diffs and the harness">
+					<Select<CodeFont>
+						look={rowLook()}
+						label="Code font"
+						value={appearance().codeFont}
+						onChange={(codeFont) => updateAppearance({ codeFont })}
+						groups={[
+							{
+								options: (Object.keys(CODE_FONTS) as CodeFont[]).map((value) => ({
+									value,
+									label: CODE_FONTS[value].label,
+								})),
+							},
+						]}
+					/>
+				</SettingsRow>
+				<Show when={shell.desktop()}>
+					<SettingsRow inline label="Rail labels" description="Show names next to rail icons">
+						<Switch
+							label="Rail labels"
+							checked={appearance().railLabels}
+							onChange={(railLabels) => updateAppearance({ railLabels })}
+						/>
+					</SettingsRow>
+				</Show>
+			</SettingsGroup>
+
+			<SettingsGroup title="Motion & sound">
+				<SettingsRow
+					inline
+					label="Reduce motion"
+					description="Fewer animations and no cursor trails"
+				>
+					<Switch
+						label="Reduce motion"
+						checked={appearance().reduceMotion}
+						onChange={(reduceMotion) => updateAppearance({ reduceMotion })}
 					/>
 				</SettingsRow>
 				<SettingsRow
-					label="Accent colour"
-					description="Primary actions, focus rings and the celebration's glow."
+					inline
+					label="Agent cursors"
+					description="See where agents point and type in Browser and Notes"
 				>
-					<ColorSwatches
-						label="Accent colour"
-						labelHidden
-						options={ACCENTS}
-						value={
-							ACCENTS.find((accent) => accent.value === appearance().accent)?.id ??
-							appearance().accent
-						}
-						onChange={(id) =>
-							updateAppearance({
-								accent:
-									id === null ? null : (ACCENTS.find((accent) => accent.id === id)?.value ?? id),
+					<Switch
+						label="Agent cursors"
+						checked={appearance().agentCursors}
+						onChange={(agentCursors) => updateAppearance({ agentCursors })}
+					/>
+				</SettingsRow>
+				<SettingsRow inline label="Sounds" description="A soft chime when an agent needs you">
+					<Button variant="ghost" size="sm" onClick={() => playChime()}>
+						Play
+					</Button>
+					<Switch
+						label="Sounds"
+						checked={appearance().sounds}
+						onChange={(sounds) => updateAppearance({ sounds })}
+					/>
+				</SettingsRow>
+				<SettingsRow
+					inline
+					label="Celebrations"
+					description="A warp arrival when you pick a flagship model, on desktop"
+				>
+					<Button
+						variant="ghost"
+						size="sm"
+						icon={<SparklesIcon size="sm" />}
+						onClick={() =>
+							playArrival({
+								title: "Grid",
+								caption: "Celebrations look like this",
+								hues: [appearance().hue, (appearance().hue + 50) % 360],
 							})
 						}
+					>
+						Try it
+					</Button>
+					<Switch
+						label="Celebrations"
+						checked={appearance().celebrations}
+						onChange={(celebrations) => updateAppearance({ celebrations })}
 					/>
 				</SettingsRow>
 			</SettingsGroup>
@@ -153,10 +311,30 @@ export function AppearanceScreen(): JSX.Element {
 						format={(value) => `${value}%`}
 					/>
 				</SettingsRow>
+				<SettingsRow
+					label="Button colour"
+					description="Primary actions and the celebration's glow."
+				>
+					<ColorSwatches
+						label="Button colour"
+						labelHidden
+						options={ACCENTS}
+						value={
+							ACCENTS.find((accent) => accent.value === appearance().accent)?.id ??
+							appearance().accent
+						}
+						onChange={(id) =>
+							updateAppearance({
+								accent:
+									id === null ? null : (ACCENTS.find((accent) => accent.id === id)?.value ?? id),
+							})
+						}
+					/>
+				</SettingsRow>
 			</SettingsGroup>
 
 			<SettingsGroup
-				title="Shape and density"
+				title="Shape"
 				description="The kit's corners, spacing and lines, everywhere at once. The preview follows as you drag."
 			>
 				<div class="px-4 py-4">
@@ -196,21 +374,6 @@ export function AppearanceScreen(): JSX.Element {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					label="Density"
-					description="How much the lists and transcripts fit on a screen."
-				>
-					<Segmented<Density>
-						label="Density"
-						options={[
-							{ value: "compact", label: "Compact" },
-							{ value: "comfortable", label: "Comfortable" },
-							{ value: "spacious", label: "Spacious" },
-						]}
-						value={appearance().density}
-						onChange={(density) => updateAppearance({ density })}
-					/>
-				</SettingsRow>
-				<SettingsRow
 					label="Interface scale"
 					description="Zoom the whole interface. Ctrl+=, Ctrl+- and Ctrl+0 work too (⌘ on macOS)."
 				>
@@ -222,49 +385,15 @@ export function AppearanceScreen(): JSX.Element {
 						format={percent}
 					/>
 				</SettingsRow>
-			</SettingsGroup>
-
-			<SettingsGroup
-				title="Material"
-				description="How physical the interface feels, on this device."
-			>
 				<SettingsRow
 					inline
 					label="Depth"
-					description="Light along the top edge of raised things, softer layered shadows, pressable buttons and a lifted selection."
+					description="Light along the top edge of raised things, pressable buttons and a lifted selection."
 				>
 					<Switch
 						label="Depth"
 						checked={appearance().depth}
 						onChange={(depth) => updateAppearance({ depth })}
-					/>
-				</SettingsRow>
-			</SettingsGroup>
-
-			<SettingsGroup title="Motion and fun" description="Small moments of delight, on this device.">
-				<SettingsRow
-					inline
-					label="Celebrations"
-					description="A warp arrival when you pick a flagship model. Desktop only, and never with reduced motion."
-				>
-					<Button
-						variant="ghost"
-						size="sm"
-						icon={<SparklesIcon size="sm" />}
-						onClick={() =>
-							playArrival({
-								title: "Grid",
-								caption: "Celebrations look like this",
-								hues: [appearance().hue, (appearance().hue + 50) % 360],
-							})
-						}
-					>
-						Try it
-					</Button>
-					<Switch
-						label="Celebrations"
-						checked={appearance().celebrations}
-						onChange={(celebrations) => updateAppearance({ celebrations })}
 					/>
 				</SettingsRow>
 			</SettingsGroup>

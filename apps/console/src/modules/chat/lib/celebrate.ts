@@ -25,6 +25,7 @@ function canCelebrate(): boolean {
 	if (typeof matchMedia === "undefined") return false;
 	return (
 		appearance().celebrations &&
+		!appearance().reduceMotion &&
 		matchMedia("(pointer: fine) and (min-width: 48rem)").matches &&
 		!matchMedia("(prefers-reduced-motion: reduce)").matches
 	);

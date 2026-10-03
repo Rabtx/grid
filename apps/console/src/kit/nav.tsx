@@ -195,7 +195,7 @@ export function NavSection(props: {
 }
 
 export const railItem = variants({
-	base: "focus-ring relative grid size-8 shrink-0 place-items-center rounded-kit text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:surface-outline aria-[current=page]:bg-surface aria-[current=page]:text-fg [&_svg]:size-4 pointer-coarse:size-11 pointer-coarse:[&_svg]:size-5",
+	base: "focus-ring relative grid size-8 shrink-0 place-items-center rail-labels:h-auto rail-labels:min-h-11 rail-labels:w-15 rail-labels:content-center rail-labels:gap-0.5 rail-labels:py-1 rounded-kit text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:surface-outline aria-[current=page]:bg-surface aria-[current=page]:text-fg [&_svg]:size-4 pointer-coarse:size-11 pointer-coarse:[&_svg]:size-5",
 	variants: {},
 	defaults: {},
 });
@@ -235,6 +235,9 @@ export function RailLink(
 			class={railItem({ class: props.class })}
 		>
 			{props.icon}
+			<span class="hidden max-w-full truncate px-0.5 text-micro leading-tight rail-labels:block pointer-coarse:rail-labels:hidden">
+				{props.label}
+			</span>
 			<RailDot when={props.dot} />
 		</a>
 	);

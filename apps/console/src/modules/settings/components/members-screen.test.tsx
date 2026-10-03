@@ -1,7 +1,9 @@
 import { createRouter, memoryHistory } from "@solidjs/router";
-import { render } from "@solidjs/web";
+import { type JSX, render } from "@solidjs/web";
 import { flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { ShellProvider, useShell } from "@/modules/shell";
 
 import { workspacesService } from "@/modules/workspaces/services/workspaces.service";
 import type { Member, WorkspaceRole } from "@/modules/workspaces/types/workspace.types";
@@ -46,6 +48,12 @@ async function settle() {
 const buttonWith = (text: string) =>
 	[...document.querySelectorAll("button")].find((button) => button.textContent?.includes(text));
 
+/** The top bar's actions, where the page puts its invite button. */
+function ShellActions(): JSX.Element {
+	const shell = useShell();
+	return <div data-slot="actions">{shell.actions()?.()}</div>;
+}
+
 describe("MembersScreen", () => {
 	let container: HTMLElement;
 	let dispose: () => void;
@@ -83,7 +91,19 @@ describe("MembersScreen", () => {
 			routes: [{ path: "/settings/members", component: MembersScreen }],
 			history: memoryHistory("/settings/members"),
 		});
-		dispose = render(() => <Router>{(route) => route.children}</Router>, container);
+		dispose = render(
+			() => (
+				<Router>
+					{(route) => (
+						<ShellProvider>
+							<ShellActions />
+							{route.children}
+						</ShellProvider>
+					)}
+				</Router>
+			),
+			container,
+		);
 	}
 
 	it("shows owners the people, the pending invites and a way to invite", async () => {

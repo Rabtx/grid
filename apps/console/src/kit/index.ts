@@ -170,7 +170,25 @@ export { type AgentChoice, AgentChoices, FlagshipMark, ModelRow } from "./picker
 export { PixelMark, ProjectMark, type ProjectMarkShape } from "./project-mark";
 export { FLOATING_MIC, VoiceDock, VoiceError, VoiceStatus } from "./voice";
 export { Select, type SelectGroup, type SelectOption } from "./select";
-export { CopyField, PropertyRow, SettingsGroup, SettingsRow } from "./settings";
+export {
+	ChannelCell,
+	ChannelRow,
+	ChannelTable,
+	CopyField,
+	IdentityCard,
+	MonoValue,
+	PillInput,
+	PropertyRow,
+	SettingsColumn,
+	SettingsGroup,
+	SettingsLink,
+	SettingsLinkGroup,
+	SettingsLinkRow,
+	SettingsProfileLink,
+	SettingsRow,
+	SwatchRow,
+	ThemeCards,
+} from "./settings";
 export { Pagination, Stepper } from "./steps";
 export { Card, DescriptionList, EmptyState, ListCard, Panel, Skeleton, Tooltip } from "./surface";
 export { Checkbox, CheckboxField, Switch } from "./switch";

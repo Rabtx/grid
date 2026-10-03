@@ -1,5 +1,6 @@
 import { createSignal, untrack } from "solid-js";
 
+import { playChime } from "@/lib/chime";
 import { placementsStore } from "@/modules/environments";
 
 import { inboxService } from "../services/inbox.service";
@@ -31,6 +32,16 @@ let readWhileLoading: ((item: InboxItem) => boolean)[] = [];
 // people opening the app should not be two sets of calls.
 let counting: Promise<void> | null = null;
 
+/** Whether a count has come back yet: the first one is what was already waiting. */
+let counted = false;
+
+/** The count, with a chime when it grows after the first (something new needs you). */
+function setCount(next: number): void {
+	if (counted && next > untrack(unread)) playChime();
+	counted = true;
+	setUnread(next);
+}
+
 const newestFirst = (list: InboxItem[]) =>
 	[...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
@@ -45,7 +56,7 @@ function markReadLocally(matches: (item: InboxItem) => boolean): void {
 	const next = markRead(untrack(items), matches);
 	version += 1;
 	setItems(next);
-	setUnread(next.filter((row) => row.readAt === null).length);
+	setCount(next.filter((row) => row.readAt === null).length);
 }
 
 function markRead(list: InboxItem[], matches: (item: InboxItem) => boolean): InboxItem[] {
@@ -97,7 +108,7 @@ export const inboxStore = {
 					setItems(next);
 					// The runners' own count covers rows past the list's limit; a read made here while
 					// they answered is counted from the rows instead.
-					setUnread(
+					setCount(
 						readHere
 							? next.filter((row) => row.readAt === null).length
 							: answered.reduce((total, answer) => total + (answer.view?.unread ?? 0), 0),
@@ -136,7 +147,7 @@ export const inboxStore = {
 			// Every machine unreachable: whatever the count was is closer to the truth than zero.
 			// A list read or a tap since this set out already knows better.
 			if (since === version && answers.some((value) => value !== null)) {
-				setUnread(answers.reduce<number>((total, value) => total + (value ?? 0), 0));
+				setCount(answers.reduce<number>((total, value) => total + (value ?? 0), 0));
 			}
 		})().finally(() => {
 			counting = null;

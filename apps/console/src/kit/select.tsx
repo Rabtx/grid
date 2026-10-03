@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
-import { CheckIcon, ChevronDownIcon } from "./icons";
+import { CheckIcon, ChevronDownIcon, ChevronRightIcon } from "./icons";
 
 import { MENU_ITEM } from "./menu";
 import { type Placement, Popover, type PopoverControl } from "./popover";
@@ -29,8 +29,12 @@ export function Select<T extends string>(props: {
 	groups: readonly SelectGroup<T>[];
 	placement?: Placement;
 	width?: string;
-	/** `field` looks like an input (forms); `chip` is a quiet toolbar pill (the composer). */
-	look?: "field" | "chip";
+	/**
+	 * `field` looks like an input (forms); `chip` is a quiet toolbar pill (the composer); `pill` is
+	 * a filled pill sized to its choice (a settings row's value); `value` is the choice in quiet
+	 * text with a chevron (a phone's settings row).
+	 */
+	look?: "field" | "chip" | "pill" | "value";
 	disabled?: boolean;
 	/** Hands over a way to open it from code, e.g. the composer's `/mode` command. */
 	control?: (control: PopoverControl) => void;
@@ -40,7 +44,11 @@ export function Select<T extends string>(props: {
 	const trigger = () =>
 		props.look === "chip"
 			? "focus-ring inline-flex h-kit-control-sm max-w-60 shrink-0 items-center gap-1.5 rounded-kit px-2 text-body-lg text-fg-muted hover:bg-fill hover:text-fg aria-expanded:bg-fill-strong"
-			: "surface-field focus-ring flex h-kit-control w-full items-center gap-2 px-3 text-left text-field text-fg disabled:opacity-50";
+			: props.look === "value"
+				? "focus-ring -mr-1 inline-flex h-kit-control max-w-48 shrink-0 items-center gap-1 rounded-kit px-1 text-body text-fg-subtle"
+				: props.look === "pill"
+					? "focus-ring inline-flex h-kit-control max-w-72 shrink-0 items-center gap-1.5 rounded-full bg-fill pr-3 pl-3.5 text-body text-fg transition-colors duration-fast hover:bg-fill-strong aria-expanded:bg-fill-strong disabled:opacity-50"
+					: "surface-field focus-ring flex h-kit-control w-full items-center gap-2 px-3 text-left text-field text-fg disabled:opacity-50";
 
 	return (
 		<Popover
@@ -56,7 +64,12 @@ export function Select<T extends string>(props: {
 						<span class="grid size-4 shrink-0 place-items-center">{current()?.icon}</span>
 					</Show>
 					<span class="min-w-0 flex-1 truncate">{current()?.label ?? props.label}</span>
-					<ChevronDownIcon class="size-3.5 shrink-0 text-fg-faint" />
+					<Show
+						when={props.look === "value"}
+						fallback={<ChevronDownIcon class="size-3.5 shrink-0 text-fg-faint" />}
+					>
+						<ChevronRightIcon class="size-4 shrink-0 text-fg-faint" />
+					</Show>
 				</>
 			}
 		>

@@ -193,6 +193,8 @@
 
 /* Styles that only apply with depth on, for what a variable cannot switch (a lifted selection). */
 @custom-variant depth (&:where([data-depth="on"] *));
+/* Settings → Appearance → Rail labels: names under the rail's icons. */
+@custom-variant rail-labels (&:where([data-rail-labels="on"] *));
 
 @theme inline {
 	--font-kit: var(--kit-font);

@@ -33,6 +33,8 @@ import KanbanGlyph from "@hugeicons/core-free-icons/KanbanIcon";
 import Shield01Glyph from "@hugeicons/core-free-icons/Shield01Icon";
 import LaptopGlyph from "@hugeicons/core-free-icons/LaptopIcon";
 import AsteriskGlyph from "@hugeicons/core-free-icons/AsteriskIcon";
+import PaintBoardGlyph from "@hugeicons/core-free-icons/PaintBoardIcon";
+import Plug01Glyph from "@hugeicons/core-free-icons/Plug01Icon";
 import Folder01Icon from "@hugeicons/core-free-icons/Folder01Icon";
 import GitBranchIcon from "@hugeicons/core-free-icons/GitBranchIcon";
 import GitPullRequestGlyph from "@hugeicons/core-free-icons/GitPullRequestIcon";
@@ -181,6 +183,16 @@ export function LaptopIcon(props: IconProps): JSX.Element {
 /** Agents. */
 export function AsteriskIcon(props: IconProps): JSX.Element {
 	return <Icon icon={AsteriskGlyph} size={props.size} class={props.class} />;
+}
+
+/** How the app looks: Appearance. */
+export function PaletteIcon(props: IconProps): JSX.Element {
+	return <Icon icon={PaintBoardGlyph} size={props.size} class={props.class} />;
+}
+
+/** A service plugged in: Connectors. */
+export function PlugIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Plug01Glyph} size={props.size} class={props.class} />;
 }
 
 export function SignOutIcon(props: IconProps): JSX.Element {

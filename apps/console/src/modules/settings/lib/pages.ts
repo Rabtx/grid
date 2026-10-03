@@ -1,29 +1,27 @@
 import { createSignal } from "solid-js";
 
-/** The settings pages, grouped as the settings sidebar and the phone index list them. */
+/**
+ * The settings pages, grouped as the settings sidebar and the phone index list them (Figma 24 ·
+ * Settings): you, the workspace, and the agents and machines that do the work.
+ */
 export const SETTINGS_SECTIONS = [
 	{
-		label: "App",
+		label: "You",
 		pages: [
 			{
-				href: "/settings/appearance",
-				label: "Appearance",
-				description: "Theme, colour, shape and motion",
+				href: "/settings/profile",
+				label: "Profile",
+				description: "How teammates and agents see you",
 			},
 			{
 				href: "/settings/notifications",
 				label: "Notifications",
-				description: "Hear when an agent needs you",
+				description: "When and where Grid reaches you",
 			},
-		],
-	},
-	{
-		label: "Agents",
-		pages: [
 			{
-				href: "/settings/agents",
-				label: "Agents",
-				description: "Coding agents and what new threads start with",
+				href: "/settings/appearance",
+				label: "Appearance",
+				description: "Theme, colour, text and motion",
 			},
 		],
 	},
@@ -36,9 +34,24 @@ export const SETTINGS_SECTIONS = [
 				description: "Who is in this workspace, their roles and invites",
 			},
 			{
+				href: "/settings/connectors",
+				label: "Connectors",
+				description: "GitHub and other services",
+			},
+		],
+	},
+	{
+		label: "Agents",
+		pages: [
+			{
+				href: "/settings/agents",
+				label: "Agents & permissions",
+				description: "Coding agents and what new threads start with",
+			},
+			{
 				href: "/settings/environments",
-				label: "Environments",
-				description: "Codespaces and other machines",
+				label: "Machines",
+				description: "This machine, Codespaces and other Grids",
 			},
 			{
 				href: "/settings/worktrees",
@@ -50,16 +63,7 @@ export const SETTINGS_SECTIONS = [
 				label: "Diagnostics",
 				description: "Runner errors and connection events",
 			},
-			{
-				href: "/settings/connectors",
-				label: "Connectors",
-				description: "GitHub and other services",
-			},
 		],
-	},
-	{
-		label: "Account",
-		pages: [{ href: "/settings/account", label: "Account", description: "Who is signed in" }],
 	},
 ] as const;
 

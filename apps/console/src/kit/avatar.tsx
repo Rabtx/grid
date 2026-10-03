@@ -1,4 +1,5 @@
 import type { JSX } from "@solidjs/web";
+import { createSignal, Show } from "solid-js";
 
 /** A steady hue per name, so a person or workspace keeps its colour without choosing one. */
 export function hueOf(name: string): number {
@@ -12,6 +13,7 @@ const SIZES = {
 	sm: "size-5 text-micro",
 	md: "size-6 text-caption",
 	lg: "size-8 text-body",
+	xl: "size-12 text-body-lg",
 };
 
 /** Nobody yet: a dashed ring where an avatar would be, for unassigned work. */
@@ -24,19 +26,56 @@ export function NobodyMark(props: { size?: keyof typeof SIZES }): JSX.Element {
 	);
 }
 
-/** A person: their initial on a soft tint of their colour. */
-export function Avatar(props: { name: string; size?: keyof typeof SIZES }): JSX.Element {
+/** A person: their photo, or their initials on a soft tint of their colour. */
+/** "Shabir Khan" → "SK", "ana" → "A": the first letters of the first two words. */
+export function initials(name: string): string {
+	const words = name
+		.trim()
+		.split(/[\s._-]+/)
+		.filter(Boolean);
 	return (
-		<span
-			aria-hidden="true"
-			class={`grid shrink-0 place-items-center rounded-full font-medium uppercase ${SIZES[props.size ?? "md"]}`}
-			style={{
-				background: `hsl(${hueOf(props.name)} 70% 92%)`,
-				color: `hsl(${hueOf(props.name)} 45% 32%)`,
-			}}
+		words
+			.slice(0, 2)
+			.map((word) => word.slice(0, 1))
+			.join("") || "?"
+	);
+}
+
+export function Avatar(props: {
+	name: string;
+	size?: keyof typeof SIZES;
+	/** Their photo, when they have one. */
+	src?: string | null;
+}): JSX.Element {
+	// A photo that will not load (moved, or its server is down) falls back to the initials.
+	const [broken, setBroken] = createSignal<string | null>(null);
+	return (
+		<Show
+			when={props.src && props.src !== broken() ? props.src : null}
+			fallback={
+				<span
+					aria-hidden="true"
+					class={`grid shrink-0 place-items-center rounded-full font-medium uppercase ${SIZES[props.size ?? "md"]}`}
+					style={{
+						background: `hsl(${hueOf(props.name)} 70% 92%)`,
+						color: `hsl(${hueOf(props.name)} 45% 32%)`,
+					}}
+				>
+					{props.size === "xs" || props.size === "sm"
+						? initials(props.name).slice(0, 1)
+						: initials(props.name)}
+				</span>
+			}
 		>
-			{props.name.trim().slice(0, 1) || "?"}
-		</span>
+			{(src) => (
+				<img
+					src={src()}
+					alt=""
+					onError={() => setBroken(src())}
+					class={`shrink-0 rounded-full object-cover ${SIZES[props.size ?? "md"]}`}
+				/>
+			)}
+		</Show>
 	);
 }
 

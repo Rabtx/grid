@@ -1,9 +1,11 @@
 import { createRouter, memoryHistory } from "@solidjs/router";
-import { render } from "@solidjs/web";
+import { type JSX, render } from "@solidjs/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/modules/auth";
 import { WorkspaceProvider } from "@/modules/projects";
+import { ShellProvider, useShell } from "@/modules/shell";
+import { WorkspacesProvider } from "@/modules/workspaces";
 
 import { DiagnosticsScreen } from "./diagnostics-screen";
 
@@ -16,6 +18,12 @@ function json(data: unknown, status = 200): Response {
 
 async function settle(): Promise<void> {
 	for (let i = 0; i < 8; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/** The top bar's actions, where the page puts its menu. */
+function ShellActions(): JSX.Element {
+	const shell = useShell();
+	return <div data-slot="actions">{shell.actions()?.()}</div>;
 }
 
 describe("DiagnosticsScreen", () => {
@@ -68,7 +76,18 @@ describe("DiagnosticsScreen", () => {
 		dispose = render(
 			() => (
 				<AuthProvider>
-					<Router>{(route) => <WorkspaceProvider>{route.children}</WorkspaceProvider>}</Router>
+					<Router>
+						{(route) => (
+							<WorkspacesProvider>
+								<WorkspaceProvider>
+									<ShellProvider>
+										<ShellActions />
+										{route.children}
+									</ShellProvider>
+								</WorkspaceProvider>
+							</WorkspacesProvider>
+						)}
+					</Router>
 				</AuthProvider>
 			),
 			container,

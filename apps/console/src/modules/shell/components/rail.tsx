@@ -159,7 +159,7 @@ export function Rail(): JSX.Element {
 					)}
 				</For>
 				<RailLink
-					href={workspaceHref("/settings/appearance")}
+					href={workspaceHref("/settings")}
 					label="Settings"
 					shortcut="Mod ,"
 					icon={<SettingsIcon />}
