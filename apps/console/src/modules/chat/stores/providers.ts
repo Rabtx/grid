@@ -95,3 +95,21 @@ export const providersStore = {
 export function offeredProviders(list: ChatProvider[]): ChatProvider[] {
 	return list.filter((provider) => provider.available && provider.settings?.enabled !== false);
 }
+
+/** Agents by their own name, for when a machine's agent list has not been read yet. */
+const AGENT_NAMES: Record<string, string> = {
+	claude: "Claude Code",
+	codex: "Codex",
+	opencode: "opencode",
+	antigravity: "Antigravity",
+	freebuff: "Freebuff",
+};
+
+/** An agent's name from a machine's agent list, by its provider id. */
+export function agentName(id: string, scope = ""): string {
+	return (
+		providersStore.providers(scope).find((provider) => provider.id === id)?.name ??
+		AGENT_NAMES[id] ??
+		id
+	);
+}

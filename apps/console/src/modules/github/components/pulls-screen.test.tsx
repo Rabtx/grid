@@ -1,9 +1,10 @@
-import { createRouter, memoryHistory } from "@solidjs/router";
-import { render } from "@solidjs/web";
+import { createRouter, memoryHistory, useLocation } from "@solidjs/router";
+import { type JSX, render } from "@solidjs/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "@/modules/auth";
 import { WorkspaceProvider } from "@/modules/projects";
+import { ShellProvider, useShell } from "@/modules/shell";
 
 import { PullsScreen } from "./pulls-screen";
 
@@ -50,6 +51,51 @@ const detail = {
 	files: [{ path: "src/login.ts", additions: 10, deletions: 2 }],
 	createdAt: "2026-09-27T09:00:00Z",
 };
+const commit = (
+	sha: string,
+	subject: string,
+	author: string,
+	agent: string | null,
+	tags: string[] = [],
+) => ({ sha, subject, at: "2026-09-27T09:00:00Z", author, agent, tags });
+const history = {
+	base: "main",
+	ahead: 2,
+	behind: 1,
+	baseTip: commit("m1", "Update setup steps", "bo", null),
+	commits: [
+		commit("c2", "Add the form", "ana", "claude"),
+		commit("c1", "Add the route", "ana", null),
+	],
+	mergeBase: commit("b0", "Release 0.8.2", "bo", null, ["v0.8.2"]),
+};
+const review = {
+	viewer: "person",
+	pullId: "PR_12",
+	viewed: [],
+	threads: [
+		{
+			id: "T1",
+			resolved: true,
+			outdated: false,
+			path: "src/login.ts",
+			line: 2,
+			side: "RIGHT",
+			comments: [
+				{ author: "codex", agent: "codex", body: "Export it.", at: "2026-09-27T10:00:00Z" },
+			],
+		},
+	],
+	reviews: [{ author: "codex", agent: "codex", state: "APPROVED" }],
+};
+const diff = [
+	{
+		path: "src/login.ts",
+		patch: "@@ -1,2 +1,3 @@\n const a = 1;\n-const b = 2;\n+const b = 3;\n+export const c = 4;\n",
+		added: 2,
+		removed: 1,
+	},
+];
 
 const json = (data: unknown, status = 200): Response =>
 	new Response(JSON.stringify(status < 400 ? { success: true, statusCode: status, data } : data), {
@@ -58,6 +104,24 @@ const json = (data: unknown, status = 200): Response =>
 	});
 async function settle(): Promise<void> {
 	for (let i = 0; i < 15; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+}
+const buttonNamed = (root: ParentNode, name: string) =>
+	[...root.querySelectorAll<HTMLButtonElement>("button")].find(
+		(item) => item.getAttribute("aria-label") === name || item.textContent?.trim() === name,
+	);
+
+/** What the shell draws around the screen: the panel, the top bar's slots, and where it is. */
+function ShellOutlet(): JSX.Element {
+	const shell = useShell();
+	const location = useLocation();
+	return (
+		<>
+			<nav data-slot="panel">{shell.panel()?.()}</nav>
+			<div data-slot="crumb">{shell.crumb()?.()}</div>
+			<div data-slot="actions">{shell.actions()?.()}</div>
+			<output data-slot="where">{location.pathname + location.search}</output>
+		</>
+	);
 }
 
 function mount(path: string, answer: (url: string, init?: RequestInit) => Response | null) {
@@ -83,14 +147,13 @@ function mount(path: string, answer: (url: string, init?: RequestInit) => Respon
 				});
 			if (url.endsWith("/projects")) return json([project]);
 			if (url.endsWith("/projects/folders")) return json({ alpha: "/tmp/alpha" });
-			// The pull request shows the threads on its branch, so its project's list is read.
 			if (url.includes("/chat/sessions") && init?.method !== "POST") return json([]);
 			return answer(url, init) ?? json(null);
 		}),
 	);
 	const Router = createRouter({
 		routes: [
-			{ path: "/pulls/:slug", component: PullsScreen },
+			{ path: "/pulls/:slug/:number?/:view?", component: PullsScreen },
 			// Where a started fix thread lands.
 			{ path: "/chat/:slug/:id", component: () => <span>the chat screen</span> },
 		],
@@ -101,7 +164,16 @@ function mount(path: string, answer: (url: string, init?: RequestInit) => Respon
 	const dispose = render(
 		() => (
 			<AuthProvider>
-				<Router>{(route) => <WorkspaceProvider>{route.children}</WorkspaceProvider>}</Router>
+				<Router>
+					{(route) => (
+						<WorkspaceProvider>
+							<ShellProvider>
+								<ShellOutlet />
+								{route.children}
+							</ShellProvider>
+						</WorkspaceProvider>
+					)}
+				</Router>
 			</AuthProvider>
 		),
 		container,
@@ -123,14 +195,24 @@ describe("PullsScreen", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("lists the project's open pull requests", async () => {
-		const view = mount("/pulls/alpha", (url) =>
-			url.includes("/github/pulls/alpha?filter=open") ? json([summary]) : null,
-		);
+	const panel = (root: HTMLElement) => root.querySelector('[data-slot="panel"]') as HTMLElement;
+	const where = (root: HTMLElement) => root.querySelector('[data-slot="where"]')?.textContent ?? "";
+
+	it("lists what waits on your review, then the rest open, in the panel", async () => {
+		const other = { ...summary, number: 13, title: "Bump vite", checks: "pending", branch: "deps" };
+		const view = mount("/pulls/alpha", (url) => {
+			if (url.includes("filter=review")) return json([summary]);
+			if (url.includes("/github/pulls/alpha?filter=open")) return json([summary, other]);
+			return null;
+		});
 		done = view.done;
 		await settle();
-		expect(view.container.textContent).toContain("Add login");
-		expect(view.container.textContent).toContain("#12 · login · @ana");
+		const text = panel(view.container).textContent ?? "";
+		expect(text).toContain("Needs your review");
+		expect(text).toContain("Add login");
+		expect(text).toContain("#12 · checks failing");
+		expect(text).toContain("#13 · checks running");
+		expect(panel(view.container).querySelector('a[href="/pulls/alpha/12"]')).not.toBeNull();
 	});
 
 	it("asks to connect GitHub when it is not connected", async () => {
@@ -143,42 +225,99 @@ describe("PullsScreen", () => {
 		expect(view.container.querySelector('a[href$="/settings/connectors"]')).not.toBeNull();
 	});
 
-	it("opens one with where it stands, and merges it after asking", async () => {
-		const view = mount("/pulls/alpha?pr=12", (url, init) => {
+	it("takes a link from before to the pull request's own address", async () => {
+		const view = mount("/pulls/alpha?pr=12", (url) => {
 			if (url.includes("/github/pulls/alpha?filter")) return json([summary]);
-			if (url.endsWith("/github/pulls/alpha/12/merge") && init?.method === "POST")
+			if (url.endsWith("/github/pulls/alpha/12")) return json(detail);
+			return null;
+		});
+		done = view.done;
+		await settle();
+		expect(where(view.container)).toBe("/pulls/alpha/12");
+	});
+
+	it("reads one as a document and merges it after asking", async () => {
+		const view = mount("/pulls/alpha/12", (url, init) => {
+			if (url.includes("/github/pulls/alpha?filter")) return json([summary]);
+			if (url.endsWith("/12/merge") && init?.method === "POST")
 				return new Response(null, { status: 204 });
+			if (url.endsWith("/12/history")) return json(history);
+			if (url.endsWith("/12/review")) return json(review);
 			if (url.endsWith("/github/pulls/alpha/12")) return json(detail);
 			return null;
 		});
 		done = view.done;
 		await settle();
 		const text = view.container.textContent ?? "";
-		expect(text).toContain("Approved");
-		expect(text).toContain("Checks fail");
 		expect(text).toContain("login → main");
+		expect(text).toContain("1 of 1 check failing");
+		expect(text).toContain("Approved by Codex");
+		expect(text).toContain("No conflicts");
 		expect(view.container.innerHTML).toContain("<strong>login</strong>");
-		expect(text).toContain("@bo");
+		expect(text).toContain("2 ahead of main · 1 behind");
+		expect(text).toContain("Add the form");
+		expect(text).toContain("v0.8.2");
+		expect(text).toContain("Codex approved");
+		expect(text).toContain("Squash 2 commits into main, then delete login");
 
-		const merge = [...view.container.querySelectorAll<HTMLButtonElement>("button")].find(
-			(button) => button.textContent?.trim() === "Merge",
-		);
-		merge?.click();
-		await settle();
-		const squash = [...document.querySelectorAll<HTMLButtonElement>("button")].find(
-			(button) => button.textContent?.trim() === "Squash and merge",
-		);
-		squash?.click();
+		buttonNamed(view.container, "Squash and merge")?.click();
 		await settle();
 		// Nothing is merged until the dialog is confirmed.
 		expect(view.calls.some((call) => call.url.endsWith("/12/merge"))).toBe(false);
 		const confirm = [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find(
-			(button) => button.textContent?.trim() === "Squash and merge",
+			(item) => item.textContent?.trim() === "Squash and merge",
 		);
 		confirm?.click();
 		await settle();
 		const sent = view.calls.find((call) => call.url.endsWith("/12/merge"));
-		expect(sent?.init?.body).toBe(JSON.stringify({ method: "squash" }));
+		expect(sent?.init?.body).toBe(JSON.stringify({ method: "squash", deleteBranch: true }));
+	});
+
+	it("reviews the changes: threads under their lines, a comment on a line, then the verdict", async () => {
+		const view = mount("/pulls/alpha/12/changes", (url, init) => {
+			if (url.includes("/github/pulls/alpha?filter")) return json([summary]);
+			if (url.endsWith("/12/diff")) return json(diff);
+			if (url.endsWith("/12/review") && init?.method === "POST")
+				return new Response(null, { status: 204 });
+			if (url.endsWith("/12/review")) return json(review);
+			if (url.endsWith("/github/pulls/alpha/12")) return json(detail);
+			return null;
+		});
+		done = view.done;
+		await settle();
+		const text = view.container.textContent ?? "";
+		expect(text).toContain("src/login.ts");
+		expect(text).toContain("Export it.");
+		expect(text).toContain("Resolved");
+		expect(text).toContain("0 of 1 file viewed");
+
+		buttonNamed(view.container, "Comment on line 3")?.click();
+		await settle();
+		const box = view.container.querySelector<HTMLTextAreaElement>(
+			'textarea[aria-label="Your comment"]',
+		);
+		expect(box).not.toBeNull();
+		if (box) {
+			box.value = "Keep it private";
+			box.dispatchEvent(new Event("input", { bubbles: true }));
+		}
+		await settle();
+		buttonNamed(view.container, "Comment")?.click();
+		await settle();
+		expect(view.container.textContent).toContain("1 draft comment");
+
+		buttonNamed(view.container, "Request changes")?.click();
+		await settle();
+		buttonNamed(view.container, "Submit review")?.click();
+		await settle();
+		const sent = view.calls.find(
+			(call) => call.url.endsWith("/12/review") && call.init?.method === "POST",
+		);
+		expect(JSON.parse(String(sent?.init?.body))).toEqual({
+			event: "REQUEST_CHANGES",
+			body: "",
+			comments: [{ path: "src/login.ts", line: 3, side: "RIGHT", body: "Keep it private" }],
+		});
 	});
 
 	it("starts a thread in a worktree on the pull request's branch when asked to fix it", async () => {
@@ -201,7 +340,7 @@ describe("PullsScreen", () => {
 			createdAt: "2026-09-28T10:00:00Z",
 			updatedAt: "2026-09-28T10:00:00Z",
 		};
-		const view = mount("/pulls/alpha?pr=12", (url, init) => {
+		const view = mount("/pulls/alpha/12", (url, init) => {
 			if (url.includes("/github/pulls/alpha?filter")) return json([summary]);
 			if (url.endsWith("/github/pulls/alpha/12")) return json(detail);
 			if (url.endsWith("/chat/providers")) return json([provider]);
@@ -221,8 +360,11 @@ describe("PullsScreen", () => {
 		done = view.done;
 		await settle();
 
-		const fix = [...view.container.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
-			button.textContent?.includes("Fix with an agent"),
+		// From the pull request's menu.
+		buttonNamed(view.container, "Pull request")?.click();
+		await settle();
+		const fix = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(
+			(item) => item.textContent?.includes("Fix with an agent"),
 		);
 		expect(fix).toBeTruthy();
 		// Nothing is read from the runner until the sheet is opened.
@@ -250,8 +392,8 @@ describe("PullsScreen", () => {
 		expect(view.calls.filter((call) => call.url.endsWith("/12/fix")).length).toBe(2);
 		expect(sheet?.querySelector("textarea")?.value).toContain("comments: false");
 
-		const start = [...(sheet?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((button) =>
-			button.textContent?.includes("Start thread"),
+		const start = [...(sheet?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((item) =>
+			item.textContent?.includes("Start thread"),
 		);
 		expect(start?.disabled).toBe(false);
 		start?.click();

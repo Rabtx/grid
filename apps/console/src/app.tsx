@@ -48,8 +48,8 @@ const Router = createRouter({
 		{ path: "/files/:slug", component: FilesRoute },
 		// A project's notes; the open one (or `new`) after it.
 		{ path: "/notes/:slug/:note?", component: NotesRoute },
-		// A project's pull requests on GitHub; the open one is `?pr=`.
-		{ path: "/pulls/:slug", component: PullsRoute },
+		// A project's pull requests on GitHub; the open one by its number, its review after it.
+		{ path: "/pulls/:slug/:number?/:view?", component: PullsRoute },
 		// The same board with one task open in the panel over it.
 		{ path: "/board/:slug/tasks/:number", component: BoardRoute },
 		// Chats with agents, inside their project; `new` is the new-chat composer, any other id a
