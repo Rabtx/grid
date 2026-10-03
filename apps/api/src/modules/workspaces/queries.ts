@@ -58,6 +58,8 @@ export const listMembers = (db: Database, workspaceId: string) =>
 		.select({
 			userId: users.id,
 			username: users.username,
+			// Teammates see each other's email in Settings → Members, as they would in any team tool.
+			email: users.email,
 			displayName: userProfiles.displayName,
 			avatarUrl: userProfiles.avatarUrl,
 			role: workspaceMembers.role,
