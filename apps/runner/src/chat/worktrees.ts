@@ -102,6 +102,11 @@ export type WorktreeRequest = {
 	 * a branch of this repository, so it gets a branch of its own, `branch` (`grid/pr-<n>`).
 	 */
 	fork?: boolean;
+	/**
+	 * A new branch starts here (the workspace's default branch) rather than at what is checked out,
+	 * when this branch exists here or on `origin`; otherwise at what is checked out.
+	 */
+	from?: string;
 };
 
 /** Network fetches give up after this: a slow remote must not hold a chat back for long. */
@@ -189,9 +194,21 @@ function addWorktree(repo: string, args: string[], branch: string): void {
 }
 
 /** A new branch from what is checked out now; a name already in use is refused. */
-function newBranch(repo: string, path: string, branch: string): string | null {
+function newBranch(repo: string, path: string, branch: string, from?: string): string | null {
 	if (git(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]).ok) {
 		throw new WorktreeError(`A branch called ${branch} already exists`, 409);
+	}
+	const start = from?.trim();
+	if (start) {
+		const ref = git(repo, ["rev-parse", "--verify", "--quiet", `refs/heads/${start}`]).ok
+			? start
+			: git(repo, ["rev-parse", "--verify", "--quiet", `refs/remotes/origin/${start}`]).ok
+				? `origin/${start}`
+				: null;
+		if (ref) {
+			addWorktree(repo, ["-b", branch, path, ref], branch);
+			return start;
+		}
 	}
 	const head = git(repo, ["rev-parse", "--abbrev-ref", "HEAD"]);
 	const base = head.ok && head.out !== "HEAD" ? head.out : null;
@@ -243,7 +260,7 @@ export function createWorktree(
 	const adopted = request.existing === true || request.pull !== undefined;
 	let base: string | null = null;
 	if (adopted) existingBranch(repo, path, branch, request.pull);
-	else base = newBranch(repo, path, branch);
+	else base = newBranch(repo, path, branch, request.from);
 	const inside = relative(repo, folder);
 	return {
 		cwd: inside ? join(path, inside) : path,

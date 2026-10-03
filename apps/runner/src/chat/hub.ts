@@ -196,6 +196,15 @@ function isDirectory(path: string): boolean {
 	}
 }
 
+/**
+ * Whether this person may start an agent here: the workspace can keep an agent to its admins
+ * (Settings → Members → Agents).
+ */
+export function assertMayStart(who: Who, provider: string, name: string): void {
+	if (who.settings?.agentAccess?.[provider] === "admins" && who.role === "member")
+		throw new ChatError(`Only admins can start ${name} in this workspace`, 403);
+}
+
 /** Whether a thread has had a message (not a command) the agent finished a turn on. */
 function answeredMessage(events: readonly ChatEvent[]): boolean {
 	let message = false;
@@ -227,6 +236,28 @@ export class ChatHub {
 		private readonly providers: Map<string, Provider>,
 		private readonly projectsDir: string = join(homedir(), "Projects"),
 	) {}
+
+	/**
+	 * Clears threads (transcripts and their attachments) untouched for `days` days, as the
+	 * workspace's run-log retention asks; a thread in use or with a worktree stays. Returns how
+	 * many went.
+	 */
+	prune(workspace: string, days: number, now: number = Date.now()): number {
+		if (!(days > 0)) return 0;
+		const before = new Date(now - days * 86_400_000).toISOString();
+		let cleared = 0;
+		for (const id of this.store.idleSince(workspace, before)) {
+			if (this.live.has(id)) continue;
+			this.store.delete(id);
+			cleared++;
+		}
+		return cleared;
+	}
+
+	/** How many people have used each agent in a workspace. */
+	agentUsage(workspace: string): Record<string, number> {
+		return this.store.agentUsage(workspace);
+	}
 
 	/** What each person's agents start with: their git identity, and a note for the first message. */
 	setPersonal(setup: PersonalSetup): void {
@@ -372,6 +403,7 @@ export class ChatHub {
 		const provider = this.providers.get(input.provider);
 		if (!provider?.info().available)
 			throw new ChatError("That agent is not installed on this machine", 400);
+		assertMayStart(who, input.provider, provider.info().name);
 		const cwd = input.cwd?.trim() || this.defaultCwd(who.workspace, input.project);
 		if (!existsSync(cwd) || !isDirectory(cwd))
 			throw new ChatError(`${cwd} is not a folder on this machine`, 400);
@@ -385,6 +417,7 @@ export class ChatHub {
 					existing: input.existing,
 					pull: input.pull,
 					fork: input.fork,
+					from: who.settings?.defaultBranch,
 				})
 			: null;
 		return this.store.create({

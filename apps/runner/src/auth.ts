@@ -6,14 +6,40 @@ const CACHE_MS = 30_000;
  * to the workspace (teammates share them); terminals, agent settings and notifications stay the
  * person's own.
  */
-export type Who = { userId: string; workspace: string };
+export type Who = {
+	userId: string;
+	workspace: string;
+	/** Their role in the workspace, when the API said (always, for a signed-in person). */
+	role?: WorkspaceRole;
+	/** What applies to everyone in the workspace (Settings → General). */
+	settings?: WorkspaceSettings;
+};
+
+export type WorkspaceRole = "owner" | "admin" | "member";
+
+/** What a workspace sets for everyone, as the API keeps it; a missing field is its default. */
+export type WorkspaceSettings = {
+	defaultBranch?: string;
+	defaultAgent?: string;
+	weekStartsOn?: string;
+	/** Run logs older than this many days are cleared; 0 or missing keeps them. */
+	logRetentionDays?: number;
+	/** Per agent id: who may start it. */
+	agentAccess?: Record<string, "everyone" | "admins">;
+};
 
 /** A token checked: who it is, or why not (401: not signed in, 404: not in that workspace). */
 export type Verified = { who: Who } | { status: 401 | 404; message: string };
 
 export type Verify = (token: string, workspace?: string | null) => Promise<Verified>;
 
-type Workspace = { id: string; slug: string; isDefault: boolean };
+type Workspace = {
+	id: string;
+	slug: string;
+	isDefault: boolean;
+	role?: WorkspaceRole;
+	settings?: WorkspaceSettings;
+};
 type Known = { userId: string; workspaces: Workspace[]; until: number };
 
 export const signedOut: Verified = { status: 401, message: "Sign in again" };
@@ -29,6 +55,7 @@ export function createTokenVerifier(
 	apiUrl: string,
 	fetcher: typeof fetch = fetch,
 	onDefault: (who: Who) => void = () => {},
+	onSettings: (workspace: string, settings: WorkspaceSettings) => void = () => {},
 ): Verify {
 	const cache = new Map<string, Known>();
 
@@ -72,7 +99,13 @@ export function createTokenVerifier(
 			? entry.workspaces.find((w) => w.slug === slug)
 			: entry.workspaces.find((w) => w.isDefault);
 		if (!workspace) return { status: 404, message: `Workspace "${slug}" not found` };
-		const who = { userId: entry.userId, workspace: workspace.id };
+		const who: Who = {
+			userId: entry.userId,
+			workspace: workspace.id,
+			...(workspace.role ? { role: workspace.role } : {}),
+			...(workspace.settings ? { settings: workspace.settings } : {}),
+		};
+		onSettings(workspace.id, workspace.settings ?? {});
 		if (workspace.isDefault) onDefault(who);
 		return { who };
 	};

@@ -59,4 +59,41 @@ describe("createTokenVerifier", () => {
 		}) as unknown as typeof fetch);
 		expect(await verify("t1")).toMatchObject({ status: 401 });
 	});
+	it("carries the person's role and the workspace's settings, and reports the settings", async () => {
+		const fetcher = (async (input: string | URL | Request) => {
+			const url = input.toString();
+			const body = url.endsWith("/auth/me")
+				? { data: { id: "user-1" } }
+				: {
+						data: [
+							{
+								id: "ws-acme",
+								slug: "acme",
+								isDefault: true,
+								role: "member",
+								settings: { logRetentionDays: 90, agentAccess: { codex: "admins" } },
+							},
+						],
+					};
+			return new Response(JSON.stringify(body));
+		}) as typeof fetch;
+		const reported: [string, unknown][] = [];
+		const verify = createTokenVerifier(
+			"http://api.test",
+			fetcher,
+			() => {},
+			(id, settings) => reported.push([id, settings]),
+		);
+		expect(await verify("t1", "acme")).toEqual({
+			who: {
+				userId: "user-1",
+				workspace: "ws-acme",
+				role: "member",
+				settings: { logRetentionDays: 90, agentAccess: { codex: "admins" } },
+			},
+		});
+		expect(reported).toEqual([
+			["ws-acme", { logRetentionDays: 90, agentAccess: { codex: "admins" } }],
+		]);
+	});
 });

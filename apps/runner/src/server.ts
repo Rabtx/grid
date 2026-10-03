@@ -392,6 +392,27 @@ export function startServer(
 					);
 				}
 
+				// Who uses each agent here (Settings → Members → Agents): people, and the roles on it.
+				if (url.pathname === "/agents/usage" && request.method === "GET") {
+					const who = await whoFrom(request, "Sign in to see who uses agents");
+					if (who instanceof Response) return who;
+					const people = chat.agentUsage(who.workspace);
+					const teamRoles = roles?.store.list(who.workspace) ?? [];
+					const providers = new Set([
+						...Object.keys(people),
+						...teamRoles.map((role) => role.provider),
+					]);
+					return Response.json({
+						data: [...providers].map((provider) => ({
+							provider,
+							people: people[provider] ?? 0,
+							roles: teamRoles
+								.filter((role) => role.provider === provider)
+								.map((role) => role.name),
+						})),
+					});
+				}
+
 				// Install or sign in an agent: a terminal here, running the agent's own command.
 				const setup = url.pathname.match(/^\/chat\/providers\/([\w-]+)\/setup$/);
 				if (setup && request.method === "POST") {
