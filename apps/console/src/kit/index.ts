@@ -83,7 +83,7 @@ export {
 	ToneTile,
 } from "./feed";
 export { attachContextMenu, LONG_PRESS_MS, type MenuPoint } from "./context-menu";
-export { AppFrame, AuthCard, AuthFrame, AuthHead } from "./frame";
+export { AppFrame, AuthCard, AuthFrame, AuthHead, CanvasCorner } from "./frame";
 export {
 	Field,
 	InlineInput,
@@ -113,6 +113,7 @@ export {
 } from "./message";
 export {
 	BrandTile,
+	FloatingPanel,
 	NavButton,
 	NavGroup,
 	NavLink,
@@ -165,7 +166,7 @@ export {
 } from "./run";
 export { type EffortLevel, EffortSlider } from "./effort";
 export { type ArrivalOptions, playArrival } from "./arrival";
-export { ListDetail, ListRow, PaneHeader } from "./pane";
+export { DetailAside, ListDetail, ListRow, PaneHeader } from "./pane";
 export { type AgentChoice, AgentChoices, FlagshipMark, ModelRow } from "./picker";
 export { PixelMark, ProjectMark, type ProjectMarkShape } from "./project-mark";
 export { FLOATING_MIC, VoiceDock, VoiceError, VoiceStatus } from "./voice";

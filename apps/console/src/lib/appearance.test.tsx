@@ -21,6 +21,11 @@ afterEach(() => {
 });
 
 describe("normalizeAppearance", () => {
+	it("keeps a known sidebar style and falls back to the full one", () => {
+		expect(normalizeAppearance({ sidebar: "floating" }).sidebar).toBe("floating");
+		expect(normalizeAppearance({ sidebar: "hovering" }).sidebar).toBe("full");
+	});
+
 	it("fills defaults for missing or invalid input", () => {
 		expect(normalizeAppearance(null)).toEqual(APPEARANCE_DEFAULTS);
 		expect(normalizeAppearance({ theme: "sepia", hue: "abc", accent: "blue" })).toEqual(

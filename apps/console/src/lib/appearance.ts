@@ -7,6 +7,8 @@ import { createSignal } from "solid-js";
  */
 export type Theme = "system" | "light" | "dark";
 export type Density = "compact" | "comfortable" | "spacious";
+/** How navigation sits on desktop: a rail and panel down the side, or a card over the canvas. */
+export type SidebarStyle = "full" | "floating";
 
 export type Appearance = {
 	theme: Theme;
@@ -40,6 +42,7 @@ export type Appearance = {
 	codeFont: CodeFont;
 	/** Names under the rail's icons. */
 	railLabels: boolean;
+	sidebar: SidebarStyle;
 	/** Fewer animations and no cursor trails. */
 	reduceMotion: boolean;
 	/** Where agents point and type in Browser and Notes. */
@@ -83,6 +86,7 @@ export const APPEARANCE_DEFAULTS: Appearance = {
 	signal: null,
 	codeFont: "system",
 	railLabels: false,
+	sidebar: "full",
 	reduceMotion: false,
 	agentCursors: true,
 	sounds: true,
@@ -155,6 +159,7 @@ export function normalizeAppearance(input: unknown): Appearance {
 					: null,
 		codeFont: oneOf(raw.codeFont, Object.keys(CODE_FONTS) as CodeFont[], d.codeFont),
 		railLabels: typeof raw.railLabels === "boolean" ? raw.railLabels : d.railLabels,
+		sidebar: oneOf(raw.sidebar, ["full", "floating"], d.sidebar),
 		reduceMotion: typeof raw.reduceMotion === "boolean" ? raw.reduceMotion : d.reduceMotion,
 		agentCursors: typeof raw.agentCursors === "boolean" ? raw.agentCursors : d.agentCursors,
 		sounds: typeof raw.sounds === "boolean" ? raw.sounds : d.sounds,

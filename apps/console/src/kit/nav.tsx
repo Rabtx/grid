@@ -195,9 +195,18 @@ export function NavSection(props: {
 }
 
 export const railItem = variants({
-	base: "focus-ring relative grid size-8 shrink-0 place-items-center rail-labels:h-auto rail-labels:min-h-11 rail-labels:w-15 rail-labels:content-center rail-labels:gap-0.5 rail-labels:py-1 rounded-kit text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:surface-outline aria-[current=page]:bg-surface aria-[current=page]:text-fg [&_svg]:size-4 pointer-coarse:size-11 pointer-coarse:[&_svg]:size-5",
-	variants: {},
-	defaults: {},
+	base: "focus-ring relative grid shrink-0 place-items-center rounded-kit text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:surface-outline aria-[current=page]:bg-surface aria-[current=page]:text-fg [&_svg]:size-4",
+	variants: {
+		size: {
+			/** The rail's 32px tile, with room for its name when rail labels are on. */
+			rail: "size-8 rail-labels:h-auto rail-labels:min-h-11 rail-labels:w-15 rail-labels:content-center rail-labels:gap-0.5 rail-labels:py-1 pointer-coarse:size-11 pointer-coarse:[&_svg]:size-5",
+			/** The floating sidebar's views row (the Figma Grid/Sidebar/Views row): icons only. */
+			row: "size-6",
+			/** A top bar's tile, as tall as its icon buttons. */
+			bar: "size-kit-control pointer-coarse:size-11",
+		},
+	},
+	defaults: { size: "rail" },
 });
 
 type RailItemProps = {
@@ -210,12 +219,15 @@ type RailItemProps = {
 	/** A dot on the corner for something waiting (unread Inbox items). */
 	dot?: boolean;
 	shortcut?: string;
+	size?: "rail" | "row" | "bar";
 };
 
-function RailDot(props: { when?: boolean }): JSX.Element {
+function RailDot(props: { when?: boolean; size?: "rail" | "row" | "bar" }): JSX.Element {
 	return (
 		<Show when={props.when}>
-			<span class="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-accent ring-2 ring-surface" />
+			<span
+				class={`absolute size-1.5 rounded-full bg-accent ring-2 ring-surface ${props.size === "row" ? "top-0.5 right-0.5" : "top-1.5 right-1.5"}`}
+			/>
 		</Show>
 	);
 }
@@ -224,7 +236,17 @@ function RailDot(props: { when?: boolean }): JSX.Element {
 export function RailLink(
 	props: RailItemProps & Omit<JSX.AnchorHTMLAttributes<HTMLAnchorElement>, "children">,
 ): JSX.Element {
-	const rest = omit(props, "label", "spoken", "icon", "current", "dot", "shortcut", "class");
+	const rest = omit(
+		props,
+		"label",
+		"spoken",
+		"icon",
+		"current",
+		"dot",
+		"shortcut",
+		"size",
+		"class",
+	);
 	return (
 		<a
 			{...rest}
@@ -232,13 +254,15 @@ export function RailLink(
 			aria-current={props.current ? "page" : "false"}
 			data-tooltip={props.label}
 			data-shortcut={props.shortcut}
-			class={railItem({ class: props.class })}
+			class={railItem({ size: props.size, class: props.class })}
 		>
 			{props.icon}
-			<span class="hidden max-w-full truncate px-0.5 text-micro leading-tight rail-labels:block pointer-coarse:rail-labels:hidden">
-				{props.label}
-			</span>
-			<RailDot when={props.dot} />
+			<Show when={props.size !== "row"}>
+				<span class="hidden max-w-full truncate px-0.5 text-micro leading-tight rail-labels:block pointer-coarse:rail-labels:hidden">
+					{props.label}
+				</span>
+			</Show>
+			<RailDot when={props.dot} size={props.size} />
 		</a>
 	);
 }
@@ -247,7 +271,17 @@ export function RailLink(
 export function RailButton(
 	props: RailItemProps & Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "children">,
 ): JSX.Element {
-	const rest = omit(props, "label", "spoken", "icon", "current", "dot", "shortcut", "class");
+	const rest = omit(
+		props,
+		"label",
+		"spoken",
+		"icon",
+		"current",
+		"dot",
+		"shortcut",
+		"size",
+		"class",
+	);
 	return (
 		<button
 			type="button"
@@ -255,11 +289,34 @@ export function RailButton(
 			aria-label={props.spoken ?? props.label}
 			data-tooltip={props.label}
 			data-shortcut={props.shortcut}
-			class={railItem({ class: props.class })}
+			class={railItem({ size: props.size, class: props.class })}
 		>
 			{props.icon}
-			<RailDot when={props.dot} />
+			<RailDot when={props.dot} size={props.size} />
 		</button>
+	);
+}
+
+/**
+ * The floating sidebar (the Figma Desktop · Floating sidebar): a 232px card over the canvas with
+ * the views row on top, a hairline, then the panel's body, as tall as what it holds.
+ */
+export function FloatingPanel(props: {
+	label: string;
+	views: JSX.Element;
+	children: JSX.Element;
+}): JSX.Element {
+	return (
+		<nav
+			aria-label={props.label}
+			class="surface-card flex max-h-full min-h-0 w-full flex-col gap-1 rounded-kit-2xl p-2"
+		>
+			<div class="flex h-7 shrink-0 items-center justify-between">{props.views}</div>
+			<span aria-hidden="true" class="h-px w-full shrink-0 bg-line" />
+			<div class="flex min-h-0 flex-col overflow-y-auto overscroll-contain [scrollbar-width:none]">
+				{props.children}
+			</div>
+		</nav>
 	);
 }
 

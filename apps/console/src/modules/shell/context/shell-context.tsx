@@ -1,6 +1,8 @@
 import type { JSX } from "@solidjs/web";
 import { createContext, createSignal, onSettled, useContext } from "solid-js";
 
+import { appearance } from "@/lib/appearance";
+
 /** Something a screen renders into the shell's chrome, drawn wherever the layout puts it. */
 type Slot = () => JSX.Element;
 
@@ -35,6 +37,8 @@ type ShellState = {
 	setPaletteOpen: (open: boolean) => void;
 	/** True from `lg`, where the sidebar and panel sit beside the screen instead of in a drawer. */
 	desktop: () => boolean;
+	/** Desktop with the floating sidebar (Settings → Appearance): a card over the canvas, no rail. */
+	floating: () => boolean;
 };
 
 type SlotName =
@@ -122,6 +126,7 @@ export function ShellProvider(props: { children: JSX.Element }): JSX.Element {
 		paletteOpen,
 		setPaletteOpen,
 		desktop,
+		floating: () => desktop() && appearance().sidebar === "floating",
 	};
 
 	return <ShellContext value={state}>{props.children}</ShellContext>;

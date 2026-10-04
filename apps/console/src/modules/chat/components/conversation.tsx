@@ -11,7 +11,7 @@ import { useAuth } from "@/modules/auth";
 import { environmentsStore } from "@/modules/environments";
 import { placementsStore } from "@/modules/environments/stores/placements";
 import { relativeTime } from "@/modules/projects/lib/relative-time";
-import { ShellSlot } from "@/modules/shell";
+import { ShellSlot, useShell } from "@/modules/shell";
 import { notesStore, useWorkspace } from "@/modules/projects";
 import {
 	AgentLogo,
@@ -21,6 +21,7 @@ import {
 	BranchIcon,
 	ClockIcon,
 	ContextMeter,
+	DetailAside,
 	DiffStat,
 	FactGroup,
 	LaptopIcon,
@@ -79,6 +80,7 @@ export function Conversation(props: {
 	onSession: (session: ChatSession) => void;
 }): JSX.Element {
 	const auth = useAuth();
+	const shell = useShell();
 	const workspace = useWorkspace();
 	const [transcript, setTranscript] = createSignal<Transcript>(emptyTranscript());
 	const [session, setSession] = createSignal<ChatSession | null>(null);
@@ -589,10 +591,7 @@ export function Conversation(props: {
 			</div>
 			<Show when={session()}>
 				{(current) => (
-					<aside
-						aria-label="Run"
-						class="hidden w-72 shrink-0 overflow-y-auto border-line border-l xl:block"
-					>
+					<DetailAside label="Run" floating={shell.floating()}>
 						<FactGroup
 							label="Run"
 							rows={[
@@ -637,7 +636,7 @@ export function Conversation(props: {
 								</ul>
 							</Show>
 						</FactGroup>
-					</aside>
+					</DetailAside>
 				)}
 			</Show>
 		</div>
