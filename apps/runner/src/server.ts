@@ -8,6 +8,8 @@ import { may, NOT_ALLOWED, readOnly } from "./permissions";
 import { type Channel, type ChannelSink, openChat, openTerminal } from "./channels";
 import { type ChatHub } from "./chat/hub";
 import { connectorProxyRequest, connectorRequest } from "./connectors/routes";
+import { pulseRequest } from "./pulse/routes";
+import type { Pulse } from "./pulse/service";
 import type { Connectors } from "./connectors/service";
 import type { DiagnosticInput, DiagnosticJournal } from "./diagnostics/journal";
 import { RefusalTally } from "./diagnostics/refusals";
@@ -137,6 +139,8 @@ export function startServer(
 		mayApprove?: (act: PushAct) => boolean;
 		/** Settings → Connectors, and the proxies agents run for them. */
 		connectors?: Connectors;
+		/** Home → Pulse. */
+		pulse?: Pulse;
 	} = {},
 ): Server<SocketData> {
 	const {
@@ -153,6 +157,7 @@ export function startServer(
 		roles,
 		mayApprove,
 		connectors,
+		pulse,
 	} = extras;
 	const diagnosticRoutes = diagnostics ? new DiagnosticRoutes(diagnostics) : null;
 	const recordDiagnostic = (entry: DiagnosticInput): void => {
@@ -246,6 +251,13 @@ export function startServer(
 					const who = await whoFrom(request, "Sign in to manage connectors");
 					if (who instanceof Response) return who;
 					const handled = await connectorRequest(request, url, who, connectors);
+					if (handled) return handled;
+				}
+
+				if (pulse && (url.pathname === "/pulse" || url.pathname === "/pulse/refresh")) {
+					const who = await whoFrom(request, "Sign in to see Pulse");
+					if (who instanceof Response) return who;
+					const handled = await pulseRequest(request, url, who, pulse);
 					if (handled) return handled;
 				}
 

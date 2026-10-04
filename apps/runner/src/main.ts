@@ -29,6 +29,8 @@ import { createGh } from "./github/gh";
 import { Connectors } from "./connectors/service";
 import { ConnectionStore } from "./connectors/store";
 import { Vault } from "./connectors/vault";
+import { Pulse } from "./pulse/service";
+import { PulseStore } from "./pulse/store";
 import { PullRequests } from "./github/pulls";
 import { inboxItem } from "./inbox/attention";
 import { GithubInbox } from "./inbox/github";
@@ -190,8 +192,9 @@ const pulls = new PullRequests(gh, (userId) => github.assertOwner(userId));
 
 // Settings → Connectors: services and MCP servers agents may use, behind Grid's proxy. Secrets
 // sit in the vault beside the database, under a key only this user can read.
+const connections = new ConnectionStore(config.chatDb);
 const connectors = new Connectors({
-	store: new ConnectionStore(config.chatDb),
+	store: connections,
 	vault: new Vault(config.chatDb, join(dirname(config.chatDb), "vault.key")),
 	githubToken: async () => {
 		const result = await gh.run(["auth", "token"], { timeoutMs: 10_000 });
@@ -202,6 +205,7 @@ const connectors = new Connectors({
 	runnerUrl: () => `http://127.0.0.1:${server.port}`,
 });
 chat.setMcp((workspace, agent, thread) => connectors.serversFor(workspace, agent, thread));
+const pulse = new Pulse({ chat, gh, connections, store: new PulseStore(config.chatDb) });
 const githubInbox = new GithubInbox(inbox, {
 	pulls,
 	// The same claim the pull request routes make, asked without throwing so one person's GitHub
@@ -245,6 +249,7 @@ automations.setEventSync(async (workspace, ownerId) => {
 const server = startServer(config, store, verify, chat, {
 	push,
 	connectors,
+	pulse,
 	// Someone not seen since the runner started keeps the access their notification was sent with.
 	mayApprove: (act) => {
 		const who = lastSeen.get(`${act.ownerId}:${act.workspace}`);

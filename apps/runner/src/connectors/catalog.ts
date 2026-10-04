@@ -220,23 +220,19 @@ export const CATALOG: CatalogEntry[] = [
 			{
 				id: "read",
 				label: "Read customers, payments and plans",
-				tools: READ_TOOL,
+				// Stripe's server reads through stripe_api_read and its analytics and docs tools.
+				tools:
+					/^(stripe_api_read|stripe_api_search|stripe_api_details|stripe_analytics|get_.*|search_.*)$/,
 				initial: "allow",
 				read: true,
 			},
 			{
-				id: "money",
-				label: "Refunds and payments",
-				hint: "Moves money",
-				tools: /refund|payment|charge|payout|cancel/,
-				initial: "never",
-			},
-			{
 				id: "write",
-				label: "Create and update records",
+				label: "Change records and move money",
+				hint: "Refunds and payouts also ask in Stripe",
 				short: "changes",
-				tools: /^(create|update)_/,
-				initial: "ask",
+				tools: /^stripe_api_write$/,
+				initial: "never",
 			},
 		],
 		signals: { packages: /^(stripe|@stripe\/)/ },
@@ -253,7 +249,8 @@ export const CATALOG: CatalogEntry[] = [
 			{
 				id: "read",
 				label: "Read insights and events",
-				tools: READ_TOOL,
+				// PostHog names its tools with dashes: execute-sql, query-trends, insights-get-all.
+				tools: /^(execute-sql|query-[\w-]+)$|(^|-)(get|list|retrieve|search)(-|$)/,
 				initial: "allow",
 				read: true,
 			},
@@ -261,7 +258,7 @@ export const CATALOG: CatalogEntry[] = [
 				id: "write",
 				label: "Create insights and flags",
 				short: "new insights",
-				tools: /^(create|update)/,
+				tools: /(^|-)(create|update)(-|$)/,
 				initial: "ask",
 			},
 			{ id: "delete", label: "Delete", tools: /delete/, initial: "never" },
