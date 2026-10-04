@@ -149,6 +149,7 @@ export async function connectorRequest(
 						activity: connectors.activity(workspace, id),
 						repositories:
 							connection.kind === "github" ? connectors.repositories(workspace, id) : null,
+						agentsWithoutConnectors: connectors.view(workspace).agentsWithoutConnectors,
 					},
 				});
 			}

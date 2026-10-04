@@ -91,6 +91,22 @@ function serverName(connection: Connection): string {
 	return base || connection.kind;
 }
 
+/**
+ * `$NAME` and `${NAME}` in a command's arguments, from the variables it is given: the command
+ * runs without a shell, so Grid fills them in as a shell would.
+ */
+export function expandArgs(args: readonly string[], env: Record<string, string>): string[] {
+	return args.map((arg) =>
+		arg.replace(
+			/\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g,
+			(whole, braced, bare) => {
+				const name = (braced ?? bare) as string;
+				return env[name] ?? whole;
+			},
+		),
+	);
+}
+
 /** `owner/name` from a folder's GitHub remote, when it has one. */
 function githubRepository(folder: string): string | null {
 	try {
@@ -151,16 +167,19 @@ export class Connectors {
 				blurb: entry.blurb,
 				powers: entry.powers,
 				signIn: signInWays(entry),
-				capabilities: entry.capabilities.map(({ id, label, hint, initial }) => ({
+				capabilities: entry.capabilities.map(({ id, label, hint, short, initial }) => ({
 					id,
 					label,
 					hint: hint ?? null,
+					short: short ?? null,
 					initial,
 				})),
 			})),
 			connections: connections.map((item) => this.connectionView(item)),
 			suggested: this.suggest(workspace).filter((id) => !connected.has(id)),
 			secrets: this.deps.vault.names(workspace),
+			// Agents run as terminal apps take no MCP servers from Grid yet.
+			agentsWithoutConnectors: ["antigravity", "freebuff"],
 		};
 	}
 
@@ -184,12 +203,14 @@ export class Connectors {
 				]),
 			),
 			auth: connection.auth,
+			powers: catalogEntry(connection.kind)?.powers ?? [],
 			enabled: connection.enabled,
 			rules: { ...initialRules(capabilities), ...connection.rules },
-			capabilities: capabilities.map(({ id, label, hint, initial }) => ({
+			capabilities: capabilities.map(({ id, label, hint, short, initial }) => ({
 				id,
 				label,
 				hint: hint ?? null,
+				short: short ?? null,
 				initial,
 			})),
 			agents: connection.agents,
@@ -468,7 +489,7 @@ export class Connectors {
 		const env = parts ? await this.customEnv(workspace, server.env) : {};
 		const tested = await this.tryProbe(() =>
 			parts
-				? stdioTransport([parts.command, ...parts.args], env, () => {})
+				? stdioTransport([parts.command, ...expandArgs(parts.args, env)], env, () => {})
 				: httpTransport(server.url ?? "", async () => server.key ?? null, this.fetcher),
 		);
 		if ("error" in tested) throw new ConnectorError(tested.error, 502);
@@ -595,7 +616,11 @@ export class Connectors {
 		if (connection.transport === "http")
 			return httpTransport(connection.url ?? "", () => this.tokenFor(connection), this.fetcher);
 		const env = await this.customEnv(connection.workspace, connection.env);
-		return stdioTransport([connection.command ?? "", ...connection.args], env, () => {});
+		return stdioTransport(
+			[connection.command ?? "", ...expandArgs(connection.args, env)],
+			env,
+			() => {},
+		);
 	}
 
 	/** Checks a connection now: does it answer, and with which tools. */
@@ -687,15 +712,18 @@ export class Connectors {
 				defaultBranch: "main",
 			},
 		);
+		const env =
+			connection.transport === "stdio"
+				? await this.customEnv(connection.workspace, connection.env)
+				: {};
 		return {
 			name: connection.name,
 			transport: connection.transport,
 			url: connection.url,
-			command: connection.command ? [connection.command, ...connection.args] : null,
-			env:
-				connection.transport === "stdio"
-					? await this.customEnv(connection.workspace, connection.env)
-					: {},
+			command: connection.command
+				? [connection.command, ...expandArgs(connection.args, env)]
+				: null,
+			env,
 			policy,
 		};
 	}

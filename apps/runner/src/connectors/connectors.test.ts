@@ -9,7 +9,7 @@ import { catalogEntry, GENERIC_CAPABILITIES, initialRules } from "./catalog";
 import { probe, stdioTransport } from "./mcp-client";
 import { authorizeUrl, discover, exchange, fresh, register } from "./oauth";
 import { decide, listed, toolPolicy } from "./rules";
-import { Connectors } from "./service";
+import { Connectors, expandArgs } from "./service";
 import { ConnectionStore } from "./store";
 import { Vault } from "./vault";
 
@@ -317,6 +317,15 @@ describe("connectors", () => {
 
 		const activity = connectors.activity("ws", connection.id).map((entry) => entry.outcome);
 		expect(activity).toEqual(expect.arrayContaining(["done", "blocked", "denied"]));
+	});
+
+	it("fills $VARIABLES into a command's arguments, as a shell would", () => {
+		expect(
+			expandArgs(["--url", "$DATABASE_URL", "${HOST}:5432", "$MISSING"], {
+				DATABASE_URL: "postgres://x",
+				HOST: "db",
+			}),
+		).toEqual(["--url", "postgres://x", "db:5432", "$MISSING"]);
 	});
 
 	it("keeps generic rules for servers the catalog does not know", () => {

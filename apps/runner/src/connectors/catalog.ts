@@ -16,6 +16,8 @@ export type Capability = {
 	label: string;
 	/** A line under the label: what happens when it is asked for. */
 	hint?: string;
+	/** In a summary line: "Open PRs · merging asks you". */
+	short?: string;
 	/** Tool names that belong to it. */
 	tools: RegExp;
 	/** What it starts as when the service is connected. */
@@ -52,7 +54,7 @@ export const READ_TOOL =
 /** Any server the catalog does not know: reading, and everything else. */
 export const GENERIC_CAPABILITIES: Capability[] = [
 	{ id: "read", label: "Read", tools: READ_TOOL, initial: "allow", read: true },
-	{ id: "write", label: "Change things", tools: /.*/, initial: "ask" },
+	{ id: "write", label: "Change things", short: "changes", tools: /.*/, initial: "ask" },
 ];
 
 export const CATALOG: CatalogEntry[] = [
@@ -77,6 +79,7 @@ export const CATALOG: CatalogEntry[] = [
 			{
 				id: "open",
 				label: "Open branches and pull requests",
+				short: "Open PRs",
 				hint: "Always on a new branch",
 				tools:
 					/^(create_branch|create_pull_request|update_pull_request|push_files|create_or_update_file|delete_file|fork_repository|create_issue|update_issue)$/,
@@ -85,12 +88,14 @@ export const CATALOG: CatalogEntry[] = [
 			{
 				id: "comment",
 				label: "Comment and request reviews",
+				short: "comments",
 				tools: /comment|review/,
 				initial: "allow",
 			},
 			{
 				id: "merge",
 				label: "Merge pull requests",
+				short: "merging",
 				hint: "Sends you an approval in Inbox",
 				tools: /^merge_pull_request$/,
 				initial: "ask",
@@ -130,6 +135,7 @@ export const CATALOG: CatalogEntry[] = [
 			{
 				id: "update",
 				label: "Create and update issues",
+				short: "Read and update issues",
 				tools: /^(create|update|save)_/,
 				initial: "allow",
 			},
@@ -153,7 +159,13 @@ export const CATALOG: CatalogEntry[] = [
 				initial: "allow",
 				read: true,
 			},
-			{ id: "deploy", label: "Deploy previews", tools: /deploy/, initial: "allow" },
+			{
+				id: "deploy",
+				label: "Deploy previews",
+				short: "Previews",
+				tools: /deploy/,
+				initial: "allow",
+			},
 			{
 				id: "settings",
 				label: "Change projects and domains",
@@ -182,6 +194,7 @@ export const CATALOG: CatalogEntry[] = [
 			{
 				id: "resolve",
 				label: "Resolve and assign issues",
+				short: "resolving issues",
 				hint: "Sends you an approval first",
 				tools: /^(update_issue|assign|resolve)/,
 				initial: "ask",
@@ -221,6 +234,7 @@ export const CATALOG: CatalogEntry[] = [
 			{
 				id: "write",
 				label: "Create and update records",
+				short: "changes",
 				tools: /^(create|update)_/,
 				initial: "ask",
 			},
@@ -246,6 +260,7 @@ export const CATALOG: CatalogEntry[] = [
 			{
 				id: "write",
 				label: "Create insights and flags",
+				short: "new insights",
 				tools: /^(create|update)/,
 				initial: "ask",
 			},
@@ -272,6 +287,7 @@ export const CATALOG: CatalogEntry[] = [
 			{
 				id: "migrate",
 				label: "Run SQL and migrations",
+				short: "migrations",
 				hint: "Sends you an approval first",
 				tools: /migration|execute_sql|deploy/,
 				initial: "ask",
@@ -325,6 +341,7 @@ export const CATALOG: CatalogEntry[] = [
 			{
 				id: "post",
 				label: "Post messages",
+				short: "posting",
 				hint: "Sends you an approval first",
 				tools: /send|post|reply|message/,
 				initial: "ask",
@@ -392,6 +409,7 @@ export const CATALOG: CatalogEntry[] = [
 			{
 				id: "write",
 				label: "Create and edit pages",
+				short: "editing pages",
 				tools: /create|update|append|move/,
 				initial: "ask",
 			},
@@ -416,6 +434,7 @@ export const CATALOG: CatalogEntry[] = [
 			{
 				id: "migrate",
 				label: "Run SQL and migrations",
+				short: "migrations",
 				tools: /sql|migration|branch/,
 				initial: "ask",
 			},
