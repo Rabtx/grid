@@ -8,7 +8,7 @@ import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
 import { MachinesScreen } from "@/modules/environments";
 import { HomeScreen } from "@/modules/home";
-import { ConnectorsScreen } from "@/modules/github";
+import { ConnectorScreen, ConnectorsScreen, OAuthCallback } from "@/modules/connectors";
 import { InboxScreen } from "@/modules/inbox";
 import {
 	AgentsScreen,
@@ -73,6 +73,8 @@ const Router = createRouter({
 		// Environments became Machines: old links land there.
 		{ path: "/settings/environments", component: () => <Moved to="/settings/machines" /> },
 		{ path: "/settings/connectors", component: () => <Authed screen={ConnectorsScreen} /> },
+		{ path: "/settings/connectors/:id", component: () => <Authed screen={ConnectorScreen} /> },
+		{ path: "/oauth/callback", component: OAuthCallback },
 		{ path: "/settings/general", component: () => <Authed screen={GeneralScreen} /> },
 		{ path: "/settings/members", component: () => <Authed screen={MembersScreen} /> },
 		{ path: "/settings/worktrees", component: () => <Authed screen={WorktreesScreen} /> },

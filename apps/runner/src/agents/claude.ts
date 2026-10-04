@@ -208,7 +208,13 @@ export function claudeProvider(options: {
 
 export function claudeArgs(
 	binary: string,
-	input: { model?: string; mode?: string; effort?: string; resume?: string },
+	input: {
+		model?: string;
+		mode?: string;
+		effort?: string;
+		resume?: string;
+		mcpServers?: AgentContext["mcpServers"];
+	},
 ): string[] {
 	const args = [
 		binary,
@@ -227,6 +233,18 @@ export function claudeArgs(
 	if (input.mode) args.push("--permission-mode", input.mode);
 	if (input.mode === "bypassPermissions") args.push("--allow-dangerously-skip-permissions");
 	if (input.resume) args.push("--resume", input.resume);
+	if (input.mcpServers?.length)
+		args.push(
+			"--mcp-config",
+			JSON.stringify({
+				mcpServers: Object.fromEntries(
+					input.mcpServers.map(({ name, command, args: serverArgs, env }) => [
+						name,
+						{ type: "stdio", command, args: serverArgs, env },
+					]),
+				),
+			}),
+		);
 	return args;
 }
 
@@ -470,15 +488,18 @@ async function startClaudeSession(
 	function ensureProcess(): JsonProcess {
 		if (proc) return proc;
 		stderr = [];
-		const started = spawn(claudeArgs(binary, { model, mode, effort, resume }), {
-			cwd: context.cwd,
-			env: context.env,
-			onMessage: (message) => handle(message as Record<string, unknown>),
-			onStderr: (line) => {
-				stderr.push(line);
-				if (stderr.length > 20) stderr.shift();
+		const started = spawn(
+			claudeArgs(binary, { model, mode, effort, resume, mcpServers: context.mcpServers }),
+			{
+				cwd: context.cwd,
+				env: context.env,
+				onMessage: (message) => handle(message as Record<string, unknown>),
+				onStderr: (line) => {
+					stderr.push(line);
+					if (stderr.length > 20) stderr.shift();
+				},
 			},
-		});
+		);
 		void started.exited.then((code) => {
 			if (proc === started) proc = null;
 			finishTurn?.({

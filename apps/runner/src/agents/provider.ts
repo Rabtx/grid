@@ -1,6 +1,14 @@
 import type { ChatEvent, Choice } from "./events";
 
 /** How a provider's session reports what happens. */
+/** An MCP server an agent starts with: a command it runs and speaks to over stdio. */
+export type McpServerSpec = {
+	name: string;
+	command: string;
+	args: string[];
+	env: Record<string, string>;
+};
+
 export type AgentContext = {
 	cwd: string;
 	model?: string;
@@ -11,6 +19,8 @@ export type AgentContext = {
 	resume?: string;
 	/** Environment for the agent's process beyond the runner's own: who its commits are by. */
 	env?: Record<string, string>;
+	/** The workspace's connectors this agent may use (Settings → Connectors). */
+	mcpServers?: McpServerSpec[];
 	emit: (event: ChatEvent) => void;
 	/** The provider's session id, once it has one: stored so a later run can resume. */
 	onResumeToken: (token: string) => void;

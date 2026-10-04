@@ -345,7 +345,7 @@ async function startAcpSession(
 				session = await rpc.request<NewSessionResult>("session/load", {
 					sessionId: context.resume,
 					cwd: context.cwd,
-					mcpServers: [],
+					mcpServers: acpServers(context.mcpServers),
 				});
 				session = { ...session, sessionId: context.resume };
 			} catch {
@@ -357,7 +357,7 @@ async function startAcpSession(
 		}
 		session ??= await rpc.request<NewSessionResult>("session/new", {
 			cwd: context.cwd,
-			mcpServers: [],
+			mcpServers: acpServers(context.mcpServers),
 		});
 		sessionId = session.sessionId;
 		context.onResumeToken(sessionId);
@@ -433,4 +433,14 @@ async function startAcpSession(
 		setEffort,
 		close: () => proc.kill(),
 	};
+}
+
+/** Connectors as ACP lists MCP servers: stdio, each with its environment as name and value. */
+function acpServers(servers: AgentContext["mcpServers"]) {
+	return (servers ?? []).map((server) => ({
+		name: server.name,
+		command: server.command,
+		args: server.args,
+		env: Object.entries(server.env).map(([name, value]) => ({ name, value })),
+	}));
 }

@@ -39,8 +39,8 @@ import { showAppBadge } from "@/pwa/app-badge";
 // Pages outside any workspace keep the signed-out frame even for someone signed in.
 const OUTSIDE = /^\/(login|setup|invite)(\/|$)/;
 
-// Pages that draw their whole screen themselves.
-const STANDALONE = /^\/design(\/|$)/;
+// Pages that draw their whole screen themselves (a connector's sign-in coming back, in its popup).
+const STANDALONE = /^\/(design|oauth)(\/|$)/;
 
 // Screens that fill the frame edge to edge and scroll inside themselves.
 const FULL_BLEED = /^\/(chat|terminal|files|notes|pulls|board|inbox|automations|settings)(\/|$)/;

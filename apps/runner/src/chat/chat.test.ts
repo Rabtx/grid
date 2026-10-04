@@ -1017,6 +1017,53 @@ describe("agents on this machine", () => {
 			["b", "no"],
 		]);
 	});
+	it("asks the person a question of Grid's own in a thread, and starts agents with its connectors", async () => {
+		let given: unknown = null;
+		const provider: Provider = {
+			info: () => ({ id: "echo", name: "Echo", available: true, models: [], modes: [] }),
+			start: async (context) => {
+				given = context.mcpServers;
+				return {
+					prompt: async () => ({ reason: "done" }),
+					cancel: () => {},
+					approve: () => {},
+					setModel: async () => {},
+					setMode: async () => {},
+					setEffort: async () => {},
+					close: () => {},
+				};
+			},
+		};
+		const chat = new ChatHub(new ChatStore(":memory:"), new Map([["echo", provider]]), tmpdir());
+		chat.setMcp((workspace, agent, thread) => [
+			{ name: "postgres", command: "bun", args: [], env: { W: workspace, A: agent, T: thread } },
+		]);
+		const session = chat.create(
+			{ userId: "me", workspace: "w" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
+		await chat.prompt("w", session.id, "Go");
+		expect(given).toEqual([
+			{ name: "postgres", command: "bun", args: [], env: { W: "w", A: "echo", T: session.id } },
+		]);
+
+		const events: string[] = [];
+		chat.attach("w", session.id, {
+			event: (event) =>
+				events.push(event.type === "approval" ? `approval:${event.title}` : event.type),
+			state: () => {},
+		});
+		const answer = chat.ask(session.id, { title: "Postgres: drop table" });
+		const approvalId = (() => {
+			const live = chat as unknown as { asks: Map<string, unknown> };
+			return [...live.asks.keys()][0] ?? "";
+		})();
+		expect(events).toContain("approval:Postgres: drop table");
+		chat.approve("w", session.id, approvalId, "allow");
+		expect(await answer).toBe(true);
+		expect(events).toContain("approval_resolved");
+		expect(await chat.ask("missing", { title: "x" })).toBe(false);
+	});
 	it("lets only so many agents work at once", async () => {
 		let working = 0;
 		let most = 0;

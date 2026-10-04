@@ -343,3 +343,13 @@ export {
 	UpNextRow,
 } from "./automation";
 export { MachineCard, type MachineStat } from "./machine";
+export {
+	ChipRow,
+	ConnectorCard,
+	ConnectorGrid,
+	ConnectorHeader,
+	type HealthTone,
+	HealthLabel,
+	ProbeResult,
+	StepTrail,
+} from "./connector";
