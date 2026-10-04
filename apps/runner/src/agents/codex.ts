@@ -286,7 +286,7 @@ async function startCodexSession(
 	let stderr: string[] = [];
 	let rpc: JsonRpc | null = null;
 
-	const proc = spawn([binary, "app-server"], {
+	const proc = spawn([binary, ...codexMcpArgs(context.mcpServers), "app-server"], {
 		cwd: context.cwd,
 		env: context.env,
 		onMessage: (message) => rpc?.receive(message),
@@ -519,4 +519,23 @@ async function startCodexSession(
 		},
 		close: () => proc.kill(),
 	};
+}
+
+/** Connectors as Codex takes MCP servers: config overrides (`-c mcp_servers.<name>.…`) in TOML. */
+export function codexMcpArgs(servers: AgentContext["mcpServers"]): string[] {
+	const toml = (value: string) => JSON.stringify(value);
+	return (servers ?? []).flatMap(({ name, command, args, env }) => {
+		const key = `mcp_servers.${name.replace(/[^A-Za-z0-9_-]/g, "_")}`;
+		const table = Object.entries(env)
+			.map(([variable, value]) => `${JSON.stringify(variable)}=${toml(value)}`)
+			.join(",");
+		return [
+			"-c",
+			`${key}.command=${toml(command)}`,
+			"-c",
+			`${key}.args=[${args.map(toml).join(",")}]`,
+			"-c",
+			`${key}.env={${table}}`,
+		];
+	});
 }

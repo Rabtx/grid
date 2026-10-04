@@ -1,3 +1,5 @@
+import { dirname, join } from "node:path";
+
 import { AcpAgentStore } from "./agents/acp-agents";
 import { policyOf } from "./agents/policy";
 import { addAcpAgent, agentBinary, providerRegistry } from "./agents/registry";
@@ -24,6 +26,9 @@ import { checkEnvironmentUrl, EnvironmentStore } from "./environments/registry";
 import { type EnvironmentDeps, pairEnvironment } from "./environments/routes";
 import { CodespacesLink } from "./github/codespaces";
 import { createGh } from "./github/gh";
+import { Connectors } from "./connectors/service";
+import { ConnectionStore } from "./connectors/store";
+import { Vault } from "./connectors/vault";
 import { PullRequests } from "./github/pulls";
 import { inboxItem } from "./inbox/attention";
 import { GithubInbox } from "./inbox/github";
@@ -182,6 +187,21 @@ const github = new CodespacesLink(config.chatDb, gh, {
 });
 
 const pulls = new PullRequests(gh, (userId) => github.assertOwner(userId));
+
+// Settings → Connectors: services and MCP servers agents may use, behind Grid's proxy. Secrets
+// sit in the vault beside the database, under a key only this user can read.
+const connectors = new Connectors({
+	store: new ConnectionStore(config.chatDb),
+	vault: new Vault(config.chatDb, join(dirname(config.chatDb), "vault.key")),
+	githubToken: async () => {
+		const result = await gh.run(["auth", "token"], { timeoutMs: 10_000 });
+		return result.code === 0 && result.stdout.trim() ? result.stdout.trim() : null;
+	},
+	folders: (workspace) => chat.projectFolders(workspace),
+	ask: (thread, question) => chat.ask(thread, question),
+	runnerUrl: () => `http://127.0.0.1:${server.port}`,
+});
+chat.setMcp((workspace, agent, thread) => connectors.serversFor(workspace, agent, thread));
 const githubInbox = new GithubInbox(inbox, {
 	pulls,
 	// The same claim the pull request routes make, asked without throwing so one person's GitHub
@@ -224,6 +244,7 @@ automations.setEventSync(async (workspace, ownerId) => {
 
 const server = startServer(config, store, verify, chat, {
 	push,
+	connectors,
 	// Someone not seen since the runner started keeps the access their notification was sent with.
 	mayApprove: (act) => {
 		const who = lastSeen.get(`${act.ownerId}:${act.workspace}`);

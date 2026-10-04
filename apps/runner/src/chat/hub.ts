@@ -15,7 +15,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 
 import type { AgentCommand, ChatEvent, ToolKind } from "../agents/events";
 import { type AgentPolicy, answerFor, branchNote, DEFAULT_POLICY } from "../agents/policy";
-import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
+import type { AgentSession, McpServerSpec, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
 import type { Who } from "../auth";
 import { isAdmin, may, NOT_ALLOWED } from "../permissions";
@@ -240,11 +240,17 @@ export type PersonalSetup = (ownerId: string) => {
  * Every chat session: starting the agent when it is first needed, logging what it does, fanning
  * events out to each attached device, and parking agents nobody is using.
  */
+// How long Grid's own question in a thread waits for an answer before it is a no.
+const ASK_MS = 10 * 60_000;
+
 export class ChatHub {
 	private readonly live = new Map<string, Live>();
 	private attention: AttentionListener | null = null;
 	private failedTurn: ((session: ChatSessionRow) => void) | null = null;
 	private personal: PersonalSetup = () => ({ env: {}, note: null });
+	private mcp: (workspace: string, agent: string, thread: string) => McpServerSpec[] = () => [];
+	/** Grid's own questions waiting in threads, by their approval id. */
+	private readonly asks = new Map<string, (optionId: string | null) => void>();
 	private describe: DescribeAgent = async () => ({ version: null, custom: false });
 	/** How many agents may work at once on this machine; the rest wait their turn. */
 	private turnLimit = Number.POSITIVE_INFINITY;
@@ -323,6 +329,40 @@ export class ChatHub {
 	/** What agents may do on their own in each workspace (Settings → Agents & permissions). */
 	setPolicy(policy: (workspace: string) => { policy: AgentPolicy; defaultBranch: string }): void {
 		this.workspacePolicy = policy;
+	}
+
+	/** The MCP servers a thread's agent starts with: the workspace's connectors it may use. */
+	setMcp(servers: (workspace: string, agent: string, thread: string) => McpServerSpec[]): void {
+		this.mcp = servers;
+	}
+
+	/**
+	 * A question Grid itself puts in a thread (a connector's tool set to "Ask me"), shown and
+	 * answered like an agent's request. Unanswered in ten minutes, it is a no.
+	 */
+	ask(thread: string, question: { title: string; detail?: string }): Promise<boolean> {
+		if (!this.store.get(thread)) return Promise.resolve(false);
+		const id = `grid-${crypto.randomUUID()}`;
+		return new Promise((resolve) => {
+			const timer = setTimeout(() => answer(null), ASK_MS);
+			const answer = (optionId: string | null) => {
+				clearTimeout(timer);
+				if (!this.asks.delete(id)) return;
+				this.record(thread, { type: "approval_resolved", id, optionId });
+				resolve(optionId === "allow");
+			};
+			this.asks.set(id, answer);
+			this.record(thread, {
+				type: "approval",
+				id,
+				title: question.title,
+				...(question.detail ? { detail: question.detail } : {}),
+				options: [
+					{ id: "allow", label: "Allow", kind: "allow" },
+					{ id: "deny", label: "Deny", kind: "deny" },
+				],
+			});
+		});
 	}
 
 	/** What each person's agents start with: their git identity, and a note for the first message. */
@@ -1093,6 +1133,11 @@ export class ChatHub {
 
 	approve(workspace: string, id: string, approvalId: string, optionId: string | null): void {
 		this.owned(workspace, id);
+		const asked = this.asks.get(approvalId);
+		if (asked) {
+			asked(optionId);
+			return;
+		}
 		void this.live
 			.get(id)
 			?.agent?.then((agent) => agent.approve(approvalId, optionId))
@@ -1174,6 +1219,7 @@ export class ChatHub {
 				effort: fresh.effort ?? undefined,
 				resume: fresh.resumeToken ?? undefined,
 				env: this.personal(fresh.ownerId).env,
+				mcpServers: this.mcp(fresh.workspaceId, fresh.provider, fresh.id),
 				emit: (event) => this.record(session.id, event),
 				onResumeToken: (token) => this.store.update(session.id, { resumeToken: token }),
 			});
@@ -1254,7 +1300,11 @@ export class ChatHub {
 		const n = this.journalPush(live, event);
 		for (const client of live.clients) client.event(event, n);
 		// A request the workspace has already decided is answered here, and nobody is disturbed.
-		const answered = event.type === "approval" ? this.answerByPolicy(id, live, event) : false;
+		// Grid's own questions follow the connector's rules, which already chose to ask.
+		const answered =
+			event.type === "approval" && !this.asks.has(event.id)
+				? this.answerByPolicy(id, live, event)
+				: false;
 		if (
 			!answered &&
 			(event.type === "turn_end" || event.type === "approval") &&

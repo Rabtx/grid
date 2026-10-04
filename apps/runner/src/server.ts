@@ -7,6 +7,8 @@ import type { Verified, Verify, Who } from "./auth";
 import { may, NOT_ALLOWED, readOnly } from "./permissions";
 import { type Channel, type ChannelSink, openChat, openTerminal } from "./channels";
 import { type ChatHub } from "./chat/hub";
+import { connectorProxyRequest, connectorRequest } from "./connectors/routes";
+import type { Connectors } from "./connectors/service";
 import type { DiagnosticInput, DiagnosticJournal } from "./diagnostics/journal";
 import { RefusalTally } from "./diagnostics/refusals";
 import { DiagnosticRoutes, safeCloseReason } from "./diagnostics/routes";
@@ -133,6 +135,8 @@ export function startServer(
 		roles?: RoleDeps;
 		/** Whether a notification's approval buttons still answer for the person it went to. */
 		mayApprove?: (act: PushAct) => boolean;
+		/** Settings → Connectors, and the proxies agents run for them. */
+		connectors?: Connectors;
 	} = {},
 ): Server<SocketData> {
 	const {
@@ -148,6 +152,7 @@ export function startServer(
 		automations,
 		roles,
 		mayApprove,
+		connectors,
 	} = extras;
 	const diagnosticRoutes = diagnostics ? new DiagnosticRoutes(diagnostics) : null;
 	const recordDiagnostic = (entry: DiagnosticInput): void => {
@@ -223,6 +228,25 @@ export function startServer(
 					const who = await whoFrom(request, "Sign in to view runner diagnostics");
 					if (who instanceof Response) return who;
 					return (await diagnosticRoutes.handle(request, url, who)) ?? error(404, "Not found");
+				}
+
+				// An agent's connector proxy: proved with the runner's own key, not a person's sign-in.
+				if (connectors && url.pathname.startsWith("/connectors/proxy/")) {
+					const handled = await connectorProxyRequest(request, url, connectors);
+					if (handled) return handled;
+				}
+
+				if (
+					connectors &&
+					(url.pathname === "/connectors" ||
+						url.pathname.startsWith("/connectors/") ||
+						url.pathname === "/secrets" ||
+						url.pathname.startsWith("/secrets/"))
+				) {
+					const who = await whoFrom(request, "Sign in to manage connectors");
+					if (who instanceof Response) return who;
+					const handled = await connectorRequest(request, url, who, connectors);
+					if (handled) return handled;
 				}
 
 				if (url.pathname === "/health")
