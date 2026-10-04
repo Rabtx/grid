@@ -18,6 +18,13 @@ export function AppFrame(props: {
 	bleed?: boolean;
 	/** Dialogs, drawers and palettes that belong to the app. */
 	overlays?: JSX.Element;
+	/**
+	 * Desktop: the sidebar floats as a card over one canvas under a borderless top bar (the Figma
+	 * Floating sidebar) instead of a rail and panel down the side.
+	 */
+	floating?: boolean;
+	/** With `floating`: what sits in the canvas's lower corners (settings, the machine). */
+	corners?: JSX.Element;
 	children: JSX.Element;
 }): JSX.Element {
 	onSettled(() => {
@@ -39,34 +46,69 @@ export function AppFrame(props: {
 		};
 	});
 
+	const main = (
+		<main
+			class={
+				props.bleed
+					? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+					: "min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-4 md:px-6 md:pt-5"
+			}
+		>
+			{props.children}
+		</main>
+	);
+
 	return (
-		<div class="flex h-[var(--app-height,100dvh)] overflow-hidden bg-surface text-fg">
-			{/* Rail and panel share the Figma bg/subtle: a breath of ink over the app surface. */}
-			<Show when={props.rail || props.sidebar}>
-				<div class="hidden shrink-0 border-line border-r bg-fill lg:flex">
-					<Show when={props.rail}>
-						<div class="w-12 shrink-0 rail-labels:w-17">{props.rail}</div>
-					</Show>
-					<Show when={props.sidebar}>
-						<aside class={`w-55 shrink-0 ${props.rail ? "border-line border-l" : ""}`}>
-							{props.sidebar}
-						</aside>
-					</Show>
+		<Show
+			when={!props.floating}
+			fallback={
+				<div class="flex h-[var(--app-height,100dvh)] flex-col overflow-hidden bg-surface text-fg">
+					{props.header}
+					<div class="relative flex min-h-0 flex-1">
+						{/* 16px around a 232px card; its foot is kept clear for the corner controls. */}
+						<Show when={props.sidebar}>
+							<div class="hidden w-66 shrink-0 flex-col px-4 pt-2 pb-14 lg:flex">
+								{props.sidebar}
+							</div>
+						</Show>
+						{main}
+						{props.corners}
+					</div>
+					{props.overlays}
 				</div>
-			</Show>
-			<div class="flex min-w-0 flex-1 flex-col">
-				{props.header}
-				<main
-					class={
-						props.bleed
-							? "flex min-h-0 flex-1 flex-col overflow-hidden"
-							: "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-4 md:px-6 md:pt-5"
-					}
-				>
-					{props.children}
-				</main>
+			}
+		>
+			<div class="flex h-[var(--app-height,100dvh)] overflow-hidden bg-surface text-fg">
+				{/* Rail and panel share the Figma bg/subtle: a breath of ink over the app surface. */}
+				<Show when={props.rail || props.sidebar}>
+					<div class="hidden shrink-0 border-line border-r bg-fill lg:flex">
+						<Show when={props.rail}>
+							<div class="w-12 shrink-0 rail-labels:w-17">{props.rail}</div>
+						</Show>
+						<Show when={props.sidebar}>
+							<aside class={`w-55 shrink-0 ${props.rail ? "border-line border-l" : ""}`}>
+								{props.sidebar}
+							</aside>
+						</Show>
+					</div>
+				</Show>
+				<div class="flex min-w-0 flex-1 flex-col">
+					{props.header}
+					{main}
+				</div>
+				{props.overlays}
 			</div>
-			{props.overlays}
+		</Show>
+	);
+}
+
+/** A control pinned to a lower corner of the floating canvas. */
+export function CanvasCorner(props: { side: "start" | "end"; children: JSX.Element }): JSX.Element {
+	return (
+		<div
+			class={`absolute bottom-4 z-10 hidden items-center lg:flex ${props.side === "start" ? "left-4" : "right-4"}`}
+		>
+			{props.children}
 		</div>
 	);
 }

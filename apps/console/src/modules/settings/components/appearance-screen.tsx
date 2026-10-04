@@ -25,6 +25,7 @@ import {
 	appearance,
 	CODE_FONTS,
 	type CodeFont,
+	type SidebarStyle,
 	type Density,
 	resetAppearance,
 	SIGNAL_PRESETS,
@@ -214,13 +215,35 @@ export function AppearanceScreen(): JSX.Element {
 					/>
 				</SettingsRow>
 				<Show when={shell.desktop()}>
-					<SettingsRow inline label="Rail labels" description="Show names next to rail icons">
-						<Switch
-							label="Rail labels"
-							checked={appearance().railLabels}
-							onChange={(railLabels) => updateAppearance({ railLabels })}
+					<SettingsRow
+						inline
+						label="Sidebar"
+						description="Down the side, or floating over the canvas"
+					>
+						<Select<SidebarStyle>
+							look={rowLook()}
+							label="Sidebar"
+							value={appearance().sidebar}
+							onChange={(sidebar) => updateAppearance({ sidebar })}
+							groups={[
+								{
+									options: [
+										{ value: "full", label: "Full" },
+										{ value: "floating", label: "Floating" },
+									],
+								},
+							]}
 						/>
 					</SettingsRow>
+					<Show when={appearance().sidebar === "full"}>
+						<SettingsRow inline label="Rail labels" description="Show names next to rail icons">
+							<Switch
+								label="Rail labels"
+								checked={appearance().railLabels}
+								onChange={(railLabels) => updateAppearance({ railLabels })}
+							/>
+						</SettingsRow>
+					</Show>
 				</Show>
 			</SettingsGroup>
 

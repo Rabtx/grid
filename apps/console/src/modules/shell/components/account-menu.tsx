@@ -33,7 +33,11 @@ const THEMES: { id: Theme; label: string; icon: () => JSX.Element }[] = [
  * move to, or a new one), the theme, settings and signing out. Opens above the row on desktop and
  * as a bottom sheet on phones.
  */
-export function AccountMenu(props: { compact?: boolean }): JSX.Element {
+export function AccountMenu(props: {
+	compact?: boolean;
+	/** Just the avatar, opening below it: the floating top bar's right end. */
+	avatar?: boolean;
+}): JSX.Element {
 	const auth = useAuth();
 	const workspaces = useWorkspaces();
 	const navigate = useNavigate();
@@ -42,11 +46,17 @@ export function AccountMenu(props: { compact?: boolean }): JSX.Element {
 	return (
 		<Menu
 			label="Account"
-			placement="top-start"
+			placement={props.avatar ? "bottom-end" : "top-start"}
 			width="md:w-60"
-			triggerClass={props.compact ? railItem() : menuTrigger({ size: "md", width: "full" })}
+			triggerClass={
+				props.avatar
+					? menuTrigger({ shape: "icon" })
+					: props.compact
+						? railItem()
+						: menuTrigger({ size: "md", width: "full" })
+			}
 			trigger={
-				props.compact ? (
+				props.compact || props.avatar ? (
 					<Avatar name={name()} />
 				) : (
 					<>

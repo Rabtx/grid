@@ -15,7 +15,7 @@ import { sectionTitle } from "./sidebar";
  * project's page (board, files, pull requests, notes) — the project, which switches to another
  * project's same page.
  */
-function Breadcrumb(): JSX.Element {
+export function Breadcrumb(): JSX.Element {
 	const shell = useShell();
 	const workspace = useWorkspace();
 	const location = useLocation();

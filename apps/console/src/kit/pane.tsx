@@ -162,3 +162,36 @@ function RowText(props: {
 		</>
 	);
 }
+
+/**
+ * What a screen shows about the open item on wide screens (a thread's Run and Changes): a column
+ * down the right edge, or — with the floating sidebar — a card over the canvas, as tall as it is.
+ */
+export function DetailAside(props: {
+	label: string;
+	floating?: boolean;
+	children: JSX.Element;
+}): JSX.Element {
+	return (
+		<Show
+			when={props.floating}
+			fallback={
+				<aside
+					aria-label={props.label}
+					class="hidden w-72 shrink-0 overflow-y-auto border-line border-l xl:block"
+				>
+					{props.children}
+				</aside>
+			}
+		>
+			<div class="hidden w-66 shrink-0 flex-col px-4 pt-2 pb-14 xl:flex">
+				<aside
+					aria-label={props.label}
+					class="surface-card max-h-full overflow-y-auto overscroll-contain rounded-kit-2xl"
+				>
+					{props.children}
+				</aside>
+			</div>
+		</Show>
+	);
+}

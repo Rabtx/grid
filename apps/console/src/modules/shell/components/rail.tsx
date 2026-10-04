@@ -39,7 +39,7 @@ type Destination = {
 
 // The Figma rail, in its order. Browser and Ship join it once their screens ship; a rail
 // item that leads nowhere is not drawn.
-const VIEWS: readonly Destination[] = [
+export const VIEWS: readonly Destination[] = [
 	{ label: "Home", icon: () => <HomeIcon />, href: () => "/home", match: "/home" },
 	{ label: "Inbox", icon: () => <InboxIcon />, href: () => "/inbox", match: "/inbox" },
 	{

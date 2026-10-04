@@ -2,9 +2,10 @@ import { useIsRouting, useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, Show } from "solid-js";
 
-import { AppFrame, AuthFrame, FloatingNotice, TopLoadingBar } from "@/kit";
+import { AppFrame, AuthFrame, CanvasCorner, FloatingNotice, TopLoadingBar } from "@/kit";
 import { runnerUp } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
+import { MachineBadge } from "@/modules/environments";
 import { inboxStore, waitedOn } from "@/modules/inbox";
 import {
 	AddProjectSheet,
@@ -16,9 +17,12 @@ import {
 } from "@/modules/projects";
 import {
 	CommandPalette,
+	FloatingSidebar,
+	FloatingTopBar,
 	NavDrawer,
 	OfflineBanner,
 	Rail,
+	SettingsCorner,
 	ShellProvider,
 	ShortcutsHelp,
 	Sidebar,
@@ -121,18 +125,41 @@ function SignedIn(props: { children: JSX.Element }): JSX.Element {
 
 	return (
 		<AppFrame
-			rail={shell.desktop() ? <Rail /> : undefined}
+			floating={shell.floating()}
+			rail={shell.desktop() && !shell.floating() ? <Rail /> : undefined}
 			sidebar={
 				shell.desktop() && !shell.collapsed() ? (
-					<Show when={inSettings()} fallback={<Sidebar />}>
-						<SettingsSidebar />
+					<Show
+						when={shell.floating()}
+						fallback={
+							<Show when={inSettings()} fallback={<Sidebar />}>
+								<SettingsSidebar />
+							</Show>
+						}
+					>
+						<FloatingSidebar body={inSettings() ? () => <SettingsSidebar bare /> : undefined} />
 					</Show>
 				) : undefined
 			}
 			header={
 				<Show when={shell.desktop()} fallback={<TopBar />}>
-					<TitleBar />
+					<Show when={shell.floating()} fallback={<TitleBar />}>
+						<FloatingTopBar />
+					</Show>
 				</Show>
+			}
+			corners={
+				<>
+					<CanvasCorner side="start">
+						<SettingsCorner />
+					</CanvasCorner>
+					{/* Over a screen that fills the canvas edge to edge it would cover the screen's own corner. */}
+					<Show when={!FULL_BLEED.test(location.pathname) || location.pathname.startsWith("/chat")}>
+						<CanvasCorner side="end">
+							<MachineBadge />
+						</CanvasCorner>
+					</Show>
+				</>
 			}
 			bleed={FULL_BLEED.test(location.pathname)}
 			overlays={
