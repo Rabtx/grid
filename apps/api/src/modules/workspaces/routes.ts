@@ -12,6 +12,7 @@ import { noContent, ok } from "../../http/respond";
 import { body } from "../../http/validate";
 import type { EmailSender } from "../email/email";
 import { projectRoutes } from "../projects/routes";
+import { searchRoutes } from "../projects/search";
 import { findUserById } from "../users/users";
 import type { WorkspaceScope } from "./access";
 import * as data from "./data";
@@ -150,6 +151,7 @@ export function workspaceRoutes(deps: Deps): Hono<AppEnv> {
 		});
 	});
 	app.route("/:ws/projects", projectRoutes(deps));
+	app.route("/:ws/search", searchRoutes(deps));
 	return app;
 }
 

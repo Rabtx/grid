@@ -331,6 +331,56 @@ export class ChatHub {
 		this.workspacePolicy = policy;
 	}
 
+	/** Threads in a workspace whose title or messages mention any of the words (Search, Ask Grid). */
+	searchThreads(workspace: string, words: readonly string[], limit?: number) {
+		return this.store.searchText(workspace, words, limit);
+	}
+
+	/**
+	 * A question an agent answers once, outside any thread (Ask Grid): nothing is kept but the
+	 * answer. It is to answer from what it is given, so any tool it asks for is declined.
+	 */
+	async answerOnce(
+		input: { provider: string; cwd: string; prompt: string; model?: string },
+		timeoutMs = 120_000,
+	): Promise<string> {
+		const provider = this.providers.get(input.provider);
+		if (!provider?.info().available)
+			throw new ChatError("That agent is not installed on this machine", 400);
+		let text = "";
+		let session: AgentSession | null = null;
+		session = await provider.start({
+			cwd: input.cwd,
+			...(input.model ? { model: input.model } : {}),
+			emit: (event) => {
+				if (event.type === "message") text += event.text;
+				else if (event.type === "approval") {
+					const deny = event.options.find((option) => option.kind === "deny");
+					session?.approve(event.id, deny?.id ?? null);
+				}
+			},
+			onResumeToken: () => {},
+		});
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		try {
+			const result = await Promise.race([
+				session.prompt(input.prompt),
+				new Promise<never>((_, reject) => {
+					timer = setTimeout(
+						() => reject(new ChatError("The agent took too long to answer", 504)),
+						timeoutMs,
+					);
+				}),
+			]);
+			if (result.reason === "error")
+				throw new ChatError(result.error ?? "The agent could not answer", 502);
+			return text;
+		} finally {
+			clearTimeout(timer);
+			session.close();
+		}
+	}
+
 	/** The MCP servers a thread's agent starts with: the workspace's connectors it may use. */
 	setMcp(servers: (workspace: string, agent: string, thread: string) => McpServerSpec[]): void {
 		this.mcp = servers;
