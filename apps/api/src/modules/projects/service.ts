@@ -9,7 +9,7 @@ import type {
 	UpdateProjectInput,
 	UpdateTaskInput,
 } from "./schema";
-import { workspaceAccess, type WorkspaceScope } from "../workspaces/access";
+import { requireRole, workspaceAccess, type WorkspaceScope } from "../workspaces/access";
 import * as q from "./queries";
 
 const taskKey = (number: number) => `TASK-${number}`;
@@ -51,14 +51,17 @@ const noteView = (r: q.NoteWithPeople) => ({
 	updatedAt: r.updatedAt.toISOString(),
 });
 
-async function requireProject(db: Database, scope: WorkspaceScope, slug: string) {
-	const { workspace } = await workspaceAccess(db, scope);
+/** The project, for reading; `write` refuses a viewer, who follows the work and changes nothing. */
+async function requireProject(db: Database, scope: WorkspaceScope, slug: string, write = false) {
+	const access = await workspaceAccess(db, scope);
+	if (write) requireRole(access, "member");
+	const { workspace } = access;
 	const project = await q.findProject(db, workspace.id, slug);
 	if (!project) throw notFound(`Project "${slug}" not found`);
 	return project;
 }
 async function requireTask(db: Database, scope: WorkspaceScope, slug: string, number: number) {
-	const project = await requireProject(db, scope, slug);
+	const project = await requireProject(db, scope, slug, true);
 	const task = await q.findTask(db, project.id, number);
 	if (!task) throw notFound(`Task ${taskKey(number)} not found`);
 	return task;
@@ -72,7 +75,9 @@ export async function createProject(
 	scope: WorkspaceScope,
 	input: CreateProjectInput,
 ) {
-	const { workspace } = await workspaceAccess(db, scope);
+	const access = await workspaceAccess(db, scope);
+	requireRole(access, "member");
+	const { workspace } = access;
 	if (await q.findProject(db, workspace.id, input.slug))
 		throw conflict(`Project "${input.slug}" already exists`);
 	return projectView(
@@ -97,7 +102,7 @@ export async function updateProject(
 	slug: string,
 	input: UpdateProjectInput,
 ) {
-	const project = await requireProject(db, scope, slug);
+	const project = await requireProject(db, scope, slug, true);
 	const updated = await q.updateProject(db, project.id, input);
 	if (!updated) throw notFound(`Project "${slug}" not found`);
 	return projectView(updated);
@@ -112,7 +117,7 @@ export async function createTask(
 	slug: string,
 	input: CreateTaskInput,
 ) {
-	const project = await requireProject(db, scope, slug);
+	const project = await requireProject(db, scope, slug, true);
 	return taskView(
 		await q.createTask(db, {
 			projectId: project.id,
@@ -162,7 +167,7 @@ export async function createNote(
 	slug: string,
 	input: CreateNoteInput,
 ) {
-	const project = await requireProject(db, scope, slug);
+	const project = await requireProject(db, scope, slug, true);
 	const note = await q.createNote(db, {
 		projectId: project.id,
 		body: input.body,
@@ -184,7 +189,7 @@ export async function updateNote(
 	id: string,
 	input: UpdateNoteInput,
 ) {
-	const project = await requireProject(db, scope, slug);
+	const project = await requireProject(db, scope, slug, true);
 	// Pinning, sharing or a new glyph is not an edit: only a new text moves "edited" and its author.
 	const changes: q.NoteChanges = {
 		...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
@@ -207,11 +212,11 @@ function uniqueAgents(agents: readonly string[] | null | undefined): string[] | 
 
 /** The note an image is being added to, so the upload is refused for anyone who cannot edit it. */
 export async function requireNote(db: Database, scope: WorkspaceScope, slug: string, id: string) {
-	const project = await requireProject(db, scope, slug);
+	const project = await requireProject(db, scope, slug, true);
 	return readNote(db, project.id, id);
 }
 
 export async function deleteNote(db: Database, scope: WorkspaceScope, slug: string, id: string) {
-	const project = await requireProject(db, scope, slug);
+	const project = await requireProject(db, scope, slug, true);
 	if (!(await q.deleteNote(db, project.id, id))) throw notFound("Note not found");
 }

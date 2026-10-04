@@ -1,11 +1,15 @@
 import { type Database, schema } from "@grid/db";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, notInArray, sql } from "drizzle-orm";
 
 const { workspaces, workspaceMembers, users, userProfiles } = schema;
 
 export const listForUser = (db: Database, userId: string) =>
 	db
-		.select({ workspace: workspaces, role: workspaceMembers.role })
+		.select({
+			workspace: workspaces,
+			role: workspaceMembers.role,
+			customRole: workspaceMembers.customRole,
+		})
 		.from(workspaceMembers)
 		.innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
 		.where(eq(workspaceMembers.userId, userId))
@@ -63,6 +67,7 @@ export const listMembers = (db: Database, workspaceId: string) =>
 			displayName: userProfiles.displayName,
 			avatarUrl: userProfiles.avatarUrl,
 			role: workspaceMembers.role,
+			customRole: workspaceMembers.customRole,
 			joinedAt: workspaceMembers.createdAt,
 		})
 		.from(workspaceMembers)
@@ -93,13 +98,34 @@ export const setRole = (
 	workspaceId: string,
 	userId: string,
 	role: schema.WorkspaceRole,
+	customRole: string | null = null,
 ) =>
 	db
 		.update(workspaceMembers)
-		.set({ role })
+		.set({ role, customRole })
 		.where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)));
 
 export const removeMember = (db: Database, workspaceId: string, userId: string) =>
 	db
 		.delete(workspaceMembers)
 		.where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)));
+
+/** People and invites on a custom role the workspace no longer has go back to member. */
+export async function dropGoneCustomRoles(db: Database, workspaceId: string, kept: string[]) {
+	const gone = (
+		column: typeof workspaceMembers.customRole | typeof schema.workspaceInvites.customRole,
+	) => (kept.length ? and(isNotNull(column), notInArray(column, kept)) : isNotNull(column));
+	await db
+		.update(workspaceMembers)
+		.set({ customRole: null })
+		.where(and(eq(workspaceMembers.workspaceId, workspaceId), gone(workspaceMembers.customRole)));
+	await db
+		.update(schema.workspaceInvites)
+		.set({ customRole: null })
+		.where(
+			and(
+				eq(schema.workspaceInvites.workspaceId, workspaceId),
+				gone(schema.workspaceInvites.customRole),
+			),
+		);
+}

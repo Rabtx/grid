@@ -15,6 +15,27 @@ import { users } from "./users.schema";
 /** Who may start an agent in a workspace. */
 export type AgentAccess = "everyone" | "admins";
 
+/**
+ * What a role may do in a workspace (Settings → Roles). Billing and deleting the workspace stay
+ * the owner's alone and are not a permission.
+ */
+export type RolePermission =
+	| "startAgents"
+	| "approveCommands"
+	| "mergePulls"
+	| "production"
+	| "machines"
+	| "integrations"
+	| "invite";
+
+/** A role the workspace made itself: member-ranked, with its own permissions. */
+export type CustomRole = {
+	id: string;
+	name: string;
+	description?: string;
+	permissions: Partial<Record<RolePermission, boolean>>;
+};
+
 /** What applies to everyone in a workspace; a missing field is its default. */
 export type WorkspaceSettings = {
 	/** New tasks and worktrees branch from here. */
@@ -38,6 +59,12 @@ export type WorkspaceSettings = {
 		newBranch?: boolean;
 		showCommands?: boolean;
 	};
+	/** Per built-in role (the owner may always do everything), what it may do over its defaults. */
+	rolePermissions?: Partial<
+		Record<"admin" | "member" | "viewer", Partial<Record<RolePermission, boolean>>>
+	>;
+	/** Roles the workspace added (New role). */
+	customRoles?: CustomRole[];
 };
 
 /**
@@ -67,8 +94,11 @@ export const workspaces = pgTable(
 	(table) => [uniqueIndex("workspaces_slug_unique").on(table.slug)],
 );
 
-/** Owner: billing and deleting the workspace. Admin: members and settings. Member: the work. */
-export const workspaceRole = pgEnum("workspace_role", ["owner", "admin", "member"]);
+/**
+ * Owner: billing and deleting the workspace. Admin: members and settings. Member: the work.
+ * Viewer: follows the work and changes nothing.
+ */
+export const workspaceRole = pgEnum("workspace_role", ["owner", "admin", "member", "viewer"]);
 
 export const workspaceMembers = pgTable(
 	"workspace_members",
@@ -80,6 +110,8 @@ export const workspaceMembers = pgTable(
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
 		role: workspaceRole("role").notNull().default("member"),
+		/** A role the workspace made (`settings.customRoles`), in place of the built-in one's permissions. */
+		customRole: varchar("custom_role", { length: 64 }),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 	},
 	(table) => [
@@ -103,6 +135,7 @@ export const workspaceInvites = pgTable(
 		/** Only this address may accept; null for a link anyone can use. */
 		email: varchar("email", { length: 320 }),
 		role: workspaceRole("role").notNull().default("member"),
+		customRole: varchar("custom_role", { length: 64 }),
 		invitedBy: uuid("invited_by").references(() => users.id, { onDelete: "set null" }),
 		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 		acceptedAt: timestamp("accepted_at", { withTimezone: true }),

@@ -11,7 +11,11 @@ import {
 import * as q from "./queries";
 import type { CreateWorkspaceInput, UpdateMemberInput, UpdateWorkspaceInput } from "./schema";
 
-const workspaceView = (w: schema.WorkspaceRecord, role: schema.WorkspaceRole) => ({
+const workspaceView = (
+	w: schema.WorkspaceRecord,
+	role: schema.WorkspaceRole,
+	customRole: string | null = null,
+) => ({
 	/** Stable across renames: what other services (the runner) key a workspace's data by. */
 	id: w.id,
 	slug: w.slug,
@@ -21,10 +25,13 @@ const workspaceView = (w: schema.WorkspaceRecord, role: schema.WorkspaceRole) =>
 	logoUrl: w.logoUrl,
 	settings: w.settings,
 	role,
+	/** Your custom role there, when you hold one (Settings → Roles). */
+	customRole,
 	createdAt: w.createdAt.toISOString(),
 	updatedAt: w.updatedAt.toISOString(),
 });
-const accessView = (access: WorkspaceAccess) => workspaceView(access.workspace, access.role);
+const accessView = (access: WorkspaceAccess) =>
+	workspaceView(access.workspace, access.role, access.customRole ?? null);
 
 /** Yours, each with your role; `isDefault` marks the one requests without a workspace act in. */
 export async function listWorkspaces(db: Database, userId: string) {
@@ -32,7 +39,7 @@ export async function listWorkspaces(db: Database, userId: string) {
 	const fallback = await workspaceAccess(db, { userId, workspace: null });
 	const rows = await q.listForUser(db, userId);
 	return rows.map((row) => ({
-		...workspaceView(row.workspace, row.role),
+		...workspaceView(row.workspace, row.role, row.customRole),
 		isDefault: row.workspace.id === fallback.workspace.id,
 	}));
 }
@@ -91,12 +98,38 @@ export async function updateWorkspace(
 									},
 								}
 							: {}),
+						...(settings.rolePermissions
+							? {
+									rolePermissions: mergeRolePermissions(
+										access.workspace.settings.rolePermissions,
+										settings.rolePermissions,
+									),
+								}
+							: {}),
 					},
 				}
 			: {}),
 	});
 	if (!updated) throw notFound(`Workspace "${access.workspace.slug}" not found`);
-	return workspaceView(updated, access.role);
+	if (settings?.customRoles)
+		await q.dropGoneCustomRoles(
+			db,
+			access.workspace.id,
+			settings.customRoles.map((role) => role.id),
+		);
+	return workspaceView(updated, access.role, access.customRole ?? null);
+}
+
+/** Each role's changed permissions over what it had: switching one keeps the others. */
+function mergeRolePermissions(
+	current: schema.WorkspaceSettings["rolePermissions"],
+	change: NonNullable<schema.WorkspaceSettings["rolePermissions"]>,
+): schema.WorkspaceSettings["rolePermissions"] {
+	const merged = { ...current };
+	for (const role of ["admin", "member", "viewer"] as const) {
+		if (change[role]) merged[role] = { ...current?.[role], ...change[role] };
+	}
+	return merged;
 }
 
 /** A new logo (a path on this API), set by an admin. */
@@ -105,7 +138,7 @@ export async function updateLogo(db: Database, scope: WorkspaceScope, logoUrl: s
 	requireRole(access, "admin");
 	const updated = await q.updateWorkspace(db, access.workspace.id, { logoUrl });
 	if (!updated) throw notFound(`Workspace "${access.workspace.slug}" not found`);
-	return workspaceView(updated, access.role);
+	return workspaceView(updated, access.role, access.customRole ?? null);
 }
 
 /** Deletes the workspace with all its projects, tasks and notes. Owners only. */
@@ -135,7 +168,8 @@ async function keepAnOwner(db: Database, workspaceId: string, member: { role: st
 }
 
 /**
- * Admins move people between member and admin; making, or unmaking, an owner takes an owner.
+ * Admins move people between viewer, member, a custom role and admin; making, or unmaking, an
+ * owner takes an owner. A custom role ranks as a member.
  */
 export async function updateMember(
 	db: Database,
@@ -149,7 +183,10 @@ export async function updateMember(
 	if (!outranks(access.role, member.role) || !outranks(access.role, input.role))
 		throw forbidden(`Only a workspace owner can do this`);
 	if (input.role !== "owner") await keepAnOwner(db, access.workspace.id, member);
-	await q.setRole(db, access.workspace.id, userId, input.role);
+	const customRole = input.customRole ?? null;
+	if (customRole && !access.workspace.settings.customRoles?.some((role) => role.id === customRole))
+		throw badRequest("That role is not in this workspace");
+	await q.setRole(db, access.workspace.id, userId, customRole ? "member" : input.role, customRole);
 	return (await listMembers(db, scope)).find((m) => m.userId === userId);
 }
 

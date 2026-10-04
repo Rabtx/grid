@@ -5,7 +5,7 @@ import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import type { AppConfig } from "../../config/config";
 import { forbidden, notFound } from "../../http/errors";
 import { type EmailSender, sendWorkspaceInvite } from "../email/email";
-import { outranks, requireRole, workspaceAccess, type WorkspaceScope } from "./access";
+import { outranks, requirePermission, workspaceAccess, type WorkspaceScope } from "./access";
 import type { CreateInviteInput } from "./schema";
 
 const { workspaceInvites, workspaceMembers, workspaces } = schema;
@@ -28,13 +28,15 @@ const inviteView = (r: InviteRecord) => ({
 	id: r.id,
 	email: r.email,
 	role: r.role,
+	customRole: r.customRole,
 	expiresAt: r.expiresAt.toISOString(),
 	createdAt: r.createdAt.toISOString(),
 });
 
 /**
  * Invites someone, by email (sent to them) or as a link to pass on. The token is in the reply
- * once and stored hashed. Admins invite members and admins; ownership is handed over, not invited.
+ * once and stored hashed. Whoever may invite (Settings → Roles) invites up to their own rank;
+ * ownership is handed over, not invited.
  */
 export async function createInvite(
 	deps: { db: Database; send: EmailSender; config: AppConfig },
@@ -42,8 +44,12 @@ export async function createInvite(
 	input: CreateInviteInput,
 ) {
 	const access = await workspaceAccess(deps.db, scope);
-	requireRole(access, "admin");
-	if (!outranks(access.role, input.role)) throw forbidden("Only a workspace owner can do this");
+	requirePermission(access, "invite");
+	const customRole = input.customRole ?? null;
+	const role = customRole ? "member" : input.role;
+	if (!outranks(access.role, role)) throw forbidden("Only a workspace owner can do this");
+	if (customRole && !access.workspace.settings.customRoles?.some((item) => item.id === customRole))
+		throw notFound("That role is not in this workspace");
 	const token = randomSecret();
 	const [invite] = await deps.db
 		.insert(workspaceInvites)
@@ -51,7 +57,8 @@ export async function createInvite(
 			workspaceId: access.workspace.id,
 			tokenHash: hashSecret(token),
 			email: input.email ?? null,
-			role: input.role,
+			role,
+			customRole,
 			invitedBy: scope.userId,
 			expiresAt: new Date(Date.now() + INVITE_TTL_MS),
 		})
@@ -79,7 +86,7 @@ export async function resendInvite(
 	id: string,
 ) {
 	const access = await workspaceAccess(deps.db, scope);
-	requireRole(access, "admin");
+	requirePermission(access, "invite");
 	const token = randomSecret();
 	const [invite] = await deps.db
 		.update(workspaceInvites)
@@ -101,7 +108,7 @@ export async function resendInvite(
 /** Invites not yet accepted or expired. */
 export async function listInvites(db: Database, scope: WorkspaceScope) {
 	const access = await workspaceAccess(db, scope);
-	requireRole(access, "admin");
+	requirePermission(access, "invite");
 	const rows = await db
 		.select()
 		.from(workspaceInvites)
@@ -112,7 +119,7 @@ export async function listInvites(db: Database, scope: WorkspaceScope) {
 
 export async function revokeInvite(db: Database, scope: WorkspaceScope, id: string) {
 	const access = await workspaceAccess(db, scope);
-	requireRole(access, "admin");
+	requirePermission(access, "invite");
 	const removed = await db
 		.delete(workspaceInvites)
 		.where(and(eq(workspaceInvites.id, id), eq(workspaceInvites.workspaceId, access.workspace.id)))
@@ -168,7 +175,12 @@ export async function acceptInvite(
 		if (invite.email && invite.email !== user.email.toLowerCase()) throw emailMismatch();
 		await tx
 			.insert(workspaceMembers)
-			.values({ workspaceId: invite.workspaceId, userId: user.id, role: invite.role })
+			.values({
+				workspaceId: invite.workspaceId,
+				userId: user.id,
+				role: invite.role,
+				customRole: invite.customRole,
+			})
 			.onConflictDoNothing();
 		await tx
 			.update(workspaceInvites)
