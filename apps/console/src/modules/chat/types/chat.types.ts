@@ -175,6 +175,10 @@ export type ChatProvider = {
 		signedIn: boolean | null;
 		docs: string | null;
 	};
+	/** Its version, when it says (`v2.1.4`). */
+	version?: string | null;
+	/** Added from Settings (an ACP agent), so it can be removed there. */
+	custom?: boolean;
 };
 
 /** Your choices for one agent, kept by the runner. Unset means the agent's own default. */

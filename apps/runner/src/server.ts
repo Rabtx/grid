@@ -24,6 +24,7 @@ import { type InboxDeps, inboxRequest } from "./inbox/routes";
 import { type RoleDeps, roleRequest } from "./roles/routes";
 import { closeLink, createLink, type LinkObserver, type LinkState, linkMessage } from "./link";
 import type { PushNotifier } from "./push/notifier";
+import { type MachineDeps, machineRequest } from "./machine/routes";
 import { prefsRequest } from "./prefs/routes";
 import type { PrefsStore } from "./prefs/store";
 import { pushActRequest, pushRequest } from "./push/routes";
@@ -99,6 +100,7 @@ export function startServer(
 	extras: {
 		push?: PushNotifier;
 		prefs?: PrefsStore;
+		machine?: MachineDeps;
 		diagnostics?: DiagnosticJournal;
 		/** This Grid's environments (the home side). */
 		environments?: EnvironmentDeps;
@@ -118,6 +120,7 @@ export function startServer(
 	const {
 		push,
 		prefs,
+		machine,
 		diagnostics,
 		environments,
 		pairing,
@@ -352,6 +355,13 @@ export function startServer(
 						push,
 						(workspace, id, approval, option) => chat.approve(workspace, id, approval, option),
 					);
+					if (handled) return handled;
+				}
+
+				if (machine && (url.pathname === "/machine" || url.pathname.startsWith("/agents/acp"))) {
+					const who = await whoFrom(request, "Sign in to see this machine");
+					if (who instanceof Response) return who;
+					const handled = await machineRequest(request, url, who, machine);
 					if (handled) return handled;
 				}
 

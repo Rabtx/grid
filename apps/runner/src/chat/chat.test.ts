@@ -5,6 +5,7 @@ import { acpProvider } from "../agents/acp";
 import { claudeArgs, claudeProvider } from "../agents/claude";
 import type { AgentCommand, ChatEvent } from "../agents/events";
 import type { Provider } from "../agents/provider";
+import { policyOf } from "../agents/policy";
 import type { JsonProcess, Spawn } from "../agents/stdio";
 import { ChatHub } from "./hub";
 import { ChatStore } from "./store";
@@ -960,5 +961,92 @@ describe("workspace settings for threads", () => {
 		expect(chat.prune("other", 90, later)).toBe(0);
 		expect(chat.prune("w", 90, later)).toBe(2);
 		expect(store.get(old.id)).toBeNull();
+	});
+});
+
+describe("agents on this machine", () => {
+	function asking(approvals: { id: string; title: string }[]) {
+		const answered: [string, string | null][] = [];
+		const provider: Provider = {
+			info: () => ({ id: "echo", name: "Echo", available: true, models: [], modes: [] }),
+			start: async (context) => ({
+				prompt: async () => {
+					for (const approval of approvals) {
+						context.emit({ type: "tool", id: approval.id, title: approval.title, kind: "execute" });
+						context.emit({
+							type: "approval",
+							id: approval.id,
+							title: approval.title,
+							options: [
+								{ id: "yes", label: "Allow", kind: "allow" },
+								{ id: "no", label: "Deny", kind: "deny" },
+							],
+						});
+					}
+					await Bun.sleep(5);
+					return { reason: "done" };
+				},
+				cancel: () => {},
+				approve: (id, optionId) => answered.push([id, optionId]),
+				setModel: async () => {},
+				setMode: async () => {},
+				setEffort: async () => {},
+				close: () => {},
+			}),
+		};
+		return { provider, answered };
+	}
+	it("answers permission requests the workspace has decided, and leaves the rest", async () => {
+		const { provider, answered } = asking([
+			{ id: "a", title: "bun test" },
+			{ id: "b", title: "git push origin main" },
+			{ id: "c", title: "bun add zod" },
+		]);
+		const chat = new ChatHub(new ChatStore(":memory:"), new Map([["echo", provider]]), tmpdir());
+		chat.setPolicy(() => ({
+			policy: policyOf({ agentPolicy: { rules: { commands: "allow", push: "never" } } }),
+			defaultBranch: "main",
+		}));
+		const session = chat.create(
+			{ userId: "me", workspace: "w" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
+		await chat.prompt("w", session.id, "Go");
+		expect(answered).toEqual([
+			["a", "yes"],
+			["b", "no"],
+		]);
+	});
+	it("lets only so many agents work at once", async () => {
+		let working = 0;
+		let most = 0;
+		const provider: Provider = {
+			info: () => ({ id: "echo", name: "Echo", available: true, models: [], modes: [] }),
+			start: async () => ({
+				prompt: async () => {
+					working++;
+					most = Math.max(most, working);
+					await Bun.sleep(10);
+					working--;
+					return { reason: "done" };
+				},
+				cancel: () => {},
+				approve: () => {},
+				setModel: async () => {},
+				setMode: async () => {},
+				setEffort: async () => {},
+				close: () => {},
+			}),
+		};
+		const chat = new ChatHub(new ChatStore(":memory:"), new Map([["echo", provider]]), tmpdir());
+		chat.setTurnLimit(1);
+		const threads = [1, 2, 3].map(() =>
+			chat.create(
+				{ userId: "me", workspace: "w" },
+				{ project: "alpha", provider: "echo", cwd: "/tmp" },
+			),
+		);
+		await Promise.all(threads.map((thread) => chat.prompt("w", thread.id, "Go")));
+		expect(most).toBe(1);
 	});
 });

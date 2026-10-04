@@ -79,6 +79,18 @@ export async function updateWorkspace(
 									},
 								}
 							: {}),
+						...(settings.agentPolicy
+							? {
+									agentPolicy: {
+										...access.workspace.settings.agentPolicy,
+										...settings.agentPolicy,
+										rules: {
+											...access.workspace.settings.agentPolicy?.rules,
+											...settings.agentPolicy.rules,
+										},
+									},
+								}
+							: {}),
 					},
 				}
 			: {}),

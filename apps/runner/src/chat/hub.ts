@@ -13,7 +13,8 @@ import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
-import type { AgentCommand, ChatEvent } from "../agents/events";
+import type { AgentCommand, ChatEvent, ToolKind } from "../agents/events";
+import { type AgentPolicy, answerFor, branchNote, DEFAULT_POLICY } from "../agents/policy";
 import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
 import type { Who } from "../auth";
@@ -99,6 +100,8 @@ type Live = {
 	buffered: Extract<ChatEvent, { type: "message" | "reasoning" }> | null;
 	flushTimer: ReturnType<typeof setTimeout> | undefined;
 	idleTimer: ReturnType<typeof setTimeout> | undefined;
+	/** What kind each tool call is, for answering a permission request about it. */
+	toolKinds?: Map<string, ToolKind>;
 };
 
 /** Whether Grid can install and sign in an agent here, and whether it is signed in. */
@@ -116,7 +119,17 @@ export type ProviderListing = ProviderInfo & {
 	refreshedAt: string | null;
 	settings: ProviderSettings;
 	setup: ProviderSetup;
+	/** Its version, when it says (`v2.1.4`). */
+	version?: string | null;
+	/** Added from Settings (an ACP agent), so it can be removed there. */
+	custom?: boolean;
 };
+
+/** What the runner knows about an agent beyond its info: its version, and whether it was added. */
+export type DescribeAgent = (
+	id: string,
+	installed: boolean,
+) => Promise<{ version: string | null; custom: boolean }>;
 
 function merge(
 	info: ProviderInfo,
@@ -230,6 +243,14 @@ export class ChatHub {
 	private attention: AttentionListener | null = null;
 	private failedTurn: ((session: ChatSessionRow) => void) | null = null;
 	private personal: PersonalSetup = () => ({ env: {}, note: null });
+	private describe: DescribeAgent = async () => ({ version: null, custom: false });
+	/** How many agents may work at once on this machine; the rest wait their turn. */
+	private turnLimit = Number.POSITIVE_INFINITY;
+	private turnsRunning = 0;
+	private readonly turnQueue: (() => void)[] = [];
+	private busyListener: ((running: number) => void) | null = null;
+	private workspacePolicy: (workspace: string) => { policy: AgentPolicy; defaultBranch: string } =
+		() => ({ policy: DEFAULT_POLICY, defaultBranch: "main" });
 
 	constructor(
 		private readonly store: ChatStore,
@@ -259,6 +280,49 @@ export class ChatHub {
 		return this.store.agentUsage(workspace);
 	}
 
+	/** How many agents may work at the same time (Settings → Machines); 0 or less is no limit. */
+	setTurnLimit(limit: number): void {
+		this.turnLimit = limit > 0 ? limit : Number.POSITIVE_INFINITY;
+		while (this.turnQueue.length && this.turnsRunning < this.turnLimit) {
+			this.turnsRunning++;
+			this.turnQueue.shift()?.();
+		}
+	}
+
+	/** Hears how many agents are working whenever that changes (to keep the machine awake). */
+	onBusy(listener: (running: number) => void): void {
+		this.busyListener = listener;
+	}
+
+	/** How many agents are working now, in every workspace. */
+	busyCount(): number {
+		return [...this.live.values()].filter((live) => live.running).length;
+	}
+
+	private takeTurn(): Promise<void> {
+		if (this.turnsRunning < this.turnLimit) {
+			this.turnsRunning++;
+			return Promise.resolve();
+		}
+		return new Promise((resolve) => this.turnQueue.push(resolve));
+	}
+
+	private endTurn(): void {
+		const next = this.turnQueue.shift();
+		if (next) next();
+		else this.turnsRunning = Math.max(0, this.turnsRunning - 1);
+	}
+
+	/** Each agent's version and whether it was added from Settings, for the agents list. */
+	setDescribe(describe: DescribeAgent): void {
+		this.describe = describe;
+	}
+
+	/** What agents may do on their own in each workspace (Settings → Agents & permissions). */
+	setPolicy(policy: (workspace: string) => { policy: AgentPolicy; defaultBranch: string }): void {
+		this.workspacePolicy = policy;
+	}
+
 	/** What each person's agents start with: their git identity, and a note for the first message. */
 	setPersonal(setup: PersonalSetup): void {
 		this.personal = setup;
@@ -274,7 +338,12 @@ export class ChatHub {
 		return Promise.all(
 			[...this.providers.keys()].map(async (id) => {
 				const info = await this.providerInfo(id, false);
-				return { ...info, settings: settings[id] ?? {}, setup: await setupOf(id, info.available) };
+				return {
+					...info,
+					...(await this.describe(id, info.available)),
+					settings: settings[id] ?? {},
+					setup: await setupOf(id, info.available),
+				};
 			}),
 		);
 	}
@@ -834,14 +903,25 @@ export class ChatHub {
 			briefRole = Boolean(session.role && !session.role.briefed && !command);
 			briefNotes = Boolean(session.notes && !session.notes.briefed && !command);
 			let text = typed;
-			const note = firstTurn && !command ? this.personal(session.ownerId).note : null;
+			const rules = this.workspacePolicy(session.workspaceId);
+			const note =
+				firstTurn && !command
+					? [this.personal(session.ownerId).note, branchNote(rules.policy, rules.defaultBranch)]
+							.filter(Boolean)
+							.join("\n\n") || null
+					: null;
 			if (note) text = `${note}\n\n---\n\n${text}`;
 			if (briefNotes && session.notes) text = withSharedNotes(session.notes, text);
 			if (briefRole && session.role) text = withRoleBrief(session.role, text);
 			const prompt = paths
 				? `${text}\n\nAttached files (absolute paths on this machine):\n${paths}`
 				: text;
-			result = await agent.prompt(prompt, images);
+			await this.takeTurn();
+			try {
+				result = await agent.prompt(prompt, images);
+			} finally {
+				this.endTurn();
+			}
 		} catch (cause) {
 			result = { reason: "error", error: cause instanceof Error ? cause.message : String(cause) };
 			// A failed start leaves nothing to reuse, but only if this is still the start that
@@ -992,6 +1072,21 @@ export class ChatHub {
 			.get(id)
 			?.agent?.then((agent) => agent.cancel())
 			.catch(() => undefined);
+	}
+
+	/** Answers a permission request by the workspace's policy; false when it is the person's to answer. */
+	private answerByPolicy(
+		id: string,
+		live: Live,
+		event: Extract<ChatEvent, { type: "approval" }>,
+	): boolean {
+		const session = this.store.get(id);
+		if (!session) return false;
+		const { policy, defaultBranch } = this.workspacePolicy(session.workspaceId);
+		const optionId = answerFor(policy, event, live.toolKinds?.get(event.id), defaultBranch);
+		if (!optionId) return false;
+		void live.agent?.then((agent) => agent.approve(event.id, optionId)).catch(() => undefined);
+		return true;
 	}
 
 	approve(workspace: string, id: string, approvalId: string, optionId: string | null): void {
@@ -1150,9 +1245,16 @@ export class ChatHub {
 					event.diffs.map((diff) => realPath(resolve(session.cwd, diff.path))),
 				);
 		}
+		if (event.type === "tool" && event.kind) {
+			live.toolKinds ??= new Map();
+			live.toolKinds.set(event.id, event.kind);
+		}
 		const n = this.journalPush(live, event);
 		for (const client of live.clients) client.event(event, n);
+		// A request the workspace has already decided is answered here, and nobody is disturbed.
+		const answered = event.type === "approval" ? this.answerByPolicy(id, live, event) : false;
 		if (
+			!answered &&
 			(event.type === "turn_end" || event.type === "approval") &&
 			![...live.clients].some((client) => client.watching?.() ?? true)
 		) {
@@ -1211,6 +1313,7 @@ export class ChatHub {
 		live.running = running;
 		for (const client of live.clients) client.state({ running });
 		if (!running) this.flush(id, live);
+		this.busyListener?.(this.busyCount());
 	}
 
 	/**

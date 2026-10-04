@@ -54,19 +54,9 @@ export const SETTINGS_SECTIONS = [
 				description: "Coding agents and what new threads start with",
 			},
 			{
-				href: "/settings/environments",
+				href: "/settings/machines",
 				label: "Machines",
 				description: "This machine, Codespaces and other Grids",
-			},
-			{
-				href: "/settings/worktrees",
-				label: "Worktrees",
-				description: "Separate checkouts threads work in",
-			},
-			{
-				href: "/settings/diagnostics",
-				label: "Diagnostics",
-				description: "Runner errors and connection events",
 			},
 		],
 	},

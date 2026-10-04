@@ -1,4 +1,8 @@
-import { providerRegistry } from "./agents/registry";
+import { AcpAgentStore } from "./agents/acp-agents";
+import { policyOf } from "./agents/policy";
+import { addAcpAgent, agentBinary, providerRegistry } from "./agents/registry";
+import { agentVersion } from "./agents/versions";
+import { KeepAwake, type MachinePrefs, MachinePrefsStore } from "./machine/prefs";
 import { Automations } from "./automations/service";
 import { AutomationStore } from "./automations/store";
 import { withAgentBins } from "./agents/setup";
@@ -38,7 +42,25 @@ const config = readConfig();
 const diagnostics = new DiagnosticJournal(config.chatDb);
 installProcessDiagnostics(diagnostics);
 const store = new TerminalStore(config, spawnPty);
-const chat = new ChatHub(new ChatStore(config.chatDb), providerRegistry(), config.projectsDir);
+const providers = providerRegistry();
+// ACP agents added from Settings → Agents & permissions, driven alongside the built-in ones.
+const acpAgents = new AcpAgentStore(config.chatDb);
+for (const agent of acpAgents.list()) addAcpAgent(providers, agent);
+const chat = new ChatHub(new ChatStore(config.chatDb), providers, config.projectsDir);
+chat.setDescribe(async (id, installed) => ({
+	version: installed ? await agentVersion(agentBinary(id)) : null,
+	custom: acpAgents.list().some((agent) => agent.id === id),
+}));
+// This machine's runner settings: how many agents work at once, and staying awake while they do.
+const machinePrefs = new MachinePrefsStore(config.chatDb);
+const keepAwake = new KeepAwake();
+const applyMachine = (saved: MachinePrefs) => {
+	chat.setTurnLimit(saved.concurrency);
+	keepAwake.enabled = saved.keepAwake;
+	keepAwake.update(chat.busyCount());
+};
+applyMachine(machinePrefs.get());
+chat.onBusy((running) => keepAwake.update(running));
 // Everything waiting on the people in a workspace, kept in the same database as their chats.
 const inbox = new InboxStore(config.chatDb);
 const roles = new RoleStore(config.chatDb);
@@ -109,6 +131,11 @@ const environments: EnvironmentDeps = {
 // What people kept here before workspaces moves into their default workspace when they use it.
 // What each workspace sets for everyone, as last heard from the API: the run-log retention below.
 const workspaceSettings = new Map<string, WorkspaceSettings>();
+// What agents may do on their own in each workspace, as its settings say.
+chat.setPolicy((workspace) => {
+	const settings = workspaceSettings.get(workspace);
+	return { policy: policyOf(settings), defaultBranch: settings?.defaultBranch ?? "main" };
+});
 setInterval(() => {
 	for (const [workspace, settings] of workspaceSettings) {
 		const days = settings.logRetentionDays ?? 0;
@@ -191,6 +218,17 @@ const server = startServer(config, store, verify, chat, {
 	inbox: { store: inbox, github: githubInbox, projectsDir: config.projectsDir },
 	automations,
 	roles: { store: roles, knownProvider: (id) => chat.knowsProvider(id) },
+	machine: {
+		prefs: machinePrefs,
+		acpAgents,
+		projectsDir: config.projectsDir,
+		startedAt: Date.now(),
+		counts: () => ({ agents: chat.busyCount(), terminals: store.count() }),
+		apply: applyMachine,
+		addAgent: (agent) => addAcpAgent(providers, agent),
+		removeAgent: (id) => providers.delete(id),
+		knownAgent: (id) => providers.has(id),
+	},
 });
 
 console.log(

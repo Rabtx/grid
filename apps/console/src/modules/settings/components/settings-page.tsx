@@ -48,9 +48,8 @@ export function SettingsPage(props: {
 				{props.actions}
 				{props.menu?.(false)}
 			</ShellSlot>
-			<Show when={props.menu}>
-				{(menu) => <ShellSlot name="trailing">{menu()(true)}</ShellSlot>}
-			</Show>
+			{/* Phones: the page's menu on the right, or nothing (never another screen's action). */}
+			<ShellSlot name="trailing">{props.menu?.(true) ?? <span aria-hidden="true" />}</ShellSlot>
 			<ShellSlot name="heading">
 				<div class="flex min-w-0 flex-col items-center">
 					<Text as="h1" tone="strong" weight="medium" size="body-lg" truncate>

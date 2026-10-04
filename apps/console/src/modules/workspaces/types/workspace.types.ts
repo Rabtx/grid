@@ -29,6 +29,16 @@ export interface WorkspaceSettings {
 	/** Run logs older than this many days are cleared; 0 or missing keeps them. */
 	logRetentionDays?: number;
 	agentAccess?: Record<string, AgentAccess>;
+	agentPolicy?: AgentPolicy;
+}
+
+/** What agents may do on their own: per kind of action, and two safety switches. */
+export type AgentCapability = "read" | "edit" | "commands" | "packages" | "network" | "push";
+export type AgentRule = "allow" | "ask" | "never";
+export interface AgentPolicy {
+	rules?: Partial<Record<AgentCapability, AgentRule>>;
+	newBranch?: boolean;
+	showCommands?: boolean;
 }
 
 /** Where the workspace's data lives: the database, and its backups. */

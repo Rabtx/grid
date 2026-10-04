@@ -1,4 +1,4 @@
-export { EnvironmentsScreen } from "./components/environments-screen";
+export { MachinesScreen } from "./components/machines-screen";
 export { MachinePicker } from "./components/machine-picker";
 export { environmentsStore } from "./stores/environments";
 export { placementsStore, scopeFor } from "./stores/placements";

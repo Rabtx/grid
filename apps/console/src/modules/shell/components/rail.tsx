@@ -91,8 +91,8 @@ const FOOT: readonly Destination[] = [
 	{
 		label: "Machines",
 		icon: () => <LaptopIcon />,
-		href: () => "/settings/environments",
-		match: "/settings/environments",
+		href: () => "/settings/machines",
+		match: "/settings/machines",
 	},
 	{
 		label: "Agents",
@@ -102,7 +102,7 @@ const FOOT: readonly Destination[] = [
 	},
 ];
 
-const SETTINGS_PAGES = /^\/settings(?!\/(environments|agents)(\/|$))(\/|$)/;
+const SETTINGS_PAGES = /^\/settings(?!\/(machines|agents)(\/|$))(\/|$)/;
 
 /**
  * The icon rail (the Figma Grid/Sidebar/Rail): the mark, which folds the panel away on desktop,

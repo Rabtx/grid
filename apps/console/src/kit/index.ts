@@ -338,3 +338,4 @@ export {
 	UpNextCard,
 	UpNextRow,
 } from "./automation";
+export { MachineCard, type MachineStat } from "./machine";

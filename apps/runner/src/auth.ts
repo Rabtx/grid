@@ -26,6 +26,17 @@ export type WorkspaceSettings = {
 	logRetentionDays?: number;
 	/** Per agent id: who may start it. */
 	agentAccess?: Record<string, "everyone" | "admins">;
+	/** What agents may do on their own (see `agents/policy`). */
+	agentPolicy?: {
+		rules?: Partial<
+			Record<
+				"read" | "edit" | "commands" | "packages" | "network" | "push",
+				"allow" | "ask" | "never"
+			>
+		>;
+		newBranch?: boolean;
+		showCommands?: boolean;
+	};
 };
 
 /** A token checked: who it is, or why not (401: not signed in, 404: not in that workspace). */
