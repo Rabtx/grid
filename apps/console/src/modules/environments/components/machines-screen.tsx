@@ -43,6 +43,7 @@ import { offeredProviders, providersStore } from "@/modules/chat/stores/provider
 import { SettingsPage, settingsMenu } from "@/modules/settings/components/settings-page";
 import { useShell } from "@/modules/shell";
 import { useWorkspaces } from "@/modules/workspaces";
+import { mayDo } from "@/modules/workspaces/lib/members";
 
 import { type Environment, environmentsService } from "../services/environments.service";
 import { machineService, type MachinePrefs, type MachineStatus } from "../services/machine.service";
@@ -89,7 +90,11 @@ export function MachinesScreen(): JSX.Element {
 	const [adding, setAdding] = createSignal(false);
 	const [removing, setRemoving] = createSignal<Environment | null>(null);
 	const [pending, setPending] = createSignal(false);
-	const admin = () => workspaces.current()?.role !== "member";
+	// Changing this machine and the others is for roles that manage machines (Settings → Roles).
+	const admin = () => {
+		const current = workspaces.current();
+		return current ? mayDo("machines", current.role, current.customRole, current.settings) : false;
+	};
 
 	async function read(token: string): Promise<void> {
 		try {

@@ -54,6 +54,11 @@ export const SETTINGS_SECTIONS = [
 				description: "Coding agents and what new threads start with",
 			},
 			{
+				href: "/settings/roles",
+				label: "Roles",
+				description: "What owners, admins, members and viewers can do",
+			},
+			{
 				href: "/settings/machines",
 				label: "Machines",
 				description: "This machine, Codespaces and other Grids",

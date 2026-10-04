@@ -1,15 +1,15 @@
 import { apiClient, getApiOrigin } from "@/lib/api-client";
 
 import type {
-	CreatedInvite,
 	CreateInviteInput,
 	CreateWorkspaceInput,
+	CreatedInvite,
 	DataStatus,
 	Invite,
 	InvitePreview,
 	Member,
+	RoleInput,
 	Workspace,
-	WorkspaceRole,
 	WorkspaceSettings,
 } from "../types/workspace.types";
 
@@ -27,8 +27,8 @@ export const workspacesService = {
 		}),
 	members: (accessToken: string, slug: string) =>
 		apiClient.get<Member[]>(`${at(slug)}/members`, { accessToken }),
-	setRole: (accessToken: string, slug: string, userId: string, role: WorkspaceRole) =>
-		apiClient.patch<Member>(`${at(slug)}/members/${userId}`, { role }, { accessToken }),
+	setRole: (accessToken: string, slug: string, userId: string, input: RoleInput) =>
+		apiClient.patch<Member>(`${at(slug)}/members/${userId}`, input, { accessToken }),
 	/** Remove someone, or leave when it is you. */
 	removeMember: (accessToken: string, slug: string, userId: string) =>
 		apiClient.delete<void>(`${at(slug)}/members/${userId}`, { accessToken }),
