@@ -9,6 +9,8 @@ import { type Channel, type ChannelSink, openChat, openTerminal } from "./channe
 import { type ChatHub } from "./chat/hub";
 import { connectorProxyRequest, connectorRequest } from "./connectors/routes";
 import { pulseRequest } from "./pulse/routes";
+import { searchRequest } from "./search/routes";
+import type { Search } from "./search/service";
 import type { Pulse } from "./pulse/service";
 import type { Connectors } from "./connectors/service";
 import type { DiagnosticInput, DiagnosticJournal } from "./diagnostics/journal";
@@ -141,6 +143,8 @@ export function startServer(
 		connectors?: Connectors;
 		/** Home → Pulse. */
 		pulse?: Pulse;
+		/** Search and Ask Grid. */
+		search?: Search;
 	} = {},
 ): Server<SocketData> {
 	const {
@@ -158,6 +162,7 @@ export function startServer(
 		mayApprove,
 		connectors,
 		pulse,
+		search,
 	} = extras;
 	const diagnosticRoutes = diagnostics ? new DiagnosticRoutes(diagnostics) : null;
 	const recordDiagnostic = (entry: DiagnosticInput): void => {
@@ -251,6 +256,13 @@ export function startServer(
 					const who = await whoFrom(request, "Sign in to manage connectors");
 					if (who instanceof Response) return who;
 					const handled = await connectorRequest(request, url, who, connectors);
+					if (handled) return handled;
+				}
+
+				if (search && (url.pathname === "/search" || url.pathname === "/ask")) {
+					const who = await whoFrom(request, "Sign in to search");
+					if (who instanceof Response) return who;
+					const handled = await searchRequest(request, url, who, search);
 					if (handled) return handled;
 				}
 

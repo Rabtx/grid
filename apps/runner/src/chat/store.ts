@@ -615,6 +615,72 @@ export class ChatStore {
 	}
 
 	/** Every project folder the workspace has linked on this machine, by project slug. */
+	/**
+	 * Threads in a workspace whose title or messages mention any of the words, newest first: each
+	 * with the words it matched and a passage around the first one (Search, Ask Grid).
+	 */
+	searchText(
+		workspace: string,
+		words: readonly string[],
+		limit = 20,
+	): {
+		id: string;
+		project: string;
+		provider: string;
+		title: string;
+		updatedAt: string;
+		hits: number;
+		passage: string;
+	}[] {
+		const terms = words
+			.map((word) => word.toLowerCase())
+			.filter(Boolean)
+			.slice(0, 8);
+		if (!terms.length) return [];
+		const sessions = this.db
+			.query<
+				{ id: string; project: string; provider: string; title: string; updated_at: string },
+				[string]
+			>(
+				"SELECT id, project, provider, title, updated_at FROM sessions WHERE workspace_id = ? ORDER BY updated_at DESC LIMIT 400",
+			)
+			.all(workspace);
+		const texts = this.db.query<{ data: string }, [string]>(
+			`SELECT data FROM events WHERE session_id = ? AND (data LIKE '{"type":"user"%' OR data LIKE '{"type":"message"%') ORDER BY seq LIMIT 200`,
+		);
+		const found: ReturnType<ChatStore["searchText"]> = [];
+		for (const session of sessions) {
+			const parts = [session.title];
+			for (const row of texts.all(session.id)) {
+				try {
+					const event = JSON.parse(row.data) as { text?: unknown };
+					if (typeof event.text === "string") parts.push(event.text);
+				} catch {
+					// A malformed event is skipped.
+				}
+			}
+			const body = parts.join("\n");
+			const lower = body.toLowerCase();
+			const matched = terms.filter((term) => lower.includes(term));
+			if (!matched.length) continue;
+			const at = lower.indexOf(matched[0] ?? "");
+			const passage = body
+				.slice(Math.max(0, at - 160), at + 320)
+				.replace(/\s+/g, " ")
+				.trim();
+			found.push({
+				id: session.id,
+				project: session.project,
+				provider: session.provider,
+				title: session.title,
+				updatedAt: session.updated_at,
+				hits: matched.length,
+				passage,
+			});
+		}
+		return found.sort((a, b) => b.hits - a.hits).slice(0, limit);
+	}
+
 	projectFolders(workspace: string): Record<string, string> {
 		const rows = this.db
 			.query<{ project: string; path: string }, [string]>(

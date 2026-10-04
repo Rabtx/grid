@@ -34,7 +34,10 @@ type ShellState = {
 	drawerOpen: () => boolean;
 	setDrawerOpen: (open: boolean) => void;
 	paletteOpen: () => boolean;
-	setPaletteOpen: (open: boolean) => void;
+	/** Open or close Search; `mode` opens it straight into Ask Grid. */
+	setPaletteOpen: (open: boolean, mode?: "search" | "ask") => void;
+	/** What Search opened as: finding things, or asking Grid. */
+	paletteMode: () => "search" | "ask";
 	/** True from `lg`, where the sidebar and panel sit beside the screen instead of in a drawer. */
 	desktop: () => boolean;
 	/** Desktop with the floating sidebar (Settings → Appearance): a card over the canvas, no rail. */
@@ -89,6 +92,7 @@ export function ShellProvider(props: { children: JSX.Element }): JSX.Element {
 	const [collapsed, setCollapsed] = createSignal(rememberedCollapsed());
 	const [drawerOpen, setDrawerOpen] = createSignal(false);
 	const [paletteOpen, setPaletteOpen] = createSignal(false);
+	const [paletteMode, setPaletteMode] = createSignal<"search" | "ask">("search");
 	const [desktop, setDesktop] = createSignal(matchMedia(DESKTOP_QUERY).matches);
 
 	onSettled(() => {
@@ -124,7 +128,11 @@ export function ShellProvider(props: { children: JSX.Element }): JSX.Element {
 		drawerOpen,
 		setDrawerOpen,
 		paletteOpen,
-		setPaletteOpen,
+		setPaletteOpen: (open, mode = "search") => {
+			setPaletteMode(mode);
+			setPaletteOpen(open);
+		},
+		paletteMode,
 		desktop,
 		floating: () => desktop() && appearance().sidebar === "floating",
 	};

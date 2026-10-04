@@ -31,6 +31,7 @@ import { ConnectionStore } from "./connectors/store";
 import { Vault } from "./connectors/vault";
 import { Pulse } from "./pulse/service";
 import { PulseStore } from "./pulse/store";
+import { type ApiFindings, Search } from "./search/service";
 import { PullRequests } from "./github/pulls";
 import { inboxItem } from "./inbox/attention";
 import { GithubInbox } from "./inbox/github";
@@ -206,6 +207,23 @@ const connectors = new Connectors({
 });
 chat.setMcp((workspace, agent, thread) => connectors.serversFor(workspace, agent, thread));
 const pulse = new Pulse({ chat, gh, connections, store: new PulseStore(config.chatDb) });
+// Search and Ask Grid: tasks and notes come from the API, asked as the person searching.
+const search = new Search({
+	chat,
+	gh,
+	apiSearch: async (auth, query, project) => {
+		const empty: ApiFindings = { tasks: [], notes: [] };
+		if (!auth.token || !auth.workspace) return empty;
+		const params = new URLSearchParams({ q: query, ...(project ? { project } : {}) });
+		const response = await fetch(
+			`${config.apiUrl}/api/v1/workspaces/${encodeURIComponent(auth.workspace)}/search?${params}`,
+			{ headers: { authorization: `Bearer ${auth.token}` } },
+		);
+		if (!response.ok) return empty;
+		const body = (await response.json().catch(() => null)) as { data?: ApiFindings } | null;
+		return body?.data ?? empty;
+	},
+});
 const githubInbox = new GithubInbox(inbox, {
 	pulls,
 	// The same claim the pull request routes make, asked without throwing so one person's GitHub
@@ -250,6 +268,7 @@ const server = startServer(config, store, verify, chat, {
 	push,
 	connectors,
 	pulse,
+	search,
 	// Someone not seen since the runner started keeps the access their notification was sent with.
 	mayApprove: (act) => {
 		const who = lastSeen.get(`${act.ownerId}:${act.workspace}`);
