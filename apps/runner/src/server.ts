@@ -10,6 +10,8 @@ import { type ChatHub } from "./chat/hub";
 import { connectorProxyRequest, connectorRequest } from "./connectors/routes";
 import { pulseRequest } from "./pulse/routes";
 import { searchRequest } from "./search/routes";
+import { shipRequest } from "./ship/routes";
+import type { Ship } from "./ship/service";
 import type { Search } from "./search/service";
 import type { Pulse } from "./pulse/service";
 import type { Connectors } from "./connectors/service";
@@ -145,6 +147,8 @@ export function startServer(
 		pulse?: Pulse;
 		/** Search and Ask Grid. */
 		search?: Search;
+		/** Ship: environments, promotions, pipelines, previews. */
+		ship?: Ship;
 	} = {},
 ): Server<SocketData> {
 	const {
@@ -163,6 +167,7 @@ export function startServer(
 		connectors,
 		pulse,
 		search,
+		ship,
 	} = extras;
 	const diagnosticRoutes = diagnostics ? new DiagnosticRoutes(diagnostics) : null;
 	const recordDiagnostic = (entry: DiagnosticInput): void => {
@@ -270,6 +275,13 @@ export function startServer(
 					const who = await whoFrom(request, "Sign in to see Pulse");
 					if (who instanceof Response) return who;
 					const handled = await pulseRequest(request, url, who, pulse);
+					if (handled) return handled;
+				}
+
+				if (ship && (url.pathname === "/ship" || url.pathname.startsWith("/ship/"))) {
+					const who = await whoFrom(request, "Sign in to see Ship");
+					if (who instanceof Response) return who;
+					const handled = await shipRequest(request, url, who, ship);
 					if (handled) return handled;
 				}
 

@@ -8,6 +8,7 @@ import {
 	BoltIcon,
 	BrandTile,
 	ChatIcon,
+	CloudIcon,
 	FileIcon,
 	HomeIcon,
 	InboxIcon,
@@ -37,7 +38,7 @@ type Destination = {
 	shortcut?: string;
 };
 
-// The Figma rail, in its order. Browser and Ship join it once their screens ship; a rail
+// The Figma rail, in its order. Browser joins it once its screen ships; a rail
 // item that leads nowhere is not drawn.
 export const VIEWS: readonly Destination[] = [
 	{ label: "Home", icon: () => <HomeIcon />, href: () => "/home", match: "/home" },
@@ -78,6 +79,12 @@ export const VIEWS: readonly Destination[] = [
 		icon: () => <PullRequestIcon />,
 		href: (slug) => (slug ? `/pulls/${slug}` : "/board"),
 		match: "/pulls",
+	},
+	{
+		label: "Ship",
+		icon: () => <CloudIcon />,
+		href: (slug) => (slug ? `/ship/${slug}` : "/board"),
+		match: "/ship",
 	},
 	{
 		label: "Automations",
