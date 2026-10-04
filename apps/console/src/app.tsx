@@ -17,6 +17,7 @@ import {
 	GeneralScreen,
 	NotificationsScreen,
 	ProfileScreen,
+	RolesScreen,
 	SettingsIndexScreen,
 	MembersScreen,
 	WorktreesScreen,
@@ -67,6 +68,7 @@ const Router = createRouter({
 		{ path: "/settings/appearance", component: () => <Authed screen={AppearanceScreen} /> },
 		{ path: "/settings/notifications", component: () => <Authed screen={NotificationsScreen} /> },
 		{ path: "/settings/agents", component: () => <Authed screen={AgentsScreen} /> },
+		{ path: "/settings/roles", component: () => <Authed screen={RolesScreen} /> },
 		{ path: "/settings/machines", component: () => <Authed screen={MachinesScreen} /> },
 		// Environments became Machines: old links land there.
 		{ path: "/settings/environments", component: () => <Moved to="/settings/machines" /> },

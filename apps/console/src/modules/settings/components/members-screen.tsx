@@ -35,11 +35,15 @@ import { useWorkspaces } from "@/modules/workspaces";
 import { InviteSheet } from "@/modules/workspaces/components/invite-sheet";
 import { MemberSheet } from "@/modules/workspaces/components/member-sheet";
 import {
-	canInvite,
 	canManage,
+	choiceOf,
+	isAdmin,
+	mayDo,
 	memberName,
-	ROLE_LABEL,
-	rolesYouCanGive,
+	type RoleChoice,
+	roleChoices,
+	roleInput,
+	roleName,
 } from "@/modules/workspaces/lib/members";
 import { workspacesService } from "@/modules/workspaces/services/workspaces.service";
 import type {
@@ -81,7 +85,13 @@ export function MembersScreen(): JSX.Element {
 	const slug = () => workspaces.current()?.slug ?? null;
 	const me = (): WorkspaceRole => workspaces.current()?.role ?? "member";
 	const myId = () => auth.user()?.id ?? null;
-	const admin = () => canInvite(me());
+	const admin = () => isAdmin(me());
+	const settings = () => workspaces.current()?.settings;
+	// Inviting is a permission any role may be given (Settings → Roles), not only admins'.
+	const inviter = () => {
+		const current = workspaces.current();
+		return current ? mayDo("invite", current.role, current.customRole, current.settings) : false;
+	};
 
 	const [members, setMembers] = createSignal<Member[] | null>(null);
 	const [invites, setInvites] = createSignal<Invite[] | null>(null);
@@ -89,7 +99,7 @@ export function MembersScreen(): JSX.Element {
 	const [error, setError] = createSignal<string | null>(null);
 	const [busy, setBusy] = createSignal(false);
 	const [emails, setEmails] = createSignal("");
-	const [inviteRole, setInviteRole] = createSignal<"member" | "admin">("member");
+	const [inviteRole, setInviteRole] = createSignal<RoleChoice>("member");
 	const [query, setQuery] = createSignal("");
 	const [open, setOpen] = createSignal<Member | null>(null);
 	const [sheetError, setSheetError] = createSignal<string | null>(null);
@@ -105,7 +115,7 @@ export function MembersScreen(): JSX.Element {
 		try {
 			const [people, pending] = await Promise.all([
 				workspacesService.members(token, ws),
-				admin() ? workspacesService.invites(token, ws) : Promise.resolve([]),
+				inviter() ? workspacesService.invites(token, ws) : Promise.resolve([]),
 			]);
 			setMembers(people);
 			setInvites(pending);
@@ -161,7 +171,10 @@ export function MembersScreen(): JSX.Element {
 		if (!list.length) return;
 		const done = await change(async (token, ws) => {
 			for (const email of list)
-				await workspacesService.createInvite(token, ws, { email, role: inviteRole() });
+				await workspacesService.createInvite(token, ws, {
+					email,
+					...(roleInput(inviteRole()) as Pick<CreateInviteInput, "role" | "customRole">),
+				});
 		}, "Not invited");
 		if (done) {
 			setEmails("");
@@ -169,15 +182,16 @@ export function MembersScreen(): JSX.Element {
 		}
 	}
 
-	async function saveRole(member: Member, role: WorkspaceRole): Promise<void> {
+	async function saveRole(member: Member, choice: RoleChoice): Promise<void> {
+		const input = roleInput(choice);
 		if (
 			await change(
-				(token, ws) => workspacesService.setRole(token, ws, member.userId, role),
+				(token, ws) => workspacesService.setRole(token, ws, member.userId, input),
 				"Role not changed",
 			)
 		) {
 			setOpen(null);
-			notify({ title: `${memberName(member)} is now ${ROLE_LABEL[role].toLowerCase()}` });
+			notify({ title: `${memberName(member)} is now ${roleName(input, settings())}` });
 		}
 	}
 
@@ -265,9 +279,7 @@ export function MembersScreen(): JSX.Element {
 	const count = () => members()?.length ?? 0;
 	const peopleLine = () => `${count()} ${count() === 1 ? "person" : "people"}`;
 	const inviteRoles = () =>
-		rolesYouCanGive(me())
-			.filter((role): role is "member" | "admin" => role !== "owner")
-			.map((value) => ({ value, label: ROLE_LABEL[value] }));
+		roleChoices(me(), settings(), { owner: false }).map(({ value, label }) => ({ value, label }));
 	const openLink = () => {
 		setCreated(null);
 		setSheetError(null);
@@ -280,17 +292,19 @@ export function MembersScreen(): JSX.Element {
 			when={shell.desktop() && canManage(me(), member, myId())}
 			fallback={
 				<Text tone="subtle" class="max-md:hidden">
-					{ROLE_LABEL[member.role]}
+					{roleName(member, settings())}
 				</Text>
 			}
 		>
-			<Select<WorkspaceRole>
+			<Select<RoleChoice>
 				look="pill"
 				label={`${memberName(member)}'s role`}
-				value={member.role}
-				onChange={(role) => void saveRole(member, role)}
+				value={choiceOf(member)}
+				onChange={(choice) => void saveRole(member, choice)}
 				groups={[
-					{ options: rolesYouCanGive(me()).map((value) => ({ value, label: ROLE_LABEL[value] })) },
+					{
+						options: roleChoices(me(), settings()).map(({ value, label }) => ({ value, label })),
+					},
 				]}
 			/>
 		</Show>
@@ -335,7 +349,7 @@ export function MembersScreen(): JSX.Element {
 			description={`People and agents in ${workspaces.current()?.name ?? "this workspace"}. Agents always act for the person who started them.`}
 			subtitle={members() ? peopleLine() : undefined}
 			menu={
-				admin()
+				inviter()
 					? settingsMenu(
 							"Members",
 							[{ items: [{ id: "link", label: "Create an invite link" }] }],
@@ -358,7 +372,7 @@ export function MembersScreen(): JSX.Element {
 				)}
 			</Show>
 
-			<Show when={admin()}>
+			<Show when={inviter()}>
 				<InviteCard
 					field={
 						<PillInput
@@ -375,7 +389,7 @@ export function MembersScreen(): JSX.Element {
 						/>
 					}
 					role={
-						<Select<"member" | "admin">
+						<Select<RoleChoice>
 							look="pill"
 							label="Invite as"
 							value={inviteRole()}
@@ -448,7 +462,7 @@ export function MembersScreen(): JSX.Element {
 								description={
 									shell.desktop()
 										? (member.email ?? `@${member.username}`)
-										: `${ROLE_LABEL[member.role]}${member.userId === myId() ? " · you" : ""}`
+										: `${roleName(member, settings())}${member.userId === myId() ? " · you" : ""}`
 								}
 							>
 								{roleControl(member)}
@@ -531,6 +545,7 @@ export function MembersScreen(): JSX.Element {
 					<MemberSheet
 						member={member()}
 						me={me()}
+						settings={settings()}
 						isYou={member().userId === myId()}
 						canManage={canManage(me(), member(), myId())}
 						busy={busy()}
@@ -573,6 +588,7 @@ export function MembersScreen(): JSX.Element {
 				<InviteSheet
 					workspaceName={workspaces.current()?.name ?? "this workspace"}
 					me={me()}
+					settings={settings()}
 					busy={busy()}
 					error={sheetError()}
 					created={created()}

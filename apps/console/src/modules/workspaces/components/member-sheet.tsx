@@ -14,8 +14,15 @@ import {
 	Text,
 } from "@/kit";
 
-import { memberName, ROLE_HINT, ROLE_LABEL, rolesYouCanGive } from "../lib/members";
-import type { Member, WorkspaceRole } from "../types/workspace.types";
+import {
+	choiceOf,
+	memberName,
+	ROLE_HINT,
+	type RoleChoice,
+	roleChoices,
+	roleName,
+} from "../lib/members";
+import type { Member, WorkspaceRole, WorkspaceSettings } from "../types/workspace.types";
 
 const JOINED = new Intl.DateTimeFormat(undefined, {
 	day: "numeric",
@@ -31,21 +38,22 @@ const JOINED = new Intl.DateTimeFormat(undefined, {
 export function MemberSheet(props: {
 	member: Member;
 	me: WorkspaceRole;
+	/** The workspace's own roles, offered beside the built-in ones. */
+	settings?: WorkspaceSettings;
 	isYou: boolean;
 	canManage: boolean;
 	busy: boolean;
 	error: string | null;
 	onClose: () => void;
-	onSave: (role: WorkspaceRole) => void;
+	onSave: (role: RoleChoice) => void;
 	onRemove: () => void;
 	onLeave: () => void;
 }): JSX.Element {
-	const [role, setRole] = createSignal<WorkspaceRole>(untrack(() => props.member.role));
+	const [role, setRole] = createSignal<RoleChoice>(untrack(() => choiceOf(props.member)));
 	const options = () =>
-		rolesYouCanGive(props.me).map((value) => ({
-			value,
-			label: ROLE_LABEL[value],
-			description: ROLE_HINT[value],
+		roleChoices(props.me, props.settings).map((option) => ({
+			...option,
+			description: option.description ?? "",
 		}));
 
 	return (
@@ -70,7 +78,7 @@ export function MemberSheet(props: {
 					</Button>
 					<Button
 						variant="primary"
-						disabled={props.busy || role() === props.member.role}
+						disabled={props.busy || role() === choiceOf(props.member)}
 						onClick={() => props.onSave(role())}
 					>
 						<Show when={props.busy} fallback="Save role">
@@ -93,7 +101,7 @@ export function MemberSheet(props: {
 					fallback={
 						<DescriptionList
 							items={[
-								{ label: "Role", value: ROLE_LABEL[props.member.role] },
+								{ label: "Role", value: roleName(props.member, props.settings) },
 								{ label: "Can do", value: ROLE_HINT[props.member.role] },
 							]}
 						/>

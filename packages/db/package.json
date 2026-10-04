@@ -8,6 +8,7 @@
 		"./schema": "./src/schema/index.ts",
 		"./instance": "./src/instance.ts",
 		"./password": "./src/password.ts",
+		"./roles": "./src/roles.ts",
 		"./workspaces": "./src/workspaces.ts"
 	},
 	"scripts": {

@@ -31,6 +31,19 @@ export const createWorkspaceSchema = z
 
 const agentId = z.string().regex(/^[a-z0-9-]{1,40}$/, "Use an agent id");
 const rule = z.enum(["allow", "ask", "never"]);
+const permissions = z
+	.object({
+		startAgents: z.boolean(),
+		approveCommands: z.boolean(),
+		mergePulls: z.boolean(),
+		production: z.boolean(),
+		machines: z.boolean(),
+		integrations: z.boolean(),
+		invite: z.boolean(),
+	})
+	.partial()
+	.strict();
+const customRoleId = z.string().regex(/^[a-z0-9-]{1,64}$/, "Use a role id");
 
 /** A change to what applies to everyone in the workspace; each field is optional. */
 export const workspaceSettingsSchema = z
@@ -65,6 +78,28 @@ export const workspaceSettingsSchema = z
 			})
 			.strict()
 			.optional(),
+		rolePermissions: z
+			.object({ admin: permissions, member: permissions, viewer: permissions })
+			.partial()
+			.strict()
+			.optional(),
+		customRoles: z
+			.array(
+				z
+					.object({
+						id: customRoleId,
+						name: z.string().trim().min(1).max(40),
+						description: z.string().trim().max(120).optional(),
+						permissions,
+					})
+					.strict(),
+			)
+			.max(20)
+			.refine(
+				(roles) => new Set(roles.map((role) => role.id)).size === roles.length,
+				"Each role needs its own id",
+			)
+			.optional(),
 	})
 	.strict();
 
@@ -79,12 +114,19 @@ export const updateWorkspaceSchema = z
 	.strict()
 	.refine((input) => Object.keys(input).length > 0, "At least one workspace field is required");
 
-export const updateMemberSchema = z.object({ role: z.enum(["owner", "admin", "member"]) }).strict();
+export const updateMemberSchema = z
+	.object({
+		role: z.enum(["owner", "admin", "member", "viewer"]),
+		/** A role the workspace made; its holder ranks as a member. */
+		customRole: customRoleId.nullable().optional(),
+	})
+	.strict();
 
 export const createInviteSchema = z
 	.object({
 		email: z.email().trim().toLowerCase().max(320).optional(),
-		role: z.enum(["admin", "member"]).default("member"),
+		role: z.enum(["admin", "member", "viewer"]).default("member"),
+		customRole: customRoleId.nullable().optional(),
 	})
 	.strict();
 

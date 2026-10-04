@@ -6,7 +6,14 @@ import { KeepAwake, type MachinePrefs, MachinePrefsStore } from "./machine/prefs
 import { Automations } from "./automations/service";
 import { AutomationStore } from "./automations/store";
 import { withAgentBins } from "./agents/setup";
-import { createTokenVerifier, signedOut, type Verify, type WorkspaceSettings } from "./auth";
+import {
+	createTokenVerifier,
+	signedOut,
+	type Verify,
+	type WorkspaceSettings,
+	type Who,
+} from "./auth";
+import { may } from "./permissions";
 import { ChatHub } from "./chat/hub";
 import { ChatStore } from "./chat/store";
 import { readConfig } from "./config";
@@ -153,8 +160,16 @@ const signIn = createTokenVerifier(
 	(workspace, settings) => workspaceSettings.set(workspace, settings),
 );
 // A paired Grid acts under the key it paired with (its home workspace), whichever it names.
+// Each person's latest role per workspace, for answers that arrive without a sign-in (a button on
+// a locked phone's notification).
+const lastSeen = new Map<string, Who>();
 const verify: Verify = async (token, workspace) => {
-	if (!pairing || !isEnvironmentToken(token)) return signIn(token, workspace);
+	if (!pairing || !isEnvironmentToken(token)) {
+		const verified = await signIn(token, workspace);
+		if ("who" in verified)
+			lastSeen.set(`${verified.who.userId}:${verified.who.workspace}`, verified.who);
+		return verified;
+	}
 	const key = pairing.verify(token);
 	return key ? { who: { userId: key, workspace: key } } : signedOut;
 };
@@ -209,6 +224,11 @@ automations.setEventSync(async (workspace, ownerId) => {
 
 const server = startServer(config, store, verify, chat, {
 	push,
+	// Someone not seen since the runner started keeps the access their notification was sent with.
+	mayApprove: (act) => {
+		const who = lastSeen.get(`${act.ownerId}:${act.workspace}`);
+		return !who || may(who, "approveCommands");
+	},
 	prefs,
 	diagnostics,
 	pairing,

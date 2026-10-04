@@ -18,6 +18,7 @@ import { type AgentPolicy, answerFor, branchNote, DEFAULT_POLICY } from "../agen
 import type { AgentSession, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
 import type { Who } from "../auth";
+import { isAdmin, may, NOT_ALLOWED } from "../permissions";
 import { insideProjectsDir } from "../folders/folders";
 import {
 	isRetiredNotice,
@@ -214,7 +215,8 @@ function isDirectory(path: string): boolean {
  * (Settings → Members → Agents).
  */
 export function assertMayStart(who: Who, provider: string, name: string): void {
-	if (who.settings?.agentAccess?.[provider] === "admins" && who.role === "member")
+	if (!may(who, "startAgents")) throw new ChatError(NOT_ALLOWED, 403);
+	if (who.settings?.agentAccess?.[provider] === "admins" && who.role && !isAdmin(who))
 		throw new ChatError(`Only admins can start ${name} in this workspace`, 403);
 }
 

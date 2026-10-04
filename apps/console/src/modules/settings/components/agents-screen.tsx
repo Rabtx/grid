@@ -39,6 +39,7 @@ import { environmentsStore, MachinePicker, scopeFor } from "@/modules/environmen
 import { machineService } from "@/modules/environments/services/machine.service";
 import { useShell } from "@/modules/shell";
 import { useWorkspaces } from "@/modules/workspaces";
+import { isAdmin } from "@/modules/workspaces/lib/members";
 import { workspacesService } from "@/modules/workspaces/services/workspaces.service";
 import type {
 	AgentCapability,
@@ -94,7 +95,7 @@ export function AgentsScreen(): JSX.Element {
 	const [open, setOpen] = createSignal<ChatProvider | null>(null);
 	const [adding, setAdding] = createSignal(false);
 	const scope = () => scopeFor(machine());
-	const admin = () => workspaces.current()?.role !== "member";
+	const admin = () => isAdmin(workspaces.current()?.role);
 	const policy = (): AgentPolicy => workspaces.current()?.settings?.agentPolicy ?? {};
 	const ruleOf = (id: AgentCapability): AgentRule => policy().rules?.[id] ?? DEFAULT_RULES[id];
 	const defaultAgent = () => workspaces.current()?.settings?.defaultAgent;

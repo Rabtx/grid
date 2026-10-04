@@ -176,10 +176,12 @@ describe("MembersScreen", () => {
 		expect(workspacesService.createInvite).toHaveBeenCalledWith("token", "demo", {
 			email: "a@x.dev",
 			role: "member",
+			customRole: null,
 		});
 		expect(workspacesService.createInvite).toHaveBeenCalledWith("token", "demo", {
 			email: "b@x.dev",
 			role: "member",
+			customRole: null,
 		});
 	});
 
@@ -218,6 +220,7 @@ describe("MembersScreen", () => {
 		await settle();
 		expect(workspacesService.createInvite).toHaveBeenCalledWith("token", "demo", {
 			role: "member",
+			customRole: null,
 		});
 		const link = document.querySelector<HTMLInputElement>('input[aria-label="Invite link"]');
 		expect(link?.value).toBe(`${window.location.origin}/invite/abc`);

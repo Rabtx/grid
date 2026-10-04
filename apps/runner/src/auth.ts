@@ -11,11 +11,23 @@ export type Who = {
 	workspace: string;
 	/** Their role in the workspace, when the API said (always, for a signed-in person). */
 	role?: WorkspaceRole;
+	/** A role the workspace made (Settings → Roles), in place of the built-in role's permissions. */
+	customRole?: string;
 	/** What applies to everyone in the workspace (Settings → General). */
 	settings?: WorkspaceSettings;
 };
 
-export type WorkspaceRole = "owner" | "admin" | "member";
+export type WorkspaceRole = "owner" | "admin" | "member" | "viewer";
+
+/** What a role may do (see `permissions`). */
+export type RolePermission =
+	| "startAgents"
+	| "approveCommands"
+	| "mergePulls"
+	| "production"
+	| "machines"
+	| "integrations"
+	| "invite";
 
 /** What a workspace sets for everyone, as the API keeps it; a missing field is its default. */
 export type WorkspaceSettings = {
@@ -37,6 +49,12 @@ export type WorkspaceSettings = {
 		newBranch?: boolean;
 		showCommands?: boolean;
 	};
+	/** Per built-in role, what it may do over its defaults (Settings → Roles). */
+	rolePermissions?: Partial<
+		Record<"admin" | "member" | "viewer", Partial<Record<RolePermission, boolean>>>
+	>;
+	/** Roles the workspace made, each with its own permissions. */
+	customRoles?: { id: string; permissions: Partial<Record<RolePermission, boolean>> }[];
 };
 
 /** A token checked: who it is, or why not (401: not signed in, 404: not in that workspace). */
@@ -49,6 +67,7 @@ type Workspace = {
 	slug: string;
 	isDefault: boolean;
 	role?: WorkspaceRole;
+	customRole?: string | null;
 	settings?: WorkspaceSettings;
 };
 type Known = { userId: string; workspaces: Workspace[]; until: number };
@@ -114,6 +133,7 @@ export function createTokenVerifier(
 			userId: entry.userId,
 			workspace: workspace.id,
 			...(workspace.role ? { role: workspace.role } : {}),
+			...(workspace.customRole ? { customRole: workspace.customRole } : {}),
 			...(workspace.settings ? { settings: workspace.settings } : {}),
 		};
 		onSettings(workspace.id, workspace.settings ?? {});

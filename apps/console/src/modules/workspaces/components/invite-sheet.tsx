@@ -16,11 +16,15 @@ import {
 	Text,
 } from "@/kit";
 
-import { ROLE_HINT, ROLE_LABEL, rolesYouCanGive } from "../lib/members";
-import type { CreatedInvite, CreateInviteInput, WorkspaceRole } from "../types/workspace.types";
+import { type RoleChoice, roleChoices, roleInput, roleName } from "../lib/members";
+import type {
+	CreatedInvite,
+	CreateInviteInput,
+	WorkspaceRole,
+	WorkspaceSettings,
+} from "../types/workspace.types";
 
 type Mode = "link" | "email";
-type InviteRole = CreateInviteInput["role"];
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -41,6 +45,7 @@ function linkFor(invite: CreatedInvite): string {
 export function InviteSheet(props: {
 	workspaceName: string;
 	me: WorkspaceRole;
+	settings?: WorkspaceSettings;
 	busy: boolean;
 	error: string | null;
 	created: CreatedInvite | null;
@@ -50,16 +55,18 @@ export function InviteSheet(props: {
 }): JSX.Element {
 	const [mode, setMode] = createSignal<Mode>("link");
 	const [email, setEmail] = createSignal("");
-	const [role, setRole] = createSignal<InviteRole>("member");
+	const [role, setRole] = createSignal<RoleChoice>("member");
 	const roles = () =>
-		rolesYouCanGive(props.me)
-			.filter((value): value is InviteRole => value !== "owner")
-			.map((value) => ({ value, label: ROLE_LABEL[value], description: ROLE_HINT[value] }));
+		roleChoices(props.me, props.settings, { owner: false }).map((option) => ({
+			...option,
+			description: option.description ?? "",
+		}));
 	const ready = () => mode() === "link" || EMAIL.test(email().trim());
 
 	function create(): void {
 		if (!ready() || props.busy) return;
-		props.onCreate(mode() === "email" ? { email: email().trim(), role: role() } : { role: role() });
+		const given = roleInput(role()) as Pick<CreateInviteInput, "role" | "customRole">;
+		props.onCreate(mode() === "email" ? { email: email().trim(), ...given } : given);
 	}
 
 	return (
@@ -142,8 +149,8 @@ export function InviteSheet(props: {
 							mono
 						/>
 						<Text size="caption" tone="subtle">
-							Joins as {ROLE_LABEL[invite().role].toLowerCase()}. Works once and expires in 7 days.
-							This is the only time the link is shown.
+							Joins as {roleName(invite(), props.settings).toLowerCase()}. Works once and expires in
+							7 days. This is the only time the link is shown.
 						</Text>
 					</Stack>
 				)}

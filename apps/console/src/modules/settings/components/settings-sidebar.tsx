@@ -35,6 +35,7 @@ const ICONS: Record<SettingsHref, { icon: () => JSX.Element; tone: FeedTone }> =
 	"/settings/members": { icon: () => <UserIcon />, tone: "warning" },
 	"/settings/connectors": { icon: () => <PlugIcon />, tone: "accent" },
 	"/settings/agents": { icon: () => <AsteriskIcon />, tone: "violet" },
+	"/settings/roles": { icon: () => <UserIcon />, tone: "accent" },
 	"/settings/machines": { icon: () => <LaptopIcon />, tone: "success" },
 };
 
@@ -70,6 +71,9 @@ export function SettingsSidebar(props: { bare?: boolean } = {}): JSX.Element {
 	);
 	const trailing = (href: SettingsHref): JSX.Element => {
 		if (href === "/settings/members") return members() ?? undefined;
+		// The built-in four and the workspace's own (Figma 24's sidebar count).
+		if (href === "/settings/roles")
+			return 4 + (workspaces.current()?.settings?.customRoles?.length ?? 0);
 		if (href === "/settings/machines")
 			return (
 				<StatusDot

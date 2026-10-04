@@ -30,7 +30,7 @@ import { useAuth } from "@/modules/auth";
 import { offeredProviders, providersStore } from "@/modules/chat/stores/providers";
 import { useShell } from "@/modules/shell";
 import { useWorkspaces } from "@/modules/workspaces";
-import { memberName, ROLE_LABEL } from "@/modules/workspaces/lib/members";
+import { isAdmin, memberName, ROLE_LABEL } from "@/modules/workspaces/lib/members";
 import { workspacesService } from "@/modules/workspaces/services/workspaces.service";
 import type {
 	DataStatus,
@@ -96,7 +96,7 @@ export function GeneralScreen(): JSX.Element {
 	const current = () => workspaces.current();
 	const slug = () => current()?.slug ?? null;
 	const role = () => current()?.role ?? "member";
-	const admin = () => role() !== "member";
+	const admin = () => isAdmin(role());
 	const owner = () => role() === "owner";
 	const settings = (): WorkspaceSettings => current()?.settings ?? {};
 	const address = () => location.host;
@@ -617,8 +617,8 @@ function TransferSheet(props: { open: boolean; onClose: () => void }): JSX.Eleme
 		setBusy(true);
 		setError(null);
 		try {
-			await workspacesService.setRole(token, ws, picked(), "owner");
-			await workspacesService.setRole(token, ws, me, "admin");
+			await workspacesService.setRole(token, ws, picked(), { role: "owner", customRole: null });
+			await workspacesService.setRole(token, ws, me, { role: "admin", customRole: null });
 			workspaces.refresh();
 			notify({ title: "Ownership transferred", description: "You are an admin now." });
 			props.onClose();

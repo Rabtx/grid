@@ -251,6 +251,81 @@ export function ChannelCell(props: { children: JSX.Element }): JSX.Element {
 	return <span class="grid w-12 shrink-0 place-items-center md:w-16">{props.children}</span>;
 }
 
+/**
+ * What each role may do (Figma 24 · Roles): a permission per row, a role per column, a tick or a
+ * dash in each cell. Wide on desktop; scrolls sideways when there are more roles than room.
+ */
+export function PermissionMatrix(props: {
+	columns: readonly string[];
+	children: JSX.Element;
+}): JSX.Element {
+	return (
+		<div class="overflow-x-auto rounded-kit-lg bg-surface ring-line">
+			<div class="min-w-max">
+				<div class="flex h-9 items-center border-line border-b px-4 text-caption text-fg-subtle">
+					<span class="min-w-40 flex-1">Permission</span>
+					<For each={props.columns}>
+						{(column) => <span class="w-23 shrink-0 truncate px-1 text-center">{column}</span>}
+					</For>
+				</div>
+				<div class="divide-y divide-line">{props.children}</div>
+			</div>
+		</div>
+	);
+}
+
+/** One permission across the roles. */
+export function PermissionRow(props: { label: string; children: JSX.Element }): JSX.Element {
+	return (
+		<div class="flex h-12 items-center px-4">
+			<span class="min-w-40 flex-1 truncate text-body text-fg">{props.label}</span>
+			{props.children}
+		</div>
+	);
+}
+
+/** Whether a role may: a tick or a dash, a button when it can be changed. */
+export function PermissionCell(props: {
+	on: boolean;
+	/** "Member: Merge pull requests", for screen readers and the tooltip. */
+	label: string;
+	onToggle?: () => void;
+}): JSX.Element {
+	const mark = () =>
+		props.on ? (
+			<CheckIcon class="size-3.5 text-success" />
+		) : (
+			<span class="h-px w-2.5 bg-line-strong" />
+		);
+	return (
+		<span class="grid w-23 shrink-0 place-items-center">
+			<Show
+				when={props.onToggle}
+				fallback={
+					<span class="grid size-7 place-items-center">
+						<span aria-hidden="true" class="grid place-items-center">
+							{mark()}
+						</span>
+						<span class="sr-only">{`${props.label}: ${props.on ? "yes" : "no"}`}</span>
+					</span>
+				}
+			>
+				<button
+					type="button"
+					role="switch"
+					aria-checked={props.on ? "true" : "false"}
+					aria-label={props.label}
+					data-tooltip={props.label}
+					onClick={() => props.onToggle?.()}
+					class="focus-ring grid size-7 place-items-center rounded-kit transition-colors duration-fast hover:bg-fill-strong"
+				>
+					{mark()}
+				</button>
+			</Show>
+		</span>
+	);
+}
+
 /** The theme as three pictures of the app: light, dark, and the two split for System. */
 export function ThemeCards<T extends string>(props: {
 	label: string;

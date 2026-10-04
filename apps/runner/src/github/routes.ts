@@ -1,4 +1,5 @@
 import type { Who } from "../auth";
+import { may, NOT_ALLOWED } from "../permissions";
 import { type CodespacesLink, GitHubError } from "./codespaces";
 import { type FixInclude, fixPlan } from "./fix";
 import type { MergeMethod, PullFilter, PullRequests, PullState, ReviewSubmission } from "./pulls";
@@ -78,6 +79,17 @@ export async function githubRequest(
 		if (url.pathname === "/github" && request.method === "GET") {
 			return Response.json({ data: await github.status(userId) });
 		}
+		// Connecting GitHub, and Codespaces as machines, are for roles that manage them.
+		const connecting =
+			(url.pathname === "/github/sign-in" && request.method === "POST") ||
+			(url.pathname === "/github" && request.method === "DELETE");
+		if (connecting && !may(who, "integrations")) return failure(403, NOT_ALLOWED);
+		if (
+			url.pathname.startsWith("/github/codespaces") &&
+			request.method !== "GET" &&
+			!may(who, "machines")
+		)
+			return failure(403, NOT_ALLOWED);
 		if (url.pathname === "/github/sign-in" && request.method === "POST") {
 			return Response.json({ data: await github.signIn(userId) });
 		}
@@ -168,6 +180,7 @@ async function pullRequest(
 	const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
 	switch (action) {
 		case "merge": {
+			if (!may(who, "mergePulls")) return failure(403, NOT_ALLOWED);
 			const method = (body.method ?? "merge") as MergeMethod;
 			if (!METHODS.has(method)) return failure(400, "Merge, squash or rebase");
 			await service.mergeAndDelete(userId, folder, number, method, body.deleteBranch === true);

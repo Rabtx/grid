@@ -9,6 +9,7 @@ import { placementsStore, scopeFor } from "@/modules/environments";
 import { notesStore, ProjectIcon, useWorkspace } from "@/modules/projects";
 import { ShellSlot, useShell } from "@/modules/shell";
 import { useWorkspaces } from "@/modules/workspaces";
+import { isAdmin } from "@/modules/workspaces/lib/members";
 import {
 	Alert,
 	BranchIcon,
@@ -282,12 +283,12 @@ function NewChat(props: {
 	const initial = untrack(() => (props.project ? draftsStore.take(props.project) : undefined));
 	const workspaces = useWorkspaces();
 	// Installed agents that are not turned off in Settings → Agents, less any the workspace keeps
-	// to its admins when you are a member (Settings → Members → Agents).
+	// to its admins when you are not one (Settings → Members → Agents).
 	const available = () => {
 		const current = workspaces.current();
 		return offeredProviders(props.providers).filter(
 			(provider) =>
-				current?.role !== "member" || current.settings?.agentAccess?.[provider.id] !== "admins",
+				isAdmin(current?.role) || current?.settings?.agentAccess?.[provider.id] !== "admins",
 		);
 	};
 	const [agent, setAgent] = createSignal<string | null>(null);

@@ -23,7 +23,12 @@ import type { InvitePreview } from "../types/workspace.types";
 
 type Step = "create" | "sign-in" | "code";
 
-const ROLE_NAMES = { owner: "an owner", admin: "an admin", member: "a member" } as const;
+const ROLE_NAMES = {
+	owner: "an owner",
+	admin: "an admin",
+	member: "a member",
+	viewer: "a viewer",
+} as const;
 
 function message(cause: unknown, fallback: string): string {
 	return cause instanceof Error ? cause.message : fallback;

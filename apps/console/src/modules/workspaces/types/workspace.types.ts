@@ -1,4 +1,22 @@
-export type WorkspaceRole = "owner" | "admin" | "member";
+export type WorkspaceRole = "owner" | "admin" | "member" | "viewer";
+
+/** What a role may do (Settings → Roles); billing and deleting stay the owner's alone. */
+export type RolePermission =
+	| "startAgents"
+	| "approveCommands"
+	| "mergePulls"
+	| "production"
+	| "machines"
+	| "integrations"
+	| "invite";
+
+/** A role the workspace made: member-ranked, with its own permissions. */
+export interface CustomRole {
+	id: string;
+	name: string;
+	description?: string;
+	permissions: Partial<Record<RolePermission, boolean>>;
+}
 
 /** A workspace you belong to, with your role in it. */
 export interface Workspace {
@@ -12,6 +30,8 @@ export interface Workspace {
 	/** What applies to everyone in it (Settings → General). */
 	settings?: WorkspaceSettings;
 	role: WorkspaceRole;
+	/** A custom role you hold there, in place of the built-in role's permissions. */
+	customRole?: string | null;
 	/** The one requests without a workspace act in. */
 	isDefault: boolean;
 	createdAt: string;
@@ -30,6 +50,11 @@ export interface WorkspaceSettings {
 	logRetentionDays?: number;
 	agentAccess?: Record<string, AgentAccess>;
 	agentPolicy?: AgentPolicy;
+	/** Per built-in role, what it may do over its defaults. */
+	rolePermissions?: Partial<
+		Record<"admin" | "member" | "viewer", Partial<Record<RolePermission, boolean>>>
+	>;
+	customRoles?: CustomRole[];
 }
 
 /** What agents may do on their own: per kind of action, and two safety switches. */
@@ -75,6 +100,7 @@ export interface Member {
 	displayName: string | null;
 	avatarUrl: string | null;
 	role: WorkspaceRole;
+	customRole?: string | null;
 	joinedAt: string;
 }
 
@@ -83,6 +109,7 @@ export interface Invite {
 	id: string;
 	email: string | null;
 	role: Exclude<WorkspaceRole, "owner">;
+	customRole?: string | null;
 	expiresAt: string;
 	createdAt: string;
 }
@@ -96,4 +123,11 @@ export interface CreatedInvite extends Invite {
 export interface CreateInviteInput {
 	email?: string;
 	role: Exclude<WorkspaceRole, "owner">;
+	customRole?: string | null;
+}
+
+/** A role to give someone: a built-in one, or member with a custom role. */
+export interface RoleInput {
+	role: WorkspaceRole;
+	customRole: string | null;
 }
