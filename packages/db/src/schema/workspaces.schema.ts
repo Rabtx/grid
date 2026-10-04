@@ -65,6 +65,12 @@ export type WorkspaceSettings = {
 	>;
 	/** Roles the workspace added (New role). */
 	customRoles?: CustomRole[];
+	/** Pulse → Runway: cash in the bank and what the company spends each month. */
+	finance?: {
+		currency?: string;
+		cash?: number | null;
+		costs?: { label: string; monthly: number }[];
+	};
 };
 
 /**

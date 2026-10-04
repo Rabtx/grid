@@ -55,6 +55,14 @@ export interface WorkspaceSettings {
 		Record<"admin" | "member" | "viewer", Partial<Record<RolePermission, boolean>>>
 	>;
 	customRoles?: CustomRole[];
+	/** Pulse → Runway: cash in the bank and monthly costs. */
+	finance?: Finance;
+}
+
+export interface Finance {
+	currency?: string;
+	cash?: number | null;
+	costs?: { label: string; monthly: number }[];
 }
 
 /** What agents may do on their own: per kind of action, and two safety switches. */

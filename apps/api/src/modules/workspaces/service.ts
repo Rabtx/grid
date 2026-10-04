@@ -98,6 +98,9 @@ export async function updateWorkspace(
 									},
 								}
 							: {}),
+						...(settings.finance
+							? { finance: { ...access.workspace.settings.finance, ...settings.finance } }
+							: {}),
 						...(settings.rolePermissions
 							? {
 									rolePermissions: mergeRolePermissions(

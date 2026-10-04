@@ -100,6 +100,27 @@ export const workspaceSettingsSchema = z
 				"Each role needs its own id",
 			)
 			.optional(),
+		finance: z
+			.object({
+				currency: z
+					.string()
+					.regex(/^[A-Z]{3}$/, "Use a currency code")
+					.optional(),
+				cash: z.number().min(0).max(1e12).nullable().optional(),
+				costs: z
+					.array(
+						z
+							.object({
+								label: z.string().trim().min(1).max(40),
+								monthly: z.number().min(0).max(1e10),
+							})
+							.strict(),
+					)
+					.max(20)
+					.optional(),
+			})
+			.strict()
+			.optional(),
 	})
 	.strict();
 
