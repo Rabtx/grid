@@ -1,4 +1,4 @@
-import { isPushEndpoint, type PushNotifier } from "./notifier";
+import { isPushEndpoint, type PushNotifier, type PushAct } from "./notifier";
 
 // The contact a push service may use for this Grid when the console is not served over https.
 const FALLBACK_SUBJECT = "mailto:owner@grid.local";
@@ -91,6 +91,8 @@ export async function pushActRequest(
 	url: URL,
 	push: PushNotifier,
 	approve: (workspace: string, sessionId: string, approvalId: string, optionId: string) => void,
+	/** Whether the person the notification went to may still approve (Settings → Roles). */
+	mayApprove: (act: PushAct) => boolean = () => true,
 ): Promise<Response | null> {
 	if (url.pathname !== "/push/act") return null;
 	if (request.method !== "POST") return failure(405, "Method not allowed");
@@ -103,6 +105,7 @@ export async function pushActRequest(
 	if (!token || !option || option.length > 200) return failure(400, "Send the token and option");
 	const act = push.takeAct(token);
 	if (!act) return failure(410, "That approval has already been answered or has expired");
+	if (!mayApprove(act)) return failure(403, "Your role in this workspace can't approve commands");
 	try {
 		approve(act.workspace, act.sessionId, act.approvalId, option);
 	} catch (cause) {

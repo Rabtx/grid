@@ -2,6 +2,7 @@ import { type Channel, type ChannelSink, openChat, openTerminal } from "./channe
 import type { Who } from "./auth";
 import type { ChatHub } from "./chat/hub";
 import type { TerminalStore } from "./terminals";
+import { NOT_ALLOWED, readOnly } from "./permissions";
 
 /**
  * The link: one connection per device carrying all its terminals and chats on this machine, so
@@ -130,9 +131,11 @@ export function linkMessage(
 	const hello = { ...control, id: control.id };
 	const channel =
 		control.kind === "chat"
-			? openChat(deps.chat, who.workspace, hello, sink)
+			? openChat(deps.chat, who, hello, sink)
 			: control.kind === "terminal"
-				? openTerminal(deps.store, who.userId, hello, sink)
+				? readOnly(who)
+					? (sink.close(4403, NOT_ALLOWED), null)
+					: openTerminal(deps.store, who.userId, hello, sink)
 				: (sink.close(1003, "Unknown channel kind"), null);
 	if (channel && !ended) link.channels.set(ch, channel);
 }

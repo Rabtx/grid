@@ -1,4 +1,5 @@
 import type { Who } from "../auth";
+import { may } from "../permissions";
 import { type AcpAgentStore, agentId, splitCommand } from "../agents/acp-agents";
 import { machineInfo } from "./info";
 import {
@@ -30,9 +31,9 @@ function failure(status: number, message: string): Response {
 	return Response.json({ message }, { status });
 }
 
-/** People who may change the machine: admins and owners (members only read it). */
+/** People who may change the machine: whoever's role may manage machines (Settings → Roles). */
 function mayManage(who: Who): boolean {
-	return who.role !== "member";
+	return may(who, "machines");
 }
 
 /**

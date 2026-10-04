@@ -1,6 +1,7 @@
 import { type ChatCursor, ChatError, type ChatHub } from "./chat/hub";
 import { type ChatCommand, chatCommand } from "./chat/routes";
 import type { TerminalStore } from "./terminals";
+import type { Who } from "./auth";
 
 /**
  * One terminal or chat session carried to a device: attaching it, catching the device up, and
@@ -100,10 +101,11 @@ function isCursor(value: unknown): value is ChatCursor {
  */
 export function openChat(
 	chat: ChatHub,
-	workspace: string,
+	who: Who,
 	hello: { id: string; resume?: unknown; visible?: boolean },
 	sink: ChannelSink,
 ): Channel | null {
+	const { workspace } = who;
 	let visible = hello.visible !== false;
 	try {
 		const attached = chat.attach(
@@ -129,7 +131,7 @@ export function openChat(
 				if (typeof message !== "string") return;
 				const command = parse<ChatCommand>(message);
 				if (command) {
-					chatCommand(chat, workspace, hello.id, command, (reason) =>
+					chatCommand(chat, who, hello.id, command, (reason) =>
 						sink.text({ t: "error", message: reason }),
 					);
 				}

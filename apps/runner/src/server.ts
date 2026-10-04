@@ -4,6 +4,7 @@ import { setupCommand } from "./agents/setup";
 import { automationRequest } from "./automations/routes";
 import type { Automations } from "./automations/service";
 import type { Verified, Verify, Who } from "./auth";
+import { may, NOT_ALLOWED, readOnly } from "./permissions";
 import { type Channel, type ChannelSink, openChat, openTerminal } from "./channels";
 import { type ChatHub } from "./chat/hub";
 import type { DiagnosticInput, DiagnosticJournal } from "./diagnostics/journal";
@@ -23,7 +24,7 @@ import { githubRequest } from "./github/routes";
 import { type InboxDeps, inboxRequest } from "./inbox/routes";
 import { type RoleDeps, roleRequest } from "./roles/routes";
 import { closeLink, createLink, type LinkObserver, type LinkState, linkMessage } from "./link";
-import type { PushNotifier } from "./push/notifier";
+import type { PushAct, PushNotifier } from "./push/notifier";
 import { type MachineDeps, machineRequest } from "./machine/routes";
 import { prefsRequest } from "./prefs/routes";
 import type { PrefsStore } from "./prefs/store";
@@ -83,6 +84,7 @@ type SocketData = {
 /** Close codes the console acts on: sign in again, or drop the tab. */
 export const CLOSE_UNAUTHORIZED = 4401;
 export const CLOSE_NOT_FOUND = 4404;
+export const CLOSE_FORBIDDEN = 4403;
 
 // About ten minutes of compressed speech; longer clips are almost certainly a stuck recording.
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
@@ -91,6 +93,20 @@ const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 const HELLO_TIMEOUT_MS = 10_000;
 
 export const RUNNER_STARTED_AT = Date.now();
+
+// What a viewer may still change: their own settings and notifications, voice and diagnostics.
+const VIEWER_WRITES = /^\/(prefs$|push\/|transcribe$|diagnostics)/;
+
+/**
+ * Whether a request is one this person may make: viewers follow the work and change nothing,
+ * unless their workspace lets them start agents (then threads are theirs to drive).
+ */
+function viewerMay(request: Request, who: Who): boolean {
+	if (!readOnly(who) || request.method === "GET" || request.method === "HEAD") return true;
+	const path = new URL(request.url).pathname;
+	if (VIEWER_WRITES.test(path)) return true;
+	return path.startsWith("/chat/") && may(who, "startAgents");
+}
 
 export function startServer(
 	config: RunnerConfig,
@@ -115,6 +131,8 @@ export function startServer(
 		automations?: Automations;
 		/** The workspace's team: the roles its threads are started as. */
 		roles?: RoleDeps;
+		/** Whether a notification's approval buttons still answer for the person it went to. */
+		mayApprove?: (act: PushAct) => boolean;
 	} = {},
 ): Server<SocketData> {
 	const {
@@ -129,6 +147,7 @@ export function startServer(
 		inbox,
 		automations,
 		roles,
+		mayApprove,
 	} = extras;
 	const diagnosticRoutes = diagnostics ? new DiagnosticRoutes(diagnostics) : null;
 	const recordDiagnostic = (entry: DiagnosticInput): void => {
@@ -182,6 +201,7 @@ export function startServer(
 		}
 		const verified = await verify(token, request.headers.get("x-grid-workspace"));
 		if ("who" in verified) {
+			if (!viewerMay(request, verified.who)) return error(403, NOT_ALLOWED);
 			signedInRequests.set(request, verified.who);
 			return verified.who;
 		}
@@ -329,6 +349,8 @@ export function startServer(
 
 				if (environments && url.pathname.startsWith("/environments")) {
 					const who = await whoFrom(request, "Sign in to manage environments");
+					if (!(who instanceof Response) && request.method !== "GET" && !may(who, "machines"))
+						return error(403, NOT_ALLOWED);
 					if (who instanceof Response) return who;
 					const handled = await environmentRequest(request, url, who.workspace, environments);
 					if (handled) return handled;
@@ -354,6 +376,7 @@ export function startServer(
 						url,
 						push,
 						(workspace, id, approval, option) => chat.approve(workspace, id, approval, option),
+						mayApprove,
 					);
 					if (handled) return handled;
 				}
@@ -725,8 +748,10 @@ export function startServer(
 		ws.data.channel?.detach();
 		const channel =
 			ws.data.kind === "chat"
-				? openChat(chat, who.workspace, sessionHello, sink)
-				: openTerminal(store, who.userId, sessionHello, sink);
+				? openChat(chat, who, sessionHello, sink)
+				: readOnly(who)
+					? (sink.close(CLOSE_FORBIDDEN, NOT_ALLOWED), null)
+					: openTerminal(store, who.userId, sessionHello, sink);
 		ws.data.channel = channel;
 		// Nothing to attach: the sink has already closed the socket, and the frames held for it
 		// have nowhere to go.

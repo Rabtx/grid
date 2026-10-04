@@ -1,5 +1,6 @@
 import { MAX_ATTACHMENT_BYTES } from "./attachments";
 import type { Who } from "../auth";
+import { may, NOT_ALLOWED, readOnly } from "../permissions";
 import type { RoleStore } from "../roles/store";
 import type { ChatSessionRow } from "./store";
 
@@ -246,13 +247,25 @@ export type ChatCommand =
 
 export function chatCommand(
 	hub: ChatHub,
-	workspace: string,
+	who: Who,
 	sessionId: string,
 	command: ChatCommand,
 	reportError: (message: string) => void,
 ): void {
+	const { workspace } = who;
 	const fail = (cause: unknown) =>
 		reportError(cause instanceof Error ? cause.message : String(cause));
+	// Writing to an agent is starting its work; answering it is approving; a viewer only watches.
+	const needs =
+		command.t === "prompt"
+			? may(who, "startAgents")
+			: command.t === "approve"
+				? may(who, "approveCommands")
+				: !readOnly(who);
+	if (!needs) {
+		reportError(NOT_ALLOWED);
+		return;
+	}
 	try {
 		if (command.t === "prompt" && typeof command.text === "string") {
 			hub.prompt(workspace, sessionId, command.text, command.attachments).catch(fail);

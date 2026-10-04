@@ -1,6 +1,7 @@
 import { hostname } from "node:os";
 
 import type { Who } from "../auth";
+import { isAdmin, may, NOT_ALLOWED } from "../permissions";
 import type { ChatHub } from "../chat/hub";
 import { AutomationError, type Automations } from "./service";
 import { validTriggers } from "./schedule";
@@ -156,7 +157,8 @@ async function inputOf(
 	const providers = await chat.providerList(who.userId);
 	const info = providers.find((item) => item.id === provider && item.available);
 	if (!info) throw new AutomationError("Choose an installed agent", 400);
-	if (who.settings?.agentAccess?.[provider] === "admins" && who.role === "member")
+	if (!may(who, "startAgents")) throw new AutomationError(NOT_ALLOWED, 403);
+	if (who.settings?.agentAccess?.[provider] === "admins" && who.role && !isAdmin(who))
 		throw new AutomationError(`Only admins can start ${info.name} in this workspace`, 403);
 	const optional = (key: string): string | null => {
 		const item = value[key];
