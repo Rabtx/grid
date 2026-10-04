@@ -104,6 +104,28 @@ describe("workspaces", () => {
 		expect(fallback.status).toBe(404);
 	});
 
+	it("finds a workspace's tasks and notes by their words, inside one project when asked", async () => {
+		await request(
+			`/${slug}/projects/web-app/notes`,
+			json({ body: "# Queue\n\nWe picked Postgres LISTEN for the queue." }),
+		);
+		const found = payload(await request(`/${slug}/search?q=postgres%20queue`)) as unknown as {
+			tasks: unknown[];
+			notes: { title: string; project: string; passage: string }[];
+		};
+		expect(found.notes[0]).toMatchObject({ title: "Queue", project: "web-app" });
+		expect(found.notes[0]?.passage).toContain("Postgres LISTEN");
+		const tasks = payload(await request(`/${slug}/search?q=ship`)) as unknown as {
+			tasks: { title: string }[];
+		};
+		expect(tasks.tasks.map((task) => task.title)).toContain("Ship it");
+		const elsewhere = payload(
+			await request(`/${slug}/search?q=postgres&project=nope`),
+		) as unknown as { notes: unknown[] };
+		expect(elsewhere.notes).toEqual([]);
+		expect((await request(`/${foreignWorkspace}/search?q=postgres`)).status).toBe(404);
+	});
+
 	it("lists members and always keeps an owner", async () => {
 		const members = payload(await request(`/${slug}/members`)) as unknown as {
 			userId: string;

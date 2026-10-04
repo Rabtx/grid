@@ -23,7 +23,7 @@ import {
 } from "@/modules/automations/services/automations.service";
 import { INBOX_KINDS, type InboxItem, inboxStore } from "@/modules/inbox";
 import { projectsService, TASK_STATUS_LABELS, useWorkspace } from "@/modules/projects";
-import { ShellSlot } from "@/modules/shell";
+import { ShellSlot, useShell } from "@/modules/shell";
 
 import {
 	dayLabel,
@@ -68,6 +68,7 @@ export function HomeScreen(): JSX.Element {
 	const auth = useAuth();
 	const workspace = useWorkspace();
 	const navigate = useNavigate();
+	const shell = useShell();
 	// Read inside the UI, so the greeting and the date turn over with the shared clock.
 	const today = () => new Date(clockNow());
 
@@ -147,19 +148,24 @@ export function HomeScreen(): JSX.Element {
 					waiting={(needCount() ?? 0) > 0}
 				/>
 				{/* The greeting is the page's title on desktop; phones have it in their header. */}
-				<header class="hidden flex-col gap-1 lg:flex">
-					<Text as="h1" size="headline" tone="strong" weight="medium">
-						{auth.user() ? `${greeting(today())}, ${auth.user()?.username}` : greeting(today())}
-					</Text>
-					<Loading fallback={<Text size="body-lg">{dayLabel(today())}</Text>}>
-						<Errored fallback={() => <Text size="body-lg">{dayLabel(today())}</Text>}>
-							<Text size="body-lg">
-								{[dayLabel(today()), summary(needCount(), moving().entries.length)]
-									.filter(Boolean)
-									.join(" · ")}
-							</Text>
-						</Errored>
-					</Loading>
+				<header class="hidden items-end justify-between gap-4 lg:flex">
+					<div class="flex min-w-0 flex-col gap-1">
+						<Text as="h1" size="headline" tone="strong" weight="medium">
+							{auth.user() ? `${greeting(today())}, ${auth.user()?.username}` : greeting(today())}
+						</Text>
+						<Loading fallback={<Text size="body-lg">{dayLabel(today())}</Text>}>
+							<Errored fallback={() => <Text size="body-lg">{dayLabel(today())}</Text>}>
+								<Text size="body-lg">
+									{[dayLabel(today()), summary(needCount(), moving().entries.length)]
+										.filter(Boolean)
+										.join(" · ")}
+								</Text>
+							</Errored>
+						</Loading>
+					</div>
+					<Button size="sm" onClick={() => shell.setPaletteOpen(true, "ask")}>
+						Ask Grid
+					</Button>
 				</header>
 
 				<MainAside

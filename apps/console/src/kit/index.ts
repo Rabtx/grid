@@ -362,3 +362,16 @@ export {
 	MetricGrid,
 	SplitBar,
 } from "./metric";
+export {
+	Citation,
+	CitedText,
+	FollowUps,
+	KeyHint,
+	ResultGroup,
+	ResultRow,
+	SearchField,
+	SearchFooter,
+	SearchPanel,
+	SourceList,
+	SourceRow,
+} from "./search";

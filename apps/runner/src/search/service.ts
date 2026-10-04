@@ -256,20 +256,24 @@ export class Search {
 		}));
 	}
 
-	/** The agent that answers: the workspace's default when it can, else the first that can. */
-	private async answererFor(who: Who): Promise<string> {
+	/** The agents that may answer, the workspace's default first, then the rest that can. */
+	private async answerersFor(who: Who): Promise<string[]> {
 		const available = (await this.deps.chat.providerList(who.userId))
 			.filter((item) => item.available && !NO_ANSWERS.has(item.id))
 			.map((item) => item.id);
 		const preferred = who.settings?.defaultAgent;
-		if (preferred && available.includes(preferred)) return preferred;
-		const pick = ANSWERERS.find((id) => available.includes(id)) ?? available[0];
-		if (!pick)
+		const order = [
+			...(preferred && available.includes(preferred) ? [preferred] : []),
+			...ANSWERERS.filter((id) => available.includes(id)),
+			...available,
+		];
+		const unique = [...new Set(order)];
+		if (!unique.length)
 			throw new SearchError(
 				"Install an agent to answer questions (Claude Code, Codex or opencode)",
 				409,
 			);
-		return pick;
+		return unique;
 	}
 
 	/** A question answered from what the person can see, with the sources it cites. */
@@ -295,15 +299,21 @@ export class Search {
 				sources: [],
 				agent: null,
 			};
-		const agent = await this.answererFor(who);
-		const folder = Object.values(this.folders(who.workspace, input.project))[0];
+		const folder =
+			Object.values(this.folders(who.workspace, input.project))[0] ??
+			Object.values(this.folders(who.workspace, null))[0];
 		if (!folder) throw new SearchError("Add a project first: agents work inside one", 409);
-		const text = await this.deps.chat.answerOnce({
-			provider: agent,
-			cwd: folder,
-			prompt: askPrompt(question, sources, input.history.slice(-3)),
-		});
-		const answer = parseAnswer(text, sources);
-		return { ...answer, sources: strip(sources), agent };
+		const prompt = askPrompt(question, sources, input.history.slice(-3));
+		// An agent that cannot answer right now (signed out, busy) hands the question to the next.
+		let failure: unknown = null;
+		for (const agent of (await this.answerersFor(who)).slice(0, 2)) {
+			try {
+				const text = await this.deps.chat.answerOnce({ provider: agent, cwd: folder, prompt });
+				return { ...parseAnswer(text, sources), sources: strip(sources), agent };
+			} catch (cause) {
+				failure = cause;
+			}
+		}
+		throw failure instanceof Error ? failure : new SearchError("No agent could answer that", 502);
 	}
 }
