@@ -353,3 +353,12 @@ export {
 	ProbeResult,
 	StepTrail,
 } from "./connector";
+export {
+	AmountRow,
+	Bars,
+	type ChangeTone,
+	Figures,
+	MetricCard,
+	MetricGrid,
+	SplitBar,
+} from "./metric";

@@ -10,10 +10,8 @@ import {
 	CardRow,
 	DotLine,
 	MainAside,
-	NavLink,
 	SectionCard,
 	Skeleton,
-	StatusDot,
 	Text,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
@@ -41,6 +39,7 @@ import {
 	summary,
 	upcoming,
 } from "../lib/today";
+import { HomeNav } from "./home-nav";
 
 /**
  * Every project's tasks, read together. A project that does not answer is named with its reason,
@@ -140,21 +139,13 @@ export function HomeScreen(): JSX.Element {
 					.filter(Boolean)
 					.join(" · ")}
 			</ShellSlot>
-			<ShellSlot name="panel">
-				<NavLink
-					href={workspaceHref("/home")}
-					current
-					icon={
-						<Show when={(needCount() ?? 0) > 0} fallback={<StatusDot status="offline" size="sm" />}>
-							<StatusDot status="unread" size="sm" />
-						</Show>
-					}
-					label="Today"
-					detail={needCount() === null ? undefined : summary(needCount(), 0)}
-				/>
-			</ShellSlot>
 
 			<div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-4 pb-8 md:px-10 md:pt-10">
+				<HomeNav
+					current="today"
+					today={needCount() === null ? undefined : summary(needCount(), 0)}
+					waiting={(needCount() ?? 0) > 0}
+				/>
 				{/* The greeting is the page's title on desktop; phones have it in their header. */}
 				<header class="hidden flex-col gap-1 lg:flex">
 					<Text as="h1" size="headline" tone="strong" weight="medium">
