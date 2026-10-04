@@ -9,6 +9,8 @@ export function SettingsGroup(props: {
 	title: string;
 	description?: string;
 	action?: JSX.Element;
+	/** Its content as it is, not in one card (a grid of cards). */
+	plain?: boolean;
 	children: JSX.Element;
 }): JSX.Element {
 	return (
@@ -24,7 +26,16 @@ export function SettingsGroup(props: {
 				</div>
 				{props.action}
 			</div>
-			<div class="divide-y divide-line rounded-kit-lg bg-surface ring-line">{props.children}</div>
+			<Show
+				when={props.plain}
+				fallback={
+					<div class="divide-y divide-line rounded-kit-lg bg-surface ring-line">
+						{props.children}
+					</div>
+				}
+			>
+				{props.children}
+			</Show>
 		</section>
 	);
 }
@@ -44,10 +55,12 @@ export function SettingsRow(props: {
 	mark?: JSX.Element;
 	/** The label in the danger colour (Delete workspace). */
 	danger?: boolean;
+	/** The row opens a page; its control (a switch) still works on its own. */
+	href?: string;
 }): JSX.Element {
 	return (
 		<div
-			class={`flex min-h-12 gap-3 px-4 py-2.5 md:min-h-16 md:py-3 ${props.inline ? "items-center" : "flex-col md:flex-row md:items-center"}`}
+			class={`relative flex min-h-12 gap-3 px-4 py-2.5 md:min-h-16 md:py-3 ${props.inline ? "items-center" : "flex-col md:flex-row md:items-center"} ${props.href ? "transition-colors duration-fast hover:bg-fill/40" : ""}`}
 		>
 			<div class="flex min-w-0 flex-1 items-center gap-3">
 				<Show when={props.mark}>
@@ -62,7 +75,16 @@ export function SettingsRow(props: {
 				</Show>
 				<div class="min-w-0 flex-1">
 					<p class={`text-body-lg md:text-body ${props.danger ? "text-danger" : "text-fg"}`}>
-						{props.label}
+						<Show when={props.href} fallback={props.label}>
+							{(href) => (
+								<a
+									href={href()}
+									class="focus-ring rounded-kit-xs after:absolute after:inset-0 after:content-['']"
+								>
+									{props.label}
+								</a>
+							)}
+						</Show>
 					</p>
 					<Show when={props.description}>
 						<p class="text-caption text-fg-subtle">{props.description}</p>
@@ -70,7 +92,7 @@ export function SettingsRow(props: {
 				</div>
 			</div>
 			<Show when={props.children}>
-				<div class="flex shrink-0 items-center gap-2">{props.children}</div>
+				<div class="relative z-10 flex shrink-0 items-center gap-2">{props.children}</div>
 			</Show>
 		</div>
 	);
@@ -85,6 +107,8 @@ export function SettingsLinkRow(props: {
 	description?: string;
 	value?: JSX.Element;
 	leading?: JSX.Element;
+	/** Before the words as it is, without a tile (a service's own tile). */
+	mark?: JSX.Element;
 	onClick: () => void;
 }): JSX.Element {
 	return (
@@ -97,6 +121,9 @@ export function SettingsLinkRow(props: {
 				<span class="grid size-8 shrink-0 place-items-center rounded-kit bg-fill text-fg-muted [&_svg]:size-4">
 					{props.leading}
 				</span>
+			</Show>
+			<Show when={props.mark}>
+				<span class="grid size-8 shrink-0 place-items-center">{props.mark}</span>
 			</Show>
 			<span class="min-w-0 flex-1">
 				<span class="block truncate text-body-lg text-fg">{props.label}</span>

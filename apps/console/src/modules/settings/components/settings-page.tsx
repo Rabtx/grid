@@ -11,7 +11,9 @@ import {
 	MoreIcon,
 	SettingsColumn,
 	Text,
+	TextLink,
 } from "@/kit";
+import { workspaceHref } from "@/lib/active-workspace";
 import { useWorkspaces } from "@/modules/workspaces";
 import { ShellSlot } from "@/modules/shell";
 
@@ -32,13 +34,29 @@ export function SettingsPage(props: {
 	subtitle?: string;
 	/** Pages whose changes are not saved as they are made (Members) leave this off. */
 	autosaves?: boolean;
+	/** A page inside another (Connectors / GitHub): in the breadcrumb, and where back goes. */
+	parent?: { label: string; href: string };
 	children: JSX.Element;
 }): JSX.Element {
 	const navigate = useNavigate();
 	const workspaces = useWorkspaces();
 	return (
 		<div class="flex min-h-0 flex-1 flex-col">
-			<ShellSlot name="crumb">{props.title}</ShellSlot>
+			<ShellSlot name="crumb">
+				<Show when={props.parent} fallback={props.title}>
+					{(parent) => (
+						<>
+							<TextLink href={workspaceHref(parent().href)} tone="subtle">
+								{parent().label}
+							</TextLink>
+							<Text as="span" tone="subtle" aria-hidden="true">
+								{" / "}
+							</Text>
+							{props.title}
+						</>
+					)}
+				</Show>
+			</ShellSlot>
 			<ShellSlot name="actions">
 				<Show when={props.autosaves !== false}>
 					<Text size="caption" tone="subtle" class="max-md:hidden">
@@ -66,7 +84,7 @@ export function SettingsPage(props: {
 					variant="secondary"
 					shape="round"
 					size="lg"
-					onClick={() => navigate("/settings")}
+					onClick={() => navigate(props.parent?.href ?? "/settings")}
 				>
 					<BackIcon />
 				</IconButton>

@@ -9,6 +9,7 @@ export const RESERVED_WORKSPACE_SLUGS: ReadonlySet<string> = new Set([
 	"logout",
 	"setup",
 	"invite",
+	"oauth",
 	"settings",
 	"board",
 	"chat",

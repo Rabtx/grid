@@ -1,4 +1,6 @@
 import Add01Icon from "@hugeicons/core-free-icons/Add01Icon";
+import Database01Glyph from "@hugeicons/core-free-icons/Database01Icon";
+import Layers01Glyph from "@hugeicons/core-free-icons/Layers01Icon";
 import AtGlyph from "@hugeicons/core-free-icons/AtIcon";
 import CheckmarkSquare02Glyph from "@hugeicons/core-free-icons/CheckmarkSquare02Icon";
 import LeftToRightListBulletGlyph from "@hugeicons/core-free-icons/LeftToRightListBulletIcon";
@@ -428,6 +430,14 @@ export function CameraIcon(props: IconProps): JSX.Element {
 }
 
 /** Something asking permission: an approval. */
+export function DatabaseIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Database01Glyph} size={props.size} class={props.class} />;
+}
+
+export function LayersIcon(props: IconProps): JSX.Element {
+	return <Icon icon={Layers01Glyph} size={props.size} class={props.class} />;
+}
+
 export function ShieldIcon(props: IconProps): JSX.Element {
 	return <Icon icon={Shield01Glyph} size={props.size} class={props.class} />;
 }
