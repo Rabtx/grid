@@ -212,12 +212,74 @@ supported 50-target timeout workload within the one-minute check interval.
 Check timestamps identify the scheduled sampling round, so response latency does
 not postpone the following round.
 
+
+### Operate logs and costs
+
+The same authentication, workspace selection, project-link boundary and `{ data }`
+envelope apply. All log endpoints (including source listing) and all mutations
+require `may(who, "production")`; costs overview is visible to project members.
+
+| Method | Path (after `/runner`) | Response / input |
+| --- | --- | --- |
+| GET | `/operate/:project/logs` | `{ project, allowed: true, sources: [{ name, path }] }` |
+| PUT | `/operate/:project/logs/:name` | `{ path }`, then `204` |
+| GET | `/operate/:project/logs/:name` | `{ name, path, text, readAt, truncated, bytes, lines }` |
+| DELETE | `/operate/:project/logs/:name` | `204` |
+| GET | `/operate/:project/costs` | Costs overview below |
+| POST | `/operate/:project/costs/charges` | `{ service, provider, amountCents, date }`, then `201 { data: charge }` |
+| DELETE | `/operate/:project/costs/charges/:id` | `204` |
+
+Names, services and providers are trimmed, 1–80 characters, with no slash,
+backslash or control characters. Up to 20 named sources per project. Paths are
+project-relative visible `.log` files, at most 1024 characters: absolute,
+traversal, hidden and credential filenames, symlinks, nonregular and binary files
+are refused. Registration validates the opened file; reads revalidate the opened
+descriptor against the project root and current path to refuse replacement races.
+The current implementation requires Linux `/proc/self/fd` and fails closed where
+opened-file validation is unavailable. Reads use nonblocking flags and return at
+most 64 KiB read and the latest 200 lines; a partial first line is dropped when
+cut. `bytes` counts source bytes read before redaction/line limiting; `lines`
+counts returned redacted lines. `truncated` covers either byte or line limiting.
+Empty text is valid. ANSI/control sequences and common credential/PEM formats
+are removed or redacted before plain text is returned. Redaction is best effort:
+only configure logs intended for workspace production operators. Log text is
+never persisted, included in diagnostics, or executed as shell commands.
+
+The costs overview is `{ project, allowed, currency: "USD", agents, hosting }`.
+`allowed` indicates production permission. `agents` has nullable `costUsd`,
+`reportedSessions`, `totalSessions` and `providers`; each provider entry has
+`provider` and those same three cost/coverage fields. Agent costs sum the maximum
+valid non-negative numeric USD counter reported per **retained session**, matching
+existing cumulative-counter semantics. SQL extracts only numeric usage metadata:
+no messages, prompts or tools are materialized. This is a partial retained-session
+reading, not a period invoice, token-price estimate or complete provider bill.
+Invalid costs are excluded; unreported sessions remain in coverage totals. Null
+means no reported costs; a reported zero stays zero. Provider totals use the same
+null/zero semantics. Overflowing reported totals return `409`.
+
+`hosting` has nullable `totalCents` and `charges`. A charge has `id`, `service`,
+`provider`, `amountCents`, `date` and `createdAt`. Charges are manually recorded,
+persisted USD amounts in non-negative integer cents up to `9007199254740991`;
+aggregate totals must also stay within that safe integer range. `date` is a real
+calendar date in `YYYY-MM-DD` format. No currency conversion or cloud billing
+adapter is implied. No records means null; explicitly recording zero yields zero.
+Up to 500 charges per project; exceeding capacity or total range returns `409`
+instead of dropping financial records. Deletion releases capacity. Source metadata
+and charges survive restart in the runner's chat database; log contents do not.
+
+Malformed inputs return `400`, permission refusal `403`, missing sources/files,
+charges or unlinked projects `404`, replacement races/limits `409`, unsupported
+methods `405`, and JSON bodies above 4 KiB `413`. File errors return safe messages
+without OS paths or exceptions. No provider adapter or health/reconnect behavior
+changes are introduced by these endpoints.
+
 ## Changelog
 
 Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-10-06 | Operate: bounded project log tails, retained reported agent costs and manually recorded hosting charges | no |
 | 2026-10-06 | Runner Operate: persisted public endpoint health, incident history and deduplicated Inbox alerts | no |
 | 2026-10-05 | Runner attention approvals, bounded activity summaries and stop from Machines/Agents | no |
 | 2026-09-28 | Runner automations: saved scheduled or GitHub-triggered agent jobs, templates, run-now and history | no |

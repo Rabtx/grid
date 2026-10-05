@@ -444,6 +444,40 @@ export class ChatStore {
 			.map(toSession);
 	}
 
+	/** Numeric-only retained-session maxima; never materialize conversation event payloads. */
+	projectCosts(
+		workspace: string,
+		project: string,
+	): {
+		provider: string;
+		costUsd: number | null;
+		reportedSessions: number;
+		totalSessions: number;
+	}[] {
+		return this.db
+			.query<
+				{
+					provider: string;
+					costUsd: number | null;
+					reportedSessions: number;
+					totalSessions: number;
+				},
+				[string, string]
+			>(`
+			WITH costs AS (
+			 SELECT s.id, s.provider, MAX(CASE WHEN json_extract(e.data, '$.type') = 'usage'
+			 AND json_type(e.data, '$.costUsd') IN ('integer', 'real')
+			 AND json_extract(e.data, '$.costUsd') >= 0
+			 AND json_extract(e.data, '$.costUsd') <= 1.7976931348623157e308
+			 THEN json_extract(e.data, '$.costUsd') END) AS cost
+			 FROM sessions s LEFT JOIN events e ON e.session_id = s.id
+			 WHERE s.workspace_id = ? AND s.project = ? GROUP BY s.id, s.provider
+			) SELECT provider, SUM(cost) AS costUsd, COUNT(cost) AS reportedSessions,
+			 COUNT(*) AS totalSessions FROM costs GROUP BY provider ORDER BY provider
+		`)
+			.all(workspace, project);
+	}
+
 	update(
 		id: string,
 		fields: Partial<
