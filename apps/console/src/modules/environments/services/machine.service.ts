@@ -25,7 +25,7 @@ export type MachineStatus = {
 };
 
 export const machineService = {
-	status: (token: string) => runnerCall<MachineStatus>("/machine", token),
+	status: (token: string, scope = "") => runnerCall<MachineStatus>(`${scope}/machine`, token),
 	update: (token: string, patch: Partial<MachinePrefs>) =>
 		runnerCall<MachinePrefs>("/machine", token, { method: "PATCH", body: JSON.stringify(patch) }),
 	addAgent: (token: string, input: { name: string; command: string }) =>

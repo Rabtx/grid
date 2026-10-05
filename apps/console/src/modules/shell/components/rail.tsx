@@ -98,14 +98,14 @@ const FOOT: readonly Destination[] = [
 	{
 		label: "Machines",
 		icon: () => <LaptopIcon />,
-		href: () => "/settings/machines",
-		match: "/settings/machines",
+		href: () => "/machines",
+		match: "/machines",
 	},
 	{
 		label: "Agents",
 		icon: () => <AsteriskIcon />,
-		href: () => "/settings/agents",
-		match: "/settings/agents",
+		href: () => "/agents",
+		match: "/agents",
 	},
 ];
 

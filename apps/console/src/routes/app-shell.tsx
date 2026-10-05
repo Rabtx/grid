@@ -31,6 +31,7 @@ import {
 	UpdateBanner,
 	useShell,
 } from "@/modules/shell";
+import { AttentionNotifications } from "@/modules/notifications";
 import { SettingsSidebar, settingsReturn } from "@/modules/settings";
 import { VoiceControls } from "@/modules/voice";
 import { CreateWorkspaceSheet, WorkspacesProvider } from "@/modules/workspaces";
@@ -44,7 +45,7 @@ const STANDALONE = /^\/(design|oauth)(\/|$)/;
 
 // Screens that fill the frame edge to edge and scroll inside themselves.
 const FULL_BLEED =
-	/^\/(chat|terminal|files|notes|pulls|ship|board|inbox|automations|settings)(\/|$)/;
+	/^\/(chat|terminal|files|notes|pulls|ship|board|inbox|automations|settings|machines|agents)(\/|$)/;
 const SETTINGS = /^\/settings(\/|$)/;
 
 /**
@@ -167,6 +168,7 @@ function SignedIn(props: { children: JSX.Element }): JSX.Element {
 				<>
 					<NavDrawer content={inSettings() ? () => <SettingsSidebar /> : undefined} />
 					<CommandPalette />
+					<AttentionNotifications />
 					<NewTaskDialog />
 					<AddProjectSheet />
 					<ChooseFolderSheet />

@@ -1,11 +1,13 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, onSettled, Show } from "solid-js";
 
-import { FloatingNotice } from "@/kit";
+import { FloatingNotice, ReconnectingNotice } from "@/kit";
+import { runnerUp } from "@/lib/runner-health";
+import { machineName } from "@/modules/environments";
 
 /**
- * A quiet pill while the device has no network. The app shell still opens offline (the service
- * worker has it), so this says why the board cannot load or save until the connection is back.
+ * Why the board cannot load or save right now: the device has no network (the service worker
+ * still opens the app), or this machine's runner stopped answering and Grid is trying again.
  */
 export function OfflineBanner(): JSX.Element {
 	const [offline, setOffline] = createSignal(!navigator.onLine);
@@ -21,7 +23,17 @@ export function OfflineBanner(): JSX.Element {
 	});
 
 	return (
-		<Show when={offline()}>
+		<Show
+			when={offline()}
+			fallback={
+				<Show when={!runnerUp()}>
+					<ReconnectingNotice
+						title={`Reconnecting to ${machineName.name() ?? "this machine"}…`}
+						detail="Agents and terminals come back when it answers"
+					/>
+				</Show>
+			}
+		>
 			<FloatingNotice position="top">
 				You're offline — changes will not save until you're back.
 			</FloatingNotice>

@@ -2,7 +2,7 @@ import { useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
 
-import { onRunnerRecovered } from "@/lib/runner-health";
+import { onRunnerRecovered, runnerUp } from "@/lib/runner-health";
 
 import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
@@ -34,6 +34,8 @@ import { offeredProviders, providersStore } from "../stores/providers";
 import { rolesStore } from "../stores/roles";
 import { threadsStore } from "../stores/threads";
 import type { ChatProvider, ChatSession, Role, RoleDraft } from "../types/chat.types";
+
+import { NoMachine } from "./no-machine";
 
 import { GitControl, type WorkPlace } from "./git-control";
 import { Composer, type ComposerControl } from "./composer";
@@ -228,17 +230,19 @@ export function ChatScreen(): JSX.Element {
 				when={activeId()}
 				keyed
 				fallback={
-					<NewChat
-						project={project()}
-						projectName={projectName()}
-						providers={providers()}
-						folder={folder()}
-						onChooseFolder={() => workspace.chooseFolderFor(project())}
-						onCreated={(session) => {
-							threadsStore.upsert(session);
-							navigate(chatUrl(session.id));
-						}}
-					/>
+					<Show when={runnerUp() || scope() !== ""} fallback={<NoMachine />}>
+						<NewChat
+							project={project()}
+							projectName={projectName()}
+							providers={providers()}
+							folder={folder()}
+							onChooseFolder={() => workspace.chooseFolderFor(project())}
+							onCreated={(session) => {
+								threadsStore.upsert(session);
+								navigate(chatUrl(session.id));
+							}}
+						/>
+					</Show>
 				}
 			>
 				{(id) => (

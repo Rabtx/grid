@@ -6,7 +6,7 @@ import { EmptyState, Text, TextLink } from "@/kit";
 import { AutomationsScreen } from "@/modules/automations";
 import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
 import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
-import { MachinesScreen } from "@/modules/environments";
+import { MachinesScreen, MachinesOverview, AgentsOverview } from "@/modules/environments";
 import { HomeScreen, PulseScreen } from "@/modules/home";
 import { ConnectorScreen, ConnectorsScreen, OAuthCallback } from "@/modules/connectors";
 import { InboxScreen } from "@/modules/inbox";
@@ -66,6 +66,8 @@ const Router = createRouter({
 		// Terminals on this machine; the id keeps a tab linkable and survives a reload.
 		{ path: "/terminal", component: TerminalRoute },
 		{ path: "/terminal/:id", component: TerminalRoute },
+		{ path: "/machines/:id?", component: () => <Authed screen={MachinesOverview} /> },
+		{ path: "/agents/:provider?", component: () => <Authed screen={AgentsOverview} /> },
 		// Settings is a section of its own, with its own sidebar: a list on phones, then each page.
 		{ path: "/settings", component: () => <Authed screen={SettingsIndexScreen} /> },
 		{ path: "/settings/appearance", component: () => <Authed screen={AppearanceScreen} /> },

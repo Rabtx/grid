@@ -132,12 +132,40 @@ Unknown IDs return `404`; invalid fields and disconnected GitHub triggers return
 Nonowners receive `403` for changes and run-now. Active job deletion and the 200-job limit
 return `409`; unsupported methods return `405`. Request bodies over 32 KiB return `413`.
 
+### Runner attention and activity
+
+These routes use the runner prefix `/runner`, bearer authentication and
+`X-Grid-Workspace` selection, including `/runner/env/:id` for paired machines.
+Only the selected workspace's threads are returned. Values use `{ data: ... }`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/runner/chat/waiting` | Unresolved approvals in running threads |
+| `POST` | `/runner/chat/sessions/:id/approve` | Answer a pending approval with `{ approvalId, optionId }` |
+| `GET` | `/runner/chat/activity?project=:slug` | Latest turn per active or question thread, plus 40 recent idle threads in the project |
+| `POST` | `/runner/chat/sessions/:id/cancel` | Ask a running agent to stop (`204`) |
+
+A waiting item includes `sessionId`, `project`, `thread`, `provider` and an `approval`
+with `id`, `title`, nullable `detail`, and `options` (`id`, `label`, `kind`). Approving
+requires the `approveCommands` role permission. The approval must belong to the
+specified thread, remain pending and offer the chosen option; `null` declines.
+Invalid input/options return `400`, missing/foreign threads `404`, stale requests
+`409`, forbidden roles `403`, and delivery failures `502`. Successful delivery is `204`.
+
+Activity includes `id`, `project`, `title`, `provider`, `running`, `waiting`, nullable
+`startedAt`, `endedAt`, `result` (`done`, `cancelled`, `error`), latest tool title,
+and optional step counts (`done`, `total`). This is a bounded recent-thread view,
+not all-time run analytics; the Console labels its metrics accordingly. No transcript
+messages, reasoning or file contents are returned. Stop requires `startAgents`,
+answers `409` for an ended agent and uses the same `404` workspace boundary.
+
 ## Changelog
 
 Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-10-05 | Runner attention approvals, bounded activity summaries and stop from Machines/Agents | no |
 | 2026-09-28 | Runner automations: saved scheduled or GitHub-triggered agent jobs, templates, run-now and history | no |
 | 2026-09-26 | First-run setup link, closed signup, workspace invites; `register` needs an `inviteToken` unless signup is open | yes: open signup or pass `inviteToken` |
 | 2026-09-26 | Workspaces: `/workspaces` routes, projects under `/workspaces/:ws/projects`, billing per workspace; `/projects` kept as the default workspace | no |

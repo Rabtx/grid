@@ -16,6 +16,7 @@ import {
 	AgentMessage,
 	Badge,
 	Button,
+	ButtonLink,
 	CheckIcon,
 	CloseIcon,
 	CodeChip,
@@ -30,15 +31,15 @@ import {
 	IconButton,
 	IdeaIcon,
 	InlineNotice,
+	LinkButton,
 	Menu,
 	NoteAddIcon,
-	NoticeCard,
 	PlanList,
 	type PopoverControl,
 	Pre,
 	Prose,
 	RestoreIcon,
-	RunStatus,
+	RunFailedCard,
 	SearchIcon,
 	SpinnerIcon,
 	Stack,
@@ -52,6 +53,7 @@ import {
 	WorkStep,
 } from "@/kit";
 
+import { workspaceHref } from "@/lib/active-workspace";
 import { relativeTime } from "@/modules/projects/lib/relative-time";
 
 import { diffRows } from "../lib/diff";
@@ -267,6 +269,7 @@ function TurnView(props: {
 							{(block) => (
 								<BlockView
 									block={block()}
+									people={props.people}
 									blocks={props.blocks}
 									running={props.running}
 									onApprove={props.onApprove}
@@ -284,6 +287,7 @@ function TurnView(props: {
 
 function BlockView(props: {
 	block: Block;
+	people?: ThreadPeople;
 	blocks: Block[];
 	running: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
@@ -366,32 +370,71 @@ function BlockView(props: {
 						when={notice().tone === "error"}
 						fallback={<InlineNotice tone="info">{notice().text}</InlineNotice>}
 					>
-						<Stack gap={2}>
-							<RunStatus status="error">Needs a fix</RunStatus>
-							<NoticeCard
-								title="The agent stopped"
-								actions={
-									retry() ? (
-										<Button
-											size="sm"
-											disabled={props.running}
-											onClick={() => {
-												const prompt = retry();
-												if (prompt) props.onRegenerate?.(prompt);
-											}}
-										>
-											Try again
-										</Button>
-									) : undefined
-								}
-							>
-								{notice().text}
-							</NoticeCard>
-						</Stack>
+						<RunFailed
+							text={notice().text}
+							agent={props.people?.agentName}
+							running={props.running}
+							onRetry={
+								retry()
+									? () => {
+											const prompt = retry();
+											if (prompt) props.onRegenerate?.(prompt);
+										}
+									: undefined
+							}
+						/>
 					</Show>
 				)}
 			</Match>
 		</Switch>
+	);
+}
+
+const EXCERPT_LINES = 10;
+
+/**
+ * A turn that stopped on an error: its first line as what happened, the rest as the error's own
+ * lines (the first ten, all of them on asking), and the ways on — the message again, a terminal.
+ */
+function RunFailed(props: {
+	text: string;
+	agent?: string;
+	running: boolean;
+	onRetry?: () => void;
+}): JSX.Element {
+	const [all, setAll] = createSignal(false);
+	const lines = () => props.text.trim().split("\n");
+	const rest = () => lines().slice(1);
+	return (
+		<RunFailedCard
+			title={`${props.agent ?? "The agent"} stopped`}
+			summary={lines()[0] ?? "The run stopped."}
+			excerpt={
+				rest().length ? (all() ? rest() : rest().slice(0, EXCERPT_LINES)).join("\n") : undefined
+			}
+			actions={
+				<>
+					<Show when={props.onRetry}>
+						<Button
+							size="sm"
+							variant="primary"
+							disabled={props.running}
+							onClick={() => props.onRetry?.()}
+						>
+							Try again
+						</Button>
+					</Show>
+					<ButtonLink size="sm" href={workspaceHref("/terminal")}>
+						Open terminal
+					</ButtonLink>
+					<Show when={rest().length > EXCERPT_LINES}>
+						<LinkButton onClick={() => setAll((open) => !open)}>
+							{all() ? "Show less" : "View full log"}
+						</LinkButton>
+					</Show>
+				</>
+			}
+		/>
 	);
 }
 

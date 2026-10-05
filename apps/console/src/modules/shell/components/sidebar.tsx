@@ -31,6 +31,8 @@ const SECTIONS: [prefix: string, title: string][] = [
 	["/ship", "Ship"],
 	["/automations", "Automations"],
 	["/settings", "Settings"],
+	["/machines", "Machines"],
+	["/agents", "Agents"],
 ];
 
 export function sectionTitle(path: string): string {

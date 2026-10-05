@@ -1,12 +1,12 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, Show } from "solid-js";
+import { createEffect, Show } from "solid-js";
 
 import { Badge } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
 import { runnerUp } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
 
-import { machineService } from "../services/machine.service";
+import { machineName } from "../stores/machine-name";
 
 /**
  * This machine in a word, from the floating canvas's lower right corner (the Figma
@@ -14,17 +14,13 @@ import { machineService } from "../services/machine.service";
  */
 export function MachineBadge(): JSX.Element {
 	const auth = useAuth();
-	const [hostname, setHostname] = createSignal<string | null>(null);
+	const hostname = machineName.name;
 
-	// The name once per sign-in and each time the runner comes back; whether it answers is live.
+	// The name once per sign-in, or once the runner answers; whether it answers is live.
 	createEffect(
 		() => [auth.token(), runnerUp()] as const,
 		([token, up]) => {
-			if (!token || !up || hostname()) return;
-			machineService.status(token).then(
-				(status) => setHostname(status.info.hostname),
-				() => setHostname(null),
-			);
+			if (token && up) void machineName.load(token);
 		},
 	);
 

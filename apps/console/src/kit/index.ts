@@ -158,6 +158,7 @@ export {
 	Disclosure,
 	InlineNotice,
 	NoticeCard,
+	RunFailedCard,
 	type PlanEntry,
 	PlanList,
 	Pre,
@@ -204,7 +205,16 @@ export {
 	ThemeCards,
 } from "./settings";
 export { Pagination, Stepper } from "./steps";
-export { Card, DescriptionList, EmptyState, ListCard, Panel, Skeleton, Tooltip } from "./surface";
+export {
+	Card,
+	DescriptionList,
+	DocumentSkeleton,
+	EmptyState,
+	ListCard,
+	Panel,
+	Skeleton,
+	Tooltip,
+} from "./surface";
 export { Checkbox, CheckboxField, Switch } from "./switch";
 export { Table, Td, Th, Tr } from "./table";
 export {
@@ -351,7 +361,7 @@ export {
 	UpNextCard,
 	UpNextRow,
 } from "./automation";
-export { MachineCard, type MachineStat } from "./machine";
+export { MachineCard, MachineMetrics, type MachineStat } from "./machine";
 export {
 	ChipRow,
 	ConnectorCard,
@@ -409,3 +419,9 @@ export {
 	ShipSectionTitle,
 	ShipTile,
 } from "./ship";
+export {
+	NotificationCard,
+	NotificationStack,
+	ReconnectingNotice,
+	WaitingLine,
+} from "./notification";

@@ -156,10 +156,37 @@ export function chatUrl(session: ChatSessionRow): string {
 	return `/chat/${encodeURIComponent(session.project)}/${encodeURIComponent(session.id)}`;
 }
 
+// The agents' names as people know them, for a notification's title.
+const AGENT_NAMES: Record<string, string> = {
+	claude: "Claude Code",
+	codex: "Codex",
+	opencode: "opencode",
+	antigravity: "Antigravity",
+	freebuff: "Freebuff",
+};
+
+const VERB = /^(run|edit|write|create|delete|remove|read|fetch|open|move|rename|install|push)\b/i;
+
+/** What an approval asks, as a person would say it: "Wants to run bun add zod". */
+export function approvalLine(title: string): string {
+	const asked = title.trim();
+	return VERB.test(asked)
+		? `Wants to ${asked[0]?.toLowerCase() ?? ""}${asked.slice(1)}`
+		: `Wants to run ${asked}`;
+}
+
 export function attentionMessage(session: ChatSessionRow, event: ChatEvent): PushMessage | null {
 	const what = attention(event);
 	if (!what) return null;
-	return { title: session.title, body: what.body, url: chatUrl(session), tag: session.id };
+	const message = { url: chatUrl(session), tag: session.id };
+	// An approval says who needs you and what for, so it can be answered from the lock screen.
+	if (event.type === "approval")
+		return {
+			...message,
+			title: `${AGENT_NAMES[session.provider] ?? session.provider} needs you`,
+			body: `${approvalLine(event.title)} in ${session.project} · ${session.title}`,
+		};
+	return { ...message, title: session.title, body: what.body };
 }
 
 type SubscriptionRow = {
