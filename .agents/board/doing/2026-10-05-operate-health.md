@@ -44,7 +44,7 @@ Validation (2026-10-06):
 - Console full suite: 595/595 passed, 104 files (`bun --cwd=apps/console run test`).
 - Operate runner tests: 11/11 passed, including 50 timeout targets at one-minute intervals, same-address manual overrides, capacity reclamation, auth/isolation, restart/outbox and stale observer behavior.
 - Independent reviewer also ran Operate/Ship/Inbox tests: 50/50 passed.
-- Runner full suite: 428 passed, 1 failed, reproduced on a second full run. Failure: `src/automations/service.test.ts`, "deduplicates GitHub items and caps concurrent runs without losing the item" expects creation-order scheduling when timestamps tie. No automation files changed. Isolated automation rerun: 12/12 passed; unchanged main baseline full suite: 418/418 passed. Full runner gate is unresolved; do not claim it passed.
+- Runner full suite: 428 passed, 1 failed, reproduced on a second full run. Failure: `src/automations/service.test.ts`, "deduplicates GitHub items and caps concurrent runs without losing the item" assumes creation-order scheduling although the store orders by updated_at DESC. No automation files changed. Isolated automation rerun: 12/12 passed; unchanged main baseline full suite: 418/418 passed. Full runner gate is unresolved; do not claim it passed.
 - Repository lint, typecheck, format, architecture/naming and Console production build passed. Existing lint warnings remain.
 - Console kit guard: 2/2 passed. `git diff --check`: clean.
 - Preview Console http://localhost:3023/demo/operate/grid HTTP 200; runner http://localhost:4123/health HTTP 200; unauthenticated Operate API 401. Preview runner restarted with reviewed fixes, using isolated `/tmp/grid-operate-preview.db`.
@@ -54,4 +54,4 @@ Contract: backend-api.mdx Runner Operate section and 2026-10-06 changelog. Monit
 
 Review: `operate_review` approved current code after all three P2 findings were fixed. No new actionable defects. Review approval explicitly excludes unfinished browser validation.
 
-Delivery: draft PR; keep unmerged until full validation and user preview review. Commit is the feature commit containing this evidence, to be linked from the PR. Live services are unchanged; preview uses 3023/4123.
+Delivery: draft PR; keep unmerged until full validation and user preview review. Feature commit: 9b6467942836c188767ab3e4844277b393730bd0, independently approved against base 9fc9bb8. Live services are unchanged; preview uses 3023/4123.
