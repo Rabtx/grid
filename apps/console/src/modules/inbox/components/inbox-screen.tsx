@@ -344,18 +344,30 @@ export function InboxScreen(): JSX.Element {
 							when={shown().length > 0}
 							fallback={
 								<Show when={!inboxStore.error()}>
-									<EmptyState
-										icon={<InboxIcon size="md" />}
-										title={view() === "needs" ? "Nothing is waiting on you" : "Nothing here yet"}
-										description="An agent asking for approval, a turn that ended while you were away, or a pull request wanting your review shows up here."
-										action={
-											<Show when={view() === "needs" && inboxStore.items().length > 0}>
-												<Button size="sm" onClick={() => setSearch({ view: "all" })}>
-													See all activity
-												</Button>
-											</Show>
+									<Show
+										when={view() === "needs"}
+										fallback={
+											<EmptyState
+												icon={<InboxIcon size="md" />}
+												title="Nothing here yet"
+												description="An agent asking for approval, a turn that ended while you were away, or a pull request wanting your review shows up here."
+											/>
 										}
-									/>
+									>
+										<EmptyState
+											icon={<CheckIcon size="md" />}
+											tone="success"
+											title="You're all caught up"
+											description="When an agent needs a decision, it lands here. Nothing is waiting on you right now."
+											action={
+												<Show when={inboxStore.items().length > 0}>
+													<Button size="sm" onClick={() => setSearch({ view: "all" })}>
+														See what agents did today
+													</Button>
+												</Show>
+											}
+										/>
+									</Show>
 								</Show>
 							}
 						>

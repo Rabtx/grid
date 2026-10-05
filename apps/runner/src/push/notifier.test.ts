@@ -8,6 +8,7 @@ import { DEFAULT_PREFS } from "../prefs/store";
 import { pushActRequest, pushRequest } from "./routes";
 import {
 	approvalActions,
+	approvalLine,
 	attentionMessage,
 	isPushEndpoint,
 	lastReply,
@@ -25,6 +26,7 @@ const session = {
 	id: "s1",
 	ownerId: "me",
 	project: "grid",
+	provider: "claude",
 	title: "Fix the login",
 } as ChatSessionRow;
 
@@ -69,8 +71,13 @@ describe("attentionMessage", () => {
 				id: "a",
 				title: "Run rm -rf dist",
 				options: [],
-			})?.body,
-		).toBe("Needs your approval: Run rm -rf dist");
+			}),
+		).toMatchObject({
+			title: "Claude Code needs you",
+			body: "Wants to run rm -rf dist in grid · Fix the login",
+		});
+		expect(approvalLine("bun add lodash.debounce")).toBe("Wants to run bun add lodash.debounce");
+		expect(approvalLine("Edit src/eta.ts")).toBe("Wants to edit src/eta.ts");
 		expect(attentionMessage(session, { type: "turn_end", reason: "cancelled" })).toBeNull();
 	});
 });

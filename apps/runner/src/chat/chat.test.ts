@@ -9,6 +9,7 @@ import { policyOf } from "../agents/policy";
 import type { JsonProcess, Spawn } from "../agents/stdio";
 import { ChatHub } from "./hub";
 import { ChatStore } from "./store";
+import { chatRequest } from "./routes";
 
 /** A fake agent process: `script` sees what Grid sends and answers through `reply`. */
 function fakeSpawn(
@@ -1017,6 +1018,65 @@ describe("agents on this machine", () => {
 			["b", "no"],
 		]);
 	});
+	it("lists approvals waiting across the workspace, and takes an answer from outside the thread", async () => {
+		let answer: (optionId: string | null) => void = () => {};
+		const provider: Provider = {
+			info: () => ({ id: "echo", name: "Echo", available: true, models: [], modes: [] }),
+			start: async (context) => ({
+				prompt: async () => {
+					context.emit({ type: "tool", id: "a", title: "bun add zod", kind: "execute" });
+					context.emit({
+						type: "approval",
+						id: "a",
+						title: "bun add zod",
+						options: [
+							{ id: "yes", label: "Allow", kind: "allow" },
+							{ id: "no", label: "Deny", kind: "deny" },
+						],
+					});
+					await new Promise<string | null>((resolve) => {
+						answer = resolve;
+					});
+					return { reason: "done" };
+				},
+				cancel: () => {},
+				approve: (_id, optionId) => answer(optionId),
+				setModel: async () => {},
+				setMode: async () => {},
+				setEffort: async () => {},
+				close: () => {},
+			}),
+		};
+		const chat = new ChatHub(new ChatStore(":memory:"), new Map([["echo", provider]]), tmpdir());
+		const session = chat.create(
+			{ userId: "me", workspace: "w" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
+		const turn = chat.prompt("w", session.id, "Add zod");
+		await Bun.sleep(20);
+		expect(chat.waiting("w")).toEqual([
+			{
+				sessionId: session.id,
+				project: "alpha",
+				// Named by its first message.
+				thread: "Add zod",
+				provider: "echo",
+				approval: {
+					id: "a",
+					title: "bun add zod",
+					detail: null,
+					options: [
+						{ id: "yes", label: "Allow", kind: "allow" },
+						{ id: "no", label: "Deny", kind: "deny" },
+					],
+				},
+			},
+		]);
+		expect(chat.waiting("other")).toEqual([]);
+		chat.approve("w", session.id, "a", "yes");
+		await turn;
+		expect(chat.waiting("w")).toEqual([]);
+	});
 	it("asks the person a question of Grid's own in a thread, and starts agents with its connectors", async () => {
 		let given: unknown = null;
 		const provider: Provider = {
@@ -1095,5 +1155,114 @@ describe("agents on this machine", () => {
 		);
 		await Promise.all(threads.map((thread) => chat.prompt("w", thread.id, "Go")));
 		expect(most).toBe(1);
+	});
+});
+
+describe("attention HTTP boundaries", () => {
+	const provider: Provider = {
+		info: () => ({ id: "echo", name: "Echo", available: true, models: [], modes: [] }),
+		start: async () => ({
+			prompt: async () => ({ reason: "done" }),
+			cancel: () => {},
+			approve: () => {},
+			setModel: async () => {},
+			setMode: async () => {},
+			setEffort: async () => {},
+			close: () => {},
+		}),
+	};
+	it("keeps approvals in their own thread and workspace, validates options and rejects stale answers", async () => {
+		const hub = new ChatHub(new ChatStore(":memory:"), new Map([["echo", provider]]), tmpdir());
+		const who = { userId: "a", workspace: "a", role: "owner" as const };
+		const a = hub.create(who, { project: "alpha", provider: "echo", cwd: tmpdir() });
+		const b = hub.create(
+			{ userId: "b", workspace: "b" },
+			{ project: "alpha", provider: "echo", cwd: tmpdir() },
+		);
+		const other = hub.ask(b.id, { title: "Foreign question" });
+		const own = hub.ask(a.id, { title: "Own question" });
+		const approvalId = (id: string, workspace: string) =>
+			hub.events(workspace, id).findLast((event) => event.type === "approval")?.id ?? "";
+		const foreignId = approvalId(b.id, "b");
+		const ownId = approvalId(a.id, "a");
+		const post = (body: unknown, id = a.id, actor = who) =>
+			chatRequest(
+				new Request(`http://runner/chat/sessions/${id}/approve`, {
+					method: "POST",
+					body: JSON.stringify(body),
+				}),
+				new URL(`http://runner/chat/sessions/${id}/approve`),
+				actor,
+				hub,
+			);
+		expect((await post({ approvalId: foreignId, optionId: "allow" }))?.status).toBe(409);
+		expect(() => hub.approve("a", a.id, foreignId, "allow")).toThrow("not in this thread");
+		expect((await post({ approvalId: ownId, optionId: "invented" }))?.status).toBe(400);
+		expect((await post(null))?.status).toBe(400);
+		expect((await post({ approvalId: ownId, optionId: 42 }))?.status).toBe(400);
+		expect(
+			(
+				await post({ approvalId: ownId, optionId: "allow" }, a.id, {
+					...who,
+					role: "viewer" as never,
+				})
+			)?.status,
+		).toBe(403);
+		expect((await post({ approvalId: ownId, optionId: "allow" }))?.status).toBe(204);
+		expect(await own).toBe(true);
+		expect((await post({ approvalId: ownId, optionId: "allow" }))?.status).toBe(409);
+		await hub.answerPending("b", b.id, foreignId, null);
+		expect(await other).toBe(false);
+		expect(hub.activity("b", "alpha").map((run) => run.id)).toEqual([b.id]);
+		expect(
+			(
+				await chatRequest(
+					new Request(`http://runner/chat/sessions/${a.id}/cancel`, { method: "POST" }),
+					new URL(`http://runner/chat/sessions/${a.id}/cancel`),
+					who,
+					hub,
+				)
+			)?.status,
+		).toBe(409);
+	});
+});
+
+describe("activity keeps older active threads", () => {
+	it("includes a restarted thread even with forty newer idle threads", async () => {
+		let finish!: (value: { reason: "done" }) => void;
+		let started!: () => void;
+		const ready = new Promise<void>((resolve) => {
+			started = resolve;
+		});
+		const provider: Provider = {
+			info: () => ({ id: "echo", name: "Echo", available: true, models: [], modes: [] }),
+			start: async () => ({
+				prompt: async () => {
+					started();
+					return new Promise((resolve) => {
+						finish = resolve;
+					});
+				},
+				cancel: () => {},
+				approve: () => {},
+				setModel: async () => {},
+				setMode: async () => {},
+				setEffort: async () => {},
+				close: () => {},
+			}),
+		};
+		const store = new ChatStore(":memory:");
+		const hub = new ChatHub(store, new Map([["echo", provider]]), tmpdir());
+		const who = { userId: "me", workspace: "w" };
+		const old = hub.create(who, { project: "alpha", provider: "echo", cwd: tmpdir() });
+		await new Promise((resolve) => setTimeout(resolve, 3));
+		for (let i = 0; i < 41; i++)
+			hub.create(who, { project: "alpha", provider: "echo", cwd: tmpdir() });
+		const turn = hub.prompt("w", old.id, "Go");
+		await ready;
+		expect(hub.activity("w", "alpha").some((run) => run.id === old.id && run.running)).toBe(true);
+		expect(hub.activity("w", "alpha")).toHaveLength(41);
+		finish({ reason: "done" });
+		await turn;
 	});
 });

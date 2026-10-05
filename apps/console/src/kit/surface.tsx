@@ -70,24 +70,57 @@ export function DescriptionList(props: {
 /** Nothing here yet: one line saying so, and the way forward. */
 export function EmptyState(props: {
 	icon?: JSX.Element;
+	/** The icon's colour: success for "all caught up". */
+	tone?: "success";
 	title: string;
 	description?: string;
 	action?: JSX.Element;
+	/** Under the action: a command to copy, a status line (Figma 27 · No machine). */
+	children?: JSX.Element;
 }): JSX.Element {
 	return (
 		<div class="flex flex-col items-center gap-3 px-6 py-12 text-center">
 			<Show when={props.icon}>
-				<span class="grid size-10 place-items-center rounded-kit-lg bg-fill text-fg-subtle">
+				<span
+					class={`surface-card grid size-12 place-items-center ${props.tone === "success" ? "text-success" : "text-fg-subtle"}`}
+				>
 					{props.icon}
 				</span>
 			</Show>
-			<div class="flex max-w-xs flex-col gap-1">
+			<div class="flex max-w-sm flex-col gap-1">
 				<p class="font-medium text-body-lg text-fg">{props.title}</p>
 				<Show when={props.description}>
 					<p class="text-body text-fg-subtle">{props.description}</p>
 				</Show>
 			</div>
 			{props.action}
+			{props.children}
+		</div>
+	);
+}
+
+/**
+ * A document while it loads (Figma 27 · Notes loading): its title and the line under it, two
+ * paragraphs, and a block, each line a quiet bar.
+ */
+export function DocumentSkeleton(): JSX.Element {
+	return (
+		<div aria-hidden="true" class="flex flex-col gap-3">
+			<Skeleton class="h-6 w-2/5" />
+			<Skeleton class="h-3 w-1/4" />
+			<div class="mt-6 flex flex-col gap-3">
+				<Skeleton class="h-2.5 w-full" />
+				<Skeleton class="h-2.5 w-11/12" />
+				<Skeleton class="h-2.5 w-full" />
+				<Skeleton class="h-2.5 w-2/3" />
+			</div>
+			<div class="mt-6 flex flex-col gap-3">
+				<Skeleton class="h-2.5 w-full" />
+				<Skeleton class="h-2.5 w-5/6" />
+				<Skeleton class="h-2.5 w-11/12" />
+				<Skeleton class="h-2.5 w-1/2" />
+			</div>
+			<Skeleton class="mt-2 h-28 w-full" />
 		</div>
 	);
 }

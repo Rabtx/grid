@@ -1,5 +1,6 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
+import { ProgressBar } from "./feedback";
 
 /* ------------------------------------------------------------------------------------------
  * Figma 24 · Settings → Machines. This machine as a card: what it is and whether it answers, how
@@ -75,5 +76,22 @@ export function MachineCard(props: {
 				</div>
 			</Show>
 		</section>
+	);
+}
+
+/** Figma Machines resource cards: a live value over a quiet meter. */
+export function MachineMetrics(props: { stats: readonly MachineStat[] }): JSX.Element {
+	return (
+		<div class="grid gap-3 md:grid-cols-3">
+			<For each={props.stats}>
+				{(stat) => (
+					<section class="surface-card flex min-w-0 flex-col gap-2 p-4">
+						<span class="text-caption text-fg-subtle">{stat.label}</span>
+						<span class="truncate text-body-lg text-fg tabular-nums">{stat.value}</span>
+						<ProgressBar value={stat.percent / 100} label={`${stat.label} percentage`} />
+					</section>
+				)}
+			</For>
+		</div>
 	);
 }

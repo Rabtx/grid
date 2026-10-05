@@ -13,7 +13,7 @@ import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
-import type { AgentCommand, ChatEvent, ToolKind } from "../agents/events";
+import type { AgentCommand, ApprovalOption, ChatEvent, ToolKind } from "../agents/events";
 import { type AgentPolicy, answerFor, branchNote, DEFAULT_POLICY } from "../agents/policy";
 import type { AgentSession, McpServerSpec, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
@@ -142,6 +142,29 @@ function merge(
 	};
 }
 
+/** An approval waiting in a running thread, as the console's notifications show it. */
+export type Waiting = {
+	sessionId: string;
+	project: string;
+	thread: string;
+	provider: string;
+	approval: { id: string; title: string; detail: string | null; options: ApprovalOption[] };
+};
+
+export type RunActivity = {
+	id: string;
+	project: string;
+	title: string;
+	provider: string;
+	running: boolean;
+	waiting: boolean;
+	startedAt: string | null;
+	endedAt: string | null;
+	result: "done" | "cancelled" | "error" | null;
+	tool: string | null;
+	steps: { done: number; total: number } | null;
+};
+
 export class ChatError extends Error {
 	constructor(
 		message: string,
@@ -250,7 +273,10 @@ export class ChatHub {
 	private personal: PersonalSetup = () => ({ env: {}, note: null });
 	private mcp: (workspace: string, agent: string, thread: string) => McpServerSpec[] = () => [];
 	/** Grid's own questions waiting in threads, by their approval id. */
-	private readonly asks = new Map<string, (optionId: string | null) => void>();
+	private readonly asks = new Map<
+		string,
+		{ thread: string; answer: (optionId: string | null) => void }
+	>();
 	private describe: DescribeAgent = async () => ({ version: null, custom: false });
 	/** How many agents may work at once on this machine; the rest wait their turn. */
 	private turnLimit = Number.POSITIVE_INFINITY;
@@ -401,7 +427,7 @@ export class ChatHub {
 				this.record(thread, { type: "approval_resolved", id, optionId });
 				resolve(optionId === "allow");
 			};
-			this.asks.set(id, answer);
+			this.asks.set(id, { thread, answer });
 			this.record(thread, {
 				type: "approval",
 				id,
@@ -498,6 +524,81 @@ export class ChatHub {
 			.map(([id]) => this.store.get(id))
 			.filter((row): row is ChatSessionRow => row?.workspaceId === workspace)
 			.map((row) => ({ id: row.id, project: row.project }));
+	}
+
+	/**
+	 * What is waiting on a person across the workspace: each running thread's approvals that nobody
+	 * has answered yet, for the console's notifications.
+	 */
+	waiting(workspace: string): Waiting[] {
+		const found: Waiting[] = [];
+		for (const { id } of this.running(workspace)) {
+			const row = this.store.get(id);
+			if (!row) continue;
+			const open = new Map<string, Extract<ChatEvent, { type: "approval" }>>();
+			for (const event of this.store.events(id)) {
+				if (event.type === "approval") open.set(event.id, event);
+				else if (event.type === "approval_resolved") open.delete(event.id);
+				else if (event.type === "turn_end") open.clear();
+			}
+			for (const approval of open.values())
+				found.push({
+					sessionId: id,
+					project: row.project,
+					thread: row.title,
+					provider: row.provider,
+					approval: {
+						id: approval.id,
+						title: approval.title,
+						detail: approval.detail ?? null,
+						options: approval.options,
+					},
+				});
+		}
+		return found;
+	}
+
+	/** Latest run per active or question thread, plus 40 recent idle threads in a project. */
+	activity(workspace: string, project: string): RunActivity[] {
+		const questions = new Set([...this.asks.values()].map((ask) => ask.thread));
+		let idle = 0;
+		return this.store
+			.list(workspace, project)
+			.filter((row) => this.live.get(row.id)?.running || questions.has(row.id) || idle++ < 40)
+			.map((row) => {
+				const events = this.store.events(row.id);
+				const start = events.findLastIndex((event) => event.type === "turn_start");
+				const turn = events.slice(Math.max(0, start));
+				const began = turn.find((event) => event.type === "turn_start");
+				const end = turn.findLast((event) => event.type === "turn_end");
+				const plan = turn.findLast((event) => event.type === "plan");
+				const tool = turn.findLast((event) => event.type === "tool" && event.title);
+				const pending = new Set<string>();
+				for (const event of turn) {
+					if (event.type === "approval") pending.add(event.id);
+					else if (event.type === "approval_resolved") pending.delete(event.id);
+					else if (event.type === "turn_end") pending.clear();
+				}
+				return {
+					id: row.id,
+					project: row.project,
+					title: row.title,
+					provider: row.provider,
+					running: this.live.get(row.id)?.running ?? false,
+					waiting: pending.size > 0,
+					startedAt: began?.type === "turn_start" ? (began.at ?? null) : null,
+					endedAt: end?.type === "turn_end" ? (end.at ?? row.updatedAt) : null,
+					result: end?.type === "turn_end" ? end.reason : null,
+					tool: tool?.type === "tool" ? (tool.title ?? null) : null,
+					steps:
+						plan?.type === "plan"
+							? {
+									done: plan.entries.filter((item) => item.status === "completed").length,
+									total: plan.entries.length,
+								}
+							: null,
+				};
+			});
 	}
 
 	list(workspace: string, project: string): ChatSessionRow[] {
@@ -1185,13 +1286,63 @@ export class ChatHub {
 		this.owned(workspace, id);
 		const asked = this.asks.get(approvalId);
 		if (asked) {
-			asked(optionId);
+			if (asked.thread !== id) throw new ChatError("That approval is not in this thread", 404);
+			asked.answer(optionId);
 			return;
 		}
 		void this.live
 			.get(id)
 			?.agent?.then((agent) => agent.approve(approvalId, optionId))
 			.catch(() => undefined);
+	}
+
+	async stopRunning(workspace: string, id: string): Promise<void> {
+		this.owned(workspace, id);
+		const live = this.live.get(id);
+		if (!live?.running || !live.agent) throw new ChatError("That agent is no longer running", 409);
+		const agent = await live.agent;
+		if (!live.running) throw new ChatError("That agent is no longer running", 409);
+		agent.cancel();
+	}
+
+	/** Answer a still-pending request and report delivery failures to the caller. */
+	async answerPending(
+		workspace: string,
+		id: string,
+		approvalId: string,
+		optionId: string | null,
+	): Promise<void> {
+		this.owned(workspace, id);
+		const open = new Map<string, Extract<ChatEvent, { type: "approval" }>>();
+		for (const event of this.store.events(id)) {
+			if (event.type === "approval") open.set(event.id, event);
+			else if (event.type === "approval_resolved") open.delete(event.id);
+			else if (event.type === "turn_end") open.clear();
+		}
+		const approval = open.get(approvalId);
+		if (!approval) throw new ChatError("That approval is no longer waiting", 409);
+		if (optionId !== null && !approval.options.some((option) => option.id === optionId))
+			throw new ChatError("Choose one of the approval's options", 400);
+		const question = this.asks.get(approvalId);
+		if (question) {
+			if (question.thread !== id) throw new ChatError("That approval is not in this thread", 404);
+			question.answer(optionId);
+			return;
+		}
+		const live = this.live.get(id);
+		const pending = live?.agent;
+		if (!live?.running || !pending) throw new ChatError("The agent is no longer running", 409);
+		const agent = await pending;
+		if (!live.running) throw new ChatError("The agent is no longer running", 409);
+		// Another device may have answered while the provider was starting.
+		if (
+			this.store
+				.events(id)
+				.some((event) => event.type === "approval_resolved" && event.id === approvalId)
+		)
+			throw new ChatError("That approval was already answered", 409);
+		agent.approve(approvalId, optionId);
+		this.record(id, { type: "approval_resolved", id: approvalId, optionId });
 	}
 
 	async configure(

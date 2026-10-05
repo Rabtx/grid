@@ -1,6 +1,6 @@
 import { render } from "@solidjs/web";
 import { flush } from "solid-js";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 
 import { machineService } from "../services/machine.service";
 import { MachineBadge } from "./machine-badge";
@@ -19,6 +19,7 @@ async function settle() {
 
 describe("MachineBadge", () => {
 	let dispose = () => {};
+	beforeEach(() => vi.clearAllMocks());
 	afterEach(() => {
 		dispose();
 		document.body.innerHTML = "";
@@ -44,7 +45,7 @@ describe("MachineBadge", () => {
 		document.body.append(container);
 		dispose = render(() => <MachineBadge />, container);
 		await settle();
-		expect(container.textContent).toBe("This machine · offline");
+		expect(container.textContent).toBe("rabtx-studio · offline");
 		expect(machineService.status).not.toHaveBeenCalled();
 	});
 });

@@ -12,7 +12,7 @@ parent: none
 depends_on: []
 branch: agent/web/figma-notifications-states
 worktree: /home/ghost/Projects/grid-worktrees/states
-scope: [apps/console/src/kit, apps/console/src/modules/notifications, apps/console/src/modules/chat, apps/console/src/modules/environments, apps/console/src/modules/inbox, apps/console/src/modules/projects/components/notes-screen.tsx, apps/console/src/modules/settings/components/agents-screen.tsx, apps/console/src/modules/settings/components/agents-screen.test.tsx, apps/console/src/modules/shell, apps/console/src/routes, apps/console/src/app.tsx]
+scope: [apps/console/src/kit, apps/console/src/modules/notifications, apps/console/src/modules/chat, apps/console/src/modules/environments, apps/console/src/modules/inbox, apps/console/src/modules/projects/components/notes-screen.tsx, apps/console/src/modules/settings/components/agents-screen.tsx, apps/console/src/modules/settings/components/agents-screen.test.tsx, apps/console/src/modules/shell, apps/console/src/routes, apps/console/src/app.tsx, apps/console/src/lib/active-workspace.ts]
 allowed_shared: [apps/runner/src/chat/hub.ts, apps/runner/src/chat/routes.ts, apps/runner/src/chat/chat.test.ts, apps/runner/src/push/notifier.ts, apps/runner/src/push/notifier.test.ts, apps/docs/content/docs/backend-api.mdx]
 created: 2026-10-05
 updated: 2026-10-05
@@ -42,4 +42,20 @@ Console paths above and the runner approval query/action and push wording needed
 
 ## Resolution
 
-Recovery in progress. Ship PR #173 is confirmed merged (eb24049). This follow-up had no commit or PR at takeover.
+Changed:
+- Console kit notifications/failed/empty/loading states; global attention module, offline banner and machine name.
+- Operational Machines and Agents routes, live resources/terminals/activity and permission-aware Stop/Answer actions.
+- Runner pending approvals, workspace/thread/option validation, delivery-aware action routes, active-thread activity summaries and push wording; backend contract updated.
+
+Validated:
+- Console full suite: 586 tests passed across 102 files; final meter/operations targeted suite: 4 passed (one additional meter regression).
+- Runner full suite with TMPDIR=/tmp: 418 passed across 57 files. Default fixture temp root differed from /tmp; no product change was needed.
+- Console/runner lint and typecheck passed (pre-existing lint warnings); Console production build, architecture/naming, git diff --check passed.
+- Browser: authenticated desktop 1280, phone 375/320 and tablet 768; live resource values, empty activity/terminal states, navigation and no horizontal overflow. Populated approvals, run/Stop and remote placement behavior covered by regression tests; no paid agent turn was started.
+- Preview Console :3021; scratch preview runner :4121 (separate chat database), API :4000. Preview http://10.59.31.190:3021/demo/machines.
+
+Reviewed:
+- Independent reviewer approved final code; independently 45 runner tests passed. Fixed cross-thread approval delivery, stale account/poll state, replacement arrivals, late placements and active threads beyond recent limit. Browser caught meter scale, fixed and tested.
+
+Outcome:
+- Implementation ready for PR review. Ship #173 was already merged at eb24049; this follow-up is not merged. Commit/PR will be recorded before card closure.

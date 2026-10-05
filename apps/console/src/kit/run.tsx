@@ -2,7 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, For, Show } from "solid-js";
 
 import { Shimmer } from "./feedback";
-import { AlertIcon, CheckIcon, ChevronDownIcon, SpinnerIcon } from "./icons";
+import { AlertIcon, CheckIcon, ChevronDownIcon, CloseIcon, SpinnerIcon } from "./icons";
 
 export type StepStatus = "running" | "done" | "error" | "waiting";
 
@@ -235,6 +235,41 @@ export function NoticeCard(props: {
 				<div class="mt-2 flex flex-wrap gap-2">{props.actions}</div>
 			</Show>
 		</div>
+	);
+}
+
+/**
+ * A run that stopped on an error (Figma 27 · Run failed): a red edge, who stopped and why in a
+ * line, the error's own lines under it, and the ways on (Try again, Open terminal).
+ */
+export function RunFailedCard(props: {
+	title: string;
+	summary: string;
+	/** The error's lines after the first, set in mono; the first failing line in red. */
+	excerpt?: string;
+	actions?: JSX.Element;
+}): JSX.Element {
+	return (
+		<section class="flex min-w-0 flex-col gap-3 rounded-kit-lg bg-surface p-4 ring-1 ring-danger">
+			<header class="flex min-w-0 items-center gap-2.5">
+				<span
+					aria-hidden="true"
+					class="grid size-5 shrink-0 place-items-center rounded-full bg-danger text-white [&_svg]:size-3"
+				>
+					<CloseIcon />
+				</span>
+				<h3 class="min-w-0 flex-1 truncate font-medium text-body text-fg">{props.title}</h3>
+			</header>
+			<p class="whitespace-pre-wrap break-words text-body text-fg-muted">{props.summary}</p>
+			<Show when={props.excerpt}>
+				<pre class="surface-well max-h-72 overflow-auto px-4 py-3 font-mono text-caption leading-5 text-fg">
+					{props.excerpt}
+				</pre>
+			</Show>
+			<Show when={props.actions}>
+				<div class="flex flex-wrap items-center gap-2">{props.actions}</div>
+			</Show>
+		</section>
 	);
 }
 

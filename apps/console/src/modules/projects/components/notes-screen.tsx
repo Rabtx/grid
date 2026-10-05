@@ -18,6 +18,7 @@ import {
 	Button,
 	ConfirmDialog,
 	EditTextButton,
+	DocumentSkeleton,
 	EmptyState,
 	FORMAT_BUTTON,
 	FORMAT_STYLE,
@@ -1218,10 +1219,8 @@ function NoteView(props: {
 				<Show
 					when={noteId() === "new" || note()}
 					fallback={
-						<div class="mx-auto flex w-full max-w-170 flex-col gap-4 px-4 pt-10">
-							<Skeleton class="h-8 w-1/2" />
-							<Skeleton class="h-4 w-1/3" />
-							<Skeleton class="h-24" />
+						<div class="mx-auto w-full max-w-170 px-4 pt-10 md:pt-16">
+							<DocumentSkeleton />
 						</div>
 					}
 				>

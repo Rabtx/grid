@@ -12,7 +12,16 @@ const STORAGE_KEY = "grid.workspace";
  */
 const OUTSIDE = new Set(["login", "setup", "invite", "dev", "design", "oauth"]);
 /** The console's own sections, as links from before workspaces spelled them. */
-const SECTIONS = new Set(["chat", "board", "files", "notes", "terminal", "settings"]);
+const SECTIONS = new Set([
+	"chat",
+	"board",
+	"files",
+	"notes",
+	"terminal",
+	"settings",
+	"machines",
+	"agents",
+]);
 
 function readStored(): string | null {
 	if (typeof localStorage === "undefined") return null;

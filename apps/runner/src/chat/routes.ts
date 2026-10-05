@@ -60,6 +60,53 @@ export async function chatRequest(
 	if (url.pathname === "/chat/running" && request.method === "GET") {
 		return Response.json({ data: hub.running(workspace) });
 	}
+	if (url.pathname === "/chat/activity" && request.method === "GET") {
+		const project = url.searchParams.get("project");
+		if (!project) return failure(400, "Say which project");
+		return Response.json({ data: hub.activity(workspace, project) });
+	}
+	const cancel = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/cancel$/);
+	if (cancel && request.method === "POST") {
+		if (!may(who, "startAgents")) return failure(403, NOT_ALLOWED);
+		try {
+			await hub.stopRunning(workspace, cancel[1] ?? "");
+			return new Response(null, { status: 204 });
+		} catch (cause) {
+			if (cause instanceof ChatError) return failure(cause.status, cause.message);
+			return failure(502, "The agent could not receive Stop");
+		}
+	}
+
+	// Approvals waiting across the workspace, and answering one without opening its thread.
+	if (url.pathname === "/chat/waiting" && request.method === "GET") {
+		return Response.json({ data: hub.waiting(workspace) });
+	}
+	const approve = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/approve$/);
+	if (approve && request.method === "POST") {
+		if (!may(who, "approveCommands")) return failure(403, NOT_ALLOWED);
+		const body = (await request.json().catch(() => ({}))) as {
+			approvalId?: unknown;
+			optionId?: unknown;
+		};
+		if (
+			!body ||
+			typeof body !== "object" ||
+			Array.isArray(body) ||
+			typeof body.approvalId !== "string"
+		)
+			return failure(400, "Say which approval");
+		if (body.optionId !== undefined && body.optionId !== null && typeof body.optionId !== "string")
+			return failure(400, "Choose an approval option");
+		const approvalId = body.approvalId;
+		const optionId = typeof body.optionId === "string" ? body.optionId : null;
+		try {
+			await hub.answerPending(workspace, approve[1] ?? "", approvalId, optionId);
+			return new Response(null, { status: 204 });
+		} catch (cause) {
+			if (cause instanceof ChatError) return failure(cause.status, cause.message);
+			return failure(502, "The agent could not receive the answer");
+		}
+	}
 	if (url.pathname === "/chat/sessions" && request.method === "GET") {
 		const project = url.searchParams.get("project");
 		if (!project) return failure(400, "Say which project");

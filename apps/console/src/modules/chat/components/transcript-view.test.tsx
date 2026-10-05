@@ -346,7 +346,7 @@ describe("TranscriptView - Turns", () => {
 		expect(first).toContain("7 steps, edited 5 files, ran 2 commands");
 	});
 
-	it("names a failure as needing a fix, in a card", () => {
+	it("names a failure as the agent stopping, in a card", () => {
 		const blocks: Block[] = [
 			{ kind: "user", key: "b0", text: "Deploy", outcome: "error" },
 			{ kind: "notice", key: "b1", tone: "error", text: "Access expired mid-read." },
@@ -355,7 +355,8 @@ describe("TranscriptView - Turns", () => {
 			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
 		));
 		flush();
-		expect(root.textContent).toContain("Needs a fix");
+		expect(root.textContent).toContain("The agent stopped");
+		expect(root.textContent).toContain("Open terminal");
 		expect(root.querySelector(".bg-selection")?.textContent ?? "").toContain("Deploy");
 		expect(root.textContent).toContain("Access expired mid-read.");
 		expect(root.textContent).not.toContain("Done");

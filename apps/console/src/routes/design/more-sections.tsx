@@ -2,6 +2,12 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, For } from "solid-js";
 
 import {
+	ShieldIcon,
+	WaitingLine,
+	DocumentSkeleton,
+	EmptyState,
+	RunFailedCard,
+	NotificationCard,
 	ActivityItem,
 	ListCard,
 	Row,
@@ -191,6 +197,74 @@ export function FeedbackSection(): JSX.Element {
 					<Badge>Member</Badge>
 					<Badge tone="accent">Owner</Badge>
 				</div>
+			</Specimen>
+			<Specimen label="Notifications · an agent asking, something arriving">
+				<div class="flex flex-col gap-2">
+					<NotificationCard
+						icon={<ShieldIcon />}
+						title="Claude Code needs you"
+						body="Wants to run bun add lodash.debounce in grid · chat-typing"
+						time="now"
+						onDismiss={() => undefined}
+						actions={
+							<>
+								<Button size="sm" variant="primary">
+									Allow
+								</Button>
+								<Button size="sm">Deny</Button>
+								<Button size="sm" variant="ghost">
+									Open
+								</Button>
+							</>
+						}
+					/>
+					<NotificationCard
+						icon={<PullRequestIcon />}
+						title="Pull request ready"
+						body="Codex opened PR 142 · Fix ETA rounding off-by-one"
+						time="now"
+						onDismiss={() => undefined}
+					/>
+				</div>
+			</Specimen>
+			<Specimen label="A run that stopped">
+				<RunFailedCard
+					title="Claude Code stopped"
+					summary="Tests still fail after 3 tries. Nothing was pushed, and your branch is unchanged."
+					excerpt={"✗ debounces rapid keystrokes\n  expected 1 call, received 3  chat.test.ts:48"}
+					actions={
+						<>
+							<Button size="sm" variant="primary">
+								Try again
+							</Button>
+							<Button size="sm">Open terminal</Button>
+						</>
+					}
+				/>
+			</Specimen>
+			<Card>
+				<EmptyState
+					icon={<CheckIcon size="md" />}
+					tone="success"
+					title="You're all caught up"
+					description="When an agent needs a decision, it lands here. Nothing is waiting on you right now."
+					action={<Button size="sm">See what agents did today</Button>}
+				/>
+			</Card>
+			<Card>
+				<EmptyState
+					icon={<ComputerIcon size="md" />}
+					title="Connect a machine to start"
+					description="Agents run on your own hardware. Start the runner from Grid's folder and this page finds it in a few seconds."
+				>
+					<div class="w-full max-w-sm">
+						<CopyField value="bun --cwd=apps/runner run dev" label="Runner command" mono />
+					</div>
+					<WaitingLine>Waiting for a runner…</WaitingLine>
+				</EmptyState>
+			</Card>
+			<Specimen label="A document loading">
+				<DocumentSkeleton />
 			</Specimen>
 		</div>
 	);
