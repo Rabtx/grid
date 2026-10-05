@@ -7,7 +7,15 @@ import { dirname } from "node:path";
  * agent kinds are the ones push notifications already speak for; the two GitHub kinds arrive from
  * a refresh instead (see `github.ts`).
  */
-const INBOX_KINDS = ["approval", "turn_done", "turn_error", "pull_review", "pull_checks"] as const;
+const INBOX_KINDS = [
+	"approval",
+	"turn_done",
+	"turn_error",
+	"pull_review",
+	"pull_checks",
+	"incident_open",
+	"incident_resolved",
+] as const;
 
 export type InboxKind = (typeof INBOX_KINDS)[number];
 
@@ -227,6 +235,16 @@ export class InboxStore {
 				"DELETE FROM inbox_items WHERE workspace_id = ? AND read_at IS NOT NULL AND read_at <= ?",
 			)
 			.run(workspaceId, cutoff);
+	}
+
+	/** Operational alerts are a bounded timeline, even when never read. */
+	trimOperate(workspace: string, project: string): void {
+		this.db
+			.query(`DELETE FROM inbox_items WHERE workspace_id = ? AND project = ?
+		 AND kind IN ('incident_open', 'incident_resolved') AND id NOT IN
+		 (SELECT id FROM inbox_items WHERE workspace_id = ? AND project = ?
+		 AND kind IN ('incident_open', 'incident_resolved') ORDER BY created_at DESC, id DESC LIMIT 400)`)
+			.run(workspace, project, workspace, project);
 	}
 
 	close(): void {

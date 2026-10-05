@@ -1,5 +1,12 @@
 /** Which kind of wait an inbox item is, which decides how the row reads and its icon. */
-export type InboxKind = "approval" | "turn_done" | "turn_error" | "pull_review" | "pull_checks";
+export type InboxKind =
+	| "approval"
+	| "turn_done"
+	| "turn_error"
+	| "pull_review"
+	| "pull_checks"
+	| "incident_open"
+	| "incident_resolved";
 
 /** One thing waiting on a person, across every project. */
 export type InboxItem = {

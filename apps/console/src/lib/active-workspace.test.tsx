@@ -52,6 +52,11 @@ describe("resolveStart", () => {
 		const { resolveStart } = await load(null);
 		expect(resolveStart("/", "beta")).toEqual({ inUrl: null, active: "beta", outside: false });
 		expect(resolveStart("/chat/web", null)).toEqual({ inUrl: null, active: null, outside: false });
+		expect(resolveStart("/operate/web", "beta")).toEqual({
+			inUrl: null,
+			active: "beta",
+			outside: false,
+		});
 	});
 
 	it("keeps sign-in, setup and invites outside any workspace", async () => {

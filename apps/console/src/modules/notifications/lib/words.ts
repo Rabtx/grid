@@ -12,6 +12,8 @@ export function approvalLine(title: string): string {
 
 /** A notification's title for something that arrived in the Inbox. */
 export const ARRIVAL_TITLE: Record<Exclude<InboxKind, "approval">, string> = {
+	incident_open: "Service outage",
+	incident_resolved: "Service recovered",
 	turn_done: "Run finished",
 	turn_error: "Run failed",
 	pull_review: "Pull request ready",

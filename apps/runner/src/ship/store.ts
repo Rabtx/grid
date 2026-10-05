@@ -88,6 +88,22 @@ export class ShipStore {
 		return row ? (JSON.parse(row.data) as ProjectShipSettings) : {};
 	}
 
+	/** Saved service addresses, independent of whether a browser is open. */
+	configuredSites(): { workspace: string; project: string; name: string; url: string }[] {
+		return this.db
+			.query<{ workspace: string; project: string; data: string }, []>(
+				"SELECT workspace, project, data FROM ship_settings",
+			)
+			.all()
+			.flatMap((row) =>
+				Object.entries(JSON.parse(row.data) as ProjectShipSettings).flatMap(([name, settings]) =>
+					settings.url
+						? [{ workspace: row.workspace, project: row.project, name, url: settings.url }]
+						: [],
+				),
+			);
+	}
+
 	setEnvironment(
 		workspace: string,
 		project: string,

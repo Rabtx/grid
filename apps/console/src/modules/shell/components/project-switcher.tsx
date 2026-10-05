@@ -6,7 +6,7 @@ import { CheckIcon, Menu, menuTrigger, Text, UnfoldIcon } from "@/kit";
 import { ProjectIcon, useWorkspace } from "@/modules/projects";
 
 /** The pages that belong to one project at a time: `/<page>/<project>`. */
-export const PROJECT_PAGE = /^\/(board|files|pulls|notes|ship)\/([^/]+)/;
+export const PROJECT_PAGE = /^\/(board|files|pulls|notes|ship|operate)\/([^/]+)/;
 
 /**
  * Which project a board, files, pull requests, notes or ship page shows, as the page's title: open it to

@@ -396,6 +396,8 @@ export function HomeScreen(): JSX.Element {
 
 /** The button on a waiting item, by what it waits for (Figma: Review, Answer, Open). */
 const ACTION: Record<InboxItem["kind"], string> = {
+	incident_open: "Open",
+	incident_resolved: "Open",
 	approval: "Answer",
 	pull_review: "Review",
 	pull_checks: "Open",

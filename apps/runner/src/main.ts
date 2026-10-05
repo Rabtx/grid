@@ -35,6 +35,8 @@ import { type ApiFindings, Search } from "./search/service";
 import { ShipGitHub } from "./ship/github";
 import { Ship } from "./ship/service";
 import { ShipStore } from "./ship/store";
+import { Operate } from "./operate/service";
+import { OperateStore } from "./operate/store";
 import { PullRequests } from "./github/pulls";
 import { inboxItem } from "./inbox/attention";
 import { GithubInbox } from "./inbox/github";
@@ -213,10 +215,11 @@ const pulseStore = new PulseStore(config.chatDb);
 const pulse = new Pulse({ chat, gh, connections, store: pulseStore });
 // Ship: deploys as GitHub records them, promoted the way each project already deploys. Sites
 // people look at are checked every few minutes, and a promotion can be watched for 15.
+const shipStore = new ShipStore(config.chatDb);
 const ship = new Ship({
 	chat,
 	github: new ShipGitHub(gh),
-	store: new ShipStore(config.chatDb),
+	store: shipStore,
 	pulse: pulseStore,
 	notify: (userId, message) => void push.notify(userId, message, "runs"),
 });
@@ -227,6 +230,17 @@ setInterval(() => {
 			console.warn("[runner] ship checks failed:", cause instanceof Error ? cause.message : cause),
 		);
 }, 60_000).unref();
+// Operate remains active without an open browser, using only persisted public service targets.
+const operate = new Operate({
+	store: new OperateStore(config.chatDb),
+	ship: shipStore,
+	inbox,
+	folders: (workspace) => chat.projectFolders(workspace),
+});
+const checkOperate = () =>
+	void operate.tick().catch(() => console.warn("[runner] operate checks failed"));
+checkOperate();
+setInterval(checkOperate, 60_000).unref();
 // Search and Ask Grid: tasks and notes come from the API, asked as the person searching.
 const search = new Search({
 	chat,
@@ -290,6 +304,7 @@ const server = startServer(config, store, verify, chat, {
 	pulse,
 	search,
 	ship,
+	operate,
 	// Someone not seen since the runner started keeps the access their notification was sent with.
 	mayApprove: (act) => {
 		const who = lastSeen.get(`${act.ownerId}:${act.workspace}`);

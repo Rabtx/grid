@@ -11,6 +11,8 @@ import { connectorProxyRequest, connectorRequest } from "./connectors/routes";
 import { pulseRequest } from "./pulse/routes";
 import { searchRequest } from "./search/routes";
 import { shipRequest } from "./ship/routes";
+import { operateRequest } from "./operate/routes";
+import type { Operate } from "./operate/service";
 import type { Ship } from "./ship/service";
 import type { Search } from "./search/service";
 import type { Pulse } from "./pulse/service";
@@ -149,6 +151,7 @@ export function startServer(
 		search?: Search;
 		/** Ship: environments, promotions, pipelines, previews. */
 		ship?: Ship;
+		operate?: Operate;
 	} = {},
 ): Server<SocketData> {
 	const {
@@ -168,6 +171,7 @@ export function startServer(
 		pulse,
 		search,
 		ship,
+		operate,
 	} = extras;
 	const diagnosticRoutes = diagnostics ? new DiagnosticRoutes(diagnostics) : null;
 	const recordDiagnostic = (entry: DiagnosticInput): void => {
@@ -282,6 +286,13 @@ export function startServer(
 					const who = await whoFrom(request, "Sign in to see Ship");
 					if (who instanceof Response) return who;
 					const handled = await shipRequest(request, url, who, ship);
+					if (handled) return handled;
+				}
+
+				if (operate && (url.pathname === "/operate" || url.pathname.startsWith("/operate/"))) {
+					const who = await whoFrom(request, "Sign in to see Operate");
+					if (who instanceof Response) return who;
+					const handled = await operateRequest(request, url, who, operate);
 					if (handled) return handled;
 				}
 

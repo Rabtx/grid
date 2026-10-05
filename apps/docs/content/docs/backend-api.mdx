@@ -159,12 +159,66 @@ not all-time run analytics; the Console labels its metrics accordingly. No trans
 messages, reasoning or file contents are returned. Stop requires `startAgents`,
 answers `409` for an ended agent and uses the same `404` workspace boundary.
 
+### Runner Operate
+
+Operate uses the runner prefix `/runner` (and paired `/runner/env/:id`), bearer
+authentication, `X-Grid-Workspace` selection and `{ data: ... }` responses.
+A project must be linked on the selected machine in the selected workspace;
+missing and foreign projects return `404`.
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/runner/operate/:project` | member | Service health and latest 200 incidents |
+| `PUT` | `/runner/operate/:project/services/:name` | production | Register or change a service with `{ url }` (`204`) |
+| `DELETE` | `/runner/operate/:project/services/:name` | production | Stop monitoring a service (`204`) |
+
+The overview contains `project`, `intervalSeconds` (60), `allowed` (may manage
+monitors), nullable `checkedAt`, `services`, and `incidents`. A service has `id`,
+`name`, `url`, `state` (`healthy`, `degraded`, `down`, `unknown`), nullable
+`checkedAt`, `responseMs`, `uptime`, `p95`, `incidentId`, and numeric `checks` and
+`coverage`. Metrics cover the latest 24 hours: uptime is the percentage of
+**observed checks** that succeeded, p95 covers successful responses, and coverage
+is the percentage of minute slots actually checked. Unobserved time never counts
+as healthy. Checks older than three minutes show `unknown`; stale latency is null.
+
+Three consecutive failures open an incident and two consecutive successes resolve
+it. A monitoring gap over three minutes resets the consecutive-check counters.
+An incident has `id`, `serviceId`, `serviceName`, original `url`, `status` (`open`
+or `resolved`), `openedAt`, nullable `resolvedAt`, and `monitoring`. Removing a
+monitor or changing its URL stops monitoring its previous unresolved incident;
+it stays open with `monitoring: false`, rather than falsely claiming recovery.
+Transitions create stable, workspace-visible `incident_open` / `incident_resolved`
+Inbox items linking to `/operate/:project?incident=:id`. A durable outbox retries
+notification delivery after restart without duplicating the Inbox row.
+
+Monitoring continues without a browser while the runner is running. For reliable
+operation, keep the portable Grid bundle in a stable directory outside disposable
+worktrees and run it under a restarting service. A stopped runner cannot observe
+outages; missing checks remain unknown rather than counting as uptime. Persisted
+Ship settings with public URLs are inherited automatically, without GitHub calls.
+Manually configured monitors take precedence; removed monitors stay removed.
+Addresses must be public HTTP/S endpoints, with no credentials, query or fragment.
+DNS answers are checked and the connection pinned to a public address. Redirects
+are not followed; only 2xx responses succeed. No response bodies or credentials
+are retained. Up to 50 active services per machine are supported; names
+are 1–80 characters and must be URL encoded in the path. PUT bodies over 4 KiB
+return `413`, invalid names/addresses `400`, forbidden changes `403`, monitor limit
+`409`, missing monitors `404`, and unsupported methods `405`. Checks and incident
+records survive runner restart; history and operational Inbox rows are bounded.
+Stopped services release active capacity. Tombstones for configured Ship sites
+remain until those settings are removed; other stopped names are retained up to
+200 per machine, with the oldest reclaimed. Ten concurrent probes keep the
+supported 50-target timeout workload within the one-minute check interval.
+Check timestamps identify the scheduled sampling round, so response latency does
+not postpone the following round.
+
 ## Changelog
 
 Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-10-06 | Runner Operate: persisted public endpoint health, incident history and deduplicated Inbox alerts | no |
 | 2026-10-05 | Runner attention approvals, bounded activity summaries and stop from Machines/Agents | no |
 | 2026-09-28 | Runner automations: saved scheduled or GitHub-triggered agent jobs, templates, run-now and history | no |
 | 2026-09-26 | First-run setup link, closed signup, workspace invites; `register` needs an `inviteToken` unless signup is open | yes: open signup or pass `inviteToken` |

@@ -56,6 +56,7 @@ const Router = createRouter({
 		{ path: "/pulls/:slug/:number?/:view?", component: PullsRoute },
 		// Ship: a project's environments, previews and pipelines; the open one after it.
 		{ path: "/ship/:slug/:section?/:name?", component: ShipRoute },
+		{ path: "/operate/:slug", component: OperateRoute },
 		// The same board with one task open in the panel over it.
 		{ path: "/board/:slug/tasks/:number", component: BoardRoute },
 		// Chats with agents, inside their project; `new` is the new-chat composer, any other id a
@@ -215,6 +216,19 @@ function ShipRoute(): JSX.Element {
 		</RequireAuth>
 	);
 }
+
+function OperateRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<Loading fallback={<Opening>Opening Operate…</Opening>}>
+				<OperateScreen />
+			</Loading>
+		</RequireAuth>
+	);
+}
+const OperateScreen = lazy(() => import("@/modules/operate/components/operate-screen"), {
+	export: "OperateScreen",
+});
 
 // Ship brings diffs and logs, so it loads when opened.
 const ShipScreen = lazy(() => import("@/modules/ship/components/ship-screen"), {
