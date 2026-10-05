@@ -160,9 +160,7 @@ export function shipLine(overview: ShipOverview): string {
 	const failing = overview.pipelines.reduce((sum, pipeline) => sum + pipeline.failing, 0);
 	return (
 		[
-			production
-				? `${envTitle(production.name)} ${STATE_WORD[production.state].toLowerCase()}`
-				: null,
+			production ? productionWord(production) : null,
 			failing ? `${plural(failing, "failing check")}` : null,
 		]
 			.filter(Boolean)

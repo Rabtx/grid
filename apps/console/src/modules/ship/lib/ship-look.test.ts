@@ -54,6 +54,15 @@ describe("ship look", () => {
 				pipelines: [pipeline({ state: "failing", failing: 1 })],
 			}),
 		).toBe("Production healthy · 1 failing check");
+		expect(
+			shipLine({
+				repository: "rabtx/app",
+				defaultBranch: "main",
+				environments: [env({ state: "idle" })],
+				previews: { live: 0, open: 0 },
+				pipelines: [],
+			}),
+		).toBe("Nothing in production yet");
 	});
 
 	it("reads times and durations the way the screens say them", () => {
