@@ -15,7 +15,16 @@ export {
 } from "./avatar";
 export { Badge, Count, Kbd, type Tone } from "./badge";
 export { BrandLogo, BrandMark, BrandWordmark, Splash } from "./brand";
-export { Button, button, IconButton, iconButton, LinkButton, linkButton, TextLink } from "./button";
+export {
+	Button,
+	button,
+	ButtonLink,
+	IconButton,
+	iconButton,
+	LinkButton,
+	linkButton,
+	TextLink,
+} from "./button";
 export {
 	BoardColumn,
 	BoardSkeleton,
@@ -375,3 +384,28 @@ export {
 	SourceList,
 	SourceRow,
 } from "./search";
+export {
+	CheckMark,
+	CheckNote,
+	CheckRunRow,
+	type CheckState,
+	CommitRow,
+	DeployRow,
+	FocusCard,
+	GateRow,
+	HealthCell,
+	HealthStrip,
+	LogExcerpt,
+	OptionStrip,
+	PreviewCard,
+	PreviewGrid,
+	ShipGroupLabel,
+	ShipHeading,
+	ShipListCard,
+	ShipListRow,
+	ShipPage,
+	ShipPanelRow,
+	ShipRows,
+	ShipSectionTitle,
+	ShipTile,
+} from "./ship";

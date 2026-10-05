@@ -184,3 +184,20 @@ export function TextLink(
 		</a>
 	);
 }
+
+/** A link that looks like a button: Open site, Open in GitHub. */
+export function ButtonLink(
+	props: JSX.AnchorHTMLAttributes<HTMLAnchorElement> & {
+		variant?: "primary" | "secondary" | "ghost";
+		size?: "sm" | "md";
+		icon?: JSX.Element;
+	},
+): JSX.Element {
+	const rest = omit(props, "variant", "size", "icon", "class", "children");
+	return (
+		<a {...rest} class={button({ variant: props.variant, size: props.size, class: props.class })}>
+			{props.icon}
+			{props.children}
+		</a>
+	);
+}

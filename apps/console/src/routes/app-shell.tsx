@@ -43,7 +43,8 @@ const OUTSIDE = /^\/(login|setup|invite)(\/|$)/;
 const STANDALONE = /^\/(design|oauth)(\/|$)/;
 
 // Screens that fill the frame edge to edge and scroll inside themselves.
-const FULL_BLEED = /^\/(chat|terminal|files|notes|pulls|board|inbox|automations|settings)(\/|$)/;
+const FULL_BLEED =
+	/^\/(chat|terminal|files|notes|pulls|ship|board|inbox|automations|settings)(\/|$)/;
 const SETTINGS = /^\/settings(\/|$)/;
 
 /**

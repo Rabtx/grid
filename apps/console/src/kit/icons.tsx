@@ -60,6 +60,8 @@ import NoteAddGlyph from "@hugeicons/core-free-icons/NoteAddIcon";
 import Notification01Glyph from "@hugeicons/core-free-icons/Notification01Icon";
 import PencilEdit01Icon from "@hugeicons/core-free-icons/PencilEdit01Icon";
 import Rocket01Glyph from "@hugeicons/core-free-icons/Rocket01Icon";
+import CloudGlyph from "@hugeicons/core-free-icons/CloudIcon";
+import ArrowUp01Glyph from "@hugeicons/core-free-icons/ArrowUp01Icon";
 import RotateCcwIcon from "@hugeicons/core-free-icons/RotateCcwIcon";
 import Search01Icon from "@hugeicons/core-free-icons/Search01Icon";
 import Settings01Icon from "@hugeicons/core-free-icons/Settings01Icon";
@@ -343,6 +345,16 @@ export function BellIcon(props: IconProps): JSX.Element {
 
 export function RocketIcon(props: IconProps): JSX.Element {
 	return <Icon icon={Rocket01Glyph} size={props.size} class={props.class} />;
+}
+
+/** Ship: where the work goes out. */
+export function CloudIcon(props: IconProps): JSX.Element {
+	return <Icon icon={CloudGlyph} size={props.size} class={props.class} />;
+}
+
+/** Up a step: promoting to the next environment. */
+export function ArrowUpIcon(props: IconProps): JSX.Element {
+	return <Icon icon={ArrowUp01Glyph} size={props.size} class={props.class} />;
 }
 
 export function UserAddIcon(props: IconProps): JSX.Element {

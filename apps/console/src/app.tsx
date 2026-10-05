@@ -54,6 +54,8 @@ const Router = createRouter({
 		{ path: "/notes/:slug/:note?", component: NotesRoute },
 		// A project's pull requests on GitHub; the open one by its number, its review after it.
 		{ path: "/pulls/:slug/:number?/:view?", component: PullsRoute },
+		// Ship: a project's environments, previews and pipelines; the open one after it.
+		{ path: "/ship/:slug/:section?/:name?", component: ShipRoute },
 		// The same board with one task open in the panel over it.
 		{ path: "/board/:slug/tasks/:number", component: BoardRoute },
 		// Chats with agents, inside their project; `new` is the new-chat composer, any other id a
@@ -200,6 +202,21 @@ function PullsRoute(): JSX.Element {
 // Pull requests bring the Markdown renderer and diff view, so they load when opened.
 const PullsScreen = lazy(() => import("@/modules/github/components/pulls-screen"), {
 	export: "PullsScreen",
+});
+
+function ShipRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<Loading fallback={<Opening>Opening Ship…</Opening>}>
+				<ShipScreen />
+			</Loading>
+		</RequireAuth>
+	);
+}
+
+// Ship brings diffs and logs, so it loads when opened.
+const ShipScreen = lazy(() => import("@/modules/ship/components/ship-screen"), {
+	export: "ShipScreen",
 });
 
 // Chat brings a Markdown renderer; like the terminal, it loads when someone opens it.

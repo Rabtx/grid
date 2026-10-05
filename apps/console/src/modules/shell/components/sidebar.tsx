@@ -28,6 +28,7 @@ const SECTIONS: [prefix: string, title: string][] = [
 	["/notes", "Notes"],
 	["/terminal", "Terminals"],
 	["/pulls", "Pull requests"],
+	["/ship", "Ship"],
 	["/automations", "Automations"],
 	["/settings", "Settings"],
 ];

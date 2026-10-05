@@ -32,6 +32,9 @@ import { Vault } from "./connectors/vault";
 import { Pulse } from "./pulse/service";
 import { PulseStore } from "./pulse/store";
 import { type ApiFindings, Search } from "./search/service";
+import { ShipGitHub } from "./ship/github";
+import { Ship } from "./ship/service";
+import { ShipStore } from "./ship/store";
 import { PullRequests } from "./github/pulls";
 import { inboxItem } from "./inbox/attention";
 import { GithubInbox } from "./inbox/github";
@@ -206,7 +209,24 @@ const connectors = new Connectors({
 	runnerUrl: () => `http://127.0.0.1:${server.port}`,
 });
 chat.setMcp((workspace, agent, thread) => connectors.serversFor(workspace, agent, thread));
-const pulse = new Pulse({ chat, gh, connections, store: new PulseStore(config.chatDb) });
+const pulseStore = new PulseStore(config.chatDb);
+const pulse = new Pulse({ chat, gh, connections, store: pulseStore });
+// Ship: deploys as GitHub records them, promoted the way each project already deploys. Sites
+// people look at are checked every few minutes, and a promotion can be watched for 15.
+const ship = new Ship({
+	chat,
+	github: new ShipGitHub(gh),
+	store: new ShipStore(config.chatDb),
+	pulse: pulseStore,
+	notify: (userId, message) => void push.notify(userId, message, "runs"),
+});
+setInterval(() => {
+	void ship
+		.tick()
+		.catch((cause: unknown) =>
+			console.warn("[runner] ship checks failed:", cause instanceof Error ? cause.message : cause),
+		);
+}, 60_000).unref();
 // Search and Ask Grid: tasks and notes come from the API, asked as the person searching.
 const search = new Search({
 	chat,
@@ -269,6 +289,7 @@ const server = startServer(config, store, verify, chat, {
 	connectors,
 	pulse,
 	search,
+	ship,
 	// Someone not seen since the runner started keeps the access their notification was sent with.
 	mayApprove: (act) => {
 		const who = lastSeen.get(`${act.ownerId}:${act.workspace}`);

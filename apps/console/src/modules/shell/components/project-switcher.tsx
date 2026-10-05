@@ -6,10 +6,10 @@ import { CheckIcon, Menu, menuTrigger, Text, UnfoldIcon } from "@/kit";
 import { ProjectIcon, useWorkspace } from "@/modules/projects";
 
 /** The pages that belong to one project at a time: `/<page>/<project>`. */
-export const PROJECT_PAGE = /^\/(board|files|pulls|notes)\/([^/]+)/;
+export const PROJECT_PAGE = /^\/(board|files|pulls|notes|ship)\/([^/]+)/;
 
 /**
- * Which project a board, files, pull requests or notes page shows, as the page's title: open it to
+ * Which project a board, files, pull requests, notes or ship page shows, as the page's title: open it to
  * show another project's same page. The sidebar lists these pages once, so this is where you pick.
  */
 export function ProjectSwitcher(): JSX.Element {
