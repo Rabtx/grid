@@ -57,3 +57,13 @@ Review: `operate_review` approved current code after all three P2 findings were 
 Delivery: draft PR; keep unmerged until full validation and user preview review. Feature commit: 9b6467942836c188767ab3e4844277b393730bd0, independently approved against base 9fc9bb8. Live services are unchanged; preview uses 3023/4123.
 
 Ownership handoff: operate_backend delivered the initial implementation; codex completed runner review fixes and validation in the backend card after that agent became unavailable. The atomic parent Console card and backend card retain their separate path scopes.
+
+## Owner-approved release
+
+On 2026-10-06 the human owner requested "do the merge and restart the servers and tell me whats is next" after the prior reply disclosed the remaining browser, automation-test and dependency-review blockers. This direct release instruction governs this integration; no missing check is represented as passed.
+
+Merge order: PR #174 (base 9fc9bb8) is already merged, then PR #175. Feature commit 9b6467942836c188767ab3e4844277b393730bd0 was independently approved. Subsequent changes only record board evidence. Target integration checkout `/home/ghost/Projects/grid` has no local changes; deployment uses `/home/ghost/Projects/grid-worktrees/serve`. Preserve its untracked docs guidance files.
+
+Live GitHub checks on head 32a9651: lint, typecheck, build and API contracts pass. CI test fails because the migrated test database lacks `demo@grid.dev`; the same billing fixture failure is confirmed on already merged PR #174. Dependency review lacks repository support and CodeQL reports inaccessible integration/code-scanning support; those security jobs also failed on PR #174. No workflows or security settings are changed to conceal these failures. Browser walkthrough remains unverified. Track these as immediate follow-up work after the owner-approved release.
+
+Release result and live verification will be linked from PR #175 and reported to the owner. Cards remain doing until their unfinished validation is resolved.
