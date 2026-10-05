@@ -9,6 +9,18 @@ export const KINDS: Record<
 	InboxKind,
 	{ tone: FeedTone; icon: () => JSX.Element; state: string; open: string }
 > = {
+	incident_open: {
+		tone: "danger",
+		icon: () => <AlertIcon />,
+		state: "Service outage",
+		open: "Open Operate",
+	},
+	incident_resolved: {
+		tone: "success",
+		icon: () => <CheckIcon />,
+		state: "Service recovered",
+		open: "Open Operate",
+	},
 	approval: {
 		tone: "violet",
 		icon: () => <ShieldIcon />,

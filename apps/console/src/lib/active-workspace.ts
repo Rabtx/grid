@@ -21,6 +21,7 @@ const SECTIONS = new Set([
 	"settings",
 	"machines",
 	"agents",
+	"operate",
 ]);
 
 function readStored(): string | null {

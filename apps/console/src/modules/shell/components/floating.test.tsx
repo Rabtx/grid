@@ -88,6 +88,7 @@ describe("floating sidebar", () => {
 			"Terminal",
 			"Pull requests",
 			"Ship",
+			"Operate",
 			"Automations",
 		]);
 		const current = links.find((link) => link.getAttribute("aria-current") === "page");

@@ -4,6 +4,7 @@ import { For, Show } from "solid-js";
 
 import {
 	AsteriskIcon,
+	AlertIcon,
 	BoardIcon,
 	BoltIcon,
 	BrandTile,
@@ -85,6 +86,12 @@ export const VIEWS: readonly Destination[] = [
 		icon: () => <CloudIcon />,
 		href: (slug) => (slug ? `/ship/${slug}` : "/board"),
 		match: "/ship",
+	},
+	{
+		label: "Operate",
+		icon: () => <AlertIcon />,
+		href: (slug) => (slug ? `/operate/${slug}` : "/board"),
+		match: "/operate",
 	},
 	{
 		label: "Automations",
