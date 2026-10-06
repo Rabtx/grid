@@ -1461,10 +1461,15 @@ export class ChatHub {
 	}
 
 	/** The last agent edit of each of these files (absolute paths), and its thread's title, for Files. */
-	agentEdits(paths: readonly string[]): Map<string, AgentEdit & { title: string | null }> {
+	agentEdits(
+		workspace: string,
+		paths: readonly string[],
+	): Map<string, AgentEdit & { title: string | null }> {
 		const edits = new Map<string, AgentEdit & { title: string | null }>();
-		for (const [path, edit] of this.store.agentEdits(paths))
-			edits.set(path, { ...edit, title: this.store.get(edit.sessionId)?.title ?? null });
+		for (const [path, edit] of this.store.agentEdits(workspace, paths)) {
+			const session = this.store.get(edit.sessionId);
+			if (session?.workspaceId === workspace) edits.set(path, { ...edit, title: session.title });
+		}
 		return edits;
 	}
 

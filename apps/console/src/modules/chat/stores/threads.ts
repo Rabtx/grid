@@ -18,6 +18,22 @@ const [running, setRunning] = createSignal<{ id: string; project: string }[]>([]
 const POLL_MS = 3000;
 // Each machine's last answer, by scope, for a machine that misses one poll.
 const lastRunning = new Map<string, { id: string; project: string }[]>();
+const reads = new Map<string, number>();
+const changedDuringRead = new Map<string, Set<string>>();
+let sequence = 0;
+localStore.onUserChange(() => {
+	setByProject({});
+	setLoaded({});
+	setErrors({});
+	setRunning([]);
+	pending.clear();
+	lastRunning.clear();
+	reads.clear();
+	changedDuringRead.clear();
+});
+function changed(project: string, id: string): void {
+	changedDuringRead.get(project)?.add(id);
+}
 
 const newestFirst = (list: ChatSession[]) =>
 	[...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -47,6 +63,7 @@ export const threadsStore = {
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		let stopped = false;
 		const tick = async () => {
+			const started = localStore.version();
 			const value = token();
 			if (value && document.visibilityState === "visible") {
 				// This machine and every environment a project runs on. One that cannot be reached
@@ -60,8 +77,10 @@ export const threadsStore = {
 						),
 					),
 				);
-				for (const { scope, list } of answers) if (list) lastRunning.set(scope, list);
-				setRunning(scopes.flatMap((scope) => lastRunning.get(scope) ?? []));
+				if (!stopped && started === localStore.version() && token() === value) {
+					for (const { scope, list } of answers) if (list) lastRunning.set(scope, list);
+					setRunning(scopes.flatMap((scope) => lastRunning.get(scope) ?? []));
+				}
 			}
 			if (!stopped) timer = setTimeout(() => void tick(), POLL_MS);
 		};
@@ -81,9 +100,15 @@ export const threadsStore = {
 	load(token: string, project: string): Promise<void> {
 		const running = pending.get(project);
 		if (running) return running;
+		const started = localStore.version();
+		const request = ++sequence;
+		reads.set(project, request);
+		const current = () => started === localStore.version() && reads.get(project) === request;
+		const changedIds = new Set<string>();
+		changedDuringRead.set(project, changedIds);
 		if (!untrack(loaded)[project]) {
 			void localStore.get<ChatSession[]>(cacheKey(project)).then((kept) => {
-				if (kept?.length && !untrack(loaded)[project]) {
+				if (current() && kept?.length && !untrack(loaded)[project] && changedIds.size === 0) {
 					setByProject({ ...untrack(byProject), [project]: kept });
 				}
 			});
@@ -92,10 +117,15 @@ export const threadsStore = {
 			.sessions(token, project, placementsStore.scopeOf(project))
 			.then(
 				(list) => {
-					put(project, list);
+					if (!current()) return;
+					put(project, [
+						...list.filter((item) => !changedIds.has(item.id)),
+						...(untrack(byProject)[project] ?? []).filter((item) => changedIds.has(item.id)),
+					]);
 					setErrors({ ...untrack(errors), [project]: null });
 				},
 				(cause: unknown) => {
+					if (!current()) return;
 					setErrors({
 						...untrack(errors),
 						[project]: cause instanceof Error ? cause.message : "Could not load threads",
@@ -103,6 +133,8 @@ export const threadsStore = {
 				},
 			)
 			.finally(() => {
+				if (!current()) return;
+				changedDuringRead.delete(project);
 				pending.delete(project);
 				setLoaded({ ...untrack(loaded), [project]: true });
 			});
@@ -116,13 +148,16 @@ export const threadsStore = {
 	},
 	/** A thread was created or changed (a new title, a new message). */
 	upsert(session: ChatSession): void {
+		changed(session.project, session.id);
 		const rest = (untrack(byProject)[session.project] ?? []).filter(
 			(item) => item.id !== session.id,
 		);
 		put(session.project, [session, ...rest]);
 	},
 	async rename(token: string, session: ChatSession, title: string): Promise<void> {
+		const started = localStore.version();
 		await chatService.rename(token, session.id, title, placementsStore.scopeOf(session.project));
+		if (started !== localStore.version()) return;
 		threadsStore.upsert({ ...session, title });
 	},
 	/** Remove a thread's worktree; it carries on in the project's own folder. */
@@ -131,12 +166,14 @@ export const threadsStore = {
 		session: ChatSession,
 		options: { deleteBranch: boolean; force?: boolean },
 	): Promise<void> {
+		const started = localStore.version();
 		await chatService.discardWorktree(
 			token,
 			session.id,
 			options,
 			placementsStore.scopeOf(session.project),
 		);
+		if (started !== localStore.version()) return;
 		threadsStore.upsert({
 			...session,
 			cwd: session.worktree?.origin ?? session.cwd,
@@ -144,7 +181,10 @@ export const threadsStore = {
 		});
 	},
 	async remove(token: string, session: ChatSession): Promise<void> {
+		const started = localStore.version();
 		await chatService.remove(token, session.id, placementsStore.scopeOf(session.project));
+		if (started !== localStore.version()) return;
+		changed(session.project, session.id);
 		put(
 			session.project,
 			(untrack(byProject)[session.project] ?? []).filter((item) => item.id !== session.id),

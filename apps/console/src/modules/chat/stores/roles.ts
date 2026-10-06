@@ -1,5 +1,7 @@
 import { createSignal, untrack } from "solid-js";
 
+import { localStore } from "@/lib/local-store";
+
 import { chatService } from "../services/chat.service";
 import type { Role, RoleDraft } from "../types/chat.types";
 
@@ -7,6 +9,13 @@ import type { Role, RoleDraft } from "../types/chat.types";
 // every change made here.
 const [byScope, setByScope] = createSignal<Record<string, Role[]>>({});
 const loading = new Map<string, Promise<void>>();
+let sequence = 0;
+const reads = new Map<string, number>();
+localStore.onUserChange(() => {
+	setByScope({});
+	loading.clear();
+	reads.clear();
+});
 
 function put(scope: string, list: Role[]): void {
 	setByScope({ ...untrack(byScope), [scope]: list });
@@ -19,9 +28,16 @@ export const rolesStore = {
 	load(token: string, scope = ""): Promise<void> {
 		const running = loading.get(scope);
 		if (running) return running;
+		const started = localStore.version();
+		const request = ++sequence;
+		reads.set(scope, request);
+		const current = () => started === localStore.version() && reads.get(scope) === request;
 		const work = chatService.roles(token, scope).then(
-			(list) => put(scope, list),
+			(list) => {
+				if (current()) put(scope, list);
+			},
 			() => {
+				if (!current()) return;
 				// An older runner has no roles: the composer offers none rather than failing.
 				loading.delete(scope);
 				put(scope, []);
@@ -36,7 +52,9 @@ export const rolesStore = {
 		return rolesStore.load(token, scope);
 	},
 	async create(token: string, draft: RoleDraft, scope = ""): Promise<Role> {
+		const started = localStore.version();
 		const role = await chatService.createRole(token, draft, scope);
+		if (started !== localStore.version()) return role;
 		put(scope, [
 			...untrack(() => rolesStore.roles(scope)).filter((item) => item.id !== role.id),
 			role,
@@ -44,7 +62,9 @@ export const rolesStore = {
 		return role;
 	},
 	async update(token: string, id: string, patch: Partial<RoleDraft>, scope = ""): Promise<Role> {
+		const started = localStore.version();
 		const role = await chatService.updateRole(token, id, patch, scope);
+		if (started !== localStore.version()) return role;
 		put(
 			scope,
 			untrack(() => rolesStore.roles(scope)).map((item) => (item.id === id ? role : item)),
@@ -52,7 +72,9 @@ export const rolesStore = {
 		return role;
 	},
 	async remove(token: string, id: string, scope = ""): Promise<void> {
+		const started = localStore.version();
 		await chatService.removeRole(token, id, scope);
+		if (started !== localStore.version()) return;
 		put(
 			scope,
 			untrack(() => rolesStore.roles(scope)).filter((item) => item.id !== id),

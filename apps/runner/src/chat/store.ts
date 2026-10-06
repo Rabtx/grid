@@ -291,15 +291,16 @@ export class ChatStore {
 		})();
 	}
 
-	/** The last agent edit of each of `paths` (absolute) that has one. */
-	agentEdits(paths: readonly string[]): Map<string, AgentEdit> {
+	/** The latest physical-file edit, only when its session belongs to this workspace. */
+	agentEdits(workspace: string, paths: readonly string[]): Map<string, AgentEdit> {
 		const found = new Map<string, AgentEdit>();
 		const read = this.db.query<
 			{ path: string; provider: string; session_id: string; at: string },
-			[string]
-		>("SELECT path, provider, session_id, at FROM agent_edits WHERE path = ?");
+			[string, string]
+		>(`SELECT e.path, e.provider, e.session_id, e.at FROM agent_edits e
+			INNER JOIN sessions s ON s.id = e.session_id WHERE e.path = ? AND s.workspace_id = ?`);
 		for (const path of new Set(paths)) {
-			const row = read.get(path);
+			const row = read.get(path, workspace);
 			if (row) found.set(path, { provider: row.provider, sessionId: row.session_id, at: row.at });
 		}
 		return found;

@@ -16,6 +16,8 @@ const STORE = "kv";
 
 let opening: Promise<IDBDatabase | null> | null = null;
 let user: string | null = null;
+let version = 0;
+const userListeners = new Set<() => void>();
 
 function open(): Promise<IDBDatabase | null> {
 	opening ??= new Promise((resolve) => {
@@ -39,13 +41,14 @@ function open(): Promise<IDBDatabase | null> {
 async function run<T>(
 	mode: IDBTransactionMode,
 	work: (store: IDBObjectStore) => IDBRequest<T>,
+	current: () => boolean = () => true,
 ): Promise<T | undefined> {
 	const db = await open();
-	if (!db) return undefined;
+	if (!db || !current()) return undefined;
 	return new Promise((resolve) => {
 		try {
 			const request = work(db.transaction(STORE, mode).objectStore(STORE));
-			request.onsuccess = () => resolve(request.result);
+			request.onsuccess = () => resolve(current() ? request.result : undefined);
 			request.onerror = () => resolve(undefined);
 		} catch {
 			resolve(undefined);
@@ -63,24 +66,55 @@ function scoped(key: string): string | null {
 export const localStore = {
 	/** Whose data is read and written: set on sign-in, cleared on sign-out. */
 	setUser(id: string | null): void {
+		if (user === id) return;
 		user = id;
+		version++;
+		for (const listener of userListeners) listener();
+	},
+	/** In-flight work from a previous account must not publish into this account. */
+	version: (): number => version,
+	/** Account/workspace scope for small synchronous route memories; null when signed out. */
+	storageKey: (key: string): string | null => {
+		const full = scoped(key);
+		return full ? `grid.private:${full}` : null;
+	},
+	onUserChange(listener: () => void): () => void {
+		userListeners.add(listener);
+		return () => userListeners.delete(listener);
 	},
 
 	async get<T>(key: string): Promise<T | undefined> {
 		const full = scoped(key);
+		const started = version;
 		return full
-			? ((await run("readonly", (store) => store.get(full))) as T | undefined)
+			? ((await run(
+					"readonly",
+					(store) => store.get(full),
+					() => started === version,
+				)) as T | undefined)
 			: undefined;
 	},
 
 	async set(key: string, value: unknown): Promise<void> {
 		const full = scoped(key);
-		if (full) await run("readwrite", (store) => store.put(value, full));
+		const started = version;
+		if (full)
+			await run(
+				"readwrite",
+				(store) => store.put(value, full),
+				() => started === version,
+			);
 	},
 
 	async delete(key: string): Promise<void> {
 		const full = scoped(key);
-		if (full) await run("readwrite", (store) => store.delete(full));
+		const started = version;
+		if (full)
+			await run(
+				"readwrite",
+				(store) => store.delete(full),
+				() => started === version,
+			);
 	},
 
 	/** Forget everything on this device (sign-out). */
@@ -99,13 +133,18 @@ export function saveSoon<T>(
 	ms = 1_000,
 ): { schedule: () => void; flush: () => void; cancel: () => void } {
 	let timer: ReturnType<typeof setTimeout> | undefined;
+	let scheduledFor = version;
 	const write = () => {
 		timer = undefined;
-		void localStore.set(key, value());
+		if (scheduledFor === version) void localStore.set(key, value());
 	};
 	return {
 		schedule: () => {
-			timer ??= setTimeout(write, ms);
+			if (timer !== undefined && scheduledFor !== version) clearTimeout(timer);
+			if (timer === undefined || scheduledFor !== version) {
+				scheduledFor = version;
+				timer = setTimeout(write, ms);
+			}
 		},
 		flush: () => {
 			if (timer === undefined) return;

@@ -87,17 +87,22 @@ describe("automation runs", () => {
 	});
 	test("deduplicates GitHub items and caps concurrent runs without losing the item", async () => {
 		const { store, service, created, finish } = setup(true);
-		const items = ["one", "two", "three"].map((name) =>
-			store.create("alpha", "alice", { ...input(), name }),
-		);
+		const items: ReturnType<AutomationStore["create"]>[] = [];
+		for (const name of ["one", "two", "three"]) {
+			items.push(store.create("alpha", "alice", { ...input(), name }));
+			// Distinct timestamps expose assumptions about list order instead of relying on a tie.
+			await Bun.sleep(2);
+		}
 		service.event("alpha", "alice", "grid", "pull_opened", "42");
 		service.event("alpha", "alice", "grid", "pull_opened", "42");
 		// Two run; the third job waits for a free slot instead of burning the item on a skip.
-		expect(items.map((item) => store.runs("alpha", item.id).length)).toEqual([1, 1, 0]);
-		service.runNow(who, items[0].id);
+		expect(items.map((item) => store.runs("alpha", item.id).length).sort()).toEqual([0, 1, 1]);
+		const running = items.find((item) => store.active(item.id));
+		expect(running).toBeDefined();
+		service.runNow(who, running!.id);
 		expect(
 			store
-				.runs("alpha", items[0].id)
+				.runs("alpha", running!.id)
 				.some((run) => run.trigger === "manual" && run.status === "skipped"),
 		).toBe(true);
 		expect(created()).toBe(2);

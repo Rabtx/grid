@@ -4,14 +4,22 @@ import type { Note } from "../types/project.types";
 
 const list = vi.fn<() => Promise<Note[]>>();
 const update = vi.fn();
+const create = vi.fn();
+const get = vi.fn();
 vi.mock("../services/projects.service", () => ({
 	projectsService: {
 		listNotes: () => list(),
 		updateNote: (...args: unknown[]) => update(...args),
+		createNote: (...args: unknown[]) => create(...args),
 	},
 }));
 vi.mock("@/lib/local-store", () => ({
-	localStore: { get: async () => null, set: async () => {} },
+	localStore: {
+		get: () => get(),
+		set: async () => {},
+		version: () => 0,
+		onUserChange: () => () => {},
+	},
 }));
 
 const { notesStore } = await import("./notes");
@@ -36,6 +44,8 @@ describe("the notes store", () => {
 	beforeEach(() => {
 		list.mockReset();
 		update.mockReset();
+		create.mockReset();
+		get.mockReset().mockResolvedValue(null);
 	});
 
 	it("gives a new thread the shared notes, pinned first, and nothing when none are shared", async () => {
@@ -76,5 +86,40 @@ describe("the notes store", () => {
 		refuse(new Error("No"));
 		await expect(pinning).rejects.toThrow("No");
 		expect(notesStore.notes("gamma")[0]?.pinned).toBe(false);
+	});
+	it("does not let a read started before a successful creation hide the new note", async () => {
+		let finish!: (value: Note[]) => void;
+		list.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					finish = resolve;
+				}),
+		);
+		const reading = notesStore.load("token", "creation-race");
+		await Promise.resolve();
+		const added = note("n4", "# Added");
+		create.mockResolvedValue(added);
+		await notesStore.add("token", "creation-race", { body: added.body });
+		finish([note("n1", "# Old")]);
+		await reading;
+		expect(notesStore.notes("creation-race").map((item) => item.id)).toContain("n4");
+	});
+
+	it("does not let delayed cache hydration erase a note created while opening", async () => {
+		let hydrate!: (value: Note[]) => void;
+		get.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					hydrate = resolve;
+				}),
+		);
+		list.mockResolvedValue([]);
+		const reading = notesStore.load("token", "hydration-race");
+		const added = note("n4", "# Added while opening");
+		create.mockResolvedValue(added);
+		await notesStore.add("token", "hydration-race", { body: added.body });
+		hydrate([]);
+		await reading;
+		expect(notesStore.notes("hydration-race").map((item) => item.id)).toEqual(["n4"]);
 	});
 });

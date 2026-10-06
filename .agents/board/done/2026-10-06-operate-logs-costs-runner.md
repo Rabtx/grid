@@ -5,7 +5,7 @@ type: feature
 from: human
 to: backend
 priority: high
-status: doing
+status: done
 assignee: operate_logs_backend
 reviewer: operate_logs_review
 parent: 2026-10-06-operate-logs-costs.md
@@ -53,3 +53,6 @@ Implementation and draft-delivery evidence (2026-10-06):
 
 
 Draft PR: https://github.com/shabirkhan-dev/grid/pull/176. Feature commit `d8190150cfa1f057af28adbccf8867a7d5600d82` independently approved by `operate_logs_review` after all enabled hooks passed; tree clean. Reviewer reran telemetry 16/16 (94 assertions) after generated dummy-fixture cleanup; secret scan passed without exemptions or hook changes. Final Console build passed (`/tmp/grid-operate-next-console-build-final.log`). Initial GitHub snapshot: open, draft, mergeable; lint/typecheck/CodeQL in progress and dependency review queued, not yet green. This subsequent change records evidence only; implementation is unchanged. Browser walkthrough still outstanding, so card remains doing and PR remains draft/unmerged.
+
+
+Closed 2026-10-06 at the owner's explicit request: implementation merged in PR #176 as `353da67`. CI fixture/security configuration and remaining browser verification are tracked separately in the reliability and browser follow-up cards; they do not reopen the delivered feature. Live services are verified on PR #176 merge commit `353da67ef5f8bc02aa74e67a0cfc32ffd646f315`.

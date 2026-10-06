@@ -77,6 +77,30 @@ const request = (
 	);
 
 describe("Operate lifecycle", () => {
+	it("refuses inherited and invalid folder entries before reading or mutating monitors", async () => {
+		const s = setup();
+		for (const project of ["constructor", "toString", "__proto__"])
+			expect(() => s.operate.view(owner, project)).toThrow("Project not linked");
+		expect(
+			(await request(s.operate, "PUT", "/operate/constructor/services/prod", { url: site }))
+				?.status,
+		).toBe(404);
+		expect(s.store.monitors()).toHaveLength(0);
+		Object.assign(s.folders.w!, { invalid: {}, empty: "" });
+		for (const project of ["invalid", "empty"])
+			expect(() => s.operate.view(owner, project)).toThrow("Project not linked");
+	});
+	it("never inherits or probes a service in an inherited project entry", async () => {
+		const s = setup();
+		s.ship.setEnvironment("w", "constructor", "production", { url: site });
+		await s.operate.tick();
+		expect(s.store.monitors()).toHaveLength(0);
+		s.store.register("w", "constructor", "legacy", site);
+		s.advance();
+		await s.operate.tick();
+		expect(s.calls()).toBe(0);
+	});
+
 	it("checks without browser, debounces outage/recovery and retains deduplicated workspace Inbox events", async () => {
 		const s = setup();
 		s.operate.register(owner, "app", "production", site);

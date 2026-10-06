@@ -9,7 +9,7 @@ import { parseEnv } from "../../config/env";
 import { sessionLookup } from "../../sessions";
 import { upsertSubscriptionFromWebhook } from "./repository";
 
-/** Needs a database (the dev one): skipped without DATABASE_URL, e.g. `bun run test` in CI. */
+/** Needs a migrated database; fixtures are owned by this suite and require no seed data. */
 const suite = process.env.DATABASE_URL ? describe : describe.skip;
 
 suite("billing webhook handling and signatures", () => {
@@ -21,9 +21,9 @@ suite("billing webhook handling and signatures", () => {
 
 	let dbInstance: { db: Database; close: () => Promise<void> };
 	let db: Database;
-	let testUserId: string;
+	const testUserId = crypto.randomUUID();
+	const testWorkspaceId = crypto.randomUUID();
 	let app: ReturnType<typeof createApp>;
-	const createdSubIds: string[] = [];
 
 	beforeAll(async () => {
 		const databaseUrl = process.env.DATABASE_URL ?? "";
@@ -31,14 +31,23 @@ suite("billing webhook handling and signatures", () => {
 		dbInstance = createDatabase(databaseUrl, { max: 2 });
 		db = dbInstance.db;
 
-		const [user] = await db
-			.select()
-			.from(schema.users)
-			.where(eq(schema.users.email, "demo@grid.dev"))
-			.limit(1);
-
-		if (!user) throw new Error("demo@grid.dev user was not found");
-		testUserId = user.id;
+		await db.transaction(async (tx) => {
+			await tx.insert(schema.users).values({
+				id: testUserId,
+				email: `billing-${testUserId}@example.test`,
+				username: `billing-${testUserId}`,
+			});
+			await tx.insert(schema.workspaces).values({
+				id: testWorkspaceId,
+				slug: `billing-${testWorkspaceId}`,
+				name: "Billing test workspace",
+			});
+			await tx.insert(schema.workspaceMembers).values({
+				workspaceId: testWorkspaceId,
+				userId: testUserId,
+				role: "owner",
+			});
+		});
 
 		const testConfig = createConfig(
 			parseEnv({
@@ -61,12 +70,12 @@ suite("billing webhook handling and signatures", () => {
 	});
 
 	afterAll(async () => {
-		for (const subId of createdSubIds) {
-			await db
-				.delete(schema.subscriptions)
-				.where(eq(schema.subscriptions.providerSubscriptionId, subId));
-		}
-		if (dbInstance) {
+		if (!dbInstance) return;
+		try {
+			// Cascades remove only this suite's memberships and subscriptions, even after a failure.
+			await db.delete(schema.workspaces).where(eq(schema.workspaces.id, testWorkspaceId));
+			await db.delete(schema.users).where(eq(schema.users.id, testUserId));
+		} finally {
 			await dbInstance.close();
 		}
 	});
@@ -76,14 +85,11 @@ suite("billing webhook handling and signatures", () => {
 			// Payment providers deliver webhooks at least once and concurrently. Resolving the
 			// existing row and then inserting had both deliveries miss the lookup, so the loser
 			// died on subscriptions_provider_sub_unique and the provider retried forever.
-			const subId = `sub_test_race_${Date.now()}`;
-			createdSubIds.push(subId);
-			const [workspace] = await db.select().from(schema.workspaces).limit(1);
-			if (!workspace) throw new Error("no workspace to bill");
+			const subId = `sub_test_race_${testUserId}`;
 			const periodEnd = new Date(Date.now() + 30 * 86_400_000);
 			const event = {
 				userId: testUserId,
-				workspaceId: workspace.id,
+				workspaceId: testWorkspaceId,
 				provider: "stripe" as const,
 				providerSubscriptionId: subId,
 				planCode: "team" as const,
@@ -108,14 +114,11 @@ suite("billing webhook handling and signatures", () => {
 
 		it("keeps what a later event leaves out", async () => {
 			// `subscription.charged` carries no customer id, and the stored one still applies.
-			const subId = `sub_test_partial_${Date.now()}`;
-			createdSubIds.push(subId);
-			const [workspace] = await db.select().from(schema.workspaces).limit(1);
-			if (!workspace) throw new Error("no workspace to bill");
+			const subId = `sub_test_partial_${testUserId}`;
 			const providerCustomerId = `cus_test_${Date.now()}`;
 			const base = {
 				userId: testUserId,
-				workspaceId: workspace.id,
+				workspaceId: testWorkspaceId,
 				provider: "stripe" as const,
 				providerSubscriptionId: subId,
 				planCode: "team" as const,
@@ -168,8 +171,7 @@ suite("billing webhook handling and signatures", () => {
 		});
 
 		it("accepts valid signed payload and updates subscription in database", async () => {
-			const subId = `sub_test_stripe_${Date.now()}`;
-			createdSubIds.push(subId);
+			const subId = `sub_test_stripe_${testUserId}`;
 
 			const event = {
 				id: `evt_test_${Date.now()}`,
@@ -233,8 +235,7 @@ suite("billing webhook handling and signatures", () => {
 		});
 
 		it("handles subscription cancellation event and marks status as canceled", async () => {
-			const subId = `sub_test_stripe_cancel_${Date.now()}`;
-			createdSubIds.push(subId);
+			const subId = `sub_test_stripe_cancel_${testUserId}`;
 
 			const event = {
 				id: `evt_test_del_${Date.now()}`,
@@ -315,8 +316,7 @@ suite("billing webhook handling and signatures", () => {
 		});
 
 		it("accepts valid signed payload and updates subscription in database", async () => {
-			const subId = `sub_test_rzp_${Date.now()}`;
-			createdSubIds.push(subId);
+			const subId = `sub_test_rzp_${testUserId}`;
 
 			const payload = {
 				event: "subscription.charged",
@@ -374,8 +374,7 @@ suite("billing webhook handling and signatures", () => {
 		});
 
 		it("handles cancellation event and marks subscription as canceled", async () => {
-			const subId = `sub_test_rzp_cancel_${Date.now()}`;
-			createdSubIds.push(subId);
+			const subId = `sub_test_rzp_cancel_${testUserId}`;
 
 			const payload = {
 				event: "subscription.cancelled",

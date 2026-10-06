@@ -1,6 +1,6 @@
 import type { Database } from "@grid/db";
 import { schema } from "@grid/db";
-import { and, desc, eq, gt, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, ne, sql } from "drizzle-orm";
 
 import type { ChallengePurpose } from "./crypto";
 
@@ -78,16 +78,20 @@ export async function findLatestChallenge(
 	return challenge ?? null;
 }
 
+/** Increment and close at the limit in one statement; concurrent guesses cannot lose attempts. */
 export async function recordChallengeAttempt(
 	db: Database,
 	id: string,
-	attempts: number,
-	consume: boolean,
+	maxAttempts: number,
 ): Promise<void> {
 	await db
 		.update(authChallenges)
-		.set({ attempts, ...(consume ? { consumedAt: new Date() } : {}) })
-		.where(eq(authChallenges.id, id));
+		.set({
+			attempts: sql`${authChallenges.attempts} + 1`,
+			consumedAt: sql`CASE WHEN ${authChallenges.attempts} + 1 >= ${maxAttempts}
+				THEN CURRENT_TIMESTAMP ELSE ${authChallenges.consumedAt} END`,
+		})
+		.where(and(eq(authChallenges.id, id), isNull(authChallenges.consumedAt)));
 }
 
 export async function completeEmailVerification(

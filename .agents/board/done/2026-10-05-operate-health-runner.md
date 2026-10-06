@@ -1,18 +1,18 @@
 ---
-id: grid-operate-health
-title: operate health, incidents and inbox alerts
+id: grid-operate-health-runner
+title: operate monitoring and incident contracts
 type: feature
 from: human
-to: web
+to: backend
 priority: high
-status: doing
+status: done
 assignee: codex
 reviewer: operate_review
-parent: none
+parent: 2026-10-05-operate-health.md
 depends_on: []
 branch: agent/web/operate-health
 worktree: /home/ghost/Projects/grid-worktrees/agent/web/operate-health
-scope: [apps/console/**]
+scope: [apps/runner/**]
 allowed_shared: [.agents/board/**, apps/docs/content/docs/backend-api.mdx]
 created: 2026-10-05
 updated: 2026-10-06
@@ -20,7 +20,7 @@ updated: 2026-10-06
 
 ## What
 
-Deliver service health and incidents with alerts in the existing Inbox.
+Implement persisted health/incident monitoring and expose workspace-scoped runner contracts.
 
 ## Scope
 
@@ -28,7 +28,7 @@ User approved the first Operate slice in this chat: health, incident history, an
 
 ## Acceptance
 
-Live observed health, response times, measured availability and coverage; unknown for stale monitoring; debounced outage/recovery, persisted timeline, deduplicated alerts; loading/empty/offline/error and workspace switching; use existing kit and Appearance tokens.
+Reuse Ship probes where practical; background monitoring independent of browser; bounded history and safe URL handling; consecutive failures open incidents, consecutive successes resolve; stale/missing checks unknown; restart persistence and notification events scoped to workspace/project. Publish compact agreed contract to web owner before coding. Backend owns runner and API contract docs.
 
 ## Validation
 
@@ -56,6 +56,8 @@ Review: `operate_review` approved current code after all three P2 findings were 
 
 Delivery: draft PR; keep unmerged until full validation and user preview review. Feature commit: 9b6467942836c188767ab3e4844277b393730bd0, independently approved against base 9fc9bb8. Live services are unchanged; preview uses 3023/4123.
 
+Ownership handoff: operate_backend delivered the initial implementation; codex completed runner review fixes and validation in the backend card after that agent became unavailable. The atomic parent Console card and backend card retain their separate path scopes.
+
 ## Owner-approved release
 
 On 2026-10-06 the human owner requested "do the merge and restart the servers and tell me whats is next" after the prior reply disclosed the remaining browser, automation-test and dependency-review blockers. This direct release instruction governs this integration; no missing check is represented as passed.
@@ -65,3 +67,6 @@ Merge order: PR #174 (base 9fc9bb8) is already merged, then PR #175. Feature com
 Live GitHub checks on head 32a9651: lint, typecheck, build and API contracts pass. CI test fails because the migrated test database lacks `demo@grid.dev`; the same billing fixture failure is confirmed on already merged PR #174. Dependency review lacks repository support and CodeQL reports inaccessible integration/code-scanning support; those security jobs also failed on PR #174. No workflows or security settings are changed to conceal these failures. Browser walkthrough remains unverified. Track these as immediate follow-up work after the owner-approved release.
 
 Release result and live verification will be linked from PR #175 and reported to the owner. Cards remain doing until their unfinished validation is resolved.
+
+
+Closed 2026-10-06 at the owner's explicit request: implementation merged in PR #175 as `ddb51d6`. CI fixture/security configuration and remaining browser verification are tracked separately in the reliability and browser follow-up cards; they do not reopen the delivered feature. Live services are verified on PR #176 merge commit `353da67ef5f8bc02aa74e67a0cfc32ffd646f315`.

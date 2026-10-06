@@ -12,6 +12,22 @@ jobs:
   quality-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
     steps:
       - uses: actions/checkout@v4
 
@@ -28,11 +44,11 @@ jobs:
         with:
           components: clippy
 
+      - name: Migrate the test database
+        run: bun packages/db/src/migrate.ts
+
       - name: Validate release gate
         run: bun run preflight
-        env:
-          # sqlx compile-time checks need a URL shape; no live DB required for demo app skips
-          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
 
       - name: Rust lint
         run: bun run rust:lint

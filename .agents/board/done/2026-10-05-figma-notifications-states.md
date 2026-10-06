@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: codex-recovery
 reviewer: independent-review
 parent: none
@@ -59,3 +59,6 @@ Reviewed:
 
 Outcome:
 - Implementation ready for PR review. Ship #173 was already merged at eb24049; this follow-up is not merged. Implementation commit: cf895bb. PR: https://github.com/shabirkhan-dev/grid/pull/174. GitHub lint passed; typecheck/CodeQL pending at handoff. Dependency review failed because the repository does not support it: Dependency graph and GitHub Advanced Security must be enabled. This is a repository configuration blocker, not a feature regression. Card remains doing until required CI is resolved; no merge performed.
+
+
+Closed 2026-10-06 at the owner's explicit request: implementation merged in PR #174 as `9fc9bb8`. CI fixture/security configuration and remaining browser verification are tracked separately in the reliability and browser follow-up cards; they do not reopen the delivered feature. Live services are verified on PR #176 merge commit `353da67ef5f8bc02aa74e67a0cfc32ffd646f315`.

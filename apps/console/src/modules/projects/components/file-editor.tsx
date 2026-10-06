@@ -2,6 +2,8 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
 
 import { useAuth } from "@/modules/auth";
+import { localStore } from "@/lib/local-store";
+import { placementsStore } from "@/modules/environments";
 import {
 	Alert,
 	Button,
@@ -69,13 +71,42 @@ export function FileEditor(props: {
 
 	// Another file arrives, or a re-read while nothing is unsaved: the draft follows it. A re-read
 	// of the same file never replaces an edit still being made.
-	let shown = untrack(() => props.file.path);
+	let alive = true;
+	let busy = false;
+	const identity = () =>
+		JSON.stringify([
+			localStore.version(),
+			placementsStore.scopeOf(props.slug),
+			props.slug,
+			props.file.path,
+		]);
+	const isCurrent = (started: string) => alive && identity() === started;
+	let shown = untrack(() =>
+		JSON.stringify([placementsStore.environmentOf(props.slug), props.slug, props.file.path]),
+	);
 	createEffect(
-		() => [props.file.path, props.file.text, props.file.hash] as const,
-		([path, text, hash]) => {
+		() =>
+			[
+				props.slug,
+				props.file.path,
+				props.file.text,
+				props.file.hash,
+				placementsStore.environmentOf(props.slug),
+			] as const,
+		([slug, path, text, hash, environment]) => {
 			if (text === null) return;
-			if (path === shown && untrack(dirty)) return;
-			shown = path;
+			const next = JSON.stringify([environment, slug, path]);
+			if (next === shown && untrack(dirty)) return;
+			if (next !== shown) {
+				busy = false;
+				props.onDirty(false);
+				setSaving(false);
+				setError(null);
+				setConflict(null);
+				setLeaving(false);
+				setRevision((count) => count + 1);
+			}
+			shown = next;
 			setOnDisk(text);
 			setDraft(text);
 			setBase(hash);
@@ -94,7 +125,10 @@ export function FileEditor(props: {
 	);
 
 	// Unmounted with a draft (another file, a route change): the tree's dirty dot goes with it.
-	onSettled(() => () => props.onDirty(false));
+	onSettled(() => () => {
+		alive = false;
+		props.onDirty(false);
+	});
 
 	function change(text: string): void {
 		setDraft(text);
@@ -105,9 +139,12 @@ export function FileEditor(props: {
 	async function current(): Promise<ProjectFileContent | null> {
 		const token = auth.token();
 		if (!token) return null;
+		const started = identity();
 		try {
-			return await filesService.read(token, props.slug, props.file.path);
+			const file = await filesService.read(token, props.slug, props.file.path);
+			return isCurrent(started) ? file : null;
 		} catch (cause) {
+			if (!isCurrent(started)) return null;
 			setError(cause instanceof Error ? cause.message : "Could not read this file again");
 			return null;
 		}
@@ -116,31 +153,47 @@ export function FileEditor(props: {
 	/** Put the draft back, onto the version it was based on. */
 	async function save(against = base()): Promise<boolean> {
 		const token = auth.token();
-		if (!token || saving() || !dirty() || !against) return false;
+		if (!token || busy || !dirty() || !against) return false;
+		const started = identity();
+		const submitted = draft();
+		const name = props.file.name;
+		busy = true;
 		setSaving(true);
 		setError(null);
 		try {
-			const saved = await filesService.save(token, props.slug, props.file.path, draft(), against);
-			const written = saved.text ?? draft();
+			const saved = await filesService.save(token, props.slug, props.file.path, submitted, against);
+			if (!isCurrent(started)) return false;
+			const written = saved.text ?? submitted;
+			// The saved base moves forward, but typing done while waiting remains unsaved.
+			const unchanged = draft() === submitted;
 			setOnDisk(written);
-			setDraft(written);
+			if (unchanged) {
+				setDraft(written);
+				setRevision((count) => count + 1);
+			}
 			setBase(saved.hash);
-			setRevision((count) => count + 1);
-			props.onDirty(false);
+			props.onDirty(!unchanged && draft() !== written);
 			props.onSaved?.({ ...saved, text: written });
-			notify({ title: `Saved ${props.file.name}` });
+			notify({ title: `Saved ${name}` });
 			return true;
 		} catch (cause) {
+			if (!isCurrent(started)) return false;
 			if (isFileConflict(cause)) setConflict(cause.message);
 			else setError(cause instanceof Error ? cause.message : "Could not save this file");
 			return false;
 		} finally {
-			setSaving(false);
+			if (isCurrent(started)) {
+				busy = false;
+				setSaving(false);
+			}
 		}
 	}
 
 	/** Read the file again and show it, throwing this edit away. */
 	async function reload(): Promise<void> {
+		if (busy) return;
+		const started = identity();
+		busy = true;
 		setSaving(true);
 		setConflict(null);
 		try {
@@ -158,7 +211,10 @@ export function FileEditor(props: {
 			props.onSaved?.(fresh);
 			notify({ title: `Reloaded ${props.file.name}` });
 		} finally {
-			setSaving(false);
+			if (isCurrent(started)) {
+				busy = false;
+				setSaving(false);
+			}
 		}
 	}
 
@@ -168,7 +224,14 @@ export function FileEditor(props: {
 	 * asked once more.
 	 */
 	async function overwrite(): Promise<void> {
+		if (busy) return;
+		const started = identity();
+		busy = true;
+		setSaving(true);
 		const fresh = await current();
+		if (!isCurrent(started)) return;
+		busy = false;
+		setSaving(false);
 		if (!fresh?.hash) {
 			// No file means `current` already said why; a file without a hash is not text any more.
 			if (fresh) setError("This file is no longer a text file");

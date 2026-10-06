@@ -51,15 +51,21 @@ export class Operate {
 	private now(): Date {
 		return this.deps.now?.() ?? new Date();
 	}
+	private linked(workspace: string, project: string): boolean {
+		const folders = this.deps.folders(workspace);
+		return (
+			Object.hasOwn(folders, project) && typeof folders[project] === "string" && !!folders[project]
+		);
+	}
 	private place(workspace: string, project: string): void {
-		if (!this.deps.folders(workspace)[project])
+		if (!this.linked(workspace, project))
 			throw new OperateError("Project not linked on this machine", 404);
 	}
 	private inherit(workspace?: string, project?: string): void {
 		for (const site of this.deps.ship.configuredSites()) {
 			if ((workspace && site.workspace !== workspace) || (project && site.project !== project))
 				continue;
-			if (!this.deps.folders(site.workspace)[site.project]) continue;
+			if (!this.linked(site.workspace, site.project)) continue;
 			let url: string;
 			try {
 				url = monitorUrl(site.url).href;
@@ -190,7 +196,7 @@ export class Operate {
 				.filter(
 					(monitor) =>
 						monitor.enabled &&
-						this.deps.folders(monitor.workspace)[monitor.project] &&
+						this.linked(monitor.workspace, monitor.project) &&
 						(!monitor.checkedAt || now.getTime() - Date.parse(monitor.checkedAt) >= INTERVAL_MS),
 				);
 			let next = 0;

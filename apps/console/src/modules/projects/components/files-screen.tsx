@@ -3,6 +3,7 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, For, Loading, Show, untrack } from "solid-js";
 
 import { workspaceHref } from "@/lib/active-workspace";
+import { accountStorage } from "@/lib/account-storage";
 import {
 	AgentLogo,
 	Alert,
@@ -137,7 +138,7 @@ const tabsKey = (slug: string) => `grid.files.tabs.${slug}`;
 
 function rememberedTabs(slug: string): string[] {
 	try {
-		const saved: unknown = JSON.parse(localStorage.getItem(tabsKey(slug)) ?? "[]");
+		const saved: unknown = JSON.parse(accountStorage.get(tabsKey(slug)) ?? "[]");
 		return Array.isArray(saved)
 			? saved.filter((item): item is string => typeof item === "string")
 			: [];
@@ -148,7 +149,7 @@ function rememberedTabs(slug: string): string[] {
 
 function rememberTabs(slug: string, paths: string[]): void {
 	try {
-		localStorage.setItem(tabsKey(slug), JSON.stringify(paths));
+		accountStorage.set(tabsKey(slug), JSON.stringify(paths));
 	} catch {
 		// Not kept; the tabs start empty next time.
 	}
@@ -210,6 +211,7 @@ function FilesView(): JSX.Element {
 	const changes = () => repo()?.changes ?? [];
 	/** Folder reads under way, so a reveal and a click do not read the same folder twice. */
 	const inFlight = new Set<string>();
+	let listingGeneration = 0;
 
 	/**
 	 * The token and project are passed in rather than read here: this runs from the effects below,
@@ -223,12 +225,19 @@ function FilesView(): JSX.Element {
 		git = false,
 	): Promise<void> {
 		if (!token || !project) return;
-		const key = `${project}\n${path}\n${git}`;
+		const started = listingGeneration;
+		const where = placementsStore.scopeOf(project);
+		const current = () =>
+			started === listingGeneration &&
+			project === slug() &&
+			token === auth.token() &&
+			where === placementsStore.scopeOf(project);
+		const key = `${started}\n${project}\n${path}\n${git}`;
 		if (inFlight.has(key)) return;
 		inFlight.add(key);
 		try {
 			const listing = await filesService.list(token, project, path, git);
-			if (project !== slug()) return;
+			if (!current()) return;
 			setListings((current) => new Map(current).set(path, listing.entries));
 			setErrors((current) => {
 				const next = new Map(current);
@@ -240,7 +249,7 @@ function FilesView(): JSX.Element {
 				setLasts((current) => ({ ...current, ...listing.git?.last }));
 			}
 		} catch (cause) {
-			if (project !== slug()) return;
+			if (!current()) return;
 			setErrors((current) =>
 				new Map(current).set(path, message(cause, "Could not read this folder")),
 			);
@@ -251,8 +260,16 @@ function FilesView(): JSX.Element {
 
 	// A new project, a newly linked folder or a retry starts the tree over from its root.
 	createEffect(
-		() => [auth.token(), slug(), workspace.folders()[slug()], revision()] as const,
+		() =>
+			[
+				auth.token(),
+				slug(),
+				workspace.folders()[slug()],
+				revision(),
+				placementsStore.environmentOf(slug()),
+			] as const,
 		([token, project]) => {
+			listingGeneration++;
 			setListings(new Map());
 			setErrors(new Map());
 			setRepo(null);
@@ -621,7 +638,10 @@ function FolderView(props: {
 	href: (params: { file?: string; dir?: string }) => string;
 }): JSX.Element {
 	const auth = useAuth();
-	const scope = () => placementsStore.scopeOf(props.slug);
+	const scope = () => {
+		placementsStore.placements();
+		return placementsStore.scopeOf(props.slug);
+	};
 	const [filter, setFilter] = createSignal("");
 	const changeFor = (path: string) => props.changes.find((change) => change.path === path);
 	/** A file is mine by its own change or last commit; a folder by anything inside it. */
@@ -1056,12 +1076,15 @@ function FilePane(props: {
 	const [blameError, setBlameError] = createSignal<string | null>(null);
 	/** The element the code scrolls in, for the minimap. */
 	const [scroller, setScroller] = createSignal<HTMLElement>();
-	const scope = () => placementsStore.scopeOf(props.slug);
+	const scope = () => {
+		placementsStore.placements();
+		return placementsStore.scopeOf(props.slug);
+	};
 	let request = 0;
 	let blameRequest = 0;
 
 	createEffect(
-		() => [auth.token(), props.slug, props.path] as const,
+		() => [auth.token(), props.slug, props.path, scope()] as const,
 		([token, slug, path]) => {
 			// Read untracked: the flag is consumed here and cleared by `onOpened`, which must not
 			// send this effect round again and close the editor it just opened.

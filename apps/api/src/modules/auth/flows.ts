@@ -185,13 +185,7 @@ export async function completeMfaLogin(
 ): Promise<SessionResult> {
 	const challenge = await tokenChallenge(deps, body.challengeToken, "mfa_login");
 	if (!(await verifyLoginCode(deps, challenge.userId, body.code))) {
-		const attempts = challenge.attempts + 1;
-		await store.recordChallengeAttempt(
-			deps.db,
-			challenge.id,
-			attempts,
-			attempts >= deps.config.otpMaxAttempts,
-		);
+		await store.recordChallengeAttempt(deps.db, challenge.id, deps.config.otpMaxAttempts);
 		throw invalidOtp();
 	}
 	if (!(await store.consumeChallenge(deps.db, challenge.id))) throw invalidOtp();
@@ -261,7 +255,16 @@ export async function refresh(deps: AuthDeps, refreshToken: string): Promise<Ses
 	return sessionResult(deps, user, rotated.id, next);
 }
 
-export async function logout(deps: AuthDeps, refreshToken: string | null): Promise<void> {
+export async function logout(
+	deps: AuthDeps,
+	refreshToken: string | null,
+	access: AccessTokenPayload | null = null,
+): Promise<void> {
+	if (access) {
+		// The route verified this JWT. Rotation changes the cookie hash, never its session owner.
+		await store.revokeSession(deps.db, access.sid, access.sub, "logout");
+		return;
+	}
 	const sessionId = refreshToken ? deps.crypto.sessionIdFromRefreshToken(refreshToken) : null;
 	if (!refreshToken || !sessionId) return;
 	const session = await store.findSession(deps.db, sessionId);
@@ -451,13 +454,7 @@ async function checkCode(
 		throw invalidOtp();
 	}
 	if (!deps.crypto.verifyOtp(purpose, email, code, challenge.codeHash)) {
-		const attempts = challenge.attempts + 1;
-		await store.recordChallengeAttempt(
-			deps.db,
-			challenge.id,
-			attempts,
-			attempts >= deps.config.otpMaxAttempts,
-		);
+		await store.recordChallengeAttempt(deps.db, challenge.id, deps.config.otpMaxAttempts);
 		throw invalidOtp();
 	}
 	return challenge;

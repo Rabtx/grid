@@ -20,6 +20,20 @@ const suggestionsPath = (project: string, id?: string) =>
 	`${placementsStore.scopeOf(project)}/chat/notes/${project}/suggestions${id ? `/${id}` : ""}`;
 // Each note's changes in flight, so they reach the API (and come back) in the order made.
 const queues = new Map<string, Promise<Note>>();
+// Notes changed while a list was in flight must survive its older snapshot (deletions too).
+const changedDuringRead = new Map<string, Set<string>>();
+function changed(project: string, id: string): void {
+	changedDuringRead.get(project)?.add(id);
+}
+localStore.onUserChange(() => {
+	setByProject({});
+	setLoaded({});
+	setErrors({});
+	setSuggested({});
+	pending.clear();
+	queues.clear();
+	changedDuringRead.clear();
+});
 
 const cacheKey = (project: string) => `notes:${project}`;
 
@@ -47,25 +61,43 @@ export const notesStore = {
 	load(token: string, project: string): Promise<void> {
 		const inFlight = pending.get(project);
 		if (inFlight) return inFlight;
+		const started = localStore.version();
+		const changedIds = new Set<string>();
+		changedDuringRead.set(project, changedIds);
 		const work = (async () => {
 			if (!untrack(loaded)[project]) {
 				const cached = await localStore.get<Note[]>(cacheKey(project));
-				if (cached && !untrack(loaded)[project]) {
+				if (
+					started === localStore.version() &&
+					cached &&
+					!untrack(loaded)[project] &&
+					changedIds.size === 0
+				) {
 					setByProject({ ...untrack(byProject), [project]: cached });
 					setLoaded({ ...untrack(loaded), [project]: true });
 				}
 			}
 			try {
-				put(project, await projectsService.listNotes(token, project));
+				if (started !== localStore.version()) return;
+				const list = await projectsService.listNotes(token, project);
+				if (started !== localStore.version()) return;
+				put(project, [
+					...list.filter((item) => !changedIds.has(item.id)),
+					...current(project).filter((item) => changedIds.has(item.id)),
+				]);
 				setErrors({ ...untrack(errors), [project]: null });
 			} catch (cause) {
+				if (started !== localStore.version()) return;
 				setErrors({
 					...untrack(errors),
 					[project]: cause instanceof Error ? cause.message : "Could not load the notes",
 				});
 			} finally {
-				setLoaded({ ...untrack(loaded), [project]: true });
-				pending.delete(project);
+				if (started === localStore.version()) {
+					setLoaded({ ...untrack(loaded), [project]: true });
+					pending.delete(project);
+					changedDuringRead.delete(project);
+				}
 			}
 		})();
 		pending.set(project, work);
@@ -73,7 +105,10 @@ export const notesStore = {
 	},
 
 	async add(token: string, project: string, input: CreateNoteInput): Promise<Note> {
+		const started = localStore.version();
 		const note = await projectsService.createNote(token, project, input);
+		if (started !== localStore.version()) return note;
+		changed(project, note.id);
 		put(project, [note, ...current(project).filter((item) => item.id !== note.id)]);
 		return note;
 	},
@@ -84,6 +119,8 @@ export const notesStore = {
 	 * only updates what it changed, so a late answer never puts back an older text or flag.
 	 */
 	update(token: string, project: string, id: string, patch: NotePatch): Promise<Note> {
+		const started = localStore.version();
+		changed(project, id);
 		const flags = patch.body === undefined;
 		const before = current(project).find((item) => item.id === id);
 		if (before && flags) {
@@ -96,9 +133,15 @@ export const notesStore = {
 		const previous = queues.get(key) ?? Promise.resolve();
 		const run = previous
 			.catch(() => {})
-			.then(() => projectsService.updateNote(token, project, id, patch))
+			.then(() => {
+				if (started !== localStore.version())
+					throw new Error("This account is no longer signed in");
+				return projectsService.updateNote(token, project, id, patch);
+			})
 			.then(
 				(note) => {
+					if (started !== localStore.version()) return note;
+					changed(project, id);
 					const fields: Partial<Note> = flags
 						? {
 								...(patch.pinned !== undefined ? { pinned: note.pinned } : {}),
@@ -119,7 +162,7 @@ export const notesStore = {
 					return current(project).find((item) => item.id === id) ?? note;
 				},
 				(cause: unknown) => {
-					if (before && flags) {
+					if (started === localStore.version() && before && flags) {
 						const undo: Partial<Note> = {
 							...(patch.pinned !== undefined ? { pinned: before.pinned } : {}),
 							...(patch.shared !== undefined ? { shared: before.shared } : {}),
@@ -157,9 +200,11 @@ export const notesStore = {
 	): Promise<string | undefined> {
 		// A read in flight (or none yet) is waited for, so the thread gets the API's copy — but
 		// not for long: a thread is never held up by its notes.
+		const started = localStore.version();
 		const reading =
 			pending.get(project) ?? (untrack(loaded)[project] ? null : notesStore.load(token, project));
 		if (reading) await Promise.race([reading, new Promise((resolve) => setTimeout(resolve, 2500))]);
+		if (started !== localStore.version()) return undefined;
 		const shared = current(project)
 			.filter(
 				(note) => note.shared && (!agent || note.agents === null || note.agents.includes(agent)),
@@ -187,22 +232,27 @@ export const notesStore = {
 
 	/** Read what agents suggested for the project's notes; an unreachable runner means none. */
 	async loadSuggestions(token: string, project: string): Promise<void> {
+		const started = localStore.version();
 		try {
 			const list = await runnerCall<NoteSuggestion[]>(suggestionsPath(project), token);
+			if (started !== localStore.version()) return;
 			setSuggested({ ...untrack(suggested), [project]: list });
 		} catch {
+			if (started !== localStore.version()) return;
 			setSuggested({ ...untrack(suggested), [project]: [] });
 		}
 	},
 
 	/** Let a suggestion go: gone from the note at once, back if the runner refuses. */
 	async dismissSuggestion(token: string, project: string, id: string): Promise<void> {
+		const started = localStore.version();
 		const before = untrack(suggested)[project] ?? [];
 		setSuggested({ ...untrack(suggested), [project]: before.filter((item) => item.id !== id) });
 		try {
 			await runnerCall<void>(suggestionsPath(project, id), token, { method: "DELETE" });
 		} catch (cause) {
-			setSuggested({ ...untrack(suggested), [project]: before });
+			if (started === localStore.version())
+				setSuggested({ ...untrack(suggested), [project]: before });
 			throw cause;
 		}
 	},
@@ -213,17 +263,22 @@ export const notesStore = {
 		project: string,
 		suggestion: NoteSuggestion,
 	): Promise<Note> {
+		const started = localStore.version();
 		const note = current(project).find((item) => item.id === suggestion.noteId);
 		if (!note) throw new Error("That note is no longer here");
 		const saved = await notesStore.update(token, project, note.id, {
 			body: `${note.body.trimEnd()}\n\n${suggestion.text.trim()}`,
 		});
+		if (started !== localStore.version()) return saved;
 		await notesStore.dismissSuggestion(token, project, suggestion.id).catch(() => undefined);
 		return saved;
 	},
 
 	async remove(token: string, project: string, id: string): Promise<void> {
+		const started = localStore.version();
 		await projectsService.deleteNote(token, project, id);
+		if (started !== localStore.version()) return;
+		changed(project, id);
 		put(
 			project,
 			current(project).filter((item) => item.id !== id),

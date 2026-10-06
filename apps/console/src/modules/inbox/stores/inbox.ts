@@ -1,6 +1,7 @@
 import { createSignal, untrack } from "solid-js";
 
 import { playChime } from "@/lib/chime";
+import { localStore } from "@/lib/local-store";
 import { placementsStore } from "@/modules/environments";
 
 import { inboxService } from "../services/inbox.service";
@@ -34,6 +35,20 @@ let counting: Promise<void> | null = null;
 
 /** Whether a count has come back yet: the first one is what was already waiting. */
 let counted = false;
+localStore.onUserChange(() => {
+	latestLoad++;
+	version++;
+	pending = null;
+	counting = null;
+	counted = false;
+	readWhileLoading = [];
+	setItems([]);
+	setUnread(0);
+	setLoading(false);
+	setLoaded(false);
+	setError(null);
+	setGithub(false);
+});
 
 /** The count, with a chime when it grows after the first (something new needs you). */
 function setCount(next: number): void {
@@ -133,7 +148,7 @@ export const inboxStore = {
 	async count(token: string): Promise<void> {
 		if (counting) return counting;
 		const since = version;
-		counting = (async () => {
+		const work = (async () => {
 			const scopes = untrack(placementsStore.scopes);
 			const answers = await Promise.all(
 				scopes.map((scope) =>
@@ -150,9 +165,10 @@ export const inboxStore = {
 				setCount(answers.reduce<number>((total, value) => total + (value ?? 0), 0));
 			}
 		})().finally(() => {
-			counting = null;
+			if (counting === work) counting = null;
 		});
-		return counting;
+		counting = work;
+		return work;
 	},
 
 	/**
