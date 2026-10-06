@@ -338,14 +338,14 @@ describe("editing a file", () => {
 			vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
 				const url = input.toString();
 				calls.push(url);
-				// A real access token is short-lived, so it is always inside the window the console
-				// renews it in, and a renewal mints a new string every time. Both matter here: an
-				// unsaved draft has to survive the token being replaced underneath the editor.
+				// Each renewal mints a new string, and the token lives just past the minute the
+				// console renews it ahead of, so it is replaced about once a second: often enough
+				// that an unsaved draft has to survive the token changing underneath the editor.
 				if (url.endsWith("/auth/refresh")) {
 					renewals++;
 					return json({
 						accessToken: `token-${renewals}`,
-						accessTokenExpiresAt: new Date(Date.now() + 30_000).toISOString(),
+						accessTokenExpiresAt: new Date(Date.now() + 61_000).toISOString(),
 						user: { id: "u1", email: "person@example.com", username: "person" },
 					});
 				}
@@ -562,18 +562,17 @@ describe("editing a file", () => {
 		expect(container.querySelector('[aria-label="Unsaved changes"]')).toBeNull();
 		expect(disk.get("notes.md")).toBe("one\ntwo\nthree");
 	});
+
 	it("keeps an unsaved draft when the access token is renewed underneath it", async () => {
 		await settle();
 		button(container, "Edit")?.click();
 		await settleEditor();
 		await type(container, "unsaved work");
-		// The stub's token is always inside the renewal window, so coming back to the tab renews
-		// it, as a real session does every few minutes. A new token is not a new file: the editor
-		// has to stay open, and the draft with it.
+		// Wait out a renewal, as a real session sees every few minutes. A new token is not a new
+		// file: the editor has to stay open, and the draft with it.
 		const before = renewals;
-		document.dispatchEvent(new Event("visibilitychange"));
-		for (let i = 0; i < 60 && renewals === before; i++) {
-			await new Promise((resolve) => setTimeout(resolve, 0));
+		for (let i = 0; i < 100 && renewals === before; i++) {
+			await new Promise((resolve) => setTimeout(resolve, 20));
 		}
 		await settle();
 		expect(renewals).toBeGreaterThan(before);
