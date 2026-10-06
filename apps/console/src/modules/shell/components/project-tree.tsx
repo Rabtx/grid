@@ -354,11 +354,6 @@ function ProjectNode(props: {
 				aria-expanded={props.open ? "true" : "false"}
 				icon={<ProjectIcon project={props.project} running={threadsStore.runningIn(slug()) > 0} />}
 				label={props.project.name}
-				trailing={
-					<Show when={threadsStore.loaded(slug()) && totalThreads() > 0}>
-						<span class="text-caption text-fg-subtle tabular-nums">{totalThreads()}</span>
-					</Show>
-				}
 				trailingAction={
 					<IconButton
 						size="xs"
@@ -402,6 +397,7 @@ function ProjectNode(props: {
 							groups={projectMenu(worktrees())}
 							onSelect={onMenu}
 							control={(control) => {
+								console.error("PROJ CONTROL for", slug());
 								menu = control;
 							}}
 						/>
