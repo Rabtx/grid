@@ -122,6 +122,9 @@ function relative(iso: string): string {
 	return `${Math.round(hours / 24)}d`;
 }
 
+const DEFAULT_PROJECT_LIMIT = 5;
+const DEFAULT_THREAD_LIMIT = 5;
+
 /**
  * Projects as folders you open and close, each holding its pages and threads. A project is a
  * folder on this machine: opening it lists its threads, picking it goes back to the thread you
@@ -134,6 +137,25 @@ export function ProjectTree(): JSX.Element {
 	const [deleting, setDeleting] = createSignal<ChatSession | null>(null);
 	const [discarding, setDiscarding] = createSignal<ChatSession | null>(null);
 	const [pending, setPending] = createSignal(false);
+	const [projectLimit, setProjectLimit] = createSignal(DEFAULT_PROJECT_LIMIT);
+
+	const allProjects = () => workspace.projects();
+	const totalProjects = () => allProjects().length;
+	const visibleProjects = () => allProjects().slice(0, projectLimit());
+	const hasMoreProjects = () => totalProjects() > projectLimit();
+	const remainingProjects = () => totalProjects() - projectLimit();
+
+	// QoL: Ensure the active project is always in view even if beyond index 4
+	createEffect(
+		() => [workspace.currentSlug(), allProjects()] as const,
+		([currentSlug, list]) => {
+			if (!currentSlug) return;
+			const idx = list.findIndex((p) => p.slug === currentSlug);
+			if (idx >= untrack(projectLimit)) {
+				setProjectLimit(Math.ceil((idx + 1) / DEFAULT_PROJECT_LIMIT) * DEFAULT_PROJECT_LIMIT);
+			}
+		},
+	);
 
 	function setOpenFor(slug: string, value: boolean): void {
 		const current = untrack(open);
@@ -170,7 +192,7 @@ export function ProjectTree(): JSX.Element {
 				}
 			>
 				<Stack gap={0.5}>
-					<For each={workspace.projects()}>
+					<For each={visibleProjects()}>
 						{(project) => (
 							<ProjectNode
 								project={project}
@@ -181,6 +203,29 @@ export function ProjectTree(): JSX.Element {
 							/>
 						)}
 					</For>
+					<Show when={hasMoreProjects()}>
+						<NavButton
+							level={0}
+							tone="default"
+							icon={<ChevronDownIcon size="xs" />}
+							label={`Show ${Math.min(DEFAULT_PROJECT_LIMIT, remainingProjects())} more projects`}
+							trailing={
+								<span class="text-caption text-fg-subtle tabular-nums">
+									{remainingProjects()} left
+								</span>
+							}
+							onClick={() => setProjectLimit((prev) => prev + DEFAULT_PROJECT_LIMIT)}
+						/>
+					</Show>
+					<Show when={!hasMoreProjects() && totalProjects() > DEFAULT_PROJECT_LIMIT}>
+						<NavButton
+							level={0}
+							tone="default"
+							icon={<ChevronDownIcon size="xs" class="rotate-180" />}
+							label="Show fewer projects"
+							onClick={() => setProjectLimit(DEFAULT_PROJECT_LIMIT)}
+						/>
+					</Show>
 				</Stack>
 			</Show>
 			<WorktreeDialog session={discarding()} onClose={() => setDiscarding(null)} />
@@ -223,6 +268,26 @@ function ProjectNode(props: {
 	const current = () => slug() === workspace.currentSlug();
 	const folder = () => workspace.folders()[slug()];
 	let menu: PopoverControl | undefined;
+
+	const [threadLimit, setThreadLimit] = createSignal(DEFAULT_THREAD_LIMIT);
+	const allThreads = () => threadsStore.threads(slug());
+	const totalThreads = () => allThreads().length;
+	const visibleThreads = () => allThreads().slice(0, threadLimit());
+	const hasMoreThreads = () => totalThreads() > threadLimit();
+	const remainingThreads = () => totalThreads() - threadLimit();
+
+	// QoL: Ensure the active thread in this project is visible even if deep in history
+	const inThread = useMatch(() => "/chat/:project/:id");
+	createEffect(
+		() => [inThread()?.params.id, allThreads()] as const,
+		([activeId, list]) => {
+			if (!activeId || !current()) return;
+			const idx = list.findIndex((t) => t.id === activeId);
+			if (idx >= untrack(threadLimit)) {
+				setThreadLimit(Math.ceil((idx + 1) / DEFAULT_THREAD_LIMIT) * DEFAULT_THREAD_LIMIT);
+			}
+		},
+	);
 
 	// A project's threads are read the first time it is opened.
 	createEffect(
@@ -290,22 +355,31 @@ function ProjectNode(props: {
 				icon={<ProjectIcon project={props.project} running={threadsStore.runningIn(slug()) > 0} />}
 				label={props.project.name}
 				trailing={
-					<span class="flex items-center gap-1.5 text-caption text-fg-subtle tabular-nums">
-						<Show when={threadsStore.loaded(slug()) && threadsStore.threads(slug()).length > 0}>
-							{threadsStore.threads(slug()).length}
-						</Show>
+					<Show when={threadsStore.loaded(slug()) && totalThreads() > 0}>
+						<span class="text-caption text-fg-subtle tabular-nums">{totalThreads()}</span>
+					</Show>
+				}
+				trailingAction={
+					<IconButton
+						size="xs"
+						label={props.open ? `Collapse ${props.project.name}` : `Expand ${props.project.name}`}
+						onClick={(event: MouseEvent) => {
+							event.preventDefault();
+							event.stopPropagation();
+							props.onToggle(!props.open);
+						}}
+					>
 						<ChevronDownIcon
 							size="xs"
 							class={`transition-transform duration-fast ${props.open ? "" : "-rotate-90"}`}
 						/>
-					</span>
+					</IconButton>
 				}
 				onMenuAt={(point) => menu?.open(point)}
 				onClick={(event: MouseEvent) => {
 					if (event.metaKey || event.ctrlKey || event.shiftKey) return;
 					event.preventDefault();
-					// The project you are in folds and unfolds; another one opens and is gone to.
-					if (current() && props.open) return props.onToggle(false);
+					// Clicking the project row opens and navigates to it
 					props.onToggle(true);
 					// Read at click time: the last thread changes as you work.
 					navigate(workspace.projectHref(slug()));
@@ -350,10 +424,10 @@ function ProjectNode(props: {
 					</Show>
 					<Show when={threadsStore.loaded(slug())} fallback={<Skeleton class="my-0.5 h-6" />}>
 						<Show
-							when={threadsStore.threads(slug()).length > 0}
+							when={totalThreads() > 0}
 							fallback={<NavNote>{threadsStore.error(slug()) ?? "No threads yet"}</NavNote>}
 						>
-							<For each={threadsStore.threads(slug())}>
+							<For each={visibleThreads()}>
 								{(session) => (
 									<ThreadRow
 										session={session}
@@ -362,6 +436,29 @@ function ProjectNode(props: {
 									/>
 								)}
 							</For>
+							<Show when={hasMoreThreads()}>
+								<NavButton
+									level={1}
+									tone="default"
+									icon={<ChevronDownIcon size="xs" />}
+									label={`Load ${Math.min(DEFAULT_THREAD_LIMIT, remainingThreads())} more`}
+									trailing={
+										<span class="text-caption text-fg-subtle tabular-nums">
+											{remainingThreads()} left
+										</span>
+									}
+									onClick={() => setThreadLimit((prev) => prev + DEFAULT_THREAD_LIMIT)}
+								/>
+							</Show>
+							<Show when={!hasMoreThreads() && totalThreads() > DEFAULT_THREAD_LIMIT}>
+								<NavButton
+									level={1}
+									tone="default"
+									icon={<ChevronDownIcon size="xs" class="rotate-180" />}
+									label="Show fewer threads"
+									onClick={() => setThreadLimit(DEFAULT_THREAD_LIMIT)}
+								/>
+							</Show>
 						</Show>
 						<Show when={folder()}>
 							<NavLink

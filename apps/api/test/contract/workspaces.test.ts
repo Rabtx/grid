@@ -5,8 +5,7 @@ import { eq, inArray } from "drizzle-orm";
 
 import { call, demoToken, json, SIGN_IN_TIMEOUT, stable } from "./client";
 
-// These tests set up and clean their own rows. `bun run test:contract` loads DATABASE_URL.
-if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is needed: run bun run test:contract");
+// These tests set up and clean their own rows.
 const database = createDatabase(process.env.DATABASE_URL);
 const tag = crypto.randomUUID().slice(0, 8);
 const slug = `acme-${tag}`;

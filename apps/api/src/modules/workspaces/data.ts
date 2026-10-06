@@ -18,7 +18,7 @@ const KEEP_BACKUPS = 7;
 const BACKUP_HOUR = 3;
 const BACKUP_FILE = /^grid-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.dump$/;
 
-export type BackupDeps = { db: Database; databaseUrl: string; backupsDir: string };
+export type BackupDeps = { db: Database; databaseUrl?: string; backupsDir: string };
 
 type Backup = { file: string; at: string; sizeBytes: number };
 
@@ -35,9 +35,9 @@ async function backups(dir: string): Promise<Backup[]> {
 	return found.sort((a, b) => b.at.localeCompare(a.at));
 }
 
-/** Whether `pg_dump` is on this machine, for the Backups row to say so when it is not. */
-function canBackUp(): boolean {
-	return Bun.which("pg_dump") !== null;
+/** Whether `pg_dump` is available and DATABASE_URL is set, for backups to run. */
+function canBackUp(databaseUrl?: string): boolean {
+	return Boolean(databaseUrl) && Bun.which("pg_dump") !== null;
 }
 
 /** The database's version, size and host, and the backups there are. */
@@ -46,10 +46,15 @@ export async function dataStatus(deps: BackupDeps, scope: WorkspaceScope) {
 	requireRole(access, "admin");
 	let database: { version: string; sizeBytes: number; healthy: boolean };
 	try {
-		// Bun's SQL client hands rows back as an array.
-		const rows = (await deps.db.execute(
+		const result = await deps.db.execute(
 			sql`select current_setting('server_version') as version, pg_database_size(current_database())::text as size`,
-		)) as unknown as { version: string; size: string }[];
+		);
+		const rows = (Array.isArray(result)
+			? result
+			: ((result as { rows?: unknown[] }).rows ?? [])) as unknown as {
+			version: string;
+			size: string;
+		}[];
 		const row = rows[0];
 		database = {
 			version: `Postgres ${String(row?.version ?? "").split(" ")[0]}`,
@@ -64,7 +69,7 @@ export async function dataStatus(deps: BackupDeps, scope: WorkspaceScope) {
 		host: hostname(),
 		database,
 		backups: {
-			available: canBackUp(),
+			available: canBackUp(deps.databaseUrl),
 			hour: BACKUP_HOUR,
 			last: list[0] ?? null,
 			count: list.length,
@@ -77,7 +82,8 @@ export async function dataStatus(deps: BackupDeps, scope: WorkspaceScope) {
  * the newest seven, and say what was written.
  */
 export async function backUp(deps: Omit<BackupDeps, "db">): Promise<Backup> {
-	if (!canBackUp()) throw new Error("pg_dump is not installed on this machine");
+	if (!deps.databaseUrl) throw new Error("pg_dump requires a PostgreSQL DATABASE_URL");
+	if (!canBackUp(deps.databaseUrl)) throw new Error("pg_dump is not installed on this machine");
 	await mkdir(deps.backupsDir, { recursive: true });
 	const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
 	const file = `grid-${stamp}.dump`;
@@ -118,7 +124,7 @@ export async function backUpNow(deps: BackupDeps, scope: WorkspaceScope): Promis
 export function scheduleBackups(deps: Omit<BackupDeps, "db">, every = 10 * 60_000): () => void {
 	let running = false;
 	const tick = async () => {
-		if (running || !canBackUp() || new Date().getHours() < BACKUP_HOUR) return;
+		if (running || !canBackUp(deps.databaseUrl) || new Date().getHours() < BACKUP_HOUR) return;
 		const last = (await backups(deps.backupsDir))[0];
 		if (last && Date.now() - Date.parse(last.at) < 20 * 3_600_000) return;
 		running = true;

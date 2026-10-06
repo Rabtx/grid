@@ -10,7 +10,6 @@ import { issueSetupCode } from "./instance";
  */
 async function main(): Promise<void> {
 	const url = process.env.DATABASE_URL;
-	if (!url) throw new Error("DATABASE_URL is required");
 	const { db, close } = createDatabase(url, { max: 1 });
 	try {
 		console.log(JSON.stringify({ code: await issueSetupCode(db) }));

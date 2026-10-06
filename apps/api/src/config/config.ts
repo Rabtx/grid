@@ -12,7 +12,7 @@ export type AppConfig = {
 	serviceName: string;
 	appName: string;
 	webAppUrl: string;
-	databaseUrl: string;
+	databaseUrl?: string;
 	databasePoolMax: number;
 	databaseSsl: boolean;
 	jwtSecret: string;
@@ -72,7 +72,7 @@ export function createConfig(env: Env = parseEnv()): AppConfig {
 		databaseSsl:
 			env.DATABASE_SSL !== undefined
 				? env.DATABASE_SSL === "true"
-				: /(?:neon\.tech|sslmode=require)/i.test(env.DATABASE_URL),
+				: Boolean(env.DATABASE_URL && /(?:neon\.tech|sslmode=require)/i.test(env.DATABASE_URL)),
 		jwtSecret: env.JWT_SECRET,
 		jwtAccessExpiresIn: env.JWT_ACCESS_EXPIRES_IN,
 		authTokenSecret: env.AUTH_TOKEN_SECRET,

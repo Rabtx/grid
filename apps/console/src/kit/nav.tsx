@@ -34,6 +34,11 @@ type NavItemProps = {
 	/** Right-hand detail at rest: a count, a shortcut, a time, a badge. Hidden while actions show. */
 	trailing?: JSX.Element;
 	/**
+	 * An interactive control rendered persistently at the right of the row (e.g. collapse toggle).
+	 * Unlike actions, this is always visible and clickable on both pointer and touch devices.
+	 */
+	trailingAction?: JSX.Element;
+	/**
 	 * Row actions for pointers (a plus, a ⋯ menu): revealed on hover or keyboard focus, never drawn
 	 * on touch screens, where a long press on the row opens the menu instead.
 	 */
@@ -52,6 +57,7 @@ const OWN = [
 	"label",
 	"detail",
 	"trailing",
+	"trailingAction",
 	"actions",
 	"onMenuAt",
 	"current",
@@ -105,9 +111,14 @@ function RowFrame(props: { item: NavItemProps; children: JSX.Element }): JSX.Ele
 			class={`group/row relative min-w-0 ${props.item.class ?? ""}`}
 		>
 			{props.children}
-			<Show when={props.item.actions}>
-				<div class="absolute inset-y-0 right-1 flex items-center gap-0.5 opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:pointer-events-none pointer-coarse:opacity-0">
-					{props.item.actions}
+			<Show when={props.item.actions || props.item.trailingAction}>
+				<div class="absolute inset-y-0 right-1 flex items-center gap-0.5">
+					<Show when={props.item.actions}>
+						<div class="flex items-center gap-0.5 opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:pointer-events-none pointer-coarse:opacity-0">
+							{props.item.actions}
+						</div>
+					</Show>
+					{props.item.trailingAction}
 				</div>
 			</Show>
 		</div>
@@ -129,8 +140,12 @@ export function NavLink(
 					level: props.detail ? 2 : props.level,
 					tone: props.tone,
 					class: props.actions
-						? "group-hover/row:pr-14 group-focus-within/row:pr-14 pointer-coarse:pr-2"
-						: "",
+						? props.trailingAction
+							? "group-hover/row:pr-20 group-focus-within/row:pr-20 pr-7 pointer-coarse:pr-9"
+							: "group-hover/row:pr-14 group-focus-within/row:pr-14 pointer-coarse:pr-2"
+						: props.trailingAction
+							? "pr-7 pointer-coarse:pr-9"
+							: "",
 				})}
 			>
 				<Content {...props} />
@@ -154,8 +169,12 @@ export function NavButton(
 					level: props.level,
 					tone: props.tone,
 					class: props.actions
-						? "group-hover/row:pr-14 group-focus-within/row:pr-14 pointer-coarse:pr-2"
-						: "",
+						? props.trailingAction
+							? "group-hover/row:pr-20 group-focus-within/row:pr-20 pr-7 pointer-coarse:pr-9"
+							: "group-hover/row:pr-14 group-focus-within/row:pr-14 pointer-coarse:pr-2"
+						: props.trailingAction
+							? "pr-7 pointer-coarse:pr-9"
+							: "",
 				})}
 			>
 				<Content {...props} />

@@ -199,9 +199,8 @@ async function demoUser(db: Db): Promise<typeof schema.users.$inferSelect> {
 
 async function main(): Promise<void> {
 	const databaseUrl = process.env.DATABASE_URL;
-	if (!databaseUrl) throw new Error("DATABASE_URL is required to seed");
-
-	const { db, close } = createDatabase(databaseUrl, { max: 1 });
+	const { db, close, kind } = createDatabase(databaseUrl, { max: 1 });
+	console.log(`[db] Seeding demo account and agent tasks on ${kind}…`);
 
 	try {
 		if (process.argv.includes("--reset")) {

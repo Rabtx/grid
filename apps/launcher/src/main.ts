@@ -56,31 +56,24 @@ async function run(cmd: string[], cwd: string, env: Record<string, string>): Pro
 	return output;
 }
 
-/** Without DATABASE_URL, start the repo's Postgres container and use it. */
-async function databaseUrl(config: LaunchConfig): Promise<string> {
-	if (config.databaseUrl) return config.databaseUrl;
-	if (!Bun.which("docker")) {
-		throw new Error(
-			"Set DATABASE_URL to a Postgres database, or install Docker so Grid can start one.",
-		);
+/** Without DATABASE_URL, Grid runs on embedded PGlite under the data directory. */
+function databaseEnv(config: LaunchConfig): Record<string, string> {
+	if (config.databaseUrl) {
+		return { DATABASE_URL: config.databaseUrl };
 	}
-	log("DATABASE_URL is not set — starting Postgres with Docker");
-	await run(
-		["docker", "compose", "-f", "docker/compose/postgres.yml", "up", "-d", "postgres"],
-		root,
-		{},
-	);
-	return "postgresql://grid:grid@localhost:5433/grid";
+	log(`DATABASE_URL is not set — using embedded PGlite under ${config.dataDir}`);
+	return { GRID_DATA_DIR: config.dataDir };
 }
 
 /** Migrate, retrying while a just-started Postgres finishes booting. */
 async function migrate(env: Record<string, string>): Promise<void> {
+	const isPostgres = Boolean(env.DATABASE_URL);
 	for (let attempt = 1; ; attempt++) {
 		try {
 			await run(["bun", "src/migrate.ts"], pkg("db"), env);
 			return;
 		} catch (error) {
-			if (attempt >= 30) throw error;
+			if (!isPostgres || attempt >= 30) throw error;
 			if (attempt === 1) log("waiting for Postgres…");
 			await Bun.sleep(1000);
 		}
@@ -176,7 +169,7 @@ function main(): Promise<void> {
 
 async function start(config: LaunchConfig): Promise<void> {
 	const secrets = loadSecrets(config.dataDir);
-	const database = { DATABASE_URL: await databaseUrl(config) };
+	const database = databaseEnv(config);
 	await migrate(database);
 	await ensureSetupLink(config, database);
 	await buildConsole(config);
@@ -209,6 +202,7 @@ async function start(config: LaunchConfig): Promise<void> {
 				AUTH_TOKEN_SECRET: secrets.authTokenSecret,
 				AUTH_DEV_EXPOSE_CODES: "false",
 				GRID_UPLOADS_DIR: uploadsDir,
+				GRID_DATA_DIR: config.dataDir,
 			},
 		},
 		{

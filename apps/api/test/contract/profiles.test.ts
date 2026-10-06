@@ -6,8 +6,7 @@ import { join } from "node:path";
 
 import { call, demoToken, json, stable } from "./client";
 
-// These tests set up and clean their own rows. `bun run test:contract` loads DATABASE_URL.
-if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is needed: run bun run test:contract");
+// These tests set up and clean their own rows.
 const database = createDatabase(process.env.DATABASE_URL);
 let token: string;
 let user: typeof schema.users.$inferSelect;
