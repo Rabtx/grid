@@ -148,6 +148,7 @@ const FORBIDDEN_TAGS = new Set([
 	"link",
 	"math",
 	"meta",
+	"noscript",
 	"object",
 	"script",
 	"select",
@@ -217,7 +218,21 @@ const ALLOWED_TAGS = new Set([
 	"wbr",
 ]);
 
-const GLOBAL_ATTRS = new Set(["align", "class", "dir", "title"]);
+const GLOBAL_ATTRS = new Set(["align", "dir", "title"]);
+
+/**
+ * The only classes kept: the ones this renderer writes itself (code blocks, highlighting, file
+ * chips). Anything else in a description could borrow the console's own utility classes and lay
+ * fake controls over the page.
+ */
+const OWN_CLASS = /^(?:hljs(?:-[\w-]+)?|code-block|code-line|file-chip|language-[\w-]+)$/;
+
+function keptClasses(value: string): string {
+	return value
+		.split(/\s+/)
+		.filter((name) => OWN_CLASS.test(name))
+		.join(" ");
+}
 
 const TAG_ATTRS: Record<string, Set<string>> = {
 	a: new Set(["href", "rel", "target", "title"]),
@@ -234,65 +249,64 @@ function sanitizeNode(node: Node): void {
 		node.parentNode?.removeChild(node);
 		return;
 	}
-	if (node.nodeType === 1) {
-		const element = node as Element;
-		const tag = element.tagName.toLowerCase();
+	if (node.nodeType !== 1) return;
+	const element = node as Element;
+	const tag = element.tagName.toLowerCase();
 
-		if (FORBIDDEN_TAGS.has(tag)) {
-			element.parentNode?.removeChild(element);
-			return;
+	if (FORBIDDEN_TAGS.has(tag)) {
+		element.parentNode?.removeChild(element);
+		return;
+	}
+
+	// Children first, while they are still inside this element: a tag that is unwrapped below
+	// hands them to its parent, whose own walk has already moved past this point and would never
+	// see them (an `<img onerror>` inside a `<u>` used to come out untouched).
+	for (const child of Array.from(element.childNodes)) sanitizeNode(child);
+
+	if (!ALLOWED_TAGS.has(tag)) {
+		// Unwrap a tag that is not allowed, keeping its (already sanitised) content.
+		element.replaceWith(...Array.from(element.childNodes));
+		return;
+	}
+
+	// Attributes: no scripts, event handlers, javascript: URLs, style injection or foreign classes
+	for (const attr of Array.from(element.attributes)) {
+		const name = attr.name.toLowerCase();
+		const val = attr.value;
+
+		if (name.startsWith("on") || name === "style") {
+			element.removeAttribute(attr.name);
+			continue;
 		}
 
-		if (!ALLOWED_TAGS.has(tag)) {
-			// Unwrap disallowed container tag: keep its children
-			const parent = element.parentNode;
-			if (parent) {
-				while (element.firstChild) {
-					parent.insertBefore(element.firstChild, element);
-				}
-				parent.removeChild(element);
+		if (name === "class") {
+			const kept = keptClasses(val);
+			if (kept) element.setAttribute("class", kept);
+			else element.removeAttribute(attr.name);
+			continue;
+		}
+
+		if (name === "href") {
+			if (tag !== "a" || !isSafeUrl(val)) {
+				element.removeAttribute(attr.name);
 			} else {
+				element.setAttribute("target", "_blank");
+				element.setAttribute("rel", "noopener noreferrer");
+			}
+			continue;
+		}
+
+		if (name === "src") {
+			if (tag !== "img" || !isSafeImageUrl(val)) {
 				element.remove();
+				return;
 			}
-			return;
+			continue;
 		}
 
-		// Sanitize attributes: no scripts, event handlers, javascript: URLs, or style injection
-		for (const attr of Array.from(element.attributes)) {
-			const name = attr.name.toLowerCase();
-			const val = attr.value;
-
-			if (name.startsWith("on") || name === "style") {
-				element.removeAttribute(attr.name);
-				continue;
-			}
-
-			if (name === "href") {
-				if (tag !== "a" || !isSafeUrl(val)) {
-					element.removeAttribute(attr.name);
-				} else {
-					element.setAttribute("target", "_blank");
-					element.setAttribute("rel", "noopener noreferrer");
-				}
-				continue;
-			}
-
-			if (name === "src") {
-				if (tag !== "img" || !isSafeImageUrl(val)) {
-					element.parentNode?.removeChild(element);
-					return;
-				}
-				continue;
-			}
-
-			const allowedForTag = TAG_ATTRS[tag];
-			if (!GLOBAL_ATTRS.has(name) && (!allowedForTag || !allowedForTag.has(name))) {
-				element.removeAttribute(attr.name);
-			}
-		}
-
-		for (const child of Array.from(element.childNodes)) {
-			sanitizeNode(child);
+		const allowedForTag = TAG_ATTRS[tag];
+		if (!GLOBAL_ATTRS.has(name) && (!allowedForTag || !allowedForTag.has(name))) {
+			element.removeAttribute(attr.name);
 		}
 	}
 }
