@@ -5,7 +5,7 @@ type: bug
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: web
 reviewer: pm
 parent: none
@@ -161,3 +161,6 @@ card is untouched.
 
 None. No API, schema or public-contract change; console UI only.
 
+## Merged
+
+Landed on `main` in shabirkhan-dev/grid#187 (squash `ee2e136`, 2026-10-07), with the fixes from PM review. Services rebuilt and restarted on `ee2e136`.
