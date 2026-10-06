@@ -14,6 +14,7 @@ import {
 	PanelHeader,
 	PlugIcon,
 	SettingsIcon,
+	SparklesIcon,
 	StatusDot,
 	UserIcon,
 } from "@/kit";
@@ -31,6 +32,7 @@ const ICONS: Record<SettingsHref, () => JSX.Element> = {
 	"/settings/members": () => <UserIcon />,
 	"/settings/connectors": () => <PlugIcon />,
 	"/settings/agents": () => <AsteriskIcon />,
+	"/settings/skills": () => <SparklesIcon />,
 	"/settings/roles": () => <UserIcon />,
 	"/settings/machines": () => <LaptopIcon />,
 };

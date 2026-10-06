@@ -141,6 +141,31 @@ Unknown IDs return `404`; invalid fields and disconnected GitHub triggers return
 Nonowners receive `403` for changes and run-now. Active job deletion and the 200-job limit
 return `409`; unsupported methods return `405`. Request bodies over 32 KiB return `413`.
 
+### Runner skills
+
+Skills are kept on the runner and use the runner prefix `/runner` with bearer authentication and
+`X-Grid-Workspace` selection. `GET /runner/skills` returns the workspace's skills, linked project
+slugs and registered agent providers. Each provider reports `delivery: "message-context"` because
+Grid includes applicable enabled skills with each chat message.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/runner/skills` | List skills, linked projects and agent delivery support |
+| `POST` | `/runner/skills` | Write a skill from `{ skillMarkdown, scope, source }` (`201`) |
+| `POST` | `/runner/skills/import/git` | Import one skill from a public HTTPS GitHub repository archive (`201`) |
+| `POST` | `/runner/skills/import/upload` | Import a folder's multipart files or one ZIP archive (`201`) |
+| `PATCH` | `/runner/skills/:id` | Enable, disable, edit `SKILL.md`, or change scope |
+| `DELETE` | `/runner/skills/:id` | Remove a skill (`204`) |
+
+`scope` is `{ "type": "workspace" }` or `{ "type": "project", "project": "<slug>" }`; a project
+must have a linked folder on this runner. A project skill with the same name overrides the workspace
+skill for that project. `SKILL.md` requires kebab-case `name` and a `description` in its YAML
+frontmatter. A skill may contain up to 20 additional text files and 64 KiB total. The archive importer
+reads ZIP entries without extracting or running repository files. Git imports accept public GitHub
+repository URLs; archives are limited to 8 MiB. Changes require the workspace's `integrations`
+permission. Invalid input returns `400`, oversized content `413`, duplicate name/scope pairs `409`,
+unknown or foreign skills `404`, and forbidden writes `403`.
+
 ### Runner attention and activity
 
 These routes use the runner prefix `/runner`, bearer authentication and

@@ -9,4 +9,5 @@ export { RolesScreen } from "./components/roles-screen";
 export { SettingsRoute } from "./components/settings-route";
 export { SettingsSidebar } from "./components/settings-sidebar";
 export { WorktreesScreen } from "./components/worktrees-screen";
+export { SettingsPage } from "./components/settings-page";
 export { settingsReturn } from "./lib/pages";

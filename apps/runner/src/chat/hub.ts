@@ -103,6 +103,8 @@ type Live = {
 	idleTimer: ReturnType<typeof setTimeout> | undefined;
 	/** What kind each tool call is, for answering a permission request about it. */
 	toolKinds?: Map<string, ToolKind>;
+	/** The skills index the current agent process was last given, and which process that was. */
+	skillsSent?: { to: Promise<AgentSession>; index: string };
 };
 
 /** Whether Grid can install and sign in an agent here, and whether it is signed in. */
@@ -272,6 +274,7 @@ export class ChatHub {
 	private failedTurn: ((session: ChatSessionRow) => void) | null = null;
 	private personal: PersonalSetup = () => ({ env: {}, note: null });
 	private mcp: (workspace: string, agent: string, thread: string) => McpServerSpec[] = () => [];
+	private skills: (workspace: string, project: string) => Promise<string> | string = () => "";
 	/** Grid's own questions waiting in threads, by their approval id. */
 	private readonly asks = new Map<
 		string,
@@ -410,6 +413,24 @@ export class ChatHub {
 	/** The MCP servers a thread's agent starts with: the workspace's connectors it may use. */
 	setMcp(servers: (workspace: string, agent: string, thread: string) => McpServerSpec[]): void {
 		this.mcp = servers;
+	}
+
+	/** Enabled workspace and project skills, added to each provider's message context. */
+	setSkills(context: (workspace: string, project: string) => Promise<string> | string): void {
+		this.skills = context;
+	}
+
+	/** Every provider accepts text messages; Grid supplies skills in that shared context. */
+	skillProviders(): {
+		id: string;
+		name: string;
+		available: boolean;
+		delivery: "message-context";
+	}[] {
+		return [...this.providers.values()].map((provider) => {
+			const { id, name, available } = provider.info();
+			return { id, name, available, delivery: "message-context" };
+		});
 	}
 
 	/**
@@ -1109,12 +1130,22 @@ export class ChatHub {
 			const prompt = paths
 				? `${text}\n\nAttached files (absolute paths on this machine):\n${paths}`
 				: text;
+			// The skills index goes to each agent process once, and again only when it changes: the
+			// agent keeps it in its own context, so repeating it every turn would only cost tokens.
+			const index = command ? null : await this.skills(session.workspaceId, session.project);
+			const sent = live.skillsSent?.to === opening ? live.skillsSent.index : "";
+			const skillsNote =
+				index === null || index === sent
+					? ""
+					: index || "The Grid skills listed earlier in this conversation are no longer enabled.";
+			const contextualPrompt = skillsNote ? `${skillsNote}\n\n---\n\n${prompt}` : prompt;
 			await this.takeTurn();
 			try {
-				result = await agent.prompt(prompt, images);
+				result = await agent.prompt(contextualPrompt, images);
 			} finally {
 				this.endTurn();
 			}
+			if (index !== null && result.reason !== "error") live.skillsSent = { to: opening, index };
 		} catch (cause) {
 			result = { reason: "error", error: cause instanceof Error ? cause.message : String(cause) };
 			// A failed start leaves nothing to reuse, but only if this is still the start that
