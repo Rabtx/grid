@@ -397,7 +397,6 @@ function ProjectNode(props: {
 							groups={projectMenu(worktrees())}
 							onSelect={onMenu}
 							control={(control) => {
-								console.error("PROJ CONTROL for", slug());
 								menu = control;
 							}}
 						/>

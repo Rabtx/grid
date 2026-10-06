@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { omit, onSettled, Show } from "solid-js";
+import { children, merge, omit, onSettled, Show } from "solid-js";
 
 import { BrandMark } from "./brand";
 import { attachContextMenu, type MenuPoint } from "./context-menu";
@@ -99,6 +99,26 @@ function Content(props: NavItemProps): JSX.Element {
 	);
 }
 
+/**
+ * The row's props with its actions and trailing control built once. They are JSX passed as props,
+ * which Solid builds again on every read, and the row reads them several times (whether there are
+ * any, which padding to use, where to draw them). Each extra read made another menu that handed
+ * over its control, and the control the caller kept could be one from a menu never put on the
+ * page: right-click and long press then opened nothing.
+ */
+function builtOnce<T extends NavItemProps>(props: T): T {
+	const actions = children(() => props.actions);
+	const trailingAction = children(() => props.trailingAction);
+	return merge(props, {
+		get actions() {
+			return actions.toArray().length ? actions() : undefined;
+		},
+		get trailingAction() {
+			return trailingAction.toArray().length ? trailingAction() : undefined;
+		},
+	}) as T;
+}
+
 /** Wraps a row that has actions or a context menu: positions the actions, wires the gestures. */
 function RowFrame(props: { item: NavItemProps; children: JSX.Element }): JSX.Element {
 	let frame: HTMLDivElement | undefined;
@@ -143,8 +163,9 @@ export function NavLink(
 	props: NavItemProps & Omit<JSX.AnchorHTMLAttributes<HTMLAnchorElement>, "children">,
 ): JSX.Element {
 	const rest = omit(props, ...OWN);
+	const item = builtOnce(props);
 	return (
-		<RowFrame item={props}>
+		<RowFrame item={item}>
 			<a
 				{...rest}
 				// Always set, so the router's own link marking never overrides the caller's choice.
@@ -152,16 +173,16 @@ export function NavLink(
 				class={row({
 					level: props.detail ? 2 : props.level,
 					tone: props.tone,
-					class: props.actions
-						? props.trailingAction
+					class: item.actions
+						? item.trailingAction
 							? "group-hover/row:pr-20 group-focus-within/row:pr-20 pr-7 pointer-coarse:pr-9"
 							: "group-hover/row:pr-14 group-focus-within/row:pr-14 pointer-coarse:pr-2"
-						: props.trailingAction
+						: item.trailingAction
 							? "pr-7 pointer-coarse:pr-9"
 							: "",
 				})}
 			>
-				<Content {...props} />
+				<Content {...item} />
 			</a>
 		</RowFrame>
 	);
@@ -172,8 +193,9 @@ export function NavButton(
 	props: NavItemProps & Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "children">,
 ): JSX.Element {
 	const rest = omit(props, ...OWN);
+	const item = builtOnce(props);
 	return (
-		<RowFrame item={props}>
+		<RowFrame item={item}>
 			<button
 				type="button"
 				{...rest}
@@ -181,16 +203,16 @@ export function NavButton(
 				class={row({
 					level: props.level,
 					tone: props.tone,
-					class: props.actions
-						? props.trailingAction
+					class: item.actions
+						? item.trailingAction
 							? "group-hover/row:pr-20 group-focus-within/row:pr-20 pr-7 pointer-coarse:pr-9"
 							: "group-hover/row:pr-14 group-focus-within/row:pr-14 pointer-coarse:pr-2"
-						: props.trailingAction
+						: item.trailingAction
 							? "pr-7 pointer-coarse:pr-9"
 							: "",
 				})}
 			>
-				<Content {...props} />
+				<Content {...item} />
 			</button>
 		</RowFrame>
 	);
@@ -366,10 +388,12 @@ export function FloatingPanel(props: {
 
 /** The panel's 52px head (the Figma Grid/Sidebar/Panel header): its title and a few icon actions. */
 export function PanelHeader(props: { title: JSX.Element; actions?: JSX.Element }): JSX.Element {
+	// Built once: read twice, the actions would be made twice (see `builtOnce`).
+	const actions = children(() => props.actions);
 	return (
 		<div class="flex h-13 shrink-0 items-center gap-0.5 border-line border-b pr-3 pl-4 pointer-coarse:h-14">
 			<h2 class="min-w-0 flex-1 truncate font-medium text-body-lg text-fg">{props.title}</h2>
-			<Show when={props.actions}>{props.actions}</Show>
+			<Show when={actions.toArray().length > 0}>{actions()}</Show>
 		</div>
 	);
 }
