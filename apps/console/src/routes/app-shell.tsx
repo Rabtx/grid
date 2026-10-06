@@ -45,7 +45,7 @@ const STANDALONE = /^\/(design|oauth)(\/|$)/;
 
 // Screens that fill the frame edge to edge and scroll inside themselves.
 const FULL_BLEED =
-	/^\/(chat|terminal|files|notes|pulls|ship|board|inbox|automations|settings|machines|agents)(\/|$)/;
+	/^\/(home|chat|terminal|files|notes|pulls|ship|board|inbox|automations|settings|machines|agents)(\/|$)/;
 const SETTINGS = /^\/settings(\/|$)/;
 
 /**
