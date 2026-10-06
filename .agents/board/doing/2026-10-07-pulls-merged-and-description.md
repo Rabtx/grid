@@ -83,3 +83,7 @@ Definition of done:
      - Kept default behavior for chat messages (`allowHtml: false`) completely unchanged.
    - In `apps/console/src/modules/github/components/pull-document.tsx`:
      - Rendered PR description body with `renderMarkdown(current().body, { allowHtml: true })`.
+
+3. **Pull Request:**
+   - https://github.com/shabirkhan-dev/grid/pull/185
+   - Commit: `884f69d` (and follow-up card update)
