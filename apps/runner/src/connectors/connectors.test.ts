@@ -84,6 +84,12 @@ describe("mcp client", () => {
 			"whoami",
 		]);
 	});
+
+	it("explains when a local MCP command stops before answering", async () => {
+		await expect(
+			probe(stdioTransport([process.execPath, "-e", "process.exit(1)"], {}), 1_000),
+		).rejects.toThrow("The local MCP command stopped before answering");
+	});
 });
 
 describe("oauth", () => {
