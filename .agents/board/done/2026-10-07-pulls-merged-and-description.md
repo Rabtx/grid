@@ -5,7 +5,7 @@ type: bug
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: web
 reviewer: pm
 parent: none
@@ -92,3 +92,7 @@ Definition of done:
 
 - Verified in the browser: the desktop Open · Merged · Closed switch lists this repository's merged pull requests.
 - Blocking issue found and fixed on the integration branch (`agent/pm/integration`): `sanitizeNode` unwrapped disallowed tags by moving their children up, and the parent's walk had already passed them, so they were never sanitised. `<u><img src="x" onerror="alert(1)"></u>` rendered with its handler intact. Children are now sanitised before any unwrap. `noscript` is forbidden. `class` keeps only the renderer's own classes (`hljs-*`, `code-block`, `code-line`, `file-chip`, `language-*`), so a description cannot apply the console's utility classes. The DOM-environment regressions are in `markdown-html.test.tsx`.
+
+## Merged
+
+Landed on `main` in shabirkhan-dev/grid#187 (squash `ee2e136`, 2026-10-07), with the fixes from PM review. Services rebuilt and restarted on `ee2e136`.

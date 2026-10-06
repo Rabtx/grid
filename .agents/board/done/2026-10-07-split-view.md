@@ -5,7 +5,7 @@ type: feature
 from: human
 to: web
 priority: high
-status: doing
+status: done
 assignee: claude
 reviewer: human
 parent: none
@@ -92,3 +92,7 @@ minimum since raised to 35%), pane menu move/merge, a real preview of a localhos
 the thread terminal (then stopped), and the phone dock at 375px. Phone terminal rendering inside
 the in-app browser's emulation is unreliable for the existing Terminal screen too, so it needs a
 real phone check.
+
+## Merged
+
+Landed on `main` in shabirkhan-dev/grid#187 (squash `ee2e136`, 2026-10-07), with the fixes from PM review. Services rebuilt and restarted on `ee2e136`.
