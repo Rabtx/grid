@@ -4,6 +4,7 @@ import { createSignal, For, onSettled, Show } from "solid-js";
 import {
 	Alert,
 	Button,
+	button,
 	Dialog,
 	Field,
 	Input,
@@ -66,6 +67,14 @@ export function ConnectDialog(props: {
 	const [error, setError] = createSignal<string | null>(null);
 	const [cliReady, setCliReady] = createSignal(false);
 	let waiting: string | null = null;
+	// On phones and in the installed app, the service's sign-in page opens from a real link the
+	// person taps, not from a blank window pointed at it afterwards: there, that blank window and the
+	// tab that shows the service can be separate browser sessions with separate cookies, and a
+	// service that keeps its sign-in in a cookie (Neon) then refuses the approval as expired.
+	const [openUrl, setOpenUrl] = createSignal<string | null>(null);
+	const [opened, setOpened] = createSignal(false);
+	const direct = () =>
+		matchMedia("(pointer: coarse)").matches || matchMedia("(display-mode: standalone)").matches;
 
 	async function run<T>(work: (token: string) => Promise<T>, failure: string): Promise<T | null> {
 		const token = auth.token();
@@ -107,7 +116,12 @@ export function ConnectDialog(props: {
 			waiting = null;
 			setBusy(false);
 			if (outcome.status === "done") signedIn(outcome);
-			else setError(outcome.message);
+			else {
+				setError(outcome.message);
+				// That sign-in is spent: the next try starts a fresh one.
+				setOpenUrl(null);
+				setOpened(false);
+			}
 		} catch {
 			// The runner did not answer this time; the sign-in is still worth waiting for.
 			if (waiting === state) poll = setTimeout(() => void check(), 3000);
@@ -157,8 +171,26 @@ export function ConnectDialog(props: {
 			);
 			return;
 		}
-		// Opened at once, inside the click, so the browser does not take it for a pop-up ad.
-		const popup = window.open("about:blank", "grid-connector", "popup,width=520,height=720");
+		if (direct()) {
+			setOpenUrl(null);
+			setOpened(false);
+			const prepared = await run(
+				(token) =>
+					connectorsService.startSignIn(token, {
+						service: props.service.id,
+						redirectUri: signInReturn(),
+					}),
+				"Could not start signing in",
+			);
+			if (!prepared) return;
+			waiting = prepared.state;
+			setOpenUrl(prepared.url);
+			void check();
+			return;
+		}
+		// Desktop: opened at once, inside the click, so the browser does not take it for a pop-up ad.
+		// A fresh window each time, never a named one reused from an earlier attempt.
+		const popup = window.open("about:blank", "_blank", "popup,width=520,height=720");
 		const started = await run(
 			(token) =>
 				connectorsService.startSignIn(token, {
@@ -213,7 +245,22 @@ export function ConnectDialog(props: {
 							Back
 						</Button>
 					</Show>
-					<Show when={step() === 0}>
+					<Show when={step() === 0 && way() === "oauth" ? openUrl() : null}>
+						{(url) => (
+							<a
+								href={url()}
+								target="_blank"
+								rel="noopener"
+								class={button({ variant: "primary" })}
+								onClick={() => setOpened(true)}
+							>
+								<Show when={opened()} fallback={`Continue to ${props.service.name}`}>
+									<Spinner /> Waiting for the sign-in…
+								</Show>
+							</a>
+						)}
+					</Show>
+					<Show when={step() === 0 && !(way() === "oauth" && openUrl())}>
 						<Button
 							variant="primary"
 							disabled={
