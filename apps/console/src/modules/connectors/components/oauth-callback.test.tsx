@@ -26,7 +26,9 @@ describe("connector sign-in callback", () => {
 	afterEach(() => vi.unstubAllGlobals());
 
 	it("finishes the sign-in with the runner itself, with no Grid session and no opener", async () => {
-		const fetcher = vi.fn(async () => Response.json({ data: { name: "Linear" } }));
+		const fetcher = vi.fn(async () =>
+			Response.json({ data: { name: "Linear", service: "linear" } }),
+		);
 		vi.stubGlobal("fetch", fetcher);
 		const { container, cleanup } = mount("?state=state-from-grid-123456&code=abc");
 		try {
@@ -41,6 +43,16 @@ describe("connector sign-in callback", () => {
 				error: null,
 			});
 			expect(container.textContent).toContain("Signed in to Linear");
+			// With no window to hand back to, it continues in Grid where the sign-in left off.
+			const assign = vi.fn();
+			vi.stubGlobal("location", { ...window.location, assign, search: window.location.search });
+			const button = [...container.querySelectorAll("button")].find(
+				(item) => item.textContent === "Continue in Grid",
+			);
+			button?.click();
+			expect(assign).toHaveBeenCalledWith(
+				"/settings/connectors?resume=state-from-grid-123456&service=linear",
+			);
 		} finally {
 			cleanup();
 		}

@@ -79,6 +79,9 @@ type Held = { workspace: string; grant: Grant | null; gh: boolean; probe: Probe;
 
 type HeldGrant = { grant: string; tools: Probe["tools"]; ms: number };
 
+/** What the sign-in window is told: the service's name, and its catalog id to continue with. */
+type SignInAnswer = { name: string; service: string | null };
+
 /** How a sign-in finished in its own window, kept for the dialog that started it to collect. */
 type Outcome = { workspace: string; at: number } & ({ result: HeldGrant } | { error: string });
 
@@ -152,6 +155,13 @@ export class Connectors {
 	private readonly pending = new Map<string, Pending>();
 	private readonly held = new Map<string, Held>();
 	private readonly outcomes = new Map<string, Outcome>();
+	/**
+	 * Sign-ins finished by their window, by state, and the ones being finished now. The page can be
+	 * opened twice for one sign-in (on a phone, the installed app can open it as well as the browser
+	 * tab), and the second visit must hear how the first went, not that the state is spent.
+	 */
+	private readonly completed = new Map<string, { at: number; answer: SignInAnswer }>();
+	private readonly completing = new Map<string, Promise<SignInAnswer>>();
 	private readonly checking = new Set<string>();
 	/** What the agents' proxies prove themselves with: made fresh each time the runner starts. */
 	readonly proxyKey = randomToken();
@@ -168,6 +178,8 @@ export class Connectors {
 		for (const [key, item] of this.held) if (now - item.at > PENDING_MS) this.held.delete(key);
 		for (const [key, item] of this.outcomes)
 			if (now - item.at > PENDING_MS) this.outcomes.delete(key);
+		for (const [key, item] of this.completed)
+			if (now - item.at > PENDING_MS) this.completed.delete(key);
 	}
 
 	private capabilitiesOf(connection: Pick<Connection, "kind">) {
@@ -409,11 +421,31 @@ export class Connectors {
 	async completeSignIn(
 		state: string,
 		answer: { code: string | null; error: string | null },
-	): Promise<{ name: string }> {
+	): Promise<SignInAnswer> {
 		this.sweep();
+		const done = this.completed.get(state);
+		if (done) return done.answer;
+		const running = this.completing.get(state);
+		if (running) return running;
+		const work = this.completeOnce(state, answer);
+		this.completing.set(state, work);
+		try {
+			const result = await work;
+			this.completed.set(state, { at: Date.now(), answer: result });
+			return result;
+		} finally {
+			this.completing.delete(state);
+		}
+	}
+
+	private async completeOnce(
+		state: string,
+		answer: { code: string | null; error: string | null },
+	): Promise<SignInAnswer> {
 		const pending = this.pending.get(state);
 		if (!pending) throw new ConnectorError("That sign-in has expired: start again from Grid", 410);
 		const name = this.nameOf(pending.url);
+		const service = CATALOG.find((item) => item.url === pending.url)?.id ?? null;
 		if (answer.error || !answer.code) {
 			this.pending.delete(state);
 			const error = answer.error || `${name} did not send Grid a code`;
@@ -423,7 +455,7 @@ export class Connectors {
 		try {
 			const result = await this.finishSignIn(pending.workspace, state, answer.code);
 			this.outcomes.set(state, { workspace: pending.workspace, at: Date.now(), result });
-			return { name };
+			return { name, service };
 		} catch (cause) {
 			const error = cause instanceof Error ? cause.message : "Signing in failed";
 			this.outcomes.set(state, { workspace: pending.workspace, at: Date.now(), error });
@@ -431,7 +463,7 @@ export class Connectors {
 		}
 	}
 
-	/** Where a sign-in started from this dialog stands; a finished one is handed over once. */
+	/** Where a sign-in started from this dialog stands, until it expires with the others. */
 	signInOutcome(
 		workspace: string,
 		state: string,
@@ -441,8 +473,9 @@ export class Connectors {
 		| { status: "failed"; message: string } {
 		this.sweep();
 		const outcome = this.outcomes.get(state);
+		// Read, not taken: two windows can wait on one sign-in (on a phone, the installed app and
+		// the browser tab it came back in), and both must hear how it went.
 		if (outcome && outcome.workspace === workspace) {
-			this.outcomes.delete(state);
 			return "result" in outcome
 				? { status: "done", ...outcome.result }
 				: { status: "failed", message: outcome.error };

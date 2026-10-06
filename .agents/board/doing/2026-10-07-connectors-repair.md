@@ -119,3 +119,24 @@ and the callback page was opened as Linear would open it, with the real state an
 The runner took the code to Linear's real token endpoint, which rejected it ("Invalid
 authorization code format"), and that result reached both the callback page and the waiting
 dialog. A real sign-in by the owner is the remaining check.
+
+## Follow-up: "expired" after giving access (PM, 2026-10-07)
+
+The owner tried Neon three times from the phone. Each sign-in succeeded at Neon, then showed "That
+sign-in has expired". On Android the callback address sits inside the installed app's scope, so it
+can open in the app's own window (leaving the dialog) as well as in the browser tab. A second visit
+found the state already spent, and the window the dialog lived in was gone.
+
+Fixed:
+- Finishing is idempotent. A repeated callback for a finished sign-in answers with the same
+  success, and one arriving while the first is exchanging waits for it (the code is exchanged once).
+- Outcomes are read, not taken, so every window waiting on a sign-in hears the same result.
+- The callback page offers "Continue in Grid". It goes to `/settings/connectors?resume=…&service=…`,
+  and the connectors screen reopens that service's dialog and picks the finished sign-in up at
+  Tools.
+
+Validation: runner 482 / 482 (a new test opens the page twice at once and checks one exchange).
+Console 700 / 700 (Continue link, and the screen resuming at Tools). In the browser, on an isolated
+runner and console: a real Linear sign-in was started, the tab went to the resume link without a
+workspace (redirected with the query kept), the dialog reopened waiting, and the callback finished
+from another tab. Linear's real token response reached the reopened dialog.
