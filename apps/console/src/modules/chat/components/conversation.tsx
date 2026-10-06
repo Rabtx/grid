@@ -14,6 +14,15 @@ import { relativeTime } from "@/modules/projects/lib/relative-time";
 import { ShellSlot, useShell } from "@/modules/shell";
 import { notesStore, useWorkspace } from "@/modules/projects";
 import {
+	DockedWorkspace,
+	layoutsStore,
+	openTab,
+	SplitFrame,
+	SplitSwitch,
+	type WorkspaceProps,
+	WorkspaceToggle,
+} from "@/modules/split";
+import {
 	AgentLogo,
 	Alert,
 	Badge,
@@ -47,7 +56,7 @@ import {
 } from "../lib/transcript";
 import { chatService, chatSocketUrl } from "../services/chat.service";
 import { threadsStore } from "../stores/threads";
-import type { ChatEvent, ChatProvider, ChatSession } from "../types/chat.types";
+import type { ChatEvent, ChatProvider, ChatSession, FileDiff } from "../types/chat.types";
 
 import { mergeModels } from "../lib/choices";
 import { addBoardTask, runSlashCommand } from "../lib/run-slash-command";
@@ -185,6 +194,7 @@ export function Conversation(props: {
 				modes: modes().length > 0,
 				efforts: efforts().length > 0,
 				project: Boolean(session()?.project),
+				split: Boolean(session()),
 			},
 			agentCommands(transcript().commands, {
 				id: session()?.provider ?? "",
@@ -213,6 +223,8 @@ export function Conversation(props: {
 				? (title) => void addBoardTask({ token: auth.token(), project: slug, title, workspace })
 				: undefined,
 			addNote: slug ? (text) => void saveNote(text) : undefined,
+			openSplit: () =>
+				layoutsStore.update(props.id, (layout) => openTab(layout, { kind: "terminal" })),
 		});
 	}
 
@@ -442,189 +454,234 @@ export function Conversation(props: {
 		};
 	};
 
-	return (
-		<div class="flex min-h-0 flex-1">
-			<div class="flex min-h-0 min-w-0 flex-1 flex-col">
-				<Show when={subtitle()}>
-					<ShellSlot name="subtitle">{subtitle()}</ShellSlot>
-				</Show>
-				<Show
-					when={
-						connection() === "reconnecting" ||
-						connection() === "gone" ||
-						connection() === "signed-out"
-					}
+	/** The agent's edits to one file, in the order it made them, for a file tab in the workspace. */
+	const diffsFor = (path: string): FileDiff[] =>
+		transcript().blocks.flatMap((block) =>
+			block.kind === "tool" ? (block.diffs ?? []).filter((diff) => diff.path === path) : [],
+		);
+	/** What the thread's workspace needs; null until the thread is known. */
+	const workspaceProps = (): WorkspaceProps | null => {
+		const current = place();
+		if (!current) return null;
+		return {
+			place: {
+				thread: props.id,
+				cwd: current.cwd,
+				environment: placementsStore.environmentOf(current.project) ?? undefined,
+			},
+			project: current.project,
+			folder: workspace.folders()[current.project],
+			files: facts().files,
+			diffsFor,
+		};
+	};
+	const split = () => layoutsStore.of(props.id).mode !== "focus";
+
+	const threadColumn = (): JSX.Element => (
+		<div class="flex min-h-0 min-w-0 flex-1 flex-col">
+			<Show when={subtitle()}>
+				<ShellSlot name="subtitle">{subtitle()}</ShellSlot>
+			</Show>
+			<Show
+				when={
+					connection() === "reconnecting" ||
+					connection() === "gone" ||
+					connection() === "signed-out"
+				}
+			>
+				<Banner tone="quiet">
+					{connection() === "reconnecting"
+						? "Connection lost — reconnecting…"
+						: connection() === "gone"
+							? "This chat no longer exists."
+							: "Your session ended. Sign in again."}
+				</Banner>
+			</Show>
+			<div class="relative flex min-h-0 flex-1 flex-col">
+				<div
+					ref={(el) => {
+						scroller = el;
+					}}
+					onScroll={(event) => {
+						const el = event.currentTarget;
+						setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 48);
+					}}
+					class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 md:px-6"
 				>
-					<Banner tone="quiet">
-						{connection() === "reconnecting"
-							? "Connection lost — reconnecting…"
-							: connection() === "gone"
-								? "This chat no longer exists."
-								: "Your session ended. Sign in again."}
-					</Banner>
-				</Show>
-				<div class="relative flex min-h-0 flex-1 flex-col">
-					<div
-						ref={(el) => {
-							scroller = el;
-						}}
-						onScroll={(event) => {
-							const el = event.currentTarget;
-							setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 48);
-						}}
-						class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 md:px-6"
-					>
-						<div class="mx-auto flex w-full max-w-160 flex-col gap-6">
-							<Show when={session()}>
-								{(current) => (
-									<div class="hidden md:block">
-										<ThreadHeader
-											title={current().title}
-											status={status()}
-											facts={[
-												...(current().role
-													? [
-															{
-																icon: <RoleMark icon={current().role?.icon ?? "code"} size="sm" />,
-																label: current().role?.name ?? "",
-															},
-														]
-													: []),
-												...(place()?.worktree
-													? [{ icon: <BranchIcon />, label: place()?.worktree?.branch ?? "" }]
-													: []),
-												{ icon: <LaptopIcon />, label: machine() },
-												{
-													icon: (
-														<AgentLogo id={current().provider} name={people()?.agentName ?? ""} />
-													),
-													label: [people()?.agentName, modelName()].filter(Boolean).join(" · "),
-												},
-												{
-													icon: <ClockIcon />,
-													label: `Started ${relativeTime(current().createdAt)}`,
-												},
-											]}
-										/>
-									</div>
-								)}
-							</Show>
-							<TranscriptView
-								people={people()}
-								loadAttachment={(id, signal) =>
-									chatService.attachment(auth.token() ?? "", props.id, id, props.scope, signal)
-								}
-								blocks={transcript().blocks}
-								running={running()}
-								onRegenerate={handleRegenerate}
-								onNote={(text) => void saveNote(text)}
-								onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
-							/>
-						</div>
-					</div>
-					<ScrollRail scroller={() => scroller} />
-					<Show when={!isPinned()}>
-						<Button
-							variant="secondary"
-							size="sm"
-							icon={<ChevronDownIcon size="sm" />}
-							onClick={() => {
-								setPinned(true);
-								scroller?.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
-							}}
-							class="absolute bottom-3 right-4 z-20 md:right-8"
-							aria-label="Scroll to latest messages"
-						>
-							Latest
-						</Button>
-					</Show>
-				</div>
-				<div class="shrink-0 px-3 pt-1 pb-safe md:px-6 md:pb-4">
-					<div class="mx-auto w-full max-w-160">
-						<Show when={error()}>
-							{(message) => (
-								<div class="mb-2">
-									<Alert tone="danger" title={message()} />
-								</div>
-							)}
-						</Show>
-						<Show when={restartNotice()}>
-							{(notice) => (
-								<div class="mb-2">
-									<Alert tone="accent" title={notice()} />
-								</div>
-							)}
-						</Show>
-						<For each={waitingOn()}>
-							{(approval) => (
-								<div class="mb-2">
-									<ApprovalCard
-										approval={approval}
-										onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
+					<div class="mx-auto flex w-full max-w-160 flex-col gap-6">
+						<Show when={session()}>
+							{(current) => (
+								<div class="hidden md:block">
+									<ThreadHeader
+										title={current().title}
+										status={status()}
+										facts={[
+											...(current().role
+												? [
+														{
+															icon: <RoleMark icon={current().role?.icon ?? "code"} size="sm" />,
+															label: current().role?.name ?? "",
+														},
+													]
+												: []),
+											...(place()?.worktree
+												? [{ icon: <BranchIcon />, label: place()?.worktree?.branch ?? "" }]
+												: []),
+											{ icon: <LaptopIcon />, label: machine() },
+											{
+												icon: (
+													<AgentLogo id={current().provider} name={people()?.agentName ?? ""} />
+												),
+												label: [people()?.agentName, modelName()].filter(Boolean).join(" · "),
+											},
+											{
+												icon: <ClockIcon />,
+												label: `Started ${relativeTime(current().createdAt)}`,
+											},
+										]}
 									/>
 								</div>
 							)}
-						</For>
-						<Composer
-							project={session()?.project}
+						</Show>
+						<TranscriptView
+							people={people()}
+							loadAttachment={(id, signal) =>
+								chatService.attachment(auth.token() ?? "", props.id, id, props.scope, signal)
+							}
+							blocks={transcript().blocks}
 							running={running()}
-							commands={commands()}
-							onCommand={runCommand}
-							disabled={connection() === "gone" || connection() === "signed-out"}
-							onSend={send}
-							onStop={() => socket?.send({ t: "cancel" })}
-							header={
-								<Show when={place()}>
-									{(current) => (
-										<>
-											<GitControl
-												folder={current().cwd}
-												scope={placementsStore.scopeOf(current().project)}
-												inWorktree={Boolean(current().worktree)}
-											/>
-										</>
-									)}
-								</Show>
-							}
-							controls={
-								<>
-									<Show when={models().length > 0}>
-										<ModelPicker
-											agent={session()?.provider}
-											agentName={provider()?.name}
-											models={models()}
-											model={model()}
-											onModel={chooseModel}
-											efforts={efforts()}
-											effort={effort()}
-											onEffort={(next) => socket?.send({ t: "configure", effort: next })}
-											control={(control) => {
-												modelPicker = control;
-											}}
-										/>
-									</Show>
-									<Show when={modes().length > 0}>
-										<ModePicker
-											modes={modes()}
-											mode={mode()}
-											onMode={(next) => socket?.send({ t: "configure", mode: next })}
-											control={(control) => {
-												modePicker = control;
-											}}
-										/>
-									</Show>
-									<Show when={transcript().usage?.contextWindow}>
-										{(total) => (
-											<ContextMeter used={transcript().usage?.contextUsed ?? 0} total={total()} />
-										)}
-									</Show>
-								</>
-							}
+							onRegenerate={handleRegenerate}
+							onNote={(text) => void saveNote(text)}
+							onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
 						/>
 					</div>
 				</div>
+				<ScrollRail scroller={() => scroller} />
+				<Show when={!isPinned()}>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={<ChevronDownIcon size="sm" />}
+						onClick={() => {
+							setPinned(true);
+							scroller?.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+						}}
+						class="absolute bottom-3 right-4 z-20 md:right-8"
+						aria-label="Scroll to latest messages"
+					>
+						Latest
+					</Button>
+				</Show>
 			</div>
-			<Show when={session()}>
+			<div class="shrink-0 px-3 pt-1 pb-safe md:px-6 md:pb-4">
+				<div class="mx-auto w-full max-w-160">
+					<Show when={error()}>
+						{(message) => (
+							<div class="mb-2">
+								<Alert tone="danger" title={message()} />
+							</div>
+						)}
+					</Show>
+					<Show when={restartNotice()}>
+						{(notice) => (
+							<div class="mb-2">
+								<Alert tone="accent" title={notice()} />
+							</div>
+						)}
+					</Show>
+					<Show when={!shell.desktop() ? workspaceProps() : null}>
+						{(workspaceOf) => <DockedWorkspace {...workspaceOf()} />}
+					</Show>
+					<For each={waitingOn()}>
+						{(approval) => (
+							<div class="mb-2">
+								<ApprovalCard
+									approval={approval}
+									onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
+								/>
+							</div>
+						)}
+					</For>
+					<Composer
+						project={session()?.project}
+						running={running()}
+						commands={commands()}
+						onCommand={runCommand}
+						disabled={connection() === "gone" || connection() === "signed-out"}
+						onSend={send}
+						onStop={() => socket?.send({ t: "cancel" })}
+						header={
+							<Show when={place()}>
+								{(current) => (
+									<>
+										<GitControl
+											folder={current().cwd}
+											scope={placementsStore.scopeOf(current().project)}
+											inWorktree={Boolean(current().worktree)}
+										/>
+									</>
+								)}
+							</Show>
+						}
+						controls={
+							<>
+								<Show when={!shell.desktop()}>
+									<WorkspaceToggle thread={props.id} />
+								</Show>
+								<Show when={models().length > 0}>
+									<ModelPicker
+										agent={session()?.provider}
+										agentName={provider()?.name}
+										models={models()}
+										model={model()}
+										onModel={chooseModel}
+										efforts={efforts()}
+										effort={effort()}
+										onEffort={(next) => socket?.send({ t: "configure", effort: next })}
+										control={(control) => {
+											modelPicker = control;
+										}}
+									/>
+								</Show>
+								<Show when={modes().length > 0}>
+									<ModePicker
+										modes={modes()}
+										mode={mode()}
+										onMode={(next) => socket?.send({ t: "configure", mode: next })}
+										control={(control) => {
+											modePicker = control;
+										}}
+									/>
+								</Show>
+								<Show when={transcript().usage?.contextWindow}>
+									{(total) => (
+										<ContextMeter used={transcript().usage?.contextUsed ?? 0} total={total()} />
+									)}
+								</Show>
+							</>
+						}
+					/>
+				</div>
+			</div>
+		</div>
+	);
+
+	return (
+		<div class="flex min-h-0 flex-1">
+			<Show when={shell.desktop() && workspaceProps()}>
+				<ShellSlot name="actions">
+					<SplitSwitch thread={props.id} />
+				</ShellSlot>
+			</Show>
+			<Show when={workspaceProps()} fallback={threadColumn()}>
+				{(workspaceOf) => (
+					<SplitFrame {...workspaceOf()} wide={shell.desktop()}>
+						{threadColumn()}
+					</SplitFrame>
+				)}
+			</Show>
+			{/* Split takes the place of the run details: the workspace is the thread's side now. */}
+			<Show when={shell.desktop() && split() ? null : session()}>
 				{(current) => (
 					<DetailAside label="Run" floating={shell.floating()}>
 						<FactGroup

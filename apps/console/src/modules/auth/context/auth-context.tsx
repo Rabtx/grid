@@ -84,7 +84,7 @@ function rememberUser(user: AuthUser | null): void {
 export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 	const known = lastUser();
 	// Read what this device kept for them from the first render.
-	if (known) localStore.setUser(known.id);
+	if (known) localStore.restoreUser(known.id);
 	const [token, setToken] = createSignal<string | null>(null);
 	const [user, setUser] = createSignal<AuthUser | null>(known);
 	const [ready, setReady] = createSignal(false);

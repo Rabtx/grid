@@ -10,7 +10,14 @@ import {
 
 import { SlashMenu } from "./slash-menu";
 
-const CONTEXT = { running: true, models: true, modes: true, efforts: true, project: true };
+const CONTEXT = {
+	running: true,
+	models: true,
+	modes: true,
+	efforts: true,
+	project: true,
+	split: true,
+};
 
 const AGENT_COMMAND: SlashCommand = {
 	id: "claude:compact",
@@ -52,7 +59,7 @@ describe("SlashMenu", () => {
 	it("lists Grid's commands with their argument hint", () => {
 		mount(GRID_COMMANDS);
 
-		expect(container.querySelectorAll('[role="option"]')).toHaveLength(8);
+		expect(container.querySelectorAll('[role="option"]')).toHaveLength(GRID_COMMANDS.length);
 		expect(container.textContent).toContain("/new");
 		expect(container.textContent).toContain("/task");
 		expect(container.textContent).toContain("<title>");
