@@ -11,7 +11,6 @@ import { call, json, type Reply, SIGN_IN_TIMEOUT, stable } from "./client";
  * 2FA, passkeys and Google, on one throwaway account made directly in the database and signed
  * in with a magic link (sign-in attempts are rate limited and the other suites use them).
  */
-if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is needed: run bun run test:contract");
 const database = createDatabase(process.env.DATABASE_URL, { max: 1 });
 const tag = Math.random().toString(36).slice(2, 10);
 const email = `security-${tag}@grid.test`;

@@ -17,7 +17,11 @@ export const envSchema = z
 		SERVICE_NAME: z.string().min(1).default("grid-api"),
 		APP_NAME: z.string().min(1).max(80).default("Grid"),
 		WEB_APP_URL: z.url().default("http://localhost:3000"),
-		DATABASE_URL: z.url().default("postgresql://grid:grid@localhost:5433/grid"),
+		DATABASE_URL: z
+			.string()
+			.url()
+			.optional()
+			.or(z.literal("").transform(() => undefined)),
 		DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(50).default(10),
 		DATABASE_SSL: z.enum(["true", "false"]).optional(),
 		JWT_SECRET: z.string().min(32).default(developmentJwtSecret),
@@ -82,6 +86,13 @@ export const envSchema = z
 			return;
 		}
 
+		if (!env.DATABASE_URL) {
+			context.addIssue({
+				code: "custom",
+				path: ["DATABASE_URL"],
+				message: "DATABASE_URL is required in production",
+			});
+		}
 		if (env.JWT_SECRET === developmentJwtSecret) {
 			context.addIssue({
 				code: "custom",

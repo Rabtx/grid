@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { createDatabase, schema } from "@grid/db";
+import { eq } from "drizzle-orm";
 
 import { call, demoToken, json, SIGN_IN_TIMEOUT, stable, type Reply } from "./client";
 
@@ -65,12 +67,17 @@ beforeAll(async () => {
 }, SIGN_IN_TIMEOUT);
 
 afterAll(async () => {
-	if (!process.env.DATABASE_URL) return;
-	const { SQL } = await import("bun");
-	const sql = new SQL(process.env.DATABASE_URL, { max: 1 });
-	await sql`delete from users where email = ${email}`;
-	for (const id of inviteIds) await sql`delete from workspace_invites where id = ${id}`;
-	await sql.close();
+	try {
+		const database = createDatabase(process.env.DATABASE_URL);
+		await database.ready;
+		await database.db.delete(schema.users).where(eq(schema.users.email, email));
+		for (const id of inviteIds) {
+			await database.db.delete(schema.workspaceInvites).where(eq(schema.workspaceInvites.id, id));
+		}
+		await database.close();
+	} catch {
+		// Non-fatal if cleanup database is unreachable
+	}
 });
 
 describe("auth: sign-up and verification", () => {

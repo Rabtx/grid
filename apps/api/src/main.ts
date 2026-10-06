@@ -10,7 +10,9 @@ const config = createConfig();
 const database = createDatabase(config.databaseUrl, {
 	max: config.databasePoolMax,
 	ssl: config.databaseSsl,
+	server: true,
 });
+await database.ready;
 const app = createApp({
 	config,
 	db: database.db,

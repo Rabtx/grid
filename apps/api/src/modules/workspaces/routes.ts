@@ -156,7 +156,7 @@ export function workspaceRoutes(deps: Deps): Hono<AppEnv> {
 }
 
 function backupDeps(deps: Deps): data.BackupDeps {
-	if (!deps.databaseUrl || !deps.backupsDir) throw badRequest("Backups are not set up on this API");
+	if (!deps.backupsDir) throw badRequest("Backups are not set up on this API");
 	return { db: deps.db, databaseUrl: deps.databaseUrl, backupsDir: deps.backupsDir };
 }
 
