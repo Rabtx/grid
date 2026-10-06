@@ -7,7 +7,11 @@ import type { Verified, Verify, Who } from "./auth";
 import { may, NOT_ALLOWED, readOnly } from "./permissions";
 import { type Channel, type ChannelSink, openChat, openTerminal } from "./channels";
 import { type ChatHub } from "./chat/hub";
-import { connectorProxyRequest, connectorRequest } from "./connectors/routes";
+import {
+	connectorCallbackRequest,
+	connectorProxyRequest,
+	connectorRequest,
+} from "./connectors/routes";
 import { pulseRequest } from "./pulse/routes";
 import { searchRequest } from "./search/routes";
 import { shipRequest } from "./ship/routes";
@@ -263,6 +267,12 @@ export function startServer(
 					const who = await whoFrom(request, "Sign in to view runner diagnostics");
 					if (who instanceof Response) return who;
 					return (await diagnosticRoutes.handle(request, url, who)) ?? error(404, "Not found");
+				}
+
+				// A connector sign-in's window finishing it: proved by the sign-in's own state.
+				if (connectors) {
+					const handled = await connectorCallbackRequest(request, url, connectors);
+					if (handled) return handled;
 				}
 
 				// An agent's connector proxy: proved with the runner's own key, not a person's sign-in.

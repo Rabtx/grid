@@ -91,3 +91,31 @@ branch `agent/pm/integration`. PM also checked the live screens: the connect dia
 GitHub shows connected and healthy, and the dev logs contain no connector errors. The card stays in
 `doing` until the owner reports exactly which connector failed and how, so the broader failure can
 be reproduced.
+
+## Root cause found (PM, 2026-10-07)
+
+The owner's report reproduced from a phone. There were two causes.
+
+1. **The sign-in code never reached Grid.** The callback page handed the code to the window that
+   opened the sign-in, through `window.opener`. Most sign-in pages cut that link, and on phones the
+   sign-in opens in a separate browser tab (Chrome Custom Tab, Safari) with no opener at all. The
+   page said "Signed in. Go back to Grid to finish connecting", and nothing was ever exchanged.
+   Fix: the callback page now finishes the sign-in itself, with an unauthenticated
+   `POST /connectors/sign-in/callback`, proved by the sign-in's single-use random state. The
+   dialog collects the result from `GET /connectors/sign-in/outcome`: on a timer, at once when the
+   window says it is done, and when the page becomes visible again.
+2. **Some services refuse the phone's address to come back to.** Measured against the real
+   servers with a Tailscale https callback: Linear, Sentry, Stripe, PostHog, Supabase, Cloudflare,
+   Notion and Neon accept it and load their sign-in pages. Vercel and Intercom accept only loopback
+   addresses, so Grid now says to connect them once from the computer Grid runs on (or use a key).
+   Figma (403 for every address, approved apps only) and Slack (no self-registration) cannot sign
+   in for any third-party app, so they are removed from the catalog.
+
+Validation: runner 481 / 481 (6 new sign-in tests: callback without a session, single use,
+workspace isolation, declined sign-in, loopback-only and approved-only servers). Console 123 files /
+699 tests (3 new callback page tests). Lint, typecheck and architecture checks pass. End to end on
+an isolated runner (:4199) and console (:3023): a real Linear sign-in was started from the dialog,
+and the callback page was opened as Linear would open it, with the real state and a fake code.
+The runner took the code to Linear's real token endpoint, which rejected it ("Invalid
+authorization code format"), and that result reached both the callback page and the waiting
+dialog. A real sign-in by the owner is the remaining check.

@@ -109,3 +109,9 @@ export interface CustomServerInput {
 	env?: Record<string, SecretRef>;
 	key?: string;
 }
+
+/** A sign-in started from the connect dialog, as the runner last knew it. */
+export type SignInOutcome =
+	| { status: "waiting" }
+	| ({ status: "done" } & HeldGrant)
+	| { status: "failed"; message: string };

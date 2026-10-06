@@ -77,6 +77,26 @@ type Pending = {
 
 type Held = { workspace: string; grant: Grant | null; gh: boolean; probe: Probe; at: number };
 
+type HeldGrant = { grant: string; tools: Probe["tools"]; ms: number };
+
+/** How a sign-in finished in its own window, kept for the dialog that started it to collect. */
+type Outcome = { workspace: string; at: number } & ({ result: HeldGrant } | { error: string });
+
+/** Whether an authorization server turned down the address to come back to. */
+function refusedRedirect(message: string): boolean {
+	return /redirect/i.test(message) && /\((400|401|403)\)/.test(message);
+}
+
+/** Loopback: the one kind of address every authorization server accepts for an app like Grid. */
+function isLoopback(uri: string): boolean {
+	try {
+		const host = new URL(uri).hostname;
+		return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+	} catch {
+		return false;
+	}
+}
+
 const PENDING_MS = 15 * 60_000;
 const RECHECK_MS = 10 * 60_000;
 const EXPIRY_WARNING_MS = 3 * 24 * 60 * 60_000;
@@ -131,6 +151,7 @@ function defaultBranchOf(folder: string): string {
 export class Connectors {
 	private readonly pending = new Map<string, Pending>();
 	private readonly held = new Map<string, Held>();
+	private readonly outcomes = new Map<string, Outcome>();
 	private readonly checking = new Set<string>();
 	/** What the agents' proxies prove themselves with: made fresh each time the runner starts. */
 	readonly proxyKey = randomToken();
@@ -145,6 +166,8 @@ export class Connectors {
 		for (const [key, item] of this.pending)
 			if (now - item.at > PENDING_MS) this.pending.delete(key);
 		for (const [key, item] of this.held) if (now - item.at > PENDING_MS) this.held.delete(key);
+		for (const [key, item] of this.outcomes)
+			if (now - item.at > PENDING_MS) this.outcomes.delete(key);
 	}
 
 	private capabilitiesOf(connection: Pick<Connection, "kind">) {
@@ -303,9 +326,10 @@ export class Connectors {
 		this.sweep();
 		const url = input.service ? this.entry(input.service).url : input.url;
 		if (!url || !url.startsWith("https://")) throw new ConnectorError("Use an https address");
+		const name = this.nameOf(url);
 		try {
 			const auth = await discover(url, this.fetcher);
-			const client = await register(auth, input.redirectUri, this.fetcher);
+			const client = await this.registerFor(auth, input.redirectUri, name);
 			const verifier = randomToken(48);
 			const state = randomToken();
 			this.pending.set(state, {
@@ -327,11 +351,105 @@ export class Connectors {
 				state,
 			};
 		} catch (cause) {
+			if (cause instanceof ConnectorError) throw cause;
 			throw new ConnectorError(
 				cause instanceof Error ? cause.message : "Could not start the sign-in",
 				502,
 			);
 		}
+	}
+
+	/** The service's name for messages: its catalog name, or its host for a custom server. */
+	private nameOf(url: string): string {
+		const entry = CATALOG.find((item) => item.url === url);
+		if (entry) return entry.name;
+		try {
+			return new URL(url).host;
+		} catch {
+			return "This server";
+		}
+	}
+
+	/**
+	 * Registers Grid with the server for this address to come back to. Many servers accept only
+	 * https or loopback addresses, and some only loopback (or apps they approved by hand). When
+	 * the address is turned down, a loopback one is tried to say which of those it is, instead of
+	 * passing on the server's raw error.
+	 */
+	private async registerFor(auth: ServerAuth, redirectUri: string, name: string) {
+		try {
+			return await register(auth, redirectUri, this.fetcher);
+		} catch (cause) {
+			const message = cause instanceof Error ? cause.message : "";
+			if (!refusedRedirect(message) && !/\(403\)/.test(message)) throw cause;
+			let loopbackWorks = false;
+			if (!isLoopback(redirectUri)) {
+				try {
+					await register(auth, "http://localhost:3001/oauth/callback", this.fetcher);
+					loopbackWorks = true;
+				} catch {
+					// Turned down for loopback too: the server takes only apps it approved itself.
+				}
+			}
+			throw new ConnectorError(
+				loopbackWorks
+					? `${name} only accepts sign-ins from the computer Grid runs on. Open Grid on that computer (its localhost address) and connect ${name} there once; every device uses the connection after that. Or use an API key.`
+					: `${name} only lets apps it has approved itself sign in to its MCP server, so Grid cannot connect by signing in. Use an API key if ${name} offers one.`,
+				400,
+			);
+		}
+	}
+
+	/**
+	 * The sign-in's window came back with its code. This is the step that completes it, so it works
+	 * however the window was opened: a popup that lost its link to Grid (most sign-in pages cut it),
+	 * a new tab, or the phone's browser outside an installed app. The state is the proof: random,
+	 * single use and issued only to the person who started this sign-in.
+	 */
+	async completeSignIn(
+		state: string,
+		answer: { code: string | null; error: string | null },
+	): Promise<{ name: string }> {
+		this.sweep();
+		const pending = this.pending.get(state);
+		if (!pending) throw new ConnectorError("That sign-in has expired: start again from Grid", 410);
+		const name = this.nameOf(pending.url);
+		if (answer.error || !answer.code) {
+			this.pending.delete(state);
+			const error = answer.error || `${name} did not send Grid a code`;
+			this.outcomes.set(state, { workspace: pending.workspace, at: Date.now(), error });
+			throw new ConnectorError(error, 400);
+		}
+		try {
+			const result = await this.finishSignIn(pending.workspace, state, answer.code);
+			this.outcomes.set(state, { workspace: pending.workspace, at: Date.now(), result });
+			return { name };
+		} catch (cause) {
+			const error = cause instanceof Error ? cause.message : "Signing in failed";
+			this.outcomes.set(state, { workspace: pending.workspace, at: Date.now(), error });
+			throw cause;
+		}
+	}
+
+	/** Where a sign-in started from this dialog stands; a finished one is handed over once. */
+	signInOutcome(
+		workspace: string,
+		state: string,
+	):
+		| { status: "waiting" }
+		| ({ status: "done" } & HeldGrant)
+		| { status: "failed"; message: string } {
+		this.sweep();
+		const outcome = this.outcomes.get(state);
+		if (outcome && outcome.workspace === workspace) {
+			this.outcomes.delete(state);
+			return "result" in outcome
+				? { status: "done", ...outcome.result }
+				: { status: "failed", message: outcome.error };
+		}
+		const pending = this.pending.get(state);
+		if (pending && pending.workspace === workspace) return { status: "waiting" };
+		return { status: "failed", message: "That sign-in has expired: start again" };
 	}
 
 	/** The person came back from signing in: the grant, held until the connector is added. */
@@ -375,7 +493,12 @@ export class Connectors {
 		return this.hold(workspace, this.entry("github").url, null, true);
 	}
 
-	private async hold(workspace: string, url: string, grant: Grant | null, gh: boolean) {
+	private async hold(
+		workspace: string,
+		url: string,
+		grant: Grant | null,
+		gh: boolean,
+	): Promise<HeldGrant> {
 		const tested = await this.tryProbe(() =>
 			httpTransport(
 				url,
