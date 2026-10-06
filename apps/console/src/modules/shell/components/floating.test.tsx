@@ -96,6 +96,21 @@ describe("floating sidebar", () => {
 		expect(view.container.textContent).toContain("Projects tree");
 	});
 
+	it("card: the views row and the body scroll inside the card, with no scrollbar", async () => {
+		const view = mount("/chat/grid", () => <FloatingSidebar />);
+		dispose = view.dispose;
+		await settle();
+		const nav = view.container.querySelector('nav[aria-label="Workspace"]') as HTMLElement;
+		// The row of every destination is wider than the card: it scrolls rather than spill out.
+		const row = nav.querySelector(":scope > div") as HTMLElement;
+		expect(row.className).toContain("overflow-x-auto");
+		expect(row.className).toContain("scrollbar-none");
+		expect(row.querySelectorAll("a")).toHaveLength(11);
+		const body = nav.querySelector(":scope > div:last-child") as HTMLElement;
+		expect(body.className).toContain("overflow-y-auto");
+		expect(body.className).toContain("scrollbar-none");
+	});
+
 	it("card: holds a body in place of the projects (settings' pages)", async () => {
 		const view = mount("/settings/profile", () => (
 			<FloatingSidebar body={() => <p>Settings pages</p>} />

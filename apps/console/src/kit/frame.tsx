@@ -67,7 +67,7 @@ export function AppFrame(props: {
 					<div class="relative flex min-h-0 flex-1">
 						{/* 16px around a 232px card; its foot is kept clear for the corner controls. */}
 						<Show when={props.sidebar}>
-							<div class="hidden w-66 shrink-0 flex-col px-4 pt-2 pb-14 lg:flex">
+							<div class="hidden w-66 shrink-0 min-h-0 flex-col px-4 pt-2 pb-14 lg:flex">
 								{props.sidebar}
 							</div>
 						</Show>

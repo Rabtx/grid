@@ -3,6 +3,7 @@ import { omit, onSettled, Show } from "solid-js";
 
 import { BrandMark } from "./brand";
 import { attachContextMenu, type MenuPoint } from "./context-menu";
+import { attachEdgeFade } from "./edge-fade";
 import { variants } from "./variants";
 
 const row = variants({
@@ -299,21 +300,32 @@ export function RailButton(
 
 /**
  * The floating sidebar (the Figma Desktop · Floating sidebar): a 232px card over the canvas with
- * the views row on top, a hairline, then the panel's body, as tall as what it holds.
+ * the views row on top, a hairline, then the panel's body, as tall as what it holds. Both the row
+ * and the body scroll inside the card — never a scrollbar, on a finger or a mouse — so a wide
+ * views row or a long project list stays inside the card instead of spilling over the canvas.
  */
 export function FloatingPanel(props: {
 	label: string;
 	views: JSX.Element;
 	children: JSX.Element;
 }): JSX.Element {
+	let row: HTMLDivElement | undefined;
+	onSettled(() => (row ? attachEdgeFade(row) : undefined));
 	return (
 		<nav
 			aria-label={props.label}
-			class="surface-card flex max-h-full min-h-0 w-full flex-col gap-1 rounded-kit-2xl p-2"
+			class="surface-card flex max-h-full min-h-0 w-full flex-col gap-1 overflow-hidden rounded-kit-2xl p-2"
 		>
-			<div class="flex h-7 shrink-0 items-center justify-between">{props.views}</div>
+			<div
+				ref={(el) => {
+					row = el;
+				}}
+				class="edge-fade -mx-0.5 flex h-7 shrink-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none"
+			>
+				{props.views}
+			</div>
 			<span aria-hidden="true" class="h-px w-full shrink-0 bg-line" />
-			<div class="flex min-h-0 flex-col overflow-y-auto overscroll-contain [scrollbar-width:none]">
+			<div class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain scrollbar-none">
 				{props.children}
 			</div>
 		</nav>
