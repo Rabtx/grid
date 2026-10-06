@@ -179,6 +179,8 @@ function FilesView(): JSX.Element {
 	// Each row's menu by path, so a long press on the row (touch) opens the same menu as its ⋯.
 	const entryMenus = new Map<string, PopoverControl>();
 	const auth = useAuth();
+	/** Signed in or not; a memo so a renewed token is not mistaken for a new session. */
+	const signedIn = createMemo(() => auth.token() !== null);
 	const workspace = useWorkspace();
 	const navigate = useNavigate();
 	const match = useMatch(() => "/files/:slug");
@@ -230,7 +232,8 @@ function FilesView(): JSX.Element {
 		const current = () =>
 			started === listingGeneration &&
 			project === slug() &&
-			token === auth.token() &&
+			// Still signed in, not the same token: a renewal mid-read leaves the answer just as good.
+			auth.token() !== null &&
 			where === placementsStore.scopeOf(project);
 		const key = `${started}\n${project}\n${path}\n${git}`;
 		if (inFlight.has(key)) return;
@@ -258,17 +261,19 @@ function FilesView(): JSX.Element {
 		}
 	}
 
-	// A new project, a newly linked folder or a retry starts the tree over from its root.
+	// A new project, a newly linked folder or a retry starts the tree over from its root. Signing
+	// in counts too, but not a renewed token: that would fold the whole tree back up every few minutes.
 	createEffect(
 		() =>
 			[
-				auth.token(),
+				signedIn(),
 				slug(),
 				workspace.folders()[slug()],
 				revision(),
 				placementsStore.environmentOf(slug()),
 			] as const,
-		([token, project]) => {
+		([, project]) => {
+			const token = untrack(auth.token);
 			listingGeneration++;
 			setListings(new Map());
 			setErrors(new Map());
@@ -280,9 +285,9 @@ function FilesView(): JSX.Element {
 	);
 	// The folder on screen is read with its git story (the root's came with the read above).
 	createEffect(
-		() => [auth.token(), slug(), dir(), workspace.folders()[slug()], revision()] as const,
-		([token, project, folder]) => {
-			if (folder) void load(folder, token, project, true);
+		() => [signedIn(), slug(), dir(), workspace.folders()[slug()], revision()] as const,
+		([, project, folder]) => {
+			if (folder) void load(folder, untrack(auth.token), project, true);
 		},
 	);
 	// Going back up to the root after a folder: its git story again.
@@ -1076,19 +1081,27 @@ function FilePane(props: {
 	const [blameError, setBlameError] = createSignal<string | null>(null);
 	/** The element the code scrolls in, for the minimap. */
 	const [scroller, setScroller] = createSignal<HTMLElement>();
-	const scope = () => {
+	// Memos, so the read below runs again only when these really change: read directly, a renewed
+	// token or a refetched placement list would send it round with the same values.
+	const signedIn = createMemo(() => auth.token() !== null);
+	const scope = createMemo(() => {
 		placementsStore.placements();
 		return placementsStore.scopeOf(props.slug);
-	};
+	});
 	let request = 0;
 	let blameRequest = 0;
 
+	// Keyed on whether there is a token, not on the token itself: it is replaced every few minutes
+	// (and on every tab switch near expiry), and re-reading on each rotation tore down the editor
+	// mid-edit, silently discarding an unsaved draft.
 	createEffect(
-		() => [auth.token(), props.slug, props.path, scope()] as const,
-		([token, slug, path]) => {
+		() => [signedIn(), props.slug, props.path, scope()] as const,
+		([, slug, path]) => {
 			// Read untracked: the flag is consumed here and cleared by `onOpened`, which must not
 			// send this effect round again and close the editor it just opened.
 			const openInEditor = untrack(() => props.openInEditor);
+			// Read untracked for the same reason: a renewed token is still a valid one to read with.
+			const token = untrack(auth.token);
 			const current = ++request;
 			setContent(null);
 			setError(null);

@@ -147,21 +147,27 @@ export async function login(
 		await hash(deps, body.password);
 		throw invalidCredentials();
 	}
-	if (user.lockedUntil && user.lockedUntil > new Date()) {
-		throw locked({
-			code: "AUTH_ACCOUNT_LOCKED",
-			message: "Too many failed attempts. Try again later.",
-		});
-	}
+	const lockedNow = Boolean(user.lockedUntil && user.lockedUntil > new Date());
 	const valid = user.passwordHash
 		? await verifyPassword(body.password, user.passwordHash)
 		: (await hash(deps, body.password), false);
 	if (!valid) {
-		await recordFailedLogin(deps.db, user, {
-			maxAttempts: deps.config.maxLoginAttempts,
-			lockMinutes: deps.config.loginLockMinutes,
-		});
+		// A wrong password answers the same way whether or not the account exists or is locked:
+		// reporting "locked" here instead would turn the lockout into a way to discover which
+		// emails are registered. Only a correct password gets to hear about it.
+		if (!lockedNow) {
+			await recordFailedLogin(deps.db, user, {
+				maxAttempts: deps.config.maxLoginAttempts,
+				lockMinutes: deps.config.loginLockMinutes,
+			});
+		}
 		throw invalidCredentials();
+	}
+	if (lockedNow) {
+		throw locked({
+			code: "AUTH_ACCOUNT_LOCKED",
+			message: "Too many failed attempts. Try again later.",
+		});
 	}
 	if (!user.isActive) {
 		throw unauthorized({ code: "AUTH_ACCOUNT_INACTIVE", message: "This account is inactive" });

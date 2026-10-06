@@ -16,6 +16,8 @@ export type ChallengePurpose =
 	| "webauthn_registration"
 	| "webauthn_authentication";
 
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const hmac = (secret: string, value: string) =>
 	new Bun.CryptoHasher("sha256", secret).update(value).digest("hex");
 
@@ -33,7 +35,9 @@ function sameHex(actual: string, expected: string): boolean {
 /** A `<uuid>.<secret>` token's id, or null when it is not one. */
 function tokenId(token: string): string | null {
 	const [id, secret, ...rest] = token.split(".");
-	return id && secret && rest.length === 0 ? id : null;
+	// The id goes into a uuid column, so anything else has to be refused here: a made-up one
+	// would reach Postgres as a bad cast and answer 500 where the caller should get a 401.
+	return id && secret && rest.length === 0 && UUID_V4.test(id) ? id : null;
 }
 
 export function authCrypto(secrets: { authTokenSecret: string; jwtSecret: string }) {

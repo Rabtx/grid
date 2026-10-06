@@ -28,9 +28,14 @@ describe("auth crypto matches what is already stored", () => {
 	});
 
 	it("reads ids only from well-formed tokens", () => {
-		expect(c.challengeId("abc.def")).toBe("abc");
+		// The id goes into a uuid column: anything else must be refused here, so a made-up one
+		// answers 401 instead of reaching Postgres and coming back as a 500.
+		const id = "0b8e7c9c-1c2d-4c2d-9262-0242ac120002";
+		expect(c.challengeId(`${id}.secret`)).toBe(id);
+		expect(c.challengeId("abc.def")).toBeNull();
 		expect(c.challengeId("abc")).toBeNull();
 		expect(c.challengeId("a.b.c")).toBeNull();
+		expect(c.challengeId(".secret")).toBeNull();
 		expect(c.sessionIdFromRefreshToken(".secret")).toBeNull();
 	});
 

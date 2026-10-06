@@ -1,5 +1,7 @@
 import * as z from "zod";
 
+import { webUrl } from "../../http/validate";
+
 export const TASK_STATUSES = [
 	"backlog",
 	"ready",
@@ -46,7 +48,7 @@ export const createProjectSchema = z
 		slug,
 		name: z.string().trim().min(1).max(120),
 		summary: optionalText(280),
-		repoUrl: z.url().max(2048).nullable().optional(),
+		repoUrl: webUrl(2048).nullable().optional(),
 		icon,
 		color,
 	})
@@ -56,7 +58,7 @@ export const updateProjectSchema = z
 	.object({
 		name: z.string().trim().min(1).max(120).optional(),
 		summary: optionalText(280),
-		repoUrl: z.url().max(2048).nullable().optional(),
+		repoUrl: webUrl(2048).nullable().optional(),
 		status: z.enum(["active", "archived"]).optional(),
 		icon,
 		color,

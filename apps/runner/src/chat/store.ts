@@ -628,6 +628,13 @@ export class ChatStore {
 
 	append(sessionId: string, events: ChatEvent[]): void {
 		if (events.length === 0) return;
+		// An agent told to stop is not stopped at once, and what it had already written is still
+		// in its pipe: the last thing it says can arrive after its chat was deleted, and this row
+		// went with the chat. `events` is keyed to a session, so the write failed on the foreign
+		// key — inside the agent's own read loop and inside the flush timer, where an unhandled
+		// error takes the runner down and leaves every other chat and terminal orphaned with it.
+		// An event for a chat that is gone has nowhere to go, so it is dropped.
+		if (!this.exists(sessionId)) return;
 		const next = this.db
 			.query<{ seq: number | null }, [string]>(
 				"SELECT MAX(seq) AS seq FROM events WHERE session_id = ?",
@@ -638,6 +645,15 @@ export class ChatStore {
 		this.db.transaction(() => {
 			for (const event of events) insert.run(sessionId, seq++, JSON.stringify(event));
 		})();
+	}
+
+	/** Whether the chat is still there. An event for one that is not has nowhere to go. */
+	private exists(sessionId: string): boolean {
+		return (
+			this.db
+				.query<{ one: number }, [string]>("SELECT 1 FROM sessions WHERE id = ?")
+				.get(sessionId) !== null
+		);
 	}
 
 	events(sessionId: string): ChatEvent[] {

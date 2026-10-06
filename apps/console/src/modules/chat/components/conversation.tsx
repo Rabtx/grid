@@ -6,7 +6,7 @@ import { onAppResume } from "@/lib/app-resume";
 import { localStore, saveSoon } from "@/lib/local-store";
 import { linkFor } from "@/lib/runner-link";
 import { quietReconnects } from "@/lib/quiet-reconnects";
-import { runnerRestarted, runnerStartedAt } from "@/lib/runner-health";
+import { runnerStartedAt } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
 import { environmentsStore } from "@/modules/environments";
 import { placementsStore } from "@/modules/environments/stores/placements";
@@ -273,19 +273,28 @@ export function Conversation(props: {
 					}
 					saver.schedule();
 					const currentStartedAt = runnerStartedAt();
+					// A restart seen between two attaches of this conversation means the turn that
+					// was running is not the one that is. This is scoped to the view on purpose: the
+					// runner's own answer is the truth about what is running now, and it is right
+					// whether or not the runner restarted. Trusting anything else here reported a
+					// live turn as dead, which stopped the clock and let a second prompt be sent into
+					// a turn already in progress.
 					const restarted =
-						runnerRestarted() ||
-						(lastStartedAt !== null &&
-							currentStartedAt !== null &&
-							currentStartedAt !== lastStartedAt);
+						lastStartedAt !== null &&
+						currentStartedAt !== null &&
+						currentStartedAt !== lastStartedAt;
+					lastStartedAt = currentStartedAt;
 
-					if (running() && (restarted || !ready.running)) {
-						setRestartNotice("The runner restarted; send again to continue");
+					if (running() && !ready.running) {
+						setRestartNotice(
+							restarted
+								? "The runner restarted; send again to continue"
+								: "That turn has finished; send again to continue",
+						);
 						setRunning(false);
 					} else {
 						setRunning(ready.running);
 					}
-					lastStartedAt = currentStartedAt;
 					// Opening a chat lands on its latest message; coming back to it keeps your place.
 					if (!attachedBefore) setPinned(true);
 					attachedBefore = true;

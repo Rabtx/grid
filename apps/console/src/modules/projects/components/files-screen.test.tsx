@@ -314,10 +314,13 @@ describe("editing a file", () => {
 	let calls: string[];
 	let saves: { path: string; text: string; base: string }[];
 	let disk: Map<string, string>;
+	/** How many times the stub has issued a new access token. */
+	let renewals: number;
 
 	beforeEach(() => {
 		calls = [];
 		saves = [];
+		renewals = 0;
 		disk = new Map([
 			["readme.md", "# Alpha\nhello"],
 			["notes.md", "one\ntwo\nthree"],
@@ -335,12 +338,17 @@ describe("editing a file", () => {
 			vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
 				const url = input.toString();
 				calls.push(url);
-				if (url.endsWith("/auth/refresh"))
+				// Each renewal mints a new string, and the token lives just past the minute the
+				// console renews it ahead of, so it is replaced about once a second: often enough
+				// that an unsaved draft has to survive the token changing underneath the editor.
+				if (url.endsWith("/auth/refresh")) {
+					renewals++;
 					return json({
-						accessToken: "token",
-						accessTokenExpiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+						accessToken: `token-${renewals}`,
+						accessTokenExpiresAt: new Date(Date.now() + 61_000).toISOString(),
 						user: { id: "u1", email: "person@example.com", username: "person" },
 					});
+				}
 				if (url.endsWith("/projects")) return json([project]);
 				if (url.endsWith("/projects/folders")) return json({ alpha: "/tmp/alpha" });
 				if (url.includes("/projects/files/alpha/content")) {
@@ -553,5 +561,24 @@ describe("editing a file", () => {
 		expect(container.textContent).toContain("hello");
 		expect(container.querySelector('[aria-label="Unsaved changes"]')).toBeNull();
 		expect(disk.get("notes.md")).toBe("one\ntwo\nthree");
+	});
+
+	it("keeps an unsaved draft when the access token is renewed underneath it", async () => {
+		await settle();
+		button(container, "Edit")?.click();
+		await settleEditor();
+		await type(container, "unsaved work");
+		// Wait out a renewal, as a real session sees every few minutes. A new token is not a new
+		// file: the editor has to stay open, and the draft with it.
+		const before = renewals;
+		for (let i = 0; i < 100 && renewals === before; i++) {
+			await new Promise((resolve) => setTimeout(resolve, 20));
+		}
+		await settle();
+		expect(renewals).toBeGreaterThan(before);
+		expect(container.querySelector(".cm-content")?.textContent).toContain("unsaved work");
+		expect(container.querySelector('[aria-label="Unsaved changes"]')).not.toBeNull();
+		// And it is still the editor's own draft, not what the runner happens to hold.
+		expect(container.textContent).not.toContain("one\ntwo\nthree");
 	});
 });

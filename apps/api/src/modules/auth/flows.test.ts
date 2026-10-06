@@ -109,12 +109,62 @@ suite("sign-in rules", () => {
 		});
 	});
 
+	it("answers a wrong password the same way whether or not the account exists", async () => {
+		const user = await account("enumeration");
+		for (let i = 0; i < 3; i++) {
+			await failure(flows.login(deps, { email: user.email, password: "wrong" }, meta));
+		}
+		// Locked now. A wrong password must still look exactly like an unknown email, or the
+		// lockout status is a way to find out which addresses are registered.
+		for (const email of [user.email, `flows-${tag}-nobody@grid.test`]) {
+			expect(await failure(flows.login(deps, { email, password: "wrong" }, meta))).toEqual({
+				status: 401,
+				code: "AUTH_INVALID_CREDENTIALS",
+			});
+		}
+		// The right password still learns it is locked.
+		expect(
+			await failure(flows.login(deps, { email: user.email, password: PASSWORD }, meta)),
+		).toEqual({ status: 423, code: "AUTH_ACCOUNT_LOCKED" });
+	});
+
+	it("refuses a refresh token whose id is not a uuid", async () => {
+		expect(await failure(flows.refresh(deps, `${"a".repeat(24)}.${"b".repeat(43)}`))).toEqual({
+			status: 401,
+			code: "AUTH_REFRESH_TOKEN_INVALID",
+		});
+	});
+
 	it("forgets failed attempts after a successful sign-in", async () => {
 		const user = await account("reset");
 		await failure(flows.login(deps, { email: user.email, password: "wrong" }, meta));
 		await flows.login(deps, { email: user.email, password: PASSWORD }, meta);
 		const [row] = await database.db.select().from(schema.users).where(eq(schema.users.id, user.id));
 		expect(row?.failedLoginAttempts).toBe(0);
+	});
+
+	it("gives a fresh budget once a lockout has passed, instead of relocking on every try", async () => {
+		// The counter only came back down on a successful sign-in, so after a lockout ran out the
+		// next wrong guess started from the old total and locked the account again straight away —
+		// one wrong guess every lock period kept it locked forever.
+		const user = await account("decay");
+		for (let i = 0; i < 3; i++) {
+			await failure(flows.login(deps, { email: user.email, password: "wrong" }, meta));
+		}
+		// The lockout has run out. That is all the passing of time changes.
+		await database.db
+			.update(schema.users)
+			.set({ lockedUntil: new Date(Date.now() - 1000) })
+			.where(eq(schema.users.id, user.id));
+
+		await failure(flows.login(deps, { email: user.email, password: "wrong" }, meta));
+		const [row] = await database.db.select().from(schema.users).where(eq(schema.users.id, user.id));
+		// The first wrong guess of a new run, not the fourth of the old one.
+		expect(row?.failedLoginAttempts).toBe(1);
+
+		// So a whole run of guesses is left before it locks again, rather than just the one.
+		await failure(flows.login(deps, { email: user.email, password: "wrong" }, meta));
+		expect(await flows.login(deps, { email: user.email, password: PASSWORD }, meta)).toBeTruthy();
 	});
 
 	it("refuses inactive accounts, and accounts without a password", async () => {
@@ -350,6 +400,32 @@ suite("sign-in rules", () => {
 				}),
 			);
 		}
+		expect(
+			await failure(
+				flows.resetPassword(deps, { email: user.email, code, newPassword: "new-password-1234" }),
+			),
+		).toEqual({ status: 401, code: "AUTH_OTP_INVALID" });
+	});
+
+	it("counts wrong codes sent in parallel, so they still close the code", async () => {
+		// Counting from the row read before the code was checked lost every increment but one when
+		// the guesses arrived together, which is how a brute-forcer avoids the attempt limit:
+		// a burst of them counted as one and the real code stayed usable.
+		const user = await account("otp-parallel");
+		const sent = await flows.forgotPassword(deps, { email: user.email });
+		const code = sent.developmentCode ?? "";
+		const wrong = code === "000000" ? "111111" : "000000";
+		await Promise.all(
+			Array.from({ length: config.otpMaxAttempts }, () =>
+				failure(
+					flows.resetPassword(deps, {
+						email: user.email,
+						code: wrong,
+						newPassword: "new-password-1234",
+					}),
+				),
+			),
+		);
 		expect(
 			await failure(
 				flows.resetPassword(deps, { email: user.email, code, newPassword: "new-password-1234" }),

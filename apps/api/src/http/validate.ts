@@ -1,4 +1,5 @@
 import type { ZodType } from "zod";
+import * as z from "zod";
 
 import { badRequest } from "./errors";
 
@@ -50,4 +51,20 @@ const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 export function uuidV4(value: string): string {
 	if (!UUID_V4.test(value)) throw badRequest("Validation failed (uuid v 4 is expected)");
 	return value;
+}
+
+/**
+ * A web address, as `z.url()` plus the one thing it does not check: the scheme. `z.url()` only
+ * asks whether the value parses as a URL, so it takes `javascript:` and `data:` too — fine for
+ * a field a person types into, not for one that is stored and handed to other people to render
+ * (an avatar, a repository link). This keeps those to http(s).
+ */
+export function webUrl(max: number) {
+	return z
+		.url()
+		.max(max)
+		.refine((value) => {
+			const protocol = new URL(value).protocol;
+			return protocol === "http:" || protocol === "https:";
+		}, "Must be an http or https URL");
 }

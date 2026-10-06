@@ -28,10 +28,22 @@ export const spawnJsonProcess: Spawn = (command, { cwd, env, onMessage, onStderr
 	});
 
 	void readLines(proc.stdout, (line) => {
+		let message: unknown;
 		try {
-			onMessage(JSON.parse(line));
+			message = JSON.parse(line);
 		} catch {
 			// Agents occasionally print a stray non-JSON line (a banner, a warning); skip it.
+			return;
+		}
+		// Handled outside the guard on purpose. A throw from here is the event pipeline failing
+		// (a chat row deleted mid-turn, a store error) rather than a stray line, and swallowing it
+		// left the turn running with a truncated transcript and nothing logged. It is reported
+		// rather than thrown: the runner treats an unhandled rejection as fatal, and one chat's
+		// event failing must not take every terminal and socket in the process with it.
+		try {
+			onMessage(message);
+		} catch (cause) {
+			console.error("[runner] could not handle a message from the agent:", cause);
 		}
 	});
 	void readLines(proc.stderr, (line) => onStderr?.(line));
