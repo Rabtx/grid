@@ -154,7 +154,9 @@ async function pullRequest(
 		if (!FILTERS.has(filter)) return failure(400, "Unknown filter");
 		const state = (url.searchParams.get("state") ?? "open") as PullState;
 		if (!STATES.has(state)) return failure(400, "Open, merged or closed");
-		const list = await service.list(userId, folder, filter, state);
+		const rawLimit = Number(url.searchParams.get("limit") ?? "100");
+		const limit = Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 500) : 100;
+		const list = await service.list(userId, folder, filter, state, limit);
 		return Response.json({ data: list.map((pull) => withThread(pull, threads)) });
 	}
 	const number = Number(rawNumber);

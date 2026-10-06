@@ -215,6 +215,60 @@ describe("PullsScreen", () => {
 		expect(panel(view.container).querySelector('a[href="/pulls/alpha/12"]')).not.toBeNull();
 	});
 
+	it("lists merged pull requests in the panel when the Merged filter is selected", async () => {
+		const merged = {
+			...summary,
+			number: 10,
+			title: "Merged PR feature",
+			checks: "none" as const,
+			branch: "feat-merged",
+		};
+		const view = mount("/pulls/alpha?state=merged", (url) => {
+			if (url.includes("state=merged")) return json([merged]);
+			return null;
+		});
+		done = view.done;
+		await settle();
+		const text = panel(view.container).textContent ?? "";
+		expect(text).toContain("Merged");
+		expect(text).toContain("Merged PR feature");
+		expect(panel(view.container).querySelector('a[href="/pulls/alpha/10"]')).not.toBeNull();
+	});
+
+	it("shows the error and never an empty state when listing merged pull requests fails", async () => {
+		const view = mount("/pulls/alpha?state=merged", (url) => {
+			if (url.includes("state=merged")) return json({ message: "GitHub said no" }, 502);
+			return null;
+		});
+		done = view.done;
+		await settle();
+		expect(view.container.textContent).toContain("GitHub said no");
+		expect(view.container.textContent).not.toContain("Nothing merged yet");
+		expect(panel(view.container).textContent).not.toContain("No merged pull requests.");
+	});
+
+	it("indicates more pull requests exist and allows loading more beyond 100", async () => {
+		const items = Array.from({ length: 100 }, (_, i) => ({
+			...summary,
+			number: 100 - i,
+			title: `Pull request #${100 - i}`,
+			checks: "none" as const,
+		}));
+		const view = mount("/pulls/alpha?state=merged", (url) => {
+			if (url.includes("state=merged")) return json(items);
+			return null;
+		});
+		done = view.done;
+		await settle();
+		const text = panel(view.container).textContent ?? "";
+		expect(text).toContain("Showing latest 100 pull requests. More exist on GitHub.");
+		const loadMoreBtn = buttonNamed(panel(view.container), "Load more");
+		expect(loadMoreBtn).toBeDefined();
+		loadMoreBtn?.click();
+		await settle();
+		expect(view.calls.some((call) => call.url.includes("limit=200"))).toBe(true);
+	});
+
 	it("asks to connect GitHub when it is not connected", async () => {
 		const view = mount("/pulls/alpha", (url) =>
 			url.includes("/github/pulls/alpha") ? json({ message: "Connect GitHub first" }, 409) : null,
@@ -271,6 +325,42 @@ describe("PullsScreen", () => {
 		await settle();
 		const sent = view.calls.find((call) => call.url.endsWith("/12/merge"));
 		expect(sent?.init?.body).toBe(JSON.stringify({ method: "squash", deleteBranch: true }));
+	});
+
+	it("renders pull request descriptions with allowed inline HTML and sanitises XSS", async () => {
+		const prWithHtml = {
+			...detail,
+			body: [
+				"## Summary",
+				"<details>",
+				"<summary>Preview details</summary>",
+				'<img src="https://example.com/demo.png" alt="demo" onerror="alert(1)">',
+				"<br>",
+				"<!-- comment -->",
+				'<script>alert("xss")</script>',
+				'<a href="javascript:alert(2)">unsafe</a>',
+				"</details>",
+			].join("\n"),
+		};
+		const view = mount("/pulls/alpha/12", (url) => {
+			if (url.includes("/github/pulls/alpha?filter")) return json([summary]);
+			if (url.endsWith("/12/history")) return json(history);
+			if (url.endsWith("/12/review")) return json(review);
+			if (url.endsWith("/github/pulls/alpha/12")) return json(prWithHtml);
+			return null;
+		});
+		done = view.done;
+		await settle();
+		const prose = view.container.querySelector(".chat-prose")?.innerHTML ?? "";
+		expect(prose).toContain("<details");
+		expect(prose).toContain("<summary>Preview details</summary>");
+		expect(prose).toContain('<img src="https://example.com/demo.png" alt="demo">');
+		expect(prose).toContain("<br>");
+		expect(prose).not.toContain("onerror");
+		expect(prose).not.toContain("<script");
+		expect(prose).not.toContain('alert("xss")');
+		expect(prose).not.toContain('href="javascript:');
+		expect(prose).not.toContain("<!--");
 	});
 
 	it("reviews the changes: threads under their lines, a comment on a line, then the verdict", async () => {

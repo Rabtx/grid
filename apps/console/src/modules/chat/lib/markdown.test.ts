@@ -1,6 +1,9 @@
+import { Window } from "happy-dom";
 import { describe, expect, it, vi } from "vitest";
 
-vi.stubGlobal("window", { location: { origin: "https://grid.test" } });
+const happyWindow = new Window({ url: "https://grid.test" });
+vi.stubGlobal("window", happyWindow);
+vi.stubGlobal("DOMParser", happyWindow.DOMParser);
 
 const { renderMarkdown, splitLines } = await import("./markdown");
 
@@ -81,5 +84,71 @@ describe("file chips", () => {
 
 	it("escapes inline code", () => {
 		expect(renderMarkdown("`<b>&x`")).toContain("<code>&lt;b&gt;&amp;x</code>");
+	});
+});
+
+describe("renderMarkdown with allowHtml", () => {
+	it("renders safe inline HTML allowed in pull request descriptions", () => {
+		const text = `
+<details open>
+<summary>Click to view</summary>
+<p>Inside details</p>
+<img src="https://example.com/screenshot.png" alt="preview" width="300">
+<br>
+<table><thead><tr><th>Column</th></tr></thead><tbody><tr><td>Cell</td></tr></tbody></table>
+Press <kbd>Enter</kbd> to submit, H<sub>2</sub>O and X<sup>2</sup>.
+</details>
+`;
+		const html = renderMarkdown(text, { allowHtml: true });
+		expect(html).toContain("<details");
+		expect(html).toContain("<summary>Click to view</summary>");
+		expect(html).toContain(
+			'<img src="https://example.com/screenshot.png" alt="preview" width="300">',
+		);
+		expect(html).toContain("<br>");
+		expect(html).toContain("<table>");
+		expect(html).toContain("<th>Column</th>");
+		expect(html).toContain("<td>Cell</td>");
+		expect(html).toContain("<kbd>Enter</kbd>");
+		expect(html).toContain("<sub>2</sub>");
+		expect(html).toContain("<sup>2</sup>");
+	});
+
+	it("hides HTML comments", () => {
+		const html = renderMarkdown("Visible <!-- hidden comment --> text", { allowHtml: true });
+		expect(html).toContain("Visible");
+		expect(html).toContain("text");
+		expect(html).not.toContain("hidden comment");
+		expect(html).not.toContain("<!--");
+	});
+
+	it("sanitizes dangerous HTML and prevents XSS", () => {
+		const evil = `
+<script>alert("xss")</script>
+<img src="https://example.com/valid.png" onerror="alert(1)">
+<img src="javascript:alert(2)">
+<a href="javascript:alert(3)">malicious link</a>
+<div style="background: red; position: fixed;">styled</div>
+<style>body { display: none; }</style>
+<iframe src="https://evil.com"></iframe>
+`;
+		const html = renderMarkdown(evil, { allowHtml: true });
+		expect(html).not.toContain("<script");
+		expect(html).not.toContain('alert("xss")');
+		expect(html).not.toContain("onerror");
+		expect(html).not.toContain("javascript:");
+		expect(html).not.toContain('style="');
+		expect(html).not.toContain("<style");
+		expect(html).not.toContain("<iframe");
+		expect(html).toContain('<img src="https://example.com/valid.png">');
+		expect(html).toContain("<a>malicious link</a>");
+		expect(html).toContain("<div>styled</div>");
+	});
+
+	it("renders markdown images with safe URLs", () => {
+		const md = "![safe](https://example.com/image.png) and ![unsafe](javascript:alert(1))";
+		const html = renderMarkdown(md, { allowHtml: true });
+		expect(html).toContain('<img src="https://example.com/image.png" alt="safe">');
+		expect(html).not.toContain('<img src="javascript');
 	});
 });

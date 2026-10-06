@@ -1,10 +1,10 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { GitHubError } from "./codespaces";
-import type { Gh, GhResult } from "./gh";
+import { createGh, type Gh, type GhResult } from "./gh";
 import {
 	checksState,
 	conversation,
@@ -352,6 +352,24 @@ describe("pull requests through gh", () => {
 		await expect(pulls.merge("me", folder, 7, "merge")).rejects.toThrow(
 			"Pull request is not mergeable",
 		);
+	});
+
+	it("lists merged pull requests through fake gh without timing out on status checks", async () => {
+		const fakeDir = mkdtempSync(join(tmpdir(), "grid-fake-gh-pulls-"));
+		folders.push(fakeDir);
+		const fakeBinary = join(fakeDir, "gh");
+		writeFileSync(
+			fakeBinary,
+			`#!/bin/sh\nexec bun "${join(import.meta.dir, "testing", "fake-gh.ts")}" "$@"\n`,
+		);
+		chmodSync(fakeBinary, 0o755);
+
+		const pulls = new PullRequests(createGh(fakeBinary), owner);
+		const folder = repoFolder("https://github.com/acme/app.git");
+		const list = await pulls.list("me", folder, "open", "merged", 50);
+		expect(list.length).toBe(2);
+		expect(list[0].number).toBe(180);
+		expect(list[0].checks).toBe("none");
 	});
 });
 

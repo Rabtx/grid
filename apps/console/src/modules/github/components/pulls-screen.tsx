@@ -86,21 +86,32 @@ export function PullsScreen(): JSX.Element {
 	const [others, setOthers] = createSignal<PullSummary[] | null>(null);
 	const [error, setError] = createSignal<string | null>(null);
 	const [revision, setRevision] = createSignal(0);
+	const [openLimit, setOpenLimit] = createSignal(100);
+	const [othersLimit, setOthersLimit] = createSignal(100);
 
 	createEffect(
-		() => [auth.token(), slug(), workspace.folders()[slug()], revision()] as const,
-		([token, project]) => {
+		() => slug(),
+		() => {
+			setOpenLimit(100);
+			setOthersLimit(100);
+		},
+	);
+
+	createEffect(
+		() => [auth.token(), slug(), workspace.folders()[slug()], revision(), openLimit()] as const,
+		([token, project, folder, _rev, limit]) => {
 			setOpen(null);
 			setError(null);
 			if (!token || !project) return;
+			if (!folder) return;
 			void Promise.all([
-				pullsService.list(token, project, "open"),
-				pullsService.list(token, project, "review").catch(() => [] as PullSummary[]),
+				pullsService.list(token, project, "open", "open", limit),
+				pullsService.list(token, project, "review", "open", limit).catch(() => [] as PullSummary[]),
 			]).then(
 				([all, review]) => {
 					if (project !== untrack(slug)) return;
-					setWaiting(new Set(review.map((pull) => pull.number)));
-					setOpen(all);
+					setWaiting(new Set((review ?? []).map((pull) => pull.number)));
+					setOpen(all ?? []);
 				},
 				(cause) => {
 					if (project !== untrack(slug)) return;
@@ -111,17 +122,31 @@ export function PullsScreen(): JSX.Element {
 		},
 	);
 
-	// Merged and closed are read when the phone's list asks for them.
+	// Merged and closed are read when asked for.
 	createEffect(
-		() => [auth.token(), slug(), state(), revision()] as const,
-		([token, project, wanted]) => {
+		() =>
+			[
+				auth.token(),
+				slug(),
+				workspace.folders()[slug()],
+				state(),
+				revision(),
+				othersLimit(),
+			] as const,
+		([token, project, folder, wanted, _rev, limit]) => {
 			setOthers(null);
+			setError(null);
 			if (!token || !project || wanted === "open") return;
-			void pullsService.list(token, project, "open", wanted).then(
+			if (!folder) return;
+			void pullsService.list(token, project, "open", wanted, limit).then(
 				(list) => {
 					if (project === untrack(slug) && wanted === untrack(state)) setOthers(list);
 				},
-				() => setOthers([]),
+				(cause) => {
+					if (project !== untrack(slug) || wanted !== untrack(state)) return;
+					setOthers([]);
+					setError(message(cause, "Could not read the pull requests"));
+				},
 			);
 		},
 	);
@@ -136,7 +161,7 @@ export function PullsScreen(): JSX.Element {
 			<Avatar name={pull.author} size="xs" />
 		);
 	};
-	const panelRows = (list: readonly PullSummary[], waitingOnYou: boolean) => (
+	const panelRows = (list: readonly PullSummary[], waitingOnYou: boolean, closed?: string) => (
 		<For each={list} keyed={(pull) => pull.number}>
 			{(pull) => (
 				<PullPanelRow
@@ -144,7 +169,7 @@ export function PullsScreen(): JSX.Element {
 					title={pull().title}
 					time={relativeTime(pull().updatedAt)}
 					line={pullLine(pull())}
-					tone={pullTone(pull(), waitingOnYou)}
+					tone={pullTone(pull(), waitingOnYou, closed)}
 					who={who(pull())}
 					current={number() === pull().number}
 				/>
@@ -236,20 +261,82 @@ export function PullsScreen(): JSX.Element {
 			</ShellSlot>
 			{/* The panel: what waits on your review, then the rest open. */}
 			<ShellSlot name="panel">
+				<div class="px-2 pt-1 pb-2">
+					<Segmented<PullState>
+						block
+						label="Which pull requests"
+						value={state()}
+						onChange={(value) => setSearch({ state: value === "open" ? undefined : value })}
+						options={STATES.map((option) => ({
+							...option,
+							count: option.value === "open" && open() ? openCount() || undefined : undefined,
+							countTone: "quiet" as const,
+						}))}
+					/>
+				</div>
 				{problem()}
-				<Show when={open()} fallback={<Show when={!error()}>{loading()}</Show>}>
-					<Show when={needsYou().length}>
-						<PullGroupLabel>Needs your review</PullGroupLabel>
-						{panelRows(needsYou(), true)}
-					</Show>
-					<Show when={rest().length}>
-						<PullGroupLabel>Open</PullGroupLabel>
-						{panelRows(rest(), false)}
-					</Show>
-					<Show when={!error() && openCount() === 0}>
-						<Text size="caption" tone="subtle" class="px-2 py-2">
-							No open pull requests.
-						</Text>
+				<Show
+					when={state() === "open"}
+					fallback={
+						<Show when={others()} fallback={<Show when={!error()}>{loading()}</Show>}>
+							{(list) => (
+								<Show when={!error()}>
+									<Show
+										when={list().length}
+										fallback={
+											<Text size="caption" tone="subtle" class="px-2 py-2">
+												{state() === "merged"
+													? "No merged pull requests."
+													: "No closed pull requests."}
+											</Text>
+										}
+									>
+										<PullGroupLabel>{state() === "merged" ? "Merged" : "Closed"}</PullGroupLabel>
+										{panelRows(list(), false, state() === "merged" ? "MERGED" : "CLOSED")}
+										<Show when={list().length >= othersLimit()}>
+											<div class="flex flex-col gap-1 p-2">
+												<Text size="caption" tone="subtle">
+													Showing latest {list().length} pull requests. More exist on GitHub.
+												</Text>
+												<Button
+													size="sm"
+													variant="ghost"
+													onClick={() => setOthersLimit((n) => n + 100)}
+												>
+													Load more
+												</Button>
+											</div>
+										</Show>
+									</Show>
+								</Show>
+							)}
+						</Show>
+					}
+				>
+					<Show when={open()} fallback={<Show when={!error()}>{loading()}</Show>}>
+						<Show when={needsYou().length}>
+							<PullGroupLabel>Needs your review</PullGroupLabel>
+							{panelRows(needsYou(), true)}
+						</Show>
+						<Show when={rest().length}>
+							<PullGroupLabel>Open</PullGroupLabel>
+							{panelRows(rest(), false)}
+						</Show>
+						<Show when={!error() && openCount() === 0}>
+							<Text size="caption" tone="subtle" class="px-2 py-2">
+								No open pull requests.
+							</Text>
+						</Show>
+						<Show when={open() && open()!.length >= openLimit()}>
+							<div class="flex flex-col gap-1 p-2">
+								<Text size="caption" tone="subtle">
+									Showing latest {open()!.length} pull requests. More exist on GitHub.
+								</Text>
+								<Button size="sm" variant="ghost" onClick={() => setOpenLimit((n) => n + 100)}>
+									Load more
+								</Button>
+							</div>
+						</Show>
 					</Show>
 				</Show>
 			</ShellSlot>
@@ -300,20 +387,36 @@ export function PullsScreen(): JSX.Element {
 							<Show
 								when={state() === "open"}
 								fallback={
-									<Show when={others()} fallback={loading()}>
+									<Show when={others()} fallback={<Show when={!error()}>{loading()}</Show>}>
 										{(list) => (
-											<Show
-												when={list().length}
-												fallback={
-													<EmptyState
-														icon={<PullRequestIcon size="md" />}
-														title={state() === "merged" ? "Nothing merged yet" : "Nothing closed"}
-													/>
-												}
-											>
-												<div class="flex flex-col pt-2">
-													{listRows(list(), false, state() === "merged" ? "MERGED" : "CLOSED")}
-												</div>
+											<Show when={!error()}>
+												<Show
+													when={list().length}
+													fallback={
+														<EmptyState
+															icon={<PullRequestIcon size="md" />}
+															title={state() === "merged" ? "Nothing merged yet" : "Nothing closed"}
+														/>
+													}
+												>
+													<div class="flex flex-col pt-2">
+														{listRows(list(), false, state() === "merged" ? "MERGED" : "CLOSED")}
+													</div>
+													<Show when={list().length >= othersLimit()}>
+														<div class="flex flex-col items-center gap-1 pt-4 pb-2">
+															<Text size="caption" tone="subtle">
+																Showing latest {list().length} pull requests. More exist on GitHub.
+															</Text>
+															<Button
+																size="sm"
+																variant="secondary"
+																onClick={() => setOthersLimit((n) => n + 100)}
+															>
+																Load more
+															</Button>
+														</div>
+													</Show>
+												</Show>
 											</Show>
 										)}
 									</Show>
@@ -333,6 +436,20 @@ export function PullsScreen(): JSX.Element {
 											icon={<PullRequestIcon size="md" />}
 											title="No open pull requests"
 										/>
+									</Show>
+									<Show when={open() && open()!.length >= openLimit()}>
+										<div class="flex flex-col items-center gap-1 pt-4 pb-2">
+											<Text size="caption" tone="subtle">
+												Showing latest {open()!.length} pull requests. More exist on GitHub.
+											</Text>
+											<Button
+												size="sm"
+												variant="secondary"
+												onClick={() => setOpenLimit((n) => n + 100)}
+											>
+												Load more
+											</Button>
+										</div>
 									</Show>
 								</Show>
 							</Show>
