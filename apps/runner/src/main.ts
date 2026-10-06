@@ -37,6 +37,8 @@ import { Ship } from "./ship/service";
 import { ShipStore } from "./ship/store";
 import { Operate } from "./operate/service";
 import { OperateStore } from "./operate/store";
+import { OperateTelemetry } from "./operate/telemetry";
+import { TelemetryStore } from "./operate/telemetry-store";
 import { PullRequests } from "./github/pulls";
 import { inboxItem } from "./inbox/attention";
 import { GithubInbox } from "./inbox/github";
@@ -66,7 +68,8 @@ const providers = providerRegistry();
 // ACP agents added from Settings → Agents & permissions, driven alongside the built-in ones.
 const acpAgents = new AcpAgentStore(config.chatDb);
 for (const agent of acpAgents.list()) addAcpAgent(providers, agent);
-const chat = new ChatHub(new ChatStore(config.chatDb), providers, config.projectsDir);
+const chatStore = new ChatStore(config.chatDb);
+const chat = new ChatHub(chatStore, providers, config.projectsDir);
 chat.setDescribe(async (id, installed) => ({
 	version: installed ? await agentVersion(agentBinary(id)) : null,
 	custom: acpAgents.list().some((agent) => agent.id === id),
@@ -237,6 +240,11 @@ const operate = new Operate({
 	inbox,
 	folders: (workspace) => chat.projectFolders(workspace),
 });
+const operateTelemetry = new OperateTelemetry({
+	store: new TelemetryStore(config.chatDb),
+	chat: chatStore,
+	folders: (workspace) => chat.projectFolders(workspace),
+});
 const checkOperate = () =>
 	void operate.tick().catch(() => console.warn("[runner] operate checks failed"));
 checkOperate();
@@ -305,6 +313,7 @@ const server = startServer(config, store, verify, chat, {
 	search,
 	ship,
 	operate,
+	operateTelemetry,
 	// Someone not seen since the runner started keeps the access their notification was sent with.
 	mayApprove: (act) => {
 		const who = lastSeen.get(`${act.ownerId}:${act.workspace}`);

@@ -13,6 +13,8 @@ import { searchRequest } from "./search/routes";
 import { shipRequest } from "./ship/routes";
 import { operateRequest } from "./operate/routes";
 import type { Operate } from "./operate/service";
+import type { OperateTelemetry } from "./operate/telemetry";
+import { telemetryRequest } from "./operate/telemetry-routes";
 import type { Ship } from "./ship/service";
 import type { Search } from "./search/service";
 import type { Pulse } from "./pulse/service";
@@ -152,6 +154,7 @@ export function startServer(
 		/** Ship: environments, promotions, pipelines, previews. */
 		ship?: Ship;
 		operate?: Operate;
+		operateTelemetry?: OperateTelemetry;
 	} = {},
 ): Server<SocketData> {
 	const {
@@ -172,6 +175,7 @@ export function startServer(
 		search,
 		ship,
 		operate,
+		operateTelemetry,
 	} = extras;
 	const diagnosticRoutes = diagnostics ? new DiagnosticRoutes(diagnostics) : null;
 	const recordDiagnostic = (entry: DiagnosticInput): void => {
@@ -289,10 +293,17 @@ export function startServer(
 					if (handled) return handled;
 				}
 
-				if (operate && (url.pathname === "/operate" || url.pathname.startsWith("/operate/"))) {
+				if (
+					(operate || operateTelemetry) &&
+					(url.pathname === "/operate" || url.pathname.startsWith("/operate/"))
+				) {
 					const who = await whoFrom(request, "Sign in to see Operate");
 					if (who instanceof Response) return who;
-					const handled = await operateRequest(request, url, who, operate);
+					const telemetryHandled = operateTelemetry
+						? await telemetryRequest(request, url, who, operateTelemetry)
+						: null;
+					if (telemetryHandled) return telemetryHandled;
+					const handled = operate ? await operateRequest(request, url, who, operate) : null;
 					if (handled) return handled;
 				}
 
