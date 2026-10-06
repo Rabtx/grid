@@ -49,6 +49,7 @@ export const GRID_COMMANDS: readonly SlashCommand[] = [
 		picker: true,
 	}),
 	grid({ id: "stop", name: "stop", description: "Stop the agent's turn" }),
+	grid({ id: "split", name: "split", description: "Open this thread beside its terminal" }),
 	grid({ id: "task", name: "task", description: "Add a board task", argument: "<title>" }),
 	grid({
 		id: "note",
@@ -87,6 +88,8 @@ export type SlashCommandContext = {
 	modes: boolean;
 	efforts: boolean;
 	project: boolean;
+	/** A thread is open, with a workspace to split into. */
+	split?: boolean;
 };
 
 // A command whose context is missing (no catalog, nothing running) is hidden, not offered and
@@ -97,6 +100,7 @@ const APPLIES: Record<string, (context: SlashCommandContext) => boolean> = {
 	effort: (context) => context.efforts,
 	mode: (context) => context.modes,
 	stop: (context) => context.running,
+	split: (context) => Boolean(context.split),
 	task: (context) => context.project,
 	note: (context) => context.project,
 	clear: () => true,
