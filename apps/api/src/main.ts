@@ -26,7 +26,14 @@ const stopBackups = scheduleBackups({
 	backupsDir: config.backupsDir,
 });
 
-const server = Bun.serve({ port: config.port, hostname: "0.0.0.0", fetch: app.fetch });
+// Bun closes a request after 10 seconds by default; an upload, an export or a slow provider can
+// take longer, and would otherwise fail with a reset connection instead of an answer.
+const server = Bun.serve({
+	port: config.port,
+	hostname: "0.0.0.0",
+	idleTimeout: 120,
+	fetch: app.fetch,
+});
 console.log(`grid api on :${server.port}`);
 
 const stop = async () => {

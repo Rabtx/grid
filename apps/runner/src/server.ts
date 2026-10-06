@@ -44,6 +44,9 @@ import { pushActRequest, pushRequest } from "./push/routes";
 import type { TerminalStore } from "./terminals";
 import { transcribe, TranscribeError } from "./transcribe";
 
+/** How long an HTTP request may run before Bun closes it; its own default is 10 seconds. */
+export const HTTP_IDLE_SECONDS = 120;
+
 /** What the console sends first on a socket: who it is and which terminal it wants. */
 type Hello = {
 	t: "hello";
@@ -243,6 +246,10 @@ export function startServer(
 	const served = Bun.serve<SocketData>({
 		hostname: config.host,
 		port: config.port,
+		// Bun closes an HTTP request after 10 seconds by default, and some answers take longer: a
+		// GitHub list, a connector's first handshake, a slow git command. Cut off, they reached the
+		// console as a bodiless 502 and read as "the runner is not running".
+		idleTimeout: HTTP_IDLE_SECONDS,
 		async fetch(request, server) {
 			const url = new URL(request.url);
 			const startedAt = Date.now();
