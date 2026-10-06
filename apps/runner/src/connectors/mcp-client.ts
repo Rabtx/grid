@@ -125,7 +125,16 @@ export function stdioTransport(
 		stderr: "ignore",
 		env: { ...process.env, ...env },
 	});
-	const waiting = new Map<string, (message: JsonRpc) => void>();
+	const waiting = new Map<string, { id: number | string; resolve: (message: JsonRpc) => void }>();
+	const stopped = (id: number | string): JsonRpc => ({
+		jsonrpc: "2.0",
+		id,
+		error: {
+			code: -32000,
+			message:
+				"The local MCP command stopped before answering. Check that it is installed and runs an MCP server over stdin/stdout.",
+		},
+	});
 	void (async () => {
 		const decoder = new TextDecoder();
 		let buffer = "";
@@ -142,7 +151,7 @@ export function stdioTransport(
 						const waiter = key && !message.method ? waiting.get(key) : undefined;
 						if (waiter && key) {
 							waiting.delete(key);
-							waiter(message);
+							waiter.resolve(message);
 						} else onOther(message);
 					} catch {
 						// A line that is not JSON (a log); skipped.
@@ -153,18 +162,30 @@ export function stdioTransport(
 		}
 		for (const [key, waiter] of waiting) {
 			waiting.delete(key);
-			waiter({ jsonrpc: "2.0", id: key, error: { code: -32000, message: "The server stopped" } });
+			waiter.resolve(stopped(waiter.id));
 		}
 	})();
 	return {
 		async *send(message) {
 			// Only a request is answered; a reply to the server (no method) or a notification is not.
+			const key = message.id !== undefined && message.id !== null ? String(message.id) : null;
 			const answer =
-				message.method && message.id !== undefined && message.id !== null
-					? new Promise<JsonRpc>((resolve) => waiting.set(String(message.id), resolve))
+				message.method && key !== null
+					? new Promise<JsonRpc>((resolve) => {
+							waiting.set(key, { id: message.id as number | string, resolve });
+						})
 					: null;
-			proc.stdin.write(`${JSON.stringify(message)}\n`);
-			proc.stdin.flush();
+			try {
+				proc.stdin.write(`${JSON.stringify(message)}\n`);
+				proc.stdin.flush();
+			} catch {
+				if (answer && key !== null) {
+					waiting.delete(key);
+					yield stopped(message.id as number | string);
+					return;
+				}
+				throw new Error("The local MCP command stopped before answering");
+			}
 			if (answer) yield await answer;
 		},
 		close() {
