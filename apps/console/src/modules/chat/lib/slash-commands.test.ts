@@ -11,7 +11,14 @@ import {
 	type SlashCommand,
 } from "./slash-commands";
 
-const CONTEXT = { running: true, models: true, modes: true, efforts: true, project: true };
+const CONTEXT = {
+	running: true,
+	models: true,
+	modes: true,
+	efforts: true,
+	project: true,
+	split: true,
+};
 
 const NOTHING = { running: false, models: false, modes: false, efforts: false, project: false };
 
@@ -144,6 +151,13 @@ describe("availableCommands", () => {
 
 	it("offers Grid's whole set when everything is available", () => {
 		expect(availableCommands(CONTEXT)).toHaveLength(GRID_COMMANDS.length);
+	});
+
+	it("offers /split only inside a thread", () => {
+		expect(availableCommands({ ...CONTEXT, split: false }).map((c) => c.name)).not.toContain(
+			"split",
+		);
+		expect(availableCommands(CONTEXT).map((c) => c.name)).toContain("split");
 	});
 
 	it("hides /stop while nothing is running", () => {

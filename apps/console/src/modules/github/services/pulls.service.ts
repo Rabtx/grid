@@ -23,8 +23,17 @@ function base(project: string): string {
 }
 
 export const pullsService = {
-	list: (token: string, project: string, filter: PullFilter, state: PullState = "open") =>
-		runnerCall<PullSummary[]>(`${base(project)}?filter=${filter}&state=${state}`, token),
+	list: (
+		token: string,
+		project: string,
+		filter: PullFilter,
+		state: PullState = "open",
+		limit = 100,
+	) =>
+		runnerCall<PullSummary[]>(
+			`${base(project)}?filter=${filter}&state=${state}&limit=${limit}`,
+			token,
+		),
 	/** Its commits on its base: ahead, behind, where it left it. */
 	history: (token: string, project: string, number: number) =>
 		runnerCall<PullHistory>(`${base(project)}/${number}/history`, token),

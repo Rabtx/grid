@@ -104,6 +104,272 @@ const markdown = new Marked({
 	},
 });
 
+function isSafeUrl(href: string): boolean {
+	try {
+		const trimmed = href.trim();
+		if (trimmed.startsWith("#") || trimmed.startsWith("/") || trimmed.startsWith("./")) return true;
+		const origin =
+			typeof window !== "undefined" && window.location?.origin
+				? window.location.origin
+				: "http://localhost";
+		const url = new URL(trimmed, origin);
+		return ["http:", "https:", "mailto:"].includes(url.protocol);
+	} catch {
+		return false;
+	}
+}
+
+function isSafeImageUrl(src: string): boolean {
+	try {
+		const trimmed = src.trim();
+		if (trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("data:image/"))
+			return true;
+		const origin =
+			typeof window !== "undefined" && window.location?.origin
+				? window.location.origin
+				: "http://localhost";
+		const url = new URL(trimmed, origin);
+		return ["http:", "https:"].includes(url.protocol);
+	} catch {
+		return false;
+	}
+}
+
+const FORBIDDEN_TAGS = new Set([
+	"applet",
+	"base",
+	"button",
+	"embed",
+	"form",
+	"frame",
+	"frameset",
+	"iframe",
+	"input",
+	"link",
+	"math",
+	"meta",
+	"noscript",
+	"object",
+	"script",
+	"select",
+	"style",
+	"svg",
+	"template",
+	"textarea",
+]);
+
+const ALLOWED_TAGS = new Set([
+	"a",
+	"abbr",
+	"b",
+	"blockquote",
+	"br",
+	"cite",
+	"code",
+	"dd",
+	"del",
+	"details",
+	"dfn",
+	"div",
+	"dl",
+	"dt",
+	"em",
+	"figcaption",
+	"figure",
+	"h1",
+	"h2",
+	"h3",
+	"h4",
+	"h5",
+	"h6",
+	"hr",
+	"i",
+	"img",
+	"ins",
+	"kbd",
+	"li",
+	"mark",
+	"ol",
+	"p",
+	"picture",
+	"pre",
+	"q",
+	"s",
+	"samp",
+	"section",
+	"small",
+	"source",
+	"span",
+	"strike",
+	"strong",
+	"sub",
+	"summary",
+	"sup",
+	"table",
+	"tbody",
+	"td",
+	"tfoot",
+	"th",
+	"thead",
+	"time",
+	"tr",
+	"ul",
+	"var",
+	"wbr",
+]);
+
+const GLOBAL_ATTRS = new Set(["align", "dir", "title"]);
+
+/**
+ * The only classes kept: the ones this renderer writes itself (code blocks, highlighting, file
+ * chips). Anything else in a description could borrow the console's own utility classes and lay
+ * fake controls over the page.
+ */
+const OWN_CLASS = /^(?:hljs(?:-[\w-]+)?|code-block|code-line|file-chip|language-[\w-]+)$/;
+
+function keptClasses(value: string): string {
+	return value
+		.split(/\s+/)
+		.filter((name) => OWN_CLASS.test(name))
+		.join(" ");
+}
+
+const TAG_ATTRS: Record<string, Set<string>> = {
+	a: new Set(["href", "rel", "target", "title"]),
+	details: new Set(["open"]),
+	img: new Set(["alt", "height", "loading", "src", "title", "width"]),
+	ol: new Set(["reversed", "start", "type"]),
+	td: new Set(["align", "colspan", "rowspan", "valign"]),
+	th: new Set(["align", "colspan", "rowspan", "valign"]),
+};
+
+function sanitizeNode(node: Node): void {
+	if (node.nodeType === 8) {
+		// HTML comments are hidden
+		node.parentNode?.removeChild(node);
+		return;
+	}
+	if (node.nodeType !== 1) return;
+	const element = node as Element;
+	const tag = element.tagName.toLowerCase();
+
+	if (FORBIDDEN_TAGS.has(tag)) {
+		element.parentNode?.removeChild(element);
+		return;
+	}
+
+	// Children first, while they are still inside this element: a tag that is unwrapped below
+	// hands them to its parent, whose own walk has already moved past this point and would never
+	// see them (an `<img onerror>` inside a `<u>` used to come out untouched).
+	for (const child of Array.from(element.childNodes)) sanitizeNode(child);
+
+	if (!ALLOWED_TAGS.has(tag)) {
+		// Unwrap a tag that is not allowed, keeping its (already sanitised) content.
+		element.replaceWith(...Array.from(element.childNodes));
+		return;
+	}
+
+	// Attributes: no scripts, event handlers, javascript: URLs, style injection or foreign classes
+	for (const attr of Array.from(element.attributes)) {
+		const name = attr.name.toLowerCase();
+		const val = attr.value;
+
+		if (name.startsWith("on") || name === "style") {
+			element.removeAttribute(attr.name);
+			continue;
+		}
+
+		if (name === "class") {
+			const kept = keptClasses(val);
+			if (kept) element.setAttribute("class", kept);
+			else element.removeAttribute(attr.name);
+			continue;
+		}
+
+		if (name === "href") {
+			if (tag !== "a" || !isSafeUrl(val)) {
+				element.removeAttribute(attr.name);
+			} else {
+				element.setAttribute("target", "_blank");
+				element.setAttribute("rel", "noopener noreferrer");
+			}
+			continue;
+		}
+
+		if (name === "src") {
+			if (tag !== "img" || !isSafeImageUrl(val)) {
+				element.remove();
+				return;
+			}
+			continue;
+		}
+
+		const allowedForTag = TAG_ATTRS[tag];
+		if (!GLOBAL_ATTRS.has(name) && (!allowedForTag || !allowedForTag.has(name))) {
+			element.removeAttribute(attr.name);
+		}
+	}
+}
+
+/** Sanitize an HTML string, keeping safe GitHub-flavoured elements and attributes while preventing XSS. */
+export function sanitizeHtml(html: string): string {
+	const Parser =
+		typeof DOMParser !== "undefined"
+			? DOMParser
+			: (globalThis as unknown as { DOMParser?: typeof DOMParser }).DOMParser;
+	if (!Parser) return escapeHtml(html);
+	const parser = new Parser();
+	const doc = parser.parseFromString(html, "text/html");
+	for (const child of Array.from(doc.body.childNodes)) {
+		sanitizeNode(child);
+	}
+	return doc.body.innerHTML;
+}
+
+/**
+ * Markdown for documents and pull request descriptions. Allows GitHub-flavoured inline HTML
+ * (details/summary, img, br, tables, kbd, sub/sup), with sanitisation against scripts, event
+ * handlers, javascript: URLs, and style injection.
+ */
+const documentMarkdown = new Marked({
+	gfm: true,
+	breaks: false,
+	renderer: {
+		codespan(token: Tokens.Codespan) {
+			const kind = FILE_PATH.test(token.text.trim()) ? ' class="file-chip"' : "";
+			return `<code${kind}>${escapeHtml(token.text)}</code>`;
+		},
+		html(token: Tokens.HTML | Tokens.Tag) {
+			// Pass raw HTML through; it is sanitized by sanitizeHtml after parsing
+			return token.text;
+		},
+		link(token: Tokens.Link) {
+			const href = safeHref(token.href);
+			const text = this.parser.parseInline(token.tokens);
+			if (!href) return text;
+			return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+		},
+		code(token: Tokens.Code) {
+			const language = (token.lang ?? "").split(/\s/)[0].toLowerCase();
+			const text = token.text.replace(/\n$/, "");
+			const html =
+				language && hljs.getLanguage(language)
+					? hljs.highlight(text, { language, ignoreIllegals: true }).value
+					: escapeHtml(text);
+			const body = splitLines(html)
+				.map((line) => `<span class="code-line">${line}</span>`)
+				.join("\n");
+			return `<figure class="code-block"><figcaption><span>${escapeHtml(language || "text")}</span><button type="button" data-copy-code aria-label="Copy code">Copy</button></figcaption><pre><code>${body}</code></pre></figure>`;
+		},
+		image(token: Tokens.Image) {
+			const href = isSafeImageUrl(token.href) ? token.href : null;
+			if (!href) return escapeHtml(token.text || token.href);
+			const titleAttr = token.title ? ` title="${escapeHtml(token.title)}"` : "";
+			return `<img src="${escapeHtml(href)}" alt="${escapeHtml(token.text)}"${titleAttr}>`;
+		},
+	},
+});
+
 /**
  * Highlighted HTML split into lines, each with its own balanced spans: a token that runs across
  * lines (a block comment, a template string) is closed at the end of one line and reopened on
@@ -177,6 +443,15 @@ export function copyCodeFrom(event: MouseEvent): void {
 	});
 }
 
-export function renderMarkdown(text: string): string {
+export type MarkdownOptions = {
+	/** When true, allows GitHub-supported inline HTML and images, sanitised against XSS. */
+	allowHtml?: boolean;
+};
+
+export function renderMarkdown(text: string, options?: MarkdownOptions): string {
+	if (options?.allowHtml) {
+		const raw = documentMarkdown.parse(text, { async: false }) as string;
+		return sanitizeHtml(raw);
+	}
 	return markdown.parse(text, { async: false }) as string;
 }

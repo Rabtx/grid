@@ -599,7 +599,7 @@ function AssistantMessage(props: {
 }
 
 /** A file's change, highlighted: the diff rows of the chat model drawn by the kit's DiffCard. */
-function FileChange(props: { diff: FileDiff }): JSX.Element {
+export function FileChange(props: { diff: FileDiff }): JSX.Element {
 	const lines = createMemo(() => diffRows(props.diff));
 	return (
 		<DiffCard

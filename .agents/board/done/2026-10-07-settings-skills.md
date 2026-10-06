@@ -5,8 +5,8 @@ type: feature
 from: human
 to: backend
 priority: normal
-status: open
-assignee: none
+status: done
+assignee: backend agent, finished by claude (pm)
 reviewer: pm
 parent: none
 depends_on: []
@@ -54,3 +54,39 @@ Definition of done:
 
 ## Resolution
 
+The backend agent wrote the store, routes, imports and screen, then stopped without committing
+(nothing changed in its worktree for about 45 minutes; its work is still uncommitted there on
+`agent/backend/settings-skills`). PM brought that work into the integration branch
+`agent/pm/integration` on 2026-10-07, reviewed it and finished it.
+
+**Built:**
+- A runner skill store (`apps/runner/src/skills/`): one folder per skill (SKILL.md, metadata and
+  files), with strict names, relative paths only, no `..`, `.git` or symbolic links, size limits
+  (64 KB per skill, 512 KB and 100 skills per workspace), and every path checked against the store.
+- Routes to list, add, update, toggle and remove skills, scoped to the workspace. A project skill
+  overrides a workspace skill of the same name.
+- Three ways to add a skill. Write it in place. Upload a folder or ZIP, read in memory and never
+  extracted, with zip-bomb limits. Or give a public GitHub URL: Grid downloads the archive through
+  the API, checks redirects, runs no git commands and executes nothing from the repository.
+- Settings → Agents → Skills, built from kit primitives, with loading, empty and error states.
+
+**Changed in PM review:**
+- **Delivery.** The agent's version JSON-dumped every enabled skill's full contents (up to 512 KB)
+  into every message. Agents now get a short index instead: each skill's name, description and
+  path to its SKILL.md. They read a skill when it applies (progressive disclosure, as agents load
+  skills natively). The index goes to each agent process once and again only when it changes.
+  When skills are switched off, the agent is told. This works the same for every provider.
+  Covered in `hub.test.ts`. The store tests read the indexed files back from disk.
+- **Device-native rows.** The ⋯ now shows only on hover or focus with a pointer, is not drawn on
+  touch, and right-click or a long press opens the same menu. The "Enabled" badge, which repeated
+  the switch, is gone; only "Off" shows. The editor tabs use the kit's `Segmented`, and the ZIP
+  picker uses a kit button style.
+- Settings sidebar entry with its own glyph. Delivery copy updated. Lint fixes.
+
+**Validation:** runner 475 / 475 pass (35 hub and skills tests). Console 122 files / 696 tests
+pass. Lint (exit 0), typecheck, architecture and naming checks pass. In the browser, an
+integration console (:3023) ran against an isolated integration runner (:4199, its own data folder,
+not the live runner). Checked: empty state, writing a skill, the ⋯ hidden at rest, right-click
+opening Edit and Remove, switching the skill off (the Off badge shows), and removing it with
+confirmation back to the empty state. No paid agent turn was run, so the index reaching a real
+agent is covered by the hub test with a fake provider, not by a live turn.

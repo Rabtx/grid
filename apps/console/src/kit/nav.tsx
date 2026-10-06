@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { omit, onSettled, Show } from "solid-js";
+import { children, merge, omit, onSettled, Show } from "solid-js";
 
 import { BrandMark } from "./brand";
 import { attachContextMenu, type MenuPoint } from "./context-menu";
@@ -11,8 +11,10 @@ const row = variants({
 	base: "focus-ring group/nav flex w-full min-w-0 gap-2 rounded-kit text-left font-medium text-fg-muted transition-[background-color,color] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg",
 	variants: {
 		// Top-level destinations and projects; threads and a project's pages one step down.
+		// Level 0 grows to a finger's height on touch: a project's chevron is a 44px button there,
+		// and it would overhang a 30px row.
 		level: {
-			0: "h-kit-row items-center px-2 text-nav",
+			0: "h-kit-row min-h-kit-row items-center px-2 text-nav pointer-coarse:min-h-11",
 			1: "h-[calc(var(--kit-h-row)-0.25rem)] items-center px-2 text-body pointer-coarse:h-11",
 			/** A row with a second line under its label: as tall as its two lines. */
 			2: "min-h-kit-row items-start px-2 py-2 text-nav",
@@ -34,13 +36,14 @@ type NavItemProps = {
 	/** Right-hand detail at rest: a count, a shortcut, a time, a badge. Hidden while actions show. */
 	trailing?: JSX.Element;
 	/**
-	 * An interactive control rendered persistently at the right of the row (e.g. collapse toggle).
-	 * Unlike actions, this is always visible and clickable on both pointer and touch devices.
+	 * An interactive control at the right of the row (a collapse chevron): invisible at rest on
+	 * pointers, where it appears on hover or keyboard focus like the row's other actions, and always
+	 * drawn on touch, which has no hover to reveal it.
 	 */
 	trailingAction?: JSX.Element;
 	/**
-	 * Row actions for pointers (a plus, a ⋯ menu): revealed on hover or keyboard focus, never drawn
-	 * on touch screens, where a long press on the row opens the menu instead.
+	 * Row actions (a plus, a ⋯ menu): revealed on hover or keyboard focus, never drawn on touch
+	 * screens, where a long press on the row opens the menu instead.
 	 */
 	actions?: JSX.Element;
 	/** Right-click (desktop) and long press (touch) on the row. */
@@ -96,12 +99,34 @@ function Content(props: NavItemProps): JSX.Element {
 	);
 }
 
+/**
+ * The row's props with its actions and trailing control built once. They are JSX passed as props,
+ * which Solid builds again on every read, and the row reads them several times (whether there are
+ * any, which padding to use, where to draw them). Each extra read made another menu that handed
+ * over its control, and the control the caller kept could be one from a menu never put on the
+ * page: right-click and long press then opened nothing.
+ */
+function builtOnce<T extends NavItemProps>(props: T): T {
+	const actions = children(() => props.actions);
+	const trailingAction = children(() => props.trailingAction);
+	return merge(props, {
+		get actions() {
+			return actions.toArray().length ? actions() : undefined;
+		},
+		get trailingAction() {
+			return trailingAction.toArray().length ? trailingAction() : undefined;
+		},
+	}) as T;
+}
+
 /** Wraps a row that has actions or a context menu: positions the actions, wires the gestures. */
 function RowFrame(props: { item: NavItemProps; children: JSX.Element }): JSX.Element {
 	let frame: HTMLDivElement | undefined;
 	onSettled(() => {
-		const open = props.item.onMenuAt;
-		return frame && open ? attachContextMenu(frame, open) : undefined;
+		if (!frame || !props.item.onMenuAt) return undefined;
+		// Read the handler when the gesture fires, not when the row settled: the row re-renders, and
+		// the menu it holds then is a different element from the one a settled-time closure opened.
+		return attachContextMenu(frame, (point) => props.item.onMenuAt?.(point));
 	});
 	return (
 		<div
@@ -114,11 +139,19 @@ function RowFrame(props: { item: NavItemProps; children: JSX.Element }): JSX.Ele
 			<Show when={props.item.actions || props.item.trailingAction}>
 				<div class="absolute inset-y-0 right-1 flex items-center gap-0.5">
 					<Show when={props.item.actions}>
-						<div class="flex items-center gap-0.5 opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:pointer-events-none pointer-coarse:opacity-0">
+						{/* On touch the triggers are hidden, never their container: a menu lives inside it,
+						    and a menu in a `display: none` parent cannot open from a long press. The
+						    container itself must not take pointer events away either, or the sheet it
+						    opens would inherit them and nothing in it could be tapped. */}
+						<div class="flex items-center gap-0.5 opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:[&>button]:hidden">
 							{props.item.actions}
 						</div>
 					</Show>
-					{props.item.trailingAction}
+					<Show when={props.item.trailingAction}>
+						<div class="flex items-center opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 group-focus-within/row:opacity-100 pointer-coarse:opacity-100">
+							{props.item.trailingAction}
+						</div>
+					</Show>
 				</div>
 			</Show>
 		</div>
@@ -130,8 +163,9 @@ export function NavLink(
 	props: NavItemProps & Omit<JSX.AnchorHTMLAttributes<HTMLAnchorElement>, "children">,
 ): JSX.Element {
 	const rest = omit(props, ...OWN);
+	const item = builtOnce(props);
 	return (
-		<RowFrame item={props}>
+		<RowFrame item={item}>
 			<a
 				{...rest}
 				// Always set, so the router's own link marking never overrides the caller's choice.
@@ -139,16 +173,16 @@ export function NavLink(
 				class={row({
 					level: props.detail ? 2 : props.level,
 					tone: props.tone,
-					class: props.actions
-						? props.trailingAction
+					class: item.actions
+						? item.trailingAction
 							? "group-hover/row:pr-20 group-focus-within/row:pr-20 pr-7 pointer-coarse:pr-9"
 							: "group-hover/row:pr-14 group-focus-within/row:pr-14 pointer-coarse:pr-2"
-						: props.trailingAction
+						: item.trailingAction
 							? "pr-7 pointer-coarse:pr-9"
 							: "",
 				})}
 			>
-				<Content {...props} />
+				<Content {...item} />
 			</a>
 		</RowFrame>
 	);
@@ -159,8 +193,9 @@ export function NavButton(
 	props: NavItemProps & Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "children">,
 ): JSX.Element {
 	const rest = omit(props, ...OWN);
+	const item = builtOnce(props);
 	return (
-		<RowFrame item={props}>
+		<RowFrame item={item}>
 			<button
 				type="button"
 				{...rest}
@@ -168,16 +203,16 @@ export function NavButton(
 				class={row({
 					level: props.level,
 					tone: props.tone,
-					class: props.actions
-						? props.trailingAction
+					class: item.actions
+						? item.trailingAction
 							? "group-hover/row:pr-20 group-focus-within/row:pr-20 pr-7 pointer-coarse:pr-9"
 							: "group-hover/row:pr-14 group-focus-within/row:pr-14 pointer-coarse:pr-2"
-						: props.trailingAction
+						: item.trailingAction
 							? "pr-7 pointer-coarse:pr-9"
 							: "",
 				})}
 			>
-				<Content {...props} />
+				<Content {...item} />
 			</button>
 		</RowFrame>
 	);
@@ -353,10 +388,12 @@ export function FloatingPanel(props: {
 
 /** The panel's 52px head (the Figma Grid/Sidebar/Panel header): its title and a few icon actions. */
 export function PanelHeader(props: { title: JSX.Element; actions?: JSX.Element }): JSX.Element {
+	// Built once: read twice, the actions would be made twice (see `builtOnce`).
+	const actions = children(() => props.actions);
 	return (
 		<div class="flex h-13 shrink-0 items-center gap-0.5 border-line border-b pr-3 pl-4 pointer-coarse:h-14">
 			<h2 class="min-w-0 flex-1 truncate font-medium text-body-lg text-fg">{props.title}</h2>
-			<Show when={props.actions}>{props.actions}</Show>
+			<Show when={actions.toArray().length > 0}>{actions()}</Show>
 		</div>
 	);
 }

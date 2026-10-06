@@ -18,11 +18,12 @@ import {
 	NotificationsScreen,
 	ProfileScreen,
 	RolesScreen,
-	SettingsIndexScreen,
+	SettingsRoute,
 	MembersScreen,
 	WorktreesScreen,
 } from "@/modules/settings";
 import { InviteScreen } from "@/modules/workspaces";
+import { SkillsScreen } from "@/modules/skills";
 
 import { workspaceHistory } from "./lib/workspace-history";
 
@@ -69,11 +70,12 @@ const Router = createRouter({
 		{ path: "/terminal/:id", component: TerminalRoute },
 		{ path: "/machines/:id?", component: () => <Authed screen={MachinesOverview} /> },
 		{ path: "/agents/:provider?", component: () => <Authed screen={AgentsOverview} /> },
-		// Settings is a section of its own, with its own sidebar: a list on phones, then each page.
-		{ path: "/settings", component: () => <Authed screen={SettingsIndexScreen} /> },
+		// Settings is a section of its own, with its own sidebar: `/settings` opens it, then a page.
+		{ path: "/settings", component: () => <Authed screen={SettingsRoute} /> },
 		{ path: "/settings/appearance", component: () => <Authed screen={AppearanceScreen} /> },
 		{ path: "/settings/notifications", component: () => <Authed screen={NotificationsScreen} /> },
 		{ path: "/settings/agents", component: () => <Authed screen={AgentsScreen} /> },
+		{ path: "/settings/skills", component: () => <Authed screen={SkillsScreen} /> },
 		{ path: "/settings/roles", component: () => <Authed screen={RolesScreen} /> },
 		{ path: "/settings/machines", component: () => <Authed screen={MachinesScreen} /> },
 		// Environments became Machines: old links land there.

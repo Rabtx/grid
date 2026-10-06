@@ -56,6 +56,7 @@ import {
 import { spawnPty } from "./pty";
 import { startServer } from "./server";
 import { TerminalStore } from "./terminals";
+import { SkillStore } from "./skills/store";
 
 // Agents installed from Grid land in these folders: found at once, and on terminals' PATH too.
 process.env.PATH = withAgentBins(process.env.PATH);
@@ -70,6 +71,8 @@ const acpAgents = new AcpAgentStore(config.chatDb);
 for (const agent of acpAgents.list()) addAcpAgent(providers, agent);
 const chatStore = new ChatStore(config.chatDb);
 const chat = new ChatHub(chatStore, providers, config.projectsDir);
+const skills = new SkillStore(join(dirname(config.chatDb), "skills"));
+chat.setSkills((workspace, project) => skills.instructions(workspace, project));
 chat.setDescribe(async (id, installed) => ({
 	version: installed ? await agentVersion(agentBinary(id)) : null,
 	custom: acpAgents.list().some((agent) => agent.id === id),
@@ -309,6 +312,7 @@ automations.setEventSync(async (workspace, ownerId) => {
 const server = startServer(config, store, verify, chat, {
 	push,
 	connectors,
+	skills,
 	pulse,
 	search,
 	ship,

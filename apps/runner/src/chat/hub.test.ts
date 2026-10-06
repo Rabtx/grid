@@ -44,6 +44,49 @@ describe("ChatHub providers", () => {
 		expect((await hub.providerList("u1"))[0].models[0].id).toBe("m2");
 	});
 
+	it("gives each agent the skills index once, and again only when it changes", async () => {
+		const prompts: string[] = [];
+		const provider: Provider = {
+			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+			start: async () => ({
+				prompt: async (text) => {
+					prompts.push(text);
+					return { reason: "done" };
+				},
+				cancel: () => undefined,
+				approve: () => undefined,
+				setModel: async () => undefined,
+				setMode: async () => undefined,
+				setEffort: async () => undefined,
+				close: () => undefined,
+			}),
+		};
+		const hub = new ChatHub(new ChatStore(":memory:"), new Map([["fake", provider]]), root);
+		let index = "skills index v1";
+		hub.setSkills((workspace, project) => (index ? `${index} for ${workspace}/${project}` : ""));
+		const session = hub.create(
+			{ userId: "u1", workspace: "u1" },
+			{ project: "shop", provider: "fake" },
+		);
+
+		await hub.prompt("u1", session.id, "first request");
+		await hub.prompt("u1", session.id, "second request");
+		index = "skills index v2";
+		await hub.prompt("u1", session.id, "third request");
+		index = "";
+		await hub.prompt("u1", session.id, "fourth request");
+		await hub.prompt("u1", session.id, "fifth request");
+
+		expect(prompts).toHaveLength(5);
+		expect(prompts[0]).toContain("skills index v1 for u1/shop");
+		expect(prompts[0]).toContain("first request");
+		// The agent keeps it in context; repeating it every turn would only cost tokens.
+		expect(prompts[1]).not.toContain("skills index");
+		expect(prompts[2]).toContain("skills index v2 for u1/shop");
+		expect(prompts[3]).toContain("no longer enabled");
+		expect(prompts[4]).toBe("fifth request");
+	});
+
 	it("keeps each person's settings per agent", async () => {
 		const { provider } = fakeProvider();
 		const hub = new ChatHub(new ChatStore(":memory:"), new Map([["fake", provider]]), root);

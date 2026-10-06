@@ -167,8 +167,13 @@ const REVIEW_THREADS_QUERY = `query ReviewThreads($owner: String!, $name: String
   }
 }`;
 
-const LIST_FIELDS =
+const OPEN_LIST_FIELDS =
 	"number,title,author,headRefName,baseRefName,isDraft,reviewDecision,statusCheckRollup,labels,additions,deletions,createdAt,updatedAt,headRefOid,url,body";
+// When listing merged and closed pull requests, statusCheckRollup is omitted: resolving check runs across
+// up to 100 pull requests causes GitHub's GraphQL API to time out or exceed complexity limits.
+const CLOSED_LIST_FIELDS =
+	"number,title,author,headRefName,baseRefName,isDraft,reviewDecision,labels,additions,deletions,createdAt,updatedAt,headRefOid,url,body";
+const LIST_FIELDS = OPEN_LIST_FIELDS;
 const DETAIL_FIELDS = `${LIST_FIELDS},state,mergeable,files,comments,reviews,isCrossRepository`;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 
@@ -217,17 +222,17 @@ function summary(raw: RawPull): PullSummary {
 		number: raw.number,
 		title: raw.title,
 		author: raw.author?.login ?? "ghost",
-		branch: raw.headRefName,
-		base: raw.baseRefName,
-		draft: raw.isDraft,
+		branch: raw.headRefName || "",
+		base: raw.baseRefName || "",
+		draft: Boolean(raw.isDraft),
 		review: raw.reviewDecision || null,
 		checks: checksState((raw.statusCheckRollup ?? []).map(readCheck)),
-		labels: raw.labels.map((label) => label.name),
-		additions: raw.additions,
-		deletions: raw.deletions,
+		labels: (raw.labels ?? []).map((label) => label.name),
+		additions: raw.additions ?? 0,
+		deletions: raw.deletions ?? 0,
 		createdAt: raw.createdAt,
 		updatedAt: raw.updatedAt,
-		head: raw.headRefOid,
+		head: raw.headRefOid || "",
 		url: raw.url,
 		agent: pullAgent(raw.author?.login ?? "", raw.body ?? ""),
 	};
@@ -351,13 +356,15 @@ export class PullRequests {
 		folder: string,
 		filter: PullFilter,
 		state: PullState = "open",
+		limit = 100,
 	): Promise<PullSummary[]> {
 		this.assertOwner(userId);
 		const repo = await this.repository(folder);
-		const args = ["pr", "list", "--repo", repo, "--state", state, "--limit", "100"];
+		const args = ["pr", "list", "--repo", repo, "--state", state, "--limit", String(limit)];
 		if (filter === "mine") args.push("--author", "@me");
 		if (filter === "review") args.push("--search", "review-requested:@me");
-		const rows = await this.json<RawPull[]>([...args, "--json", LIST_FIELDS]);
+		const fields = state === "open" ? OPEN_LIST_FIELDS : CLOSED_LIST_FIELDS;
+		const rows = await this.json<RawPull[]>([...args, "--json", fields]);
 		return rows.map(summary);
 	}
 

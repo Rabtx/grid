@@ -37,6 +37,7 @@ import {
 } from "@/kit";
 
 import { type Modifiers, NO_MODIFIERS } from "../lib/keys";
+import { FONT_SIZE_KEY, FONT_SIZES, initialFontSize } from "../lib/font-size";
 import type { ConnectionState } from "../lib/terminal-socket";
 import { forgetScreen, preloadScreens } from "../lib/screen-cache";
 import { detailOf, stateOf, whereOf } from "../lib/terminal-look";
@@ -45,19 +46,6 @@ import type { TerminalInfo } from "../types/terminal.types";
 
 import { KeyBar } from "./key-bar";
 import { type TerminalHandle, TerminalView } from "./terminal-view";
-
-const FONT_SIZE_KEY = "grid.terminal.fontSize";
-const FONT_SIZES = { min: 9, max: 22 } as const;
-
-function initialFontSize(): number {
-	try {
-		const saved = Number(localStorage.getItem(FONT_SIZE_KEY));
-		if (saved >= FONT_SIZES.min && saved <= FONT_SIZES.max) return saved;
-	} catch {
-		// Storage can be unavailable (private mode); the default is fine.
-	}
-	return matchMedia("(pointer: coarse)").matches ? 12 : 13;
-}
 
 // The "new terminal" menu's entry for this machine, beside each environment's id.
 const THIS_MACHINE = "this-machine";

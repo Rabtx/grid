@@ -30,4 +30,18 @@ describe("account cache lifecycle", () => {
 		await vi.advanceTimersByTimeAsync(1000);
 		expect(privateValue).not.toHaveBeenCalled();
 	});
+
+	it("restores the remembered account at startup without telling the account listeners", () => {
+		const listener = vi.fn();
+		const stop = localStore.onUserChange(listener);
+		localStore.restoreUser("remembered");
+		expect(localStore.storageKey("tabs")).toBe("grid.private:remembered:tabs");
+		expect(listener).not.toHaveBeenCalled();
+		// Once someone is signed in, restoring does nothing; switching accounts still tells them.
+		localStore.restoreUser("other");
+		expect(localStore.storageKey("tabs")).toBe("grid.private:remembered:tabs");
+		localStore.setUser("other");
+		expect(listener).toHaveBeenCalledTimes(1);
+		stop();
+	});
 });

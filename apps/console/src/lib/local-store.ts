@@ -71,6 +71,16 @@ export const localStore = {
 		version++;
 		for (const listener of userListeners) listener();
 	},
+	/**
+	 * Start the page as the account this device remembers, before anything renders. Nothing has
+	 * been read for anyone yet, so there is nothing for the account listeners to clear: they are
+	 * not told. (Telling them here also wrote to their signals while the app was first rendering,
+	 * which halts Solid's development build and left a blank page on every reload.)
+	 */
+	restoreUser(id: string): void {
+		if (user !== null) return;
+		user = id;
+	},
 	/** In-flight work from a previous account must not publish into this account. */
 	version: (): number => version,
 	/** Account/workspace scope for small synchronous route memories; null when signed out. */

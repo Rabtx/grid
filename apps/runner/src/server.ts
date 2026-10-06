@@ -43,6 +43,11 @@ import type { PrefsStore } from "./prefs/store";
 import { pushActRequest, pushRequest } from "./push/routes";
 import type { TerminalStore } from "./terminals";
 import { transcribe, TranscribeError } from "./transcribe";
+import { skillRequest } from "./skills/routes";
+import type { SkillStore } from "./skills/store";
+
+/** How long an HTTP request may run before Bun closes it; its own default is 10 seconds. */
+export const HTTP_IDLE_SECONDS = 120;
 
 /** What the console sends first on a socket: who it is and which terminal it wants. */
 type Hello = {
@@ -147,6 +152,8 @@ export function startServer(
 		mayApprove?: (act: PushAct) => boolean;
 		/** Settings → Connectors, and the proxies agents run for them. */
 		connectors?: Connectors;
+		/** Settings → Agents → Skills, shared by chats in this runner's workspaces. */
+		skills?: SkillStore;
 		/** Home → Pulse. */
 		pulse?: Pulse;
 		/** Search and Ask Grid. */
@@ -171,6 +178,7 @@ export function startServer(
 		roles,
 		mayApprove,
 		connectors,
+		skills,
 		pulse,
 		search,
 		ship,
@@ -243,6 +251,10 @@ export function startServer(
 	const served = Bun.serve<SocketData>({
 		hostname: config.host,
 		port: config.port,
+		// Bun closes an HTTP request after 10 seconds by default, and some answers take longer: a
+		// GitHub list, a connector's first handshake, a slow git command. Cut off, they reached the
+		// console as a bodiless 502 and read as "the runner is not running".
+		idleTimeout: HTTP_IDLE_SECONDS,
 		async fetch(request, server) {
 			const url = new URL(request.url);
 			const startedAt = Date.now();
@@ -269,6 +281,13 @@ export function startServer(
 					const who = await whoFrom(request, "Sign in to manage connectors");
 					if (who instanceof Response) return who;
 					const handled = await connectorRequest(request, url, who, connectors);
+					if (handled) return handled;
+				}
+
+				if (skills && (url.pathname === "/skills" || url.pathname.startsWith("/skills/"))) {
+					const who = await whoFrom(request, "Sign in to manage agent skills");
+					if (who instanceof Response) return who;
+					const handled = await skillRequest(request, url, who, skills, chat);
 					if (handled) return handled;
 				}
 

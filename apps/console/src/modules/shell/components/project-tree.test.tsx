@@ -108,6 +108,29 @@ async function settle() {
 	}
 }
 
+/** A finger, as `attachContextMenu` hears one: happy-dom has no `TouchEvent`. */
+function touchAt(type: string, x: number, y: number): Event {
+	const event = new Event(type, { bubbles: true, cancelable: true }) as Event & {
+		touches: { clientX: number; clientY: number }[];
+	};
+	event.touches = [{ clientX: x, clientY: y }];
+	return event;
+}
+
+/** Counts the popovers a row's gesture opens, whichever instance it holds. */
+function spyOnShowPopover(): ReturnType<typeof vi.fn> {
+	const spy = vi.fn();
+	const original = HTMLElement.prototype.showPopover;
+	HTMLElement.prototype.showPopover = function show(this: HTMLElement) {
+		spy(this.id);
+		return original?.call(this);
+	};
+	spy.mockRestore = () => {
+		if (original) HTMLElement.prototype.showPopover = original;
+	};
+	return spy as ReturnType<typeof vi.fn> & { mockRestore: () => void };
+}
+
 function mount(path: string = "/chat/proj-1") {
 	const container = document.createElement("div");
 	document.body.append(container);
@@ -128,12 +151,14 @@ describe("ProjectTree pagination and collapse", () => {
 	beforeEach(() => {
 		mockNavigate.mockReset();
 		localStorage.clear();
+		vi.useRealTimers();
 	});
 
 	afterEach(() => {
 		dispose();
 		document.body.innerHTML = "";
 		localStorage.clear();
+		vi.useRealTimers();
 	});
 
 	it("paginates projects: shows 5 by default, expands on click, and can show fewer", async () => {
@@ -224,6 +249,85 @@ describe("ProjectTree pagination and collapse", () => {
 		await settle();
 
 		expect(view.container.textContent).not.toContain("Thread 6");
+	});
+
+	it("keeps the thread count off the project row, so nothing collides with the chevron", async () => {
+		const sevenThreads = Array.from({ length: 7 }, (_, i) => makeSession(i + 1));
+		mockProjects[1]([makeProject(1)]);
+		mockCurrentSlug[1]("proj-1");
+		mockThreadsByProject[1]({ "proj-1": sevenThreads });
+		mockLoaded[1]({ "proj-1": true });
+
+		const view = mount("/chat/proj-1");
+		dispose = view.dispose;
+		await settle();
+
+		const row = view.container.querySelector<HTMLAnchorElement>("a[aria-expanded]") as HTMLElement;
+		// The row carries the project's name and nothing else: no thread count beside the chevron.
+		expect(row.querySelector(".truncate")?.textContent).toBe("Project 1");
+		expect(row.querySelector(".tabular-nums")).toBeNull();
+	});
+
+	// The gesture reaching the row's menu is this card's work. Whether the popover then opens is
+	// `kit/popover.tsx`, which hands out controls that go stale on re-render: see
+	// 2026-10-07-popover-control-stale.md.
+	it("sends a long press on a project row to its menu, at the finger", async () => {
+		mockProjects[1]([makeProject(1), makeProject(2)]);
+		mockCurrentSlug[1]("proj-1");
+		mockThreadsByProject[1]({ "proj-1": [makeSession(1), makeSession(2)] });
+		mockLoaded[1]({ "proj-1": true });
+
+		const view = mount("/chat/proj-1");
+		dispose = view.dispose;
+		await settle();
+		vi.useFakeTimers();
+
+		const row = view.container
+			.querySelector<HTMLElement>('.group\\/row a[href*="proj-2"]')
+			?.closest(".group\\/row") as HTMLElement;
+		expect(row).not.toBeNull();
+		// The menu lives inside the actions container, which must stay mounted on touch: a menu in a
+		// `display: none` parent can never open, and one behind `pointer-events: none` cannot be
+		// tapped.
+		const actions = row.querySelector<HTMLElement>(":scope > div > div") as HTMLElement;
+		expect(actions.className).not.toContain("pointer-coarse:hidden");
+		expect(actions.className).not.toContain("pointer-coarse:pointer-events-none");
+
+		const opened = spyOnShowPopover();
+		row.dispatchEvent(touchAt("touchstart", 20, 20));
+		await vi.advanceTimersByTimeAsync(500);
+		row.dispatchEvent(touchAt("touchend", 20, 20));
+		await vi.advanceTimersByTimeAsync(1);
+		flush();
+
+		// The press reached the row's menu, and did not also open the project.
+		expect(opened).toHaveBeenCalledTimes(1);
+		expect(mockNavigate).not.toHaveBeenCalled();
+	});
+
+	it("sends a long press on a thread row to its menu", async () => {
+		mockProjects[1]([makeProject(1)]);
+		mockCurrentSlug[1]("proj-1");
+		mockThreadsByProject[1]({ "proj-1": [makeSession(1), makeSession(2)] });
+		mockLoaded[1]({ "proj-1": true });
+
+		const view = mount("/chat/proj-1");
+		dispose = view.dispose;
+		await settle();
+		vi.useFakeTimers();
+
+		const thread = view.container
+			.querySelector<HTMLElement>('a[href*="t-2"]')
+			?.closest(".group\\/row") as HTMLElement;
+		expect(thread).not.toBeNull();
+		const opened = spyOnShowPopover();
+		thread.dispatchEvent(touchAt("touchstart", 20, 20));
+		await vi.advanceTimersByTimeAsync(500);
+		thread.dispatchEvent(touchAt("touchend", 20, 20));
+		await vi.advanceTimersByTimeAsync(1);
+		flush();
+
+		expect(opened).toHaveBeenCalledTimes(1);
 	});
 
 	it("decouples collapse toggle from navigation: clicking chevron toggles open without navigating", async () => {

@@ -20,6 +20,8 @@ export type SlashCommandActions = {
 	stop?: () => void;
 	addTask?: (title: string) => void;
 	addNote?: (text: string) => void;
+	/** Open the thread's workspace on its terminal; left out where there is no thread. */
+	openSplit?: () => void;
 };
 
 function refuse(title: string): false {
@@ -86,6 +88,10 @@ export function runSlashCommand(
 			if (!actions.addTask) return refuse("Open a project to add tasks");
 			if (!argument) return refuse("Add a title: /task <title>");
 			actions.addTask(argument);
+			return true;
+		case "split":
+			if (!actions.openSplit) return refuse("Open a thread to split it");
+			actions.openSplit();
 			return true;
 		case "note":
 			if (!actions.addNote) return refuse("Open a project to add notes");

@@ -376,7 +376,7 @@ export function PullDocument(props: {
 										) : undefined
 									}
 								>
-									<Prose html={renderMarkdown(current().body)} />
+									<Prose html={renderMarkdown(current().body, { allowHtml: true })} />
 								</PullSection>
 							</Show>
 

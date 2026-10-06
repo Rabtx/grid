@@ -54,6 +54,11 @@ export const SETTINGS_SECTIONS = [
 				description: "Coding agents and what new threads start with",
 			},
 			{
+				href: "/settings/skills",
+				label: "Skills",
+				description: "Instructions available to every agent",
+			},
+			{
 				href: "/settings/roles",
 				label: "Roles",
 				description: "What owners, admins, members and viewers can do",
