@@ -5,7 +5,7 @@ type: feature
 from: human
 to: backend
 priority: normal
-status: doing
+status: done
 assignee: backend
 reviewer: reviewer
 parent: .agents/plans/api-on-hono.md
@@ -115,3 +115,6 @@ Contract impact:
 
 Review:
 - Pending reviewer assignment.
+
+Commit:
+- `d8084b5` (feat(db): add embedded pglite fallback when database_url is unset)
