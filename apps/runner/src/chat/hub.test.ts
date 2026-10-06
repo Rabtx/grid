@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import type { ChatEvent } from "../agents/events";
 import type { Provider, TurnResult } from "../agents/provider";
 import { ChatError, ChatHub } from "./hub";
 import { ChatStore } from "./store";
@@ -350,6 +351,48 @@ describe("ChatHub deleting a chat", () => {
 
 		hub.delete("u1", chat.id);
 		expect(store.get(chat.id)).toBeNull();
+	});
+
+	it("does not take the runner down when the agent speaks after its chat was deleted", async () => {
+		// Deleting an idle chat kills the agent, but the kill is given to the child and the last
+		// thing it wrote is still sitting in its pipe. That event belonged to a session row which
+		// had gone with the chat, and `events` is keyed to one, so the write threw — inside the
+		// agent's own read loop and inside the flush timer, both of which are fatal here.
+		const store = new ChatStore(":memory:");
+		let speak: ((event: ChatEvent) => void) | null = null;
+		const provider: Provider = {
+			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+			catalog: async () => ({ models: [] }),
+			start: async ({ emit }) => {
+				speak = emit;
+				return {
+					prompt: async () => ({ reason: "done" as const }),
+					cancel: () => undefined,
+					approve: () => undefined,
+					setModel: async () => undefined,
+					setMode: async () => undefined,
+					setEffort: async () => undefined,
+					close: () => undefined,
+				};
+			},
+		};
+		const hub = new ChatHub(store, new Map([["fake", provider]]), root);
+		const chat = hub.create(
+			{ userId: "u1", workspace: "u1" },
+			{ project: "shop", provider: "fake" },
+		);
+		// A device watching is what keeps the live entry, and with it the agent, across the park.
+		hub.attach("u1", chat.id, { event: () => {}, state: () => {} });
+		await hub.prompt("u1", chat.id, "go");
+
+		hub.delete("u1", chat.id);
+		expect(store.get(chat.id)).toBeNull();
+
+		// Written straight away...
+		expect(() => speak?.({ type: "turn_end", reason: "done" })).not.toThrow();
+		// ...and streamed text, which is held back and written by a timer.
+		expect(() => speak?.({ type: "message", text: "the last thing it said" })).not.toThrow();
+		await Bun.sleep(1000);
 	});
 });
 

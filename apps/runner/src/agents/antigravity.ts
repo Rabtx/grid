@@ -292,7 +292,11 @@ async function startAgySession(
 			},
 		);
 		void started.exited.then((code) => {
-			if (proc === started) proc = null;
+			// Only the process still in charge may end the turn. `restart` asks one to stop and the
+			// next starts another, and being asked to stop takes a moment: the old exit arrives
+			// after the new turn has begun, and ending that one instead threw its real result away.
+			if (proc !== started) return;
+			proc = null;
 			finishTurn?.({
 				reason: "error",
 				error: `Antigravity exited (code ${code}). ${stderr.slice(-3).join(" ")}`.trim(),
@@ -305,8 +309,13 @@ async function startAgySession(
 
 	function restart(): void {
 		// Takes effect on the next message; `--conversation` continues the same chat.
+		// The turn in flight did not crash, we asked for this exit: claim its result first, or the
+		// `exited` handler above would report it as "Antigravity exited (code 143)".
+		const stopping = finishTurn;
+		finishTurn = null;
 		proc?.kill();
 		proc = null;
+		stopping?.({ reason: "cancelled" });
 	}
 
 	await settleEffort();
@@ -327,10 +336,7 @@ async function startAgySession(
 		// Headless agy has no interrupt message; stopping ends the process, and the next message resumes.
 		cancel: () => {
 			if (!proc) return;
-			const stopping = finishTurn;
-			finishTurn = null;
 			restart();
-			stopping?.({ reason: "cancelled" });
 		},
 		approve: () => {},
 		setModel: async (next) => {
