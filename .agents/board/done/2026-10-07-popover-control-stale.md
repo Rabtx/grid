@@ -5,8 +5,8 @@ type: bug
 from: web
 to: web
 priority: high
-status: open
-assignee: none
+status: done
+assignee: claude
 reviewer: pm
 parent: none
 depends_on: []
@@ -79,3 +79,19 @@ Definition of done:
 - browser check: right-click a project row; long-press it on a touch device
 
 ## Resolution
+
+Fixed on the integration branch (`agent/pm/integration`) by PM, 2026-10-07. The cause was in
+`kit/nav.tsx`, not `kit/popover.tsx`. A row's `actions` are JSX passed as a prop, which Solid builds
+again on every read. `NavLink` and `NavButton` read `props.actions` several times (the `Show`
+conditions in `RowFrame` and the padding class), so one row built its menu four times. Each copy
+handed over a new `PopoverControl`, and the one the caller kept belonged to a menu never put on the
+page. `builtOnce` now resolves `actions` and `trailingAction` once with `children()`, and
+`PanelHeader` does the same for its actions. The leftover debug `console.error("PROJ CONTROL for")`
+in `project-tree.tsx` is removed.
+
+Regression: `kit/nav-actions.test.tsx` asserts the actions are built once and that the kept control
+opens a connected panel. It failed before the fix (built 4 times) and passes after. In the browser
+(integration console :3023): right-click on a project row and on a thread row opens their menus on
+desktop. At 375px with a coarse pointer, a long press on each opens the menu as a bottom sheet with
+tappable items and no navigation. Console suite: 121 files / 693 tests pass. Lint, typecheck,
+architecture and naming checks pass.
