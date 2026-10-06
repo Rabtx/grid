@@ -19,6 +19,8 @@ import {
 	Badge,
 	Banner,
 	BranchIcon,
+	Button,
+	ChevronDownIcon,
 	ClockIcon,
 	ContextMeter,
 	DetailAside,
@@ -26,6 +28,7 @@ import {
 	FactGroup,
 	LaptopIcon,
 	RoleMark,
+	ScrollRail,
 	ThreadHeader,
 	notify,
 	type PopoverControl,
@@ -102,6 +105,11 @@ export function Conversation(props: {
 	let modePicker: PopoverControl | undefined;
 	// Follow new output only while the reader is at the bottom; scrolling up to read stops it.
 	let pinned = true;
+	const [isPinned, setIsPinned] = createSignal(true);
+	const setPinned = (value: boolean) => {
+		pinned = value;
+		setIsPinned(value);
+	};
 
 	const provider = () => props.providers.find((item) => item.id === session()?.provider);
 	// Where the thread works: the thread list's copy is kept current (a worktree removed from
@@ -279,7 +287,7 @@ export function Conversation(props: {
 					}
 					lastStartedAt = currentStartedAt;
 					// Opening a chat lands on its latest message; coming back to it keeps your place.
-					if (!attachedBefore) pinned = true;
+					if (!attachedBefore) setPinned(true);
 					attachedBefore = true;
 					scrollToEnd();
 					const first = firstMessages.get(props.id);
@@ -331,7 +339,7 @@ export function Conversation(props: {
 				if (kept?.events?.length) {
 					log = kept.events;
 					setTranscript(replay(log));
-					pinned = true;
+					setPinned(true);
 					scrollToEnd();
 				}
 				// Opening the app: connect once the session is confirmed (signed out, not at all).
@@ -362,7 +370,7 @@ export function Conversation(props: {
 	createEffect(
 		() => transcript().blocks.filter((block) => block.kind === "user").length,
 		() => {
-			pinned = true;
+			setPinned(true);
 			scrollToEnd();
 		},
 	);
@@ -446,63 +454,81 @@ export function Conversation(props: {
 								: "Your session ended. Sign in again."}
 					</Banner>
 				</Show>
-				<div
-					ref={(el) => {
-						scroller = el;
-					}}
-					onScroll={(event) => {
-						const el = event.currentTarget;
-						pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
-					}}
-					class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 md:px-6"
-				>
-					<div class="mx-auto flex w-full max-w-160 flex-col gap-6">
-						<Show when={session()}>
-							{(current) => (
-								<div class="hidden md:block">
-									<ThreadHeader
-										title={current().title}
-										status={status()}
-										facts={[
-											...(current().role
-												? [
-														{
-															icon: <RoleMark icon={current().role?.icon ?? "code"} size="sm" />,
-															label: current().role?.name ?? "",
-														},
-													]
-												: []),
-											...(place()?.worktree
-												? [{ icon: <BranchIcon />, label: place()?.worktree?.branch ?? "" }]
-												: []),
-											{ icon: <LaptopIcon />, label: machine() },
-											{
-												icon: (
-													<AgentLogo id={current().provider} name={people()?.agentName ?? ""} />
-												),
-												label: [people()?.agentName, modelName()].filter(Boolean).join(" · "),
-											},
-											{
-												icon: <ClockIcon />,
-												label: `Started ${relativeTime(current().createdAt)}`,
-											},
-										]}
-									/>
-								</div>
-							)}
-						</Show>
-						<TranscriptView
-							people={people()}
-							loadAttachment={(id, signal) =>
-								chatService.attachment(auth.token() ?? "", props.id, id, props.scope, signal)
-							}
-							blocks={transcript().blocks}
-							running={running()}
-							onRegenerate={handleRegenerate}
-							onNote={(text) => void saveNote(text)}
-							onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
-						/>
+				<div class="relative flex min-h-0 flex-1 flex-col">
+					<div
+						ref={(el) => {
+							scroller = el;
+						}}
+						onScroll={(event) => {
+							const el = event.currentTarget;
+							setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 48);
+						}}
+						class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 md:px-6"
+					>
+						<div class="mx-auto flex w-full max-w-160 flex-col gap-6">
+							<Show when={session()}>
+								{(current) => (
+									<div class="hidden md:block">
+										<ThreadHeader
+											title={current().title}
+											status={status()}
+											facts={[
+												...(current().role
+													? [
+															{
+																icon: <RoleMark icon={current().role?.icon ?? "code"} size="sm" />,
+																label: current().role?.name ?? "",
+															},
+														]
+													: []),
+												...(place()?.worktree
+													? [{ icon: <BranchIcon />, label: place()?.worktree?.branch ?? "" }]
+													: []),
+												{ icon: <LaptopIcon />, label: machine() },
+												{
+													icon: (
+														<AgentLogo id={current().provider} name={people()?.agentName ?? ""} />
+													),
+													label: [people()?.agentName, modelName()].filter(Boolean).join(" · "),
+												},
+												{
+													icon: <ClockIcon />,
+													label: `Started ${relativeTime(current().createdAt)}`,
+												},
+											]}
+										/>
+									</div>
+								)}
+							</Show>
+							<TranscriptView
+								people={people()}
+								loadAttachment={(id, signal) =>
+									chatService.attachment(auth.token() ?? "", props.id, id, props.scope, signal)
+								}
+								blocks={transcript().blocks}
+								running={running()}
+								onRegenerate={handleRegenerate}
+								onNote={(text) => void saveNote(text)}
+								onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
+							/>
+						</div>
 					</div>
+					<ScrollRail scroller={() => scroller} />
+					<Show when={!isPinned()}>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon={<ChevronDownIcon size="sm" />}
+							onClick={() => {
+								setPinned(true);
+								scroller?.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+							}}
+							class="absolute bottom-3 right-4 z-20 md:right-8"
+							aria-label="Scroll to latest messages"
+						>
+							Latest
+						</Button>
+					</Show>
 				</div>
 				<div class="shrink-0 px-3 pt-1 pb-safe md:px-6 md:pb-4">
 					<div class="mx-auto w-full max-w-160">

@@ -25,6 +25,23 @@
  * flashes are turned off; focus rings and selecting text in content are untouched.
  */
 @layer base {
+	/*
+	 * Native app feel: hide clunky browser scrollbars everywhere by default
+	 * while preserving keyboard, trackpad, mouse wheel, and touch scrolling.
+	 */
+	*,
+	*::before,
+	*::after {
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+	}
+
+	*::-webkit-scrollbar {
+		display: none;
+		width: 0;
+		height: 0;
+	}
+
 	html {
 		/* The grey flash on every tap; controls draw their own pressed state. */
 		-webkit-tap-highlight-color: transparent;

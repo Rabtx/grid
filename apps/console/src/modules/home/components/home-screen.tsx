@@ -141,7 +141,7 @@ export function HomeScreen(): JSX.Element {
 					.join(" · ")}
 			</ShellSlot>
 
-			<div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-4 pb-8 md:px-10 md:pt-10">
+			<div class="flex w-full flex-col gap-6 px-4 pt-3 pb-8 md:px-6 md:pt-5">
 				<HomeNav
 					current="today"
 					today={needCount() === null ? undefined : summary(needCount(), 0)}

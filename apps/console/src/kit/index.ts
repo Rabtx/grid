@@ -425,3 +425,4 @@ export {
 	ReconnectingNotice,
 	WaitingLine,
 } from "./notification";
+export { ScrollRail, type ScrollRailProps } from "./scroll-rail";
