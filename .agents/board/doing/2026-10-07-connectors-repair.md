@@ -140,3 +140,20 @@ Console 700 / 700 (Continue link, and the screen resuming at Tools). In the brow
 runner and console: a real Linear sign-in was started, the tab went to the resume link without a
 workspace (redirected with the query kept), the dialog reopened waiting, and the callback finished
 from another tab. Linear's real token response reached the reopened dialog.
+
+## Follow-up: Neon "authorization request expired or is invalid" (PM, 2026-10-07)
+
+Neon's own page (`mcp.neon.tech/api/authorize`) refused the owner's approval. Measured: Neon shows
+its consent page and keeps the request in a cookie (`neon_mcp_at_…`, 30 minutes). Posting the
+approval without that cookie returns exactly the owner's error; with it, the request passes that
+check. So the approval went out from a different browser session than the page load. The dialog
+opened sign-ins as a blank named popup pointed at the service afterwards, and in an installed
+Android app that blank window and the tab showing the service can be separate sessions. The named
+window could also be reused from an earlier attempt.
+
+Fixed: on touch screens and in the installed app, the dialog prepares the sign-in and shows
+"Continue to <service>", a real link opened by the person's tap (one tab, one session). Desktop
+keeps the popup, now a fresh window each time. A failed sign-in resets to a fresh one. Tests: phone
+link with no popup, desktop popup that is never a named window. Browser check at 375px:
+"Continue to Neon" points at `mcp.neon.tech/api/authorize`. Console 124 files / 702 tests pass, and
+lint, typecheck and architecture checks pass.
