@@ -366,13 +366,31 @@ describe("folders and project links", () => {
 		await Bun.sleep(1100);
 		writeFileSync(join(root, "eta.ts"), "export const step = 5;\nexport const max = 60;\n");
 		writeFileSync(join(root, "queue.ts"), "export const retries = 4;\n");
-		chatStore.recordAgentEdits("s1", "claude", [join(realpathSync(root), "eta.ts")]);
+		const sessionId = crypto.randomUUID();
+		chatStore.create({
+			id: sessionId,
+			ownerId: "user-1",
+			workspaceId: "ws-1",
+			project: "demo",
+			provider: "claude",
+			title: "Update estimates",
+			cwd: root,
+			model: null,
+			mode: null,
+			effort: null,
+			worktree: null,
+		});
+		chatStore.recordAgentEdits(sessionId, "claude", [join(realpathSync(root), "eta.ts")]);
 
 		const listing = (await (
 			await fetch(`${base}/projects/files/demo?git=1`, { headers: auth })
 		).json()) as { data: { git: { changes: { path: string; agent: string | null }[] } } };
 		expect(listing.data.git.changes).toEqual([
-			expect.objectContaining({ path: "eta.ts", agent: "claude" }),
+			expect.objectContaining({
+				path: "eta.ts",
+				agent: "claude",
+				thread: { id: sessionId, title: "Update estimates" },
+			}),
 			expect.objectContaining({ path: "queue.ts", agent: null }),
 		]);
 

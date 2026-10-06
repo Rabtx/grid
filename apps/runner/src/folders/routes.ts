@@ -56,7 +56,7 @@ export async function folderRequest(
 			const lines = await blame(root, path, await gitUser(root));
 			if (!lines) return failure(404, "git has nothing to say about this file yet");
 			// Lines not committed yet are the agent's when an agent was the last to edit the file.
-			const [change] = await byAgents(hub, root, [
+			const [change] = await byAgents(hub, userId, root, [
 				{ path, status: "modified", added: null, removed: null },
 			]);
 			const commits = lines.commits.map((commit) =>
@@ -85,7 +85,7 @@ export async function folderRequest(
 					projectGit(root, prefix),
 					lastChanges(root, prefix, folder, [file.path], me),
 				]);
-				const changes = await byAgents(hub, root, repo.changes);
+				const changes = await byAgents(hub, userId, root, repo.changes);
 				const change = changes.find((item) => item.path === file.path) ?? null;
 				// The committed text only where there is a change to show against it.
 				const base =
@@ -136,7 +136,7 @@ export async function folderRequest(
 						me,
 					),
 				]);
-				const changes = await byAgents(hub, root, repo.changes);
+				const changes = await byAgents(hub, userId, root, repo.changes);
 				return Response.json({ data: { ...listing, git: { ...repo, changes, last } } });
 			}
 			const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
@@ -231,6 +231,7 @@ type AttributedChange = FileChange & {
  */
 async function byAgents(
 	hub: ChatHub,
+	workspace: string,
 	root: string,
 	changes: readonly FileChange[],
 ): Promise<AttributedChange[]> {
@@ -242,7 +243,10 @@ async function byAgents(
 		// The folder went away mid-request; nothing will match, and that is the honest answer.
 	}
 	const since = await headTime(base);
-	const edits = hub.agentEdits(changes.map((change) => join(base, change.path)));
+	const edits = hub.agentEdits(
+		workspace,
+		changes.map((change) => join(base, change.path)),
+	);
 	return changes.map((change) => {
 		const edit = edits.get(join(base, change.path));
 		const after = edit && (since === null || Date.parse(edit.at) > Date.parse(since));

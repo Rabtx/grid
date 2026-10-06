@@ -462,7 +462,7 @@ describe("ChatHub agent edits", () => {
 		await hub.prompt("u1", chat.id, "go");
 		hub.closeAll();
 		const eta = join(chat.cwd, "eta.ts");
-		const edits = hub.agentEdits([eta, join(root, "shop", "queue.ts")]);
+		const edits = hub.agentEdits("u1", [eta, join(root, "shop", "queue.ts")]);
 		expect(edits.get(eta)).toMatchObject({ provider: "fake", sessionId: chat.id });
 		expect(edits.size).toBe(1);
 	});

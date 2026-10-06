@@ -69,6 +69,15 @@ workspace (the oldest you own, made on first use if you have none). `:slug` is t
 | `PATCH` | `…/projects/:slug/notes/:id` | Edit a note |
 | `DELETE` | `…/projects/:slug/notes/:id` | Delete a note (`204`) |
 
+`POST /api/v1/auth/logout` accepts an optional bearer access token. A verified
+JWT revokes only its own user/session pair even if another tab rotated the refresh
+cookie. Without a valid JWT, logout retains its current-refresh-cookie (or native
+refresh-token body) proof requirement. The browser cookie is cleared idempotently.
+
+OTP and MFA login challenges enforce their attempt limit atomically: concurrent
+incorrect codes each count, and reaching the limit permanently consumes that
+challenge. Further submissions require a new challenge.
+
 ### Setup, signup and invites
 
 A new Grid has no accounts. While nobody has signed up, the launcher (or the API container's
@@ -159,12 +168,21 @@ not all-time run analytics; the Console labels its metrics accordingly. No trans
 messages, reasoning or file contents are returned. Stop requires `startAgents`,
 answers `409` for an ended agent and uses the same `404` workspace boundary.
 
+### Runner file attribution
+
+Project Files listing, content and blame routes return live agent attribution only
+when the latest edit's chat session belongs to the selected workspace. Linking the
+same folder in two workspaces does not share thread IDs, titles or agent metadata.
+A later edit by another workspace, or a removed session, leaves live attribution
+empty; committed git authorship remains the repository's public history.
+
 ### Runner Operate
 
 Operate uses the runner prefix `/runner` (and paired `/runner/env/:id`), bearer
 authentication, `X-Grid-Workspace` selection and `{ data: ... }` responses.
 A project must be linked on the selected machine in the selected workspace;
-missing and foreign projects return `404`.
+missing and foreign projects return `404`. Inherited object keys and invalid or
+empty folder entries do not count as linked projects.
 
 | Method | Path | Permission | Purpose |
 | --- | --- | --- | --- |
@@ -279,6 +297,9 @@ Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-10-06 | Auth: optional signed bearer proof on logout revokes the same session across refresh-cookie rotation | no |
+| 2026-10-06 | Auth: concurrent incorrect OTP/MFA codes count atomically toward the existing challenge attempt limit | no |
+| 2026-10-06 | Runner Files: scope live agent attribution to the selected workspace; Operate rejects inherited or invalid project folder entries | no |
 | 2026-10-06 | Operate: bounded project log tails, retained reported agent costs and manually recorded hosting charges | no |
 | 2026-10-06 | Runner Operate: persisted public endpoint health, incident history and deduplicated Inbox alerts | no |
 | 2026-10-05 | Runner attention approvals, bounded activity summaries and stop from Machines/Agents | no |

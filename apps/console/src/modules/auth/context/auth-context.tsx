@@ -102,8 +102,26 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 	let generation = 0;
 	let disposed = false;
 	let renewing: Promise<string | null> | null = null;
+	const sessionTokens = new Set<string>();
+
+	function startSignIn(): number {
+		renewing = null;
+		return ++generation;
+	}
+	function checkSignIn(started: number): void {
+		if (disposed || started !== generation) throw new Error("Sign-in was cancelled");
+	}
+	function acceptSignIn(started: number, session: AuthSession): void {
+		checkSignIn(started);
+		generation++;
+		renewing = null;
+		// Tokens from the previous sign-in must never authorize a replay for the new account.
+		sessionTokens.clear();
+		acceptSession(session);
+	}
 
 	function clearSession(): void {
+		sessionTokens.clear();
 		clearTimeout(timer);
 		expiresAt = 0;
 		setToken(null);
@@ -115,6 +133,8 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 	}
 
 	function acceptSession(session: AuthSession): void {
+		if (user()?.id !== session.user.id) sessionTokens.clear();
+		sessionTokens.add(session.accessToken);
 		// What this device keeps is per account: set whose it is before anything reads it.
 		localStore.setUser(session.user.id);
 		rememberUser(session.user);
@@ -135,9 +155,10 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 		ready,
 		restoring,
 		waitForToken: async () => {
+			if (disposed) return null;
 			if (token() || (ready() && !restoring())) return token();
 			await new Promise<void>((resolve) => waiters.push(resolve));
-			return token();
+			return disposed ? null : token();
 		},
 		renew: () => {
 			if (disposed) return Promise.resolve(null);
@@ -168,50 +189,53 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 			return renewing;
 		},
 		login: async (input) => {
+			const started = startSignIn();
 			const result = await authService.login(input);
+			checkSignIn(started);
 			// The account has a second factor: no session yet, the form asks for the code.
 			if (isTwoFactorChallenge(result)) return result;
-			generation++;
-			renewing = null;
-			acceptSession(result);
+			acceptSignIn(started, result);
 			return null;
 		},
 		verifyTwoFactor: async (input) => {
+			const started = startSignIn();
 			const session = await authService.verifyTwoFactor(input);
-			generation++;
-			renewing = null;
-			acceptSession(session);
+			acceptSignIn(started, session);
 		},
 		signInWithPasskey: async (email) => {
+			const started = startSignIn();
 			const { challengeId, options } = await authService.passkeyOptions(email);
+			checkSignIn(started);
 			const response = await getPasskeyAssertion(options);
+			checkSignIn(started);
 			const session = await authService.passkeyVerify({ challengeId, response });
-			generation++;
-			renewing = null;
-			acceptSession(session);
+			acceptSignIn(started, session);
 		},
 		setUp: async (input) => {
+			const started = startSignIn();
 			const session = await authService.setUp(input);
-			generation++;
-			renewing = null;
-			acceptSession(session);
+			acceptSignIn(started, session);
 		},
 		logout: async () => {
+			const endingToken = token();
 			generation++;
 			renewing = null;
 			clearSession();
-			// Signed out: nothing of this account stays on the device.
-			await localStore.clear();
-			await authService.logout().catch(() => {
+			// Queue the cookie deletion now, before any later sign-in and before waiting for IDB.
+			const ending = authService.logout(endingToken ?? undefined).catch(() => {
 				// Clearing the client is worth doing even if the server call fails.
 			});
+			// Clear the account's IndexedDB data; private route memories remain account-scoped.
+			await localStore.clear();
+			await ending;
 		},
 	};
 
 	onSettled(() => {
 		const unregister = registerTokenRenewal((failedToken) => {
 			const current = token();
-			if (!current || current !== failedToken) return Promise.resolve(current);
+			if (!current || !sessionTokens.has(failedToken)) return Promise.resolve(null);
+			if (current !== failedToken) return Promise.resolve(current);
 			return state.renew();
 		});
 		const onVisible = (): void => {
@@ -228,6 +252,7 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 		});
 		return () => {
 			disposed = true;
+			settle();
 			clearTimeout(timer);
 			unregister();
 			document.removeEventListener("visibilitychange", onVisible);

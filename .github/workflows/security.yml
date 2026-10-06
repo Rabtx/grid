@@ -27,6 +27,11 @@ jobs:
         uses: actions/dependency-review-action@v4
 
   codeql:
+    permissions:
+      contents: read
+      security-events: write
+      # CodeQL reads this workflow run when attaching its analysis results.
+      actions: read
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

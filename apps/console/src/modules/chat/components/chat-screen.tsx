@@ -3,6 +3,7 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
 
 import { onRunnerRecovered, runnerUp } from "@/lib/runner-health";
+import { accountStorage } from "@/lib/account-storage";
 
 import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
@@ -81,7 +82,7 @@ const tabsKey = (project: string) => `grid.chat.tabs.${project}`;
 
 function rememberedTabs(project: string): string[] {
 	try {
-		const saved: unknown = JSON.parse(localStorage.getItem(tabsKey(project)) ?? "[]");
+		const saved: unknown = JSON.parse(accountStorage.get(tabsKey(project)) ?? "[]");
 		return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === "string") : [];
 	} catch {
 		return [];
@@ -90,7 +91,7 @@ function rememberedTabs(project: string): string[] {
 
 function rememberTabs(project: string, ids: string[]): void {
 	try {
-		localStorage.setItem(tabsKey(project), JSON.stringify(ids));
+		accountStorage.set(tabsKey(project), JSON.stringify(ids));
 	} catch {
 		// Not remembered; the tabs start empty next time.
 	}

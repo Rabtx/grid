@@ -2,8 +2,9 @@ import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simp
 import { Hono } from "hono";
 import type { JWTVerifyGetKey } from "jose";
 
-import { requireUser, type SessionLookup } from "../../http/auth";
-import type { AppContext, AppEnv } from "../../http/context";
+import { requireUser, type SessionLookup, verifyAccessToken } from "../../http/auth";
+import type { AccessTokenPayload, AppContext, AppEnv } from "../../http/context";
+import { ApiError } from "../../http/errors";
 import { clientIp, rateLimit } from "../../http/rate-limit";
 import { noContent, ok } from "../../http/respond";
 import { body, uuidV4 } from "../../http/validate";
@@ -87,7 +88,18 @@ export function authRoutes(deps: AuthRouteDeps): Hono<AppEnv> {
 			ok(c, presentSession(c, await flows.refresh(deps, await refreshToken(c)))),
 		)
 		.post("/logout", csrf, async (c) => {
-			await flows.logout(deps, await refreshToken(c));
+			const token = c.req.header("authorization")?.match(/^Bearer (.+)$/)?.[1];
+			let access: AccessTokenPayload | null = null;
+			if (token) {
+				try {
+					access = await verifyAccessToken(token, deps.config.jwtSecret);
+				} catch (cause) {
+					// Logout remains idempotent: an expired/invalid JWT may still have a valid cookie.
+					if (!(cause instanceof ApiError) || cause.code !== "AUTH_ACCESS_TOKEN_INVALID")
+						throw cause;
+				}
+			}
+			await flows.logout(deps, await refreshToken(c), access);
 			clearRefreshCookie(c);
 			return noContent(c);
 		})

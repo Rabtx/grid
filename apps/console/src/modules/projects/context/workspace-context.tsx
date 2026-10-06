@@ -11,6 +11,7 @@ import {
 } from "solid-js";
 
 import { localStore } from "@/lib/local-store";
+import { accountStorage } from "@/lib/account-storage";
 import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
 
@@ -157,12 +158,13 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 	const projects = createMemo(async () => {
 		projectsRevision();
 		const token = auth.token();
+		const started = localStore.version();
 		if (!token) return (await localStore.get<Project[]>("projects")) ?? [];
 		// Archived projects have been removed from the console.
 		const list = (await projectsService.list(token)).filter(
 			(project) => project.status !== "archived",
 		);
-		void localStore.set("projects", list);
+		if (started === localStore.version()) void localStore.set("projects", list);
 		return list;
 	});
 
@@ -208,8 +210,10 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 	const folders = createMemo(async () => {
 		foldersRevision();
 		const token = auth.token();
+		const started = localStore.version();
 		if (!token) return (await localStore.get<Record<string, string>>("folders")) ?? {};
 		await placementsStore.reload(token);
+		if (started !== localStore.version()) return {};
 		const placed = untrack(placementsStore.placements);
 		const here = await foldersService.projectFolders(token).catch(() => ({}));
 		const merged: Record<string, string> = Object.fromEntries(
@@ -226,18 +230,19 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 				}
 			}),
 		);
-		void localStore.set("folders", merged);
+		if (started === localStore.version()) void localStore.set("folders", merged);
 		return merged;
 	});
 
 	const tasks = createMemo(async () => {
 		revision();
 		const token = auth.token();
+		const started = localStore.version();
 		const project = activeProject();
 		if (!project) return [];
 		if (!token) return (await localStore.get<Task[]>(`tasks:${project.slug}`)) ?? [];
 		const list = await projectsService.listTasks(token, project.slug);
-		void localStore.set(`tasks:${project.slug}`, list);
+		if (started === localStore.version()) void localStore.set(`tasks:${project.slug}`, list);
 		return list;
 	});
 
@@ -276,7 +281,7 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 	function projectHref(slug: string): string {
 		let last: string | null = null;
 		try {
-			last = localStorage.getItem(lastChatKey(slug));
+			last = accountStorage.get(lastChatKey(slug));
 		} catch {
 			// Nothing remembered; the project opens on a new chat.
 		}
@@ -285,8 +290,8 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 
 	function rememberChat(slug: string, id: string | null): void {
 		try {
-			if (id) localStorage.setItem(lastChatKey(slug), id);
-			else localStorage.removeItem(lastChatKey(slug));
+			if (id) accountStorage.set(lastChatKey(slug), id);
+			else accountStorage.delete(lastChatKey(slug));
 		} catch {
 			// Not remembered; the project opens on a new chat next time.
 		}

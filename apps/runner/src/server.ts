@@ -734,9 +734,11 @@ export function startServer(
 		}
 		relay.early = [];
 		if (typeof first.id === "string" && safeSessionId(first.id)) ws.data.sessionId = first.id;
-		const who = signedIn(ws, await verify(first.token, first.workspace), (status) =>
-			refusedSignIn(ws.data.kind, status),
-		);
+		const verified = await verify(first.token, first.workspace);
+		// The close handler already cleaned up while authentication was pending. Attaching
+		// afterward would leave a channel or outgoing relay with nobody left to detach it.
+		if (ws.readyState !== WebSocket.OPEN) return;
+		const who = signedIn(ws, verified, (status) => refusedSignIn(ws.data.kind, status));
 		if (!who) return;
 		const target = environments?.store.target(who.workspace, relay.environmentId);
 		if (!target) {
@@ -809,9 +811,11 @@ export function startServer(
 		}
 		if (needsId && typeof first.id === "string" && safeSessionId(first.id))
 			ws.data.sessionId = first.id;
-		const who = signedIn(ws, await verify(first.token, first.workspace), (status) =>
-			refusedSignIn(ws.data.kind, status),
-		);
+		const verified = await verify(first.token, first.workspace);
+		// The close handler already cleaned up while authentication was pending. Attaching
+		// afterward would leave a channel or outgoing relay with nobody left to detach it.
+		if (ws.readyState !== WebSocket.OPEN) return;
+		const who = signedIn(ws, verified, (status) => refusedSignIn(ws.data.kind, status));
 		if (!who) return;
 		ws.data.who = who;
 		clearTimeout(helloTimers.get(ws));

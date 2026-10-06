@@ -3,6 +3,7 @@ import { flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, apiClient } from "@/lib/api-client";
+import { localStore } from "@/lib/local-store";
 
 import { authService } from "../services/auth.service";
 import type { AuthSession } from "../types/auth.types";
@@ -154,6 +155,77 @@ describe("session keepalive", () => {
 		expect(await renewing).toBeNull();
 		expect(auth.token()).toBeNull();
 		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it("does not replay an old account's write with the next account's token", async () => {
+		vi.spyOn(authService, "refresh").mockResolvedValue(session("first"));
+		vi.spyOn(authService, "logout").mockResolvedValue();
+		vi.spyOn(authService, "login").mockResolvedValue({
+			...session("second"),
+			user: { id: "2", email: "second@example.com", username: "second" },
+		});
+		await mount();
+		let finish!: (response: Response) => void;
+		const fetch = vi
+			.fn()
+			.mockImplementationOnce(
+				() =>
+					new Promise((resolve) => {
+						finish = resolve;
+					}),
+			)
+			.mockResolvedValue(Response.json({ success: true, data: { saved: true } }));
+		vi.stubGlobal("fetch", fetch);
+		const writing = apiClient.patch(
+			"/projects/shared",
+			{ name: "First account" },
+			{ accessToken: "first" },
+		);
+		const denied = expect(writing).rejects.toMatchObject({ statusCode: 401 });
+		await auth.logout();
+		await auth.login({ email: "second@example.com", password: "password" });
+		finish(Response.json({ message: "Expired" }, { status: 401 }));
+		await denied;
+		expect(fetch).toHaveBeenCalledTimes(1);
+		expect(auth.token()).toBe("second");
+	});
+
+	it("does not accept a sign-in that finishes after logout", async () => {
+		vi.spyOn(authService, "refresh").mockRejectedValue(new ApiError("No session", 401));
+		vi.spyOn(authService, "logout").mockResolvedValue();
+		let finish!: (value: AuthSession) => void;
+		vi.spyOn(authService, "login").mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					finish = resolve;
+				}),
+		);
+		await mount();
+		const signingIn = auth.login({ email: "test@example.com", password: "password" });
+		const cancelled = expect(signingIn).rejects.toThrow("Sign-in was cancelled");
+		await auth.logout();
+		finish(session("late"));
+		await cancelled;
+		expect(auth.token()).toBeNull();
+		expect(auth.user()).toBeNull();
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it("queues logout before waiting for device cache deletion", async () => {
+		vi.spyOn(authService, "refresh").mockResolvedValue(session());
+		const logout = vi.spyOn(authService, "logout").mockResolvedValue();
+		await mount();
+		let finish!: () => void;
+		vi.spyOn(localStore, "clear").mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					finish = resolve;
+				}),
+		);
+		const ending = auth.logout();
+		expect(logout).toHaveBeenCalledExactlyOnceWith("old");
+		finish();
+		await ending;
 	});
 
 	it("removes the timer and visibility listener on disposal", async () => {

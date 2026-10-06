@@ -53,9 +53,10 @@ export function WorkspacesProvider(props: { children: JSX.Element }): JSX.Elemen
 	const list = createMemo(async () => {
 		revision();
 		const token = auth.token();
+		const started = localStore.version();
 		if (!token) return (await localStore.get<Workspace[]>("workspaces")) ?? [];
 		const workspaces = await workspacesService.list(token);
-		void localStore.set("workspaces", workspaces);
+		if (started === localStore.version()) void localStore.set("workspaces", workspaces);
 		return workspaces;
 	});
 

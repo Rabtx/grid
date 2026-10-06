@@ -4,11 +4,14 @@ import { createDatabase, schema } from "@grid/db";
 import { hashPassword } from "@grid/db/password";
 import { eq, like } from "drizzle-orm";
 
+import { createApp } from "../../app";
 import { createConfig } from "../../config/config";
 import { parseEnv } from "../../config/env";
 import { ApiError } from "../../http/errors";
+import { sessionLookup } from "../../sessions";
 import { authCrypto } from "./crypto";
 import * as flows from "./flows";
+import * as store from "./store";
 
 /**
  * Sign-in rules against a real database (the dev one, with throwaway `flows-*@grid.test`
@@ -150,6 +153,187 @@ suite("sign-in rules", () => {
 				challenge?.codeHash ?? "",
 			),
 		).toBe(true);
+	});
+
+	it("counts concurrent wrong reset codes atomically and keeps the exhausted challenge consumed", async () => {
+		const user = await account("otp-race");
+		const sent = await flows.forgotPassword(deps, { email: user.email });
+		const challenge = await store.findLatestChallenge(deps.db, user.email, "password_reset");
+		if (!challenge) throw new Error("no challenge");
+		const wrong = sent.developmentCode === "000000" ? "111111" : "000000";
+		const failures = await Promise.all(
+			Array.from({ length: config.otpMaxAttempts }, () =>
+				failure(
+					flows.resetPassword(deps, {
+						email: user.email,
+						code: wrong,
+						newPassword: "new-password-1234",
+					}),
+				),
+			),
+		);
+		expect(failures.every((result) => result.code === "AUTH_OTP_INVALID")).toBe(true);
+		const exhausted = await store.findChallenge(deps.db, challenge.id);
+		expect(exhausted?.attempts).toBe(config.otpMaxAttempts);
+		expect(exhausted?.consumedAt).not.toBeNull();
+		await store.recordChallengeAttempt(deps.db, challenge.id, config.otpMaxAttempts);
+		const stillConsumed = await store.findChallenge(deps.db, challenge.id);
+		expect(stillConsumed?.attempts).toBe(config.otpMaxAttempts);
+		expect(stillConsumed?.consumedAt).toEqual(exhausted?.consumedAt);
+		expect(
+			await failure(
+				flows.resetPassword(deps, {
+					email: user.email,
+					code: sent.developmentCode ?? "",
+					newPassword: "new-password-1234",
+				}),
+			),
+		).toEqual({ status: 401, code: "AUTH_OTP_INVALID" });
+	});
+
+	it("counts concurrent wrong MFA codes atomically and exhausts the login challenge", async () => {
+		const user = await account("mfa-race");
+		const id = crypto.randomUUID();
+		const challengeToken = deps.crypto.createChallengeToken(id);
+		await store.createChallenge(deps.db, {
+			id,
+			userId: user.id,
+			email: user.email,
+			purpose: "mfa_login",
+			codeHash: deps.crypto.hashChallengeToken("mfa_login", user.email, challengeToken),
+			expiresAt: new Date(Date.now() + 60_000),
+		});
+		const failures = await Promise.all(
+			Array.from({ length: config.otpMaxAttempts }, () =>
+				failure(flows.completeMfaLogin(deps, { challengeToken, code: "000000" }, meta)),
+			),
+		);
+		expect(failures.every((result) => result.code === "AUTH_OTP_INVALID")).toBe(true);
+		const exhausted = await store.findChallenge(deps.db, id);
+		expect(exhausted?.attempts).toBe(config.otpMaxAttempts);
+		expect(exhausted?.consumedAt).not.toBeNull();
+		expect(
+			await failure(flows.completeMfaLogin(deps, { challengeToken, code: "000000" }, meta)),
+		).toEqual({ status: 401, code: "AUTH_OTP_INVALID" });
+		expect((await store.findChallenge(deps.db, id))?.attempts).toBe(config.otpMaxAttempts);
+	});
+
+	it("logout revokes its authenticated session even after another tab rotated the cookie", async () => {
+		const user = await account("logout-rotated");
+		const initial = await flows.createSession(deps, user, meta);
+		const rotated = await flows.refresh(deps, initial.refreshToken);
+		const app = createApp({
+			config,
+			db: deps.db,
+			sessions: sessionLookup(deps.db),
+			send: deps.send,
+		});
+		const out = await app.request("/api/v1/auth/logout", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				authorization: `Bearer ${initial.accessToken}`,
+				cookie: `${config.refreshCookieName}=${initial.refreshToken}`,
+			},
+			body: "{}",
+		});
+		expect(out.status).toBe(204);
+		expect(out.headers.get("set-cookie")).toContain(`${config.refreshCookieName}=;`);
+		expect(await failure(flows.refresh(deps, rotated.refreshToken))).toEqual({
+			status: 401,
+			code: "AUTH_REFRESH_TOKEN_INVALID",
+		});
+	});
+
+	it("logout and refresh cannot leave a rotated session active when racing", async () => {
+		const user = await account("logout-race");
+		const initial = await flows.createSession(deps, user, meta);
+		const app = createApp({
+			config,
+			db: deps.db,
+			sessions: sessionLookup(deps.db),
+			send: deps.send,
+		});
+		const [refresh, out] = await Promise.all([
+			flows.refresh(deps, initial.refreshToken).catch((error: unknown) => {
+				if (error instanceof ApiError && error.code === "AUTH_REFRESH_TOKEN_INVALID") return null;
+				throw error;
+			}),
+			app.request("/api/v1/auth/logout", {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+					authorization: `Bearer ${initial.accessToken}`,
+					cookie: `${config.refreshCookieName}=${initial.refreshToken}`,
+				},
+				body: "{}",
+			}),
+		]);
+		expect(out.status).toBe(204);
+		const sessionId = deps.crypto.sessionIdFromRefreshToken(initial.refreshToken) ?? "";
+		expect((await store.findSession(deps.db, sessionId))?.revokedAt).not.toBeNull();
+		if (refresh)
+			expect(await failure(flows.refresh(deps, refresh.refreshToken))).toEqual({
+				status: 401,
+				code: "AUTH_REFRESH_TOKEN_INVALID",
+			});
+	});
+
+	it("logout never revokes a session from forged JWTs or mismatched signed user claims", async () => {
+		const user = await account("logout-proof");
+		const other = await account("logout-other");
+		const app = createApp({
+			config,
+			db: deps.db,
+			sessions: sessionLookup(deps.db),
+			send: deps.send,
+		});
+		for (const forged of [true, false]) {
+			const initial = await flows.createSession(deps, user, meta);
+			const sid = deps.crypto.sessionIdFromRefreshToken(initial.refreshToken) ?? "";
+			const signer = forged
+				? authCrypto({ ...config, jwtSecret: "different-test-secret-0123456789" })
+				: deps.crypto;
+			const signed = await signer.signAccessToken({ sub: other.id, sid }, "15m");
+			const out = await app.request("/api/v1/auth/logout", {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+					authorization: `Bearer ${signed.token}`,
+					cookie: `${config.refreshCookieName}=${sid}.invalid`,
+				},
+				body: "{}",
+			});
+			expect(out.status).toBe(204);
+			expect((await store.findSession(deps.db, sid))?.revokedAt).toBeNull();
+			expect((await flows.refresh(deps, initial.refreshToken)).user.id).toBe(user.id);
+		}
+	});
+
+	it("logout keeps cookie proof available without a bearer or with an expired bearer", async () => {
+		const user = await account("logout-cookie");
+		const app = createApp({
+			config,
+			db: deps.db,
+			sessions: sessionLookup(deps.db),
+			send: deps.send,
+		});
+		for (const expired of [false, true]) {
+			const initial = await flows.createSession(deps, user, meta);
+			const sid = deps.crypto.sessionIdFromRefreshToken(initial.refreshToken) ?? "";
+			const signed = await deps.crypto.signAccessToken({ sub: user.id, sid }, "0s");
+			const out = await app.request("/api/v1/auth/logout", {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+					...(expired ? { authorization: `Bearer ${signed.token}` } : {}),
+					cookie: `${config.refreshCookieName}=${initial.refreshToken}`,
+				},
+				body: "{}",
+			});
+			expect(out.status).toBe(204);
+			expect((await store.findSession(deps.db, sid))?.revokedAt).not.toBeNull();
+		}
 	});
 
 	it("closes a code after too many wrong tries", async () => {

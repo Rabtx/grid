@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JSX } from "@solidjs/web";
 
 import { AuthProvider } from "@/modules/auth";
+import { placementsStore } from "@/modules/environments";
 import { ShellProvider, useShell } from "@/modules/shell";
 import { WorkspaceProvider } from "../context/workspace-context";
 
@@ -208,6 +209,15 @@ describe("FilesScreen", () => {
 		dispose();
 		container.remove();
 		vi.unstubAllGlobals();
+	});
+
+	it("rereads the folder from its new machine when a project placement changes", async () => {
+		await settle();
+		await placementsStore.place("token", "alpha", "remote");
+		await settle();
+		expect(calls.some((url) => url.includes("/runner/env/remote/projects/files/alpha?"))).toBe(
+			true,
+		);
 	});
 
 	it("opens a nested folder and uses its relative path", async () => {
