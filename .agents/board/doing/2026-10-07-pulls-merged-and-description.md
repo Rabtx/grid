@@ -58,7 +58,7 @@ Definition of done:
 ## Resolution
 
 1. **Merged pull requests listing (Runner & Console):**
-   - Root cause (corrected in PM review, 2026-10-07): the desktop panel never requested merged pull requests at all. The console only sent `state=open` (and `filter=review`), so the Merged list could not fill. The runner was not at fault: PM ran `main`'s exact `gh pr list --state merged --limit 100 --json …,statusCheckRollup,…` against `shabirkhan-dev/grid` and it returned 100 rows. The timeout this card first described was not reproduced.
+   - Root cause (PM review, 2026-10-07): two problems. (1) The desktop panel never requested merged pull requests at all: it only sent `state=open` and `filter=review`. (2) When merged PRs were requested, the runner's query, which included `statusCheckRollup`, took about 8 seconds from the CLI and sometimes longer. The runner's HTTP server used Bun's default 10-second idle timeout, so slow answers had their connection reset. The console got a bodiless 502 and showed "The runner is not running." The field split below roughly halves the query (about 3.7 seconds), and the integration branch sets the runner's and API's `idleTimeout` to 120 seconds.
    - In `apps/runner/src/github/pulls.ts`:
      - Split list fields into `OPEN_LIST_FIELDS` (with `statusCheckRollup`) and `CLOSED_LIST_FIELDS` (without `statusCheckRollup`). (Kept as a speed-up: a merged list took about 15 seconds with the check status included.)
      - Added optional `limit` parameter to `PullRequests.list` (defaulting to 100).
