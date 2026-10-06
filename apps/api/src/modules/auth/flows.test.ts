@@ -109,6 +109,32 @@ suite("sign-in rules", () => {
 		});
 	});
 
+	it("answers a wrong password the same way whether or not the account exists", async () => {
+		const user = await account("enumeration");
+		for (let i = 0; i < 3; i++) {
+			await failure(flows.login(deps, { email: user.email, password: "wrong" }, meta));
+		}
+		// Locked now. A wrong password must still look exactly like an unknown email, or the
+		// lockout status is a way to find out which addresses are registered.
+		for (const email of [user.email, `flows-${tag}-nobody@grid.test`]) {
+			expect(await failure(flows.login(deps, { email, password: "wrong" }, meta))).toEqual({
+				status: 401,
+				code: "AUTH_INVALID_CREDENTIALS",
+			});
+		}
+		// The right password still learns it is locked.
+		expect(
+			await failure(flows.login(deps, { email: user.email, password: PASSWORD }, meta)),
+		).toEqual({ status: 423, code: "AUTH_ACCOUNT_LOCKED" });
+	});
+
+	it("refuses a refresh token whose id is not a uuid", async () => {
+		expect(await failure(flows.refresh(deps, `${"a".repeat(24)}.${"b".repeat(43)}`))).toEqual({
+			status: 401,
+			code: "AUTH_REFRESH_TOKEN_INVALID",
+		});
+	});
+
 	it("forgets failed attempts after a successful sign-in", async () => {
 		const user = await account("reset");
 		await failure(flows.login(deps, { email: user.email, password: "wrong" }, meta));

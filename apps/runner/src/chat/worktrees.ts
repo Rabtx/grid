@@ -1,6 +1,6 @@
-import { existsSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync, statSync } from "node:fs";
 import { mkdir, realpath, stat } from "node:fs/promises";
-import { basename, isAbsolute, join, relative, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 
 /**
  * A git worktree for each chat: its own checkout and branch of the project's repository, so
@@ -84,6 +84,46 @@ export function repoRoot(folder: string): string | null {
 /** Where Grid keeps a repository's chat worktrees. */
 export function worktreesDir(projectsDir: string, repo: string): string {
 	return join(projectsDir, ".grid-worktrees", basename(repo));
+}
+
+/**
+ * True when `actual` is really outside `projectsDir`. Both sides must already be resolved through
+ * `realpath`: a `.grid-worktrees` that is a symlink pointing elsewhere would otherwise pass a check
+ * made on the unresolved path and put a checkout outside the projects directory.
+ */
+function outsideProjectsDir(projectsDir: string, actual: string): boolean {
+	const inside = relative(projectsDir, actual);
+	return inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside);
+}
+
+/**
+ * A repository's worktrees folder, created and checked to really sit inside `projectsDir`. The
+ * check is made before anything is written, so a `.grid-worktrees` pointing elsewhere leaves no
+ * directory behind either.
+ */
+function worktreesRoot(projectsDir: string, repo: string): string {
+	const dir = worktreesDir(projectsDir, repo);
+	// Resolve the `.grid-worktrees` parent on its own: the leaf does not exist yet, and resolving
+	// after creating it would first write a directory wherever the symlink happens to point.
+	const parent = dirname(dir);
+	if (!existsSync(parent)) mkdirSync(parent, { recursive: true });
+	const actualParent = realpathSync(parent);
+	if (outsideProjectsDir(projectsDir, actualParent))
+		throw new WorktreeError("Worktrees directory is outside the projects directory", 403);
+	mkdirSync(join(actualParent, basename(dir)), { recursive: true });
+	return join(actualParent, basename(dir));
+}
+
+/** {@link worktreesRoot}, without synchronous filesystem calls, for the unattended job path. */
+async function worktreesRootAsync(projectsDir: string, repo: string): Promise<string> {
+	const dir = worktreesDir(projectsDir, repo);
+	const parent = dirname(dir);
+	await mkdir(parent, { recursive: true });
+	const actualParent = await realpath(parent);
+	if (outsideProjectsDir(projectsDir, actualParent))
+		throw new WorktreeError("Worktrees directory is outside the projects directory", 403);
+	await mkdir(join(actualParent, basename(dir)), { recursive: true });
+	return join(actualParent, basename(dir));
 }
 
 /** What kind of worktree a chat wants: a new branch, or an existing one to work on. */
@@ -255,7 +295,8 @@ export function createWorktree(
 	if (!git(repo, ["check-ref-format", "--branch", branch]).ok) {
 		throw new WorktreeError(`"${branch}" is not a branch name git accepts`, 400);
 	}
-	const path = join(worktreesDir(projectsDir, repo), worktreeFolder(branch, chatId));
+	const actualBase = worktreesRoot(projectsDir, repo);
+	const path = join(actualBase, worktreeFolder(branch, chatId));
 	if (existsSync(path)) throw new WorktreeError(`${path} already exists`, 409);
 	const adopted = request.existing === true || request.pull !== undefined;
 	let base: string | null = null;
@@ -280,12 +321,7 @@ export async function createWorktreeAsync(
 	if (!top.ok || !top.out) return null;
 	const repo = top.out;
 	const branch = `grid/chat-${chatId.slice(0, 8)}`;
-	const baseDir = worktreesDir(projectsDir, repo);
-	await mkdir(baseDir, { recursive: true });
-	const actualBase = await realpath(baseDir);
-	const insideBase = relative(projectsDir, actualBase);
-	if (insideBase === ".." || insideBase.startsWith(`..${sep}`) || isAbsolute(insideBase))
-		throw new WorktreeError("Worktrees directory is outside the projects directory", 403);
+	const actualBase = await worktreesRootAsync(projectsDir, repo);
 	const path = join(actualBase, worktreeFolder(branch, chatId));
 	if (
 		await stat(path).then(

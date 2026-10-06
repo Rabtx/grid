@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 import { type Database, schema } from "@grid/db";
 import { hashSecret } from "@grid/db/instance";
 import { hashPassword } from "@grid/db/password";
@@ -69,6 +71,13 @@ export const setupSchema = z
 const invalidCode = () =>
 	forbidden({ code: "SETUP_CODE_INVALID", message: "The setup link is invalid or expired" });
 
+/** The setup code guards this Grid's first run, so it is compared in constant time. */
+function sameHex(actual: string, expected: string): boolean {
+	const a = Buffer.from(actual, "hex");
+	const b = Buffer.from(expected, "hex");
+	return a.length === b.length && timingSafeEqual(a, b);
+}
+
 /**
  * First run: with the code from the setup link, create the owner (verified, since they hold the
  * machine's link), their workspace, and make them this Grid's owner. Works once, while nobody
@@ -93,7 +102,7 @@ export async function setUp(
 			!current?.setupCodeHash ||
 			!current.setupCodeExpiresAt ||
 			current.setupCodeExpiresAt < new Date() ||
-			current.setupCodeHash !== hashSecret(input.code)
+			!sameHex(current.setupCodeHash, hashSecret(input.code))
 		)
 			throw invalidCode();
 		const [user] = await tx

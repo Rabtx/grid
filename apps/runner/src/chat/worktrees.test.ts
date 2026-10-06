@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -78,6 +78,32 @@ describe("chat worktrees", () => {
 		const plain = join(projects, "plain");
 		mkdirSync(plain);
 		expect(createWorktree(plain, "abcdef12", projects)).toBeNull();
+	});
+
+	it("refuses a .grid-worktrees that resolves outside the projects folder", () => {
+		// A symlink here would pass a check made on the unresolved path and put a checkout, and
+		// a branch, outside the folder Grid keeps projects in.
+		const root = mkdtempSync(join(tmpdir(), "grid-worktree-escape-"));
+		try {
+			const inside = join(root, "projects");
+			const outside = join(root, "outside");
+			mkdirSync(inside, { recursive: true });
+			mkdirSync(outside, { recursive: true });
+			const shop = join(inside, "shop");
+			mkdirSync(shop, { recursive: true });
+			git(shop, "init", "-q", "-b", "main");
+			writeFileSync(join(shop, "app.ts"), "export {};\n");
+			git(shop, "add", ".");
+			git(shop, "commit", "-q", "-m", "first");
+			symlinkSync(outside, join(inside, ".grid-worktrees"));
+
+			expect(() => createWorktree(shop, "deadbeef-1111", inside)).toThrow(
+				"outside the projects directory",
+			);
+			expect(existsSync(join(outside, "shop"))).toBe(false);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
 	});
 
 	it("checks out an existing branch as it is instead of making one", () => {
