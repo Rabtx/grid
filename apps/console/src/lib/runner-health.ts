@@ -172,21 +172,14 @@ if (typeof window !== "undefined") {
 }
 
 let _runnerUp = true;
-let _runnerRestarted = false;
 let _runnerStartedAt: number | null = null;
 
 const [getRunnerUp, setSignalUp] = createSignal(true);
-const [getRunnerRestarted, setSignalRestarted] = createSignal(false);
 const [getRunnerStartedAt, setSignalStartedAt] = createSignal<number | null>(null);
 
 function runnerUp(): boolean {
 	getRunnerUp();
 	return _runnerUp;
-}
-
-function runnerRestarted(): boolean {
-	getRunnerRestarted();
-	return _runnerRestarted;
 }
 
 function runnerStartedAt(): number | null {
@@ -199,17 +192,11 @@ function setRunnerUp(value: boolean): void {
 	setSignalUp(value);
 }
 
-function setRunnerRestarted(value: boolean): void {
-	_runnerRestarted = value;
-	setSignalRestarted(value);
-}
-
 function setRunnerStartedAt(value: number | null): void {
 	_runnerStartedAt = value;
 	setSignalStartedAt(value);
 }
 
-let lastKnownStartedAt: number | null = null;
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let backoffAttempt = 0;
 let isPolling = false;
@@ -219,10 +206,6 @@ const recoveryCallbacks = new Set<() => void>();
 export function onRunnerRecovered(cb: () => void): () => void {
 	recoveryCallbacks.add(cb);
 	return () => recoveryCallbacks.delete(cb);
-}
-
-export function resetRunnerRestarted(): void {
-	setRunnerRestarted(false);
 }
 
 export async function checkRunnerHealth(customFetch?: typeof fetch): Promise<boolean> {
@@ -236,10 +219,6 @@ export async function checkRunnerHealth(customFetch?: typeof fetch): Promise<boo
 		const data = (await res.json()) as HealthResponse;
 		const wasDown = !runnerUp();
 
-		if (lastKnownStartedAt !== null && data.startedAt !== lastKnownStartedAt) {
-			setRunnerRestarted(true);
-		}
-		lastKnownStartedAt = data.startedAt;
 		setRunnerStartedAt(data.startedAt);
 		setRunnerUp(true);
 		backoffAttempt = 0;
@@ -306,4 +285,4 @@ if (typeof window !== "undefined") {
 	});
 }
 
-export { runnerUp, runnerRestarted, runnerStartedAt };
+export { runnerUp, runnerStartedAt };

@@ -62,10 +62,17 @@ async function upsert(
 	if (!profile) throw new Error("Profile update did not return a record");
 }
 function requestOrigin(c: AppContext) {
-	const first = (name: string) => c.req.header(name)?.split(",")[0]?.trim();
-	const host = first("x-forwarded-host") ?? c.req.header("host") ?? new URL(c.req.url).host;
-	const protocol = first("x-forwarded-proto") ?? new URL(c.req.url).protocol.slice(0, -1);
+	// `X-Forwarded-*` is only what a proxy in front of the API said, and only behind one we
+	// trust. Taken from anyone, the value lands in a profile that other members of the workspace
+	// are shown, so it has to come from the host we are actually served on.
+	const forwarded = c.get("config").trustProxy
+		? (name: string) => c.req.header(name)?.split(",")[0]?.trim()
+		: () => undefined;
+	const host = forwarded("x-forwarded-host") ?? c.req.header("host") ?? new URL(c.req.url).host;
+	const protocol = forwarded("x-forwarded-proto") ?? new URL(c.req.url).protocol.slice(0, -1);
 	if (!host) throw badRequest("Unable to resolve public host for avatar URL");
+	if (protocol !== "http" && protocol !== "https")
+		throw badRequest("Unable to resolve the public protocol for avatar URL");
 	return `${protocol}://${host}`;
 }
 async function avatar(c: AppContext, db: Database, userId: string, uploadsDir: string) {

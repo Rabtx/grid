@@ -152,6 +152,20 @@ export class TerminalStore {
 	}
 
 	/**
+	 * Shells still running, which is what the cap is about. A terminal whose shell has ended stays
+	 * listed so its output and exit code can still be read, but it must not hold a slot: someone
+	 * who types `exit` would otherwise spend their whole allowance and be refused new terminals
+	 * until each dead one was closed, or the runner restarted.
+	 */
+	private running(ownerId: string): number {
+		let count = 0;
+		for (const terminal of this.terminals.values()) {
+			if (terminal.ownerId === ownerId && terminal.pty !== null) count++;
+		}
+		return count;
+	}
+
+	/**
 	 * Open a new shell, optionally typing a first command into it (an agent's installer or
 	 * sign-in, say). Returns null once the person already holds the maximum.
 	 */
@@ -161,7 +175,7 @@ export class TerminalStore {
 		cwd?: string,
 		run?: { command: string; title: string },
 	): TerminalInfo | null {
-		if (this.list(ownerId).length >= this.config.maxTerminalsPerUser) return null;
+		if (this.running(ownerId) >= this.config.maxTerminalsPerUser) return null;
 		const start =
 			(cwd?.trim() ? safeDirectory(cwd, this.config.projectsDir) : null) ??
 			safeDirectory(this.config.defaultCwd, this.config.projectsDir) ??

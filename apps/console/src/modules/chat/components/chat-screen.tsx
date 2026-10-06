@@ -167,11 +167,22 @@ export function ChatScreen(): JSX.Element {
 			if (slug) setTabIds(rememberedTabs(slug));
 		},
 	);
-	// A chat that no longer exists (removed on the runner) falls back to a new one.
+	// A chat that no longer exists (removed on the runner) falls back to a new one. Only a read
+	// that actually succeeded can tell the two apart: a failed one leaves the list empty, and
+	// acting on that would bounce someone out of the thread they were in and forget it, exactly
+	// when the runner was unreachable.
 	createEffect(
-		() => [project(), activeId(), sessions(), threadsStore.loaded(project() ?? "")] as const,
-		([slug, id, list, loaded]) => {
-			if (!slug || !id || !loaded || list.some((session) => session.id === id)) return;
+		() =>
+			[
+				project(),
+				activeId(),
+				sessions(),
+				threadsStore.loaded(project() ?? ""),
+				threadsStore.error(project() ?? ""),
+			] as const,
+		([slug, id, list, loaded, failed]) => {
+			if (!slug || !id || !loaded || failed) return;
+			if (list.some((session) => session.id === id)) return;
 			workspace.rememberChat(slug, null);
 			navigate(`/chat/${slug}`, { replace: true });
 		},

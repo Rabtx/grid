@@ -520,3 +520,62 @@ describe("ChatHub note suggestions", () => {
 		expect(hub.noteSuggestions("u1", "shop")).toEqual([]);
 	});
 });
+
+describe("ChatHub talking to a dying agent", () => {
+	/**
+	 * An agent whose turn never finishes and whose `cancel`/`approve` fail the way a process that
+	 * has just died does.
+	 */
+	function dyingProvider(): { provider: Provider; holding: () => boolean } {
+		let holding = false;
+		const provider: Provider = {
+			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
+			catalog: async () => ({ models: [{ id: "m1", name: "Model 1" }] }),
+			start: async () => {
+				holding = true;
+				return {
+					prompt: () => new Promise<{ reason: "done" }>(() => {}),
+					cancel: () => {
+						throw new Error("EPIPE: the agent's process is gone");
+					},
+					approve: () => {
+						throw new Error("EPIPE: the agent's process is gone");
+					},
+					setModel: async () => undefined,
+					setMode: async () => undefined,
+					setEffort: async () => undefined,
+					close: () => undefined,
+				};
+			},
+		};
+		return { provider, holding: () => holding };
+	}
+
+	it("does not leave a rejection behind when cancelling or answering a dead agent", async () => {
+		// The runner turns any unhandled rejection into a process-killing throw, so a cancel that
+		// fails against a dead agent must not become one.
+		const unhandled: unknown[] = [];
+		const note = (reason: unknown) => unhandled.push(reason);
+		process.on("unhandledRejection", note);
+		try {
+			const { provider, holding } = dyingProvider();
+			const hub = new ChatHub(new ChatStore(":memory:"), new Map([["fake", provider]]), root);
+			await hub.providerList("u1");
+			const chat = hub.create(
+				{ userId: "u1", workspace: "u1" },
+				{ project: "shop", provider: "fake" },
+			);
+			// The turn stays open, so the hub still holds the agent these reach.
+			void hub.prompt("u1", chat.id, "go");
+			await until(holding);
+
+			hub.cancel("u1", chat.id);
+			hub.approve("u1", chat.id, "approval-1", "option-1");
+			await Bun.sleep(20);
+
+			expect(unhandled).toEqual([]);
+		} finally {
+			process.off("unhandledRejection", note);
+		}
+	});
+});

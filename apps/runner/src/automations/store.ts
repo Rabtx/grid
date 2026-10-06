@@ -228,7 +228,11 @@ export class AutomationStore {
 	list(workspace: string): Automation[] {
 		return this.db
 			.query<AutomationRow, [string]>(
-				"SELECT * FROM automations WHERE workspace = ? ORDER BY updated_at DESC LIMIT 200",
+				// `rowid` breaks the tie on `updated_at`. Automations saved in the same tick share a
+				// timestamp, and without it SQLite left their order to the query plan: the list
+				// reordered itself between reads, and `event` handed the two free run slots to
+				// whichever ones happened to come first.
+				"SELECT * FROM automations WHERE workspace = ? ORDER BY updated_at DESC, rowid DESC LIMIT 200",
 			)
 			.all(workspace)
 			.map(automation);

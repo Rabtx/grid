@@ -118,6 +118,28 @@ describe("TerminalStore", () => {
 		expect(store.list("me")).toHaveLength(0);
 	});
 
+	it("gives a slot back once the shell ends, so the cap is not spent for good", () => {
+		const { spawned, spawn } = fakePty();
+		const store = new TerminalStore(config, spawn);
+		// Two live shells fill the allowance.
+		expect(store.open("me", { cols: 80, rows: 24 })).not.toBeNull();
+		const second = store.open("me", { cols: 80, rows: 24 });
+		expect(second).not.toBeNull();
+		expect(store.open("me", { cols: 80, rows: 24 })).toBeNull();
+		// Both end — someone typing `exit`, or a command that finishes the shell.
+		spawned[0].onExit(0);
+		spawned[1].onExit(0);
+		// Both slots are free again, so a new shell opens; ending one is not spending the
+		// allowance for good.
+		expect(store.open("me", { cols: 80, rows: 24 })).not.toBeNull();
+		expect(store.open("me", { cols: 80, rows: 24 })).not.toBeNull();
+		expect(store.open("me", { cols: 80, rows: 24 })).toBeNull();
+		// The ended ones are still listed, so their output and exit code can be read.
+		const listed = store.list("me").map((info) => info.exitCode);
+		expect(listed.filter((code) => code === 0)).toHaveLength(2);
+		expect(listed.filter((code) => code === null)).toHaveLength(2);
+	});
+
 	it("kills the shell when a running terminal is closed", () => {
 		const { spawned, spawn } = fakePty();
 		const store = new TerminalStore(config, spawn);

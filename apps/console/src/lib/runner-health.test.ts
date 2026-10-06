@@ -4,7 +4,7 @@ import {
 	checkRunnerHealth,
 	onRunnerRecovered,
 	reportRunnerFailure,
-	runnerRestarted,
+	runnerStartedAt,
 	runnerUp,
 } from "./runner-health";
 
@@ -18,10 +18,12 @@ describe("runner-health", () => {
 		const result = await checkRunnerHealth(mockFetch);
 		expect(result).toBe(true);
 		expect(runnerUp()).toBe(true);
-		expect(runnerRestarted()).toBe(false);
+		expect(runnerStartedAt()).toBe(1000);
 	});
 
-	it("detects restart when startedAt changes", async () => {
+	// The conversation reads this to notice the runner it was following is a new process, so a
+	// change here is the only signal a restarted runner gives.
+	it("reports a new startedAt when the runner comes back as a new process", async () => {
 		const mockFetch1 = vi.fn().mockResolvedValue({
 			ok: true,
 			json: async () => ({ ok: true, startedAt: 1000 }),
@@ -34,7 +36,7 @@ describe("runner-health", () => {
 		} as Response);
 		await checkRunnerHealth(mockFetch2);
 
-		expect(runnerRestarted()).toBe(true);
+		expect(runnerStartedAt()).toBe(2000);
 	});
 
 	it("notifies recovery listeners when transitioning from down to up", async () => {
