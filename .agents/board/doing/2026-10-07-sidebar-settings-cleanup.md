@@ -5,15 +5,21 @@ type: bug
 from: human
 to: web
 priority: high
-status: open
-assignee: none
+status: doing
+assignee: web
 reviewer: pm
 parent: none
 depends_on: []
 branch: agent/web/sidebar-settings-cleanup
 worktree: /home/ghost/Projects/grid-worktrees/agent/web/sidebar-settings-cleanup
-scope: [apps/console/src/modules/shell/**, apps/console/src/modules/settings/**, apps/console/src/kit/nav.tsx, apps/console/src/app.tsx]
-allowed_shared: [apps/console/src/kit/context-menu.ts, apps/console/src/kit/menu.tsx]
+scope:
+  - apps/console/src/modules/shell/**
+  - apps/console/src/modules/settings/**
+  - apps/console/src/kit/nav.tsx
+  - apps/console/src/app.tsx
+allowed_shared:
+  - apps/console/src/kit/context-menu.ts
+  - apps/console/src/kit/menu.tsx
 created: 2026-10-07
 updated: 2026-10-07
 ---

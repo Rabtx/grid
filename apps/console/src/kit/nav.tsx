@@ -11,8 +11,10 @@ const row = variants({
 	base: "focus-ring group/nav flex w-full min-w-0 gap-2 rounded-kit text-left font-medium text-fg-muted transition-[background-color,color] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg",
 	variants: {
 		// Top-level destinations and projects; threads and a project's pages one step down.
+		// Level 0 grows to a finger's height on touch: a project's chevron is a 44px button there,
+		// and it would overhang a 30px row.
 		level: {
-			0: "h-kit-row items-center px-2 text-nav",
+			0: "h-kit-row min-h-kit-row items-center px-2 text-nav pointer-coarse:min-h-11",
 			1: "h-[calc(var(--kit-h-row)-0.25rem)] items-center px-2 text-body pointer-coarse:h-11",
 			/** A row with a second line under its label: as tall as its two lines. */
 			2: "min-h-kit-row items-start px-2 py-2 text-nav",
@@ -34,13 +36,14 @@ type NavItemProps = {
 	/** Right-hand detail at rest: a count, a shortcut, a time, a badge. Hidden while actions show. */
 	trailing?: JSX.Element;
 	/**
-	 * An interactive control rendered persistently at the right of the row (e.g. collapse toggle).
-	 * Unlike actions, this is always visible and clickable on both pointer and touch devices.
+	 * An interactive control at the right of the row (a collapse chevron): invisible at rest on
+	 * pointers, where it appears on hover or keyboard focus like the row's other actions, and always
+	 * drawn on touch, which has no hover to reveal it.
 	 */
 	trailingAction?: JSX.Element;
 	/**
-	 * Row actions for pointers (a plus, a ⋯ menu): revealed on hover or keyboard focus, never drawn
-	 * on touch screens, where a long press on the row opens the menu instead.
+	 * Row actions (a plus, a ⋯ menu): revealed on hover or keyboard focus, never drawn on touch
+	 * screens, where a long press on the row opens the menu instead.
 	 */
 	actions?: JSX.Element;
 	/** Right-click (desktop) and long press (touch) on the row. */
@@ -100,8 +103,10 @@ function Content(props: NavItemProps): JSX.Element {
 function RowFrame(props: { item: NavItemProps; children: JSX.Element }): JSX.Element {
 	let frame: HTMLDivElement | undefined;
 	onSettled(() => {
-		const open = props.item.onMenuAt;
-		return frame && open ? attachContextMenu(frame, open) : undefined;
+		if (!frame || !props.item.onMenuAt) return undefined;
+		// Read the handler when the gesture fires, not when the row settled: the row re-renders, and
+		// the menu it holds then is a different element from the one a settled-time closure opened.
+		return attachContextMenu(frame, (point) => props.item.onMenuAt?.(point));
 	});
 	return (
 		<div
@@ -114,11 +119,19 @@ function RowFrame(props: { item: NavItemProps; children: JSX.Element }): JSX.Ele
 			<Show when={props.item.actions || props.item.trailingAction}>
 				<div class="absolute inset-y-0 right-1 flex items-center gap-0.5">
 					<Show when={props.item.actions}>
-						<div class="flex items-center gap-0.5 opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:pointer-events-none pointer-coarse:opacity-0">
+						{/* On touch the triggers are hidden, never their container: a menu lives inside it,
+						    and a menu in a `display: none` parent cannot open from a long press. The
+						    container itself must not take pointer events away either, or the sheet it
+						    opens would inherit them and nothing in it could be tapped. */}
+						<div class="flex items-center gap-0.5 opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 focus-within:opacity-100 pointer-coarse:[&>button]:hidden">
 							{props.item.actions}
 						</div>
 					</Show>
-					{props.item.trailingAction}
+					<Show when={props.item.trailingAction}>
+						<div class="flex items-center opacity-0 transition-opacity duration-fast group-hover/row:opacity-100 group-focus-within/row:opacity-100 pointer-coarse:opacity-100">
+							{props.item.trailingAction}
+						</div>
+					</Show>
 				</div>
 			</Show>
 		</div>

@@ -1,12 +1,11 @@
 import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For } from "solid-js";
+import { For } from "solid-js";
 
 import {
 	AsteriskIcon,
 	BackIcon,
 	BellIcon,
-	type FeedTone,
 	IconButton,
 	LaptopIcon,
 	NavLink,
@@ -20,31 +19,24 @@ import {
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
 import { runnerUp } from "@/lib/runner-health";
-import { useAuth } from "@/modules/auth";
-import { useWorkspaces } from "@/modules/workspaces";
-import { workspacesService } from "@/modules/workspaces/services/workspaces.service";
 
 import { SETTINGS_SECTIONS, type SettingsHref, settingsReturn } from "../lib/pages";
 
-/** Each page's glyph, and the tint it wears on the phone's settings list. */
-const ICONS: Record<SettingsHref, { icon: () => JSX.Element; tone: FeedTone }> = {
-	"/settings/profile": { icon: () => <UserIcon />, tone: "accent" },
-	"/settings/notifications": { icon: () => <BellIcon />, tone: "danger" },
-	"/settings/appearance": { icon: () => <PaletteIcon />, tone: "violet" },
-	"/settings/general": { icon: () => <SettingsIcon />, tone: "neutral" },
-	"/settings/members": { icon: () => <UserIcon />, tone: "warning" },
-	"/settings/connectors": { icon: () => <PlugIcon />, tone: "accent" },
-	"/settings/agents": { icon: () => <AsteriskIcon />, tone: "violet" },
-	"/settings/roles": { icon: () => <UserIcon />, tone: "accent" },
-	"/settings/machines": { icon: () => <LaptopIcon />, tone: "success" },
+/** Each page's glyph. */
+const ICONS: Record<SettingsHref, () => JSX.Element> = {
+	"/settings/profile": () => <UserIcon />,
+	"/settings/notifications": () => <BellIcon />,
+	"/settings/appearance": () => <PaletteIcon />,
+	"/settings/general": () => <SettingsIcon />,
+	"/settings/members": () => <UserIcon />,
+	"/settings/connectors": () => <PlugIcon />,
+	"/settings/agents": () => <AsteriskIcon />,
+	"/settings/roles": () => <UserIcon />,
+	"/settings/machines": () => <LaptopIcon />,
 };
 
-export function settingsTone(href: SettingsHref): FeedTone {
-	return ICONS[href].tone;
-}
-
 export function settingsIcon(href: SettingsHref): JSX.Element {
-	return ICONS[href].icon();
+	return ICONS[href]();
 }
 
 /**
@@ -55,25 +47,9 @@ export function settingsIcon(href: SettingsHref): JSX.Element {
 export function SettingsSidebar(props: { bare?: boolean } = {}): JSX.Element {
 	const location = useLocation();
 	const navigate = useNavigate();
-	const auth = useAuth();
-	const workspaces = useWorkspaces();
-	const [members, setMembers] = createSignal<number | null>(null);
-	// How many people are in the workspace, beside Members (Figma 24's sidebar count).
-	createEffect(
-		() => [auth.token(), workspaces.current()?.slug] as const,
-		([token, slug]) => {
-			if (!token || !slug) return;
-			workspacesService.members(token, slug).then(
-				(list) => setMembers(list.length),
-				() => setMembers(null),
-			);
-		},
-	);
+	// Only what the list cannot say by itself: a machine being up is news, a count of members or
+	// roles beside its own name is not. The page answers it better than a stray number in a list.
 	const trailing = (href: SettingsHref): JSX.Element => {
-		if (href === "/settings/members") return members() ?? undefined;
-		// The built-in four and the workspace's own (Figma 24's sidebar count).
-		if (href === "/settings/roles")
-			return 4 + (workspaces.current()?.settings?.customRoles?.length ?? 0);
 		if (href === "/settings/machines")
 			return (
 				<StatusDot
