@@ -71,6 +71,11 @@ export async function connectorRequest(
 				}),
 			});
 		}
+		if (path === "/connectors/sign-in/outcome" && request.method === "GET") {
+			const state = url.searchParams.get("state");
+			if (!state) return failure(400, "Say which sign-in");
+			return Response.json({ data: connectors.signInOutcome(workspace, state) });
+		}
 		if (path === "/connectors/sign-in/finish" && request.method === "POST") {
 			const input = await body<{ state?: string; code?: string }>(request);
 			if (typeof input.state !== "string" || typeof input.code !== "string")
@@ -234,5 +239,32 @@ export async function connectorProxyRequest(
 	} catch (cause) {
 		if (cause instanceof ConnectorError) return failure(cause.status, cause.message);
 		return failure(502, cause instanceof Error ? cause.message : "The connector failed");
+	}
+}
+
+/**
+ * `POST /connectors/sign-in/callback`: the sign-in window's own page hands back the code. It is not
+ * signed in to Grid (it may be a different browser from the one that started), so the sign-in's
+ * single-use state is what proves it. Answers only with the service's name, never the grant.
+ */
+export async function connectorCallbackRequest(
+	request: Request,
+	url: URL,
+	connectors: Connectors,
+): Promise<Response | null> {
+	if (url.pathname !== "/connectors/sign-in/callback" || request.method !== "POST") return null;
+	const input = await body<{ state?: unknown; code?: unknown; error?: unknown }>(request);
+	if (typeof input.state !== "string" || input.state.length < 16)
+		return failure(400, "This page did not come from a Grid sign-in");
+	try {
+		return Response.json({
+			data: await connectors.completeSignIn(input.state, {
+				code: typeof input.code === "string" ? input.code : null,
+				error: typeof input.error === "string" ? input.error.slice(0, 300) : null,
+			}),
+		});
+	} catch (cause) {
+		if (cause instanceof ConnectorError) return failure(cause.status, cause.message);
+		throw cause;
 	}
 }

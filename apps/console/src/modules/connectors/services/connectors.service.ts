@@ -9,6 +9,7 @@ import type {
 	HeldGrant,
 	Probe,
 	Rule,
+	SignInOutcome,
 } from "../types/connector.types";
 
 const json = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
@@ -23,6 +24,31 @@ export const connectorsService = {
 		runnerCall<{ url: string; state: string }>("/connectors/sign-in", token, json(input)),
 	finishSignIn: (token: string, input: { state: string; code: string }) =>
 		runnerCall<HeldGrant>("/connectors/sign-in/finish", token, json(input)),
+	/** Where a sign-in started here stands: still waiting, finished in its window, or failed. */
+	signInOutcome: (token: string, state: string) =>
+		runnerCall<SignInOutcome>(
+			`/connectors/sign-in/outcome?state=${encodeURIComponent(state)}`,
+			token,
+		),
+	/**
+	 * The sign-in window's page finishing the sign-in. Not signed in to Grid (it may be another
+	 * browser, a phone's outside an installed app), so the sign-in's state is what it proves with.
+	 */
+	completeSignIn: async (input: {
+		state: string;
+		code: string | null;
+		error: string | null;
+	}): Promise<{ name: string }> => {
+		const response = await fetch("/runner/connectors/sign-in/callback", json(input)).catch(() => {
+			throw new Error("Grid's runner could not be reached to finish signing in");
+		});
+		const body = (await response.json().catch(() => null)) as {
+			data?: { name: string };
+			message?: string;
+		} | null;
+		if (!response.ok || !body?.data) throw new Error(body?.message ?? "Signing in failed");
+		return body.data;
+	},
 	useKey: (token: string, input: { service: string; key: string }) =>
 		runnerCall<HeldGrant>("/connectors/key", token, json(input)),
 	useGithubCli: (token: string) =>

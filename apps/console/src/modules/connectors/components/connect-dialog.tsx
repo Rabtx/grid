@@ -86,27 +86,50 @@ export function ConnectDialog(props: {
 		setStep(1);
 	}
 
-	// The service's window says how signing in went, through the page it comes back to.
+	// The sign-in finishes in its own window, which hands the code to the runner itself (see
+	// OAuthCallback). This dialog asks the runner how it went: on a timer, at once when that window
+	// says it is done, and when the person comes back to this page (a phone back from its browser).
+	let poll: ReturnType<typeof setTimeout> | undefined;
+	async function check(): Promise<void> {
+		const state = waiting;
+		const token = auth.token();
+		if (!state || !token) return;
+		clearTimeout(poll);
+		try {
+			const outcome = await connectorsService.signInOutcome(token, state);
+			if (waiting !== state) return;
+			if (outcome.status === "waiting") {
+				poll = setTimeout(() => void check(), 1500);
+				return;
+			}
+			waiting = null;
+			setBusy(false);
+			if (outcome.status === "done") signedIn(outcome);
+			else setError(outcome.message);
+		} catch {
+			// The runner did not answer this time; the sign-in is still worth waiting for.
+			if (waiting === state) poll = setTimeout(() => void check(), 3000);
+		}
+	}
+
 	onSettled(() => {
 		const listen = (event: MessageEvent) => {
 			if (event.origin !== window.location.origin) return;
-			const data = event.data as { type?: string; state?: string; code?: string; error?: string };
-			if (data?.type !== "grid-connector-sign-in" || !waiting || data.state !== waiting) return;
-			waiting = null;
-			if (data.error || !data.code) {
-				setBusy(false);
-				setError(data.error ?? "The sign-in did not finish");
-				return;
-			}
-			const code = data.code;
-			const state = data.state;
-			void run(
-				(token) => connectorsService.finishSignIn(token, { state, code }),
-				"Signing in failed",
-			).then(signedIn);
+			const data = event.data as { type?: string; state?: string };
+			if (data?.type === "grid-connector-sign-in" && waiting && data.state === waiting)
+				void check();
+		};
+		const back = () => {
+			if (document.visibilityState === "visible" && waiting) void check();
 		};
 		window.addEventListener("message", listen);
-		return () => window.removeEventListener("message", listen);
+		document.addEventListener("visibilitychange", back);
+		return () => {
+			waiting = null;
+			clearTimeout(poll);
+			window.removeEventListener("message", listen);
+			document.removeEventListener("visibilitychange", back);
+		};
 	});
 
 	async function signIn(): Promise<void> {
@@ -145,6 +168,7 @@ export function ConnectDialog(props: {
 		if (popup) popup.location.href = started.url;
 		else window.open(started.url, "_blank");
 		setBusy(true);
+		void check();
 	}
 
 	async function connect(): Promise<void> {

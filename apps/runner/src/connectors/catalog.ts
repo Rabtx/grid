@@ -57,6 +57,10 @@ export const GENERIC_CAPABILITIES: Capability[] = [
 	{ id: "write", label: "Change things", short: "changes", tools: /.*/, initial: "ask" },
 ];
 
+// Not listed: Slack and Figma. Checked on 2026-10-07: Slack's MCP server offers no way for an
+// app to register itself (it needs a Slack app made by hand), and Figma's turns away every app it
+// has not approved itself (403), whatever address it comes back to. A button for either could only
+// fail. Both can still be added under "Add MCP server" by someone who has an approved setup.
 export const CATALOG: CatalogEntry[] = [
 	{
 		id: "github",
@@ -319,33 +323,6 @@ export const CATALOG: CatalogEntry[] = [
 		signals: { files: ["wrangler.toml", "wrangler.jsonc"], packages: /^wrangler$/ },
 	},
 	{
-		id: "slack",
-		name: "Slack",
-		signIn: ["key"],
-		kind: "Chat",
-		category: "business",
-		blurb: "Approvals and alerts in your channels",
-		powers: ["Alerts", "Approvals"],
-		url: "https://mcp.slack.com/mcp",
-		capabilities: [
-			{
-				id: "read",
-				label: "Read channels and threads",
-				tools: READ_TOOL,
-				initial: "allow",
-				read: true,
-			},
-			{
-				id: "post",
-				label: "Post messages",
-				short: "posting",
-				hint: "Sends you an approval first",
-				tools: /send|post|reply|message/,
-				initial: "ask",
-			},
-		],
-	},
-	{
 		id: "intercom",
 		name: "Intercom",
 		kind: "Support",
@@ -366,24 +343,6 @@ export const CATALOG: CatalogEntry[] = [
 				label: "Reply to customers",
 				tools: /reply|send|create|update/,
 				initial: "never",
-			},
-		],
-	},
-	{
-		id: "figma",
-		name: "Figma",
-		kind: "Design",
-		category: "dev",
-		blurb: "Compare what's built with the design",
-		powers: ["Design checks"],
-		url: "https://mcp.figma.com/mcp",
-		capabilities: [
-			{
-				id: "read",
-				label: "Read designs and variables",
-				tools: /.*/,
-				initial: "allow",
-				read: true,
 			},
 		],
 	},
