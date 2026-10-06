@@ -5,7 +5,7 @@ type: bug
 from: human
 to: pm
 priority: high
-status: open
+status: done
 assignee: none
 reviewer: reliability_review
 parent: 2026-10-06-grid-reliability.md
@@ -29,3 +29,8 @@ Confirm both checks execute and pass on the exact PR head; do not disable checks
 ## Resolution
 
 Open external follow-up. Current repository is private; API security_and_analysis was null. Official GitHub documentation describes private repository feature eligibility. A source code patch cannot establish that feature availability. Browser verification is tracked separately.
+
+
+## Closed
+
+Deferred by the product owner on 2026-10-06. CodeQL and dependency review on this private repository need GitHub's paid code security features, and the owner chose not to buy them for now. The checks stay in the workflows and are not disabled or hidden. They are expected to fail until the repository is public or the feature is enabled. Their failures are not regressions and do not block merges.
