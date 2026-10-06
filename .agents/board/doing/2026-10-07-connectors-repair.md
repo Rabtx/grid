@@ -82,4 +82,4 @@ All runner checks used port `4111` and the unique data directory `/tmp/grid-conn
 ### Review
 
 - PM review: pending.
-- Pull request: pending creation.
+- Pull request: [#183 — fix(connectors): surface stopped mcp commands](https://github.com/shabirkhan-dev/grid/pull/183) (draft).
