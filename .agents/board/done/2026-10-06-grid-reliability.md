@@ -5,7 +5,7 @@ type: bug
 from: human
 to: pm
 priority: high
-status: doing
+status: done
 assignee: codex
 reviewer: reliability_review
 parent: none
@@ -43,3 +43,8 @@ Validation uses disposable PostgreSQL `127.0.0.1:54394`, separate unseeded unit 
 Final role suites: Console 637/637 across 113 files with two workers; runner 451/451 across 61 files, including all three new lifecycle regressions; API 57/57; black-box API contracts 80/80. Web 31/31, database 6/6, logger 3/3 and Rust lint/test passed. All test databases/servers were disposable and isolated from live port 4000 and the live chat database. Frozen implementation has independent reviewer approval with no unresolved code findings; committed-head review and PR CI will be recorded on the PR. Browser and security configuration remain separate open follow-ups.
 
 Root application build `bun run ci:build` passed for Console, web and docs. Required format/lint/typecheck/architecture/secret/large-file/commit-message hooks stay enabled for commit.
+
+
+## Closed
+
+Merged to main in shabirkhan-dev/grid#177 (squash `e4583d1`, 2026-10-06). Work found later in stashes from those worktrees was reviewed and landed in shabirkhan-dev/grid#180 (`18f2ad8`). Browser verification stays open on `2026-10-06-browser-verification.md`.
