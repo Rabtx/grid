@@ -83,3 +83,11 @@ All runner checks used port `4111` and the unique data directory `/tmp/grid-conn
 
 - PM review: pending.
 - Pull request: [#183 — fix(connectors): surface stopped mcp commands](https://github.com/shabirkhan-dev/grid/pull/183) (draft).
+
+## PM review (2026-10-07)
+
+The early-exit fix and its regression test are accepted, and the PR is merged into the integration
+branch `agent/pm/integration`. PM also checked the live screens: the connect dialogs open and work,
+GitHub shows connected and healthy, and the dev logs contain no connector errors. The card stays in
+`doing` until the owner reports exactly which connector failed and how, so the broader failure can
+be reproduced.

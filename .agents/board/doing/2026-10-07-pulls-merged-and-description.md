@@ -58,9 +58,9 @@ Definition of done:
 ## Resolution
 
 1. **Merged pull requests listing (Runner & Console):**
-   - Root cause: In `apps/runner/src/github/pulls.ts`, `LIST_FIELDS` included `statusCheckRollup`. For merged or closed PRs (especially on repositories like `shabirkhan-dev/grid` with >100 PRs), GitHub's GraphQL API had to resolve check runs across 100 historical commits, causing requests to time out with `502 GraphQL: Query complexity exceeded or request timed out`.
+   - Root cause (corrected in PM review, 2026-10-07): the desktop panel never requested merged pull requests at all. The console only sent `state=open` (and `filter=review`), so the Merged list could not fill. The runner was not at fault: PM ran `main`'s exact `gh pr list --state merged --limit 100 --json …,statusCheckRollup,…` against `shabirkhan-dev/grid` and it returned 100 rows. The timeout this card first described was not reproduced.
    - In `apps/runner/src/github/pulls.ts`:
-     - Split list fields into `OPEN_LIST_FIELDS` (with `statusCheckRollup`) and `CLOSED_LIST_FIELDS` (without `statusCheckRollup`).
+     - Split list fields into `OPEN_LIST_FIELDS` (with `statusCheckRollup`) and `CLOSED_LIST_FIELDS` (without `statusCheckRollup`). (Kept as a speed-up: a merged list took about 15 seconds with the check status included.)
      - Added optional `limit` parameter to `PullRequests.list` (defaulting to 100).
      - Made `summary()` mapping defensive against missing or null values (`headRefName`, `headRefOid`, `labels`).
    - In `apps/runner/src/github/routes.ts`:
@@ -87,3 +87,8 @@ Definition of done:
 3. **Pull Request:**
    - https://github.com/shabirkhan-dev/grid/pull/185
    - Commit: `884f69d` (and follow-up card update)
+
+## PM review (2026-10-07)
+
+- Verified in the browser: the desktop Open · Merged · Closed switch lists this repository's merged pull requests.
+- Blocking issue found and fixed on the integration branch (`agent/pm/integration`): `sanitizeNode` unwrapped disallowed tags by moving their children up, and the parent's walk had already passed them, so they were never sanitised. `<u><img src="x" onerror="alert(1)"></u>` rendered with its handler intact. Children are now sanitised before any unwrap. `noscript` is forbidden. `class` keeps only the renderer's own classes (`hljs-*`, `code-block`, `code-line`, `file-chip`, `language-*`), so a description cannot apply the console's utility classes. The DOM-environment regressions are in `markdown-html.test.tsx`.
