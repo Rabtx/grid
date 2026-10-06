@@ -38,12 +38,12 @@ export const connectorsService = {
 		state: string;
 		code: string | null;
 		error: string | null;
-	}): Promise<{ name: string }> => {
+	}): Promise<{ name: string; service: string | null }> => {
 		const response = await fetch("/runner/connectors/sign-in/callback", json(input)).catch(() => {
 			throw new Error("Grid's runner could not be reached to finish signing in");
 		});
 		const body = (await response.json().catch(() => null)) as {
-			data?: { name: string };
+			data?: { name: string; service: string | null };
 			message?: string;
 		} | null;
 		if (!response.ok || !body?.data) throw new Error(body?.message ?? "Signing in failed");

@@ -1,4 +1,4 @@
-import { useNavigate } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, Show } from "solid-js";
 
@@ -68,12 +68,34 @@ export function ConnectorsScreen(): JSX.Element {
 	const auth = useAuth();
 	const shell = useShell();
 	const navigate = useNavigate();
+	const location = useLocation();
 	const workspaces = useWorkspaces();
 	const [view, setView] = createSignal<ConnectorsView | null>(null);
 	const [error, setError] = createSignal<string | null>(null);
 	const [query, setQuery] = createSignal("");
 	const [category, setCategory] = createSignal<CategoryFilter>("all");
 	const [connecting, setConnecting] = createSignal<CatalogService | null>(null);
+	// A sign-in finished in its own window that came back here to continue (see OAuthCallback).
+	const [resume, setResume] = createSignal<string | null>(null);
+	const asked = new URLSearchParams(window.location.search);
+	let pendingResume =
+		asked.get("resume") && asked.get("service")
+			? { state: asked.get("resume") ?? "", service: asked.get("service") ?? "" }
+			: null;
+	createEffect(
+		() => view(),
+		(current) => {
+			if (!current || !pendingResume) return;
+			const service = current.catalog.find((item) => item.id === pendingResume?.service);
+			const state = pendingResume.state;
+			pendingResume = null;
+			// The router's own path (it already carries the workspace), without the query.
+			navigate(location.pathname, { replace: true });
+			if (!service) return;
+			setResume(state);
+			setConnecting(service);
+		},
+	);
 	const [adding, setAdding] = createSignal(false);
 	const [allSuggestions, setAllSuggestions] = createSignal(false);
 
@@ -343,8 +365,13 @@ export function ConnectorsScreen(): JSX.Element {
 				{(service) => (
 					<ConnectDialog
 						service={service()}
-						onClose={() => setConnecting(null)}
+						resume={resume() ?? undefined}
+						onClose={() => {
+							setResume(null);
+							setConnecting(null);
+						}}
 						onConnected={(connection) => {
+							setResume(null);
 							setConnecting(null);
 							notify({ title: `${connection.name} connected` });
 							void load();

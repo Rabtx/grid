@@ -16,7 +16,7 @@ vi.mock("@/modules/workspaces", () => ({
 	}),
 }));
 vi.mock("../services/connectors.service", () => ({
-	connectorsService: { view: vi.fn(), update: vi.fn(async () => ({})) },
+	connectorsService: { view: vi.fn(), update: vi.fn(async () => ({})), signInOutcome: vi.fn() },
 }));
 
 const service = (id: string, name: string): CatalogService => ({
@@ -139,5 +139,42 @@ describe("ConnectorsScreen", () => {
 		container.querySelector<HTMLElement>('[aria-label="Postgres on"]')?.click();
 		await settle();
 		expect(connectorsService.update).toHaveBeenCalledWith("token", "c2", { enabled: false });
+	});
+});
+
+describe("ConnectorsScreen picking up a sign-in", () => {
+	it("reopens the service's dialog at its tools when a sign-in came back to continue", async () => {
+		vi.mocked(connectorsService.view).mockResolvedValue(VIEW);
+		vi.mocked(connectorsService.signInOutcome).mockResolvedValue({
+			status: "done",
+			grant: "g1",
+			tools: [{ name: "list_issues", description: "" }],
+			ms: 5,
+		} as never);
+		// The sign-in window's "Continue in Grid" lands here with the sign-in to resume.
+		window.history.replaceState(null, "", "/settings/connectors?resume=state-1&service=linear");
+		const container = document.createElement("div");
+		document.body.append(container);
+		const Router = createRouter({
+			routes: [{ path: "/settings/connectors", component: ConnectorsScreen }],
+			history: memoryHistory("/settings/connectors"),
+		});
+		const dispose = render(
+			() => <Router>{(route) => <ShellProvider>{route.children}</ShellProvider>}</Router>,
+			container,
+		);
+		try {
+			await settle();
+			await settle();
+			expect(connectorsService.signInOutcome).toHaveBeenCalledWith("token", "state-1");
+			const dialog = document.querySelector("dialog[open]")?.textContent ?? "";
+			expect(dialog).toContain("Connect Linear");
+			expect(dialog).toContain("1 tools");
+		} finally {
+			dispose();
+			container.remove();
+			window.history.replaceState(null, "", "/");
+			vi.clearAllMocks();
+		}
 	});
 });

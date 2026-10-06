@@ -49,6 +49,8 @@ function reason(cause: unknown, fallback: string): string {
  */
 export function ConnectDialog(props: {
 	service: CatalogService;
+	/** A sign-in already finished in its own window, to pick up at the next step. */
+	resume?: string;
 	onClose: () => void;
 	onConnected: (connection: Connection) => void;
 }): JSX.Element {
@@ -124,6 +126,11 @@ export function ConnectDialog(props: {
 		};
 		window.addEventListener("message", listen);
 		document.addEventListener("visibilitychange", back);
+		if (props.resume) {
+			waiting = props.resume;
+			setBusy(true);
+			void check();
+		}
 		return () => {
 			waiting = null;
 			clearTimeout(poll);

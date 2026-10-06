@@ -81,7 +81,7 @@ function connectors(fetcher: typeof fetch, name: string): Connectors {
 const PHONE = "https://grid.tail1234.ts.net:8443/oauth/callback";
 
 describe("connector sign-in from its own window", () => {
-	it("finishes in the window it came back to, and the dialog collects the result once", async () => {
+	it("finishes in the window it came back to, and every waiting window can collect it", async () => {
 		const grid = connectors(
 			service(() => true),
 			"window",
@@ -92,16 +92,38 @@ describe("connector sign-in from its own window", () => {
 		// The callback page is not signed in to Grid: the state alone finishes it.
 		expect(await grid.completeSignIn(started.state, { code: "code", error: null })).toEqual({
 			name: "Linear",
+			service: "linear",
 		});
 		const outcome = grid.signInOutcome("w1", started.state);
 		expect(outcome.status).toBe("done");
 		if (outcome.status === "done")
 			expect(outcome.tools.map((tool) => tool.name)).toEqual(["list_issues"]);
-		// Handed over once; and a state cannot be used twice.
-		expect(grid.signInOutcome("w1", started.state).status).toBe("failed");
-		await expect(grid.completeSignIn(started.state, { code: "code", error: null })).rejects.toThrow(
-			"expired",
-		);
+		// A second window waiting on the same sign-in hears the same result.
+		expect(grid.signInOutcome("w1", started.state).status).toBe("done");
+		// The page opened again for the same sign-in hears how it went, not that it expired.
+		expect(await grid.completeSignIn(started.state, { code: "code", error: null })).toEqual({
+			name: "Linear",
+			service: "linear",
+		});
+	});
+
+	it("exchanges the code once when the page is opened twice at the same time", async () => {
+		let exchanges = 0;
+		const base = service(() => true);
+		const counting = (async (input: string | URL | Request, init?: RequestInit) => {
+			if (input.toString().endsWith("/token")) exchanges++;
+			return base(input, init);
+		}) as typeof fetch;
+		const grid = connectors(counting, "twice");
+		const started = await grid.startSignIn("w1", "u1", { service: "linear", redirectUri: PHONE });
+		const [first, second] = await Promise.all([
+			grid.completeSignIn(started.state, { code: "code", error: null }),
+			grid.completeSignIn(started.state, { code: "code", error: null }),
+		]);
+		expect(first).toEqual({ name: "Linear", service: "linear" });
+		expect(second).toEqual(first);
+		expect(exchanges).toBe(1);
+		expect(grid.signInOutcome("w1", started.state).status).toBe("done");
 	});
 
 	it("keeps one workspace's sign-in from another", async () => {

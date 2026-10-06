@@ -1,13 +1,13 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, onSettled, Show } from "solid-js";
 
-import { AuthCard, AuthFrame, AuthHead, Spinner } from "@/kit";
+import { AuthCard, AuthFrame, AuthHead, Button, Spinner } from "@/kit";
 
 import { connectorsService } from "../services/connectors.service";
 
 type Finish =
 	| { status: "working" }
-	| { status: "done"; name: string }
+	| { status: "done"; name: string; service: string | null }
 	| { status: "failed"; message: string };
 
 /**
@@ -38,8 +38,8 @@ export function OAuthCallback(): JSX.Element {
 				error: params.get("error_description") ?? params.get("error"),
 			})
 			.then(
-				({ name }) => {
-					setFinish({ status: "done", name });
+				({ name, service }) => {
+					setFinish({ status: "done", name, service });
 					tell();
 					if (opener) window.close();
 				},
@@ -65,7 +65,11 @@ export function OAuthCallback(): JSX.Element {
 					}
 				>
 					<Show
-						when={finish().status === "done" ? (finish() as { name: string }) : null}
+						when={
+							finish().status === "done"
+								? (finish() as { name: string; service: string | null })
+								: null
+						}
 						fallback={
 							<AuthHead title="Not connected" mark>
 								{(finish() as { message: string }).message}
@@ -73,9 +77,27 @@ export function OAuthCallback(): JSX.Element {
 						}
 					>
 						{(done) => (
-							<AuthHead title={`Signed in to ${done().name}`} mark>
-								Go back to Grid to choose what its agents may do. You can close this window.
-							</AuthHead>
+							<>
+								<AuthHead title={`Signed in to ${done().name}`} mark>
+									Choose what its agents may do to finish connecting it.
+								</AuthHead>
+								{/* Where the dialog that started this is gone (on a phone, the app itself can open
+								    this page in its own window), this picks the connection up where it left off. */}
+								<Button
+									variant="primary"
+									size="lg"
+									onClick={() => {
+										const service = done().service;
+										window.location.assign(
+											service
+												? `/settings/connectors?resume=${encodeURIComponent(state ?? "")}&service=${encodeURIComponent(service)}`
+												: "/settings/connectors",
+										);
+									}}
+								>
+									Continue in Grid
+								</Button>
+							</>
 						)}
 					</Show>
 				</Show>
