@@ -112,7 +112,10 @@ function levelsFor(effort: string): string[] {
 	return effort === "medium" ? ["low", "medium", "high"] : [...REASONING_LEVELS, effort];
 }
 
-/** The rows inside each box on screen (between its ┌ and └), without the side borders. */
+/**
+ * The rows inside each box on screen (between its ┌ and └), without the side borders but with
+ * their padding, which tells a label (three columns in) from a centred line under it.
+ */
 function boxes(lines: string[]): string[][] {
 	const found: string[][] = [];
 	let box: string[] | null = null;
@@ -123,33 +126,40 @@ function boxes(lines: string[]): string[][] {
 			if (box) found.push(box);
 			box = null;
 		} else if (box && line.startsWith("│")) {
-			box.push(line.replace(/^│/, "").replace(/│$/, "").trim());
+			box.push(line.replace(/^│/, "").replace(/│$/, "").trimEnd());
 		}
 	}
 	return found;
 }
 
 /**
- * The model picker: one box per model, its label (`› ` marks the highlighted one, and a long label
- * wraps onto a second row) above its cost, which may wrap too.
+ * The model picker: one box per model under its hint line. The first row is the label (`› `
+ * marks the highlighted one); a long label wraps onto the next row, its first row ending in " ·".
+ * The rows under it say what the model costs before a session starts ("15 Freebucks/hr") and how
+ * it is doing once one runs ("Stalled"), centred, or wrapped from the left when too long.
  */
 export function parseMenu(lines: string[]): Menu {
 	const models: Choice[] = [];
 	let selected = -1;
 	const collapsed = lines.some((line) => /See all \d* ?models/i.test(clean(line)));
-	for (const rows of boxes(lines)) {
-		const cost = rows.findIndex((row) => row.includes("Freebucks/hr"));
-		if (cost <= 0) continue;
-		const raw = rows.slice(0, cost).join(" ");
+	// Boxes above the hint are Freebuff's own notes, not models.
+	const hint = lines.findIndex((line) => clean(line).includes(PICKER));
+	for (const rows of hint < 0 ? [] : boxes(lines.slice(hint + 1))) {
+		const label = [rows[0]?.trim() ?? ""];
+		let next = 1;
+		while (label.at(-1)?.endsWith("·") && next < rows.length) label.push(rows[next++].trim());
+		const raw = label.join(" ");
 		const highlighted = raw.startsWith("›");
 		const { name, effort, traits } = readLabel(raw.replace(/^›\s*/, ""));
 		if (!name) continue;
 		if (highlighted) selected = models.length;
-		const price = rows.slice(cost).join(" ").replace(/\s+/g, " ").trim();
+		const details = rows.slice(next).join(" ").replace(/\s+/g, " ").trim();
 		models.push({
 			id: name,
 			name,
-			description: [...traits, price].join(" · "),
+			// A status the label already gives ("Stalled") is said once.
+			description:
+				[...new Set([...traits, ...details.split(" · ")])].filter(Boolean).join(" · ") || undefined,
 			...(effort ? { efforts: effortChoices(levelsFor(effort)), defaultEffort: effort } : {}),
 		});
 	}
@@ -195,6 +205,27 @@ export function menuNotes(lines: string[]): string[] {
 		);
 }
 
+/** Freebuff asks to log in: it was never signed in here, or its saved sign-in stopped working. */
+export function signedOut(lines: string[]): boolean {
+	return lines.some((line) => /Press ENTER to login|log in again/i.test(clean(line)));
+}
+
+/**
+ * What Freebuff says when it will not take a message at all, in the box it draws over the input
+ * with "Enter: retry  Esc: back to draft" under it ("This account is suspended. …"), or null.
+ */
+export function refusal(lines: string[]): string | null {
+	const at = lines.findIndex((line) => clean(line).includes("Enter: retry"));
+	if (at < 0) return null;
+	const said: string[] = [];
+	for (let i = at - 1; i >= 0; i--) {
+		const row = clean(lines[i]).trim();
+		if (!row.startsWith("│")) break;
+		said.unshift(row.replace(/^│/, "").replace(/│$/, "").trim());
+	}
+	return said.filter(Boolean).join(" ") || null;
+}
+
 /** Freebuff's warning while it cannot reach its service ("⚠ Couldn't get a response …"). */
 export function connectionWarning(lines: string[]): string | null {
 	const start = lines.findIndex((line) => clean(line).trim().startsWith("⚠"));
@@ -208,8 +239,15 @@ export function connectionWarning(lines: string[]): string | null {
 	return warning.join(" ");
 }
 
-function squash(text: string): string {
-	return text.replace(/\s+/g, " ").trim();
+/**
+ * A message as compared with what Freebuff shows and saves: whitespace evened out, and without
+ * emoji, which its input box drops as they are typed.
+ */
+export function squash(text: string): string {
+	return text
+		.replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu, "")
+		.replace(/\s+/g, " ")
+		.trim();
 }
 
 const STAMP = /^\s*\[\d{1,2}:\d{2} [AP]M\]$/;

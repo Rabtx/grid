@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { ChatEvent } from "./events";
-import { exitReason, freebuffProvider, ReplyStream } from "./freebuff";
+import { exitReason, freebuffProvider, ReplyStream, SIGN_IN } from "./freebuff";
 import { exportedTurn } from "./freebuff-export";
 import {
 	connectionWarning,
@@ -188,6 +188,37 @@ describe("reading Freebuff's screen", () => {
 		expect(menu.models[2].defaultEffort).toBe("medium");
 		expect(menu.models[3].description).toBe("Promotional · 1 session a day · 100 Freebucks/hr");
 		expect(sessionModel(MENU_NOW)).toBe("Claude Haiku 5.5");
+	});
+
+	it("reads the picker in a running session, where models show how they are doing, not a price", () => {
+		const menu = parseMenu(
+			`
+ ┌──────────────────────────────────────────────────────────────────┐
+ │ 1h left in this session                                          │
+ └──────────────────────────────────────────────────────────────────┘
+ ↑↓ choose model · Tab reasoning · Enter select · Esc cancel
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │   Laguna S 2.1 • high · Fast open coder · Stalled · Experimental             │
+ │                                   Stalled                                    │
+ └──────────────────────────────────────────────────────────────────────────────┘
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │ › Glyph Cluster • high · Stealth preview · New · Experimental                │
+ │       Preview model: prompts and outputs may be retained for training        │
+ └──────────────────────────────────────────────────────────────────────────────┘
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │   MiMo 2.6 Flash · Balanced · Images                                         │
+ └──────────────────────────────────────────────────────────────────────────────┘
+ ↑  Show fewer
+ Claude Haiku 5.5 • medium · /home/me/app · /model to change · Chat: New chat`.split("\n"),
+		);
+		expect(menu.models.map((model) => model.id)).toEqual([
+			"Laguna S 2.1",
+			"Glyph Cluster",
+			"MiMo 2.6 Flash",
+		]);
+		expect(menu.selected).toBe(1);
+		expect(menu.models[0].description).toBe("Fast open coder · Stalled · Experimental");
+		expect(menu.models[2].description).toBe("Balanced");
 	});
 
 	it("reads the reasoning levels inside the picker", () => {
@@ -657,6 +688,44 @@ describe("driving the CLI", () => {
 			FAKE_NO_FOOTER: "1",
 		});
 		expect(await session.prompt("Say hello")).toEqual({ reason: "done" });
+		expect(rewriteOf(events)).toMatchObject({
+			events: [
+				{ type: "tool", title: "Freebuff session" },
+				{ type: "reasoning", text: "Reading the request." },
+				{ type: "message", text: "**Exact** reply\n\nrow 1\nrow 2\nrow 3" },
+			],
+		});
+	}, 20_000);
+
+	it("says to sign in again, at once, when Freebuff's sign-in has lapsed", async () => {
+		const started = Date.now();
+		const { session } = await start(undefined, 60, 3, { FAKE_SIGNED_OUT: "1" });
+		expect(await session.prompt("Hi")).toEqual({ reason: "error", error: SIGN_IN });
+		expect(Date.now() - started).toBeLessThan(5_000);
+	}, 20_000);
+
+	it("fails a turn Freebuff ends with no reply, with what it said, instead of ending it done", async () => {
+		const { session } = await start(undefined, 60, 3, { FAKE_TURNED_AWAY: "1" });
+		expect(await session.prompt("Say hello")).toEqual({
+			reason: "error",
+			error: "Freebuff: We found an API key but it appears to be invalid.",
+		});
+	}, 20_000);
+
+	it("passes on at once what Freebuff says when it refuses the message", async () => {
+		const started = Date.now();
+		const { session } = await start(undefined, 60, 3, { FAKE_SUSPENDED: "1" });
+		expect(await session.prompt("Say hello")).toEqual({
+			reason: "error",
+			error:
+				"Freebuff: This account is suspended. If this is a mistake, contact support@codebuff.com.",
+		});
+		expect(Date.now() - started).toBeLessThan(8_000);
+	}, 20_000);
+
+	it("follows a message whose emoji Freebuff dropped", async () => {
+		const { events, session } = await start(undefined);
+		expect(await session.prompt("Say hello 😉")).toEqual({ reason: "done" });
 		expect(rewriteOf(events)).toMatchObject({
 			events: [
 				{ type: "tool", title: "Freebuff session" },
