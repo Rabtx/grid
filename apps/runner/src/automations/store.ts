@@ -1,8 +1,9 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 import { nextScheduled, type Trigger } from "./schedule";
+import { openPrivateDatabase } from "../private-database";
 
 /**
  * How an automation runs beyond its prompt (Figma 20 · Automations, the recipe and guardrails):
@@ -196,7 +197,7 @@ export class AutomationStore {
 	private readonly db: Database;
 	constructor(path: string) {
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-		this.db = new Database(path, { create: true });
+		this.db = openPrivateDatabase(path);
 		this.db.exec("PRAGMA journal_mode = WAL");
 		this.db.exec(`CREATE TABLE IF NOT EXISTS automations (
 			id TEXT PRIMARY KEY, workspace TEXT NOT NULL, owner_id TEXT NOT NULL, name TEXT NOT NULL,

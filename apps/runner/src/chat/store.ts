@@ -1,12 +1,13 @@
 import { tmpdir } from "node:os";
 import { AttachmentFiles, type Attachment } from "./attachments";
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import type { ChatEvent, Choice } from "../agents/events";
 
 import type { Worktree } from "./worktrees";
+import { openPrivateDatabase } from "../private-database";
 
 /** A conversation with an agent, as the console lists it. */
 /** The last time an agent edited a file: which agent, in which thread, and when. */
@@ -161,7 +162,7 @@ export class ChatStore {
 				: resolve(dirname(path), "attachments"),
 		);
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-		this.db = new Database(path, { create: true });
+		this.db = openPrivateDatabase(path);
 		this.db.exec("PRAGMA journal_mode = WAL");
 		this.db.exec(`
 			CREATE TABLE IF NOT EXISTS sessions (

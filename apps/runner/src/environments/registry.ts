@@ -1,9 +1,10 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { isIP } from "node:net";
 import { dirname } from "node:path";
 
 import { environmentToken } from "./pairing";
+import { openPrivateDatabase } from "../private-database";
 
 /**
  * The home side of pairing: the other machines (a Codespace, a VPS, another Grid) whose runners
@@ -82,7 +83,7 @@ export class EnvironmentStore {
 
 	constructor(path: string) {
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-		this.db = new Database(path, { create: true });
+		this.db = openPrivateDatabase(path);
 		this.db.exec("PRAGMA journal_mode = WAL");
 		this.db.exec(`
 			CREATE TABLE IF NOT EXISTS environments (

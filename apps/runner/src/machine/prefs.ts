@@ -1,7 +1,8 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { openPrivateDatabase } from "../private-database";
 
 /**
  * How this machine's runner behaves (Settings → Machines → Runner): whether Grid starts when the
@@ -18,7 +19,7 @@ export class MachinePrefsStore {
 
 	constructor(path: string) {
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-		this.db = new Database(path, { create: true });
+		this.db = openPrivateDatabase(path);
 		this.db.exec("PRAGMA journal_mode = WAL");
 		this.db.exec(`CREATE TABLE IF NOT EXISTS machine_prefs (
 			id INTEGER PRIMARY KEY CHECK (id = 1),

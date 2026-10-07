@@ -1,6 +1,7 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { openPrivateDatabase } from "../private-database";
 
 export type DiagnosticKind = "error" | "connection" | "client";
 
@@ -38,7 +39,7 @@ export class DiagnosticJournal {
 		private readonly now: () => number = Date.now,
 	) {
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-		this.db = new Database(path, { create: true });
+		this.db = openPrivateDatabase(path);
 		this.db.exec("PRAGMA journal_mode = WAL");
 		// WAL keeps NORMAL safe against corruption; it only skips an fsync per write.
 		this.db.exec("PRAGMA synchronous = NORMAL");

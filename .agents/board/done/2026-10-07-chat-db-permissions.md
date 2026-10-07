@@ -5,8 +5,8 @@ type: bug
 from: pm
 to: backend
 priority: high
-status: open
-assignee: none
+status: done
+assignee: claude
 reviewer: human
 parent: none
 depends_on: []
@@ -36,4 +36,9 @@ and the live data.
 - Never run tests against the live API on :4000 or the live chat database.
 
 ## Resolution
-
+Fixed by claude, 2026-10-07. A new helper, `openPrivateDatabase` (`apps/runner/src/private-database.ts`),
+creates each runner database at 0600 and tightens existing database, WAL, SHM and journal files on
+open. All 18 runner stores use it. A process-wide umask was rejected because terminals and agents
+inherit it. Tests in `private-database.test.ts`: new databases and their WAL and SHM files are
+0600, an existing 0644 file is tightened, and in-memory databases are untouched. Runner 485 / 485,
+lint and architecture checks pass. The live `chat.db` is tightened the next time the runner starts.
