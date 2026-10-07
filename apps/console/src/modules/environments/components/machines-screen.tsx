@@ -48,6 +48,7 @@ import { mayDo } from "@/modules/workspaces/lib/members";
 import { type Environment, environmentsService } from "../services/environments.service";
 import { machineService, type MachinePrefs, type MachineStatus } from "../services/machine.service";
 import { environmentsStore } from "../stores/environments";
+import { GridVersion } from "./grid-version";
 
 import { CodespacesPanel } from "./codespaces-panel";
 
@@ -362,6 +363,8 @@ export function MachinesScreen(): JSX.Element {
 					</SettingsGroup>
 				)}
 			</Show>
+
+			<GridVersion admin={admin()} />
 
 			<SettingsGroup title="More">
 				<SettingsLinkRow
