@@ -5,6 +5,7 @@ import { createSignal, For, onSettled } from "solid-js";
 import { Dialog, Grid, Kbd, ListCard, Row, Text } from "@/kit";
 import { installShortcuts, type Shortcut } from "@/lib/shortcuts";
 import { useWorkspace } from "@/modules/projects";
+import { useTerminalAccess } from "@/modules/workspaces";
 
 const SHORTCUTS: readonly Omit<Shortcut, "run">[] = [
 	{ keys: "c", label: "New task" },
@@ -21,6 +22,7 @@ export function ShortcutsHelp(): JSX.Element {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const workspace = useWorkspace();
+	const terminals = useTerminalAccess();
 	const [open, setOpen] = createSignal(false);
 
 	onSettled(() => {
@@ -38,7 +40,13 @@ export function ShortcutsHelp(): JSX.Element {
 			{ keys: "/", label: "Filter tasks", run: focusFilter },
 			{ keys: "g b", label: "Go to board", run: () => navigate("/board") },
 			{ keys: "g c", label: "Go to chat", run: () => navigate("/chat") },
-			{ keys: "g t", label: "Go to terminal", run: () => navigate("/terminal") },
+			{
+				keys: "g t",
+				label: "Go to terminal",
+				run: () => {
+					if (terminals()) navigate("/terminal");
+				},
+			},
 			{ keys: "g s", label: "Go to settings", run: () => navigate("/settings") },
 			{ keys: "?", label: "Show shortcuts", run: () => setOpen(true) },
 		];

@@ -11,6 +11,7 @@ import { AgentsScreen } from "./agents-screen";
 const refresh = vi.fn();
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ token: () => "token" }) }));
 vi.mock("@/modules/workspaces", () => ({
+	useTerminalAccess: () => () => true,
 	useWorkspaces: () => ({
 		current: () => ({
 			slug: "rabtx",

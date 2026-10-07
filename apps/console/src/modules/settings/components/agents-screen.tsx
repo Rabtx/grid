@@ -46,6 +46,7 @@ import type {
 	AgentPolicy,
 	AgentRule,
 } from "@/modules/workspaces/types/workspace.types";
+import { useTerminalAccess } from "@/modules/workspaces";
 
 import { SettingsPage, settingsMenu } from "./settings-page";
 
@@ -300,6 +301,8 @@ export function AgentsScreen(): JSX.Element {
 function InstallButton(props: { provider: ChatProvider; scope: string }): JSX.Element {
 	const auth = useAuth();
 	const navigate = useNavigate();
+	// The installer runs in a terminal on the machine; without terminals, the how-to link shows.
+	const terminals = useTerminalAccess();
 	const [busy, setBusy] = createSignal(false);
 	async function install(): Promise<void> {
 		const token = auth.token();
@@ -321,7 +324,7 @@ function InstallButton(props: { provider: ChatProvider; scope: string }): JSX.El
 	}
 	return (
 		<Show
-			when={props.provider.setup?.canInstall}
+			when={props.provider.setup?.canInstall && terminals()}
 			fallback={
 				<Show when={props.provider.setup?.docs}>
 					{(docs) => (
@@ -365,6 +368,7 @@ function AgentSheet(props: {
 	const auth = useAuth();
 	const navigate = useNavigate();
 	const workspaces = useWorkspaces();
+	const terminals = useTerminalAccess();
 	const [busy, setBusy] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
 	const settings = (): ProviderSettings => props.provider.settings ?? {};
@@ -493,9 +497,12 @@ function AgentSheet(props: {
 							label={props.provider.setup?.signedIn ? "Signed in" : "Not signed in"}
 							description="Uses your own account with the agent's vendor"
 						>
-							<Button size="sm" onClick={() => void signIn()}>
-								{props.provider.setup?.signedIn ? "Sign in again" : "Sign in"}
-							</Button>
+							{/* Signing in runs the agent's own login in a terminal on the machine. */}
+							<Show when={terminals()}>
+								<Button size="sm" onClick={() => void signIn()}>
+									{props.provider.setup?.signedIn ? "Sign in again" : "Sign in"}
+								</Button>
+							</Show>
 						</SettingsRow>
 					</Show>
 					<SettingsRow inline label="Models" description={`${props.provider.models.length} known`}>

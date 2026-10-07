@@ -55,6 +55,7 @@ import {
 
 import { workspaceHref } from "@/lib/active-workspace";
 import { relativeTime } from "@/modules/projects/lib/relative-time";
+import { useTerminalAccess } from "@/modules/workspaces";
 
 import { diffRows } from "../lib/diff";
 import { copyCodeFrom, renderMarkdown } from "../lib/markdown";
@@ -403,6 +404,7 @@ function RunFailed(props: {
 	onRetry?: () => void;
 }): JSX.Element {
 	const [all, setAll] = createSignal(false);
+	const terminals = useTerminalAccess();
 	const lines = () => props.text.trim().split("\n");
 	const rest = () => lines().slice(1);
 	return (
@@ -424,9 +426,11 @@ function RunFailed(props: {
 							Try again
 						</Button>
 					</Show>
-					<ButtonLink size="sm" href={workspaceHref("/terminal")}>
-						Open terminal
-					</ButtonLink>
+					<Show when={terminals()}>
+						<ButtonLink size="sm" href={workspaceHref("/terminal")}>
+							Open terminal
+						</ButtonLink>
+					</Show>
 					<Show when={rest().length > EXCERPT_LINES}>
 						<LinkButton onClick={() => setAll((open) => !open)}>
 							{all() ? "Show less" : "View full log"}

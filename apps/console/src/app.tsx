@@ -1,9 +1,10 @@
 import { createRouter, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { lazy, Loading, onSettled } from "solid-js";
+import { lazy, Loading, onSettled, Show } from "solid-js";
 
 import { EmptyState, Text, TextLink } from "@/kit";
 import { AuthProvider } from "@/modules/auth";
+import { TERMINALS_NOT_ALLOWED, useTerminalAccess } from "@/modules/workspaces";
 
 import { workspaceHistory } from "./lib/workspace-history";
 
@@ -347,10 +348,27 @@ const TerminalScreen = lazy(() => import("@/modules/terminal"), { export: "Termi
 function TerminalRoute(): JSX.Element {
 	return (
 		<RequireAuth>
-			<Loading fallback={<Opening>Opening the terminal…</Opening>}>
-				<TerminalScreen />
-			</Loading>
+			<TerminalGate>
+				<Loading fallback={<Opening>Opening the terminal…</Opening>}>
+					<TerminalScreen />
+				</Loading>
+			</TerminalGate>
 		</RequireAuth>
+	);
+}
+
+/** Terminals for roles that may open one; for the others, why not (and no xterm.js download). */
+function TerminalGate(props: { children: JSX.Element }): JSX.Element {
+	const terminals = useTerminalAccess();
+	return (
+		<Show
+			when={terminals()}
+			fallback={
+				<EmptyState title="No terminal for your role" description={TERMINALS_NOT_ALLOWED} />
+			}
+		>
+			{props.children}
+		</Show>
 	);
 }
 

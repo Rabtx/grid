@@ -37,6 +37,7 @@ import { terminalsService } from "@/modules/terminal/services/terminals.service"
 import type { TerminalInfo } from "@/modules/terminal/types/terminal.types";
 import { useWorkspaces } from "@/modules/workspaces";
 import { mayDo } from "@/modules/workspaces/lib/members";
+import { useTerminalAccess } from "@/modules/workspaces";
 
 import { activityService, type RunHere } from "../services/activity.service";
 import { machineService, type MachineStatus } from "../services/machine.service";
@@ -67,6 +68,7 @@ function OperationsScreen(props: { kind: "machines" | "agents" }): JSX.Element {
 	const auth = useAuth();
 	const workspace = useWorkspace();
 	const workspaces = useWorkspaces();
+	const terminalAccess = useTerminalAccess();
 	const navigate = useNavigate();
 	const route = useMatch(() => "/machines/:id?");
 	const agentsRoute = useMatch(() => "/agents/:provider?");
@@ -126,7 +128,10 @@ function OperationsScreen(props: { kind: "machines" | "agents" }): JSX.Element {
 							: input.projects;
 					const results = await Promise.allSettled([
 						machineService.status(token, input.scope),
-						terminalsService.list(token, input.environment ?? undefined, true),
+						// The runner refuses terminals to roles without them: not asked for at all.
+						untrack(terminalAccess)
+							? terminalsService.list(token, input.environment ?? undefined, true)
+							: Promise.resolve([]),
 						...selected.map(async (project) =>
 							(await activityService.list(token, project.slug, project.scope)).map((run) => ({
 								...run,
@@ -441,31 +446,33 @@ function OperationsScreen(props: { kind: "machines" | "agents" }): JSX.Element {
 							</SectionCard>
 						}
 					>
-						<SectionCard
-							title="Terminals"
-							action={
-								<ButtonLink size="sm" href={workspaceHref("/terminal")}>
-									Open terminals
-								</ButtonLink>
-							}
-						>
-							<Show when={terminals().length} fallback={<EmptyState title="No terminals open" />}>
-								<For each={terminals()}>
-									{(terminal) => (
-										<CardRow
-											icon={<TerminalIcon />}
-											title={terminal.status?.command ?? terminal.title}
-											meta={terminal.status?.cwd ?? terminal.cwd}
-											action={
-												<ButtonLink size="sm" href={workspaceHref(`/terminal/${terminal.id}`)}>
-													Open
-												</ButtonLink>
-											}
-										/>
-									)}
-								</For>
-							</Show>
-						</SectionCard>
+						<Show when={terminalAccess()}>
+							<SectionCard
+								title="Terminals"
+								action={
+									<ButtonLink size="sm" href={workspaceHref("/terminal")}>
+										Open terminals
+									</ButtonLink>
+								}
+							>
+								<Show when={terminals().length} fallback={<EmptyState title="No terminals open" />}>
+									<For each={terminals()}>
+										{(terminal) => (
+											<CardRow
+												icon={<TerminalIcon />}
+												title={terminal.status?.command ?? terminal.title}
+												meta={terminal.status?.cwd ?? terminal.cwd}
+												action={
+													<ButtonLink size="sm" href={workspaceHref(`/terminal/${terminal.id}`)}>
+														Open
+													</ButtonLink>
+												}
+											/>
+										)}
+									</For>
+								</Show>
+							</SectionCard>
+						</Show>
 						<SectionCard title="Runner">
 							<CardRow
 								title={`Grid runner ${machine()?.info.runnerVersion ?? ""}`}

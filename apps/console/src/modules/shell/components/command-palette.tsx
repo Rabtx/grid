@@ -44,6 +44,7 @@ import {
 	type TaskHit,
 	type ThreadHit,
 } from "@/modules/search/services/search.service";
+import { useTerminalAccess } from "@/modules/workspaces";
 
 import { useShell } from "../context/shell-context";
 
@@ -98,6 +99,7 @@ function relative(iso: string): string {
  */
 export function CommandPalette(): JSX.Element {
 	const shell = useShell();
+	const terminals = useTerminalAccess();
 	const auth = useAuth();
 	const workspace = useWorkspace();
 	const navigate = useNavigate();
@@ -221,13 +223,17 @@ export function CommandPalette(): JSX.Element {
 				icon: () => <PlusIcon />,
 				run: () => go(current ? `/chat/${current.slug}` : "/chat"),
 			},
-			{
-				id: "cmd:terminal",
-				group: "Commands",
-				label: "Open terminal here",
-				icon: () => <TerminalIcon />,
-				run: () => go("/terminal"),
-			},
+			...(terminals()
+				? [
+						{
+							id: "cmd:terminal",
+							group: "Commands",
+							label: "Open terminal here",
+							icon: () => <TerminalIcon />,
+							run: () => go("/terminal"),
+						} satisfies Row,
+					]
+				: []),
 			{
 				id: "cmd:board",
 				group: "Commands",
