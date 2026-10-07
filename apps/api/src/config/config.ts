@@ -11,7 +11,8 @@ export type AppConfig = {
 	apiVersion: string;
 	serviceName: string;
 	appName: string;
-	webAppUrl: string;
+	/** The console, for links the API hands out (invites, magic links, billing returns). */
+	consoleUrl: string;
 	databaseUrl?: string;
 	databasePoolMax: number;
 	databaseSsl: boolean;
@@ -66,7 +67,7 @@ export function createConfig(env: Env = parseEnv()): AppConfig {
 		apiVersion: env.API_VERSION,
 		serviceName: env.SERVICE_NAME,
 		appName: env.APP_NAME,
-		webAppUrl: env.WEB_APP_URL.replace(/\/$/, ""),
+		consoleUrl: (env.CONSOLE_URL ?? env.WEB_APP_URL ?? "http://localhost:3001").replace(/\/$/, ""),
 		databaseUrl: env.DATABASE_URL,
 		databasePoolMax: env.DATABASE_POOL_MAX,
 		databaseSsl:

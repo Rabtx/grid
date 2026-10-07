@@ -21,7 +21,7 @@ export const emailMismatch = () =>
 		message: "This invite is for a different email address",
 	});
 
-const inviteUrl = (config: AppConfig, token: string) => `${config.webAppUrl}/invite/${token}`;
+const inviteUrl = (config: AppConfig, token: string) => `${config.consoleUrl}/invite/${token}`;
 const pending = () =>
 	and(isNull(workspaceInvites.acceptedAt), gt(workspaceInvites.expiresAt, sql`now()`));
 const inviteView = (r: InviteRecord) => ({

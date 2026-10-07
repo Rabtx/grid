@@ -217,7 +217,7 @@ export async function requestMagicLink(deps: AuthDeps, body: { email: string }) 
 	await sendMagicLink(
 		deps.send,
 		user.email,
-		`${deps.config.webAppUrl}/magic-link?token=${encodeURIComponent(token)}`,
+		`${deps.config.consoleUrl}/magic-link?token=${encodeURIComponent(token)}`,
 	);
 	return { ...result, ...(exposeCodes(deps.config) ? { developmentToken: token } : {}) };
 }
