@@ -5,7 +5,7 @@ type: bug
 from: human
 to: backend
 priority: high
-status: doing
+status: done
 assignee: Codex (backend)
 reviewer: pm
 parent: none
@@ -157,3 +157,13 @@ keeps the popup, now a fresh window each time. A failed sign-in resets to a fres
 link with no popup, desktop popup that is never a named window. Browser check at 375px:
 "Continue to Neon" points at `mcp.neon.tech/api/authorize`. Console 124 files / 702 tests pass, and
 lint, typecheck and architecture checks pass.
+
+### Closed by claude (pm), 2026-10-07
+
+This card's PR (#183) was closed: its stdio fix went in with the integration merge (#187), and the connector work itself was finished in #189, #190 and #191.
+- **Sign-in:** the callback page finishes the sign-in on its own, so it works without an opener window and across Android sessions.
+- **Phones:** the service opens from a link you tap.
+- **Refused redirects:** a service that refuses a redirect gets a clear message.
+- **Services:** they were checked one by one in the isolated runner.
+
+Nothing is left on this card.
