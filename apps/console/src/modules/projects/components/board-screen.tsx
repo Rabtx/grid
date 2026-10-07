@@ -10,6 +10,7 @@ import {
 	Loading,
 	onSettled,
 	Show,
+	untrack,
 } from "solid-js";
 
 import { workspaceHref } from "@/lib/active-workspace";
@@ -292,7 +293,7 @@ function Board(props: {
 }): JSX.Element {
 	const workspace = useWorkspace();
 	createEffect(workspace.tasks, (tasks) => {
-		props.onTasks(tasks);
+		untrack(() => props.onTasks(tasks));
 	});
 	const filteredTasks = createMemo(() =>
 		filterTasks(workspace.tasks(), { query: props.query, owner: props.owner, me: props.me }),

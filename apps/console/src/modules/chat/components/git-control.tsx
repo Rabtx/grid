@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 
 import {
 	Alert,
@@ -54,12 +54,14 @@ export function GitControl(props: {
 	const [error, setError] = createSignal<string | null>(null);
 	const [busy, setBusy] = createSignal(false);
 
+	// Read as they are now: the effect below is what follows them.
 	async function load(): Promise<void> {
-		const token = auth.token();
-		const folder = props.folder;
+		const [token, folder, scope] = untrack(
+			() => [auth.token(), props.folder, props.scope] as const,
+		);
 		if (!token || !folder) return;
 		try {
-			const next = await gitService.info(token, folder, props.scope);
+			const next = await gitService.info(token, folder, scope);
 			if (folder === props.folder) setInfo(next);
 		} catch {
 			// No git control when the folder cannot be read; the folder line still shows.

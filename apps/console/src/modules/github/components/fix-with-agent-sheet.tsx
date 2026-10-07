@@ -59,9 +59,9 @@ export function FixWithAgentSheet(props: {
 
 	// The agents on the machine this project runs on; the sheet shows what it has already read.
 	createEffect(
-		() => [props.open, auth.token(), props.project] as const,
-		([open, token]) => {
-			if (open && token) void providersStore.load(token, scope());
+		() => [props.open, auth.token(), scope()] as const,
+		([open, token, where]) => {
+			if (open && token) void providersStore.load(token, where);
 		},
 	);
 

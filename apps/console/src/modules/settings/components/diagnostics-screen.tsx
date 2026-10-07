@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, For, Show, untrack } from "solid-js";
 
 import {
 	Alert,
@@ -68,7 +68,7 @@ export function DiagnosticsScreen(): JSX.Element {
 	createEffect(
 		() => auth.token(),
 		(token) => {
-			if (token) void load();
+			if (token) void untrack(() => load());
 		},
 	);
 

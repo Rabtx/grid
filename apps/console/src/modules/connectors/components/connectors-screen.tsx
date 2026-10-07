@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, For, Show, untrack } from "solid-js";
 
 import {
 	Alert,
@@ -90,7 +90,10 @@ export function ConnectorsScreen(): JSX.Element {
 			const state = pendingResume.state;
 			pendingResume = null;
 			// The router's own path (it already carries the workspace), without the query.
-			navigate(location.pathname, { replace: true });
+			navigate(
+				untrack(() => location.pathname),
+				{ replace: true },
+			);
 			if (!service) return;
 			setResume(state);
 			setConnecting(service);
@@ -109,7 +112,7 @@ export function ConnectorsScreen(): JSX.Element {
 	};
 
 	async function load(): Promise<void> {
-		const token = auth.token();
+		const token = untrack(auth.token);
 		if (!token) return;
 		try {
 			setView(await connectorsService.view(token));

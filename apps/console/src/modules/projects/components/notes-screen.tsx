@@ -661,7 +661,7 @@ function NoteView(props: {
 		() => props.id,
 		(id) => {
 			if (id === currentId) return;
-			void flush();
+			void untrack(flush);
 			currentId = id;
 			setNoteId(id);
 			setEditing(id === "new");

@@ -136,7 +136,7 @@ export function PullDocument(props: {
 			setHistory(null);
 			setReview(null);
 			setError(null);
-			load();
+			untrack(load);
 		},
 	);
 
@@ -403,11 +403,13 @@ export function PullDocument(props: {
 								label="History"
 								aside={
 									<Show when={history()}>
-										{(shown) =>
-											current().state === "OPEN"
-												? aheadBehind(shown())
-												: `${shown().commits.length} commit${shown().commits.length === 1 ? "" : "s"}`
-										}
+										{(shown) => (
+											<>
+												{current().state === "OPEN"
+													? aheadBehind(shown())
+													: `${shown().commits.length} commit${shown().commits.length === 1 ? "" : "s"}`}
+											</>
+										)}
 									</Show>
 								}
 							>

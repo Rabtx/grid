@@ -135,7 +135,7 @@ export function AutomationsScreen(): JSX.Element {
 	};
 
 	async function load(): Promise<void> {
-		const token = auth.token(),
+		const token = untrack(auth.token),
 			id = ++requestId;
 		if (!token) return;
 		try {

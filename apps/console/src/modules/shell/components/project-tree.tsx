@@ -279,9 +279,9 @@ function ProjectNode(props: {
 	// QoL: Ensure the active thread in this project is visible even if deep in history
 	const inThread = useMatch(() => "/chat/:project/:id");
 	createEffect(
-		() => [inThread()?.params.id, allThreads()] as const,
-		([activeId, list]) => {
-			if (!activeId || !current()) return;
+		() => [inThread()?.params.id, allThreads(), current()] as const,
+		([activeId, list, isCurrent]) => {
+			if (!activeId || !isCurrent) return;
 			const idx = list.findIndex((t) => t.id === activeId);
 			if (idx >= untrack(threadLimit)) {
 				setThreadLimit(Math.ceil((idx + 1) / DEFAULT_THREAD_LIMIT) * DEFAULT_THREAD_LIMIT);

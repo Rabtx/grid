@@ -138,7 +138,7 @@ export function PullChanges(props: {
 			setReview(null);
 			setError(null);
 			setWriting(null);
-			load();
+			untrack(load);
 		},
 	);
 

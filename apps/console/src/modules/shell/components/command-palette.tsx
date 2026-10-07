@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import {
 	AgentLogo,
@@ -147,7 +147,7 @@ export function CommandPalette(): JSX.Element {
 			setQuery("");
 			setTurns([]);
 			setAskError(null);
-			setMode(shell.paletteMode());
+			setMode(untrack(shell.paletteMode));
 		},
 	);
 

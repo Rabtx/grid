@@ -1,3 +1,5 @@
+import { afterEach } from "vitest";
+
 /**
  * The popover API for component tests: happy-dom has none, and every kit menu, select and
  * picker opens through it. A click on a `popovertarget` button toggles its panel, `:popover-open`
@@ -53,3 +55,28 @@ if (typeof HTMLElement !== "undefined" && !("showPopover" in HTMLElement.prototy
 		panel?.togglePopover();
 	});
 }
+
+// A reactive value read where it will not update is a bug (Solid's STRICT_READ_UNTRACKED): a
+// component test that causes one fails, rather than the console filling with warnings again.
+const untrackedReads: string[] = [];
+const warn = console.warn.bind(console);
+console.warn = (...args: unknown[]) => {
+	if (!String(args[0]).includes("STRICT_READ_UNTRACKED")) return warn(...args);
+	// Where: the first frames in the console's own code.
+	const where = (new Error().stack ?? "")
+		.split("\n")
+		.filter((line) => line.includes("/src/") && !line.includes("test-setup"))
+		.slice(0, 3)
+		.map((line) =>
+			line
+				.trim()
+				.replace(/^at /, "")
+				.replace(/^.*\/src\//, "src/"),
+		)
+		.join(" <- ");
+	untrackedReads.push(`${String(args[0]).split(" will not")[0]} at ${where}`);
+};
+afterEach(() => {
+	const found = untrackedReads.splice(0);
+	if (found.length) throw new Error(`${found.length} untracked reactive read(s): ${found[0]}`);
+});

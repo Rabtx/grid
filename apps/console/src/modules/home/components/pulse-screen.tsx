@@ -1,6 +1,6 @@
 import { useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, onSettled, Show } from "solid-js";
+import { createEffect, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import {
 	AmountRow,
@@ -113,7 +113,7 @@ export function PulseScreen(): JSX.Element {
 	createEffect(
 		() => [auth.token(), days(), workspaces.current()?.slug] as const,
 		([token]) => {
-			if (token) void load();
+			if (token) void untrack(load);
 		},
 	);
 	onSettled(() => () => {

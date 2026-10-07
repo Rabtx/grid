@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createSignal, For, onSettled, Show } from "solid-js";
+import { createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import {
 	Alert,
@@ -57,11 +57,14 @@ export function ConnectDialog(props: {
 }): JSX.Element {
 	const auth = useAuth();
 	const [step, setStep] = createSignal(0);
-	const [way, setWay] = createSignal<SignIn>(props.service.signIn[0] ?? "oauth");
+	// The way it starts on; the dialog is opened for one service and keeps the person's choice.
+	const [way, setWay] = createSignal<SignIn>(untrack(() => props.service.signIn[0]) ?? "oauth");
 	const [key, setKey] = createSignal("");
 	const [held, setHeld] = createSignal<HeldGrant | null>(null);
 	const [rules, setRules] = createSignal<Record<string, Rule>>(
-		Object.fromEntries(props.service.capabilities.map((item) => [item.id, item.initial])),
+		untrack(() =>
+			Object.fromEntries(props.service.capabilities.map((item) => [item.id, item.initial])),
+		),
 	);
 	const [busy, setBusy] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);

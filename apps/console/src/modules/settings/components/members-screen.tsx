@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, For, Show, untrack } from "solid-js";
 
 import {
 	AgentLogo,
@@ -109,13 +109,12 @@ export function MembersScreen(): JSX.Element {
 	const [revoking, setRevoking] = createSignal<Invite | null>(null);
 
 	async function load(): Promise<void> {
-		const token = auth.token(),
-			ws = slug();
+		const [token, ws, canInvite] = untrack(() => [auth.token(), slug(), inviter()] as const);
 		if (!token || !ws) return;
 		try {
 			const [people, pending] = await Promise.all([
 				workspacesService.members(token, ws),
-				inviter() ? workspacesService.invites(token, ws) : Promise.resolve([]),
+				canInvite ? workspacesService.invites(token, ws) : Promise.resolve([]),
 			]);
 			setMembers(people);
 			setInvites(pending);
