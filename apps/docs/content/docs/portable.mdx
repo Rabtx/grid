@@ -67,6 +67,55 @@ your sign-in, projects and settings.
 the `TS_AUTH_KEY` Codespaces secret, rebuild, `bun run grid:pair`, then Settings → Environments at
 home.
 
+## Always on, on your own machine
+
+`bun run dev` is for working on Grid: Vite and Next.js dev servers, Solid's dev checks and file
+watchers, which use far more memory and are not meant to run for days. To keep a checkout's stack
+running (the web app, console, docs, API and runner on their usual ports, with your own `.env`),
+build once and run the production start:
+
+```bash
+bun install
+bun run build
+bun run start
+```
+
+`start` serves the built console (`vite preview`, with `/api` and `/runner` forwarded as in dev)
+and the built Next.js apps, and runs the API and runner without watching files. Rebuild and
+restart to pick up changes. It does not run the launcher: `bun run grid` is the one-port bundle
+above, with its own data directory.
+
+As a systemd user service, from a checkout kept for serving (for example a detached worktree of
+`main`):
+
+```ini
+# ~/.config/systemd/user/grid.service
+[Unit]
+Description=Grid
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Projects/grid-serve
+ExecStart=%h/.bun/bin/bun run start
+Restart=on-failure
+RestartSec=10
+KillMode=control-group
+UMask=0077
+
+[Install]
+WantedBy=default.target
+```
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now grid.service
+loginctl enable-linger "$USER"   # keep it running while you are logged out
+```
+
+To deploy a new version: `git checkout --detach main && bun install && bun run build`, then
+`systemctl --user restart grid.service`. `UMask=0077` keeps the logs and data the service writes
+readable by you alone.
+
 ## A VPS
 
 With Docker on the server:

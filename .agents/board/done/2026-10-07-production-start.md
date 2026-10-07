@@ -5,8 +5,8 @@ type: chore
 from: pm
 to: backend
 priority: normal
-status: open
-assignee: none
+status: done
+assignee: claude
 reviewer: human
 parent: none
 depends_on: []
@@ -36,4 +36,12 @@ and the live data.
 - Never run tests against the live API on :4000 or the live chat database.
 
 ## Resolution
+Fixed by claude, 2026-10-07. `bun run start` is now the always-on path:
+- web on :3000, console on :3001 and docs on :3002, all from their builds; the console is the built bundle served by `vite preview`, with `/api` and `/runner` forwarded;
+- the API and runner run without watching files.
 
+Each app's port is fixed (`--strictPort` on the console), and one app failing no longer stops the others. The launcher's script is renamed from `start` to `grid` (root `bun run grid` is unchanged), so `start` no longer launches a second, launcher-run stack. The systemd user unit, the deploy steps and linger are documented in `/docs/portable#always-on-on-your-own-machine`.
+
+Checked on spare ports: the built console on :3031 serves without the Vite dev client, and `/api` and `/runner` forward (401 without a token). Lint and format pass.
+
+**The owner still has to switch it over:** `grid-dev.service` still runs `bun run dev`. Change its `ExecStart` to `bun run start` (after `bun run build`) to get off the dev servers. I left that unit unchanged.

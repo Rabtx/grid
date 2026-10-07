@@ -8,11 +8,11 @@
 		"packages/*"
 	],
 	"scripts": {
-		"grid": "bun --cwd=apps/launcher run start",
+		"grid": "bun --cwd=apps/launcher run grid",
 		"grid:pair": "bun --cwd=apps/launcher run pair",
 		"dev": "bun run --parallel --no-exit-on-error --filter '*' dev",
 		"build": "bun run --filter '*' build",
-		"start": "bun run --parallel --filter '*' start",
+		"start": "bun run --parallel --no-exit-on-error --filter '*' start",
 		"preflight": "bun run lint && bun run typecheck && bun run build && bun run test",
 		"lint": "bun run --filter '*' lint && bun run scripts:lint",
 		"lint:fix": "bun run --filter '*' lint:fix",
