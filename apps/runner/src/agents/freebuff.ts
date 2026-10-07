@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { cached } from "./catalog";
-import type { Choice, TurnEvent } from "./events";
+import type { ChatEvent, Choice, TurnEvent } from "./events";
 import { chatsDir, findChat, freebuffStateDir, replyState, replyText } from "./freebuff-chats";
 import { exportedTurn } from "./freebuff-export";
 import {
@@ -18,8 +18,8 @@ import {
 	menuNotes,
 	parseEfforts,
 	parseMenu,
-	type Reply,
 	ReplyTracker,
+	type Segment,
 	sessionModel,
 } from "./freebuff-screen";
 import type { AgentContext, AgentSession, Provider, TurnResult } from "./provider";
@@ -180,13 +180,116 @@ async function readCatalog(binary: string, spawn: Tui): Promise<Choice[]> {
 	}
 }
 
-/** The reply as read off the screen, for when the export is not there. */
-function fromScreen(reply: Reply | null): TurnEvent[] {
-	if (!reply) return [];
-	return [
-		...(reply.reasoning ? [{ type: "reasoning" as const, text: reply.reasoning }] : []),
-		...(reply.text ? [{ type: "message" as const, text: reply.text }] : []),
-	];
+/** One part of the reply read off the screen, as a chat event. */
+function eventOf(segment: Segment, id: string, running: boolean): TurnEvent {
+	if (segment.kind === "tool")
+		return {
+			type: "tool",
+			id,
+			title: segment.title,
+			kind: segment.tool,
+			status: running ? "running" : "completed",
+			input: segment.input || undefined,
+			output: segment.output || undefined,
+		};
+	return { type: segment.kind === "text" ? "message" : "reasoning", text: segment.text };
+}
+
+function sameTool(a: Segment, b: Segment): boolean {
+	return (
+		a.kind === "tool" &&
+		b.kind === "tool" &&
+		a.title === b.title &&
+		a.input === b.input &&
+		a.output === b.output
+	);
+}
+
+/** A screen redrawn above what was streamed is restated at most this often while it runs. */
+const RESYNC_MS = 2_000;
+
+/**
+ * A reply read off the screen, streamed into the chat: reasoning and text as they grow, tools as
+ * they appear. When the screen is redrawn above what was sent (a long reply laid out again), what
+ * it shows is restated with `turn_rewrite`, at most every couple of seconds, rather than left to
+ * stall. `preface` is what the turn showed before the reply; a restatement repeats it, since it
+ * replaces the turn's tools.
+ */
+export class ReplyStream {
+	/** What the chat shows so far, each part with whether it was shown still running. */
+	private sent: { part: Segment; running: boolean }[] = [];
+	/** Parts not shown yet: a restatement held back to keep them apart. */
+	private held: { parts: Segment[]; finished: boolean } | null = null;
+	private restatedAt = Number.NEGATIVE_INFINITY;
+	private readonly turn = crypto.randomUUID().slice(0, 8);
+
+	constructor(
+		private readonly emit: (event: ChatEvent) => void,
+		private readonly preface: TurnEvent[] = [],
+		private readonly now: () => number = Date.now,
+	) {}
+
+	private id(index: number): string {
+		return `freebuff-screen-${this.turn}-${index}`;
+	}
+
+	/** The parts the screen shows now; `finished` once the reply's footer is drawn. */
+	show(parts: Segment[], finished: boolean): void {
+		const shown = parts.map((part, i) => ({ part, running: !finished && i === parts.length - 1 }));
+		const events: TurnEvent[] = [];
+		let fits = shown.length >= this.sent.length;
+		for (let i = 0; fits && i < shown.length; i++) {
+			const { part: now, running } = shown[i];
+			const was = this.sent[i];
+			if (!was) events.push(eventOf(now, this.id(i), running));
+			else if (now.kind === "tool" || was.part.kind === "tool") {
+				if (now.kind !== was.part.kind) fits = false;
+				else if (!sameTool(now, was.part) || running !== was.running)
+					events.push(eventOf(now, this.id(i), running));
+			} else if (now.kind !== was.part.kind) fits = false;
+			else if (now.text !== was.part.text) {
+				// Only the last part can grow: text added to an earlier one would land after it.
+				if (!now.text.startsWith(was.part.text) || i < this.sent.length - 1) fits = false;
+				else
+					events.push({
+						type: now.kind === "text" ? "message" : "reasoning",
+						text: now.text.slice(was.part.text.length),
+					});
+			}
+		}
+		if (fits) {
+			for (const event of events) this.emit(event);
+		} else {
+			if (this.now() - this.restatedAt < RESYNC_MS) {
+				this.held = { parts, finished };
+				return;
+			}
+			this.restatedAt = this.now();
+			this.emit({
+				type: "turn_rewrite",
+				replaceTools: true,
+				events: [
+					...this.preface,
+					...shown.map((item, i) => eventOf(item.part, this.id(i), item.running)),
+				],
+			});
+		}
+		this.sent = shown;
+		this.held = null;
+	}
+
+	/** Show a restatement held back, if it is due. */
+	flush(): void {
+		if (this.held) this.show(this.held.parts, this.held.finished);
+	}
+
+	/** End the turn with its exact events, or, without them, with what the screen last showed. */
+	finish(exact: TurnEvent[] | null, seen: Segment[] | null): void {
+		const parts = seen ?? this.held?.parts ?? this.sent.map((item) => item.part);
+		const events = exact ?? parts.map((part, i) => eventOf(part, this.id(i), false));
+		if (events.length)
+			this.emit({ type: "turn_rewrite", replaceTools: true, events: [...this.preface, ...events] });
+	}
 }
 
 /**
@@ -299,8 +402,10 @@ async function startFreebuff(
 		try {
 			current = await ready();
 			const screen = current;
+			// Shown before the reply; a restated turn starts with it again, since it replaces the tools.
+			const preface: TurnEvent[] = [];
 			if (notes.length) {
-				context.emit({
+				const event: TurnEvent = {
 					type: "tool",
 					id: `freebuff-${crypto.randomUUID()}`,
 					title: "Freebuff session",
@@ -308,32 +413,17 @@ async function startFreebuff(
 					status: "completed",
 					input: sessionModel(screen.lines()) ?? undefined,
 					output: notes.join("\n"),
-				});
+				};
+				preface.push(event);
+				context.emit(event);
 				notes = [];
 			}
 
-			const tracker = new ReplyTracker(text);
-			const shown = { reasoning: "", text: "" };
-			const live = { reasoning: true, text: true };
-			const stream = (kind: "reasoning" | "text", full: string, whole: boolean) => {
-				if (!live[kind]) return;
-				// Only whole rows while it is still writing: the last one may be half drawn.
-				const upTo = whole ? full : full.slice(0, full.lastIndexOf("\n") + 1);
-				if (!upTo.startsWith(shown[kind])) {
-					// Redrawn above what was sent (Markdown laid out again): the turn is restated at the end.
-					live[kind] = false;
-					return;
-				}
-				const delta = upTo.slice(shown[kind].length);
-				if (!delta) return;
-				shown[kind] = upTo;
-				context.emit({ type: kind === "text" ? "message" : "reasoning", text: delta });
-			};
+			const tracker = new ReplyTracker(text, COLS);
+			const stream = new ReplyStream(context.emit, preface);
 			screen.onChange(() => {
-				const reply = tracker.update(screen.lines());
-				if (!reply) return;
-				stream("reasoning", reply.reasoning, Boolean(reply.text));
-				stream("text", reply.text, false);
+				const parts = tracker.update(screen.lines());
+				if (parts) stream.show(parts, tracker.finished);
 			});
 
 			const since = Date.now();
@@ -359,10 +449,12 @@ async function startFreebuff(
 					finishedAt = null;
 				}
 				// The screen shows no reply yet but the file has text: stream that instead.
-				if (chat && !shown.text && !tracker.anchored) {
+				if (chat && !tracker.anchored) {
 					const saved = replyText(chat.messages, text, since);
-					if (saved) stream("text", `${saved}\n`, false);
+					if (saved) stream.show([{ kind: "text", text: saved }], false);
 				}
+				// A restatement held back to keep them apart may be due.
+				stream.flush();
 				const warning = connectionWarning(lines);
 				warnedAt = warning ? (warnedAt ?? Date.now()) : null;
 				if (warning && !warned && warnedAt && Date.now() - warnedAt > WARNING_MS) {
@@ -379,8 +471,7 @@ async function startFreebuff(
 			const seen = tracker.update(screen.lines());
 			screen.onChange();
 			const exact = chat ? exportedTurn(chat.messages) : [];
-			const events = exact.length ? exact : fromScreen(seen);
-			if (events.length) context.emit({ type: "turn_rewrite", events });
+			stream.finish(exact.length ? exact : null, seen);
 			// The model that answered: a running session keeps the one it started with.
 			announce();
 			if (chat && chat.id !== conversation) {

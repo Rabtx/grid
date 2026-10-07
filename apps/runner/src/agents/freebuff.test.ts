@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { ChatEvent } from "./events";
-import { exitReason, freebuffProvider } from "./freebuff";
+import { exitReason, freebuffProvider, ReplyStream } from "./freebuff";
 import { exportedTurn } from "./freebuff-export";
 import {
 	connectionWarning,
@@ -19,7 +19,7 @@ import {
 	mergeScrolled,
 	parseEfforts,
 	parseMenu,
-	parseReply,
+	parseSegments,
 	ReplyTracker,
 	sessionModel,
 } from "./freebuff-screen";
@@ -45,6 +45,32 @@ const MENU = `
  ↑  Show fewer
  DeepSeek V4.1 Flash • max · /home/me/app · /model to change · Chat: New chat
  ← for history · ? for help`.split("\n");
+
+// The picker as newer builds draw it: "Name • level · traits", labels and costs that wrap.
+const MENU_NOW = `
+ ↑↓ choose model · Tab reasoning · Enter select · Esc cancel
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │   MiMo 2.6 Flash · Balanced · Images                                         │
+ │                               10 Freebucks/hr                                │
+ └──────────────────────────────────────────────────────────────────────────────┘
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │   Glyph Cluster • high · Stealth preview · New · Experimental                │
+ │ 0 Freebucks/hr · Preview model: prompts and outputs may be retained for      │
+ │ training                                                                     │
+ └──────────────────────────────────────────────────────────────────────────────┘
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │ › Claude Haiku 5.5 • medium · Anthropic · fast · Images · New                │
+ │                               30 Freebucks/hr                                │
+ │ New: Anthropic's Claude Haiku 5.5, new on Freebuff.                          │
+ └──────────────────────────────────────────────────────────────────────────────┘
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │   GPT-6.1 Sol • medium · Promotional · 1 session a day · Images ·            │
+ │ Promotional · 1 session a day                                                │
+ │                               100 Freebucks/hr                               │
+ └──────────────────────────────────────────────────────────────────────────────┘
+ STARTER · 75/105 Freebucks daily · resets in 21h 7m · 305 in wallet
+ ↑  Show fewer
+ Claude Haiku 5.5 • medium · /home/me/app · /model to change · Chat: New chat`.split("\n");
 
 // The screen Freebuff opens on: its notes, the input box, and the model under it.
 const START = `
@@ -90,6 +116,34 @@ const DONE = `
  DeepSeek V4.1 Flash • max · /home/me/app · /model to change · Chat: Reply with
  ← for history · ? for help`.split("\n");
 
+// A reply part way through, its rows as the real CLI lays them out at 160 columns.
+const WORKING_REPLY = [
+	"  • Thinking",
+	"    I need to find landing page performance issues and fix them in a new worktree, following the AGENTS.md workflow of claiming a card and working in",
+	"    agent/<role>/<card-slug>. Let me check worktrees.md first.",
+	"",
+	"  I'll start by reading the worktree rules and locating the landing page.",
+	"",
+	"  • Read .agents/worktrees.md, .agents/README.md",
+	"",
+	"  • Read apps/web/src/app/page.tsx, apps/web/src/app/landing/page.tsx, apps/web/src/app/landing/layout.tsx, apps/web/src/app/layout.tsx, .agents/board/",
+	"  README.md, .wtp.yml",
+	"",
+	"  • Search blur|filter: in apps/web/src/modules/landing/styles (0 results)",
+	"  $ git branch --show-current; which wtp",
+	"  main",
+	"  /usr/bin/wtp",
+	"  Show 3 more lines",
+	"",
+	"  I've found several likely hotspots: a WebGL shader in multiple cards, filter: blur animations, and an always-on backdrop-blur header. Next I'll read",
+	"  the rest.",
+	"",
+	"  Short lines",
+	"  keep their breaks.",
+	"",
+	"  • Web Search solid 2 docs",
+];
+
 const PROMPT =
 	"Reply with: hello from grid. Then a markdown list of 3 fruits, then one sentence about each.";
 
@@ -111,6 +165,29 @@ describe("reading Freebuff's screen", () => {
 		expect(menu.models[2].efforts).toBeUndefined();
 		expect(isMenu(MENU)).toBe(true);
 		expect(isIdle(MENU)).toBe(false);
+	});
+
+	it("reads the picker as newer builds draw it, wrapped rows and all", () => {
+		const menu = parseMenu(MENU_NOW);
+		expect(menu.models.map((model) => model.id)).toEqual([
+			"MiMo 2.6 Flash",
+			"Glyph Cluster",
+			"Claude Haiku 5.5",
+			"GPT-6.1 Sol",
+		]);
+		expect(menu.selected).toBe(2);
+		expect(menu.models[0]).toEqual({
+			id: "MiMo 2.6 Flash",
+			name: "MiMo 2.6 Flash",
+			description: "Balanced · 10 Freebucks/hr",
+		});
+		expect(menu.models[1].description).toBe(
+			"Stealth preview · Experimental · 0 Freebucks/hr · Preview model: prompts and outputs may be retained for training",
+		);
+		expect(menu.models[2].efforts?.map((effort) => effort.id)).toEqual(["low", "medium", "high"]);
+		expect(menu.models[2].defaultEffort).toBe("medium");
+		expect(menu.models[3].description).toBe("Promotional · 1 session a day · 100 Freebucks/hr");
+		expect(sessionModel(MENU_NOW)).toBe("Claude Haiku 5.5");
 	});
 
 	it("reads the reasoning levels inside the picker", () => {
@@ -154,12 +231,62 @@ describe("reading Freebuff's screen", () => {
 	});
 
 	it("splits a finished reply into reasoning and text", () => {
-		const tracker = new ReplyTracker(PROMPT);
-		expect(tracker.update(DONE)).toEqual({
-			reasoning: "The user wants a simple reply. No tools needed.",
-			text: "hello from grid.\n- Apple — a crisp, sweet-tart fruit.\n- Banana — a soft, sweet tropical fruit.",
-		});
+		const tracker = new ReplyTracker(PROMPT, 160);
+		expect(tracker.update(DONE)).toEqual([
+			{ kind: "reasoning", text: "The user wants a simple reply. No tools needed." },
+			{
+				kind: "text",
+				text: "hello from grid.\n- Apple — a crisp, sweet-tart fruit.\n- Banana — a soft, sweet tropical fruit.",
+			},
+		]);
 		expect(tracker.finished).toBe(true);
+	});
+
+	it("reads tools, commands and wrapped rows the way the reply was written", () => {
+		expect(parseSegments(WORKING_REPLY, 160)).toEqual([
+			{
+				kind: "reasoning",
+				text: "I need to find landing page performance issues and fix them in a new worktree, following the AGENTS.md workflow of claiming a card and working in agent/<role>/<card-slug>. Let me check worktrees.md first.",
+			},
+			{
+				kind: "text",
+				text: "I'll start by reading the worktree rules and locating the landing page.",
+			},
+			{
+				kind: "tool",
+				title: "Read",
+				tool: "read",
+				input: ".agents/worktrees.md, .agents/README.md",
+				output: "",
+			},
+			{
+				kind: "tool",
+				title: "Read",
+				tool: "read",
+				input:
+					"apps/web/src/app/page.tsx, apps/web/src/app/landing/page.tsx, apps/web/src/app/landing/layout.tsx, apps/web/src/app/layout.tsx, .agents/board/README.md, .wtp.yml",
+				output: "",
+			},
+			{
+				kind: "tool",
+				title: "Search",
+				tool: "search",
+				input: "blur|filter: in apps/web/src/modules/landing/styles (0 results)",
+				output: "",
+			},
+			{
+				kind: "tool",
+				title: "Run",
+				tool: "execute",
+				input: "git branch --show-current; which wtp",
+				output: "main\n/usr/bin/wtp",
+			},
+			{
+				kind: "text",
+				text: "I've found several likely hotspots: a WebGL shader in multiple cards, filter: blur animations, and an always-on backdrop-blur header. Next I'll read the rest.\n\nShort lines\nkeep their breaks.",
+			},
+			{ kind: "tool", title: "Web Search", tool: "fetch", input: "solid 2 docs", output: "" },
+		]);
 	});
 
 	it("finds the echo of a message that wrapped onto several rows", () => {
@@ -171,12 +298,102 @@ describe("reading Freebuff's screen", () => {
 	it("does not take a copy mark inside a reply for a message", () => {
 		const lines = ["   [06:45 PM]", "   run it ⎘", "", "  ```sh", "  bun test ⎘", "  ```"];
 		expect(findEcho(lines, "bun test")).toBe(-1);
-		expect(parseReply(lines.slice(2)).text).toBe("```sh\nbun test ⎘\n```");
+		expect(parseSegments(lines.slice(2), 160)).toEqual([
+			{ kind: "text", text: "```sh\nbun test ⎘\n```" },
+		]);
 	});
 
 	it("ignores the scrollbar drawn into the last column", () => {
-		const reply = parseReply(["  one                █", "  two                █"]);
-		expect(reply.text).toBe("one\ntwo");
+		expect(parseSegments(["  one                █", "  two                █"], 160)).toEqual([
+			{ kind: "text", text: "one\ntwo" },
+		]);
+	});
+});
+
+describe("streaming what the screen shows", () => {
+	const notes = { type: "tool", id: "notes", title: "Freebuff session" } as const;
+
+	function stream() {
+		const events: ChatEvent[] = [];
+		let clock = 0;
+		const replies = new ReplyStream(
+			(event) => events.push(event),
+			[notes],
+			() => clock,
+		);
+		return { events, replies, tick: (ms: number) => (clock += ms) };
+	}
+
+	it("sends text as it grows and tools as they appear, settling each tool when the next part comes", () => {
+		const { events, replies } = stream();
+		replies.show([{ kind: "text", text: "I'll read" }], false);
+		replies.show([{ kind: "text", text: "I'll read it." }], false);
+		replies.show(
+			[
+				{ kind: "text", text: "I'll read it." },
+				{ kind: "tool", title: "Read", tool: "read", input: "a.ts", output: "" },
+			],
+			false,
+		);
+		replies.show(
+			[
+				{ kind: "text", text: "I'll read it." },
+				{ kind: "tool", title: "Read", tool: "read", input: "a.ts", output: "" },
+				{ kind: "text", text: "Done" },
+			],
+			true,
+		);
+		expect(
+			events.map((event) => [
+				event.type,
+				"text" in event ? event.text : event.type === "tool" ? event.status : null,
+			]),
+		).toEqual([
+			["message", "I'll read"],
+			["message", " it."],
+			["tool", "running"],
+			["tool", "completed"],
+			["message", "Done"],
+		]);
+		const [, , running, settled] = events as Extract<ChatEvent, { type: "tool" }>[];
+		expect(settled.id).toBe(running.id);
+	});
+
+	it("restates the turn when the screen is redrawn, no more often than every two seconds", () => {
+		const { events, replies, tick } = stream();
+		replies.show([{ kind: "text", text: "one two" }], false);
+		// Laid out again: what was sent is no longer the start of what is shown.
+		replies.show([{ kind: "text", text: "One, two" }], false);
+		expect(events.at(-1)).toEqual({
+			type: "turn_rewrite",
+			replaceTools: true,
+			events: [notes, { type: "message", text: "One, two" }],
+		});
+		const before = events.length;
+		replies.show([{ kind: "reasoning", text: "Hm" }], false);
+		expect(events).toHaveLength(before);
+		tick(2_000);
+		replies.flush();
+		expect(events.at(-1)).toMatchObject({
+			type: "turn_rewrite",
+			events: [notes, { type: "reasoning", text: "Hm" }],
+		});
+	});
+
+	it("ends the turn with its exact events when there are some, else with the screen's", () => {
+		const exact = stream();
+		exact.replies.show([{ kind: "text", text: "rough" }], false);
+		exact.replies.finish([{ type: "message", text: "**exact**" }], null);
+		expect(exact.events.at(-1)).toEqual({
+			type: "turn_rewrite",
+			replaceTools: true,
+			events: [notes, { type: "message", text: "**exact**" }],
+		});
+		const screen = stream();
+		screen.replies.finish(null, [{ kind: "text", text: "as shown" }]);
+		expect(screen.events.at(-1)).toMatchObject({
+			events: [notes, { type: "message", text: "as shown" }],
+		});
 	});
 });
 
@@ -355,9 +572,17 @@ describe("driving the CLI", () => {
 			.map((event) => (event as { text: string }).text)
 			.join("");
 		expect(streamed).toContain("row 1\n");
+		// The tool on screen streams as a tool, not as text.
+		expect(streamed).not.toContain("Read");
+		expect(events).toContainEqual(
+			expect.objectContaining({ type: "tool", title: "Read", kind: "read", input: "a.ts, b.ts" }),
+		);
 		expect(rewriteOf(events)).toEqual({
 			type: "turn_rewrite",
+			replaceTools: true,
 			events: [
+				// The session's notes come first again: the restated turn replaces its tools.
+				expect.objectContaining({ type: "tool", title: "Freebuff session" }),
 				{ type: "reasoning", text: "Reading the request." },
 				{ type: "message", text: "**Exact** reply\n\nrow 1\nrow 2\nrow 3" },
 			],
@@ -370,7 +595,7 @@ describe("driving the CLI", () => {
 	}, 20_000);
 
 	it("keeps the whole reply when it scrolls past the top of the screen", async () => {
-		const { events, session } = await start(undefined, 14, 40);
+		const { events, session } = await start(undefined, 18, 40);
 		await session.prompt("Count");
 		const streamed = events
 			.filter((event) => event.type === "message")
@@ -403,7 +628,10 @@ describe("driving the CLI", () => {
 		expect(await session.prompt("Say hello")).toEqual({ reason: "done" });
 		expect(rewriteOf(events)).toEqual({
 			type: "turn_rewrite",
+			replaceTools: true,
 			events: [
+				// The session's notes come first again: the restated turn replaces its tools.
+				expect.objectContaining({ type: "tool", title: "Freebuff session" }),
 				{ type: "reasoning", text: "Reading the request." },
 				{ type: "message", text: "**Exact** reply\n\nrow 1\nrow 2\nrow 3" },
 			],
@@ -416,6 +644,7 @@ describe("driving the CLI", () => {
 		// The exact text still comes from the file.
 		expect(events.find((event) => event.type === "turn_rewrite")).toMatchObject({
 			events: [
+				{ type: "tool", title: "Freebuff session" },
 				{ type: "reasoning", text: "Reading the request." },
 				{ type: "message", text: "**Exact** reply\n\nrow 1\nrow 2\nrow 3" },
 			],

@@ -1,5 +1,5 @@
 import { effortChoices } from "./catalog";
-import type { Choice } from "./events";
+import type { Choice, ToolKind } from "./events";
 
 /**
  * Reading Freebuff's rendered screen. Freebuff is a full-screen terminal UI with no protocol, so
@@ -89,43 +89,68 @@ export function sessionModel(lines: string[]): string | null {
 export type Menu = { models: Choice[]; selected: number; collapsed: boolean };
 
 /**
- * A model's label in the picker: "DeepSeek V4.1 Flash • max  Smart & Fast · Images · NEW", its name
- * (with its reasoning level after " • ") then, past a wide gap, what it is good at.
+ * A model's label in the picker, in either layout Freebuff has drawn: "Claude Haiku 5.5 • medium ·
+ * Anthropic · fast · Images · New", its name (with its reasoning level after " • ") then what it is
+ * good at, each after " · "; or the older "DeepSeek V4.1 Flash • max  Smart & Fast · Images", with
+ * a wide gap after the name.
  */
 function readLabel(label: string): { name: string; effort: string | null; traits: string[] } {
-	const [head, ...rest] = label.split(/\s{2,}/);
-	const [name, effort] = head.split(" • ");
+	const [head = "", ...rest] = label.split(/ · |\s{2,}/);
+	const [name = "", effort] = head.split(" • ");
 	const traits = rest
-		.join(" · ")
-		.split(" · ")
-		.filter((part) => part && !/^(?:Images|NEW|TEST)$/.test(part));
-	return { name: name.trim(), effort: effort?.trim() || null, traits };
+		.map((part) => part.replace(/\s*·$/, "").trim())
+		.filter((part) => part && !/^(?:Images|NEW|New|TEST)$/.test(part));
+	return { name: name.trim(), effort: effort?.trim() || null, traits: [...new Set(traits)] };
 }
 
 /**
- * The model picker: each model is a box of two lines, the label (`› ` marks the highlighted one)
- * and its cost.
+ * A model's reasoning levels. The picker shows only the default; the levels themselves are listed
+ * under Tab, one model at a time, and are read there when a level is chosen. A model that
+ * defaults to "medium" offers low, medium and high; the others low, high and max.
+ */
+function levelsFor(effort: string): string[] {
+	return effort === "medium" ? ["low", "medium", "high"] : [...REASONING_LEVELS, effort];
+}
+
+/** The rows inside each box on screen (between its ┌ and └), without the side borders. */
+function boxes(lines: string[]): string[][] {
+	const found: string[][] = [];
+	let box: string[] | null = null;
+	for (const raw of lines) {
+		const line = clean(raw).trim();
+		if (line.startsWith("┌")) box = [];
+		else if (line.startsWith("└")) {
+			if (box) found.push(box);
+			box = null;
+		} else if (box && line.startsWith("│")) {
+			box.push(line.replace(/^│/, "").replace(/│$/, "").trim());
+		}
+	}
+	return found;
+}
+
+/**
+ * The model picker: one box per model, its label (`› ` marks the highlighted one, and a long label
+ * wraps onto a second row) above its cost, which may wrap too.
  */
 export function parseMenu(lines: string[]): Menu {
 	const models: Choice[] = [];
 	let selected = -1;
-	let collapsed = false;
-	for (let i = 0; i < lines.length; i++) {
-		const line = clean(lines[i]);
-		if (/See all \d* ?models/i.test(line)) collapsed = true;
-		const cost = clean(lines[i + 1] ?? "");
-		if (!line.includes("│") || !cost.includes("Freebucks/hr")) continue;
-		const raw = line.split("│")[1]?.trim() ?? "";
+	const collapsed = lines.some((line) => /See all \d* ?models/i.test(clean(line)));
+	for (const rows of boxes(lines)) {
+		const cost = rows.findIndex((row) => row.includes("Freebucks/hr"));
+		if (cost <= 0) continue;
+		const raw = rows.slice(0, cost).join(" ");
 		const highlighted = raw.startsWith("›");
 		const { name, effort, traits } = readLabel(raw.replace(/^›\s*/, ""));
 		if (!name) continue;
 		if (highlighted) selected = models.length;
-		const price = cost.replace(/│/g, "").trim();
+		const price = rows.slice(cost).join(" ").replace(/\s+/g, " ").trim();
 		models.push({
 			id: name,
 			name,
 			description: [...traits, price].join(" · "),
-			...(effort ? { efforts: effortChoices(REASONING_LEVELS), defaultEffort: effort } : {}),
+			...(effort ? { efforts: effortChoices(levelsFor(effort)), defaultEffort: effort } : {}),
 		});
 	}
 	return { models, selected, collapsed };
@@ -234,39 +259,155 @@ function indent(line: string): number {
 	return line.length - line.trimStart().length;
 }
 
-/** Trim blank rows at both ends and squeeze runs of blank rows to one. */
-function tidy(rows: string[]): string {
-	return rows
-		.join("\n")
-		.replace(/\n{3,}/g, "\n\n")
-		.replace(/^\n+|\s+$/g, "");
-}
-
-export type Reply = { reasoning: string; text: string };
+/** One part of a reply as the screen shows it, in order. */
+export type Segment =
+	| { kind: "reasoning" | "text"; text: string }
+	| { kind: "tool"; title: string; tool: ToolKind; input: string; output: string };
 
 /**
- * A reply's rows as reasoning and text: "• Thinking" opens a reasoning block indented under it;
- * the answer is indented by two.
+ * The names Freebuff draws its tools under ("• Read a.ts, b.ts"), longest first so "Read URL" is
+ * not read as "Read". A tool it names some other way is titled by its first word.
  */
-export function parseReply(rows: string[]): Reply {
-	const reasoning: string[] = [];
-	const text: string[] = [];
-	let thinking = false;
+const TOOLS: [string, ToolKind][] = (
+	[
+		["List service categories", "search"],
+		["Report integration", "other"],
+		["Search services", "search"],
+		["Browse services", "search"],
+		["App Connections", "other"],
+		["Fetch service", "fetch"],
+		["App Schemas", "other"],
+		["List deeply", "search"],
+		["App Search", "search"],
+		["App Action", "other"],
+		["Web Search", "fetch"],
+		["Load Skill", "read"],
+		["Read Docs", "fetch"],
+		["Read URL", "fetch"],
+		["Create", "edit"],
+		["Delete", "edit"],
+		["Search", "search"],
+		["Write", "edit"],
+		["Edit", "edit"],
+		["Glob", "search"],
+		["List", "search"],
+		["Read", "read"],
+	] as [string, ToolKind][]
+).sort((a, b) => b[0].length - a[0].length);
+
+function toolRow(body: string): { title: string; tool: ToolKind; input: string } {
+	for (const [name, tool] of TOOLS) {
+		if (body === name || body.startsWith(`${name} `))
+			return { title: name, tool, input: body.slice(name.length).trim() };
+	}
+	const [first = "", ...rest] = body.split(" ");
+	return { title: first, tool: "other", input: rest.join(" ") };
+}
+
+/** Rows that start something of their own in Markdown, never the rest of the row above. */
+const OWN_ROW = /^(?:[-*+] |\d+[.)] |> |[│┌└├╭╰]|```)/;
+
+/** The terminal broke a word after a slash or a hyphen: put the halves back together. */
+function joiner(previous: string): string {
+	return /\w[/-]$/.test(previous) ? "" : " ";
+}
+
+/**
+ * Rows as the text they were before the terminal wrapped them. A row as long as the screen allows
+ * ran on into the next one; shorter rows, blank rows and rows that start a list item, a quote or
+ * a code fence keep their line breaks. `always` joins every row (a tool's input is not prose).
+ */
+function unwrap(rows: string[], wrapAt: number, always = false): string {
+	let text = "";
+	let previous: string | null = null;
+	for (const row of rows) {
+		const body = row.trim();
+		if (previous === null) text = always ? body : row;
+		else if (!body) text += "\n";
+		else if (previous.trim() && (always || (previous.length >= wrapAt && !OWN_ROW.test(body))))
+			text += joiner(previous.trimEnd()) + body;
+		else text += `\n${always ? body : row}`;
+		previous = row;
+	}
+	return text.replace(/\n{3,}/g, "\n\n").replace(/^\n+|\s+$/g, "");
+}
+
+/** Freebuff's own controls under a command's output. */
+const CONTROL = /^(?:Show \d+ more lines?|Show fewer)$/;
+
+type Open =
+	| { kind: "reasoning" | "text"; rows: string[] }
+	| { kind: "tool"; title: string; tool: ToolKind; input: string[]; output: string[] };
+
+/**
+ * A reply's rows as its parts, in order. Rows start two columns in. "• Thinking" opens reasoning,
+ * indented under it; any other "• Name …" row is a tool with its input after the name (running on
+ * over the rows below it), "$ command" is a command with its output under it, and the rest is the
+ * answer. A blank row ends a tool. `width` is the screen's, to tell a wrapped row from a short one.
+ */
+export function parseSegments(rows: string[], width: number): Segment[] {
+	const open: Open[] = [];
+	const wrapAt = width - 40;
 	for (const raw of rows) {
 		const line = clean(raw);
-		if (line.trim() === "• Thinking") {
-			thinking = true;
-			if (reasoning.length) reasoning.push("");
+		const body = line.trim();
+		const at = indent(line);
+		const current = open.at(-1);
+		if (!body) {
+			if (current?.kind === "tool") open.push({ kind: "text", rows: [] });
+			else current?.rows.push("");
 			continue;
 		}
-		if (thinking && (!line.trim() || indent(line) >= 4)) {
-			reasoning.push(line.slice(4));
+		const bullet = at <= 2 ? /^[•▸▾] (.+)$/.exec(body) : null;
+		if (bullet?.[1] === "Thinking") {
+			if (current?.kind === "reasoning") current.rows.push("");
+			else open.push({ kind: "reasoning", rows: [] });
 			continue;
 		}
-		thinking = false;
-		text.push(line.slice(Math.min(2, indent(line))));
+		if (bullet) {
+			const { title, tool, input } = toolRow(bullet[1]);
+			open.push({ kind: "tool", title, tool, input: input ? [input] : [], output: [] });
+			continue;
+		}
+		if (at <= 2 && body.startsWith("$ ")) {
+			open.push({
+				kind: "tool",
+				title: "Run",
+				tool: "execute",
+				input: [body.slice(2)],
+				output: [],
+			});
+			continue;
+		}
+		if (current?.kind === "tool") {
+			if (CONTROL.test(body)) continue;
+			// A command's lines under it are its output; another tool's run on from its name.
+			if (current.tool === "execute" || at > 2) current.output.push(line.slice(Math.min(4, at)));
+			else current.input.push(body);
+			continue;
+		}
+		if (current?.kind === "reasoning" && at >= 4) {
+			current.rows.push(line.slice(4));
+			continue;
+		}
+		const row = line.slice(Math.min(2, at));
+		if (current?.kind === "text") current.rows.push(row);
+		else open.push({ kind: "text", rows: [row] });
 	}
-	return { reasoning: tidy(reasoning), text: tidy(text) };
+	return open.flatMap((part): Segment[] => {
+		if (part.kind === "tool")
+			return [
+				{
+					kind: "tool",
+					title: part.title,
+					tool: part.tool,
+					input: unwrap(part.input, wrapAt, true),
+					output: part.output.join("\n").trimEnd(),
+				},
+			];
+		const text = unwrap(part.rows, wrapAt - (part.kind === "reasoning" ? 4 : 2));
+		return text ? [{ kind: part.kind, text }] : [];
+	});
 }
 
 /**
@@ -290,6 +431,7 @@ export function mergeScrolled(previous: string[], visible: string[]): string[] {
 /**
  * Follows one reply across screens. Once the echo of the sent message scrolls off the top, the
  * rows still on screen are merged with those seen before, so a long reply is not cut to its tail.
+ * `width` is the screen's.
  */
 export class ReplyTracker {
 	private rows: string[] = [];
@@ -297,9 +439,16 @@ export class ReplyTracker {
 	anchored = false;
 	finished = false;
 
-	constructor(private readonly prompt: string) {}
+	constructor(
+		private readonly prompt: string,
+		private readonly width: number,
+	) {}
 
-	update(lines: string[]): Reply | null {
+	/**
+	 * The reply's parts so far. While it is still being written the last row is left out: it may be
+	 * half drawn.
+	 */
+	update(lines: string[]): Segment[] | null {
 		const echo = findEcho(lines, this.prompt);
 		if (echo >= 0) {
 			this.anchored = true;
@@ -319,6 +468,6 @@ export class ReplyTracker {
 		} else {
 			return null;
 		}
-		return parseReply(this.rows);
+		return parseSegments(this.finished ? this.rows : this.rows.slice(0, -1), this.width);
 	}
 }

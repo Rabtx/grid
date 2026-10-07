@@ -102,9 +102,10 @@ export type ChatEvent =
 	/**
 	 * The turn's reply restated exactly, for agents whose live stream is only an approximation (a
 	 * terminal UI read off its screen): the text and reasoning shown since the person's message are
-	 * replaced by these events. Tools and approvals already shown stay.
+	 * replaced by these events. Approvals already shown stay, and so do tools unless `replaceTools`
+	 * says the events restate those too.
 	 */
-	| { type: "turn_rewrite"; events: TurnEvent[] };
+	| { type: "turn_rewrite"; events: TurnEvent[]; replaceTools?: boolean };
 
 /** What a rewritten turn is made of. */
 export type TurnEvent = Extract<ChatEvent, { type: "message" | "reasoning" | "tool" | "plan" }>;

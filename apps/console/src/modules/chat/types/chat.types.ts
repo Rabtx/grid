@@ -74,8 +74,11 @@ export type ChatEvent =
 	 * the conversation: the runner sends it on attach and whenever it changes, and never logs it.
 	 */
 	| { type: "commands"; commands: AgentCommand[] }
-	/** The turn's reply restated exactly: replaces the text and reasoning shown since the message. */
-	| { type: "turn_rewrite"; events: TurnEvent[] };
+	/**
+	 * The turn's reply restated exactly: replaces the text and reasoning shown since the message,
+	 * and its tools too with `replaceTools`.
+	 */
+	| { type: "turn_rewrite"; events: TurnEvent[]; replaceTools?: boolean };
 
 /** What a rewritten turn is made of. */
 export type TurnEvent = Extract<ChatEvent, { type: "message" | "reasoning" | "tool" | "plan" }>;
