@@ -5,8 +5,8 @@ type: bug
 from: pm
 to: backend
 priority: normal
-status: open
-assignee: none
+status: done
+assignee: claude
 reviewer: human
 parent: none
 depends_on: []
@@ -36,4 +36,10 @@ and the live data.
 - Never run tests against the live API on :4000 or the live chat database.
 
 ## Resolution
-
+Fixed by claude, 2026-10-07. `createTokenVerifier` (`apps/runner/src/auth.ts`) now tells a refused
+token (API 401/403 → 401 "Sign in again") from an API it could not reach or that failed (→ 503
+"Grid's API can't be reached right now"), and never caches the outage. On sockets, a 503 hello
+closes with 1013 (try again later), so the console reconnects instead of signing out or treating
+the session as gone. Tests: offline API → 503, API 502 → 503, API 401 → 401, and recovery once the
+API is back. The old test that expected 401 for an unreachable API was corrected. Runner 486 /
+486, lint passes.

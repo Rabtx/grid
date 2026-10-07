@@ -57,8 +57,11 @@ export type WorkspaceSettings = {
 	customRoles?: { id: string; permissions: Partial<Record<RolePermission, boolean>> }[];
 };
 
-/** A token checked: who it is, or why not (401: not signed in, 404: not in that workspace). */
-export type Verified = { who: Who } | { status: 401 | 404; message: string };
+/**
+ * A token checked: who it is, or why not (401: not signed in, 404: not in that workspace, 503: the
+ * API could not say).
+ */
+export type Verified = { who: Who } | { status: 401 | 404 | 503; message: string };
 
 export type Verify = (token: string, workspace?: string | null) => Promise<Verified>;
 
@@ -75,6 +78,15 @@ type Known = { userId: string; workspaces: Workspace[]; until: number };
 export const signedOut: Verified = { status: 401, message: "Sign in again" };
 
 /**
+ * The API could not be asked, or failed answering. Not a sign-out: answering 401 here told the
+ * console the session had ended whenever the API restarted or was briefly unreachable.
+ */
+export const apiUnavailable: Verified = {
+	status: 503,
+	message: "Grid's API can't be reached right now. Try again in a moment.",
+};
+
+/**
  * Checks a console access token by asking the API who it belongs to and which workspaces they
  * are in. The runner holds no signing secret of its own, and a signed-out or revoked session
  * stops working here too. A request names its workspace by slug; without one it acts in the
@@ -89,7 +101,7 @@ export function createTokenVerifier(
 ): Verify {
 	const cache = new Map<string, Known>();
 
-	async function known(token: string): Promise<Known | null> {
+	async function known(token: string): Promise<Known | null | "unavailable"> {
 		const now = Date.now();
 		const hit = cache.get(token);
 		if (hit && hit.until > now) return hit;
@@ -105,9 +117,12 @@ export function createTokenVerifier(
 			]);
 		} catch (cause) {
 			console.error("[runner] could not reach the API to verify a token", cause);
-			return null;
+			return "unavailable";
 		}
-		if (!me.ok || !listed.ok) return null;
+		// Only a refusal means the token is no good; anything else is the API failing to answer.
+		const refused = (response: Response) => response.status === 401 || response.status === 403;
+		if (refused(me) || refused(listed)) return null;
+		if (!me.ok || !listed.ok) return "unavailable";
 
 		const user = (await me.json().catch(() => null)) as { data?: { id?: unknown } } | null;
 		const userId = typeof user?.data?.id === "string" ? user.data.id : null;
@@ -124,6 +139,7 @@ export function createTokenVerifier(
 
 	return async (token, slug) => {
 		const entry = await known(token);
+		if (entry === "unavailable") return apiUnavailable;
 		if (!entry) return signedOut;
 		const workspace = slug
 			? entry.workspaces.find((w) => w.slug === slug)
