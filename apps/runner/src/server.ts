@@ -494,7 +494,12 @@ export function startServer(
 					if (handled) return handled;
 				}
 
-				if (machine && (url.pathname === "/machine" || url.pathname.startsWith("/agents/acp"))) {
+				if (
+					machine &&
+					(url.pathname === "/machine" ||
+						url.pathname.startsWith("/machine/") ||
+						url.pathname.startsWith("/agents/acp"))
+				) {
 					const who = await whoFrom(request, "Sign in to see this machine");
 					if (who instanceof Response) return who;
 					const handled = await machineRequest(request, url, who, machine);

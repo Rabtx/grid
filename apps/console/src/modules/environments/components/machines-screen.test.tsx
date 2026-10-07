@@ -21,7 +21,17 @@ vi.mock("../stores/environments", () => ({
 	environmentsStore: { load: vi.fn(), environments: () => [], remove: vi.fn(), add: vi.fn() },
 }));
 vi.mock("../services/machine.service", () => ({
-	machineService: { status: vi.fn(), update: vi.fn() },
+	machineService: {
+		status: vi.fn(),
+		update: vi.fn(),
+		updateStatus: vi.fn(async () => ({
+			available: false,
+			reason: "Grid is not running as a systemd service on this machine",
+			current: { commit: "abc1234", subject: "fix: something" },
+			behind: null,
+			last: null,
+		})),
+	},
 }));
 
 async function settle() {

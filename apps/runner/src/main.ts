@@ -5,6 +5,7 @@ import { policyOf } from "./agents/policy";
 import { addAcpAgent, agentBinary, providerRegistry } from "./agents/registry";
 import { agentVersion } from "./agents/versions";
 import { KeepAwake, type MachinePrefs, MachinePrefsStore } from "./machine/prefs";
+import { GridUpdater } from "./machine/update";
 import { Automations } from "./automations/service";
 import { AutomationStore } from "./automations/store";
 import { withAgentBins } from "./agents/setup";
@@ -346,6 +347,7 @@ const server = startServer(config, store, verify, chat, {
 		addAgent: (agent) => addAcpAgent(providers, agent),
 		removeAgent: (id) => providers.delete(id),
 		knownAgent: (id) => providers.has(id),
+		updater: new GridUpdater(),
 	},
 });
 

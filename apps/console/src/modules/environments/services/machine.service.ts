@@ -24,6 +24,25 @@ export type MachineStatus = {
 	projectsDir: string;
 };
 
+/** Where an update of Grid itself is up to (Settings → Machines → Grid version). */
+export type UpdateRun = {
+	state: "running" | "done" | "failed";
+	step: string;
+	startedAt: string;
+	finishedAt: string;
+	from: string;
+	to: string;
+	message: string;
+};
+
+export type UpdateStatus = {
+	available: boolean;
+	reason: string | null;
+	current: { commit: string; subject: string } | null;
+	behind: number | null;
+	last: UpdateRun | null;
+};
+
 export const machineService = {
 	status: (token: string, scope = "") => runnerCall<MachineStatus>(`${scope}/machine`, token),
 	update: (token: string, patch: Partial<MachinePrefs>) =>
@@ -33,6 +52,11 @@ export const machineService = {
 			method: "POST",
 			body: JSON.stringify(input),
 		}),
+	updateStatus: (token: string) => runnerCall<UpdateStatus>("/machine/update", token),
+	checkForUpdate: (token: string) =>
+		runnerCall<UpdateStatus>("/machine/update/check", token, { method: "POST" }),
+	updateGrid: (token: string) =>
+		runnerCall<UpdateStatus>("/machine/update", token, { method: "POST" }),
 	removeAgent: (token: string, id: string) =>
 		runnerCall<void>(`/agents/acp/${encodeURIComponent(id)}`, token, { method: "DELETE" }),
 };

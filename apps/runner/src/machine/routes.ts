@@ -2,6 +2,7 @@ import type { Who } from "../auth";
 import { may } from "../permissions";
 import { type AcpAgentStore, agentId, splitCommand } from "../agents/acp-agents";
 import { machineInfo } from "./info";
+import type { GridUpdater } from "./update";
 import {
 	CONCURRENCY_CHOICES,
 	type MachinePrefs,
@@ -25,6 +26,8 @@ export type MachineDeps = {
 	removeAgent: (id: string) => void;
 	/** Whether an id is already an agent (built in or added). */
 	knownAgent: (id: string) => boolean;
+	/** Updating Grid itself and restarting it (Settings → Machines). */
+	updater?: GridUpdater;
 };
 
 function failure(status: number, message: string): Response {
@@ -83,6 +86,26 @@ export async function machineRequest(
 		const saved = deps.prefs.set(next);
 		deps.apply(saved);
 		return Response.json({ data: { ...saved, startAtLogin: startsAtLogin() } });
+	}
+
+	// Grid's own version: which commit it runs, whether main is ahead, and updating to it.
+	if (url.pathname === "/machine/update" || url.pathname === "/machine/update/check") {
+		const updater = deps.updater;
+		if (!updater) return failure(404, "This runner cannot update itself");
+		if (request.method === "GET" && url.pathname === "/machine/update")
+			return Response.json({ data: updater.status() });
+		if (request.method !== "POST") return failure(405, "Use GET or POST");
+		if (!mayManage(who)) return failure(403, "Only admins can update Grid");
+		if (url.pathname === "/machine/update/check") return Response.json({ data: updater.check() });
+		try {
+			if (!updater.start()) return failure(409, "An update is already running");
+		} catch (cause) {
+			return failure(
+				400,
+				cause instanceof Error ? cause.message : "Grid cannot update itself here",
+			);
+		}
+		return Response.json({ data: updater.status() }, { status: 202 });
 	}
 
 	if (url.pathname === "/agents/acp" && request.method === "POST") {
