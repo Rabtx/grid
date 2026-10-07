@@ -15,8 +15,8 @@ COPY packages/typescript-config/package.json ./packages/typescript-config/
 RUN bun install --frozen-lockfile
 
 FROM base AS build
-ARG NEXT_PUBLIC_NEST_API_URL=http://localhost:4000
-ENV NEXT_PUBLIC_NEST_API_URL=${NEXT_PUBLIC_NEST_API_URL}
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules

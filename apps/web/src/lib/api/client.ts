@@ -24,7 +24,11 @@ export class ApiError extends Error {
 	}
 }
 
-const apiOrigin = resolveApiOrigin(process.env.NEXT_PUBLIC_NEST_API_URL || defaultApiUrl());
+// `NEXT_PUBLIC_NEST_API_URL` is its name from before the API moved off NestJS, still read so
+// existing deployments keep working.
+const apiOrigin = resolveApiOrigin(
+	process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_NEST_API_URL || defaultApiUrl(),
+);
 const apiPrefix = "/api/v1";
 
 export type ApiRequestOptions = RequestInit & { accessToken?: string };
@@ -100,7 +104,7 @@ function resolveApiOrigin(value: string): string {
 	try {
 		return new URL(value).origin;
 	} catch {
-		throw new Error(`Invalid NEXT_PUBLIC_NEST_API_URL: ${value}`);
+		throw new Error(`Invalid NEXT_PUBLIC_API_URL: ${value}`);
 	}
 }
 

@@ -114,7 +114,7 @@ grid/
 | `bun run lint:fix` | Lint with auto-fix |
 | `bun run format` | Format: oxfmt + shfmt + cargo fmt |
 | `bun run typecheck` | TypeScript typecheck |
-| `bun run test` | Run tests (e.g. cargo test) |
+| `bun run test` | Run every workspace's tests (`bun test`; Vitest in the console, web and logger) |
 | `bun run test:coverage` | Run TS coverage + all language tests |
 | `bun run test:e2e:web` | Run web Playwright e2e tests |
 | `bun run architecture:check` | Enforce architecture import boundaries + kebab-case naming |
@@ -161,7 +161,7 @@ grid/
 
 | Language | Lint | Format | Test |
 |----------|------|--------|------|
-| **TypeScript/JS** | oxlint | oxfmt | Vitest/Jest (if added) |
+| **TypeScript/JS** | oxlint | oxfmt | `bun test`; Vitest (console, web, logger) |
 | **Bash** | ShellCheck | shfmt | — |
 
 ### Docker
