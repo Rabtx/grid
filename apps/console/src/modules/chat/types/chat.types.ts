@@ -73,16 +73,7 @@ export type ChatEvent =
 	 * What the agent can be asked to do right now, for the composer's `/` menu. It is not part of
 	 * the conversation: the runner sends it on attach and whenever it changes, and never logs it.
 	 */
-	| { type: "commands"; commands: AgentCommand[] }
-	/**
-	 * The turn's reply restated exactly: replaces the text and reasoning shown since the message,
-	 * and its tools too with `replaceTools`. No agent sends it now; it is only in older logs (the
-	 * terminal-only agent Grid once ran), which still replay as they were shown.
-	 */
-	| { type: "turn_rewrite"; events: TurnEvent[]; replaceTools?: boolean };
-
-/** What a rewritten turn is made of. */
-export type TurnEvent = Extract<ChatEvent, { type: "message" | "reasoning" | "tool" | "plan" }>;
+	| { type: "commands"; commands: AgentCommand[] };
 
 /** A file an edit changed, as the runner sends it: unified hunks and line counts. */
 export type FileDiff = {
