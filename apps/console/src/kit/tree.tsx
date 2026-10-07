@@ -120,16 +120,19 @@ export function FolderTree(props: FolderTreeProps): JSX.Element {
 			const current = untrack(open);
 			const missing = folders.filter((folder) => !current.has(folder));
 			if (missing.length === 0) return;
-			for (const folder of missing) props.onExpand(folder);
+			untrack(() => {
+				for (const folder of missing) props.onExpand(folder);
+			});
 			setOpen(new Set([...current, ...missing]));
 		},
 	);
 	// An open folder whose entries went away (the tree was read again) asks for them again.
 	createEffect(
 		() => [...open()].filter((path) => props.entries(path) === undefined && !props.error?.(path)),
-		(missing) => {
-			for (const path of missing) props.onExpand(path);
-		},
+		(missing) =>
+			untrack(() => {
+				for (const path of missing) props.onExpand(path);
+			}),
 	);
 	function toggle(path: string): void {
 		const next = new Set(open());

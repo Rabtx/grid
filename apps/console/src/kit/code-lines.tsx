@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, onSettled, Show } from "solid-js";
+import { createEffect, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 /** How a line differs from the last commit: new, or changed. */
 export type LineMark = "added" | "modified";
@@ -276,7 +276,7 @@ export function CodeMinimap(props: {
 		() => [props.text, props.marks, props.scroller] as const,
 		([, , scroller]) => {
 			if (!scroller) return;
-			draw();
+			untrack(draw);
 			const resized = new ResizeObserver(() => draw());
 			resized.observe(scroller);
 			// The colours follow the theme: draw again when it changes.

@@ -77,7 +77,7 @@ export function ProfileScreen(): JSX.Element {
 	const zone = () => me()?.profile.timezone || LOCAL_ZONE;
 
 	async function load(): Promise<void> {
-		const current = token();
+		const current = untrack(token);
 		if (!current) return;
 		try {
 			const [person, secure, signedIn] = await Promise.all([

@@ -1,6 +1,6 @@
 import { useLocation } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { For, Loading, Show } from "solid-js";
+import { For, Loading, Show, untrack } from "solid-js";
 
 import {
 	BellIcon,
@@ -224,7 +224,7 @@ export function FloatingSidebar(props: {
 					</Show>
 				}
 			>
-				{(body) => body()()}
+				{(body) => <>{body()()}</>}
 			</Show>
 		</FloatingPanel>
 	);

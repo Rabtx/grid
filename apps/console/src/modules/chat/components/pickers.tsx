@@ -4,7 +4,7 @@ import LockKeyholeIcon from "@hugeicons/core-free-icons/LockKeyholeIcon";
 import LockKeyholeOpenIcon from "@hugeicons/core-free-icons/LockKeyholeOpenIcon";
 import PencilEdit01Icon from "@hugeicons/core-free-icons/PencilEdit01Icon";
 import type { JSX } from "@solidjs/web";
-import { createMemo, createSignal, createUniqueId, For, Show } from "solid-js";
+import { createMemo, createSignal, createUniqueId, For, Show, untrack } from "solid-js";
 
 import {
 	type AgentChoice,
@@ -244,7 +244,7 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 						list = el;
 						// A short list has no search to type into: a physical keyboard starts on the chosen
 						// model, and the arrows move between the rows.
-						if (!long() && matchMedia("(pointer: fine)").matches) {
+						if (!untrack(long) && matchMedia("(pointer: fine)").matches) {
 							requestAnimationFrame(() =>
 								el.querySelector<HTMLElement>('button[aria-pressed="true"]')?.focus(),
 							);

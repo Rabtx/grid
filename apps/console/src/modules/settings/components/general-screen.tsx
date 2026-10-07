@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, Show } from "solid-js";
+import { createEffect, createSignal, Show, untrack } from "solid-js";
 
 import {
 	AgentLogo,
@@ -594,8 +594,7 @@ function TransferSheet(props: { open: boolean; onClose: () => void }): JSX.Eleme
 	createEffect(
 		() => props.open,
 		(open) => {
-			const token = auth.token(),
-				ws = workspaces.current()?.slug;
+			const [token, ws] = untrack(() => [auth.token(), workspaces.current()?.slug] as const);
 			if (!open || !token || !ws) return;
 			setError(null);
 			workspacesService.members(token, ws).then(

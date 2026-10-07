@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, Show } from "solid-js";
+import { createEffect, Show, untrack } from "solid-js";
 
 import { iconButton } from "./button";
 import { CloseIcon } from "./icons";
@@ -67,7 +67,8 @@ export function Dialog(props: {
 				);
 			}}
 			aria-label={props.title}
-			onClose={() => props.onClose()}
+			// Untracked: closing it from the effect above fires this synchronously.
+			onClose={() => untrack(() => props.onClose())}
 			onClick={(event) => {
 				if (event.target === event.currentTarget) props.onClose();
 			}}

@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 
 import { AgentLogo, Button, NotificationCard, NotificationStack, notify } from "@/kit";
 import { now } from "@/lib/clock";
@@ -148,10 +148,10 @@ export function AttentionNotifications(): JSX.Element {
 		<Show when={shownApprovals().length || shownArrivals().length}>
 			<NotificationStack>
 				<For each={shownApprovals()} keyed={(item) => item.key}>
-					{(item) => approvalCard(item())}
+					{(item) => untrack(() => approvalCard(item()))}
 				</For>
 				<For each={shownArrivals()} keyed={(item) => item.id}>
-					{(item) => arrivalCard(item())}
+					{(item) => untrack(() => arrivalCard(item()))}
 				</For>
 			</NotificationStack>
 		</Show>

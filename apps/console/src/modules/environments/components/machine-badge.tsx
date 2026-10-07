@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, Show } from "solid-js";
+import { createEffect, Show, untrack } from "solid-js";
 
 import { Badge } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
@@ -32,7 +32,7 @@ export function MachineBadge(): JSX.Element {
 		>
 			<Badge tone={runnerUp() ? "success" : "danger"} dot>
 				<Show when={hostname()} fallback="This machine">
-					{(name) => name()}
+					{(name) => <>{name()}</>}
 				</Show>
 				{runnerUp() ? " · online" : " · offline"}
 			</Badge>

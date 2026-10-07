@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createSignal, untrack } from "solid-js";
 
 import { localStore } from "@/lib/local-store";
 
@@ -22,7 +22,7 @@ export const environmentsStore = {
 		const started = localStore.version();
 		const request = ++sequence;
 		const current = () => started === localStore.version() && request === sequence;
-		if (environments().length === 0) {
+		if (untrack(environments).length === 0) {
 			const kept = await localStore.get<Environment[]>("environments");
 			if (current() && kept?.length && environments().length === 0) setEnvironments(kept);
 		}
