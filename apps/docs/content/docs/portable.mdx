@@ -112,8 +112,18 @@ systemctl --user enable --now grid.service
 loginctl enable-linger "$USER"   # keep it running while you are logged out
 ```
 
-To deploy a new version: `git checkout --detach main && bun install && bun run build`, then
-`systemctl --user restart grid.service`. `UMask=0077` keeps the logs and data the service writes
+To update, use **Settings → Machines → Grid version → Update** (owners and admins). It runs
+`scripts/bash/update-grid.sh`, which builds the latest `main` in a release of its own while the
+running version keeps serving, then switches over and restarts the units in `GRID_UPDATE_UNITS`
+(default `grid-dev.service grid-pwa.service`). A failed install or build changes nothing that is
+running. The first update turns the serving checkout into this layout:
+
+- `serve`: a link to the release in use; point the units' `WorkingDirectory` here.
+- `releases/`: one checkout per version; the one in use and the one before it are kept, so switching
+  back is relinking `serve` and restarting.
+- `shared/`: the API's `.env`, its uploads and the launcher's data, linked into every release.
+
+By hand, the same: `bash serve/scripts/bash/update-grid.sh`. `UMask=0077` keeps the logs and data the service writes
 readable by you alone.
 
 ## A VPS
