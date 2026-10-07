@@ -38,7 +38,7 @@ import { CreateWorkspaceSheet, WorkspacesProvider } from "@/modules/workspaces";
 import { showAppBadge } from "@/pwa/app-badge";
 
 // Pages outside any workspace keep the signed-out frame even for someone signed in.
-const OUTSIDE = /^\/(login|setup|invite)(\/|$)/;
+const OUTSIDE = /^\/(login|setup|invite|magic-link)(\/|$)/;
 
 // Pages that draw their whole screen themselves (a connector's sign-in coming back, in its popup).
 const STANDALONE = /^\/(design|oauth)(\/|$)/;

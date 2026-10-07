@@ -226,11 +226,14 @@ export async function consumeMagicLink(
 	deps: AuthDeps,
 	token: string,
 	metadata: RequestMetadata,
-): Promise<SessionResult> {
+): Promise<SessionResult | MfaChallenge> {
 	const challenge = await tokenChallenge(deps, token, "magic_link");
 	if (!(await store.consumeChallenge(deps.db, challenge.id))) throw invalidMagicLink();
 	const user = await findUserById(deps.db, challenge.userId);
 	if (!user?.isActive) throw invalidMagicLink();
+	// The link stands in for the password, not for the second factor: an account with an
+	// authenticator still has to give its code, or getting into someone's email would be enough.
+	if (await store.isTotpEnabled(deps.db, user.id)) return mfaChallenge(deps, user);
 	return createSession(deps, user, metadata);
 }
 

@@ -21,7 +21,7 @@ import { useAuth } from "../context/auth-context";
 import { authService } from "../services/auth.service";
 import type { TwoFactorChallenge } from "../types/auth.types";
 
-type Step = "email" | "password" | "code";
+type Step = "email" | "password" | "code" | "sent";
 
 /** "or" between two ways in, on a hairline. */
 function Or(): JSX.Element {
@@ -67,6 +67,8 @@ export function LoginForm(): JSX.Element {
 	// Set once the password is right and the account asks for a second factor.
 	const [challenge, setChallenge] = createSignal<TwoFactorChallenge | null>(null);
 	const [code, setCode] = createSignal("");
+	// A Grid with no email set up hands the link back here (never in production).
+	const [devLink, setDevLink] = createSignal<string | null>(null);
 	onSettled(() => {
 		authService
 			.instance()
@@ -131,11 +133,29 @@ export function LoginForm(): JSX.Element {
 		}, "Passkey sign-in failed");
 	}
 
+	/** Emails a one-time sign-in link instead of asking for the password. */
+	function emailLink(): Promise<void> {
+		if (!email().trim()) {
+			setError("Enter your email first");
+			return Promise.resolve();
+		}
+		return run(async () => {
+			const sent = await authService.requestMagicLink(email().trim());
+			setDevLink(
+				sent.developmentToken
+					? `/magic-link?token=${encodeURIComponent(sent.developmentToken)}`
+					: null,
+			);
+			setStep("sent");
+		}, "Could not send a sign-in link");
+	}
+
 	/** Back to the first step, so a wrong account can be replaced. */
 	function startOver(): void {
 		setChallenge(null);
 		setCode("");
 		setPassword("");
+		setDevLink(null);
 		setError(null);
 		setStep("email");
 	}
@@ -177,6 +197,16 @@ export function LoginForm(): JSX.Element {
 					<div class="flex flex-col gap-3">
 						<Button type="submit" variant="primary" size="xl" class="w-full">
 							Continue
+						</Button>
+						<Button
+							type="button"
+							variant="ghost"
+							size="xl"
+							disabled={pending()}
+							onClick={() => void emailLink()}
+							class="w-full"
+						>
+							Email me a sign-in link
 						</Button>
 						<Show when={passkeysSupported()}>
 							<Or />
@@ -235,6 +265,27 @@ export function LoginForm(): JSX.Element {
 						{pending() ? "Signing in…" : "Sign in"}
 					</Button>
 				</form>
+			</Show>
+
+			<Show when={step() === "sent"}>
+				<div class="flex flex-col gap-6">
+					<AuthHead mark title="Check your email">
+						If <span class="text-fg">{email()}</span> has an account here, a sign-in link is on its
+						way. It works once and expires soon.
+					</AuthHead>
+					<Show when={devLink()}>
+						{(link) => (
+							<Alert tone="accent" title="This Grid sends no email">
+								<LinkButton tone="accent" onClick={() => navigate(link())}>
+									Open the sign-in link here
+								</LinkButton>
+							</Alert>
+						)}
+					</Show>
+					<Button type="button" variant="ghost" size="xl" onClick={startOver} class="w-full">
+						Sign in another way
+					</Button>
+				</div>
 			</Show>
 
 			<Show when={step() === "code"}>
