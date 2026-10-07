@@ -5,11 +5,11 @@ export const DEFAULT_TEST_PREFS: PersonPrefs = {
 	git: { name: null, email: null, creditAgent: true, signCommits: false },
 	notify: {
 		channels: {
-			approvals: { desktop: true, phone: true, email: false },
-			questions: { desktop: true, phone: true, email: false },
-			runs: { desktop: true, phone: false, email: false },
-			reviews: { desktop: true, phone: true, email: true },
-			following: { desktop: false, phone: false, email: true },
+			approvals: { desktop: true, phone: true },
+			questions: { desktop: true, phone: true },
+			runs: { desktop: true, phone: false },
+			reviews: { desktop: true, phone: true },
+			following: { desktop: false, phone: false },
 		},
 		quiet: {
 			on: false,
@@ -20,6 +20,5 @@ export const DEFAULT_TEST_PREFS: PersonPrefs = {
 			weekends: false,
 		},
 		lockScreen: true,
-		digest: false,
 	},
 };

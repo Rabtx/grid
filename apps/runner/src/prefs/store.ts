@@ -24,8 +24,12 @@ export type GitPrefs = {
 export const NOTIFY_KINDS = ["approvals", "questions", "runs", "reviews", "following"] as const;
 export type NotifyKind = (typeof NOTIFY_KINDS)[number];
 
-/** Where an update may reach a person: their desktop devices, their phones, their email. */
-export type Channels = { desktop: boolean; phone: boolean; email: boolean };
+/**
+ * Where an update may reach a person: their desktop devices and their phones. There is no email
+ * channel (nor an email digest): the runner has no way to send email, and the settings that
+ * offered both did nothing. Prefs saved with them still load; the fields are dropped.
+ */
+export type Channels = { desktop: boolean; phone: boolean };
 
 export type QuietHours = {
 	on: boolean;
@@ -44,8 +48,6 @@ export type NotifyPrefs = {
 	quiet: QuietHours;
 	/** Allow, deny or open from the notification without unlocking. */
 	lockScreen: boolean;
-	/** One email each morning with what happened overnight. */
-	digest: boolean;
 };
 
 export type PersonPrefs = { git: GitPrefs; notify: NotifyPrefs };
@@ -54,11 +56,11 @@ export const DEFAULT_PREFS: PersonPrefs = {
 	git: { name: null, email: null, creditAgent: true, signCommits: false },
 	notify: {
 		channels: {
-			approvals: { desktop: true, phone: true, email: false },
-			questions: { desktop: true, phone: true, email: false },
-			runs: { desktop: true, phone: false, email: false },
-			reviews: { desktop: true, phone: true, email: true },
-			following: { desktop: false, phone: false, email: true },
+			approvals: { desktop: true, phone: true },
+			questions: { desktop: true, phone: true },
+			runs: { desktop: true, phone: false },
+			reviews: { desktop: true, phone: true },
+			following: { desktop: false, phone: false },
 		},
 		quiet: {
 			on: false,
@@ -69,25 +71,26 @@ export const DEFAULT_PREFS: PersonPrefs = {
 			weekends: false,
 		},
 		lockScreen: true,
-		digest: false,
 	},
 };
 
 /** Saved prefs over the defaults, so a field a newer runner added has its default. */
 function merged(saved: Partial<PersonPrefs> | null): PersonPrefs {
 	const notify: Partial<NotifyPrefs> = saved?.notify ?? {};
+	const channel = (kind: NotifyKind): Channels => {
+		const stored = notify.channels?.[kind];
+		const fallback = DEFAULT_PREFS.notify.channels[kind];
+		return { desktop: stored?.desktop ?? fallback.desktop, phone: stored?.phone ?? fallback.phone };
+	};
 	return {
 		git: { ...DEFAULT_PREFS.git, ...saved?.git },
 		notify: {
-			...DEFAULT_PREFS.notify,
-			...notify,
-			channels: Object.fromEntries(
-				NOTIFY_KINDS.map((kind) => [
-					kind,
-					{ ...DEFAULT_PREFS.notify.channels[kind], ...notify.channels?.[kind] },
-				]),
-			) as Record<NotifyKind, Channels>,
+			channels: Object.fromEntries(NOTIFY_KINDS.map((kind) => [kind, channel(kind)])) as Record<
+				NotifyKind,
+				Channels
+			>,
 			quiet: { ...DEFAULT_PREFS.notify.quiet, ...notify.quiet },
+			lockScreen: notify.lockScreen ?? DEFAULT_PREFS.notify.lockScreen,
 		},
 	};
 }

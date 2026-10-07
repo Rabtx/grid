@@ -25,17 +25,27 @@ describe("person prefs", () => {
 			creditAgent: false,
 			signCommits: false,
 		});
-		expect(store.get("me").notify.channels.runs).toEqual({
-			desktop: true,
-			phone: true,
-			email: false,
-		});
+		expect(store.get("me").notify.channels.runs).toEqual({ desktop: true, phone: true });
 		expect(store.get("me").notify.quiet).toMatchObject({
 			on: true,
 			from: "22:00",
 			timezone: "Asia/Karachi",
 		});
 		expect(store.get("you")).toEqual(DEFAULT_PREFS);
+	});
+	it("drop the email channel and digest that older runners saved, which nothing ever sent", () => {
+		const store = new PrefsStore(":memory:");
+		// As a runner before 2026-10-07 stored them.
+		const legacy = {
+			notify: {
+				channels: { reviews: { desktop: false, phone: true, email: true } },
+				digest: true,
+			},
+		};
+		store.set("me", legacy as never);
+		const prefs = store.get("me");
+		expect(prefs.notify.channels.reviews).toEqual({ desktop: false, phone: true });
+		expect(prefs.notify).not.toHaveProperty("digest");
 	});
 	it("refuse what is not a setting", () => {
 		for (const bad of [
@@ -60,12 +70,12 @@ describe("person prefs", () => {
 				"me",
 				store,
 			);
-		const saved = await call("PATCH", { notify: { digest: true } });
+		const saved = await call("PATCH", { notify: { lockScreen: false } });
 		expect(saved?.status).toBe(200);
 		const data = ((await saved?.json()) as { data: { prefs: typeof DEFAULT_PREFS } }).data;
-		expect(data.prefs.notify.digest).toBe(true);
+		expect(data.prefs.notify.lockScreen).toBe(false);
 		expect(data).toHaveProperty("signingKey");
-		expect((await call("PATCH", { notify: { digest: 1 } }))?.status).toBe(400);
+		expect((await call("PATCH", { notify: { lockScreen: 1 } }))?.status).toBe(400);
 		expect((await call("DELETE"))?.status).toBe(405);
 	});
 });

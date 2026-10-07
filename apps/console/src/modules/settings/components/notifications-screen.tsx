@@ -83,7 +83,6 @@ const KINDS: { kind: NotifyKind; label: string; description: string; icon: () =>
 const CHANNELS: { channel: keyof Channels; label: string }[] = [
 	{ channel: "desktop", label: "Desktop" },
 	{ channel: "phone", label: "Phone" },
-	{ channel: "email", label: "Email" },
 ];
 
 /** The quiet hours people pick most, as "from-to". */
@@ -543,17 +542,6 @@ export function NotificationsScreen(): JSX.Element {
 									label="Approve from lock screen"
 									checked={saved().notify.lockScreen}
 									onChange={(lockScreen) => void save({ notify: { lockScreen } })}
-								/>
-							</SettingsRow>
-							<SettingsRow
-								inline
-								label="Morning email digest"
-								description={`8:00 AM · ${auth.user()?.email ?? "your email"}`}
-							>
-								<Switch
-									label="Morning email digest"
-									checked={saved().notify.digest}
-									onChange={(digest) => void save({ notify: { digest } })}
 								/>
 							</SettingsRow>
 						</SettingsGroup>

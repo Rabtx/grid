@@ -80,7 +80,6 @@ export function patchPrefs(current: PersonPrefs, raw: unknown): PersonPrefs {
 					defined<Channels>({
 						desktop: flag(channel.desktop, "Desktop") as boolean,
 						phone: flag(channel.phone, "Phone") as boolean,
-						email: flag(channel.email, "Email") as boolean,
 					}),
 				);
 			}
@@ -111,7 +110,6 @@ export function patchPrefs(current: PersonPrefs, raw: unknown): PersonPrefs {
 			next.notify,
 			defined({
 				lockScreen: flag(notify.lockScreen, "Approve from lock screen"),
-				digest: flag(notify.digest, "Morning email digest"),
 			}),
 		);
 	}

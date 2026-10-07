@@ -155,7 +155,7 @@ describe("notification settings", () => {
 		// Runs reach the desktop only by default.
 		expect(await push.notify("me", message, "runs")).toBe(1);
 		expect(calls).toEqual(["https://fcm.googleapis.com/desk"]);
-		prefs.channels.runs = { desktop: false, phone: false, email: true };
+		prefs.channels.runs = { desktop: false, phone: false };
 		expect(await push.notify("me", message, "runs")).toBe(0);
 	});
 	it("holds updates through quiet hours, lets approvals through, and sends them after", async () => {
