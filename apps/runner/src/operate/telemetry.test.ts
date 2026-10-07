@@ -235,6 +235,13 @@ describe("Operate log tails", () => {
 			"[REDACTED PEM]\nnormal",
 		);
 		expect(redactLog("N".repeat(64))).toBe("[REDACTED KEY MATERIAL]");
+		// Redacting a value must not swallow the line break and the next line's first word.
+		const lines = ["10:00:01 INFO served token=abc123", "10:00:02 INFO served token=def456"];
+		expect(redactLog(lines.join("\n")).split("\n")).toEqual([
+			"10:00:01 INFO served token=[REDACTED]",
+			"10:00:02 INFO served token=[REDACTED]",
+		]);
+		expect(redactLog("authorization: Bearer abc.def")).not.toContain("abc.def");
 		expect(redactLog("hello\x1b]0;title\x07world")).toBe("helloworld");
 	});
 	it("scopes metadata and reads, respects custom production permissions and releases 20-source capacity", async () => {
