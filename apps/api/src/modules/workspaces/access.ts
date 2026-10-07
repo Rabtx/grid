@@ -1,6 +1,6 @@
 import { type Database, schema } from "@grid/db";
 import { mayDo } from "@grid/db/roles";
-import { createPersonalWorkspace, defaultWorkspaceOf } from "@grid/db/workspaces";
+import { defaultWorkspaceOf, ensureDefaultWorkspace } from "@grid/db/workspaces";
 import { and, eq } from "drizzle-orm";
 
 import { forbidden, notFound } from "../../http/errors";
@@ -47,10 +47,8 @@ async function defaultAccess(db: Database, userId: string): Promise<WorkspaceAcc
 		.where(eq(schema.users.id, userId))
 		.limit(1);
 	if (!user) throw notFound("User not found");
-	return {
-		workspace: await createPersonalWorkspace(db, { id: userId, ...user }),
-		role: "owner",
-	};
+	// Made once even when a new user's first page load asks several times at once.
+	return ensureDefaultWorkspace(db, { id: userId, ...user });
 }
 
 /**

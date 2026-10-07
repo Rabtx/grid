@@ -5,8 +5,8 @@ type: bug
 from: pm
 to: backend
 priority: medium
-status: open
-assignee: none
+status: done
+assignee: claude
 reviewer: human
 parent: none
 depends_on: []
@@ -33,3 +33,9 @@ Make it idempotent. Options: a unique "personal workspace per user" constraint w
 - A concurrency test that fails before and passes after.
 
 ## Resolution
+Fixed by claude, 2026-10-07.
+
+- **The fix:** `ensureDefaultWorkspace` (`packages/db/src/workspaces.ts`) finds or makes the user's default workspace in one transaction. It holds `pg_advisory_xact_lock(hashtext('personal-workspace:<user>'))`, so concurrent first loads wait their turn: the first creates the workspace, the rest find it. There's no schema change, and it works on PGlite as well. `access.ts` uses it in place of check-then-create. `createPersonalWorkspace` stays for the seed and contract tests, sharing the insert.
+- **Tests:** new PGlite test `workspaces.test.ts`: five simultaneous requests for a new user give one workspace, the same id each time, with the owner role, and a second call finds it.
+  - Before removing it from the committed tests, I ran the old check-then-create pattern three at once in the same test. It created more than one workspace, which shows the race was real.
+- **Checks:** db 12/12, API 42/42, typecheck and lint pass.
