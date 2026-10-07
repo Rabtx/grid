@@ -557,7 +557,8 @@ export class ChatHub {
 			const row = this.store.get(id);
 			if (!row) continue;
 			const open = new Map<string, Extract<ChatEvent, { type: "approval" }>>();
-			for (const event of this.store.events(id)) {
+			// An approval is open from when it is asked until it is answered or its turn ends.
+			for (const event of this.store.eventsFromLast(id, "turn_end")) {
 				if (event.type === "approval") open.set(event.id, event);
 				else if (event.type === "approval_resolved") open.delete(event.id);
 				else if (event.type === "turn_end") open.clear();
@@ -587,9 +588,7 @@ export class ChatHub {
 			.list(workspace, project)
 			.filter((row) => this.live.get(row.id)?.running || questions.has(row.id) || idle++ < 40)
 			.map((row) => {
-				const events = this.store.events(row.id);
-				const start = events.findLastIndex((event) => event.type === "turn_start");
-				const turn = events.slice(Math.max(0, start));
+				const turn = this.store.eventsFromLast(row.id, "turn_start");
 				const began = turn.find((event) => event.type === "turn_start");
 				const end = turn.findLast((event) => event.type === "turn_end");
 				const plan = turn.findLast((event) => event.type === "plan");

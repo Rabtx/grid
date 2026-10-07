@@ -25,6 +25,9 @@ export type NoteSuggestion = {
 	createdAt: string;
 };
 
+/** Events read at a time, newest first, looking for where the latest turn began. */
+const EVENTS_PAGE = 100;
+
 export type ChatSessionRow = {
 	id: string;
 	/** Who started it: told when it needs attention. */
@@ -664,6 +667,29 @@ export class ChatStore {
 			)
 			.all(sessionId)
 			.map((row) => JSON.parse(row.data) as ChatEvent);
+	}
+
+	/**
+	 * The thread's events from the last one of `type` on, or all of them when there is none: the
+	 * latest turn, read newest first and stopped there, so a long thread costs no more than its last
+	 * turn. What is polled every few seconds (approvals waiting, Operations' runs) reads this.
+	 */
+	eventsFromLast(sessionId: string, type: ChatEvent["type"]): ChatEvent[] {
+		const page = this.db.query<{ seq: number; data: string }, [string, number, number]>(
+			"SELECT seq, data FROM events WHERE session_id = ? AND seq < ? ORDER BY seq DESC LIMIT ?",
+		);
+		const latest: ChatEvent[] = [];
+		let before = Number.MAX_SAFE_INTEGER;
+		for (;;) {
+			const rows = page.all(sessionId, before, EVENTS_PAGE);
+			for (const row of rows) {
+				const event = JSON.parse(row.data) as ChatEvent;
+				latest.push(event);
+				if (event.type === type) return latest.reverse();
+			}
+			if (rows.length < EVENTS_PAGE) return latest.reverse();
+			before = rows[rows.length - 1]?.seq ?? 0;
+		}
 	}
 
 	/** Every project folder the workspace has linked on this machine, by project slug. */

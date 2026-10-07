@@ -5,8 +5,8 @@ type: perf
 from: pm
 to: backend
 priority: high
-status: open
-assignee: none
+status: done
+assignee: claude
 reviewer: human
 parent: none
 depends_on: []
@@ -36,4 +36,9 @@ and the live data.
 - Never run tests against the live API on :4000 or the live chat database.
 
 ## Resolution
+Fixed by claude, 2026-10-07. A new `ChatStore.eventsFromLast(session, type)` reads a thread's events newest first, 100 at a time, and stops at the last event of that type. `hub.waiting()` now reads from the last `turn_end`, where every earlier approval is closed. `hub.activity()` reads from the last `turn_start`, which is the turn it already sliced out. The answers are unchanged, but the cost is bounded by the latest turn instead of the whole thread. New `chat/events-window.test.ts` checks:
+- the result matches slicing the full thread;
+- a turn that began more than one page back;
+- earlier turns are never read (they are spoiled on purpose and the read still succeeds).
 
+On a copy of the live database, the largest thread (3,068 events, last turn 923) goes from 23 ms to 8 ms per read; threads with short last turns gain far more. The console's polling intervals are unchanged. Runner 497 / 497, typecheck and lint pass.
