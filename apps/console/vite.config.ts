@@ -132,5 +132,11 @@ export default defineConfig({
 		host: true,
 		allowedHosts,
 		proxy: apiProxy,
+		// The built console, as the always-on service and the launcher serve it: no other site may
+		// frame it (clickjacking). The page's own policy (index.html) cannot say this; only a header can.
+		headers: {
+			"Content-Security-Policy": "frame-ancestors 'self'",
+			"X-Frame-Options": "SAMEORIGIN",
+		},
 	},
 });
