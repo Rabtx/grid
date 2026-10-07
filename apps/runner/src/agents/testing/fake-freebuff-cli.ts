@@ -1,8 +1,8 @@
 /**
  * A stand-in for the Freebuff CLI in tests, drawn the way the real one draws: a full-screen UI
  * redrawn in place that opens on its input box, a `/model` picker (Tab for reasoning), the line
- * under the input naming the model, echoed messages, a streamed reply and its chat file. Only the
- * parts the adapter reads are imitated.
+ * under the input naming the model, echoed messages, a streamed reply (reasoning, a tool, then
+ * text) and its chat file. Only the parts the adapter reads are imitated.
  *
  * FAKE_REPLY_LINES sets how many numbered rows a reply has (enough to scroll off a short screen).
  * FAKE_STATE_DIR is where it keeps its chat file, as the real CLI keeps one under
@@ -15,7 +15,7 @@ import { basename, join } from "node:path";
 type Model = { name: string; traits: string; price: string; effort?: string };
 
 const MODELS: Model[] = [
-	{ name: "Solar Mini 4", traits: "Fast and light · NEW", price: "5 Freebucks/hr" },
+	{ name: "Solar Mini 4", traits: "Fast and light · New", price: "5 Freebucks/hr" },
 	{
 		name: "DeepSeek V4.1 Flash",
 		traits: "Smart & Fast · Images · NEW",
@@ -78,7 +78,8 @@ function draw(): void {
 		shown.forEach((model, index) => {
 			const mark = index === selected ? "› " : "  ";
 			lines.push(`  ┌${"─".repeat(60)}┐`);
-			lines.push(`  │ ${mark}${label(model).padEnd(22)}  ${model.traits}`.padEnd(63) + "│");
+			// Newer builds: "Name • level · traits", one row.
+			lines.push(`  │ ${mark}${label(model)} · ${model.traits}`.padEnd(63) + "│");
 			lines.push(`  │ ${model.price.padStart(35)}`.padEnd(63) + "│");
 			lines.push(`  └${"─".repeat(60)}┘`);
 		});
@@ -137,7 +138,7 @@ function send(text: string): void {
 	const reply = Array.from({ length: replyLines }, (_, i) => `row ${i + 1}`);
 	let written = 0;
 	status = ` thinking...${" ".repeat(40)}1s  ■ Esc`;
-	log.push("  • Thinking", "    Reading the request.", "");
+	log.push("  • Thinking", "    Reading the request.", "", "  • Read a.ts, b.ts", "");
 	timer = setInterval(() => {
 		if (written < reply.length) {
 			log.push(`  ${reply[written]}`);

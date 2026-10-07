@@ -219,11 +219,14 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 				blocks: [...blocks, { kind: "notice", key, tone: "error", text: event.message }],
 			};
 		case "turn_rewrite": {
-			// Text and reasoning since the last message give way to the exact reply; tools stay.
+			// Text and reasoning since the last message give way to the exact reply; tools stay
+			// unless the reply restates them too.
 			const since = lastIndexOf(blocks, (block) => block.kind === "user");
-			const kept = blocks.filter(
-				(block, i) => i <= since || (block.kind !== "assistant" && block.kind !== "reasoning"),
-			);
+			const replaced = (block: Block) =>
+				block.kind === "assistant" ||
+				block.kind === "reasoning" ||
+				(event.replaceTools === true && block.kind === "tool");
+			const kept = blocks.filter((block, i) => i <= since || !replaced(block));
 			const rewritten = event.events.reduce(applyEvent, { ...transcript, blocks: kept });
 			// A block's key is its position; keep it so now that some were taken out.
 			return {

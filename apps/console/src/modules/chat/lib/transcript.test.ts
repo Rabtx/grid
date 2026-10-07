@@ -280,6 +280,39 @@ describe("turns", () => {
 		expect(transcript.blocks[5]).toMatchObject({ text: "**hello**\n\n- one" });
 	});
 
+	it("restates a turn's tools too, in order, when the rewrite says so", () => {
+		const transcript = replay([
+			{ type: "user", text: "Look around" },
+			{ type: "turn_start" },
+			{ type: "tool", id: "notes", title: "Freebuff session", status: "completed" },
+			{ type: "message", text: "I'll read it.\n" },
+			{ type: "tool", id: "screen-1", title: "Read", kind: "read", input: "a.ts, b." },
+			{ type: "message", text: "Both are" },
+			{
+				type: "turn_rewrite",
+				replaceTools: true,
+				events: [
+					{ type: "tool", id: "notes", title: "Freebuff session", status: "completed" },
+					{ type: "message", text: "I'll read it." },
+					{ type: "tool", id: "ai-1-2", title: "read files", kind: "read", status: "completed" },
+					{ type: "message", text: "Both are short." },
+				],
+			},
+		]);
+		expect(transcript.blocks.map((block) => block.kind)).toEqual([
+			"user",
+			"tool",
+			"assistant",
+			"tool",
+			"assistant",
+		]);
+		expect(transcript.blocks[3]).toMatchObject({ id: "ai-1-2", title: "read files" });
+		expect(
+			transcript.blocks.some((block) => block.kind === "tool" && block.id === "screen-1"),
+		).toBe(false);
+		expect(transcript.blocks[4]).toMatchObject({ text: "Both are short." });
+	});
+
 	it("reads durations the short way", () => {
 		expect(formatDuration(48_000)).toBe("48s");
 		expect(formatDuration(88_000)).toBe("1m 28s");
