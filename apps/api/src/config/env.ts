@@ -16,7 +16,10 @@ export const envSchema = z
 		API_VERSION: z.string().regex(/^\d+$/).default("1"),
 		SERVICE_NAME: z.string().min(1).default("grid-api"),
 		APP_NAME: z.string().min(1).max(80).default("Grid"),
-		WEB_APP_URL: z.url().default("http://localhost:3000"),
+		/** The console: where emailed links (invites, magic links) and billing send people. */
+		CONSOLE_URL: z.url().optional(),
+		/** Its name from when the web app was the product; read when CONSOLE_URL is not set. */
+		WEB_APP_URL: z.url().optional(),
 		DATABASE_URL: z
 			.string()
 			.url()
@@ -41,16 +44,11 @@ export const envSchema = z
 		REFRESH_COOKIE_NAME: z.string().min(1).default("grid_refresh_token"),
 		COOKIE_DOMAIN: z.string().min(1).optional(),
 		/**
-		 * Use `none` when the web app and API are on different sites
-		 * (e.g. Vercel ↔ Render). Requires Secure cookies (production HTTPS).
+		 * Use `none` when the console and API are on different sites (e.g. a static host and
+		 * Render). Requires Secure cookies (production HTTPS).
 		 */
 		COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).default("lax"),
-		CORS_ORIGIN: z
-			.string()
-			.min(1)
-			.default(
-				"http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001",
-			),
+		CORS_ORIGIN: z.string().min(1).default("http://localhost:3001,http://127.0.0.1:3001"),
 		TRUST_PROXY: booleanFromString,
 		AUTH_DEV_EXPOSE_CODES: z
 			.enum(["true", "false"])
@@ -59,8 +57,8 @@ export const envSchema = z
 		RESEND_API_KEY: z.string().min(1).optional(),
 		AUTH_EMAIL_FROM: z.string().min(3).default("Grid <auth@example.com>"),
 		WEBAUTHN_RP_ID: z.string().min(1).default("localhost"),
-		/** Comma-separated allowed WebAuthn origins (web + native). */
-		WEBAUTHN_ORIGIN: z.string().min(1).default("http://localhost:3000"),
+		/** Comma-separated origins passkeys may be used from: the console's (and native apps'). */
+		WEBAUTHN_ORIGIN: z.string().min(1).default("http://localhost:3001"),
 		GOOGLE_CLIENT_ID: z.string().min(1).optional(),
 		BILLING_DEFAULT_PROVIDER: z.enum(["stripe", "razorpay"]).default("stripe"),
 		STRIPE_SECRET_KEY: z.string().min(1).optional(),

@@ -64,9 +64,9 @@ export async function createCheckout(
 
 	const priceId = resolvePriceId(config, providerName, input.planCode, input.billingInterval);
 	const successUrl =
-		input.successUrl ?? `${config.webAppUrl}/billing/success?provider=${providerName}`;
+		input.successUrl ?? `${config.consoleUrl}/billing/success?provider=${providerName}`;
 	const cancelUrl =
-		input.cancelUrl ?? `${config.webAppUrl}/billing/cancel?provider=${providerName}`;
+		input.cancelUrl ?? `${config.consoleUrl}/billing/cancel?provider=${providerName}`;
 
 	const checkoutInput = {
 		userId,
@@ -106,7 +106,7 @@ export async function createPortal(
 
 	const portalInput = {
 		providerCustomerId: subscription.providerCustomerId,
-		returnUrl: input.returnUrl ?? `${config.webAppUrl}/billing`,
+		returnUrl: input.returnUrl ?? `${config.consoleUrl}/billing`,
 	};
 
 	if (providerName === "stripe") {

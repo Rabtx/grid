@@ -31,10 +31,10 @@ Repo files: `apps/web/vercel.json`, `apps/docs/vercel.json`, root `render.yaml`.
 | `DATABASE_URL` | Neon pooled URL |
 | `RESEND_API_KEY` | `re_...` from [Resend](https://resend.com) |
 | `AUTH_EMAIL_FROM` | `Grid <noreply@your-domain.com>` |
-| `WEB_APP_URL` | `https://your-web.vercel.app` (set after step 3) |
-| `CORS_ORIGIN` | same as `WEB_APP_URL` (comma-separate preview URLs if needed) |
+| `CONSOLE_URL` | the console's origin: invites and billing link there (`WEB_APP_URL`, its old name, is still read) |
+| `CORS_ORIGIN` | same as `CONSOLE_URL` (comma-separate preview URLs if needed) |
 | `WEBAUTHN_RP_ID` | `your-web.vercel.app` (hostname only) |
-| `WEBAUTHN_ORIGIN` | `https://your-web.vercel.app` |
+| `WEBAUTHN_ORIGIN` | the console's origin, where passkeys are added and used |
 
 Blueprint already sets `COOKIE_SAME_SITE=none`, `TRUST_PROXY=true`, and generates `JWT_SECRET` and `AUTH_TOKEN_SECRET`.
 
@@ -61,7 +61,7 @@ Migrations run on container start when `RUN_MIGRATIONS=true` (default in the Blu
 | `NEXT_PUBLIC_CONSOLE_URL` | the console's origin: where the landing page's "Sign in" and "Open Grid" go |
 | `NEXT_PUBLIC_SITE_URL` | `https://your-web.vercel.app` — absolute origin for canonical URL, Open Graph, `sitemap.xml` and `robots.txt` (no trailing slash) |
 
-6. Deploy. Then go back to Render and set `WEB_APP_URL` / `CORS_ORIGIN` / WebAuthn to this Vercel URL, and **redeploy the API** if needed.
+6. Deploy. Then go back to Render and set `CONSOLE_URL` / `CORS_ORIGIN` / WebAuthn to the console's URL, and **redeploy the API** if needed.
 
 `NEXT_PUBLIC_*` is baked at **build** time — change the API URL or site URL → redeploy web.
 
@@ -96,7 +96,7 @@ Long-term option: put both under one parent domain (e.g. `app.example.com` + `ap
 - [ ] API health returns OK
 - [ ] Web `NEXT_PUBLIC_CONSOLE_URL` → the console's origin
 - [ ] Web `NEXT_PUBLIC_SITE_URL` → Vercel web origin (canonical / OG / sitemap)
-- [ ] API `CORS_ORIGIN` / `WEB_APP_URL` → Vercel web URL
+- [ ] API `CORS_ORIGIN` / `CONSOLE_URL` / `WEBAUTHN_ORIGIN` → the console's URL
 - [ ] Login works (cookie + credentials)
 - [ ] Docs project live (optional OpenRouter)
 
