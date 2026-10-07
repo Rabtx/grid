@@ -116,13 +116,14 @@ share() {
     systemctl --user restart "${units[@]}"
     echo "== restarted ${units[*]} on ${release}"
 
-    # Keep the release in use and the one before it (to switch back to); older ones go. Grid is
+    # Keep the release in use and the one it replaced (to switch back to); others go. Grid is
     # updated by now: a hitch here is logged, not reported as a failed update.
     trap - ERR
     set +e
     step="tidying"
-    mapfile -t old < <(find "$releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -rn | tail -n +3 | cut -d' ' -f2-)
-    for dir in "${old[@]}"; do
+    # By rule, not by date: git touches a checkout's folder, so its date says nothing about its age.
+    for dir in "$releases"/*/; do
+        dir="${dir%/}"
         [[ "$dir" == "$release" || "$dir" == "$current" ]] && continue
         git -C "$release" worktree remove --force "$dir" || rm -rf "$dir"
         echo "== removed old release ${dir}"
