@@ -7,7 +7,8 @@
  * FAKE_REPLY_LINES sets how many numbered rows a reply has (enough to scroll off a short screen).
  * FAKE_STATE_DIR is where it keeps its chat file, as the real CLI keeps one under
  * `~/.config/manicode`. FAKE_NO_ECHO draws replies without the echo of the message, a screen the
- * adapter cannot follow; FAKE_NO_COMPLETE saves replies without marking them complete.
+ * adapter cannot follow; FAKE_NO_COMPLETE saves replies without marking them complete, and
+ * FAKE_NO_FOOTER leaves out the line under a finished reply.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -35,6 +36,7 @@ const stateDir = process.env.FAKE_STATE_DIR;
 const noEcho = Boolean(process.env.FAKE_NO_ECHO);
 // Newer builds save the reply without marking it complete.
 const markComplete = !process.env.FAKE_NO_COMPLETE;
+const footer = !process.env.FAKE_NO_FOOTER;
 const continued = process.argv[process.argv.indexOf("--continue") + 1];
 const chatId =
 	process.argv.includes("--continue") && continued && !continued.startsWith("-")
@@ -147,7 +149,7 @@ function send(text: string): void {
 		} else {
 			clearInterval(timer);
 			timer = undefined;
-			log.push(`${" ".repeat(50)}⎘ • 2s • △▽`);
+			if (footer) log.push(`${" ".repeat(50)}⎘ • 2s • △▽`);
 			status = "";
 			answer.blocks = [
 				{ type: "text", textType: "reasoning", content: "Reading the request." },
