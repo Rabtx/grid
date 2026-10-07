@@ -44,23 +44,26 @@ export function redactLog(value: string): string {
 				(char.charCodeAt(0) >= 32 && !(char.charCodeAt(0) >= 127 && char.charCodeAt(0) <= 159)),
 		)
 		.join("");
-	return printable
-		.replace(/^.*?-----END [A-Z0-9 ]*(?:PRIVATE KEY|CERTIFICATE)-----/s, "[REDACTED PEM]")
-		.replace(
-			/-----BEGIN [A-Z0-9 ]*(?:PRIVATE KEY|CERTIFICATE)-----[\s\S]*?(?:-----END [A-Z0-9 ]*-----|$)/g,
-			"[REDACTED PEM]",
-		)
-		.replace(/^[A-Za-z0-9+/]{32,}={0,2}$/gm, "[REDACTED KEY MATERIAL]")
-		.replace(/\b(Bearer|Basic)\s+[A-Za-z0-9+/_=.-]+/gi, "$1 [REDACTED]")
-		.replace(
-			/(["']?(?:[\w-]*(?:password|passwd|secret|token|(?:api|access|private)[_-]?key)[\w-]*|pwd|authorization|cookie|set-cookie)["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|[^\s,;]+(?:\s+[^\s,;]+)?)/gi,
-			"$1[REDACTED]",
-		)
-		.replace(
-			/\b(?:sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b/g,
-			"[REDACTED]",
-		)
-		.replace(/([a-z][a-z0-9+.-]*:\/\/)[^\s/@:]+:[^\s/@]+@/gi, "$1[REDACTED]@");
+	return (
+		printable
+			.replace(/^.*?-----END [A-Z0-9 ]*(?:PRIVATE KEY|CERTIFICATE)-----/s, "[REDACTED PEM]")
+			.replace(
+				/-----BEGIN [A-Z0-9 ]*(?:PRIVATE KEY|CERTIFICATE)-----[\s\S]*?(?:-----END [A-Z0-9 ]*-----|$)/g,
+				"[REDACTED PEM]",
+			)
+			.replace(/^[A-Za-z0-9+/]{32,}={0,2}$/gm, "[REDACTED KEY MATERIAL]")
+			.replace(/\b(Bearer|Basic)\s+[A-Za-z0-9+/_=.-]+/gi, "$1 [REDACTED]")
+			// A value can be two words on its line ("token: Bearer x"), never the start of the next line.
+			.replace(
+				/(["']?(?:[\w-]*(?:password|passwd|secret|token|(?:api|access|private)[_-]?key)[\w-]*|pwd|authorization|cookie|set-cookie)["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|[^\s,;]+(?:[ \t]+[^\s,;]+)?)/gi,
+				"$1[REDACTED]",
+			)
+			.replace(
+				/\b(?:sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b/g,
+				"[REDACTED]",
+			)
+			.replace(/([a-z][a-z0-9+.-]*:\/\/)[^\s/@:]+:[^\s/@]+@/gi, "$1[REDACTED]@")
+	);
 }
 
 export type LogTail = {
