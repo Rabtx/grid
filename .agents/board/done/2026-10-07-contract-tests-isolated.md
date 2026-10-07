@@ -5,8 +5,8 @@ type: bug
 from: pm
 to: backend
 priority: normal
-status: open
-assignee: none
+status: done
+assignee: claude
 reviewer: human
 parent: none
 depends_on: []
@@ -36,4 +36,9 @@ and the live data.
 - Never run tests against the live API on :4000 or the live chat database.
 
 ## Resolution
-
+Fixed by claude, 2026-10-07. `apps/api/test/contract/client.ts` no longer defaults
+`CONTRACT_API_URL` to the live API on :4000. A bare run stops at once with a message saying to
+start a throwaway API on its own database. Verified: `bun test test/contract` without the variable
+fails with that message and sends no request. CI is unaffected, because it sets the variable to the
+API it starts for the run. API typecheck and root lint pass. Leftover `invited-*@grid.test`
+accounts from earlier runs are still in the dev database for the owner to remove.
