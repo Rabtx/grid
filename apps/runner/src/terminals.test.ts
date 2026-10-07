@@ -1,4 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { readConfig } from "./config";
 import { type SpawnPty, type TerminalClient, TerminalStore } from "./terminals";
@@ -9,6 +11,7 @@ function fakePty() {
 	const spawned: {
 		onData: (bytes: Uint8Array) => void;
 		onExit: (code: number) => void;
+		cwd: string;
 		writes: (string | Uint8Array)[];
 		sizes: [number, number][];
 		killed: boolean;
@@ -45,6 +48,17 @@ function client() {
 const config = { ...readConfig({}), replayBytes: 10, maxTerminalsPerUser: 2 };
 
 describe("TerminalStore", () => {
+	it("starts at home on a machine with no projects folder yet", () => {
+		const { spawned, spawn } = fakePty();
+		const missing = join(tmpdir(), `grid-no-projects-${crypto.randomUUID()}`);
+		const store = new TerminalStore(
+			{ ...readConfig({ RUNNER_PROJECTS_DIR: missing }), maxTerminalsPerUser: 2 },
+			spawn,
+		);
+		expect(store.open("me", { cols: 80, rows: 24 })?.cwd).toBe(homedir());
+		expect(spawned[0]?.cwd).toBe(homedir());
+	});
+
 	it("keeps each person's terminals to themselves", () => {
 		const { spawn } = fakePty();
 		const store = new TerminalStore(config, spawn);

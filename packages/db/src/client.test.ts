@@ -13,7 +13,8 @@ describe("@grid/db client (PGlite & Postgres)", () => {
 		instance = createDatabase(":memory:", { server: true });
 		await instance.ready;
 		await instance.migrate();
-	});
+		// Starting PGlite and migrating it takes over Bun's 5 second default on a CI runner.
+	}, 60_000);
 
 	afterAll(async () => {
 		await instance.close();
