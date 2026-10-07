@@ -30,6 +30,37 @@ describe("createTokenVerifier", () => {
 		]);
 	});
 
+	it("tells an API outage from a refused token, and does not cache the outage", async () => {
+		const offline = (async () => {
+			throw new TypeError("Unable to connect");
+		}) as unknown as typeof fetch;
+		expect(await createTokenVerifier("http://api.test", offline)("t1")).toEqual({
+			status: 503,
+			message: "Grid's API can't be reached right now. Try again in a moment.",
+		});
+		expect(
+			(await createTokenVerifier("http://api.test", api(502).fetcher)("t1")) as unknown,
+		).toMatchObject({
+			status: 503,
+		});
+		expect(
+			(await createTokenVerifier("http://api.test", api(401).fetcher)("t1")) as unknown,
+		).toEqual({
+			status: 401,
+			message: "Sign in again",
+		});
+		// Back up: the next check asks again and succeeds.
+		let up = false;
+		const flaky = (async (input: string | URL | Request, init?: RequestInit) => {
+			if (!up) throw new TypeError("Unable to connect");
+			return api(200).fetcher(input, init);
+		}) as typeof fetch;
+		const verify = createTokenVerifier("http://api.test", flaky);
+		expect(((await verify("t1")) as { status?: number }).status).toBe(503);
+		up = true;
+		expect(await verify("t1")).toEqual({ who: { userId: "user-1", workspace: "ws-home" } });
+	});
+
 	it("refuses a workspace the person is not in", async () => {
 		const verify = createTokenVerifier("http://api.test", api(200).fetcher);
 		expect(await verify("t1", "elsewhere")).toEqual({
@@ -53,11 +84,11 @@ describe("createTokenVerifier", () => {
 		expect(await verify("expired")).toMatchObject({ status: 401 });
 	});
 
-	it("rejects when the API is unreachable", async () => {
+	it("answers 503, not a sign-out, when the API is unreachable", async () => {
 		const verify = createTokenVerifier("http://api.test", (async () => {
 			throw new Error("ECONNREFUSED");
 		}) as unknown as typeof fetch);
-		expect(await verify("t1")).toMatchObject({ status: 401 });
+		expect(await verify("t1")).toMatchObject({ status: 503 });
 	});
 	it("carries the person's role and the workspace's settings, and reports the settings", async () => {
 		const fetcher = (async (input: string | URL | Request) => {

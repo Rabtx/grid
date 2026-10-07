@@ -106,6 +106,8 @@ type SocketData = {
 export const CLOSE_UNAUTHORIZED = 4401;
 export const CLOSE_NOT_FOUND = 4404;
 export const CLOSE_FORBIDDEN = 4403;
+/** The standard WebSocket "try again later": a passing outage the client should ride out. */
+export const CLOSE_TRY_AGAIN = 1013;
 
 // About ten minutes of compressed speech; longer clips are almost certainly a stuck recording.
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
@@ -928,10 +930,15 @@ function signedIn(
 ): Who | null {
 	if ("who" in verified) return verified.who;
 	refused(verified.status);
-	ws.close(
-		verified.status === 401 ? CLOSE_UNAUTHORIZED : CLOSE_NOT_FOUND,
-		verified.status === 401 ? "Sign in again" : verified.message,
-	);
+	// The API being unreachable is not a sign-out and not a missing session: 1013 ("try again
+	// later") makes the console reconnect instead of signing out or giving the session up.
+	const code =
+		verified.status === 401
+			? CLOSE_UNAUTHORIZED
+			: verified.status === 503
+				? CLOSE_TRY_AGAIN
+				: CLOSE_NOT_FOUND;
+	ws.close(code, verified.status === 401 ? "Sign in again" : verified.message);
 	return null;
 }
 
