@@ -58,6 +58,7 @@ bun --cwd=apps/runner test
 | `RUNNER_MAX_TERMINALS` | `16` | Per person. |
 | `RUNNER_CHAT_DB` | `~/.local/share/grid/chat.db` | SQLite session and event log. |
 | `RUNNER_PROJECTS_DIR` | `~/Projects` | Default location for project folders. |
+| `RUNNER_OWNER` | first owner to sign in | Whose machine this is (email or user id). The runner serves only the workspaces its owner is in. |
 | `RUNNER_STT_URL` | — | Voice input: any OpenAI-compatible `/audio/transcriptions` URL (hosted or a local server). |
 | `RUNNER_STT_API_KEY` | — | Sent as a bearer token to that URL, if it needs one. |
 | `RUNNER_STT_MODEL` | `whisper-1` | Model name for that URL. |

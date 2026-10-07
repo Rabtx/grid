@@ -52,6 +52,12 @@ export function may(who: Who, permission: RolePermission): boolean {
 /** Owners and admins: what "admins only" means for an agent (Settings → Members). */
 export const isAdmin = (who: Who): boolean => who.role === "owner" || who.role === "admin";
 
+/**
+ * A shell, or a terminal running an agent's setup, on this runner's machine: whoever may manage
+ * the workspace's machines (owners and admins, unless Settings → Roles says otherwise).
+ */
+export const mayUseTerminals = (who: Who): boolean => may(who, "machines");
+
 /** Viewers follow the work and change nothing. */
 export const readOnly = (who: Who): boolean => who.role === "viewer";
 

@@ -31,6 +31,8 @@ export type RunnerConfig = {
 	pairing: boolean;
 	/** Hosts besides tailnet addresses that may be added as environments (https only). */
 	environmentHosts: string[];
+	/** Whose machine this is (an email or user id); otherwise the first owner to sign in. */
+	owner: string | null;
 };
 
 export function readConfig(env: Record<string, string | undefined> = process.env): RunnerConfig {
@@ -53,5 +55,6 @@ export function readConfig(env: Record<string, string | undefined> = process.env
 			.split(",")
 			.map((host) => host.trim().toLowerCase())
 			.filter(Boolean),
+		owner: env.RUNNER_OWNER?.trim() || null,
 	};
 }

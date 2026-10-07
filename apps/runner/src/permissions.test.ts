@@ -117,7 +117,7 @@ describe("chat commands by role", () => {
 	});
 });
 
-describe("viewers over HTTP and sockets", () => {
+describe("roles over HTTP and sockets", () => {
 	const projectsDir = mkdtempSync(join(tmpdir(), "grid-viewer-"));
 	const config = {
 		...readConfig({ RUNNER_PROJECTS_DIR: projectsDir, RUNNER_CWD: projectsDir }),
@@ -125,15 +125,18 @@ describe("viewers over HTTP and sockets", () => {
 		shell: "/bin/sh",
 	};
 	const store = new TerminalStore(config, spawnPty);
+	const people: Record<string, Who> = {
+		owner: who("owner"),
+		admin: who("admin"),
+		member: who("member"),
+		viewer: who("viewer"),
+		// A member the workspace let manage its machines (Settings → Roles).
+		trusted: who("member", { settings: { rolePermissions: { member: { machines: true } } } }),
+	};
 	const server = startServer(
 		config,
 		store,
-		async (token) =>
-			token === "viewer"
-				? { who: who("viewer") }
-				: token === "member"
-					? { who: who("member") }
-					: signedOut,
+		async (token) => (people[token] ? { who: people[token] } : signedOut),
 		new ChatHub(new ChatStore(":memory:"), new Map(), projectsDir),
 	);
 	const base = `http://127.0.0.1:${server.port}`;
@@ -142,24 +145,40 @@ describe("viewers over HTTP and sockets", () => {
 		void server.stop(true);
 		rmSync(projectsDir, { recursive: true, force: true });
 	});
-
-	it("refuses a viewer's changes but lets them read and keep their own settings", async () => {
-		const as = (token: string) => ({
-			Authorization: `Bearer ${token}`,
-			"Content-Type": "application/json",
-		});
-		const open = await fetch(`${base}/terminals`, {
+	const as = (token: string) => ({
+		Authorization: `Bearer ${token}`,
+		"Content-Type": "application/json",
+	});
+	const openTerminal = (token: string) =>
+		fetch(`${base}/terminals`, {
 			method: "POST",
-			headers: as("viewer"),
+			headers: as(token),
 			body: JSON.stringify({ cols: 80, rows: 24 }),
 		});
-		expect(open.status).toBe(403);
-		expect((await fetch(`${base}/terminals`, { headers: as("viewer") })).status).toBe(200);
-		const memberOpen = await fetch(`${base}/terminals`, {
+
+	it("gives a shell on this machine only to roles that manage its machines", async () => {
+		expect((await openTerminal("owner")).status).toBe(201);
+		expect((await openTerminal("admin")).status).toBe(201);
+		expect((await openTerminal("trusted")).status).toBe(201);
+		expect((await openTerminal("member")).status).toBe(403);
+		expect((await openTerminal("viewer")).status).toBe(403);
+		expect((await fetch(`${base}/terminals`, { headers: as("member") })).status).toBe(403);
+		const setup = await fetch(`${base}/chat/providers/claude/setup`, {
 			method: "POST",
 			headers: as("member"),
-			body: JSON.stringify({ cols: 80, rows: 24 }),
+			body: JSON.stringify({ step: "install" }),
 		});
-		expect(memberOpen.status).toBe(201);
+		expect(setup.status).toBe(403);
+	});
+
+	it("closes a member's terminal socket instead of attaching it", async () => {
+		const ws = new WebSocket(`ws://127.0.0.1:${server.port}/terminal`);
+		const closed = new Promise<number>((resolve) =>
+			ws.addEventListener("close", (event) => resolve(event.code)),
+		);
+		ws.addEventListener("open", () =>
+			ws.send(JSON.stringify({ t: "hello", token: "member", id: "any-terminal" })),
+		);
+		expect(await closed).toBe(4403);
 	});
 });

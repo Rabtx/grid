@@ -19,6 +19,7 @@ import { may } from "./permissions";
 import { ChatHub } from "./chat/hub";
 import { ChatStore } from "./chat/store";
 import { readConfig } from "./config";
+import { RunnerOwner } from "./owner";
 import { DiagnosticJournal } from "./diagnostics/journal";
 import { installProcessDiagnostics } from "./diagnostics/runtime";
 import { isEnvironmentToken, PairingStore } from "./environments/pairing";
@@ -169,6 +170,8 @@ setInterval(() => {
 		if (cleared) console.log(`[runner] cleared ${cleared} threads older than ${days} days`);
 	}
 }, 3_600_000);
+// Whose machine this is: the runner serves its owner's workspaces and no one else's.
+const owner = new RunnerOwner(config.chatDb, config.owner, () => chat.workspaces());
 const signIn = createTokenVerifier(
 	config.apiUrl,
 	fetch,
@@ -177,6 +180,7 @@ const signIn = createTokenVerifier(
 		environments.store.adopt(who.userId, who.workspace);
 	},
 	(workspace, settings) => workspaceSettings.set(workspace, settings),
+	(person, workspace) => owner.admits(person, workspace),
 );
 // A paired Grid acts under the key it paired with (its home workspace), whichever it names.
 // Each person's latest role per workspace, for answers that arrive without a sign-in (a button on
