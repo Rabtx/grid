@@ -651,6 +651,21 @@ describe("driving the CLI", () => {
 		});
 	}, 20_000);
 
+	it("ends the turn once Freebuff is idle again, when neither the file nor the footer says so", async () => {
+		const { events, session } = await start(undefined, 60, 3, {
+			FAKE_NO_COMPLETE: "1",
+			FAKE_NO_FOOTER: "1",
+		});
+		expect(await session.prompt("Say hello")).toEqual({ reason: "done" });
+		expect(rewriteOf(events)).toMatchObject({
+			events: [
+				{ type: "tool", title: "Freebuff session" },
+				{ type: "reasoning", text: "Reading the request." },
+				{ type: "message", text: "**Exact** reply\n\nrow 1\nrow 2\nrow 3" },
+			],
+		});
+	}, 20_000);
+
 	it("continues the conversation it was in, by its id", async () => {
 		const first = await start(undefined);
 		await first.session.prompt("Remember this");

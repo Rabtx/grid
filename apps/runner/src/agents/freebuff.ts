@@ -435,14 +435,19 @@ async function startFreebuff(
 			let finishedAt: number | null = null;
 			let warnedAt: number | null = null;
 			let warned = false;
+			let worked = false;
 			while (!cancelled) {
 				if (!screen.alive) throw new Error(exitReason(screen.lines()));
 				chat = await findChat(chats, text, since, chat?.id ?? conversation);
 				if (chat && replyState(chat.messages, text, since) === "complete") break;
 				const lines = screen.lines();
+				const working = isWorking(lines);
+				worked ||= working;
 				// Not every build marks the file complete: a reply the screen shows finished, and
-				// that stays finished, is done too (its text still comes from the file).
-				if (tracker.finished && !isWorking(lines)) {
+				// that stays finished, is done too (its text still comes from the file). So is one
+				// whose footer was not seen (a long reply that scrolled) once Freebuff, having
+				// worked on it, is back to an empty input box and stays there.
+				if (!working && (tracker.finished || (worked && isIdle(lines)))) {
 					finishedAt ??= Date.now();
 					if (Date.now() - finishedAt > SCREEN_ONLY_MS) break;
 				} else {
