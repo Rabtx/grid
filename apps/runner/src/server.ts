@@ -4,7 +4,7 @@ import { setupCommand } from "./agents/setup";
 import { automationRequest } from "./automations/routes";
 import type { Automations } from "./automations/service";
 import type { Verified, Verify, Who } from "./auth";
-import { may, NOT_ALLOWED, readOnly } from "./permissions";
+import { may, mayUseTerminals, NOT_ALLOWED, readOnly } from "./permissions";
 import { type Channel, type ChannelSink, openChat, openTerminal } from "./channels";
 import { type ChatHub } from "./chat/hub";
 import {
@@ -564,6 +564,7 @@ export function startServer(
 				if (setup && request.method === "POST") {
 					const who = await whoFrom(request, "Sign in to set up agents");
 					if (who instanceof Response) return who;
+					if (!mayUseTerminals(who)) return error(403, NOT_ALLOWED);
 					const body = (await request.json().catch(() => ({}))) as { step?: unknown };
 					const step = body.step === "install" || body.step === "sign-in" ? body.step : null;
 					const command = step ? setupCommand(setup[1], step) : null;
@@ -593,6 +594,7 @@ export function startServer(
 				if (url.pathname === "/terminals" || url.pathname.startsWith("/terminals/")) {
 					const who = await whoFrom(request, "Sign in to use the terminal");
 					if (who instanceof Response) return who;
+					if (!mayUseTerminals(who)) return error(403, NOT_ALLOWED);
 					const id = url.pathname.slice("/terminals/".length);
 
 					if (request.method === "GET" && !id)
@@ -866,7 +868,7 @@ export function startServer(
 		const channel =
 			ws.data.kind === "chat"
 				? openChat(chat, who, sessionHello, sink)
-				: readOnly(who)
+				: !mayUseTerminals(who)
 					? (sink.close(CLOSE_FORBIDDEN, NOT_ALLOWED), null)
 					: openTerminal(store, who.userId, sessionHello, sink);
 		ws.data.channel = channel;
@@ -937,7 +939,9 @@ function signedIn(
 			? CLOSE_UNAUTHORIZED
 			: verified.status === 503
 				? CLOSE_TRY_AGAIN
-				: CLOSE_NOT_FOUND;
+				: verified.status === 403
+					? CLOSE_FORBIDDEN
+					: CLOSE_NOT_FOUND;
 	ws.close(code, verified.status === 401 ? "Sign in again" : verified.message);
 	return null;
 }

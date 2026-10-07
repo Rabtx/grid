@@ -733,6 +733,16 @@ export class ChatStore {
 		return found.sort((a, b) => b.hits - a.hits).slice(0, limit);
 	}
 
+	/** Every workspace with chats or linked folders here. */
+	workspaces(): string[] {
+		return this.db
+			.query<{ id: string }, []>(
+				"SELECT workspace_id AS id FROM sessions UNION SELECT workspace_id FROM project_folders",
+			)
+			.all()
+			.map((row) => row.id);
+	}
+
 	projectFolders(workspace: string): Record<string, string> {
 		const rows = this.db
 			.query<{ project: string; path: string }, [string]>(

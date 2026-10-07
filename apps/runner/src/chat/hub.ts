@@ -649,6 +649,11 @@ export class ChatHub {
 		return this.providers.has(id);
 	}
 
+	/** Every workspace with work kept here. */
+	workspaces(): string[] {
+		return this.store.workspaces();
+	}
+
 	projectFolders(workspace: string): Record<string, string> {
 		return this.store.projectFolders(workspace);
 	}

@@ -1,3 +1,5 @@
+import { OTHER_WORKSPACE, type Person } from "./owner";
+
 /** How long a verified token is trusted before the API is asked again. */
 const CACHE_MS = 30_000;
 
@@ -58,10 +60,10 @@ export type WorkspaceSettings = {
 };
 
 /**
- * A token checked: who it is, or why not (401: not signed in, 404: not in that workspace, 503: the
- * API could not say).
+ * A token checked: who it is, or why not (401: not signed in, 403: a workspace this runner does
+ * not serve, 404: not in that workspace, 503: the API could not say).
  */
-export type Verified = { who: Who } | { status: 401 | 404 | 503; message: string };
+export type Verified = { who: Who } | { status: 401 | 403 | 404 | 503; message: string };
 
 export type Verify = (token: string, workspace?: string | null) => Promise<Verified>;
 
@@ -73,7 +75,7 @@ type Workspace = {
 	customRole?: string | null;
 	settings?: WorkspaceSettings;
 };
-type Known = { userId: string; workspaces: Workspace[]; until: number };
+type Known = { userId: string; email: string | null; workspaces: Workspace[]; until: number };
 
 export const signedOut: Verified = { status: 401, message: "Sign in again" };
 
@@ -98,6 +100,8 @@ export function createTokenVerifier(
 	fetcher: typeof fetch = fetch,
 	onDefault: (who: Who) => void = () => {},
 	onSettings: (workspace: string, settings: WorkspaceSettings) => void = () => {},
+	/** Whether this runner serves the person in that workspace (see `owner`). */
+	admits: (person: Person, workspace: string) => boolean = () => true,
 ): Verify {
 	const cache = new Map<string, Known>();
 
@@ -124,15 +128,18 @@ export function createTokenVerifier(
 		if (refused(me) || refused(listed)) return null;
 		if (!me.ok || !listed.ok) return "unavailable";
 
-		const user = (await me.json().catch(() => null)) as { data?: { id?: unknown } } | null;
+		const user = (await me.json().catch(() => null)) as {
+			data?: { id?: unknown; email?: unknown };
+		} | null;
 		const userId = typeof user?.data?.id === "string" ? user.data.id : null;
+		const email = typeof user?.data?.email === "string" ? user.data.email : null;
 		const rows = (await listed.json().catch(() => null)) as { data?: unknown } | null;
 		const workspaces = Array.isArray(rows?.data) ? rows.data.filter(isWorkspace) : [];
 		if (!userId || workspaces.length === 0) return null;
 
 		// Drop expired entries on the way, so the cache never outgrows the live tokens.
 		for (const [key, entry] of cache) if (entry.until <= now) cache.delete(key);
-		const entry = { userId, workspaces, until: now + CACHE_MS };
+		const entry = { userId, email, workspaces, until: now + CACHE_MS };
 		cache.set(token, entry);
 		return entry;
 	}
@@ -145,6 +152,7 @@ export function createTokenVerifier(
 			? entry.workspaces.find((w) => w.slug === slug)
 			: entry.workspaces.find((w) => w.isDefault);
 		if (!workspace) return { status: 404, message: `Workspace "${slug}" not found` };
+		if (!admits(entry, workspace.id)) return { status: 403, message: OTHER_WORKSPACE };
 		const who: Who = {
 			userId: entry.userId,
 			workspace: workspace.id,
