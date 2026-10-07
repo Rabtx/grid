@@ -80,7 +80,8 @@ bun run build
 bun run start
 ```
 
-`start` serves the built console (`vite preview`, with `/api` and `/runner` forwarded as in dev)
+`start` serves the built console (`vite preview`, with `/api` and `/runner` forwarded as in dev, and
+headers that stop other sites framing it)
 and the built Next.js apps, and runs the API and runner without watching files. Rebuild and
 restart to pick up changes. It does not run the launcher: `bun run grid` is the one-port bundle
 above, with its own data directory.
@@ -123,7 +124,9 @@ running. The first update turns the serving checkout into this layout:
   back is relinking `serve` and restarting.
 - `shared/`: the API's `.env`, its uploads and the launcher's data, linked into every release.
 
-By hand, the same: `bash serve/scripts/bash/update-grid.sh`. `UMask=0077` keeps the logs and data the service writes
+By hand, the same: `bash serve/scripts/bash/update-grid.sh`.
+
+`UMask=0077` keeps the logs and data the service writes
 readable by you alone.
 
 ## A VPS
@@ -138,6 +141,8 @@ docker compose -f docker/compose/postgres.yml -f docker/compose/grid.yml exec gr
 The `grid` image (`docker/grid.Dockerfile`) keeps its data in the `/data` volume and projects in
 `/projects`. Put HTTPS in front of port 8080 (Caddy, a Cloudflare tunnel, Tailscale) and set
 `GRID_ALLOWED_HOSTS` to the domain people open it on.
+Grid's gateway already tells browsers no other site may frame the console; a server that serves
+the built console's files itself should send `Content-Security-Policy: frame-ancestors 'self'` too.
 
 Without Docker, install Bun and Postgres, set `DATABASE_URL`, and run `bun run grid` under your
 process manager of choice.
