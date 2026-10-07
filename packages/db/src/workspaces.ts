@@ -78,16 +78,41 @@ export async function createPersonalWorkspace(
 	db: Database,
 	user: { id: string; username: string; displayName?: string | null },
 ): Promise<schema.WorkspaceRecord> {
-	const slug = await freeWorkspaceSlug(db, workspaceSlugBase(user.username));
+	return db.transaction((tx) => insertPersonalWorkspace(tx, user));
+}
+
+/**
+ * The user's default workspace, made for them if they have none, once however many requests ask
+ * at the same moment. A new user's first page load sends several at once: checking and then
+ * creating raced into two workspaces, or a 500 on the slug. A lock per user, held for the
+ * transaction, has the others wait and then find the one made.
+ */
+export async function ensureDefaultWorkspace(
+	db: Database,
+	user: { id: string; username: string; displayName?: string | null },
+): Promise<{ workspace: schema.WorkspaceRecord; role: schema.WorkspaceRole }> {
 	return db.transaction(async (tx) => {
-		const [workspace] = await tx
-			.insert(schema.workspaces)
-			.values({ slug, name: user.displayName?.trim() || user.username })
-			.returning();
-		if (!workspace) throw new Error("Workspace insert did not return a record");
-		await tx
-			.insert(schema.workspaceMembers)
-			.values({ workspaceId: workspace.id, userId: user.id, role: "owner" });
-		return workspace;
+		await tx.execute(
+			sql`select pg_advisory_xact_lock(hashtext(${`personal-workspace:${user.id}`}))`,
+		);
+		const current = await defaultWorkspaceOf(tx, user.id);
+		if (current) return current;
+		return { workspace: await insertPersonalWorkspace(tx, user), role: "owner" as const };
 	});
+}
+
+async function insertPersonalWorkspace(
+	tx: Database,
+	user: { id: string; username: string; displayName?: string | null },
+): Promise<schema.WorkspaceRecord> {
+	const slug = await freeWorkspaceSlug(tx, workspaceSlugBase(user.username));
+	const [workspace] = await tx
+		.insert(schema.workspaces)
+		.values({ slug, name: user.displayName?.trim() || user.username })
+		.returning();
+	if (!workspace) throw new Error("Workspace insert did not return a record");
+	await tx
+		.insert(schema.workspaceMembers)
+		.values({ workspaceId: workspace.id, userId: user.id, role: "owner" });
+	return workspace;
 }
