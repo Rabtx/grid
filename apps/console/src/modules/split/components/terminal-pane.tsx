@@ -6,7 +6,8 @@ import { initialFontSize } from "@/modules/terminal/lib/font-size";
 import { NO_MODIFIERS } from "@/modules/terminal/lib/keys";
 import { TerminalView } from "@/modules/terminal/components/terminal-view";
 import type { TerminalInfo } from "@/modules/terminal/types/terminal.types";
-import { Alert, Banner, Button, Spinner } from "@/kit";
+import { Alert, Banner, Button, EmptyState, Spinner } from "@/kit";
+import { TERMINALS_NOT_ALLOWED, useTerminalAccess } from "@/modules/workspaces";
 
 import { type ThreadPlace, threadTerminals } from "../stores/thread-terminals";
 
@@ -19,7 +20,7 @@ type Load =
  * The thread's shell, live. It is opened (or found again) the first time the pane shows and then
  * stays connected while the pane is hidden, so switching tabs or layouts never drops it.
  */
-export function TerminalPane(props: {
+function ThreadTerminal(props: {
 	place: ThreadPlace;
 	active: boolean;
 	/** The shell's id once known, for the preview to read what it serves. */
@@ -129,5 +130,22 @@ export function TerminalPane(props: {
 				)}
 			</Show>
 		</div>
+	);
+}
+
+/** The thread's terminal, or why there is none for your role. */
+export function TerminalPane(props: Parameters<typeof ThreadTerminal>[0]): JSX.Element {
+	const terminals = useTerminalAccess();
+	return (
+		<Show
+			when={terminals()}
+			fallback={
+				<div class="flex flex-1 items-center justify-center p-6">
+					<EmptyState title="No terminal for your role" description={TERMINALS_NOT_ALLOWED} />
+				</div>
+			}
+		>
+			<ThreadTerminal {...props} />
+		</Show>
 	);
 }

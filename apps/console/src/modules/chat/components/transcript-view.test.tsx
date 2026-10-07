@@ -7,6 +7,12 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Block } from "../lib/transcript";
 import { TranscriptView } from "./transcript-view";
 
+vi.mock("@/modules/workspaces", async (original) => ({
+	...(await original<Record<string, unknown>>()),
+	useTerminalAccess: () => () => terminalAccess,
+}));
+let terminalAccess = true;
+
 let dispose: (() => void) | undefined;
 let container: HTMLElement;
 
@@ -360,6 +366,27 @@ describe("TranscriptView - Turns", () => {
 		expect(root.querySelector(".bg-selection")?.textContent ?? "").toContain("Deploy");
 		expect(root.textContent).toContain("Access expired mid-read.");
 		expect(root.textContent).not.toContain("Done");
+	});
+
+	it("leaves out Open terminal for a role without terminals", () => {
+		terminalAccess = false;
+		try {
+			const root = mount(() => (
+				<TranscriptView
+					blocks={[
+						{ kind: "user", key: "b0", text: "Deploy", outcome: "error" },
+						{ kind: "notice", key: "b1", tone: "error", text: "Access expired mid-read." },
+					]}
+					running={false}
+					onApprove={() => {}}
+				/>
+			));
+			flush();
+			expect(root.textContent).toContain("The agent stopped");
+			expect(root.textContent).not.toContain("Open terminal");
+		} finally {
+			terminalAccess = true;
+		}
 	});
 });
 

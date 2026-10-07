@@ -24,6 +24,7 @@ import {
 import { workspaceHref } from "@/lib/active-workspace";
 import { inboxStore } from "@/modules/inbox";
 import { useWorkspace } from "@/modules/projects";
+import { useTerminalAccess } from "@/modules/workspaces";
 
 import { useShell } from "../context/shell-context";
 
@@ -126,6 +127,9 @@ const SETTINGS_PAGES = /^\/settings(?!\/(machines|agents)(\/|$))(\/|$)/;
 export function Rail(): JSX.Element {
 	const shell = useShell();
 	const workspace = useWorkspace();
+	const terminals = useTerminalAccess();
+	// Terminals only for roles that may open one.
+	const views = () => VIEWS.filter((view) => view.match !== "/terminal" || terminals());
 	const location = useLocation();
 	const at = (prefix: string) =>
 		location.pathname === prefix || location.pathname.startsWith(`${prefix}/`);
@@ -143,7 +147,7 @@ export function Rail(): JSX.Element {
 				</Show>
 			</div>
 			<div class="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto pt-2 [scrollbar-width:none]">
-				<For each={VIEWS}>
+				<For each={views()}>
 					{(view) => (
 						<RailLink
 							href={workspaceHref(view.href(workspace.currentSlug()))}

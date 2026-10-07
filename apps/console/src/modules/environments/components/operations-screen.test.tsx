@@ -14,6 +14,7 @@ vi.mock("@/modules/projects", () => ({
 }));
 vi.mock("@/modules/workspaces", () => ({
 	useWorkspaces: () => ({ current: () => ({ role: "owner" }) }),
+	useTerminalAccess: () => () => true,
 }));
 vi.mock("@/modules/chat/stores/providers", () => ({
 	agentName: () => "Claude Code",

@@ -8,6 +8,10 @@ import { searchService } from "@/modules/search/services/search.service";
 import { ShellProvider, useShell } from "../context/shell-context";
 import { CommandPalette } from "./command-palette";
 
+vi.mock("@/modules/workspaces", async (original) => ({
+	...(await original<Record<string, unknown>>()),
+	useTerminalAccess: () => () => true,
+}));
 vi.mock("@/modules/auth", () => ({ useAuth: () => ({ token: () => "token" }) }));
 vi.mock("@/modules/projects", () => ({
 	ProjectIcon: () => null,
