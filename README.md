@@ -63,7 +63,7 @@ threads and context persist.
   <tr>
     <td width="50%">
       <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/model-picker-dark.webp"><img src=".github/assets/model-picker-light.webp" alt="The model picker listing agents and their models, with a reasoning effort slider"></picture>
-      <p align="center"><b>Any agent, any model</b><br><sub>Claude Code, Codex, opencode, Antigravity, Freebuff and any ACP agent.</sub></p>
+      <p align="center"><b>Any agent, any model</b><br><sub>Claude Code, Codex, opencode, Antigravity and any ACP agent.</sub></p>
     </td>
     <td width="50%">
       <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/inbox-dark.webp"><img src=".github/assets/inbox-light.webp" alt="The inbox listing finished runs, an approval request and a failed run across projects"></picture>
@@ -92,7 +92,7 @@ threads shown are real runs.</sub>
 | --- | --- |
 | **Workspaces** | A workspace is the company: it owns projects and environments, and people join by invite. Self-hosted setup starts from a one-time link. |
 | **Projects and board** | Link project folders, then plan tasks from backlog to done, owned by people or agents, with notes per project. |
-| **Agent threads** | Talk to Claude Code, Codex, opencode, Antigravity and Freebuff, or any agent that speaks ACP. Replies, tool calls, diffs and approvals stream live, and threads resume after a restart. Pick the model, effort and mode per thread. |
+| **Agent threads** | Talk to Claude Code, Codex, opencode and Antigravity, or any agent that speaks ACP. Replies, tool calls, diffs and approvals stream live, and threads resume after a restart. Pick the model, effort and mode per thread. |
 | **Composer** | `@` to mention files, `/` for commands, attach images and files, dictate by voice, and choose the branch or a fresh worktree from the git control under the box. |
 | **Files and terminals** | Browse the project, edit files in the browser with conflict-safe saves, and use persistent terminals on the project's machine. |
 | **Git and pull requests** | Worktrees per thread when you want them; a project's pull requests with checks and reviews, and "fix with an agent" to hand a failing PR to an agent on its own branch. |

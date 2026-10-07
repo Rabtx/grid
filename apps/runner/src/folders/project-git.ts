@@ -66,7 +66,6 @@ const AGENT_SIGNS: { id: string; sign: RegExp }[] = [
 	{ id: "codex", sign: /\bcodex\b|@openai\.com\b/i },
 	{ id: "opencode", sign: /\bopencode\b/i },
 	{ id: "antigravity", sign: /\bantigravity\b|\bgemini\b/i },
-	{ id: "freebuff", sign: /\bfreebuff\b/i },
 ];
 
 /** The agent behind a commit, from its author and co-authors, or null for a person's own. */

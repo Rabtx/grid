@@ -122,7 +122,6 @@ const AGENT_NAMES: Record<string, string> = {
 	codex: "Codex",
 	opencode: "opencode",
 	antigravity: "Antigravity",
-	freebuff: "Freebuff",
 };
 
 /** An agent's name from the machine's agent list, by its provider id. */

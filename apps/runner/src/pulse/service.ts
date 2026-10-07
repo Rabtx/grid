@@ -17,7 +17,7 @@ const SHIPPING_MS = 5 * 60_000;
 const READING_MS = 10 * 60_000;
 // Agents that take MCP servers from Grid, in the order one is picked when the default cannot.
 const READERS = ["claude", "codex", "opencode"];
-const NO_CONNECTORS = new Set(["antigravity", "freebuff"]);
+const NO_CONNECTORS = new Set(["antigravity"]);
 
 export type PulseDeps = {
 	chat: ChatHub;

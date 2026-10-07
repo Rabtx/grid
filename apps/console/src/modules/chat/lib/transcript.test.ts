@@ -255,7 +255,7 @@ describe("turns", () => {
 			{ type: "message", text: "Kept as it was." },
 			{ type: "user", text: "Say hello" },
 			{ type: "turn_start" },
-			{ type: "tool", id: "notes", title: "Freebuff session", status: "completed" },
+			{ type: "tool", id: "notes", title: "Session notes", status: "completed" },
 			{ type: "reasoning", text: "Rea" },
 			{ type: "message", text: "hello - one\n" },
 			{
@@ -284,7 +284,7 @@ describe("turns", () => {
 		const transcript = replay([
 			{ type: "user", text: "Look around" },
 			{ type: "turn_start" },
-			{ type: "tool", id: "notes", title: "Freebuff session", status: "completed" },
+			{ type: "tool", id: "notes", title: "Session notes", status: "completed" },
 			{ type: "message", text: "I'll read it.\n" },
 			{ type: "tool", id: "screen-1", title: "Read", kind: "read", input: "a.ts, b." },
 			{ type: "message", text: "Both are" },
@@ -292,7 +292,7 @@ describe("turns", () => {
 				type: "turn_rewrite",
 				replaceTools: true,
 				events: [
-					{ type: "tool", id: "notes", title: "Freebuff session", status: "completed" },
+					{ type: "tool", id: "notes", title: "Session notes", status: "completed" },
 					{ type: "message", text: "I'll read it." },
 					{ type: "tool", id: "ai-1-2", title: "read files", kind: "read", status: "completed" },
 					{ type: "message", text: "Both are short." },

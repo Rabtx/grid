@@ -84,11 +84,6 @@ export const AGENT_SETUP: Record<string, AgentSetup> = {
 		},
 	},
 	antigravity: { docs: "https://antigravity.google" },
-	freebuff: {
-		install: "npm install -g freebuff",
-		signIn: "freebuff login",
-		docs: "https://freebuff.com",
-	},
 };
 
 /** The command a setup step runs, or null when Grid has none for that agent. */
