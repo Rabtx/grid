@@ -46,5 +46,5 @@ See **`docker/README.md`** for the manual `-f` fallback.
 ## Notes
 
 - The API runs migrations on startup when `RUN_MIGRATIONS=true` (default); uploads live in the `api_data` volume.
-- `NEXT_PUBLIC_API_URL` (formerly `NEXT_PUBLIC_NEST_API_URL`, still read) is baked in at **web image build** time and must be reachable from the browser (typically `http://localhost:4000`).
+- The web image is the landing page only. `NEXT_PUBLIC_CONSOLE_URL`, where its "Sign in" and "Open Grid" go, is baked in at **build** time (typically `http://localhost:3001`).
 - Host-only API/web development: `docker compose up -d postgres`, then `bun run dev`.

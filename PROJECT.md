@@ -12,7 +12,7 @@ The planned product extends beyond the features in this repository today.
 | `apps/runner` | Execute coding agents and terminals beside the project folder; serve file operations, chat events, and environment connections | Bun, WebSockets, SQLite for chat logs |
 | `apps/api` | Accounts, sessions, projects, tasks, notes, profiles, and billing | Hono on Bun, Drizzle (`packages/db`), PostgreSQL |
 | `apps/launcher` | Prepare a Grid instance and put console, API, and runner behind one port | Bun |
-| `apps/web` | Existing Next.js web app, separate from the active Solid product console | Next.js |
+| `apps/web` | The landing page; "Sign in" and "Open Grid" go to the console | Next.js |
 | `apps/docs` | Human-readable setup, API, architecture, and deployment documentation | Fumadocs |
 
 In the integrated setup, the browser talks to one Grid origin. The launcher serves the console

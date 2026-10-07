@@ -76,7 +76,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 grid/
 ├── apps/
 │   ├── console/         # Vite + Solid 2 SPA — the product (control plane), performance-first
-│   ├── web/             # Next.js — to be trimmed to the marketing/landing site only
+│   ├── web/             # Next.js — the marketing/landing site; sign-in goes to the console
 │   ├── api/             # The Grid API: Hono on Bun, PostgreSQL through packages/db
 │   ├── runner/          # Bun service on this machine: terminals (PTY over WebSocket) for the console
 │   ├── docs/            # Docs site (Fumadocs); source in apps/docs/content/docs/

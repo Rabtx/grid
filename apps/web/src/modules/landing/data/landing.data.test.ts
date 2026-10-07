@@ -6,6 +6,11 @@ describe("landing copy", () => {
 		expect(SITE.repoUrl).toBe("https://github.com/shabirkhan-dev/grid");
 	});
 
+	it("sends sign-in and the app to the console, not to pages of this site", () => {
+		expect(SITE.appUrl).toBe("http://localhost:3001");
+		expect(SITE.signInUrl).toBe("http://localhost:3001/login");
+	});
+
 	it("states what Grid is without leaving the tagline empty", () => {
 		expect(SITE.tagline).toMatch(/operating system/i);
 		expect(SITE.summary.length).toBeGreaterThan(40);

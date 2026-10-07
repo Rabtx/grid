@@ -58,9 +58,8 @@ Migrations run on container start when `RUN_MIGRATIONS=true` (default in the Blu
 
 | Variable | Value |
 |----------|--------|
-| `NEXT_PUBLIC_API_URL` | `https://<your-service>.onrender.com` (no `/api` path) |
+| `NEXT_PUBLIC_CONSOLE_URL` | the console's origin: where the landing page's "Sign in" and "Open Grid" go |
 | `NEXT_PUBLIC_SITE_URL` | `https://your-web.vercel.app` — absolute origin for canonical URL, Open Graph, `sitemap.xml` and `robots.txt` (no trailing slash) |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | optional; must match the API's `GOOGLE_CLIENT_ID` |
 
 6. Deploy. Then go back to Render and set `WEB_APP_URL` / `CORS_ORIGIN` / WebAuthn to this Vercel URL, and **redeploy the API** if needed.
 
@@ -95,7 +94,7 @@ Long-term option: put both under one parent domain (e.g. `app.example.com` + `ap
 - [ ] Neon `DATABASE_URL` on Render
 - [ ] Resend key + verified from-address
 - [ ] API health returns OK
-- [ ] Web `NEXT_PUBLIC_API_URL` → Render origin
+- [ ] Web `NEXT_PUBLIC_CONSOLE_URL` → the console's origin
 - [ ] Web `NEXT_PUBLIC_SITE_URL` → Vercel web origin (canonical / OG / sitemap)
 - [ ] API `CORS_ORIGIN` / `WEB_APP_URL` → Vercel web URL
 - [ ] Login works (cookie + credentials)

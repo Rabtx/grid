@@ -24,7 +24,7 @@ docker compose up -d --build
 | API | 4000 |
 | Web | 3000 |
 
-`NEXT_PUBLIC_API_URL` (formerly `NEXT_PUBLIC_NEST_API_URL`, still read) must be a URL the **browser** can reach (usually `http://localhost:4000`), not the Docker service hostname.
+The web image is the landing page only. `NEXT_PUBLIC_CONSOLE_URL` (where its "Sign in" goes) must be a URL the **browser** can reach (usually `http://localhost:3001`), not a Docker service hostname.
 
 **Postgres only** (API/web on the host):
 
