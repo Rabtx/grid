@@ -179,6 +179,18 @@ export async function login(
 		});
 	}
 	await resetFailedLogins(deps.db, user.id);
+	return signInAs(deps, user, metadata);
+}
+
+/**
+ * The end of every first-factor sign-in (a password, an emailed link, Google): a session, or for an
+ * account with an authenticator the challenge its code answers. One place, so no way in skips it.
+ */
+export async function signInAs(
+	deps: AuthDeps,
+	user: UserRecord,
+	metadata: RequestMetadata,
+): Promise<SessionResult | MfaChallenge> {
 	if (await store.isTotpEnabled(deps.db, user.id)) return mfaChallenge(deps, user);
 	return createSession(deps, user, metadata);
 }
@@ -233,8 +245,7 @@ export async function consumeMagicLink(
 	if (!user?.isActive) throw invalidMagicLink();
 	// The link stands in for the password, not for the second factor: an account with an
 	// authenticator still has to give its code, or getting into someone's email would be enough.
-	if (await store.isTotpEnabled(deps.db, user.id)) return mfaChallenge(deps, user);
-	return createSession(deps, user, metadata);
+	return signInAs(deps, user, metadata);
 }
 
 export async function refresh(deps: AuthDeps, refreshToken: string): Promise<SessionResult> {
