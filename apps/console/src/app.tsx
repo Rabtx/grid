@@ -3,32 +3,103 @@ import type { JSX } from "@solidjs/web";
 import { lazy, Loading, onSettled } from "solid-js";
 
 import { EmptyState, Text, TextLink } from "@/kit";
-import { AutomationsScreen } from "@/modules/automations";
-import { AuthProvider, LoginForm, SetupForm } from "@/modules/auth";
-import { BoardScreen, ProjectRedirect, TaskPanel } from "@/modules/projects";
-import { MachinesScreen, MachinesOverview, AgentsOverview } from "@/modules/environments";
-import { HomeScreen, PulseScreen } from "@/modules/home";
-import { ConnectorScreen, ConnectorsScreen, OAuthCallback } from "@/modules/connectors";
-import { InboxScreen } from "@/modules/inbox";
-import {
-	AgentsScreen,
-	AppearanceScreen,
-	DiagnosticsScreen,
-	GeneralScreen,
-	NotificationsScreen,
-	ProfileScreen,
-	RolesScreen,
-	SettingsRoute,
-	MembersScreen,
-	WorktreesScreen,
-} from "@/modules/settings";
-import { InviteScreen } from "@/modules/workspaces";
-import { SkillsScreen } from "@/modules/skills";
+import { AuthProvider } from "@/modules/auth";
 
 import { workspaceHistory } from "./lib/workspace-history";
 
 import { AppShell } from "./routes/app-shell";
 import { RequireAuth } from "./routes/require-auth";
+
+// Every screen loads when it is opened: the first load carries the shell and the screen in front
+// of the person, not every page of the console. Each from its own file: a module's index is also
+// imported by the shell, and importing that lazily would load all of it up front.
+const LoginForm = lazy(() => import("@/modules/auth/components/login-form"), {
+	export: "LoginForm",
+});
+const SetupForm = lazy(() => import("@/modules/auth/components/setup-form"), {
+	export: "SetupForm",
+});
+const InviteScreen = lazy(() => import("@/modules/workspaces/components/invite-screen"), {
+	export: "InviteScreen",
+});
+const HomeScreen = lazy(() => import("@/modules/home/components/home-screen"), {
+	export: "HomeScreen",
+});
+const PulseScreen = lazy(() => import("@/modules/home/components/pulse-screen"), {
+	export: "PulseScreen",
+});
+const InboxScreen = lazy(() => import("@/modules/inbox/components/inbox-screen"), {
+	export: "InboxScreen",
+});
+const AutomationsScreen = lazy(
+	() => import("@/modules/automations/components/automations-screen"),
+	{
+		export: "AutomationsScreen",
+	},
+);
+const BoardScreen = lazy(() => import("@/modules/projects/components/board-screen"), {
+	export: "BoardScreen",
+});
+const TaskPanel = lazy(() => import("@/modules/projects/components/task-panel"), {
+	export: "TaskPanel",
+});
+const ProjectRedirect = lazy(() => import("@/modules/projects/components/project-redirect"), {
+	export: "ProjectRedirect",
+});
+const MachinesScreen = lazy(() => import("@/modules/environments/components/machines-screen"), {
+	export: "MachinesScreen",
+});
+const MachinesOverview = lazy(() => import("@/modules/environments/components/operations-screen"), {
+	export: "MachinesOverview",
+});
+const AgentsOverview = lazy(() => import("@/modules/environments/components/operations-screen"), {
+	export: "AgentsOverview",
+});
+const ConnectorScreen = lazy(() => import("@/modules/connectors/components/connector-screen"), {
+	export: "ConnectorScreen",
+});
+const ConnectorsScreen = lazy(() => import("@/modules/connectors/components/connectors-screen"), {
+	export: "ConnectorsScreen",
+});
+const OAuthCallback = lazy(() => import("@/modules/connectors/components/oauth-callback"), {
+	export: "OAuthCallback",
+});
+const SkillsScreen = lazy(() => import("@/modules/skills/components/skills-screen"), {
+	export: "SkillsScreen",
+});
+const AgentsScreen = lazy(() => import("@/modules/settings/components/agents-screen"), {
+	export: "AgentsScreen",
+});
+const AppearanceScreen = lazy(() => import("@/modules/settings/components/appearance-screen"), {
+	export: "AppearanceScreen",
+});
+const DiagnosticsScreen = lazy(() => import("@/modules/settings/components/diagnostics-screen"), {
+	export: "DiagnosticsScreen",
+});
+const GeneralScreen = lazy(() => import("@/modules/settings/components/general-screen"), {
+	export: "GeneralScreen",
+});
+const MembersScreen = lazy(() => import("@/modules/settings/components/members-screen"), {
+	export: "MembersScreen",
+});
+const NotificationsScreen = lazy(
+	() => import("@/modules/settings/components/notifications-screen"),
+	{
+		export: "NotificationsScreen",
+	},
+);
+const ProfileScreen = lazy(() => import("@/modules/settings/components/profile-screen"), {
+	export: "ProfileScreen",
+});
+const RolesScreen = lazy(() => import("@/modules/settings/components/roles-screen"), {
+	export: "RolesScreen",
+});
+const SettingsRoute = lazy(() => import("@/modules/settings/components/settings-route"), {
+	export: "SettingsRoute",
+});
+const WorktreesScreen = lazy(() => import("@/modules/settings/components/worktrees-screen"), {
+	export: "WorktreesScreen",
+});
 
 // The console has no landing page of its own — that still lives in the marketing site — so "/"
 // opens the current project's chats and "/board" its board.
@@ -82,7 +153,7 @@ const Router = createRouter({
 		{ path: "/settings/environments", component: () => <Moved to="/settings/machines" /> },
 		{ path: "/settings/connectors", component: () => <Authed screen={ConnectorsScreen} /> },
 		{ path: "/settings/connectors/:id", component: () => <Authed screen={ConnectorScreen} /> },
-		{ path: "/oauth/callback", component: OAuthCallback },
+		{ path: "/oauth/callback", component: OAuthCallbackRoute },
 		{ path: "/settings/general", component: () => <Authed screen={GeneralScreen} /> },
 		{ path: "/settings/members", component: () => <Authed screen={MembersScreen} /> },
 		{ path: "/settings/worktrees", component: () => <Authed screen={WorktreesScreen} /> },
@@ -105,11 +176,19 @@ export function App(): JSX.Element {
 }
 
 function LoginRoute(): JSX.Element {
-	return <LoginForm />;
+	return (
+		<Loading fallback={null}>
+			<LoginForm />
+		</Loading>
+	);
 }
 
 function SetupRoute(): JSX.Element {
-	return <SetupForm />;
+	return (
+		<Loading fallback={null}>
+			<SetupForm />
+		</Loading>
+	);
 }
 
 const DesignGallery = lazy(() => import("./routes/design-gallery"), { export: "DesignGallery" });
@@ -123,13 +202,19 @@ function DesignRoute(): JSX.Element {
 }
 
 function InviteRoute(): JSX.Element {
-	return <InviteScreen />;
+	return (
+		<Loading fallback={null}>
+			<InviteScreen />
+		</Loading>
+	);
 }
 
 function InboxRoute(): JSX.Element {
 	return (
 		<RequireAuth>
-			<InboxScreen />
+			<Loading fallback={<Opening>Opening…</Opening>}>
+				<InboxScreen />
+			</Loading>
 		</RequireAuth>
 	);
 }
@@ -137,7 +222,9 @@ function InboxRoute(): JSX.Element {
 function ProjectRoute(): JSX.Element {
 	return (
 		<RequireAuth>
-			<ProjectRedirect to="chat" />
+			<Loading fallback={null}>
+				<ProjectRedirect to="chat" />
+			</Loading>
 		</RequireAuth>
 	);
 }
@@ -152,7 +239,9 @@ function Moved(props: { to: string }): JSX.Element {
 function RedirectRoute(): JSX.Element {
 	return (
 		<RequireAuth>
-			<ProjectRedirect to="board" />
+			<Loading fallback={null}>
+				<ProjectRedirect to="board" />
+			</Loading>
 		</RequireAuth>
 	);
 }
@@ -160,8 +249,10 @@ function RedirectRoute(): JSX.Element {
 function BoardRoute(): JSX.Element {
 	return (
 		<RequireAuth>
-			<BoardScreen />
-			<TaskPanel />
+			<Loading fallback={<Opening>Opening the board…</Opening>}>
+				<BoardScreen />
+				<TaskPanel />
+			</Loading>
 		</RequireAuth>
 	);
 }
@@ -265,7 +356,19 @@ function TerminalRoute(): JSX.Element {
 
 /** A signed-in screen that needs nothing from its route. */
 function Authed(props: { screen: () => JSX.Element }): JSX.Element {
-	return <RequireAuth>{props.screen()}</RequireAuth>;
+	return (
+		<RequireAuth>
+			<Loading fallback={<Opening>Opening…</Opening>}>{props.screen()}</Loading>
+		</RequireAuth>
+	);
+}
+
+function OAuthCallbackRoute(): JSX.Element {
+	return (
+		<Loading fallback={null}>
+			<OAuthCallback />
+		</Loading>
+	);
 }
 
 function NotFoundRoute(): JSX.Element {
