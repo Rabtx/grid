@@ -80,6 +80,7 @@ function serviceWorker(): Plugin {
 			const precache = [
 				"/index.html",
 				"/manifest.webmanifest",
+				"/boot-theme.js",
 				...brand,
 				...[...shell].map((file) => `/${file}`),
 			].sort();
@@ -87,6 +88,7 @@ function serviceWorker(): Plugin {
 			hash.update(readFileSync(index));
 			hash.update(readFileSync(source));
 			hash.update(readFileSync(`${publicDir}/manifest.webmanifest`));
+			hash.update(readFileSync(`${publicDir}/boot-theme.js`));
 			for (const file of brand) hash.update(readFileSync(`${publicDir}${file}`));
 			for (const file of shell) {
 				const item = bundle[file];

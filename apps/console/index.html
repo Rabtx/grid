@@ -19,24 +19,14 @@
 		<!-- The canvas colour of each theme (#ffffff / #141414, the Figma bg/app), so browser chrome blends in. -->
 		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
 		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141414" />
-		<script>
-			try {
-				const saved = JSON.parse(localStorage.getItem("grid.appearance") || "{}");
-				const theme = saved.theme ?? localStorage.getItem("grid.theme");
-				// Depth before the first paint, so the page does not flash flat and then lift. It is off
-				// by default; only a choice saved under the current design generation (3) turns it on.
-				if (saved.depth === true && saved.design === 3)
-					document.documentElement.setAttribute("data-depth", "on");
-				if (theme === "light" || theme === "dark") {
-					document.documentElement.classList.add(theme);
-					document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
-						meta.content = theme === "dark" ? "#141414" : "#ffffff";
-					});
-				}
-			} catch {
-				// Use the system theme if storage is unavailable or invalid.
-			}
-		</script>
+		<!--
+			Only this origin runs code: the API and runner are reached through it (/api, /runner), and
+			no inline script runs, so HTML a message or pull request brings in cannot run any. Styles
+			may be inline (style attributes); images may come from https (avatars); frames are the
+			dev-server previews a thread serves on this host's other ports.
+		-->
+		<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'; frame-src 'self' http: https:; object-src 'none'; base-uri 'self'; form-action 'self'" />
+		<script src="/boot-theme.js"></script>
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="Grid" />
