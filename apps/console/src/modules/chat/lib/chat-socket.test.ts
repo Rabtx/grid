@@ -54,6 +54,7 @@ function setup(renew: () => Promise<string | null> = async () => null) {
 	const readyPayloads: {
 		session: ChatSession;
 		history: ChatEvent[];
+		earlier: number | null;
 		missed: ChatEvent[] | null;
 		running: boolean;
 	}[] = [];
@@ -120,6 +121,23 @@ describe("connectChat", () => {
 		expect(readyPayloads).toHaveLength(1);
 		expect(readyPayloads[0].session.id).toBe("chat-1");
 		expect(readyPayloads[0].history).toHaveLength(1);
+		// A runner from before threads opened in pages sends no `earlier`: the history is all of it.
+		expect(readyPayloads[0].earlier).toBeNull();
+	});
+
+	it("passes on where a long thread's earlier history ends", () => {
+		const { sockets, readyPayloads } = setup();
+		sockets[0].accept();
+		sockets[0].receive(
+			JSON.stringify({
+				t: "ready",
+				session: mockSession,
+				history: [{ type: "user", text: "question 26" }],
+				earlier: 101,
+				running: false,
+			}),
+		);
+		expect(readyPayloads[0].earlier).toBe(101);
 	});
 
 	it("reconnects after socket drop (1006) and re-receives ready replay", () => {

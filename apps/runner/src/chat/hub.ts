@@ -82,6 +82,11 @@ export type ChatCursor = { epoch: string; next: number };
 // Recent live events kept per session, so a device back from the background gets only what it
 // missed. Streamed text arrives in many small pieces, hence the generous count.
 const JOURNAL_LIMIT = 20_000;
+/**
+ * Messages a device is sent when it opens a thread, with what followed each; earlier ones come a
+ * page at a time as the reader scrolls up. A long thread opened in full was slow on phones.
+ */
+export const HISTORY_TURNS = 20;
 
 type Live = {
 	agent: Promise<AgentSession> | null;
@@ -975,7 +980,10 @@ export class ChatHub {
 		resume?: ChatCursor,
 	): {
 		session: ChatSessionRow;
+		/** The latest part of the log (see `HISTORY_TURNS`); empty when catching up. */
 		history: ChatEvent[];
+		/** Where the history before `history` ends, to ask `earlierEvents` for; null when none. */
+		earlier: number | null;
 		/** Set when catching up: the missed events, in place of `history`. */
 		missed: ChatEvent[] | null;
 		running: boolean;
@@ -992,9 +1000,13 @@ export class ChatHub {
 		live.clients.add(client);
 		// The list is not in the log, so it is sent here as well as when it changes.
 		if (live.commands) client.event({ type: "commands", commands: live.commands });
+		const recent = canResume
+			? { events: [], earlier: null }
+			: this.store.recentEvents(id, HISTORY_TURNS);
 		return {
 			session,
-			history: canResume ? [] : this.store.events(id),
+			history: recent.events,
+			earlier: recent.earlier,
 			missed: canResume ? live.journal.slice(resume.next - live.journalStart) : null,
 			running: live.running,
 			cursor: { epoch: live.epoch, next: end },
@@ -1002,6 +1014,16 @@ export class ChatHub {
 				live.clients.delete(client);
 			},
 		};
+	}
+
+	/** A page of a thread's history from before `before`: the same window `attach` sends. */
+	earlierEvents(
+		workspace: string,
+		id: string,
+		before: number,
+	): { events: ChatEvent[]; earlier: number | null } {
+		this.owned(workspace, id);
+		return this.store.recentEvents(id, HISTORY_TURNS, before);
 	}
 
 	checkSession(workspace: string, id: string): void {

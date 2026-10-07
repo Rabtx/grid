@@ -65,6 +65,18 @@ export async function chatRequest(
 		if (!project) return failure(400, "Say which project");
 		return Response.json({ data: hub.activity(workspace, project) });
 	}
+	// Earlier history, a page at a time, as a reader scrolls up past what opening the thread sent.
+	const earlier = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/events$/);
+	if (earlier && request.method === "GET") {
+		const before = Number(url.searchParams.get("before"));
+		if (!Number.isSafeInteger(before) || before < 1) return failure(400, "Say where to read from");
+		try {
+			return Response.json({ data: hub.earlierEvents(workspace, earlier[1] ?? "", before) });
+		} catch (cause) {
+			if (cause instanceof ChatError) return failure(cause.status, cause.message);
+			throw cause;
+		}
+	}
 	const cancel = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/cancel$/);
 	if (cancel && request.method === "POST") {
 		if (!may(who, "startAgents")) return failure(403, NOT_ALLOWED);

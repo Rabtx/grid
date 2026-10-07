@@ -1,6 +1,15 @@
 import { useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
+import {
+	createEffect,
+	createMemo,
+	createSignal,
+	flush,
+	For,
+	onSettled,
+	Show,
+	untrack,
+} from "solid-js";
 
 import { onAppResume } from "@/lib/app-resume";
 import { localStore, saveSoon } from "@/lib/local-store";
@@ -107,6 +116,18 @@ export function Conversation(props: {
 	const [connection, setConnection] = createSignal<ChatConnection>("connecting");
 	const [error, setError] = createSignal<string | null>(null);
 	const [restartNotice, setRestartNotice] = createSignal<string | null>(null);
+	// Opening a thread brings its latest messages; earlier ones load a page at a time on scrolling
+	// up. `earlier` is where the next page ends, null once the start of the thread is here.
+	let earlier: number | null = null;
+	const [hasEarlier, setHasEarlier] = createSignal(false);
+	const [loadingEarlier, setLoadingEarlier] = createSignal(false);
+	// Messages that arrived from earlier pages: not new ones, so they must not jump to the end.
+	const [olderMessages, setOlderMessages] = createSignal(0);
+	const setEarlier = (value: number | null) => {
+		earlier = value;
+		setHasEarlier(value !== null);
+	};
+	let loadEarlier = async (): Promise<void> => {};
 	let lastStartedAt = untrack(runnerStartedAt);
 	let socket: ChatSocket | undefined;
 	let scroller: HTMLDivElement | undefined;
@@ -251,7 +272,43 @@ export function Conversation(props: {
 		// to: the chat shows at once next time, and the runner sends only what is new.
 		let log: ChatEvent[] = [];
 		const cacheKey = `chat:${props.id}`;
-		const saver = saveSoon(cacheKey, () => ({ events: log, cursor: live?.cursor() ?? null }));
+		const saver = saveSoon(cacheKey, () => ({
+			events: log,
+			cursor: live?.cursor() ?? null,
+			earlier,
+		}));
+
+		loadEarlier = async () => {
+			const token = auth.token();
+			const before = earlier;
+			if (!token || before === null || untrack(loadingEarlier)) return;
+			setLoadingEarlier(true);
+			try {
+				const page = await chatService.earlierEvents(
+					token,
+					props.id,
+					before,
+					untrack(() => props.scope),
+				);
+				if (disposed || earlier !== before) return;
+				// Kept in place: what the reader was looking at stays put as the page goes in above.
+				const fromBottom = scroller ? scroller.scrollHeight - scroller.scrollTop : 0;
+				log = [...page.events, ...log];
+				setOlderMessages(
+					(count) => count + page.events.filter((event) => event.type === "user").length,
+				);
+				setTranscript((current) => ({ ...replay(log), commands: current.commands }));
+				setEarlier(page.earlier);
+				saver.schedule();
+				// Drawn now rather than next frame, so the page never shows jumped for a frame.
+				flush();
+				if (scroller) scroller.scrollTop = scroller.scrollHeight - fromBottom;
+			} catch (cause) {
+				setError(cause instanceof Error ? cause.message : "Could not load earlier messages");
+			} finally {
+				setLoadingEarlier(false);
+			}
+		};
 
 		const connect = (cursor: { epoch: string; next: number } | null) => {
 			const chat = connectChat({
@@ -276,6 +333,8 @@ export function Conversation(props: {
 						setTranscript((current) => missed.reduce(applyEvent, current));
 					} else {
 						log = [...ready.history];
+						setEarlier(ready.earlier);
+						setOlderMessages(0);
 						// The list arrived with this attach, before `ready`; the rebuild is the
 						// conversation, so it must not take the list with it.
 						setTranscript((current) => ({
@@ -354,11 +413,17 @@ export function Conversation(props: {
 
 		// What this device kept first, then the live link from where it got to.
 		void localStore
-			.get<{ events: ChatEvent[]; cursor: { epoch: string; next: number } | null }>(cacheKey)
+			.get<{
+				events: ChatEvent[];
+				cursor: { epoch: string; next: number } | null;
+				earlier?: number | null;
+			}>(cacheKey)
 			.then((kept) => {
 				if (disposed) return;
 				if (kept?.events?.length) {
 					log = kept.events;
+					// Kept before threads opened in pages, the log is the whole thread.
+					setEarlier(kept.earlier ?? null);
 					setTranscript(replay(log));
 					setPinned(true);
 					scrollToEnd();
@@ -389,7 +454,7 @@ export function Conversation(props: {
 
 	// A new user message always brings the view back to the bottom.
 	createEffect(
-		() => transcript().blocks.filter((block) => block.kind === "user").length,
+		() => transcript().blocks.filter((block) => block.kind === "user").length - olderMessages(),
 		() => {
 			setPinned(true);
 			scrollToEnd();
@@ -505,6 +570,7 @@ export function Conversation(props: {
 					onScroll={(event) => {
 						const el = event.currentTarget;
 						setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 48);
+						if (el.scrollTop < 400 && hasEarlier()) void loadEarlier();
 					}}
 					class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 md:px-6"
 				>
@@ -542,6 +608,18 @@ export function Conversation(props: {
 									/>
 								</div>
 							)}
+						</Show>
+						<Show when={hasEarlier()}>
+							<div class="flex justify-center">
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={loadingEarlier()}
+									onClick={() => void loadEarlier()}
+								>
+									{loadingEarlier() ? "Loading earlier messages…" : "Show earlier messages"}
+								</Button>
+							</div>
 						</Show>
 						<TranscriptView
 							people={people()}

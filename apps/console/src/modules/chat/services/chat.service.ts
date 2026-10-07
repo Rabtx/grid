@@ -3,6 +3,7 @@ import type { ChatAttachment } from "../types/chat.types";
 import type { TerminalInfo } from "@/modules/terminal/types/terminal.types";
 
 import type {
+	ChatEvent,
 	ChatProvider,
 	ChatSession,
 	ProjectChatSettings,
@@ -220,6 +221,14 @@ export const chatService = {
 		}
 		return attachments;
 	},
+	/** A page of a thread's history from before `before` (see the `ready` message's `earlier`). */
+	earlierEvents: (token: string, id: string, before: number, scope = "") =>
+		call<{ events: ChatEvent[]; earlier: number | null }>(
+			`/chat/sessions/${id}/events?before=${before}`,
+			token,
+			{},
+			scope,
+		),
 	attachment: async (
 		token: string,
 		session: string,

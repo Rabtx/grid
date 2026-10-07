@@ -22,13 +22,15 @@ export type ChatSocketOptions = {
 	token: () => string | null;
 	renew: () => Promise<string | null>;
 	/**
-	 * On every (re)attach: the whole log (`history`), from which the transcript is rebuilt, or,
+	 * On every (re)attach: the latest part of the log (`history`), from which the transcript is
+	 * rebuilt, with where the history before it ends (`earlier`, null when it is all there), or,
 	 * when the runner could catch this device up, only the events it missed (`missed`, applied to
 	 * the transcript as it is).
 	 */
 	onReady: (ready: {
 		session: ChatSession;
 		history: ChatEvent[];
+		earlier: number | null;
 		missed: ChatEvent[] | null;
 		running: boolean;
 	}) => void;
@@ -172,6 +174,7 @@ export function connectChat(options: ChatSocketOptions) {
 				const ready = message as unknown as {
 					session: ChatSession;
 					history?: ChatEvent[];
+					earlier?: number | null;
 					missed?: ChatEvent[] | null;
 					running: boolean;
 					cursor?: { epoch: string; next: number };
@@ -180,6 +183,7 @@ export function connectChat(options: ChatSocketOptions) {
 				options.onReady({
 					session: ready.session,
 					history: ready.history ?? [],
+					earlier: typeof ready.earlier === "number" ? ready.earlier : null,
 					missed: ready.missed ?? null,
 					running: ready.running,
 				});
