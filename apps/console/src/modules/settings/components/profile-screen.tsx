@@ -43,6 +43,7 @@ import {
 	type SignInSession,
 	type TotpSetup,
 } from "../services/account.service";
+import { orderSessions, SESSIONS_SHOWN } from "../lib/sessions";
 
 import { type Sheet, ProfileSheet } from "./profile-sheet";
 import { SettingsPage, settingsMenu } from "./settings-page";
@@ -64,6 +65,11 @@ export function ProfileScreen(): JSX.Element {
 	const [me, setMe] = createSignal<Me | null>(null);
 	const [security, setSecurity] = createSignal<Security | null>(null);
 	const [sessions, setSessions] = createSignal<SignInSession[] | null>(null);
+	const [allSessions, setAllSessions] = createSignal(false);
+	const shownSessions = () => {
+		const ordered = orderSessions(sessions() ?? []);
+		return allSessions() ? ordered : ordered.slice(0, SESSIONS_SHOWN);
+	};
 	const [prefs, setPrefs] = createSignal<PrefsAnswer | null>(null);
 	const [error, setError] = createSignal<string | null>(null);
 	const [changingPassword, setChangingPassword] = createSignal(false);
@@ -483,7 +489,7 @@ export function ProfileScreen(): JSX.Element {
 									</div>
 								}
 							>
-								<For each={sessions()}>
+								<For each={shownSessions()}>
 									{(session) => (
 										<SettingsRow
 											inline
@@ -507,6 +513,13 @@ export function ProfileScreen(): JSX.Element {
 										</SettingsRow>
 									)}
 								</For>
+								<Show when={!allSessions() && (sessions()?.length ?? 0) > SESSIONS_SHOWN}>
+									<div class="px-4 py-3">
+										<LinkButton onClick={() => setAllSessions(true)}>
+											Show all {sessions()?.length} sessions
+										</LinkButton>
+									</div>
+								</Show>
 							</Show>
 						</SettingsGroup>
 					</Show>

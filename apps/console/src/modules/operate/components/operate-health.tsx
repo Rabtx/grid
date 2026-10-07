@@ -98,12 +98,21 @@ export function OperateHealth(props: { tabs: JSX.Element }): JSX.Element {
 				}
 			}
 			void load();
-			const timer = setInterval(() => void load(), 30_000);
+			// Not while the tab is hidden: a background tab read the API every 30 seconds for nothing.
+			// Coming back reads at once.
+			const timer = setInterval(() => {
+				if (document.visibilityState === "visible") void load();
+			}, 30_000);
+			const returned = () => {
+				if (document.visibilityState === "visible") void load();
+			};
+			document.addEventListener("visibilitychange", returned);
 			const refresh = () => void load();
 			read = refresh;
 			return () => {
 				generation++;
 				clearInterval(timer);
+				document.removeEventListener("visibilitychange", returned);
 				read = () => {};
 			};
 		},
@@ -162,7 +171,7 @@ export function OperateHealth(props: { tabs: JSX.Element }): JSX.Element {
 			</Button>
 		</Show>
 	);
-	const time = (at: string | null) => (at ? relativeTime(at) : "No checks yet");
+	const time = (at: string | null) => (at ? relativeTime(at) : "None yet");
 
 	return (
 		<>
@@ -378,6 +387,9 @@ export function OperateHealth(props: { tabs: JSX.Element }): JSX.Element {
 					}}
 					title="Monitor service"
 					description="Public HTTP or HTTPS health endpoint"
+					onSubmit={() => {
+						if (!saving() && name().trim() && url().trim()) void save();
+					}}
 					footer={
 						<>
 							<Button disabled={saving()} onClick={() => setDialog(false)}>

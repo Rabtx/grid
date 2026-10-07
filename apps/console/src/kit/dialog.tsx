@@ -36,6 +36,8 @@ export function Dialog(props: {
 	footer?: JSX.Element;
 	/** Hide the title bar; the content draws its own. */
 	bare?: boolean;
+	/** What Enter in one of its fields does, as the primary button would (a form's submit). */
+	onSubmit?: () => void;
 	children: JSX.Element;
 }): JSX.Element {
 	let dialog: HTMLDialogElement | undefined;
@@ -99,7 +101,23 @@ export function Dialog(props: {
 					</button>
 				</header>
 			</Show>
-			<div class={`min-h-0 flex-1 overflow-y-auto ${props.bare ? "" : "px-5 pb-5"}`}>
+			{/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- Enter in a field submits, as in a form */}
+			<div
+				class={`min-h-0 flex-1 overflow-y-auto ${props.bare ? "" : "px-5 pb-5"}`}
+				onKeyDown={(event) => {
+					const field = event.target as HTMLElement;
+					if (
+						!props.onSubmit ||
+						event.key !== "Enter" ||
+						event.isComposing ||
+						event.shiftKey ||
+						field.tagName !== "INPUT"
+					)
+						return;
+					event.preventDefault();
+					props.onSubmit();
+				}}
+			>
 				{props.children}
 			</div>
 			<Show when={props.footer}>

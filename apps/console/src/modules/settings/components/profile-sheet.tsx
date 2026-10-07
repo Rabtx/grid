@@ -9,6 +9,7 @@ import {
 	Field,
 	Input,
 	LaptopIcon,
+	LinkButton,
 	Select,
 	SettingsRow,
 	Stack,
@@ -17,6 +18,7 @@ import {
 import { passkeysSupported } from "@/lib/webauthn";
 
 import { ago, deviceName, timeZones, zoneOffset } from "../lib/devices";
+import { orderSessions, SESSIONS_SHOWN } from "../lib/sessions";
 import type { Me, ProfilePatch, Security, SignInSession } from "../services/account.service";
 
 /** Which of Profile's sheets is open on a phone. */
@@ -49,6 +51,11 @@ export function ProfileSheet(props: {
 	onSignOutOthers: () => void;
 }): JSX.Element {
 	const [draft, setDraft] = createSignal("");
+	const [allSessions, setAllSessions] = createSignal(false);
+	const shownSessions = () => {
+		const ordered = orderSessions(props.sessions ?? []);
+		return allSessions() ? ordered : ordered.slice(0, SESSIONS_SHOWN);
+	};
 	createEffect(
 		() => [props.sheet, props.person] as const,
 		([sheet, person]) => {
@@ -172,7 +179,7 @@ export function ProfileSheet(props: {
 			<Show when={props.sheet === "sessions"}>
 				<Stack gap={3}>
 					<div class="divide-y divide-line">
-						<For each={props.sessions ?? []}>
+						<For each={shownSessions()}>
 							{(session) => (
 								<SettingsRow
 									inline
@@ -192,6 +199,11 @@ export function ProfileSheet(props: {
 							)}
 						</For>
 					</div>
+					<Show when={!allSessions() && (props.sessions?.length ?? 0) > SESSIONS_SHOWN}>
+						<LinkButton onClick={() => setAllSessions(true)}>
+							Show all {props.sessions?.length} sessions
+						</LinkButton>
+					</Show>
 					<Show when={(props.sessions ?? []).some((session) => !session.isCurrent)}>
 						<Button onClick={props.onSignOutOthers}>Sign out others</Button>
 					</Show>
