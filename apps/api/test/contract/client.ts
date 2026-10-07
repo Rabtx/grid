@@ -2,12 +2,23 @@
  * The contract suite's client: black-box HTTP against a running API, pinning the responses the
  * console, the runner and native clients rely on (it proved the move from NestJS to Hono).
  *
- *   CONTRACT_API_URL=http://127.0.0.1:4000 bun run test:contract
+ *   CONTRACT_API_URL=http://127.0.0.1:4037 bun run test:contract
+ *
+ * against an API started for the run on its own database: the suite writes accounts and
+ * workspaces into whatever it is pointed at, so there is no default.
  *
  * `test:contract` loads DATABASE_URL (tests create and remove their own rows). Sign-up and
  * sign-in are limited per minute, so run the suite at most once a minute against one server.
  */
-export const API_URL = (process.env.CONTRACT_API_URL ?? "http://127.0.0.1:4000").replace(/\/$/, "");
+// No default on purpose. The suite signs up accounts, creates workspaces and sends invites on the
+// server it is pointed at, and it once defaulted to the API on :4000, the one a developer keeps
+// running, which filled that database with test accounts. Name the throwaway API every time.
+const target = process.env.CONTRACT_API_URL?.trim();
+if (!target)
+	throw new Error(
+		"Set CONTRACT_API_URL to an API started for this run (with its own database), never the dev API you use: the suite creates accounts and workspaces there. CI starts one on http://127.0.0.1:4000.",
+	);
+export const API_URL = target.replace(/\/$/, "");
 
 export type Reply = { status: number; headers: Headers; body: unknown };
 
