@@ -1,6 +1,7 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { openPrivateDatabase } from "../private-database";
 
 /** The glyphs a role can wear; the console draws each one in its own tint. */
 export const ROLE_ICONS = [
@@ -84,7 +85,7 @@ export class RoleStore {
 
 	constructor(path: string) {
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-		this.db = new Database(path, { create: true });
+		this.db = openPrivateDatabase(path);
 		this.db.exec("PRAGMA journal_mode = WAL");
 		this.db.exec(`
 			CREATE TABLE IF NOT EXISTS roles (

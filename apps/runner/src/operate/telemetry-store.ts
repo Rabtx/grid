@@ -1,7 +1,8 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { OperateError } from "./service";
+import { openPrivateDatabase } from "../private-database";
 
 export type LogSource = { name: string; path: string };
 export type HostingCharge = {
@@ -18,7 +19,7 @@ export class TelemetryStore {
 	private readonly db: Database;
 	constructor(path: string) {
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-		this.db = new Database(path, { create: true });
+		this.db = openPrivateDatabase(path);
 		this.db.exec("PRAGMA journal_mode = WAL");
 		this.db
 			.exec(`CREATE TABLE IF NOT EXISTS operate_log_sources (workspace TEXT NOT NULL, project TEXT NOT NULL, name TEXT NOT NULL, path TEXT NOT NULL, PRIMARY KEY(workspace, project, name));

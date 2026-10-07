@@ -1,9 +1,10 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 import type { Environment } from "../environments/registry";
 import type { Gh } from "./gh";
+import { openPrivateDatabase } from "../private-database";
 
 /**
  * GitHub Codespaces from Grid: sign in with GitHub, list, create, start and stop Codespaces, and
@@ -85,7 +86,7 @@ export class CodespacesLink {
 		private readonly sleep: (ms: number) => Promise<void> = Bun.sleep,
 	) {
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-		this.db = new Database(path, { create: true });
+		this.db = openPrivateDatabase(path);
 		this.db.exec("PRAGMA journal_mode = WAL");
 		this.db.exec(`
 			CREATE TABLE IF NOT EXISTS github_link (

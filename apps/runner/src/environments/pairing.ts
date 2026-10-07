@@ -1,7 +1,8 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { openPrivateDatabase } from "../private-database";
 
 /**
  * The environment side of pairing: this runner lets another Grid (the "home" Grid) drive its
@@ -61,7 +62,7 @@ export class PairingStore {
 		private readonly now: () => number = Date.now,
 	) {
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-		this.db = new Database(path, { create: true });
+		this.db = openPrivateDatabase(path);
 		this.db.exec("PRAGMA journal_mode = WAL");
 		this.db.exec(`
 			CREATE TABLE IF NOT EXISTS pairing_codes (

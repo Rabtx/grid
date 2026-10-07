@@ -1,8 +1,9 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 import type { Reading } from "./reading";
+import { openPrivateDatabase } from "../private-database";
 
 /** A workspace's last reading of its numbers, per period, and the thread it was read in. */
 export type Snapshot = {
@@ -22,7 +23,7 @@ export class PulseStore {
 
 	constructor(path: string) {
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-		this.db = new Database(path, { create: true });
+		this.db = openPrivateDatabase(path);
 		this.db.exec("PRAGMA journal_mode = WAL");
 		this.db.exec(`CREATE TABLE IF NOT EXISTS pulse_snapshots (
 			workspace TEXT NOT NULL,

@@ -1,6 +1,7 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { openPrivateDatabase } from "../private-database";
 
 /**
  * Secrets for connectors (API keys, tokens, database URLs), kept by the runner on this machine.
@@ -16,7 +17,7 @@ export class Vault {
 		private readonly keyFile: string,
 	) {
 		if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-		this.db = new Database(path, { create: true });
+		this.db = openPrivateDatabase(path);
 		this.db.exec("PRAGMA journal_mode = WAL");
 		this.db.exec(`CREATE TABLE IF NOT EXISTS vault_secrets (
 			workspace TEXT NOT NULL,
