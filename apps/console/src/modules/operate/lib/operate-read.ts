@@ -72,11 +72,22 @@ export function useOperateRead<T>(
 			}
 			refresh = () => void load();
 			void load();
-			const timer = interval ? setInterval(() => void load(), interval) : undefined;
+			// Polling pauses while the tab is hidden and reads at once when it is back.
+			const visible = () => document.visibilityState === "visible";
+			const timer = interval
+				? setInterval(() => {
+						if (visible()) void load();
+					}, interval)
+				: undefined;
+			const returned = () => {
+				if (interval && visible()) void load();
+			};
+			document.addEventListener("visibilitychange", returned);
 			return () => {
 				alive = false;
 				latest++;
 				if (timer) clearInterval(timer);
+				document.removeEventListener("visibilitychange", returned);
 				refresh = () => {};
 			};
 		},

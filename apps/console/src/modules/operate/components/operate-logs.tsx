@@ -1,5 +1,5 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, Show } from "solid-js";
+import { createEffect, createSignal, For, Show } from "solid-js";
 import {
 	Alert,
 	Button,
@@ -12,8 +12,10 @@ import {
 	PlusIcon,
 	RestoreIcon,
 	Select,
+	ShipGroupLabel,
 	ShipHeading,
 	ShipPage,
+	ShipPanelRow,
 	Skeleton,
 	Stack,
 	Text,
@@ -133,6 +135,20 @@ export function OperateLogs(props: { tabs: JSX.Element }): JSX.Element {
 				</Text>
 			</ShellSlot>
 			<ShellSlot name="actions">{actions()}</ShellSlot>
+			<ShellSlot name="panel">
+				<ShipGroupLabel>Sources</ShipGroupLabel>
+				<For each={sources.value()?.sources ?? []}>
+					{(source) => (
+						<ShipPanelRow
+							title={source.name}
+							line={source.path}
+							tone="neutral"
+							current={source.name === selected()}
+							onClick={() => setSelected(source.name)}
+						/>
+					)}
+				</For>
+			</ShellSlot>
 			<ShellSlot name="trailing">
 				<IconButton
 					label="Refresh logs"
@@ -286,6 +302,9 @@ export function OperateLogs(props: { tabs: JSX.Element }): JSX.Element {
 					}}
 					title="Add log source"
 					description="A named .log file inside this project"
+					onSubmit={() => {
+						if (!saving() && name().trim() && path().trim()) void save();
+					}}
 					footer={
 						<>
 							<Button disabled={saving()} onClick={() => setDialog(false)}>

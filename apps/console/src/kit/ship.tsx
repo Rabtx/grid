@@ -40,26 +40,57 @@ export function ShipGroupLabel(props: { children: JSX.Element; phone?: boolean }
 	);
 }
 
-/** One environment or pipeline in the panel: its signal dot, its name, and a line of state. */
+/**
+ * One environment, pipeline or source in the panel: its signal dot, its name, and a line of state.
+ * A link with `href`, a button with `onClick` (choosing on the page), otherwise just the figure.
+ */
 export function ShipPanelRow(props: {
-	href: string;
+	href?: string;
+	onClick?: () => void;
 	title: string;
 	line: string;
 	tone: FeedTone;
 	current?: boolean;
 }): JSX.Element {
-	return (
-		<a
-			href={props.href}
-			aria-current={props.current ? "page" : undefined}
-			class="focus-ring flex min-w-0 items-start gap-2.5 rounded-kit-md px-2 py-2 transition-colors duration-fast hover:bg-fill aria-[current=page]:bg-fill-strong"
-		>
+	const ROW =
+		"focus-ring flex w-full min-w-0 items-start gap-2.5 rounded-kit-md px-2 py-2 text-left transition-colors duration-fast";
+	const body = () => (
+		<>
 			<span aria-hidden="true" class={`mt-1.5 size-2 shrink-0 rounded-full ${DOT[props.tone]}`} />
 			<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 				<span class="truncate text-body text-fg">{props.title}</span>
 				<span class="line-clamp-2 text-caption text-fg-subtle">{props.line}</span>
 			</span>
-		</a>
+		</>
+	);
+	return (
+		<Show
+			when={props.href}
+			fallback={
+				<Show when={props.onClick} fallback={<div class={ROW}>{body()}</div>}>
+					{(choose) => (
+						<button
+							type="button"
+							aria-pressed={props.current ? "true" : "false"}
+							onClick={() => choose()()}
+							class={`${ROW} hover:bg-fill aria-pressed:bg-fill-strong`}
+						>
+							{body()}
+						</button>
+					)}
+				</Show>
+			}
+		>
+			{(href) => (
+				<a
+					href={href()}
+					aria-current={props.current ? "page" : undefined}
+					class={`${ROW} hover:bg-fill aria-[current=page]:bg-fill-strong`}
+				>
+					{body()}
+				</a>
+			)}
+		</Show>
 	);
 }
 
@@ -127,8 +158,10 @@ export function ShipHeading(props: {
 
 /** Health at a glance: figures side by side on one card, two by two on phones. */
 export function HealthStrip(props: { children: JSX.Element }): JSX.Element {
+	// Two to a row on phones, a lone last figure taking the whole row; one row from lg, however
+	// many figures there are, so three never leave an empty cell.
 	return (
-		<div class="surface-card grid grid-cols-2 overflow-hidden lg:grid-cols-4 [&>*]:border-line [&>*:nth-child(odd)]:border-r max-lg:[&>*:nth-child(-n+2)]:border-b lg:[&>*]:border-r lg:[&>*:last-child]:border-r-0">
+		<div class="surface-card grid grid-cols-2 overflow-hidden lg:flex [&>*]:border-line [&>*:nth-child(odd)]:border-r max-lg:[&>*:last-child:nth-child(odd)]:col-span-2 max-lg:[&>*:last-child:nth-child(odd)]:border-r-0 max-lg:[&>*:nth-child(n+3)]:border-t lg:[&>*]:flex-1 lg:[&>*]:basis-0 lg:[&>*:nth-child(n+3)]:border-t-0 lg:[&>*]:border-r lg:[&>*:last-child]:border-r-0">
 			{props.children}
 		</div>
 	);

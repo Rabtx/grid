@@ -13,8 +13,10 @@ import {
 	Input,
 	PlusIcon,
 	RestoreIcon,
+	ShipGroupLabel,
 	ShipHeading,
 	ShipPage,
+	ShipPanelRow,
 	ShipRows,
 	ShipSectionTitle,
 	Skeleton,
@@ -126,6 +128,24 @@ export function OperateCosts(props: { tabs: JSX.Element }): JSX.Element {
 				</Text>
 			</ShellSlot>
 			<ShellSlot name="actions">{actions()}</ShellSlot>
+			<ShellSlot name="panel">
+				<ShipGroupLabel>Agents</ShipGroupLabel>
+				<For each={costs.value()?.agents.providers ?? []}>
+					{(entry) => (
+						<ShipPanelRow
+							title={entry.provider}
+							line={`${dollars(entry.costUsd)} · ${entry.reportedSessions} / ${entry.totalSessions} reported`}
+							tone="neutral"
+						/>
+					)}
+				</For>
+				<ShipGroupLabel>Hosting</ShipGroupLabel>
+				<ShipPanelRow
+					title="Recorded charges"
+					line={`${costs.value()?.hosting.charges.length ?? 0} recorded · ${cents(costs.value()?.hosting.totalCents ?? null)}`}
+					tone="neutral"
+				/>
+			</ShellSlot>
 			<ShellSlot name="trailing">
 				<IconButton label="Refresh costs" disabled={costs.loading()} onClick={costs.refresh}>
 					<RestoreIcon />
@@ -271,6 +291,9 @@ export function OperateCosts(props: { tabs: JSX.Element }): JSX.Element {
 					}}
 					title="Record hosting charge"
 					description="A known charge, entered manually in USD"
+					onSubmit={() => {
+						if (!saving() && valid()) void save();
+					}}
 					footer={
 						<>
 							<Button disabled={saving()} onClick={() => setDialog(false)}>
