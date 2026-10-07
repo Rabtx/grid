@@ -1,4 +1,13 @@
 /**
+ * The console, where Grid itself runs: this site only introduces it. Set NEXT_PUBLIC_CONSOLE_URL
+ * where it is deployed; locally it is the console's dev server.
+ */
+const CONSOLE_URL = (process.env.NEXT_PUBLIC_CONSOLE_URL ?? "http://localhost:3001").replace(
+	/\/+$/,
+	"",
+);
+
+/**
  * Copy for the landing page. Kept as data so the sections stay presentational and
  * the wording can be reviewed in one place. Everything here has to stay true of
  * the repository as it actually is — no invented customers, metrics or features.
@@ -11,8 +20,8 @@ export const SITE = {
 		"Grid brings projects, agents, development, deployment, infrastructure and operations into one browser-accessible control plane. Humans and AI agents are both first-class workers inside it.",
 	repoUrl: "https://github.com/shabirkhan-dev/grid",
 	docsUrl: "/docs",
-	signInUrl: "/login",
-	appUrl: "/admin",
+	signInUrl: `${CONSOLE_URL}/login`,
+	appUrl: CONSOLE_URL,
 } as const;
 
 /** The lifecycle Grid is being built to hold, from the product definition. */

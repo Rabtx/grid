@@ -164,7 +164,7 @@ The [open board](.agents/board/open/) tracks what's being built; the
 | `apps/runner` | Bun service for agents, chat sessions, terminals, project files, and environments |
 | `apps/launcher` | `bun run grid`: setup and one-port gateway |
 | `apps/api` | The Grid API (Hono on Bun) for identity, projects, tasks, notes, and billing |
-| `apps/web` | Next.js web app; the Solid console is the active product workspace |
+| `apps/web` | Next.js landing page; the Solid console is the product |
 | `apps/docs` | Setup, API, architecture, and deployment guides |
 | `packages/` | Shared tokens, UI, logging, and TypeScript configuration |
 | `.agents/` | Project board, plans, ownership, and agent work rules |
