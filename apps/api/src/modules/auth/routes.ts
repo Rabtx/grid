@@ -151,7 +151,8 @@ export function authRoutes(deps: AuthRouteDeps): Hono<AppEnv> {
 		.post("/methods/google", perMinute(10), csrf, async (c) => {
 			const { credential } = await body(c.req, googleCredentialBodySchema);
 			const user = await google.authenticateGoogle(deps, credential);
-			return ok(c, presentSession(c, await flows.createSession(deps, user, metadata(c))));
+			// Google proves who it is, not the account's second factor: the code is still owed.
+			return ok(c, presentLogin(c, await flows.signInAs(deps, user, metadata(c))));
 		})
 		.post("/methods/passkeys/options", perMinute(10), csrf, async (c) => {
 			const { email } = await body(c.req, passkeyOptionsBodySchema);
