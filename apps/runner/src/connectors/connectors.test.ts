@@ -325,6 +325,61 @@ describe("connectors", () => {
 		expect(activity).toEqual(expect.arrayContaining(["done", "blocked", "denied"]));
 	});
 
+	it("records a call before answering it, so an agent that exits takes nothing with it", async () => {
+		// The agent reads the reply and its process is gone: the write of the record was fire and
+		// forget, so the call went unrecorded whenever the proxy lost that race.
+		const [connection] = store.list("ws");
+		if (!connection) throw new Error("added above");
+		connectors.update("ws", connection.id, { rules: { read: "allow", write: "ask" } });
+		const [spec] = connectors.serversFor("ws", "claude", "thread-2");
+		if (!spec) throw new Error("one server");
+		const proxy = Bun.spawn([spec.command, ...spec.args], {
+			env: { ...process.env, ...spec.env },
+			stdin: "pipe",
+			stdout: "pipe",
+			stderr: "inherit",
+		});
+		const seen: { id: number; method: string }[] = [];
+		void (async () => {
+			let buffer = "";
+			for await (const chunk of proxy.stdout) {
+				buffer += new TextDecoder().decode(chunk);
+				let line = buffer.indexOf("\n");
+				while (line !== -1) {
+					const message = JSON.parse(buffer.slice(0, line)) as {
+						id: number;
+						method?: string;
+						result?: { content?: { text?: string }[] };
+					};
+					seen.push({
+						id: message.id,
+						method: message.result?.content?.[0]?.text ?? "",
+					});
+					buffer = buffer.slice(line + 1);
+					line = buffer.indexOf("\n");
+				}
+			}
+		})();
+		proxy.stdin.write(
+			`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {} } })}\n`,
+		);
+		proxy.stdin.flush();
+		for (let tries = 0; tries < 200 && !seen.some((entry) => entry.id === 1); tries++)
+			await Bun.sleep(10);
+		proxy.stdin.write(
+			`${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "list_tables", arguments: {} } })}\n`,
+		);
+		proxy.stdin.flush();
+		// Kill it the instant it is answered, which is what an agent does when it ends its turn.
+		for (let tries = 0; tries < 200 && !seen.some((entry) => entry.id === 2); tries++)
+			await Bun.sleep(10);
+		proxy.kill();
+		await Bun.sleep(50);
+
+		const activity = connectors.activity("ws", connection.id).map((entry) => entry.outcome);
+		expect(activity).toContain("done");
+	});
+
 	it("fills $VARIABLES into a command's arguments, as a shell would", () => {
 		expect(
 			expandArgs(["--url", "$DATABASE_URL", "${HOST}:5432", "$MISSING"], {

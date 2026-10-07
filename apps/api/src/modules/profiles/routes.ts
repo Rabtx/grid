@@ -135,13 +135,23 @@ export function profileRoutes(deps: {
 	return app;
 }
 
-/** What `/uploads/…` serves: avatars and notes' images, each under a random name. */
-const UPLOADED = /^\/uploads\/(avatars|notes)\/([0-9a-f-]{36}\.(?:jpg|png|webp|gif))$/;
+/** What `/uploads/…` serves: avatars, notes' images and workspace logos, each under a random name. */
+const UPLOADED = /^\/uploads\/(avatars|logos|notes)\/([0-9a-f-]{36}\.(?:jpg|png|webp|gif|svg))$/;
 
 export async function uploadedFile(c: AppContext, uploadsDir: string): Promise<Response> {
 	const match = UPLOADED.exec(c.req.path);
 	if (!match || (match[1] === "avatars" && match[2].endsWith(".gif"))) return c.notFound();
 	const file = Bun.file(join(uploadsDir, match[1], match[2]));
 	if (!(await file.exists())) return c.notFound();
-	return new Response(file, { headers: { "content-type": file.type } });
+	// A logo may be an SVG, which can carry script: opened on its own it is a document, so it is
+	// handed out sandboxed rather than as a page that runs in this origin.
+	return new Response(file, {
+		headers: {
+			"content-type": file.type,
+			"x-content-type-options": "nosniff",
+			...(match[2].endsWith(".svg")
+				? { "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox" }
+				: {}),
+		},
+	});
 }

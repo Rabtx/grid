@@ -37,12 +37,12 @@ function noteTitle(body: string): string {
 }
 
 /** The passage around the first word found, for a result's second line. */
-function passage(text: string, words: readonly string[]): string {
+export function passage(text: string, words: readonly string[]): string {
 	const lower = text.toLowerCase();
-	const at = Math.max(
-		0,
-		Math.min(...words.map((word) => lower.indexOf(word)).filter((i) => i >= 0)),
-	);
+	const hits = words.map((word) => lower.indexOf(word)).filter((index) => index >= 0);
+	// A result matched on its title alone, so none of the words are in this body: open on the
+	// first line of it rather than slicing from Infinity, which leaves the passage empty.
+	const at = hits.length ? Math.min(...hits) : 0;
 	return text
 		.slice(Math.max(0, at - 80), at + 220)
 		.replace(/\s+/g, " ")

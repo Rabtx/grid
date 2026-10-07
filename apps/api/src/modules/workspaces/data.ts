@@ -125,10 +125,11 @@ export function scheduleBackups(deps: Omit<BackupDeps, "db">, every = 10 * 60_00
 	let running = false;
 	const tick = async () => {
 		if (running || !canBackUp(deps.databaseUrl) || new Date().getHours() < BACKUP_HOUR) return;
-		const last = (await backups(deps.backupsDir))[0];
-		if (last && Date.now() - Date.parse(last.at) < 20 * 3_600_000) return;
 		running = true;
 		try {
+			// Inside the try: a dump removed while the folder is read must not reject unhandled.
+			const last = (await backups(deps.backupsDir))[0];
+			if (last && Date.now() - Date.parse(last.at) < 20 * 3_600_000) return;
 			await backUp(deps);
 		} catch (cause) {
 			console.error("[api] nightly backup failed", cause instanceof Error ? cause.message : cause);
