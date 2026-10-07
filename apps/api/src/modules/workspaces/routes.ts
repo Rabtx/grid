@@ -125,7 +125,9 @@ export function workspaceRoutes(deps: Deps): Hono<AppEnv> {
 		const extension = LOGO_TYPES[file.type];
 		if (!extension) throw badRequest("A logo must be a PNG, JPEG, WebP or SVG image");
 		if (file.size > MAX_LOGO_BYTES) throw badRequest("A logo must be under 2 MB");
-		await service.getWorkspace(deps.db, scope(c));
+		// Before anything is written: a viewer who may not set a logo has no business filling
+		// the disk with files nothing will ever read.
+		await service.assertCanSetLogo(deps.db, scope(c));
 		const name = `${crypto.randomUUID()}${extension}`;
 		await mkdir(join(deps.uploadsDir, "logos"), { recursive: true });
 		await Bun.write(join(deps.uploadsDir, "logos", name), file);

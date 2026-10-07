@@ -71,15 +71,23 @@ async function main(): Promise<void> {
 			? httpTransport(config.url ?? "", () => ask<string | null>("/token"))
 			: stdioTransport(config.command ?? [], config.env, write);
 
-	const record = (tool: string, outcome: "done" | "blocked" | "denied" | "failed") =>
-		void ask("/activity", {
+	const record = async (tool: string, outcome: "done" | "blocked" | "denied" | "failed") =>
+		await ask("/activity", {
 			method: "POST",
 			body: JSON.stringify({ agent, thread, tool, outcome }),
 		}).catch(() => undefined);
 
-	async function forward(message: JsonRpc, filter?: (message: JsonRpc) => JsonRpc): Promise<void> {
+	async function forward(
+		message: JsonRpc,
+		filter?: (message: JsonRpc) => JsonRpc,
+		beforeWrite?: (message: JsonRpc) => Promise<void>,
+	): Promise<void> {
 		try {
-			for await (const reply of upstream.send(message)) write(filter ? filter(reply) : reply);
+			for await (const raw of upstream.send(message)) {
+				const reply = filter ? filter(raw) : raw;
+				if (beforeWrite) await beforeWrite(reply);
+				write(reply);
+			}
 		} catch (cause) {
 			if (message.id !== undefined && message.method)
 				write({
@@ -111,7 +119,7 @@ async function main(): Promise<void> {
 			const tool = params.name ?? "";
 			const decision = decide(await policy(), tool, params.arguments ?? {});
 			if (decision.rule === "never") {
-				record(tool, "blocked");
+				await record(tool, "blocked");
 				write(
 					refusal(
 						message.id,
@@ -127,21 +135,34 @@ async function main(): Promise<void> {
 					body: JSON.stringify({ thread, tool, detail }),
 				}).catch(() => false);
 				if (!allowed) {
-					record(tool, "denied");
+					await record(tool, "denied");
 					write(refusal(message.id, `The person did not allow ${tool} on ${config.name}.`));
 					return;
 				}
 			}
 			let failed = false;
-			await forward(message, (reply) => {
-				if (
-					reply.id === message.id &&
-					(reply.error || (reply.result as { isError?: boolean })?.isError)
-				)
-					failed = true;
-				return reply;
-			});
-			record(tool, failed ? "failed" : "done");
+			let recorded = false;
+			await forward(
+				message,
+				(reply) => {
+					if (
+						reply.id === message.id &&
+						(reply.error || (reply.result as { isError?: boolean })?.isError)
+					)
+						failed = true;
+					return reply;
+				},
+				// The answer to this call is written once the activity says how it went: an agent
+				// that ends its turn the moment it is answered takes this process with it, and a
+				// record written after that would never arrive.
+				async (reply) => {
+					if (reply.id !== message.id || recorded) return;
+					recorded = true;
+					await record(tool, failed ? "failed" : "done");
+				},
+			);
+			// Nothing came back for this call: the server answered no reply, or stopped.
+			if (!recorded) await record(tool, "failed");
 			return;
 		}
 		await forward(message);

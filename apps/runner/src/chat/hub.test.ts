@@ -158,6 +158,27 @@ async function until(done: () => boolean): Promise<void> {
 	await Bun.sleep(1);
 }
 
+/**
+ * An agent's turn that only ends when the test says so. The hub records a turn starting before
+ * it has asked the agent for one, so `finish` waits for that ask instead of being dropped on the
+ * floor: a turn nobody ends is a test that hangs until it times out.
+ */
+function holdingTurn(): { prompt: () => Promise<TurnResult>; finish: () => void } {
+	let release: ((result: TurnResult) => void) | null = null;
+	let finished = false;
+	return {
+		prompt: () =>
+			new Promise<TurnResult>((resolve) => {
+				release = resolve;
+				if (finished) resolve({ reason: "done" });
+			}),
+		finish: () => {
+			finished = true;
+			release?.({ reason: "done" });
+		},
+	};
+}
+
 describe("ChatHub failed turns", () => {
 	/** The last turn's end as the log holds it: how it ended, and the words it ended with. */
 	function turnEnd(
@@ -254,14 +275,11 @@ describe("ChatHub failed turns", () => {
 
 describe("ChatHub running threads", () => {
 	it("lists only this person's threads with a turn in flight", async () => {
-		let finish: () => void = () => undefined;
+		const held = holdingTurn();
 		const provider: Provider = {
 			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
 			start: async () => ({
-				prompt: () =>
-					new Promise((resolve) => {
-						finish = () => resolve({ reason: "done" });
-					}),
+				prompt: held.prompt,
 				cancel: () => undefined,
 				approve: () => undefined,
 				setModel: async () => undefined,
@@ -278,10 +296,10 @@ describe("ChatHub running threads", () => {
 		);
 		hub.create({ userId: "u2", workspace: "u2" }, { project: "shop", provider: "fake" });
 		const turn = hub.prompt("u1", mine.id, "go");
-		await Bun.sleep(5);
+		await until(() => store.events(mine.id).some((event) => event.type === "turn_start"));
 		expect(hub.running("u1")).toEqual([{ id: mine.id, project: "shop" }]);
 		expect(hub.running("u2")).toEqual([]);
-		finish();
+		held.finish();
 		await turn;
 		expect(hub.running("u1")).toEqual([]);
 		hub.closeAll();
@@ -351,15 +369,12 @@ describe("ChatHub session settings", () => {
 describe("ChatHub deleting a chat", () => {
 	/** An agent whose turn only ends when the test says so. */
 	function providerHoldingTurn(): { provider: Provider; finish: () => void } {
-		let release: (result: TurnResult) => void = () => undefined;
+		const held = holdingTurn();
 		const provider: Provider = {
 			info: () => ({ id: "fake", name: "Fake", available: true, models: [], modes: [] }),
 			catalog: async () => ({ models: [] }),
 			start: async () => ({
-				prompt: () =>
-					new Promise((resolve) => {
-						release = resolve;
-					}),
+				prompt: held.prompt,
 				cancel: () => undefined,
 				approve: () => undefined,
 				setModel: async () => undefined,
@@ -368,7 +383,7 @@ describe("ChatHub deleting a chat", () => {
 				close: () => undefined,
 			}),
 		};
-		return { provider, finish: () => release({ reason: "done" }) };
+		return { provider, finish: held.finish };
 	}
 
 	it("refuses to delete a chat whose agent is still working", async () => {

@@ -135,6 +135,11 @@ function mergeRolePermissions(
 	return merged;
 }
 
+/** Whether the person may set the workspace's logo. Checked before the image is written. */
+export async function assertCanSetLogo(db: Database, scope: WorkspaceScope): Promise<void> {
+	requireRole(await workspaceAccess(db, scope), "admin");
+}
+
 /** A new logo (a path on this API), set by an admin. */
 export async function updateLogo(db: Database, scope: WorkspaceScope, logoUrl: string | null) {
 	const access = await workspaceAccess(db, scope);
@@ -185,11 +190,14 @@ export async function updateMember(
 	const member = await requireMember(db, access.workspace.id, userId);
 	if (!outranks(access.role, member.role) || !outranks(access.role, input.role))
 		throw forbidden(`Only a workspace owner can do this`);
-	if (input.role !== "owner") await keepAnOwner(db, access.workspace.id, member);
 	const customRole = input.customRole ?? null;
 	if (customRole && !access.workspace.settings.customRoles?.some((role) => role.id === customRole))
 		throw badRequest("That role is not in this workspace");
-	await q.setRole(db, access.workspace.id, userId, customRole ? "member" : input.role, customRole);
+	// What the holder is about to be, which a custom role overrides: the last owner who asks for
+	// one is stepping down to a member, and the check has to see that rather than the role asked for.
+	const nextRole = customRole ? "member" : input.role;
+	if (nextRole !== "owner") await keepAnOwner(db, access.workspace.id, member);
+	await q.setRole(db, access.workspace.id, userId, nextRole, customRole);
 	return (await listMembers(db, scope)).find((m) => m.userId === userId);
 }
 
