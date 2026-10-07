@@ -8,9 +8,6 @@ still owns sign-in, projects, and board tasks.
 - **Agents:** adapters turn provider protocols into one event stream. Sessions and their event
   logs are stored in SQLite, so a conversation can be reopened after a browser disconnect or
   runner restart. Settings → Agents can install or sign in supported CLIs on this machine.
-  Agents with only a terminal UI (Freebuff) run in a pseudo-terminal and are read off a headless
-  screen: keys drive their menus, the rendered reply streams into the chat, and their own export
-  restates each turn exactly when it ends.
 - **Terminals:** Bun PTYs outlive their browser sockets. A reconnect receives missed output
   when it is still available; restarting the runner ends the running shells.
 - **Files:** browse and create files or folders inside a linked project root. Path checks keep

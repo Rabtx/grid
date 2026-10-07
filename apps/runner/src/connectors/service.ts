@@ -214,7 +214,7 @@ export class Connectors {
 			suggested: this.suggest(workspace).filter((id) => !connected.has(id)),
 			secrets: this.deps.vault.names(workspace),
 			// Agents run as terminal apps take no MCP servers from Grid yet.
-			agentsWithoutConnectors: ["antigravity", "freebuff"],
+			agentsWithoutConnectors: ["antigravity"],
 		};
 	}
 

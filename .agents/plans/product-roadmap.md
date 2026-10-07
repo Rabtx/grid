@@ -69,31 +69,12 @@ The things every session needs, and the foundation the later phases stand on.
 - Phones open files to read, with an Edit toggle, since editing code on a phone is occasional.
 - Later: "Ask the agent about this selection" from the editor.
 
-### A5. Agents that only have a terminal (starting with Freebuff)
+### A5. Agents that only have a terminal — removed
 
-Some agents ship only an interactive CLI, with no protocol to drive. The first attempt (draft
-PR #106, closed unmerged because it predates the kit) proved the approach; rebuild it on the
-current runner and console:
-
-- **Launch the official CLI in a PTY** (Bun's terminal support) in the thread's folder or
-  worktree, reusing the runner's terminal session, auth, reconnect and raw-byte replay. Never use
-  the tool's private interfaces.
-- **Read its screen, not its bytes:** a headless VT parser (`@xterm/headless`) keeps the screen
-  state and turns it into events — the current screen, new text, prompts and menus.
-- **Drive its own UI with keys:** list models by opening the CLI's model menu (including its "see
-  all" option) in a throwaway folder, pick the chosen one, answer its prompts; if it reopens a
-  previous session, leave that the way the tool itself does (its Ctrl+C flow) and start fresh.
-- **Map it into Chat:** the agent appears in the model picker like any other, and the parsed
-  screen becomes streaming `message` events and a turn end, so the thread reads like every other
-  agent's. The chosen model shows after the first message, since the CLI fixes it at start.
-- **Keep what the tool shows:** a free tool's sponsored lines stay visible (in the transcript or
-  beside it), recorded as they scroll so none is lost.
-- **Fall back to the raw terminal** in a tab when the screen cannot be interpreted, with a phone
-  key bar for Enter, Ctrl+C, arrows and slash commands.
-- **Lessons from the first attempt, as tests from day one:** lines that scroll off within one
-  write, identical lines not collapsed, a line split across chunks counted once, and a reconnect
-  that restores history instead of replaying it as new events.
-- The adapter is generic ("interactive CLI agent"); Freebuff is its first user.
+Built for Freebuff (the CLI driven in a PTY and read off a headless screen), then removed on
+2026-10-08: the Freebuff account was suspended and the person chose to run such tools from a
+terminal directly. Terminal-only agents are used in Grid's Terminal, not as chat agents. The
+history is in the done cards and in git.
 
 ## Phase B — GitHub, and a way to see everything that needs you
 

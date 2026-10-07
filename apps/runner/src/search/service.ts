@@ -51,7 +51,7 @@ export class SearchError extends Error {
 
 // Agents that answer from what they are given, in the order one is picked.
 const ANSWERERS = ["claude", "codex", "opencode"];
-const NO_ANSWERS = new Set(["antigravity", "freebuff"]);
+const NO_ANSWERS = new Set(["antigravity"]);
 const SOURCE_TEXT = 700;
 
 const day = (iso: string) =>

@@ -76,7 +76,8 @@ export type ChatEvent =
 	| { type: "commands"; commands: AgentCommand[] }
 	/**
 	 * The turn's reply restated exactly: replaces the text and reasoning shown since the message,
-	 * and its tools too with `replaceTools`.
+	 * and its tools too with `replaceTools`. No agent sends it now; it is only in older logs (the
+	 * terminal-only agent Grid once ran), which still replay as they were shown.
 	 */
 	| { type: "turn_rewrite"; events: TurnEvent[]; replaceTools?: boolean };
 

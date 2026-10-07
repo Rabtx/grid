@@ -163,7 +163,6 @@ const AGENT_NAMES: Record<string, string> = {
 	codex: "Codex",
 	opencode: "opencode",
 	antigravity: "Antigravity",
-	freebuff: "Freebuff",
 };
 
 const VERB = /^(run|edit|write|create|delete|remove|read|fetch|open|move|rename|install|push)\b/i;
