@@ -1,4 +1,6 @@
-import { homedir } from "node:os";
+import { mkdtempSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { cached, effortChoices } from "./catalog";
 import { agentCommands } from "./commands";
@@ -38,7 +40,9 @@ type ListedModel = {
 export function claudeModelChoice(row: ListedModel): Choice | null {
 	if (!row.value || row.disabled || row.value.startsWith("cc-update-required")) return null;
 	const [head = "", ...rest] = (row.description ?? "").split(" · ");
-	const exact = head.replace(/ with 1M context$/, " (1M context)") || row.displayName || row.value;
+	const named = head.replace(/ with 1M context$/, " (1M context)") || row.displayName || row.value;
+	// A 1M-context row says so, even when its description does not ("claude-fable-5-1[1m]").
+	const exact = row.value.endsWith("[1m]") && !/1M/.test(named) ? `${named} (1M context)` : named;
 	const name = row.value === "default" ? `Default · ${exact}` : exact;
 	const resolved = row.resolvedModel?.replace(/\[1m\]$/, "");
 	const levels = row.supportedEffortLevels ?? [];
@@ -55,8 +59,15 @@ export function claudeModelChoice(row: ListedModel): Choice | null {
 	};
 }
 
-/** Ask a short-lived Claude Code process for its models; no prompt is sent, nothing is spent. */
-function listClaudeModels(binary: string, spawn: Spawn): Promise<Choice[]> {
+/**
+ * Ask a short-lived Claude Code process for its model rows; no prompt is sent, nothing is spent.
+ * `env` and `cwd` set up the process it asks (see `claudeLineup`).
+ */
+function listedModels(
+	binary: string,
+	spawn: Spawn,
+	options: { cwd: string; env?: Record<string, string> },
+): Promise<ListedModel[]> {
 	return new Promise((resolve, reject) => {
 		let proc: JsonProcess | null = null;
 		const timer = setTimeout(() => {
@@ -64,7 +75,8 @@ function listClaudeModels(binary: string, spawn: Spawn): Promise<Choice[]> {
 			reject(new Error("Claude Code did not list its models in time"));
 		}, 20_000);
 		proc = spawn(claudeArgs(binary, {}), {
-			cwd: homedir(),
+			cwd: options.cwd,
+			...(options.env ? { env: options.env } : {}),
 			onMessage: (raw) => {
 				const message = raw as {
 					type?: string;
@@ -77,11 +89,7 @@ function listClaudeModels(binary: string, spawn: Spawn): Promise<Choice[]> {
 					return;
 				clearTimeout(timer);
 				proc?.kill();
-				const models = (message.response.response?.models ?? [])
-					.map(claudeModelChoice)
-					.filter((model): model is Choice => model !== null);
-				if (models.length) resolve(models);
-				else reject(new Error("Claude Code listed no models"));
+				resolve(message.response.response?.models ?? []);
 			},
 		});
 		proc.send({
@@ -95,6 +103,82 @@ function listClaudeModels(binary: string, spawn: Spawn): Promise<Choice[]> {
 			request: { subtype: "list_models" },
 		});
 	});
+}
+
+/**
+ * Every model this Claude Code version can run. Signed in to Anthropic, its picker shows a short
+ * list (Default, Opus, Sonnet, Fable, Haiku); every version it knows (Opus 4.8, Sonnet 5, …) is
+ * listed only in its cloud-provider mode. So that list is asked of a Claude Code set to that mode
+ * in an empty scratch home: it reads no settings and no sign-in, sends nothing and spends nothing.
+ * The ids are Anthropic's, except a few with a provider date ("claude-opus-4-1@20250805"), which
+ * is dropped.
+ */
+async function claudeLineup(binary: string, spawn: Spawn): Promise<ListedModel[]> {
+	const home = mkdtempSync(join(tmpdir(), "grid-claude-models-"));
+	try {
+		const rows = await listedModels(binary, spawn, {
+			cwd: home,
+			env: { HOME: home, CLAUDE_CODE_USE_VERTEX: "1" },
+		});
+		return rows.map((row) => ({ ...row, value: row.value?.replace(/@\d{8}$/, "") }));
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+}
+
+/** The model a row runs, for telling apart rows that name the same model ("opus", "claude-opus-5-5"). */
+function runs(row: ListedModel): string | undefined {
+	return (row.resolvedModel ?? row.value)?.replace(/@\d{8}$/, "").replace(/-\d{8}$/, "");
+}
+
+/**
+ * The picker list: Claude Code's own rows for this sign-in first, as it names them, then every
+ * other version it can run, under "More versions". A version a row above already runs is not
+ * listed twice. When the full list cannot be had, the picker rows are the list.
+ */
+export function claudeModels(picker: ListedModel[], lineup: ListedModel[]): Choice[] {
+	const offered = picker.map(claudeModelChoice).filter((model): model is Choice => model !== null);
+	const covered = new Set(
+		picker
+			.filter((row) => claudeModelChoice(row) !== null)
+			.map((row) => `${runs(row)}${row.value?.endsWith("[1m]") ? "[1m]" : ""}`),
+	);
+	const ids = new Set(offered.map((model) => model.id));
+	const more: Choice[] = [];
+	for (const row of lineup) {
+		// Only exact versions: "default" and the family aliases are the picker's own rows.
+		if (!row.value?.startsWith("claude-")) continue;
+		const key = `${runs(row)}${row.value.endsWith("[1m]") ? "[1m]" : ""}`;
+		if (covered.has(key) || ids.has(row.value)) continue;
+		const choice = claudeModelChoice({ ...row, resolvedModel: runs(row) });
+		if (!choice) continue;
+		covered.add(key);
+		ids.add(choice.id);
+		// Named by version ("Opus 4.8", "Sonnet 4.6 (1M context)"); a bare family name ("Fable")
+		// gives way to the version its description starts with.
+		const name = /\d/.test(row.displayName ?? "") ? (row.displayName as string) : choice.name;
+		more.push({ ...choice, name, group: "More versions" });
+	}
+	return more.length
+		? [...offered.map((model) => ({ ...model, group: "Claude Code" })), ...more]
+		: offered;
+}
+
+/** Ask Claude Code for its models: its picker for this sign-in, and every version it can run. */
+async function listClaudeModels(binary: string, spawn: Spawn): Promise<Choice[]> {
+	const [picker, lineup] = await Promise.all([
+		listedModels(binary, spawn, { cwd: homedir() }),
+		claudeLineup(binary, spawn).catch((cause: unknown) => {
+			console.warn(
+				"[runner] Claude Code did not list every version it can run:",
+				cause instanceof Error ? cause.message : cause,
+			);
+			return [];
+		}),
+	]);
+	const models = claudeModels(picker, lineup);
+	if (!models.length) throw new Error("Claude Code listed no models");
+	return models;
 }
 
 /** The commands Claude Code reports, as it reports them: name, description and argument hint. */

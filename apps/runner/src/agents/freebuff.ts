@@ -21,6 +21,8 @@ import {
 	ReplyTracker,
 	type Segment,
 	sessionModel,
+	refusal,
+	signedOut,
 } from "./freebuff-screen";
 import type { AgentContext, AgentSession, Provider, TurnResult } from "./provider";
 import { spawnTui, type TuiProcess } from "./tui";
@@ -87,15 +89,46 @@ export function exitReason(lines: string[]): string {
 	return said ? `Freebuff stopped: ${said.slice(0, 300)}` : "Freebuff stopped";
 }
 
-/** Wait until Freebuff takes messages, passing on why when it cannot connect or stops. */
+/** What to do when Freebuff asks to log in; Grid never signs in for anyone. */
+export const SIGN_IN =
+	"Freebuff is signed out on this machine. Open a terminal, run `freebuff`, press Enter and sign in, then send this again.";
+
+/**
+ * Why Freebuff will not go on, when its screen says so: it wants a sign-in, or it refuses
+ * messages ("This account is suspended"). Null while it can carry on.
+ */
+function blocked(lines: string[]): Error | null {
+	if (signedOut(lines)) return new Error(SIGN_IN);
+	const said = refusal(lines);
+	return said ? new Error(`Freebuff: ${said}`) : null;
+}
+
+/**
+ * Why a step failed, in terms a person can act on: Freebuff stopped, wants a sign-in, or shows a
+ * warning; otherwise the step's own error. What the screen showed goes to the runner's log, so a
+ * failure nobody can explain from the chat can still be read later.
+ */
+function explain(tui: TuiProcess, cause: unknown): Error {
+	const lines = tui.lines();
+	const said = lines.filter((line) => line.trim()).slice(-12);
+	console.warn(`[runner] Freebuff: ${String(cause)}; its screen showed:\n${said.join("\n")}`);
+	if (!tui.alive) return new Error(exitReason(lines));
+	const stopped = blocked(lines);
+	if (stopped) return stopped;
+	const warning = connectionWarning(lines);
+	if (warning) return new Error(`Freebuff: ${warning}`);
+	return cause instanceof Error ? cause : new Error(String(cause));
+}
+
+/** Wait until Freebuff takes messages, passing on why when it cannot connect, signs out or stops. */
 async function reachSession(tui: TuiProcess): Promise<string[]> {
-	try {
-		return await tui.wait((lines) => isIdle(lines) || inSession(lines), START_MS);
-	} catch (cause) {
-		if (!tui.alive) throw new Error(exitReason(tui.lines()));
-		const warning = connectionWarning(tui.lines());
-		throw new Error(warning ? `Freebuff: ${warning}` : String(cause));
-	}
+	const lines = await tui.wait(
+		(screen) => isIdle(screen) || inSession(screen) || blocked(screen) !== null,
+		START_MS,
+	);
+	const stopped = blocked(lines);
+	if (stopped) throw stopped;
+	return lines;
 }
 
 /** Show every model: the menu starts with a short list and a "See all" row under it. */
@@ -283,12 +316,16 @@ export class ReplyStream {
 		if (this.held) this.show(this.held.parts, this.held.finished);
 	}
 
-	/** End the turn with its exact events, or, without them, with what the screen last showed. */
-	finish(exact: TurnEvent[] | null, seen: Segment[] | null): void {
+	/**
+	 * End the turn with its exact events, or, without them, with what the screen last showed. False
+	 * when there was nothing to end it with: no reply at all.
+	 */
+	finish(exact: TurnEvent[] | null, seen: Segment[] | null): boolean {
 		const parts = seen ?? this.held?.parts ?? this.sent.map((item) => item.part);
 		const events = exact ?? parts.map((part, i) => eventOf(part, this.id(i), false));
-		if (events.length)
-			this.emit({ type: "turn_rewrite", replaceTools: true, events: [...this.preface, ...events] });
+		if (!events.length) return false;
+		this.emit({ type: "turn_rewrite", replaceTools: true, events: [...this.preface, ...events] });
+		return true;
 	}
 }
 
@@ -298,7 +335,9 @@ export class ReplyStream {
  * arrived, press Enter, and check it left the box, retrying each step a few times.
  */
 async function submit(tui: TuiProcess, text: string): Promise<void> {
-	await tui.wait(isIdle, START_MS);
+	const lines = await tui.wait((screen) => isIdle(screen) || blocked(screen) !== null, START_MS);
+	const stopped = blocked(lines);
+	if (stopped) throw stopped;
 	for (let attempt = 0; attempt < 3; attempt++) {
 		if (!inputText(tui.lines())) tui.write(typed(text));
 		const arrived = await tui
@@ -309,7 +348,10 @@ async function submit(tui: TuiProcess, text: string): Promise<void> {
 		await Bun.sleep(150);
 		tui.write("\r");
 		const sent = await tui
-			.wait((lines) => inputText(lines) === "" || isWorking(lines), STEP_MS)
+			.wait(
+				(lines) => inputText(lines) === "" || isWorking(lines) || blocked(lines) !== null,
+				STEP_MS,
+			)
 			.then(() => true)
 			.catch(() => false);
 		if (sent) return;
@@ -441,6 +483,8 @@ async function startFreebuff(
 				chat = await findChat(chats, text, since, chat?.id ?? conversation);
 				if (chat && replyState(chat.messages, text, since) === "complete") break;
 				const lines = screen.lines();
+				const stopped = blocked(lines);
+				if (stopped) throw stopped;
 				const working = isWorking(lines);
 				worked ||= working;
 				// Not every build marks the file complete: a reply the screen shows finished, and
@@ -476,7 +520,10 @@ async function startFreebuff(
 			const seen = tracker.update(screen.lines());
 			screen.onChange();
 			const exact = chat ? exportedTurn(chat.messages) : [];
-			stream.finish(exact.length ? exact : null, seen);
+			// Freebuff can take a message and end its turn with nothing (its service turned it away):
+			// that is not a reply, so say what the screen says rather than end quietly.
+			if (!stream.finish(exact.length ? exact : null, seen))
+				throw new Error("Freebuff ended the turn without replying");
 			// The model that answered: a running session keeps the one it started with.
 			announce();
 			if (chat && chat.id !== conversation) {
@@ -489,7 +536,10 @@ async function startFreebuff(
 			return { reason: "done" };
 		} catch (cause) {
 			if (cancelled) return { reason: "cancelled" };
-			return { reason: "error", error: cause instanceof Error ? cause.message : String(cause) };
+			// `current` is unset when starting Freebuff failed; the process is still there to read.
+			const shown = current ?? tui;
+			const error = shown ? explain(shown, cause) : cause;
+			return { reason: "error", error: error instanceof Error ? error.message : String(error) };
 		} finally {
 			current?.onChange();
 			busy = false;

@@ -8,7 +8,11 @@
  * FAKE_STATE_DIR is where it keeps its chat file, as the real CLI keeps one under
  * `~/.config/manicode`. FAKE_NO_ECHO draws replies without the echo of the message, a screen the
  * adapter cannot follow; FAKE_NO_COMPLETE saves replies without marking them complete, and
- * FAKE_NO_FOOTER leaves out the line under a finished reply.
+ * FAKE_NO_FOOTER leaves out the line under a finished reply. FAKE_SIGNED_OUT opens on the sign-in
+ * screen a lapsed sign-in shows, and FAKE_TURNED_AWAY takes a message, works briefly and ends with
+ * no reply under a warning, as when its service refuses the sign-in mid-session. Emoji typed into
+ * the input box are dropped, as the real one drops them. FAKE_SUSPENDED answers a message with the
+ * box Freebuff draws when it refuses one ("This account is suspended").
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -37,6 +41,10 @@ const noEcho = Boolean(process.env.FAKE_NO_ECHO);
 // Newer builds save the reply without marking it complete.
 const markComplete = !process.env.FAKE_NO_COMPLETE;
 const footer = !process.env.FAKE_NO_FOOTER;
+const signedOut = Boolean(process.env.FAKE_SIGNED_OUT);
+const turnedAway = Boolean(process.env.FAKE_TURNED_AWAY);
+const suspended = Boolean(process.env.FAKE_SUSPENDED);
+let refused = false;
 const continued = process.argv[process.argv.indexOf("--continue") + 1];
 const chatId =
 	process.argv.includes("--continue") && continued && !continued.startsWith("-")
@@ -52,6 +60,8 @@ let level = 0;
 let input = "";
 let status = "";
 let session = false;
+/** A warning drawn across the top, as the real CLI draws one. */
+let notice = "";
 const log: string[] = [];
 const exported: unknown[] = [];
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -69,6 +79,12 @@ function label(model: Model): string {
 }
 
 function draw(): void {
+	if (signedOut) {
+		process.stdout.write(
+			`\x1b[H\x1b[2J ⚠ We found an API key but it appears to be invalid. Please log in again to continue.\r\n\r\n${" ".repeat(40)}Press ENTER to login...`,
+		);
+		return;
+	}
 	const shown = collapsed ? MODELS.slice(0, 2) : MODELS;
 	const under = [
 		` ${label(MODELS[current])} · ${process.cwd()} · /model to change · Chat: New chat`,
@@ -82,7 +98,9 @@ function draw(): void {
 			lines.push(`  ┌${"─".repeat(60)}┐`);
 			// Newer builds: "Name • level · traits", one row.
 			lines.push(`  │ ${mark}${label(model)} · ${model.traits}`.padEnd(63) + "│");
-			lines.push(`  │ ${model.price.padStart(35)}`.padEnd(63) + "│");
+			// Once a session runs the price gives way to how the model is doing, as in the real one.
+			if (!session) lines.push(`  │ ${model.price.padStart(35)}`.padEnd(63) + "│");
+			else if (index === 0) lines.push(`  │ ${"Stalled".padStart(32)}`.padEnd(63) + "│");
 			lines.push(`  └${"─".repeat(60)}┘`);
 		});
 		lines.push(collapsed ? "  ↓  See all 3 models" : "  ↑  Show fewer");
@@ -105,15 +123,26 @@ function draw(): void {
 					" │ 80/105 Freebucks remaining",
 					" │ Starter plan",
 				];
+		const box = refused
+			? [
+					`┌${"─".repeat(60)}┐`,
+					"│ This account is suspended. If this is a mistake, contact support@codebuff.com. │",
+					"│ Enter: retry  Esc: back to draft │",
+					`└${"─".repeat(60)}┘`,
+				]
+			: [
+					`╭${"─".repeat(60)}╮`,
+					`│  ▍${input || "Enter a coding task or / for commands"}`,
+					`╰${"─".repeat(60)}╯`,
+				];
 		const footer = [
 			status || (session ? ` 1h left${" ".repeat(40)}✕ End session` : ""),
-			`╭${"─".repeat(60)}╮`,
-			`│  ▍${input || "Enter a coding task or / for commands"}`,
-			`╰${"─".repeat(60)}╯`,
+			...box,
 			...under,
 		];
-		const room = rows - footer.length - top.length;
-		lines = [...top, ...log.slice(-room), ...footer];
+		const above = [...(notice ? [notice, ""] : []), ...top];
+		const room = rows - footer.length - above.length;
+		lines = [...above, ...log.slice(-room), ...footer];
 	}
 	process.stdout.write(`\x1b[H\x1b[2J${lines.slice(0, rows).join("\r\n")}`);
 }
@@ -137,6 +166,19 @@ function send(text: string): void {
 	const answer = { id: `ai-${Date.now()}`, variant: "ai", content: "", blocks: [] as unknown[] };
 	exported.push(answer);
 	save();
+	if (suspended) {
+		refused = true;
+		return;
+	}
+	if (turnedAway) {
+		status = ` thinking...${" ".repeat(40)}1s  ■ Esc`;
+		setTimeout(() => {
+			status = "";
+			notice = " ⚠ We found an API key but it appears to be invalid.";
+			draw();
+		}, 300);
+		return;
+	}
 	const reply = Array.from({ length: replyLines }, (_, i) => `row ${i + 1}`);
 	let written = 0;
 	status = ` thinking...${" ".repeat(40)}1s  ■ Esc`;
@@ -202,7 +244,7 @@ function key(data: string): void {
 		// oxlint-disable-next-line no-control-regex -- the paste markers are escape sequences
 		input += data.replace(/\x1b\[20[01]~/g, "");
 	} else if (!data.startsWith("\x1b")) {
-		input += data;
+		input += data.replace(/\p{Extended_Pictographic}/gu, "");
 	}
 	draw();
 }

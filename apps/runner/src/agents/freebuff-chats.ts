@@ -2,6 +2,8 @@ import { readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
+import { squash } from "./freebuff-screen";
+
 /**
  * Freebuff's own record of its conversations. The CLI keeps each one in a folder named by its id,
  * with the messages as JSON (the same shape its `/export` writes): the exact Markdown, reasoning
@@ -27,10 +29,6 @@ export function freebuffStateDir(env: Record<string, string | undefined> = proce
 /** A folder's conversations, one directory each (Freebuff files them by the folder's name). */
 export function chatsDir(stateDir: string, cwd: string): string {
 	return join(stateDir, "projects", basename(cwd), "chats");
-}
-
-function squash(text: string): string {
-	return text.replace(/\s+/g, " ").trim();
 }
 
 /** Messages are stamped in their ids (`user-1790518979225`); allow for clocks a little apart. */

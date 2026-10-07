@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { agyArgs, agyModelId, antigravityProvider, parseAgyModels } from "./antigravity";
-import { claudeModelChoice } from "./claude";
+import { claudeModelChoice, claudeModels } from "./claude";
 import { effortChoices } from "./catalog";
 import type { ChatEvent, Choice } from "./events";
 import { parseOpencodeModels } from "./opencode";
@@ -44,6 +44,68 @@ describe("Claude Code's model list", () => {
 		expect(
 			claudeModelChoice({ value: "default", description: "Opus 5.5 with 1M context · Best" })?.name,
 		).toBe("Default · Opus 5.5 (1M context)");
+	});
+});
+
+describe("every Claude model Claude Code can run", () => {
+	// Rows as Claude Code 2.1.292 lists them: its picker signed in to Anthropic, and its full list.
+	const picker = [
+		{
+			value: "default",
+			resolvedModel: "claude-opus-5-5",
+			description: "Opus 5.5 · Best for everyday, complex tasks",
+		},
+		{
+			value: "opus",
+			resolvedModel: "claude-opus-5-5",
+			description: "Opus 5.5 · Best for everyday, complex tasks",
+		},
+		{
+			value: "claude-fable-5-1[1m]",
+			resolvedModel: "claude-fable-5-1",
+			description: "Fable 5.1 · Most capable for your hardest and longest-running tasks",
+		},
+		{
+			value: "claude-haiku-5-5",
+			resolvedModel: "claude-haiku-5-5",
+			description: "Update Claude Code to use this model",
+			disabled: true,
+		},
+	];
+	const lineup = [
+		{ value: "default", resolvedModel: "claude-opus-5-5", displayName: "Default" },
+		{ value: "claude-opus-5-5", displayName: "Opus", description: "Opus 5.5 · Best" },
+		{ value: "claude-fable-5-1", displayName: "Fable", description: "Fable 5.1 · Most capable" },
+		{ value: "claude-opus-4-8", displayName: "Opus 4.8", description: "Opus 4.8 · Legacy" },
+		{
+			value: "claude-sonnet-4-6[1m]",
+			displayName: "Sonnet 4.6 (1M context)",
+			description: "Sonnet 4.6 for long sessions",
+		},
+		{ value: "claude-opus-4-1", displayName: "Opus 4.1", description: "Opus 4.1 · Legacy" },
+		{ value: "haiku", resolvedModel: "claude-haiku-4-5@20251001", displayName: "Haiku" },
+	];
+
+	it("lists the picker's rows first, then every other version once, by version", () => {
+		const models = claudeModels(picker, lineup);
+		expect(models.map((model) => [model.group, model.id, model.name])).toEqual([
+			["Claude Code", "default", "Default · Opus 5.5"],
+			["Claude Code", "opus", "Opus 5.5"],
+			["Claude Code", "claude-fable-5-1[1m]", "Fable 5.1 (1M context)"],
+			["More versions", "claude-fable-5-1", "Fable 5.1"],
+			["More versions", "claude-opus-4-8", "Opus 4.8"],
+			["More versions", "claude-sonnet-4-6[1m]", "Sonnet 4.6 (1M context)"],
+			["More versions", "claude-opus-4-1", "Opus 4.1"],
+		]);
+	});
+
+	it("is the picker alone when the full list could not be had", () => {
+		expect(claudeModels(picker, []).map((model) => model.id)).toEqual([
+			"default",
+			"opus",
+			"claude-fable-5-1[1m]",
+		]);
+		expect(claudeModels(picker, [])[0].group).toBeUndefined();
 	});
 });
 
