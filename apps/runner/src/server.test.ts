@@ -228,8 +228,12 @@ describe("the hello handshake", () => {
 		// and used to reach the handshake, which answered an ordinary keystroke by closing the
 		// socket: the terminal was gone before the person had seen a prompt.
 		ws.send(JSON.stringify({ t: "hello", token: "good", id, cols: 100, rows: 30 }));
-		ws.send(JSON.stringify({ t: "input", d: "echo typed-right-after-hello\r" }));
-		await waitForOutput(ws, "typed-right-after-hello");
+		// Quoted so the echoed command line never contains what it prints; the marker printed after
+		// it means a second copy would already have arrived.
+		ws.send(
+			JSON.stringify({ t: "input", d: 'echo typed-right-"after"-hello; echo "end"-of-it\r' }),
+		);
+		await waitForOutput(ws, "end-of-it");
 		expect(occurrences(text(), "typed-right-after-hello")).toBe(1);
 		ws.close();
 		expect(await closed).not.toBe(CLOSE_UNAUTHORIZED);
@@ -239,8 +243,8 @@ describe("the hello handshake", () => {
 		const { ws, text, id } = await slowSocket();
 		ws.send(JSON.stringify({ t: "hello", token: "good", id }));
 		ws.send(JSON.stringify({ t: "hello", token: "good", id }));
-		const printed = waitForOutput(ws, "attached-once");
-		ws.send(JSON.stringify({ t: "input", d: "echo attached-once\r" }));
+		const printed = waitForOutput(ws, "end-of-it");
+		ws.send(JSON.stringify({ t: "input", d: 'echo attached-"once"; echo "end"-of-it\r' }));
 		await printed;
 		// Two channels on the one socket each got the same output, and the first was never
 		// detached, so it stayed attached to the terminal long after the socket was gone.

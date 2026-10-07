@@ -1,4 +1,5 @@
 import { statSync } from "node:fs";
+import { homedir } from "node:os";
 import { basename } from "node:path";
 
 import type { RunnerConfig } from "./config";
@@ -180,7 +181,9 @@ export class TerminalStore {
 			(cwd?.trim() ? safeDirectory(cwd, this.config.projectsDir) : null) ??
 			safeDirectory(this.config.defaultCwd, this.config.projectsDir) ??
 			safeDirectory(this.config.projectsDir, this.config.projectsDir) ??
-			this.config.projectsDir;
+			// No projects folder on this machine yet (a fresh install): a shell can't start in a
+			// directory that isn't there, so it starts at home.
+			homedir();
 		const cols = clampSize(size.cols, 80);
 		const rows = clampSize(size.rows, 24);
 		const terminal = new Terminal(
