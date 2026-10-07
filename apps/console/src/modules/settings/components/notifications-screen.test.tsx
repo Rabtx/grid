@@ -85,9 +85,11 @@ describe("NotificationsScreen", () => {
 			"Following",
 			"Desktop",
 			"Phone",
-			"Email",
 		])
 			expect(text).toContain(word);
+		// Grid sends no email: no channel or digest offers it.
+		expect(text).not.toContain("Email");
+		expect(text).not.toContain("digest");
 		expect(text).toContain(`10 PM – 8 AM · ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
 		expect(text).toContain("Safari on iPhone");
 		expect(switchNamed("Runs on phone")?.getAttribute("aria-checked")).toBe("false");
@@ -132,7 +134,8 @@ describe("NotificationsScreen", () => {
 		);
 		await settle();
 		const text = container.textContent ?? "";
-		expect(text).toContain("Desktop · Phone · Email");
+		expect(text).toContain("Desktop · Phone");
+		expect(text).not.toContain("Email");
 		expect(text).toContain("This phone");
 		expect(text).toContain("Test notification");
 		[...container.querySelectorAll("button")]

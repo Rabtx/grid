@@ -5,8 +5,8 @@ type: bug
 from: pm
 to: web
 priority: normal
-status: open
-assignee: none
+status: done
+assignee: claude
 reviewer: human
 parent: none
 depends_on: []
@@ -36,4 +36,11 @@ and the live data.
 - Never run tests against the live API on :4000 or the live chat database.
 
 ## Resolution
-
+Fixed by claude, 2026-10-07. Removed the Email notification channel and the "Morning email digest"
+setting, because the runner has no way to send email and both did nothing. Removed in
+`apps/runner/src/prefs/store.ts`, `prefs/routes.ts`, the console's `account.service.ts` and
+`notifications-screen.tsx`, and the test fixtures. Prefs that older runners saved with `email` or
+`digest` still load, with those fields dropped (new test in `prefs.test.ts`). The console test
+asserts neither appears. Runner 487 / 487, console 702 / 702, lint passes. If email notifications
+are wanted later, the API already sends email through Resend (`apps/api/src/modules/email`), and
+the runner could ask it to.

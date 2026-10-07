@@ -59,7 +59,8 @@ export type PasskeyCreation = {
 
 /** Where each kind of update reaches someone. */
 export type NotifyKind = "approvals" | "questions" | "runs" | "reviews" | "following";
-export type Channels = { desktop: boolean; phone: boolean; email: boolean };
+/** Desktop and phone only: Grid sends no email notifications. */
+export type Channels = { desktop: boolean; phone: boolean };
 
 /** What a person sets for themselves on the runner (git identity, notifications). */
 export type PersonPrefs = {
@@ -75,7 +76,6 @@ export type PersonPrefs = {
 			weekends: boolean;
 		};
 		lockScreen: boolean;
-		digest: boolean;
 	};
 };
 
@@ -85,7 +85,6 @@ export type PrefsPatch = {
 		channels?: Partial<Record<NotifyKind, Partial<Channels>>>;
 		quiet?: Partial<PersonPrefs["notify"]["quiet"]>;
 		lockScreen?: boolean;
-		digest?: boolean;
 	};
 };
 
