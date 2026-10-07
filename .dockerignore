@@ -19,7 +19,7 @@
 !.env.example
 env.docker.example
 
-# Host-only / unused for Nest + web images
+# Host-only / unused for the API and web images
 apps/docs
 apps/c
 scripts
