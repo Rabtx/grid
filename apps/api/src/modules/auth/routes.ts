@@ -142,7 +142,7 @@ export function authRoutes(deps: AuthRouteDeps): Hono<AppEnv> {
 		)
 		.post("/methods/magic-link/consume", perMinute(8), csrf, async (c) => {
 			const { token } = await body(c.req, magicLinkBodySchema);
-			return ok(c, presentSession(c, await flows.consumeMagicLink(deps, token, metadata(c))));
+			return ok(c, presentLogin(c, await flows.consumeMagicLink(deps, token, metadata(c))));
 		})
 		.post("/methods/two-factor/verify", perMinute(8), csrf, async (c) => {
 			const input = await body(c.req, challengeTokenBodySchema);

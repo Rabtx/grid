@@ -10,6 +10,7 @@ let loginStatus = 401;
 let verifyBody: unknown;
 let verifyStatus = 200;
 let verifyCalls: Array<Record<string, unknown>> = [];
+let linkRequests: Array<Record<string, unknown>> = [];
 
 const unauthorized = { success: false, statusCode: 401, message: "Invalid email or password" };
 
@@ -46,6 +47,7 @@ describe("LoginForm", () => {
 		verifyBody = SESSION;
 		verifyStatus = 200;
 		verifyCalls = [];
+		linkRequests = [];
 		// A browser that can use passkeys (jsdom has none of its own).
 		vi.stubGlobal("PublicKeyCredential", class PublicKeyCredential {});
 
@@ -57,6 +59,19 @@ describe("LoginForm", () => {
 				if (urlString.includes("/auth/methods/two-factor/verify")) {
 					verifyCalls.push(JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>);
 					return Promise.resolve(json(verifyBody, verifyStatus));
+				}
+				if (urlString.includes("/auth/methods/magic-link/request")) {
+					linkRequests.push(JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>);
+					return Promise.resolve(
+						json(
+							{
+								success: true,
+								statusCode: 202,
+								data: { accepted: true, message: "sent", developmentToken: "dev-token" },
+							},
+							202,
+						),
+					);
 				}
 				if (urlString.includes("/auth/login")) {
 					return Promise.resolve(json(loginBody, loginStatus));
@@ -121,6 +136,19 @@ describe("LoginForm", () => {
 		await new Promise((r) => setTimeout(r, 0));
 		await new Promise((r) => setTimeout(r, 0));
 	}
+
+	it("emails a sign-in link instead of asking for the password", async () => {
+		await type(container.querySelector<HTMLInputElement>('input[type="email"]')!, "a@example.com");
+		[...container.querySelectorAll("button")]
+			.find((b) => b.textContent === "Email me a sign-in link")!
+			.click();
+		await tick();
+		await tick();
+		expect(linkRequests).toEqual([{ email: "a@example.com" }]);
+		expect(container.textContent).toContain("Check your email");
+		// A Grid that sends no email (outside production) offers the link here instead.
+		expect(container.textContent).toContain("Open the sign-in link here");
+	});
 
 	it("asks for the email first, then the password for it", async () => {
 		expect(container.querySelector('input[type="email"]')).not.toBeNull();

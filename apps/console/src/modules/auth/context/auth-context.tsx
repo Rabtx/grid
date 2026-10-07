@@ -42,6 +42,8 @@ type AuthState = {
 	 * for a few minutes, so a refused code leaves the caller to ask for another.
 	 */
 	verifyTwoFactor: (input: TwoFactorInput) => Promise<void>;
+	/** Signs in with an emailed link; like `login`, a challenge back means the code is still owed. */
+	signInWithMagicLink: (token: string) => Promise<TwoFactorChallenge | null>;
 	/** Signs in with a passkey on this device; with an email, only that account's passkeys. */
 	signInWithPasskey: (email?: string) => Promise<void>;
 	/** First run: create the owner and sign in as them. */
@@ -201,6 +203,14 @@ export function AuthProvider(props: { children: JSX.Element }): JSX.Element {
 			const started = startSignIn();
 			const session = await authService.verifyTwoFactor(input);
 			acceptSignIn(started, session);
+		},
+		signInWithMagicLink: async (token) => {
+			const started = startSignIn();
+			const result = await authService.consumeMagicLink(token);
+			checkSignIn(started);
+			if (isTwoFactorChallenge(result)) return result;
+			acceptSignIn(started, result);
+			return null;
 		},
 		signInWithPasskey: async (email) => {
 			const started = startSignIn();

@@ -20,6 +20,9 @@ const LoginForm = lazy(() => import("@/modules/auth/components/login-form"), {
 const SetupForm = lazy(() => import("@/modules/auth/components/setup-form"), {
 	export: "SetupForm",
 });
+const MagicLink = lazy(() => import("@/modules/auth/components/magic-link"), {
+	export: "MagicLink",
+});
 const InviteScreen = lazy(() => import("@/modules/workspaces/components/invite-screen"), {
 	export: "InviteScreen",
 });
@@ -111,6 +114,8 @@ const Router = createRouter({
 		{ path: "/", component: ProjectRoute },
 		{ path: "/login", component: LoginRoute },
 		{ path: "/setup", component: SetupRoute },
+		// An emailed sign-in link: signs in once, then opens the workspace.
+		{ path: "/magic-link", component: MagicLinkRoute },
 		// An invite link: join its workspace, signed in or with a new account.
 		{ path: "/invite/:token", component: InviteRoute },
 		// The first screen of the day: what needs you, the work in flight, and what runs next.
@@ -180,6 +185,14 @@ function LoginRoute(): JSX.Element {
 	return (
 		<Loading fallback={null}>
 			<LoginForm />
+		</Loading>
+	);
+}
+
+function MagicLinkRoute(): JSX.Element {
+	return (
+		<Loading fallback={null}>
+			<MagicLink />
 		</Loading>
 	);
 }

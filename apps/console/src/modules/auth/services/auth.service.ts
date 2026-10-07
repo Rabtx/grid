@@ -41,6 +41,20 @@ export const authService = {
 		changeCookie((signal) =>
 			apiClient.post<AuthSession>("/auth/methods/two-factor/verify", input, { signal }),
 		),
+	/**
+	 * Emails a one-time sign-in link to the account, if there is one (the answer is the same either
+	 * way). Outside production the API also returns the link's token, for a Grid that sends no email.
+	 */
+	requestMagicLink: (email: string) =>
+		apiClient.post<{ accepted: true; message: string; developmentToken?: string }>(
+			"/auth/methods/magic-link/request",
+			{ email },
+		),
+	/** Signs in with an emailed link's token; an account with 2FA still owes its code. */
+	consumeMagicLink: (token: string) =>
+		changeCookie((signal) =>
+			apiClient.post<LoginResult>("/auth/methods/magic-link/consume", { token }, { signal }),
+		),
 	/** Starts a passkey sign-in: the challenge, for the account with that email or any passkey. */
 	passkeyOptions: (email?: string) =>
 		apiClient.post<{ challengeId: string; options: PasskeyRequestJSON }>(
