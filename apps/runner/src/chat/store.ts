@@ -670,6 +670,42 @@ export class ChatStore {
 	}
 
 	/**
+	 * The thread's last `turns` messages and everything after them, from before `before` (a `seq`)
+	 * when given: what a device is sent on opening a thread, and each page of earlier history it
+	 * asks for after. `earlier` is where the history before them ends, to ask for next; null when
+	 * these reach the start of the thread. Each page starts at a message, so a turn is never split.
+	 */
+	recentEvents(
+		sessionId: string,
+		turns: number,
+		before = Number.MAX_SAFE_INTEGER,
+	): { events: ChatEvent[]; earlier: number | null } {
+		const page = this.db.query<{ seq: number; data: string }, [string, number, number]>(
+			"SELECT seq, data FROM events WHERE session_id = ? AND seq < ? ORDER BY seq DESC LIMIT ?",
+		);
+		const events: ChatEvent[] = [];
+		let messages = 0;
+		let cursor = before;
+		for (;;) {
+			const rows = page.all(sessionId, cursor, EVENTS_PAGE);
+			for (const row of rows) {
+				const event = JSON.parse(row.data) as ChatEvent;
+				events.push(event);
+				if (event.type === "user" && ++messages === turns) {
+					const more = this.db
+						.query<{ one: number }, [string, number]>(
+							"SELECT 1 AS one FROM events WHERE session_id = ? AND seq < ? LIMIT 1",
+						)
+						.get(sessionId, row.seq);
+					return { events: events.reverse(), earlier: more ? row.seq : null };
+				}
+			}
+			if (rows.length < EVENTS_PAGE) return { events: events.reverse(), earlier: null };
+			cursor = rows[rows.length - 1]?.seq ?? 0;
+		}
+	}
+
+	/**
 	 * The thread's events from the last one of `type` on, or all of them when there is none: the
 	 * latest turn, read newest first and stopped there, so a long thread costs no more than its last
 	 * turn. What is polled every few seconds (approvals waiting, Operations' runs) reads this.

@@ -122,6 +122,7 @@ export function openChat(
 			t: "ready",
 			session: attached.session,
 			history: attached.history,
+			earlier: attached.earlier,
 			missed: attached.missed,
 			running: attached.running,
 			cursor: attached.cursor,
