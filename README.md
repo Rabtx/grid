@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/grid-logo-dark.png">
-  <img src=".github/assets/grid-logo-light.png" alt="Grid" width="260">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/grid-logo-dark.svg">
+  <img src=".github/assets/grid-logo-light.svg" alt="Grid" width="260">
 </picture>
 
 ### Build your company with a team of agents.
@@ -15,9 +15,17 @@ threads, the files and the terminal, on the machine that holds the project, from
 
 <a href="https://github.com/shabirkhan-dev/grid/releases/tag/v0.1.0-beta"><img src=".github/assets/grid-intro.webp" alt="Grid in 50 seconds: an agent takes a request, works in the project, and the result lands on the board and in the inbox" width="880"></a>
 
-[**Watch the intro**](https://github.com/shabirkhan-dev/grid/releases/tag/v0.1.0-beta) · [Try it locally](#try-grid-locally) · [What works today](#what-works-today) · [Docs](apps/docs/content/docs/index.mdx)
+[**Website**](https://grid.rabtx.dev) · [Watch the intro](https://github.com/shabirkhan-dev/grid/releases/tag/v0.1.0-beta) · [Install](#install) · [What works today](#what-works-today) · [Docs](apps/docs/content/docs/index.mdx)
 
 </div>
+
+```bash
+curl -fsSL https://grid.rabtx.dev/install.sh | bash
+```
+
+<sub>Linux or macOS, with git. Adds Grid on port 8080 and prints a link that creates your account.
+To add another machine to a Grid you already run: <code>… | bash -s -- runner</code>. See
+<a href="#install">Install</a>.</sub>
 
 ---
 
@@ -109,7 +117,7 @@ mission: deployment, operations and business management are later product areas.
 On Linux or macOS, with git:
 
 ```bash
-curl -fsSL https://grid-rho-ten.vercel.app/install.sh | bash
+curl -fsSL https://grid.rabtx.dev/install.sh | bash
 ```
 
 It installs Bun if it is missing, puts Grid in `~/.grid`, starts it on port 8080 as a user service
@@ -122,7 +130,7 @@ only the runner there. It listens on your [Tailscale](https://tailscale.com) net
 address and a pairing code to add in **Settings → Environments**:
 
 ```bash
-curl -fsSL https://grid-rho-ten.vercel.app/install.sh | bash -s -- runner
+curl -fsSL https://grid.rabtx.dev/install.sh | bash -s -- runner
 ```
 
 The script is [scripts/bash/install.sh](scripts/bash/install.sh).
