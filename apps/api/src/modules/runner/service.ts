@@ -4,7 +4,15 @@ import { alias } from "drizzle-orm/pg-core";
 
 import type { Machine, SyncInput, SyncThread } from "./schema";
 
-const { threads, threadEvents, users, workspaces } = schema;
+type AttachmentInput = {
+	machine: Machine;
+	name: string;
+	mimeType: string;
+	size: number;
+	data: string;
+};
+
+const { threadAttachments, threads, threadEvents, users, workspaces } = schema;
 
 /** What a sync round answers: the last `seq` the server holds for each thread it was sent. */
 export type SyncResult = { seqs: Record<string, number>; skipped: string[] };
@@ -205,4 +213,55 @@ function isUuid(value: string | null): value is string {
 	return (
 		value !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 	);
+}
+
+/**
+ * Keeps one attached file, sent by the machine holding its thread; false when it does not hold it
+ * (or the thread is not here yet). Sent twice, it is the same row.
+ */
+export async function keepAttachment(
+	db: Database,
+	threadId: string,
+	id: string,
+	input: AttachmentInput,
+): Promise<boolean> {
+	const [held] = await db
+		.select({ id: threads.id })
+		.from(threads)
+		.where(and(eq(threads.id, threadId), eq(threads.machineId, input.machine.id)));
+	if (!held) return false;
+	await db
+		.insert(threadAttachments)
+		.values({
+			threadId,
+			id,
+			name: input.name,
+			mimeType: input.mimeType,
+			size: input.size,
+			data: input.data,
+		})
+		.onConflictDoNothing();
+	return true;
+}
+
+/** A thread's attached files, without their contents. */
+export async function attachments(db: Database, threadId: string) {
+	return db
+		.select({
+			id: threadAttachments.id,
+			name: threadAttachments.name,
+			mimeType: threadAttachments.mimeType,
+			size: threadAttachments.size,
+		})
+		.from(threadAttachments)
+		.where(eq(threadAttachments.threadId, threadId));
+}
+
+/** One attached file with its contents (base64). */
+export async function attachment(db: Database, threadId: string, id: string) {
+	const [row] = await db
+		.select()
+		.from(threadAttachments)
+		.where(and(eq(threadAttachments.threadId, threadId), eq(threadAttachments.id, id)));
+	return row ?? null;
 }

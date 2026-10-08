@@ -1,6 +1,9 @@
 import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
+import { dirname, resolve } from "node:path";
+
+import { type Attachment, AttachmentFiles } from "../chat/attachments";
 
 import { openPrivateDatabase } from "../private-database";
 
@@ -62,6 +65,7 @@ export class ThreadSync {
 	private timer: ReturnType<typeof setTimeout> | null = null;
 	private running = false;
 	private warned = false;
+	private readonly files: AttachmentFiles;
 
 	constructor(
 		chatDb: string,
@@ -78,12 +82,18 @@ export class ThreadSync {
 				updated_at TEXT NOT NULL
 			);
 			CREATE TABLE IF NOT EXISTS sync_deleted (session_id TEXT PRIMARY KEY);
+			CREATE TABLE IF NOT EXISTS sync_attachments (
+				session_id TEXT NOT NULL,
+				id TEXT NOT NULL,
+				PRIMARY KEY (session_id, id)
+			);
 			CREATE TRIGGER IF NOT EXISTS sync_on_delete AFTER DELETE ON sessions BEGIN
 				INSERT OR IGNORE INTO sync_deleted (session_id) VALUES (old.id);
 				DELETE FROM sync_threads WHERE session_id = old.id;
 			END;
 		`);
 		this.machine = { id: this.machineId(), name: hostname() };
+		this.files = new AttachmentFiles(resolve(dirname(chatDb), "attachments"));
 	}
 
 	/** This runner's machine, made once and kept in its database: what Grid knows it by. */
@@ -128,8 +138,39 @@ export class ThreadSync {
 	async drain(): Promise<void> {
 		for (let i = 0; i < 1000; i++) {
 			const round = this.nextRound();
-			if (!round) return;
+			if (!round) break;
 			await this.send(round);
+		}
+		await this.sendAttachments();
+	}
+
+	/**
+	 * Each attached file once, for threads the server already has. One it refuses (another machine
+	 * holds the thread now) or that is gone from the disk is not tried again.
+	 */
+	private async sendAttachments(): Promise<void> {
+		const pending = this.db
+			.query<{ session_id: string; id: string; data: string }, []>(
+				`SELECT a.session_id, a.id, a.data FROM attachments a
+				   JOIN sync_threads t ON t.session_id = a.session_id
+				  WHERE NOT EXISTS (SELECT 1 FROM sync_attachments s WHERE s.session_id = a.session_id AND s.id = a.id)
+				  LIMIT 20`,
+			)
+			.all();
+		const done = this.db.query(
+			"INSERT OR IGNORE INTO sync_attachments (session_id, id) VALUES (?, ?)",
+		);
+		for (const row of pending) {
+			const meta = JSON.parse(row.data) as Attachment;
+			let bytes: Uint8Array | null = null;
+			try {
+				bytes = this.files.read(row.session_id, meta).bytes;
+			} catch {
+				// Gone from the disk: nothing left to keep.
+			}
+			if (bytes)
+				await sendAttachment(this.fetcher, this.api, this.machine, row.session_id, meta, bytes);
+			done.run(row.session_id, row.id);
 		}
 	}
 
@@ -262,4 +303,35 @@ export async function postRound(
 	});
 	if (!reply.ok) throw new Error(`the API answered ${reply.status}`);
 	return ((await reply.json()) as { data: RoundResult }).data;
+}
+
+/**
+ * Sends one attached file for a thread `machine` holds. True when kept; false when the server
+ * refuses it because another machine holds the thread. Anything else is an error, tried again.
+ */
+export async function sendAttachment(
+	fetcher: typeof fetch,
+	api: { url: string; key: string },
+	machine: Machine,
+	threadId: string,
+	attachment: Attachment,
+	bytes: Uint8Array,
+): Promise<boolean> {
+	const reply = await fetcher(
+		`${api.url}/api/v1/runner/threads/${encodeURIComponent(threadId)}/attachments/${encodeURIComponent(attachment.id)}`,
+		{
+			method: "PUT",
+			headers: { authorization: `Runner ${api.key}`, "content-type": "application/json" },
+			body: JSON.stringify({
+				machine,
+				name: attachment.name,
+				mimeType: attachment.mimeType,
+				size: attachment.size,
+				data: Buffer.from(bytes).toString("base64"),
+			}),
+		},
+	);
+	if (reply.status === 409) return false;
+	if (!reply.ok) throw new Error(`the API answered ${reply.status} for an attachment`);
+	return true;
 }

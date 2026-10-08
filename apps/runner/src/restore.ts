@@ -1,3 +1,4 @@
+import type { Attachment } from "./chat/attachments";
 import { ChatStore } from "./chat/store";
 import { readConfig } from "./config";
 import { ThreadSync } from "./sync/thread-sync";
@@ -99,7 +100,19 @@ export async function restore(
 				},
 				events,
 			);
-			if (added) imported.push(thread.id);
+			if (added) {
+				imported.push(thread.id);
+				// Its attached files, where the runner keeps them, so the thread opens them here too.
+				const files = await get<Attachment[]>(
+					`/threads/${encodeURIComponent(thread.id)}/attachments`,
+				);
+				for (const meta of files) {
+					const file = await get<{ data: string }>(
+						`/threads/${encodeURIComponent(thread.id)}/attachments/${encodeURIComponent(meta.id)}`,
+					);
+					store.addAttachment(thread.id, meta, Buffer.from(file.data, "base64"));
+				}
+			}
 		}
 		sync.markSynced(imported);
 		const claim = await fetcher(`${config.apiUrl}/api/v1/runner/machines/${machine.id}/claim`, {

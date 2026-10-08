@@ -1,7 +1,8 @@
 import type { Database } from "bun:sqlite";
 
 import { openPrivateDatabase } from "../private-database";
-import { postRound, type Round } from "./thread-sync";
+import type { Attachment } from "../chat/attachments";
+import { postRound, type Round, sendAttachment } from "./thread-sync";
 
 /** At most this many threads, and events across them, in one round per environment. */
 const THREADS_PER_ROUND = 50;
@@ -31,6 +32,7 @@ type Listed = {
 	createdAt: string;
 	updatedAt: string;
 	lastSeq: number;
+	attachments: string[];
 };
 
 /**
@@ -56,6 +58,12 @@ export class EnvironmentSync {
 		this.db = openPrivateDatabase(chatDb);
 		this.db.exec("PRAGMA busy_timeout = 5000");
 		this.db.exec(`
+			CREATE TABLE IF NOT EXISTS env_sync_attachments (
+				environment_id TEXT NOT NULL,
+				thread_id TEXT NOT NULL,
+				id TEXT NOT NULL,
+				PRIMARY KEY (environment_id, thread_id, id)
+			);
 			CREATE TABLE IF NOT EXISTS env_sync (
 				environment_id TEXT NOT NULL,
 				thread_id TEXT NOT NULL,
@@ -100,12 +108,57 @@ export class EnvironmentSync {
 
 	/** Sends rounds for one environment until nothing is left. */
 	async syncOne(environment: Environment): Promise<void> {
+		let listed: Listed[] = [];
 		for (let i = 0; i < 1000; i++) {
-			const listed = await this.read<Listed[]>(environment, "/sync/threads");
+			listed = await this.read<Listed[]>(environment, "/sync/threads");
 			const round = await this.nextRound(environment, listed);
-			if (!round) return;
+			if (!round) break;
 			const result = await postRound(this.fetcher, this.api, round.round);
 			this.remember(environment.id, round.round, result, round.lastSeqs);
+		}
+		await this.sendAttachments(environment, listed);
+	}
+
+	/**
+	 * Each attached file once, for the environment's threads the server already has: the list says
+	 * which files each thread has, so only new ones are fetched. One the server refuses, or that is
+	 * gone on the environment, is not tried again.
+	 */
+	private async sendAttachments(environment: Environment, listed: Listed[]): Promise<void> {
+		const sent = this.db.query<{ one: number }, [string, string, string]>(
+			"SELECT 1 AS one FROM env_sync_attachments WHERE environment_id = ? AND thread_id = ? AND id = ?",
+		);
+		const kept = this.db.query<{ one: number }, [string, string]>(
+			"SELECT 1 AS one FROM env_sync WHERE environment_id = ? AND thread_id = ?",
+		);
+		const done = this.db.query(
+			"INSERT OR IGNORE INTO env_sync_attachments (environment_id, thread_id, id) VALUES (?, ?, ?)",
+		);
+		const machine = { id: `env-${environment.id}`.slice(0, 64), name: environment.label };
+		let budget = 20;
+		for (const thread of listed) {
+			if (budget <= 0) return;
+			const missing = thread.attachments.filter((id) => !sent.get(environment.id, thread.id, id));
+			if (!missing.length || !kept.get(environment.id, thread.id)) continue;
+			const base = `/sync/threads/${encodeURIComponent(thread.id)}/attachments`;
+			const metas = await this.read<Attachment[]>(environment, base);
+			for (const meta of metas.filter((item) => missing.includes(item.id)).slice(0, budget)) {
+				budget--;
+				const reply = await this.fetcher(
+					`${environment.url.replace(/\/$/, "")}${base}/${encodeURIComponent(meta.id)}`,
+					{
+						headers: { authorization: `Bearer ${environment.token}` },
+						signal: AbortSignal.timeout(TIMEOUT_MS),
+					},
+				);
+				if (reply.ok) {
+					const bytes = new Uint8Array(await reply.arrayBuffer());
+					await sendAttachment(this.fetcher, this.api, machine, thread.id, meta, bytes);
+				} else if (reply.status !== 404) {
+					throw new Error(`${base}: the environment answered ${reply.status}`);
+				}
+				done.run(environment.id, thread.id, meta.id);
+			}
 		}
 	}
 

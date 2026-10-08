@@ -191,6 +191,38 @@ describe("runner routes", () => {
 		expect(await data<Row[]>(call("/threads/t1/events"))).toEqual([]);
 	});
 
+	it("keeps a thread's attached files from the machine holding it, and only that machine", async () => {
+		const machine = { id: "machine-files-01", name: "laptop" };
+		await call("/sync", {
+			method: "POST",
+			body: JSON.stringify({ machine, threads: [thread("withfile", [])] }),
+		});
+		const file = {
+			name: "shot.png",
+			mimeType: "image/png",
+			size: 3,
+			data: Buffer.from("png").toString("base64"),
+		};
+		const put = (by: { id: string }) =>
+			call("/threads/withfile/attachments/a1", {
+				method: "PUT",
+				body: JSON.stringify({ machine: by, ...file }),
+			});
+		expect((await put({ id: "someone-else-01" })).status).toBe(409);
+		expect((await put(machine)).status).toBe(200);
+		expect((await put(machine)).status).toBe(200);
+		expect(await data<Row[]>(call("/threads/withfile/attachments"))).toEqual([
+			{ id: "a1", name: "shot.png", mimeType: "image/png", size: 3 } as unknown as Row,
+		]);
+		const got = await data<{ data: string }>(call("/threads/withfile/attachments/a1"));
+		expect(Buffer.from(got.data, "base64").toString()).toBe("png");
+		expect((await call("/threads/withfile/attachments/nope")).status).toBe(404);
+		await call("/sync", {
+			method: "POST",
+			body: JSON.stringify({ machine, threads: [], deleted: ["withfile"] }),
+		});
+	});
+
 	it("refuses a malformed round before touching the database", async () => {
 		const reply = await call("/sync", {
 			method: "POST",

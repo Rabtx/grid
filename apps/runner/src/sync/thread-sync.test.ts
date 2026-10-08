@@ -26,8 +26,15 @@ function fakeApi(options: { skip?: string[] } = {}) {
 	const events = new Map<string, Map<number, unknown>>();
 	const rounds: { threads: { id: string; events: { seq: number }[] }[]; deleted: string[] }[] = [];
 	let down = false;
-	const fetcher = (async (_url: string, init?: RequestInit) => {
+	const files = new Map<string, { name: string; data: string }>();
+	const fetcher = (async (url: string, init?: RequestInit) => {
 		if (down) return new Response("down", { status: 503 });
+		const file = url.match(/\/threads\/([^/]+)\/attachments\/([^/]+)$/);
+		if (file && init?.method === "PUT") {
+			const body = JSON.parse(String(init.body));
+			files.set(`${file[1]}/${file[2]}`, { name: body.name, data: body.data });
+			return Response.json({ data: { kept: true } });
+		}
 		const round = JSON.parse(String(init?.body));
 		rounds.push(round);
 		const seqs: Record<string, number> = {};
@@ -51,6 +58,7 @@ function fakeApi(options: { skip?: string[] } = {}) {
 	return {
 		fetcher,
 		events,
+		files,
 		rounds,
 		setDown: (value: boolean) => {
 			down = value;
@@ -150,6 +158,26 @@ describe("ThreadSync", () => {
 		store.close();
 	});
 
+	it("sends each attached file once, after its thread", async () => {
+		const { path, store } = setup();
+		const api = fakeApi();
+		const sync = new ThreadSync(path, { url: "http://api", key: "k" }, api.fetcher);
+		thread(store, "t1", ["look"]);
+		store.addAttachment(
+			"t1",
+			{ id: "a1", name: "shot.png", size: 3, mimeType: "image/png" },
+			new TextEncoder().encode("png"),
+		);
+		await sync.drain();
+		expect(api.files.get("t1/a1")?.name).toBe("shot.png");
+		expect(Buffer.from(api.files.get("t1/a1")?.data ?? "", "base64").toString()).toBe("png");
+		api.files.clear();
+		await sync.drain();
+		expect(api.files.size).toBe(0);
+		sync.close();
+		store.close();
+	});
+
 	it("splits a long thread over rounds", async () => {
 		const { path, store } = setup();
 		const api = fakeApi();
@@ -204,6 +232,12 @@ describe("restore", () => {
 						{ seq: 2, data: { type: "turn_end", reason: "done" } },
 					],
 				});
+			if (path === "/threads/t-old/attachments")
+				return Response.json({
+					data: [{ id: "a1", name: "shot.png", size: 3, mimeType: "image/png" }],
+				});
+			if (path === "/threads/t-old/attachments/a1")
+				return Response.json({ data: { data: Buffer.from("png").toString("base64") } });
 			if (path === "/machines/old-machine-1/claim") return Response.json({ data: { moved: 1 } });
 			return new Response("no", { status: 404 });
 		}) as unknown as typeof fetch;
@@ -221,6 +255,9 @@ describe("restore", () => {
 			{ type: "message", text: "Round them" },
 			{ type: "turn_end", reason: "done" },
 		]);
+		const file = back.attachment("t-old", "a1");
+		expect(file?.name).toBe("shot.png");
+		expect(file && back.attachmentFiles.read("t-old", file).bytes.toString()).toBe("png");
 		back.close();
 
 		// Already here: a second restore imports nothing, and nothing is sent again by the sync.

@@ -66,7 +66,7 @@ grid restore              # lists the machines with threads in Grid's database
 grid restore <machine id> # brings that machine's threads here; this machine holds them from now on
 ```
 
-A restored thread has its full history. Its agent session stayed on the old machine, so the next
+A restored thread has its full history and its attached files. Its agent session stayed on the old machine, so the next
 message starts a fresh one, told what was said before. Threads on paired environments are kept too:
 the home runner reads them with its pairing token and sends them on, each environment as its own
 machine, so a destroyed VPS or Codespace can be restored like any other.
