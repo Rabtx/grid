@@ -4,14 +4,23 @@ import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useId, useState } from "react";
 import { cn } from "@/lib/utils";
-import { INSTALLS } from "../data/landing.data";
+import type { Install, INSTALLS } from "../data/landing.data";
 
-/** The two one-line installs, as tabs, with the command ready to copy. */
-export function InstallCommand({ className }: { className?: string }) {
-	const [active, setActive] = useState<(typeof INSTALLS)[number]["id"]>("grid");
+/**
+ * The two one-line installs, as tabs, with the command ready to copy. The installs come from the
+ * server: their URL is the site's own, which only the server knows (a browser has no Vercel env).
+ */
+export function InstallCommand({
+	installs,
+	className,
+}: {
+	installs: typeof INSTALLS;
+	className?: string;
+}) {
+	const [active, setActive] = useState<Install["id"]>("grid");
 	const [copied, setCopied] = useState(false);
 	const id = useId();
-	const install = INSTALLS.find((option) => option.id === active) ?? INSTALLS[0];
+	const install = installs.find((option) => option.id === active) ?? installs[0];
 
 	async function copy() {
 		try {
@@ -26,7 +35,7 @@ export function InstallCommand({ className }: { className?: string }) {
 	return (
 		<div className={cn("w-full max-w-[640px] text-left", className)}>
 			<div role="tablist" aria-label="What to install" className="flex gap-1">
-				{INSTALLS.map((option) => (
+				{installs.map((option) => (
 					<button
 						key={option.id}
 						type="button"
