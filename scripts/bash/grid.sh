@@ -112,7 +112,9 @@ EOF
 </plist>
 EOF
         echo launchd >"$home/service"
-        $start && launchctl bootstrap "gui/$(id -u)" "$plist" 2>/dev/null || true
+        if $start; then
+            launchctl bootstrap "gui/$(id -u)" "$plist" 2>/dev/null || true
+        fi
     else
         echo background >"$home/service"
         $start && start
