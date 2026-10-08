@@ -4,7 +4,45 @@ description: Run the whole of Grid from one command — on a laptop, a VPS or a 
 ---
 
 Grid is one disposable, reproducible bundle. The same checkout runs anywhere Bun runs, and one
-command brings all of it up behind a single port:
+command brings all of it up behind a single port.
+
+## One-line install
+
+On Linux or macOS, with git:
+
+```bash
+curl -fsSL https://grid-rho-ten.vercel.app/install.sh | bash               # Grid itself
+curl -fsSL https://grid-rho-ten.vercel.app/install.sh | bash -s -- runner  # only a runner
+```
+
+The script ([`scripts/bash/install.sh`](https://github.com/shabirkhan-dev/grid/blob/main/scripts/bash/install.sh))
+installs Bun if it is missing and puts everything in `~/.grid`: the code in `app/`, the data in
+`data/`, logs in `logs/`, and the settings it chose in `grid.env`. It keeps Grid running as a user
+service — `grid.service` or `grid-runner.service` under systemd, `dev.grid` or `dev.grid.runner`
+under launchd — and links a `grid` command into `~/.local/bin`:
+
+| Command | |
+|---|---|
+| `grid status` | Whether it is running, and where |
+| `grid start` / `stop` / `restart` | |
+| `grid logs` | Follow `~/.grid/logs/grid.log` |
+| `grid pair` | A one-time pairing code (and, for a runner, its address) |
+| `grid setup-link` | The account link, until someone uses it |
+| `grid update` | Fetch the latest version, rebuild and restart |
+| `grid uninstall [--purge]` | Remove the service and code; `--purge` removes the data too |
+
+- **Grid** runs the launcher below with an embedded database, on port 8080, with projects in
+  `~/Projects`. It prints the one-time setup link when it is up.
+- **Runner only** downloads just `apps/runner` (no dependencies to install) and runs it with
+  pairing on, listening on this machine's tailnet address only. It prints the address and a
+  pairing code; add both in **Settings → Environments** on your Grid. Without Tailscale it installs
+  and waits: run `tailscale up`, then `grid start`.
+
+`GRID_HOME`, `GRID_PORT`, `GRID_API_PORT`, `GRID_RUNNER_PORT`, `GRID_PROJECTS_DIR`, `GRID_REF` and
+`GRID_NO_SERVICE=1` (start in the background without a service) change the defaults on a first
+install. The installer checks the ports before downloading anything.
+
+## From a checkout
 
 ```bash
 bun install
@@ -19,8 +57,8 @@ runs the API, the runner and the console together and stops them together:
    project folders.
 2. **Secrets** — `JWT_SECRET` and `AUTH_TOKEN_SECRET` are generated once per data directory, so
    sign-ins survive restarts.
-3. **Postgres** — `DATABASE_URL` if set; otherwise the repo's Postgres container is started with
-   Docker (`docker/compose/postgres.yml`).
+3. **Database** — Postgres at `DATABASE_URL` if set; otherwise an embedded PGlite database in the
+   data directory.
 4. **Migrations** — applied on every start, waiting for a just-started Postgres.
 5. **Setup link** — while nobody has signed up, a one-time setup link is printed and kept in
    `.grid/setup-link.txt` (mode 600); each start issues a fresh one. Whoever opens it creates the
@@ -154,7 +192,7 @@ process manager of choice.
 | `GRID_PORT` | `8080` | The one public port |
 | `GRID_DATA_DIR` | `<repo>/.grid` | Secrets, setup link, chat database |
 | `GRID_PROJECTS_DIR` | `<data>/projects`, `/workspaces` in a Codespace | Where project folders go |
-| `DATABASE_URL` | Docker Postgres on `:5433` | Postgres connection |
+| `DATABASE_URL` | embedded PGlite in the data directory | Postgres connection |
 | `GRID_ALLOWED_HOSTS` | — | Extra hostnames for the gateway (Tailscale and Codespaces are built in) |
 | `GRID_PUBLIC_URL` | — | The address printed at start |
 | `GRID_API_PORT` / `GRID_RUNNER_PORT` | `4000` / `4100` | Internal loopback ports |
