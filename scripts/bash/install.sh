@@ -66,6 +66,18 @@ if [[ -f "$home/grid.env" ]] && ! grep -q "^GRID_MODE=$mode$" "$home/grid.env"; 
     fail "$home already holds a Grid of another kind. Use GRID_HOME=… to install this one elsewhere."
 fi
 
+# Checked before anything is downloaded; a reinstall keeps the ports it was given.
+port="${GRID_PORT:-8080}"
+api_port="${GRID_API_PORT:-4000}"
+runner_port="${GRID_RUNNER_PORT:-4100}"
+if [[ ! -f "$home/grid.env" ]]; then
+    port_free "$runner_port" || fail "port $runner_port is in use. Set GRID_RUNNER_PORT to a free port and run this again."
+    if [[ "$mode" == grid ]]; then
+        port_free "$port" || fail "port $port is in use. Set GRID_PORT to a free port and run this again."
+        port_free "$api_port" || fail "port $api_port is in use. Set GRID_API_PORT to a free port and run this again."
+    fi
+fi
+
 # --- Bun -----------------------------------------------------------------------------------------
 if ! command -v bun >/dev/null; then
     if [[ -x "$HOME/.bun/bin/bun" ]]; then
@@ -94,24 +106,21 @@ else
     git clone --quiet --depth 1 --branch "$ref" "$repo" "$app"
 fi
 
+mkdir -p "$home/logs"
+install_log="$home/logs/install.log"
+: >"$install_log"
 if [[ "$mode" == grid ]]; then
     say "installing dependencies ${dim}(a minute or two the first time)${reset}"
-    (cd "$app" && bun install --frozen-lockfile --ignore-scripts >/dev/null)
+    (cd "$app" && bun install --frozen-lockfile --ignore-scripts) >>"$install_log" 2>&1 ||
+        fail "installing dependencies failed; see $install_log"
     say "building the console"
-    (cd "$app/apps/console" && bun run build >/dev/null)
+    (cd "$app/apps/console" && bun run build) >>"$install_log" 2>&1 ||
+        fail "building the console failed; see $install_log"
 fi
 
 # --- Settings ------------------------------------------------------------------------------------
 # Written once and kept on reinstall, so changes made by hand survive an update.
 if [[ ! -f "$home/grid.env" ]]; then
-    port="${GRID_PORT:-8080}"
-    runner_port="${GRID_RUNNER_PORT:-4100}"
-    api_port="${GRID_API_PORT:-4000}"
-    port_free "$runner_port" || fail "port $runner_port is in use. Set GRID_RUNNER_PORT to a free port and run this again."
-    if [[ "$mode" == grid ]]; then
-        port_free "$port" || fail "port $port is in use. Set GRID_PORT to a free port and run this again."
-        port_free "$api_port" || fail "port $api_port is in use. Set GRID_API_PORT to a free port and run this again."
-    fi
     cat >"$home/grid.env" <<EOF
 GRID_MODE=$mode
 GRID_HOME=$home

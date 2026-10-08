@@ -195,8 +195,8 @@ update() {
     git -C "$app" fetch --quiet --depth 1 origin "$(git -C "$app" rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$/main/')"
     git -C "$app" checkout --quiet --force FETCH_HEAD
     if [[ "$mode" == grid ]]; then
-        (cd "$app" && "$bun" install --frozen-lockfile --ignore-scripts >/dev/null)
-        (cd "$app/apps/console" && "$bun" run build >/dev/null)
+        (cd "$app" && "$bun" install --frozen-lockfile --ignore-scripts) >>"$home/logs/install.log" 2>&1
+        (cd "$app/apps/console" && "$bun" run build) >>"$home/logs/install.log" 2>&1
     fi
     stop
     start
