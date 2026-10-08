@@ -176,3 +176,7 @@ contributing code. Documentation source lives in `apps/docs/content/docs/`.
 ## License
 
 Choose either [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-Apache-2.0).
+
+The file icons in `apps/console/public/file-icons/` are the paid
+[Flow Icons](https://flow-icons.pages.dev) pack by thang-nm, used with the author's permission. They
+are not covered by either license; see that folder's [README](apps/console/public/file-icons/README.md).
