@@ -965,6 +965,86 @@ describe("workspace settings for threads", () => {
 	});
 });
 
+describe("an agent with no memory of the thread", () => {
+	function recording(resumeToken: string | null) {
+		const prompts: string[] = [];
+		const provider: Provider = {
+			info: () => ({ id: "echo", name: "Echo", available: true, models: [], modes: [] }),
+			start: async (context) => {
+				if (resumeToken) context.onResumeToken(resumeToken);
+				return {
+					prompt: async (text) => {
+						prompts.push(text);
+						context.emit({ type: "message", text: "ok" });
+						return { reason: "done" };
+					},
+					cancel: () => {},
+					approve: () => {},
+					setModel: async () => {},
+					setMode: async () => {},
+					setEffort: async () => {},
+					close: () => {},
+				};
+			},
+		};
+		return { provider, prompts };
+	}
+	const restored = (store: ChatStore) =>
+		store.importThread(
+			{
+				id: "restored",
+				ownerId: "me",
+				workspaceId: "w",
+				project: "alpha",
+				provider: "echo",
+				title: "Round drive times",
+				cwd: "/tmp",
+				model: null,
+				mode: null,
+				effort: null,
+				createdAt: "2026-10-09T08:00:00.000Z",
+				updatedAt: "2026-10-09T08:05:00.000Z",
+			},
+			[
+				{ seq: 1, data: { type: "user", text: "What does this project do?" } },
+				{ seq: 2, data: { type: "turn_start" } },
+				{ seq: 3, data: { type: "message", text: "It schedules field jobs." } },
+				{ seq: 4, data: { type: "turn_end", reason: "done" } },
+			],
+		);
+
+	it("tells a restored thread's fresh agent what was said, once", async () => {
+		const store = new ChatStore(":memory:");
+		restored(store);
+		const { provider, prompts } = recording(null);
+		const chat = new ChatHub(store, new Map([["echo", provider]]), tmpdir());
+		await chat.prompt("w", "restored", "And who uses it?");
+		await chat.prompt("w", "restored", "Thanks");
+		expect(prompts[0]).toContain("no memory of it");
+		expect(prompts[0]).toContain(
+			"Person: What does this project do?\nYou: It schedules field jobs.",
+		);
+		expect(prompts[0]?.endsWith("And who uses it?")).toBe(true);
+		expect(prompts[0]).not.toContain("And who uses it?\nYou:");
+		expect(prompts[1]).toBe("Thanks");
+	});
+
+	it("tells nothing to an agent that resumes its own session, or on a first message", async () => {
+		const store = new ChatStore(":memory:");
+		restored(store);
+		store.update("restored", { resumeToken: "kept-on-this-machine" });
+		const { provider, prompts } = recording("kept-on-this-machine");
+		const chat = new ChatHub(store, new Map([["echo", provider]]), tmpdir());
+		await chat.prompt("w", "restored", "And who uses it?");
+		const fresh = chat.create(
+			{ userId: "me", workspace: "w" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
+		await chat.prompt("w", fresh.id, "Hello");
+		expect(prompts.some((prompt) => prompt.includes("no memory"))).toBe(false);
+	});
+});
+
 describe("agents on this machine", () => {
 	function asking(approvals: { id: string; title: string }[]) {
 		const answered: [string, string | null][] = [];
