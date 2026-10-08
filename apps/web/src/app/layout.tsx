@@ -12,8 +12,7 @@ const inter = Inter({
 	display: "swap",
 });
 
-const description =
-	"AI-native operating system for building and running a startup — projects, agents, development, deployment and operations in one control plane.";
+const description = SITE.summary;
 
 export const metadata: Metadata = {
 	metadataBase: new URL(SITE_URL),

@@ -1,11 +1,10 @@
+import { SITE_URL } from "@/app/site";
+
 /**
- * The console, where Grid itself runs: this site only introduces it. Set NEXT_PUBLIC_CONSOLE_URL
- * where it is deployed; locally it is the console's dev server.
+ * A console people can sign in to, when one is hosted (NEXT_PUBLIC_CONSOLE_URL). Grid is
+ * self-hosted, so without it the site offers no sign-in link at all rather than a dead one.
  */
-const CONSOLE_URL = (process.env.NEXT_PUBLIC_CONSOLE_URL ?? "http://localhost:3001").replace(
-	/\/+$/,
-	"",
-);
+const CONSOLE_URL = process.env.NEXT_PUBLIC_CONSOLE_URL?.replace(/\/+$/, "");
 
 /**
  * Copy for the landing page. Kept as data so the sections stay presentational and
@@ -15,95 +14,130 @@ const CONSOLE_URL = (process.env.NEXT_PUBLIC_CONSOLE_URL ?? "http://localhost:30
 
 export const SITE = {
 	name: "Grid",
-	tagline: "An AI-native operating system for building and running a startup",
+	tagline: "A workspace for you and your coding agents",
 	summary:
-		"Grid brings projects, agents, development, deployment, infrastructure and operations into one browser-accessible control plane. Humans and AI agents are both first-class workers inside it.",
+		"Grid gives you and agents like Claude Code, Codex and opencode one board, live threads, terminals and pull requests. It runs on your own machine, and you open it from any browser.",
 	repoUrl: "https://github.com/shabirkhan-dev/grid",
-	docsUrl: "/docs",
-	signInUrl: `${CONSOLE_URL}/login`,
-	appUrl: CONSOLE_URL,
+	docsUrl: "https://github.com/shabirkhan-dev/grid/blob/main/apps/docs/content/docs/portable.mdx",
+	signInUrl: CONSOLE_URL ? `${CONSOLE_URL}/login` : null,
 } as const;
 
-/** The lifecycle Grid is being built to hold, from the product definition. */
-export const LIFECYCLE = [
-	"Idea",
-	"Research",
-	"Requirements",
-	"Design",
-	"Tasks",
-	"Development",
-	"Review",
-	"QA",
-	"Deployment",
-	"Monitoring",
-	"Incidents",
-	"Release",
-	"Feedback",
+/** The installer this site serves (app/install.sh/route.ts). */
+export const INSTALL_URL = `${SITE_URL}/install.sh`;
+
+export const INSTALLS = [
+	{
+		id: "grid",
+		label: "Grid",
+		title: "Run Grid",
+		command: `curl -fsSL ${INSTALL_URL} | bash`,
+		summary: "The whole of Grid on this machine, behind one port.",
+		steps: [
+			"Installs Bun if it is missing",
+			"Downloads Grid to ~/.grid",
+			"Starts it on port 8080 as a user service",
+			"Prints a link that creates your account",
+		],
+		needs: "Linux or macOS, with git",
+	},
+	{
+		id: "runner",
+		label: "Runner only",
+		title: "Add a machine",
+		command: `curl -fsSL ${INSTALL_URL} | bash -s -- runner`,
+		summary: "A VPS, a Codespace or a second laptop, driven from the Grid you already run.",
+		steps: [
+			"Downloads only the runner, about 10 MB",
+			"Listens on your Tailscale network and nowhere else",
+			"Prints its address and a one-time pairing code",
+			"Add both in Settings → Environments on your Grid",
+		],
+		needs: "Linux or macOS, with git and Tailscale",
+	},
+] as const;
+
+export type Install = (typeof INSTALLS)[number];
+
+/** What `grid` does once installed (scripts/bash/grid.sh). */
+export const COMMANDS = [
+	["grid status", "Whether it is running, and where"],
+	["grid logs", "Follow its log"],
+	["grid pair", "A pairing code for another Grid"],
+	["grid update", "Update to the latest version"],
+	["grid uninstall", "Remove it; your data stays unless you add --purge"],
+] as const;
+
+/** What the console does today. Each one is in apps/console and apps/runner now. */
+export const FEATURES = [
+	{
+		id: "board",
+		title: "One board",
+		body: "Tasks for people and agents side by side. Hand a card to an agent and follow it through review.",
+	},
+	{
+		id: "threads",
+		title: "Agent threads",
+		body: "Chat with any agent in a project. See each command it runs and each file it changes, and answer what it asks.",
+	},
+	{
+		id: "terminals",
+		title: "Terminals and files",
+		body: "Real terminals and a file browser for every project. A shell keeps running when your phone locks.",
+	},
+	{
+		id: "pulls",
+		title: "Pull requests",
+		body: "Read the diffs, checks and comments on your GitHub pull requests without leaving Grid.",
+	},
+	{
+		id: "machines",
+		title: "Your machines",
+		body: "Pair a VPS, a Codespace or another laptop, and choose for each project where its work runs.",
+	},
+	{
+		id: "phone",
+		title: "On your phone",
+		body: "Install Grid as an app. A push notification tells you when an agent needs an answer.",
+	},
+] as const;
+
+/** Agents the runner drives today (apps/runner/src/agents). */
+export const AGENTS = [
+	"Claude Code",
+	"Codex",
+	"opencode",
+	"Gemini",
+	"Antigravity",
+	"Any ACP agent",
+] as const;
+
+export const PERMISSIONS = [
+	"Read files",
+	"Edit files",
+	"Run commands",
+	"Install packages",
+	"Use the network",
 ] as const;
 
 export const PRINCIPLES = [
 	{
-		id: "browser-first",
-		title: "Browser first",
-		body: "The browser is the interface, not the machine. Execution happens on a host you choose — local, Docker, SSH or a remote VPS — and the same workspace opens from any device.",
+		id: "yours",
+		title: "On your machines",
+		body: "Grid and your code stay on hardware you choose: a laptop, a VPS or a Codespace. The browser is only the screen.",
 	},
 	{
-		id: "agent-native",
-		title: "Agent native",
-		body: "Agents are workers, not a chat sidebar. Grid owns the coordination: who holds which task, what they may touch, and what has to pass before work moves on.",
-	},
-	{
-		id: "provider-agnostic",
-		title: "Provider agnostic",
-		body: "No AI vendor becomes architectural bedrock. An agent runs through whichever provider you point it at, and swapping one out is configuration rather than a rewrite.",
+		id: "any-agent",
+		title: "Any agent",
+		body: "No model provider is built in. Grid drives the agent CLIs you already use, signed in with your own accounts.",
 	},
 	{
 		id: "portable",
-		title: "Portable by default",
-		body: "The machine is never the product. Projects, tasks, sessions and context outlive the box they ran on, so a dead laptop costs you a reconnect rather than a rebuild.",
-	},
-] as const;
-
-export const NOT_LIST = [
-	"just an IDE",
-	"just an agent harness",
-	"just a chatbot",
-	"just a Kanban board",
-	"just a CI dashboard",
-	"another wrapper around one model",
-] as const;
-
-/**
- * Honest status. Grid is early, and the landing page says so rather than
- * describing the roadmap in the present tense.
- */
-export const STATUS = {
-	heading: "Where Grid is today",
-	body: "Grid is early and open. The engineering spine is real — a Bun workspaces monorepo with a Next.js control plane, a Hono API on Bun over Postgres, a shared UI package, a docs site and a full lint, typecheck, test and CI pipeline. You can sign in today, create a project and file tasks on a board; the surfaces that turn those tasks into agent work are next.",
-	shipped: ["Projects and tasks", "The board", "Auth, MFA and passkeys", "Docs site"],
-	next: ["Agent runs in isolated worktrees", "Review and diff surface", "Ship and operate"],
-} as const;
-
-export const INSTALL_STEPS = [
-	{
-		id: "clone",
-		label: "Clone the repository",
-		command: "git clone https://github.com/shabirkhan-dev/grid.git\ncd grid",
+		title: "Easy to move",
+		body: "Grid keeps its database, threads and settings in one data folder, so it can move to another machine.",
 	},
 	{
-		id: "install",
-		label: "Install dependencies with Bun",
-		command: "bun install\nbun run prepare",
+		id: "open",
+		title: "Open source",
+		body: "MIT or Apache-2.0. Read the code, run it, change it.",
 	},
-	{
-		id: "run",
-		label: "Start every workspace",
-		command: "bun run dev",
-	},
-] as const;
-
-export const REQUIREMENTS = [
-	"Bun 1.4.2",
-	"PostgreSQL (or Docker Compose)",
-	"Node-compatible system dependencies",
 ] as const;

@@ -1,57 +1,58 @@
 import { describe, expect, it } from "vitest";
-import { INSTALL_STEPS, LIFECYCLE, NOT_LIST, PRINCIPLES, SITE, STATUS } from "./landing.data";
+import {
+	AGENTS,
+	COMMANDS,
+	FEATURES,
+	INSTALL_URL,
+	INSTALLS,
+	PRINCIPLES,
+	SITE,
+} from "./landing.data";
 
 describe("landing copy", () => {
 	it("points at the real repository", () => {
 		expect(SITE.repoUrl).toBe("https://github.com/shabirkhan-dev/grid");
+		expect(SITE.docsUrl.startsWith(SITE.repoUrl)).toBe(true);
 	});
 
-	it("sends sign-in and the app to the console, not to pages of this site", () => {
-		expect(SITE.appUrl).toBe("http://localhost:3001");
-		expect(SITE.signInUrl).toBe("http://localhost:3001/login");
+	it("offers no sign-in link unless a console is hosted", () => {
+		expect(SITE.signInUrl).toBeNull();
 	});
 
 	it("states what Grid is without leaving the tagline empty", () => {
-		expect(SITE.tagline).toMatch(/operating system/i);
+		expect(SITE.tagline.length).toBeGreaterThan(10);
 		expect(SITE.summary.length).toBeGreaterThan(40);
 	});
 
-	it("keeps the lifecycle in order and complete", () => {
-		expect(LIFECYCLE[0]).toBe("Idea");
-		expect(LIFECYCLE).toContain("Review");
-		expect(LIFECYCLE).toContain("Deployment");
-		expect(new Set(LIFECYCLE).size).toBe(LIFECYCLE.length);
+	it("serves the installer from this site", () => {
+		expect(INSTALL_URL).toMatch(/^https?:\/\/[^/]+\/install\.sh$/);
 	});
 
-	it("gives every principle a body", () => {
-		expect(PRINCIPLES).toHaveLength(4);
-		for (const principle of PRINCIPLES) {
-			expect(principle.title.length).toBeGreaterThan(0);
-			expect(principle.body.length).toBeGreaterThan(40);
+	it("installs Grid by default and only a runner when asked", () => {
+		const [grid, runner] = INSTALLS;
+		expect(grid.command).toBe(`curl -fsSL ${INSTALL_URL} | bash`);
+		expect(runner.command).toBe(`curl -fsSL ${INSTALL_URL} | bash -s -- runner`);
+		for (const install of INSTALLS) {
+			expect(install.steps.length).toBeGreaterThan(2);
+			expect(install.needs).toMatch(/git/);
 		}
 	});
 
-	it("ships install steps that are runnable commands", () => {
-		expect(INSTALL_STEPS.length).toBeGreaterThan(0);
-		for (const step of INSTALL_STEPS) {
-			expect(step.command.trim()).not.toBe("");
-			expect(step.label.trim()).not.toBe("");
+	it("documents only grid commands the script has", () => {
+		for (const [command] of COMMANDS)
+			expect(command).toMatch(/^grid (status|logs|pair|update|uninstall)$/);
+	});
+
+	it("gives every feature and principle a body", () => {
+		for (const item of [...FEATURES, ...PRINCIPLES]) {
+			expect(item.title.length).toBeGreaterThan(0);
+			expect(item.body.length).toBeGreaterThan(20);
 		}
-		const commands = INSTALL_STEPS.map((step) => step.command).join("\n");
-		expect(commands).toContain("git clone");
-		expect(commands).toContain("bun install");
-		expect(commands).toContain("bun run dev");
+		expect(new Set(FEATURES.map((feature) => feature.id)).size).toBe(FEATURES.length);
 	});
 
-	it("does not claim unbuilt surfaces are working", () => {
-		const overlap = STATUS.shipped.filter((item) =>
-			(STATUS.next as readonly string[]).includes(item),
-		);
-		expect(overlap).toEqual([]);
-		expect(STATUS.next.length).toBeGreaterThan(0);
-	});
-
-	it("keeps the 'not' list honest and non-empty", () => {
-		expect(NOT_LIST.length).toBeGreaterThan(3);
+	it("names the agents the runner drives", () => {
+		expect(AGENTS).toContain("Claude Code");
+		expect(AGENTS).toContain("Codex");
 	});
 });

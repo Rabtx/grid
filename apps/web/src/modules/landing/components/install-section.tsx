@@ -1,55 +1,75 @@
-import { INSTALL_STEPS, REQUIREMENTS, SITE } from "../data/landing.data";
+import { COMMANDS, INSTALLS, SITE } from "../data/landing.data";
+import { SectionHeading } from "./section-heading";
 
 export function InstallSection() {
 	return (
-		<section id="install" className="border-border/60 border-b scroll-mt-14">
-			<div className="mx-auto w-full max-w-5xl px-6 py-16 sm:py-20">
-				<h2 className="font-semibold text-2xl tracking-tight">Install Grid</h2>
-				<p className="mt-2 max-w-2xl text-muted-foreground text-sm leading-6">
-					Grid self-hosts. Clone it, install with Bun, and it runs on your machine — the browser is
-					the interface, so anything you can reach it from becomes a workstation.
-				</p>
+		<section
+			id="install"
+			className="scroll-mt-16 border-border/60 border-t px-4 py-24 sm:px-6 sm:py-32"
+		>
+			<div className="mx-auto max-w-[1088px]">
+				<SectionHeading label="Install" title="One command, on any machine you own.">
+					Run Grid where you want it to live. Add more machines with the runner, and Grid works on
+					them as if they were one.
+				</SectionHeading>
 
-				<ul className="mt-6 flex flex-wrap gap-2">
-					{REQUIREMENTS.map((requirement) => (
-						<li
-							key={requirement}
-							className="rounded-md border border-border px-2 py-1 font-mono text-[11px] text-muted-foreground"
+				<div className="mt-12 grid gap-4 lg:grid-cols-2">
+					{INSTALLS.map((install) => (
+						<article
+							key={install.id}
+							className="flex min-w-0 flex-col rounded-2xl border border-border bg-card p-6 sm:p-8"
 						>
-							{requirement}
-						</li>
-					))}
-				</ul>
-
-				<ol className="mt-8 space-y-4">
-					{INSTALL_STEPS.map((step, index) => (
-						<li key={step.id} className="min-w-0">
-							<p className="flex items-baseline gap-2 text-sm">
-								<span className="font-mono text-muted-foreground text-xs">
-									{String(index + 1).padStart(2, "0")}
-								</span>
-								<span className="font-medium">{step.label}</span>
+							<h3 className="font-semibold text-xl tracking-[-0.02em]">{install.title}</h3>
+							<p className="mt-1.5 text-[15px] text-muted-foreground leading-6">
+								{install.summary}
 							</p>
-							<pre className="mt-2 min-w-0 overflow-x-auto rounded-lg border border-border bg-muted/40 px-4 py-3">
-								<code className="font-mono text-[13px] leading-6">{step.command}</code>
+							<pre className="mt-6 whitespace-pre-wrap break-all rounded-xl border border-border bg-background px-4 py-3">
+								<code className="font-mono text-[13px]">{install.command}</code>
 							</pre>
-						</li>
+							<ol className="mt-6 flex flex-col gap-3 text-[15px]">
+								{install.steps.map((step, index) => (
+									<li key={step} className="flex gap-3">
+										<span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border border-border font-mono text-[10px] text-muted-foreground">
+											{index + 1}
+										</span>
+										{step}
+									</li>
+								))}
+							</ol>
+							<p className="mt-auto pt-6 text-muted-foreground text-xs">Needs {install.needs}.</p>
+						</article>
 					))}
-				</ol>
+				</div>
 
-				<p className="mt-6 text-muted-foreground text-sm leading-6">
-					The web control plane starts on <code className="font-mono text-xs">:3000</code>, the API
-					on <code className="font-mono text-xs">:4000</code> and the docs on{" "}
-					<code className="font-mono text-xs">:3002</code>. Full setup, Docker and deployment notes
-					live in the{" "}
-					<a
-						href={`${SITE.repoUrl}#readme`}
-						className="text-foreground underline underline-offset-4"
-					>
-						repository README
-					</a>
-					.
-				</p>
+				<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+					<div className="rounded-2xl border border-border p-6 sm:p-8">
+						<h3 className="font-semibold text-[15px]">Then, from any terminal</h3>
+						<dl className="mt-4 text-sm">
+							{COMMANDS.map(([command, meaning]) => (
+								<div
+									key={command}
+									className="flex flex-col gap-0.5 border-border border-t py-2.5 sm:flex-row sm:gap-4"
+								>
+									<dt className="w-32 shrink-0 font-mono text-[13px]">{command}</dt>
+									<dd className="text-muted-foreground">{meaning}</dd>
+								</div>
+							))}
+						</dl>
+					</div>
+					<div className="flex flex-col rounded-2xl border border-border p-6 sm:p-8">
+						<h3 className="font-semibold text-[15px]">Other ways to run it</h3>
+						<p className="mt-2 text-[15px] text-muted-foreground leading-6">
+							Docker Compose on a VPS, a GitHub Codespace, or a checkout with{" "}
+							<code className="font-mono text-[13px] text-foreground">bun run grid</code>.
+						</p>
+						<a
+							href={SITE.docsUrl}
+							className="mt-auto pt-6 font-medium text-sm underline decoration-border underline-offset-4 hover:decoration-foreground"
+						>
+							Read the guide →
+						</a>
+					</div>
+				</div>
 			</div>
 		</section>
 	);

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import {
+	AgentsSection,
+	FeaturesSection,
 	HeroSection,
 	InstallSection,
 	PrinciplesSection,
 	SITE,
 	SiteFooter,
 	SiteHeader,
-	StatusSection,
 } from "@/modules/landing";
 
 export const metadata: Metadata = {
@@ -31,9 +32,10 @@ export default function Page() {
 			<SiteHeader />
 			<main className="flex-1">
 				<HeroSection />
-				<PrinciplesSection />
-				<StatusSection />
+				<FeaturesSection />
+				<AgentsSection />
 				<InstallSection />
+				<PrinciplesSection />
 			</main>
 			<SiteFooter />
 		</div>
