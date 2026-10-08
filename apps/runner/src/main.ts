@@ -43,6 +43,7 @@ import { OperateTelemetry } from "./operate/telemetry";
 import { TelemetryStore } from "./operate/telemetry-store";
 import { PullRequests } from "./github/pulls";
 import { approvalItemId, inboxItem } from "./inbox/attention";
+import { machineRunnerKey } from "./sync/runner-key";
 import { ThreadSync } from "./sync/thread-sync";
 import { GithubInbox } from "./inbox/github";
 import { InboxStore } from "./inbox/store";
@@ -75,13 +76,13 @@ for (const agent of acpAgents.list()) addAcpAgent(providers, agent);
 const chatStore = new ChatStore(config.chatDb);
 const chat = new ChatHub(chatStore, providers, config.projectsDir);
 // Threads follow into Grid's database, so they outlive this machine (`bun run restore` brings them
-// back on another). Without the API's runner key they stay here only.
-const threadSync = config.runnerKey
-	? new ThreadSync(config.chatDb, { url: config.apiUrl, key: config.runnerKey })
+// back on another). Without GRID_RUNNER_KEY, the key this machine's API also reads
+// (`sync/runner-key.ts`). A paired environment answers no API of its own, so it does not sync.
+const runnerKey = config.runnerKey ?? (config.pairing ? null : machineRunnerKey());
+const threadSync = runnerKey
+	? new ThreadSync(config.chatDb, { url: config.apiUrl, key: runnerKey })
 	: null;
 threadSync?.start();
-if (!threadSync)
-	console.log("[runner] GRID_RUNNER_KEY is not set: threads stay on this machine only");
 const skills = new SkillStore(join(dirname(config.chatDb), "skills"));
 chat.setSkills((workspace, project) => skills.instructions(workspace, project));
 chat.setDescribe(async (id, installed) => ({

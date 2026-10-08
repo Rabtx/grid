@@ -2,11 +2,14 @@ import { createDatabase } from "@grid/db";
 
 import { createApp } from "./app";
 import { createConfig } from "./config/config";
+import { machineRunnerKey } from "./config/runner-key";
 import { resendSender } from "./modules/email/email";
 import { scheduleBackups } from "./modules/workspaces/data";
 import { sessionLookup } from "./sessions";
 
-const config = createConfig();
+const base = createConfig();
+// Without GRID_RUNNER_KEY, the key this machine's runner also reads, so a checkout's threads sync.
+const config = { ...base, runnerKey: base.runnerKey ?? machineRunnerKey() };
 const database = createDatabase(config.databaseUrl, {
 	max: config.databasePoolMax,
 	ssl: config.databaseSsl,
