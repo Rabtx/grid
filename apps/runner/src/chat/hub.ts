@@ -8,6 +8,7 @@ import {
 	MAX_SESSION_ATTACHMENTS,
 	MAX_SESSION_BYTES,
 } from "./attachments";
+import { historyBrief } from "./history-brief";
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -1126,12 +1127,17 @@ export class ChatHub {
 					.slice(0, 60),
 			});
 		}
+		// The thread as it was before this message, for an agent that has to be told it.
+		const earlier = this.store.events(id);
 		this.record(id, {
 			type: "user",
 			text: message,
 			...(attachments.length ? { attachments: attachments.map((item) => item.metadata) } : {}),
 		});
 		const firstTurn = !answeredMessage(this.store.events(id));
+		// An agent opened without a session to resume (a thread restored from another machine, or
+		// one whose session was cleared) has no memory of the turns before: it is told them, once.
+		const opensFresh = !live.agent && !session.resumeToken && answeredMessage(earlier);
 		this.setRunning(id, live, true);
 		this.record(id, { type: "turn_start", at: new Date().toISOString() });
 
@@ -1163,6 +1169,8 @@ export class ChatHub {
 			if (note) text = `${note}\n\n---\n\n${text}`;
 			if (briefNotes && session.notes) text = withSharedNotes(session.notes, text);
 			if (briefRole && session.role) text = withRoleBrief(session.role, text);
+			const history = opensFresh && !command ? historyBrief(earlier) : null;
+			if (history) text = `${history}\n\n---\n\n${text}`;
 			const prompt = paths
 				? `${text}\n\nAttached files (absolute paths on this machine):\n${paths}`
 				: text;
