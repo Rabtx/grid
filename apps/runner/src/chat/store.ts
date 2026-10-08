@@ -435,6 +435,44 @@ export class ChatStore {
 		};
 	}
 
+	/**
+	 * A thread brought back from Grid's database onto this machine: the same id, times and event
+	 * numbers it had. It has no provider session to resume here, so its next turn starts a fresh
+	 * one. False when this machine already has it.
+	 */
+	importThread(
+		session: Omit<ChatSessionRow, "resumeToken" | "worktree" | "role" | "notes">,
+		events: { seq: number; data: unknown }[],
+	): boolean {
+		if (this.exists(session.id)) return false;
+		const insert = this.db.query(
+			"INSERT OR IGNORE INTO events (session_id, seq, data) VALUES (?, ?, ?)",
+		);
+		this.db.transaction(() => {
+			this.db
+				.query(
+					`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, created_at, updated_at)
+					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+				)
+				.run(
+					session.id,
+					session.ownerId,
+					session.workspaceId,
+					session.project,
+					session.provider,
+					session.title,
+					session.cwd,
+					session.model,
+					session.mode,
+					session.effort,
+					session.createdAt,
+					session.updatedAt,
+				);
+			for (const event of events) insert.run(session.id, event.seq, JSON.stringify(event.data));
+		})();
+		return true;
+	}
+
 	get(id: string): ChatSessionRow | null {
 		const row = this.db.query<Row, [string]>("SELECT * FROM sessions WHERE id = ?").get(id);
 		return row ? toSession(row) : null;

@@ -125,6 +125,13 @@ It installs Bun if it is missing, puts Grid in `~/.grid`, starts it on port 8080
 that, people join by invite. A `grid` command manages it: `grid status`, `grid logs`,
 `grid update`, `grid uninstall`.
 
+Grid keeps its data in an embedded database by default. To keep it beyond this machine, threads
+included, point it at a hosted Postgres and use `grid restore` on the next machine:
+
+```bash
+curl -fsSL https://grid.rabtx.dev/install.sh | GRID_DATABASE_URL='postgres://…' bash
+```
+
 To add another machine (a VPS, a Codespace, a second laptop) to a Grid you already run, install
 only the runner there. It listens on your [Tailscale](https://tailscale.com) network and prints an
 address and a pairing code to add in **Settings → Environments**:

@@ -43,6 +43,7 @@ import { OperateTelemetry } from "./operate/telemetry";
 import { TelemetryStore } from "./operate/telemetry-store";
 import { PullRequests } from "./github/pulls";
 import { approvalItemId, inboxItem } from "./inbox/attention";
+import { ThreadSync } from "./sync/thread-sync";
 import { GithubInbox } from "./inbox/github";
 import { InboxStore } from "./inbox/store";
 import { RoleStore } from "./roles/store";
@@ -73,6 +74,14 @@ const acpAgents = new AcpAgentStore(config.chatDb);
 for (const agent of acpAgents.list()) addAcpAgent(providers, agent);
 const chatStore = new ChatStore(config.chatDb);
 const chat = new ChatHub(chatStore, providers, config.projectsDir);
+// Threads follow into Grid's database, so they outlive this machine (`bun run restore` brings them
+// back on another). Without the API's runner key they stay here only.
+const threadSync = config.runnerKey
+	? new ThreadSync(config.chatDb, { url: config.apiUrl, key: config.runnerKey })
+	: null;
+threadSync?.start();
+if (!threadSync)
+	console.log("[runner] GRID_RUNNER_KEY is not set: threads stay on this machine only");
 const skills = new SkillStore(join(dirname(config.chatDb), "skills"));
 chat.setSkills((workspace, project) => skills.instructions(workspace, project));
 chat.setDescribe(async (id, installed) => ({
@@ -372,6 +381,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 		store.closeAll();
 		chat.closeAll();
 		automations.stop();
+		threadSync?.close();
 		void server.stop(true);
 		// Agents are stdio children, not shells, so nothing signals them when this process ends.
 		// `closeAll` only schedules their `close()` as a microtask, and `exit` below discards the

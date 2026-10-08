@@ -78,6 +78,11 @@ export const envSchema = z
 		GRID_UPLOADS_DIR: z.string().min(1).optional(),
 		/** Where database backups go; Grid's data folder by default. */
 		GRID_BACKUPS_DIR: z.string().min(1).optional(),
+		/**
+		 * The key this Grid's runners send their threads with (`Authorization: Runner <key>`).
+		 * Unset, the runner routes are off. The launcher makes one per data folder.
+		 */
+		GRID_RUNNER_KEY: z.string().min(32).optional(),
 	})
 	.superRefine((env, context) => {
 		if (env.NODE_ENV !== "production") {

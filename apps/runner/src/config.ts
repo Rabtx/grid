@@ -33,6 +33,11 @@ export type RunnerConfig = {
 	environmentHosts: string[];
 	/** Whose machine this is (an email or user id); otherwise the first owner to sign in. */
 	owner: string | null;
+	/**
+	 * The key this runner sends its threads to Grid's database with (GRID_RUNNER_KEY, shared with
+	 * the API). Without it threads stay on this machine only.
+	 */
+	runnerKey: string | null;
 };
 
 export function readConfig(env: Record<string, string | undefined> = process.env): RunnerConfig {
@@ -56,5 +61,6 @@ export function readConfig(env: Record<string, string | undefined> = process.env
 			.map((host) => host.trim().toLowerCase())
 			.filter(Boolean),
 		owner: env.RUNNER_OWNER?.trim() || null,
+		runnerKey: env.GRID_RUNNER_KEY?.trim() || null,
 	};
 }
