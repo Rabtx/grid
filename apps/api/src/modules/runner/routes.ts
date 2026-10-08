@@ -4,7 +4,7 @@ import type { Database } from "@grid/db";
 import { Hono } from "hono";
 
 import type { AppEnv } from "../../http/context";
-import { badRequest, notFound, unauthorized } from "../../http/errors";
+import { badRequest, conflict, notFound, unauthorized } from "../../http/errors";
 import { ok } from "../../http/respond";
 import { body } from "../../http/validate";
 import * as s from "./schema";
@@ -46,6 +46,28 @@ export function runnerRoutes(deps: { db: Database }): Hono<AppEnv> {
 		const after = Number(c.req.query("after") ?? 0);
 		if (!Number.isInteger(after) || after < 0) throw badRequest("after must be a whole number");
 		return ok(c, await service.events(deps.db, c.req.param("id"), after, EVENT_PAGE));
+	});
+
+	app.put("/threads/:id/attachments/:attachment", async (c) => {
+		const input = await body(c.req, s.attachmentSchema);
+		const kept = await service.keepAttachment(
+			deps.db,
+			c.req.param("id"),
+			c.req.param("attachment"),
+			input,
+		);
+		if (!kept) throw conflict("This machine does not hold that thread");
+		return ok(c, { kept: true });
+	});
+
+	app.get("/threads/:id/attachments", async (c) =>
+		ok(c, await service.attachments(deps.db, c.req.param("id"))),
+	);
+
+	app.get("/threads/:id/attachments/:attachment", async (c) => {
+		const found = await service.attachment(deps.db, c.req.param("id"), c.req.param("attachment"));
+		if (!found) throw notFound("No such attachment");
+		return ok(c, found);
 	});
 
 	app.post("/machines/:id/claim", async (c) => {

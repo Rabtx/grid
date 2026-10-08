@@ -441,10 +441,13 @@ export class ChatStore {
 		"cwd" | "resumeToken" | "worktree" | "role" | "notes"
 	> & {
 		lastSeq: number;
+		/** Its attached files' ids, so the home Grid fetches only those it has not kept. */
+		attachments: string[];
 	})[] {
 		return this.db
-			.query<Row & { last_seq: number | null }, [string]>(
-				`SELECT s.*, (SELECT MAX(seq) FROM events e WHERE e.session_id = s.id) AS last_seq
+			.query<Row & { last_seq: number | null; attachment_ids: string | null }, [string]>(
+				`SELECT s.*, (SELECT MAX(seq) FROM events e WHERE e.session_id = s.id) AS last_seq,
+				        (SELECT GROUP_CONCAT(a.id) FROM attachments a WHERE a.session_id = s.id) AS attachment_ids
 				   FROM sessions s WHERE s.workspace_id = ? ORDER BY s.updated_at`,
 			)
 			.all(workspace)
@@ -457,7 +460,11 @@ export class ChatStore {
 					notes: _n,
 					...thread
 				} = toSession(row);
-				return { ...thread, lastSeq: row.last_seq ?? 0 };
+				return {
+					...thread,
+					lastSeq: row.last_seq ?? 0,
+					attachments: row.attachment_ids ? row.attachment_ids.split(",") : [],
+				};
 			});
 	}
 
@@ -651,6 +658,14 @@ export class ChatStore {
 			)
 			.get(session, id);
 		return row ? (JSON.parse(row.data) as Attachment) : null;
+	}
+
+	/** A thread's attached files, without their contents. */
+	attachmentsOf(session: string): Attachment[] {
+		return this.db
+			.query<{ data: string }, [string]>("SELECT data FROM attachments WHERE session_id = ?")
+			.all(session)
+			.map((row) => JSON.parse(row.data) as Attachment);
 	}
 
 	/** How many files a thread keeps, and how many bytes. */

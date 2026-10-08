@@ -65,7 +65,13 @@ function fakeApi() {
 		threads: { id: string; workspaceId: string; events: { seq: number }[] }[];
 		deleted: string[];
 	}[] = [];
-	const fetcher = (async (_url: string, init?: RequestInit) => {
+	const files = new Map<string, string>();
+	const fetcher = (async (url: string, init?: RequestInit) => {
+		const file = url.match(/\/threads\/([^/]+)\/attachments\/([^/]+)$/);
+		if (file && init?.method === "PUT") {
+			files.set(`${file[1]}/${file[2]}`, JSON.parse(String(init.body)).machine.id);
+			return Response.json({ data: { kept: true } });
+		}
 		const round = JSON.parse(String(init?.body));
 		rounds.push(round);
 		const seqs: Record<string, number> = {};
@@ -80,7 +86,7 @@ function fakeApi() {
 		for (const id of round.deleted) events.delete(id);
 		return Response.json({ data: { seqs, skipped: [] } });
 	}) as unknown as typeof fetch;
-	return { fetcher, events, rounds };
+	return { fetcher, events, files, rounds };
 }
 
 describe("syncExportRequest", () => {
@@ -140,8 +146,14 @@ describe("EnvironmentSync", () => {
 		await sync.syncAll();
 		expect(api.rounds).toHaveLength(1);
 
+		env.store.addAttachment(
+			"t1",
+			{ id: "a1", name: "log.txt", size: 2, mimeType: "text/plain" },
+			new TextEncoder().encode("hi"),
+		);
 		env.store.append("t1", [{ type: "message", text: "c" }]);
 		await sync.syncAll();
+		expect(api.files.get("t1/a1")).toBe("env-env-1");
 		expect(api.rounds.at(-1)?.threads[0]?.events.map((event) => event.seq)).toEqual([3]);
 
 		// Unreachable: nothing is taken for deleted.

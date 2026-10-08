@@ -37,6 +37,21 @@ export const syncSchema = z
 	})
 	.strict();
 
+/** One attached file, sent by the machine holding its thread. 10 MB on the runner, as base64. */
+export const attachmentSchema = z
+	.object({
+		machine: machineSchema,
+		name: z.string().min(1).max(500),
+		mimeType: z.string().min(1).max(200),
+		size: z
+			.number()
+			.int()
+			.min(0)
+			.max(10 * 1024 * 1024),
+		data: z.base64().max(14 * 1024 * 1024),
+	})
+	.strict();
+
 export const claimSchema = z.object({ machine: machineSchema }).strict();
 
 export type SyncInput = z.infer<typeof syncSchema>;

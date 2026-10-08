@@ -63,5 +63,25 @@ export const threadEvents = pgTable(
 	(table) => [primaryKey({ columns: [table.threadId, table.seq] })],
 );
 
+/**
+ * Files attached to a thread's messages (images, logs), each sent once by the machine holding the
+ * thread, so a restored thread opens them too. Base64, which every driver reads the same; a file is
+ * at most 10 MB on the runner.
+ */
+export const threadAttachments = pgTable(
+	"thread_attachments",
+	{
+		threadId: varchar("thread_id", { length: 120 })
+			.notNull()
+			.references(() => threads.id, { onDelete: "cascade" }),
+		id: varchar("id", { length: 120 }).notNull(),
+		name: text("name").notNull(),
+		mimeType: varchar("mime_type", { length: 200 }).notNull(),
+		size: integer("size").notNull(),
+		data: text("data").notNull(),
+	},
+	(table) => [primaryKey({ columns: [table.threadId, table.id] })],
+);
+
 export type ThreadRecord = typeof threads.$inferSelect;
 export type NewThreadRecord = typeof threads.$inferInsert;
