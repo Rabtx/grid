@@ -5,12 +5,12 @@ type: chore
 from: backend
 to: backend
 priority: normal
-status: open
-assignee: none
+status: done
+assignee: claude
 reviewer: human
 parent: grid-thread-sync
 depends_on: [grid-thread-sync]
-branch: none
+branch: agent/backend/runner-key-for-checkouts
 worktree: none
 scope: [apps/api/src/config/**, apps/runner/src/config.ts, apps/docs/content/docs/portable.mdx]
 allowed_shared: []
@@ -35,4 +35,14 @@ first one creates, mode 600) a shared key file under `$XDG_DATA_HOME/grid/runner
 - Config tests for both; a scratch checkout start on spare ports.
 
 ## Resolution
+
+Done by claude. With no `GRID_RUNNER_KEY`, the API (`apps/api/src/main.ts`) and the runner
+(`apps/runner/src/main.ts`) use `machineRunnerKey()`: `$XDG_DATA_HOME/grid/runner.key`, mode 600,
+made atomically (`wx`) by whichever starts first. Only the entry points use it, so tests never
+write to a home folder. A paired environment (`RUNNER_PAIRING=1`) still does not sync.
+
+Validation: key tests in both apps (one key, reread, mode 600); runner and API typecheck; boundary
+check clean. End to end: API and runner started separately from a checkout with no key and scratch
+data; the API made the key file, the runner read it, and a thread synced (`/runner/machines` listed
+it).
 

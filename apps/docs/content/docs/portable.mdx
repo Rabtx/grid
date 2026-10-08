@@ -224,5 +224,5 @@ process manager of choice.
 | `GRID_PUBLIC_URL` | — | The address printed at start |
 | `GRID_API_PORT` / `GRID_RUNNER_PORT` | `4000` / `4100` | Internal loopback ports |
 | `GRID_PAIRING` | on when `TS_AUTH_KEY` is set | Let a home Grid pair with this one over the tailnet |
-| `GRID_RUNNER_KEY` | generated in `secrets.json` | What the runner sends threads to the API with; unset, threads stay on the machine |
+| `GRID_RUNNER_KEY` | `secrets.json` (launcher), else `$XDG_DATA_HOME/grid/runner.key` | What the runner sends threads to the API with; the API and runner on one machine share it |
 | `RUNNER_ENVIRONMENT_HOSTS` | — | Non-tailnet hosts a home Grid may add as environments (https only) |
