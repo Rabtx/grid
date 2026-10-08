@@ -10,7 +10,7 @@ export function SiteHeader() {
 		<header className="sticky top-0 z-40 border-border/60 border-b bg-background/80 backdrop-blur">
 			<div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-6">
 				<Link href="/" aria-label={`${SITE.name} home`} className="flex items-center">
-					<BrandLogo className="h-5" priority />
+					<BrandLogo />
 				</Link>
 				<nav className="flex items-center gap-1">
 					<Link

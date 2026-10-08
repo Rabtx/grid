@@ -1,42 +1,38 @@
-import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { MARK_ACCENT, MARK_INK, WORDMARK } from "./brand-paths";
+
+/** The brand blue of the mark's accent block, the same in light and dark. */
+export const BRAND_BLUE = "#2D7CF6";
 
 /**
- * The brand artwork is white-on-transparent, drawn for a dark surface. In light
- * mode `invert` takes the white marks to near-black, and `hue-rotate-180` puts
- * the accent petal back to its original mint after the inversion flipped it.
- * Dark mode renders the file untouched.
+ * The Grid mark: three blocks in the text colour and one in the brand blue, so it follows light
+ * and dark without separate artwork. Decorative: pair it with text.
  */
-const THEME_FIX = "invert hue-rotate-180 dark:invert-0 dark:hue-rotate-0";
-
-export function BrandLogo({
-	className,
-	priority = false,
-}: {
-	className?: string;
-	priority?: boolean;
-}) {
+export function BrandMark({ className }: { className?: string }) {
 	return (
-		<Image
-			src="/brand/grid-logo.png"
-			alt="Grid"
-			width={1997}
-			height={788}
-			priority={priority}
-			className={cn("h-6 w-auto", THEME_FIX, className)}
-		/>
+		<svg viewBox="0 0 64 64" aria-hidden className={cn("size-6 shrink-0", className)}>
+			<path fillRule="evenodd" clipRule="evenodd" d={MARK_INK} className="fill-foreground" />
+			<path fillRule="evenodd" clipRule="evenodd" d={MARK_ACCENT} fill={BRAND_BLUE} />
+		</svg>
 	);
 }
 
-export function BrandMark({ className }: { className?: string }) {
+/** The wordmark alone, "GRID" in the text colour. Height is set by `className`. */
+export function BrandWordmark({ className }: { className?: string }) {
 	return (
-		<Image
-			src="/brand/grid-mark.png"
-			alt=""
-			aria-hidden
-			width={512}
-			height={512}
-			className={cn("size-6", THEME_FIX, className)}
-		/>
+		<svg viewBox="0 0 80 16" className={cn("h-4 w-auto shrink-0", className)}>
+			<title>Grid</title>
+			<path fillRule="evenodd" clipRule="evenodd" d={WORDMARK} className="fill-foreground" />
+		</svg>
+	);
+}
+
+/** Mark beside the wordmark, for a header. */
+export function BrandLogo({ className }: { className?: string }) {
+	return (
+		<span className={cn("inline-flex items-center gap-2", className)}>
+			<BrandMark className="size-6" />
+			<BrandWordmark className="h-3" />
+		</span>
 	);
 }
