@@ -109,7 +109,7 @@ mission: deployment, operations and business management are later product areas.
 On Linux or macOS, with git:
 
 ```bash
-curl -fsSL https://grid-rho-ten.vercel.app/install.sh | bash
+curl -fsSL https://grid.rabtx.dev/install.sh | bash
 ```
 
 It installs Bun if it is missing, puts Grid in `~/.grid`, starts it on port 8080 as a user service
@@ -122,7 +122,7 @@ only the runner there. It listens on your [Tailscale](https://tailscale.com) net
 address and a pairing code to add in **Settings → Environments**:
 
 ```bash
-curl -fsSL https://grid-rho-ten.vercel.app/install.sh | bash -s -- runner
+curl -fsSL https://grid.rabtx.dev/install.sh | bash -s -- runner
 ```
 
 The script is [scripts/bash/install.sh](scripts/bash/install.sh).

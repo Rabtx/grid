@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Install Grid with one command, on Linux or macOS.
 #
-#   curl -fsSL https://grid-rho-ten.vercel.app/install.sh | bash
+#   curl -fsSL https://grid.rabtx.dev/install.sh | bash
 #       Grid itself on this machine: the console, API and runner behind one port (8080), with an
 #       embedded database. Prints a one-time setup link that creates the owner account.
 #
-#   curl -fsSL https://grid-rho-ten.vercel.app/install.sh | bash -s -- runner
+#   curl -fsSL https://grid.rabtx.dev/install.sh | bash -s -- runner
 #       Only a runner, for a Grid you already have: this machine's terminals, files and agents,
 #       reached over your Tailscale network. Prints the address and a pairing code to add it in
 #       Settings → Environments on that Grid.
