@@ -104,10 +104,32 @@ Grid is a working development workspace today, not yet the full startup operatin
 mission: deployment, operations and business management are later product areas. The
 [project reference](PROJECT.md) explains the architecture and where data lives.
 
-## Try Grid locally
+## Install
 
-You need [Bun](https://bun.sh) **1.4.2** and either Docker with Compose or a PostgreSQL database
-set through `DATABASE_URL`.
+On Linux or macOS, with git:
+
+```bash
+curl -fsSL https://grid-rho-ten.vercel.app/install.sh | bash
+```
+
+It installs Bun if it is missing, puts Grid in `~/.grid`, starts it on port 8080 as a user service
+(systemd or launchd) and prints a one-time link that creates your account and workspace; after
+that, people join by invite. A `grid` command manages it: `grid status`, `grid logs`,
+`grid update`, `grid uninstall`.
+
+To add another machine (a VPS, a Codespace, a second laptop) to a Grid you already run, install
+only the runner there. It listens on your [Tailscale](https://tailscale.com) network and prints an
+address and a pairing code to add in **Settings → Environments**:
+
+```bash
+curl -fsSL https://grid-rho-ten.vercel.app/install.sh | bash -s -- runner
+```
+
+The script is [scripts/bash/install.sh](scripts/bash/install.sh).
+
+### From a checkout
+
+You need [Bun](https://bun.sh) **1.4.2**.
 
 ```bash
 git clone https://github.com/shabirkhan-dev/grid.git
@@ -116,10 +138,9 @@ bun install
 bun run grid
 ```
 
-On first start, the launcher prints a one-time setup link (also saved in `.grid/setup-link.txt`).
-Open it to create your account and your workspace; after that, people join by invite.
-`bun run grid` starts Postgres through Docker when `DATABASE_URL` is unset, applies migrations,
-builds the console, and runs the API and runner behind one port.
+The launcher prints the same one-time setup link (also saved in `.grid/setup-link.txt`).
+`bun run grid` uses an embedded database under `.grid/` when `DATABASE_URL` is unset, applies
+migrations, builds the console, and runs the API and runner behind one port.
 
 Install at least one agent CLI on the machine (Grid can help from **Settings → Agents**). For a
 Codespace or VPS, environment variables, pairing and deployment, read the
