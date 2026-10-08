@@ -200,6 +200,20 @@ export class EnvironmentStore {
 		return toEnvironment(row);
 	}
 
+	/** Every paired environment on this runner, in every workspace, with what reaches it. */
+	all(): { id: string; workspaceId: string; label: string; url: string; token: string }[] {
+		return this.db
+			.query<Row, []>("SELECT * FROM environments ORDER BY created_at")
+			.all()
+			.map((row) => ({
+				id: row.id,
+				workspaceId: row.workspace_id,
+				label: row.label,
+				url: row.url,
+				token: environmentToken(row.peer_id, row.secret),
+			}));
+	}
+
 	/** Where to reach an environment and the token to present, if it is the workspace's. */
 	target(workspace: string, id: string): { url: string; token: string } | null {
 		const row = this.db

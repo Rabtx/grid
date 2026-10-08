@@ -435,6 +435,42 @@ export class ChatStore {
 		};
 	}
 
+	/** A workspace's threads with how far each has got, for a home Grid that keeps them for it. */
+	syncList(workspace: string): (Omit<
+		ChatSessionRow,
+		"cwd" | "resumeToken" | "worktree" | "role" | "notes"
+	> & {
+		lastSeq: number;
+	})[] {
+		return this.db
+			.query<Row & { last_seq: number | null }, [string]>(
+				`SELECT s.*, (SELECT MAX(seq) FROM events e WHERE e.session_id = s.id) AS last_seq
+				   FROM sessions s WHERE s.workspace_id = ? ORDER BY s.updated_at`,
+			)
+			.all(workspace)
+			.map((row) => {
+				const {
+					cwd: _cwd,
+					resumeToken: _r,
+					worktree: _w,
+					role: _role,
+					notes: _n,
+					...thread
+				} = toSession(row);
+				return { ...thread, lastSeq: row.last_seq ?? 0 };
+			});
+	}
+
+	/** A page of a thread's events after `after`, with their numbers. */
+	eventsAfter(sessionId: string, after: number, limit: number): { seq: number; data: unknown }[] {
+		return this.db
+			.query<{ seq: number; data: string }, [string, number, number]>(
+				"SELECT seq, data FROM events WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?",
+			)
+			.all(sessionId, after, limit)
+			.map((row) => ({ seq: row.seq, data: JSON.parse(row.data) as unknown }));
+	}
+
 	/**
 	 * A thread brought back from Grid's database onto this machine: the same id, times and event
 	 * numbers it had. It has no provider session to resume here, so its next turn starts a fresh

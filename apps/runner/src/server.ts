@@ -145,6 +145,8 @@ export function startServer(
 		environments?: EnvironmentDeps;
 		/** Other Grids may pair with this runner and drive it (the environment side). */
 		pairing?: PairingStore;
+		/** The paired home Grid reading this environment's threads, to keep them in its database. */
+		syncExport?: (request: Request, url: URL) => Response | null;
 		/** GitHub sign-in and Codespaces, through `gh` on this machine. */
 		github?: CodespacesLink;
 		/** Projects' pull requests, through the same `gh`. */
@@ -177,6 +179,7 @@ export function startServer(
 		diagnostics,
 		environments,
 		pairing,
+		syncExport,
 		github,
 		pulls,
 		inbox,
@@ -384,6 +387,8 @@ export function startServer(
 					const handled = await pairRequest(request, url, pairing);
 					if (handled) return handled;
 				}
+				const exported = syncExport?.(request, url);
+				if (exported) return exported;
 
 				// `/env/<id>/…`: the same routes, on one of this person's environments.
 				const relayed = environments ? url.pathname.match(/^\/env\/([\w-]+)(\/.*)$/) : null;

@@ -29,7 +29,7 @@ type SessionRow = {
 	sent_seq: number | null;
 };
 
-type Round = {
+export type Round = {
 	machine: Machine;
 	threads: {
 		id: string;
@@ -186,15 +186,7 @@ export class ThreadSync {
 	}
 
 	private async send(round: Round): Promise<void> {
-		const reply = await this.fetcher(`${this.api.url}/api/v1/runner/sync`, {
-			method: "POST",
-			headers: { authorization: `Runner ${this.api.key}`, "content-type": "application/json" },
-			body: JSON.stringify(round),
-		});
-		if (!reply.ok) throw new Error(`the API answered ${reply.status}`);
-		const { data } = (await reply.json()) as {
-			data: { seqs: Record<string, number>; skipped: string[] };
-		};
+		const data = await postRound(this.fetcher, this.api, round);
 		const skipped = new Set(data.skipped);
 		const mark = this.db.query(
 			`INSERT INTO sync_threads (session_id, seq, updated_at) VALUES (?, ?, ?)
@@ -252,4 +244,22 @@ export class ThreadSync {
 		this.stop();
 		this.db.close();
 	}
+}
+
+/** What the API answers a round with: how far each thread's copy is whole, and what it skipped. */
+export type RoundResult = { seqs: Record<string, number>; skipped: string[] };
+
+/** Sends one round to the API's runner sync route. */
+export async function postRound(
+	fetcher: typeof fetch,
+	api: { url: string; key: string },
+	round: Round,
+): Promise<RoundResult> {
+	const reply = await fetcher(`${api.url}/api/v1/runner/sync`, {
+		method: "POST",
+		headers: { authorization: `Runner ${api.key}`, "content-type": "application/json" },
+		body: JSON.stringify(round),
+	});
+	if (!reply.ok) throw new Error(`the API answered ${reply.status}`);
+	return ((await reply.json()) as { data: RoundResult }).data;
 }
