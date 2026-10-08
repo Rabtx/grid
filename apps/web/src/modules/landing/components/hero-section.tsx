@@ -2,7 +2,7 @@ import { buttonVariants } from "@grid/ui/components/button";
 import Link from "next/link";
 import { BrandMark } from "@/components/brand";
 import { cn } from "@/lib/utils";
-import { SITE } from "../data/landing.data";
+import { INSTALLS, SITE } from "../data/landing.data";
 import { InstallCommand } from "./install-command";
 import { Screen } from "./screen";
 
@@ -20,7 +20,7 @@ export function HeroSection() {
 				<p className="mt-5 max-w-xl text-balance text-[17px] text-muted-foreground leading-7">
 					{SITE.summary}
 				</p>
-				<InstallCommand className="mt-10" />
+				<InstallCommand installs={INSTALLS} className="mt-10" />
 				<div className="mt-6 flex flex-wrap justify-center gap-2">
 					<Link
 						href="#install"
