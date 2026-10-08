@@ -18,9 +18,11 @@ mode="$GRID_MODE"
 bun="${GRID_BUN:-bun}"
 log="$home/logs/grid.log"
 pidfile="$home/grid.pid"
-unit="grid-$mode.service"
-plist="$HOME/Library/LaunchAgents/dev.grid.$mode.plist"
-label="dev.grid.$mode"
+name=grid
+[[ "$mode" == runner ]] && name=grid-runner
+unit="$name.service"
+label="dev.$name"
+plist="$HOME/Library/LaunchAgents/$label.plist"
 
 has_systemd() { [[ "$(uname -s)" == Linux ]] && systemctl --user show-environment >/dev/null 2>&1; }
 manager() {
