@@ -50,7 +50,7 @@ threads and context persist.
 <table>
   <tr>
     <td width="50%">
-      <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/thread-darkmode-dark.webp"><img src=".github/assets/thread-darkmode-light.webp" alt="An agent thread: commands it ran, the files it changed and a summary of the work"></picture>
+      <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/thread-dark.webp"><img src=".github/assets/thread-light.webp" alt="An agent thread: commands it ran, the files it changed and a summary of the work"></picture>
       <p align="center"><b>Threads</b><br><sub>Every command, edit and test the agent makes, as it happens.</sub></p>
     </td>
     <td width="50%">
@@ -74,7 +74,7 @@ threads and context persist.
       <p align="center"><b>Any agent, any model</b><br><sub>Claude Code, Codex, opencode, Antigravity and any ACP agent.</sub></p>
     </td>
     <td width="50%">
-      <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/inbox-dark.webp"><img src=".github/assets/inbox-light.webp" alt="The inbox listing finished runs, an approval request and a failed run across projects"></picture>
+      <picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/inbox-dark.webp"><img src=".github/assets/inbox-light.webp" alt="The inbox with two agents waiting for approval, in different projects"></picture>
       <p align="center"><b>Inbox</b><br><sub>Everything waiting on you, across every project.</sub></p>
     </td>
   </tr>
