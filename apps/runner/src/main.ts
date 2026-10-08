@@ -24,6 +24,7 @@ import { RunnerOwner } from "./owner";
 import { DiagnosticJournal } from "./diagnostics/journal";
 import { installProcessDiagnostics } from "./diagnostics/runtime";
 import { isEnvironmentToken, PairingStore } from "./environments/pairing";
+import { syncExportRequest } from "./environments/sync-export";
 import { checkEnvironmentUrl, EnvironmentStore } from "./environments/registry";
 import { type EnvironmentDeps, pairEnvironment } from "./environments/routes";
 import { CodespacesLink } from "./github/codespaces";
@@ -43,6 +44,7 @@ import { OperateTelemetry } from "./operate/telemetry";
 import { TelemetryStore } from "./operate/telemetry-store";
 import { PullRequests } from "./github/pulls";
 import { approvalItemId, inboxItem } from "./inbox/attention";
+import { EnvironmentSync } from "./sync/environment-sync";
 import { machineRunnerKey } from "./sync/runner-key";
 import { ThreadSync } from "./sync/thread-sync";
 import { GithubInbox } from "./inbox/github";
@@ -172,6 +174,15 @@ const environments: EnvironmentDeps = {
 	store: new EnvironmentStore(config.chatDb),
 	checkUrl: (raw) => checkEnvironmentUrl(raw, config.environmentHosts),
 };
+// Threads on paired environments, kept in Grid's database through this runner: they hold no key of
+// their own to Grid's API.
+const environmentSync = runnerKey
+	? new EnvironmentSync(config.chatDb, () => environments.store.all(), {
+			url: config.apiUrl,
+			key: runnerKey,
+		})
+	: null;
+environmentSync?.start();
 // What people kept here before workspaces moves into their default workspace when they use it.
 // What each workspace sets for everyone, as last heard from the API: the run-log retention below.
 const workspaceSettings = new Map<string, WorkspaceSettings>();
@@ -347,6 +358,9 @@ const server = startServer(config, store, verify, chat, {
 	prefs,
 	diagnostics,
 	pairing,
+	syncExport: pairing
+		? (request: Request, url: URL) => syncExportRequest(request, url, pairing, chatStore)
+		: undefined,
 	environments,
 	github,
 	pulls,
@@ -383,6 +397,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 		chat.closeAll();
 		automations.stop();
 		threadSync?.close();
+		environmentSync?.close();
 		void server.stop(true);
 		// Agents are stdio children, not shells, so nothing signals them when this process ends.
 		// `closeAll` only schedules their `close()` as a microtask, and `exit` below discards the

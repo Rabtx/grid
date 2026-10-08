@@ -5,12 +5,12 @@ type: feature
 from: backend
 to: backend
 priority: high
-status: open
-assignee: none
+status: done
+assignee: claude
 reviewer: human
 parent: grid-thread-sync
 depends_on: [grid-thread-sync]
-branch: none
+branch: agent/backend/sync-environment-threads
 worktree: none
 scope: [apps/runner/src/environments/**, apps/runner/src/sync/**]
 allowed_shared: []
@@ -48,4 +48,21 @@ environment being unpaired and destroyed.
 - Unit tests with a fake environment; an end-to-end run with two scratch runners paired.
 
 ## Resolution
+
+Done by claude.
+
+- Environment side: `environments/sync-export.ts`, read-only `GET /sync/threads` and
+  `GET /sync/threads/<id>/events?after=`, answering only a valid pairing token and only that
+  workspace's threads (`ChatStore.syncList`, `eventsAfter`).
+- Home side: `sync/environment-sync.ts`, every 15 s per environment (`EnvironmentStore.all()`),
+  reads only what changed after its kept `seq` and sends it with the home runner's key through the
+  shared `postRound`, as machine `env-<environment id>`. A thread missing from an answered list is
+  sent as deleted; an environment that does not answer changes nothing.
+
+Validation: export tests (own workspace only, 401 without pairing, 404 for another workspace, 405
+for writes); environment sync tests (first round, only new events, unreachable deletes nothing,
+deletion); runner suite and typecheck clean. End to end: a scratch home Grid paired over the tailnet
+with a separate paired-mode runner; a thread created through the home relay reached the database as
+machine "Test VPS"; the environment was killed and its data deleted; the thread was still in the
+database and `grid restore` brought it home with its events.
 
