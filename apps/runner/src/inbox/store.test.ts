@@ -30,6 +30,19 @@ describe("InboxStore", () => {
 		store.close();
 	});
 
+	it("settles an answered approval for everyone who could see it, once", () => {
+		const store = new InboxStore(":memory:");
+		store.keep(draft({ id: "approval:s1:a1", kind: "approval", ownerId: "maya" }));
+		store.keep(draft());
+		expect(store.settle("approval:s1:a1")).toBe(true);
+		expect(store.settle("approval:s1:a1")).toBe(false);
+		expect(store.settle("approval:s1:missing")).toBe(false);
+		const { items, unread } = store.list("acme", "maya");
+		expect(items.find((item) => item.kind === "approval")?.readAt).not.toBeNull();
+		expect(unread).toBe(1);
+		store.close();
+	});
+
 	it("keeps each workspace to itself", () => {
 		const store = new InboxStore(":memory:");
 		store.keep(draft());

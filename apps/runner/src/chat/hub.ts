@@ -70,8 +70,15 @@ export type ChatClient = {
 	watching?: () => boolean;
 };
 
-/** Called when a turn ends or an agent waits for approval and no device is looking at the chat. */
-export type AttentionListener = (session: ChatSessionRow, event: ChatEvent) => void;
+/**
+ * Called when an agent waits for approval or its approval is answered, watched or not, and when a
+ * turn ends while no device is looking at the chat. `watched` says whether one was.
+ */
+export type AttentionListener = (
+	session: ChatSessionRow,
+	event: ChatEvent,
+	watched: boolean,
+) => void;
 
 /**
  * Where a device got to in a session's live events: which run of the runner (`epoch`, new each
@@ -533,8 +540,11 @@ export class ChatHub {
 		}
 	}
 
-	/** Hear about turns that end, and approvals that wait, while nobody is watching the chat. */
-	onUnwatchedAttention(listener: AttentionListener): void {
+	/**
+	 * Hear about approvals that wait and the answers they get, whoever is watching, and about turns
+	 * that end while nobody is watching the chat.
+	 */
+	onAttention(listener: AttentionListener): void {
 		this.attention = listener;
 	}
 
@@ -1568,13 +1578,16 @@ export class ChatHub {
 			event.type === "approval" && !this.asks.has(event.id)
 				? this.answerByPolicy(id, live, event)
 				: false;
+		// An approval waits until someone answers it, so it is reported even with the thread open:
+		// leaving without answering must not lose it. A finished turn only matters to someone away.
+		const watched = [...live.clients].some((client) => client.watching?.() ?? true);
 		if (
-			!answered &&
-			(event.type === "turn_end" || event.type === "approval") &&
-			![...live.clients].some((client) => client.watching?.() ?? true)
+			(event.type === "approval" && !answered) ||
+			event.type === "approval_resolved" ||
+			(event.type === "turn_end" && !watched)
 		) {
 			const session = this.store.get(id);
-			if (session) this.attention?.(session, event);
+			if (session) this.attention?.(session, event, watched);
 		}
 		if (event.type === "turn_end" && event.reason === "error" && this.failedTurn) {
 			const session = this.store.get(id);

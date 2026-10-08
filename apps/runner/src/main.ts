@@ -42,7 +42,7 @@ import { OperateStore } from "./operate/store";
 import { OperateTelemetry } from "./operate/telemetry";
 import { TelemetryStore } from "./operate/telemetry-store";
 import { PullRequests } from "./github/pulls";
-import { inboxItem } from "./inbox/attention";
+import { approvalItemId, inboxItem } from "./inbox/attention";
 import { GithubInbox } from "./inbox/github";
 import { InboxStore } from "./inbox/store";
 import { RoleStore } from "./roles/store";
@@ -128,8 +128,14 @@ chat.onTurnFailed((session) => {
 		console.error("[runner] could not write an agent diagnostic event");
 	}
 });
-chat.onUnwatchedAttention((session, event) => {
-	const message = attentionMessage(session, event);
+chat.onAttention((session, event, watched) => {
+	// Answered, from the thread, the inbox or a notification: nothing is waiting any more.
+	if (event.type === "approval_resolved") {
+		inbox.settle(approvalItemId(session.id, event.id));
+		return;
+	}
+	// Someone looking at the thread sees the request there; a push is for whoever is away.
+	const message = watched ? null : attentionMessage(session, event);
 	if (message) {
 		const notify = prefs.get(session.ownerId).notify;
 		const kind = notifyKind(event, lastReply(chat.events(session.workspaceId, session.id)));

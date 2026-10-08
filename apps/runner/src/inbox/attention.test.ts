@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import type { ChatEvent } from "../agents/events";
 import type { ChatSessionRow } from "../chat/store";
 
-import { inboxItem } from "./attention";
+import { approvalItemId, inboxItem } from "./attention";
 
 const session = {
 	id: "s1",
@@ -29,6 +29,8 @@ describe("inboxItem", () => {
 			url: "/chat/grid/s1",
 			createdAt: at,
 		});
+		// An answer settles the row by the same id the request was kept under.
+		expect(approvalItemId("s1", "a1")).toBe("approval:s1:a1");
 		expect(inboxItem(session, { type: "turn_end", reason: "done", at }, at)?.id).toBe(
 			`turn_done:s1:${at}`,
 		);

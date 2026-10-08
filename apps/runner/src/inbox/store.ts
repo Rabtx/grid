@@ -188,6 +188,18 @@ export class InboxStore {
 	}
 
 	/**
+	 * Marks one item read for everyone who could see it: an approval someone answered is no longer
+	 * waiting on anybody. Unlike `read`, not scoped to a viewer, since the runner settles it.
+	 */
+	settle(id: string): boolean {
+		return (
+			this.db
+				.query("UPDATE inbox_items SET read_at = ? WHERE id = ? AND read_at IS NULL")
+				.run(new Date().toISOString(), id).changes > 0
+		);
+	}
+
+	/**
 	 * Marks read everything pointing at one page — a thread, or a project's pull requests — or
 	 * every item in the workspace when no path is given. Opening what was waiting is what reading
 	 * it means.

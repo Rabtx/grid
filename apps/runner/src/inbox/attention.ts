@@ -20,7 +20,10 @@ export function inboxItem(
 	// twice is the same row. An agent whose turn carried no time falls back to when we heard it.
 	const at = event.type === "turn_end" ? (event.at ?? now) : now;
 	return {
-		id: `${what.kind}:${session.id}:${event.type === "approval" ? event.id : at}`,
+		id:
+			event.type === "approval"
+				? approvalItemId(session.id, event.id)
+				: `${what.kind}:${session.id}:${at}`,
 		workspaceId: session.workspaceId,
 		kind: what.kind,
 		project: session.project,
@@ -29,4 +32,9 @@ export function inboxItem(
 		url: chatUrl(session),
 		createdAt: at,
 	};
+}
+
+/** The inbox row an approval keeps, so its answer can settle the same row. */
+export function approvalItemId(sessionId: string, approvalId: string): string {
+	return `approval:${sessionId}:${approvalId}`;
 }
