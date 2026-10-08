@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import { BRAND_BLUE } from "@/components/brand";
+import { MARK_ACCENT, MARK_INK } from "@/components/brand/brand-paths";
 import { SITE } from "@/modules/landing";
 
 export const alt = `${SITE.name} — ${SITE.tagline}`;
@@ -10,10 +10,7 @@ export const size = {
 };
 export const contentType = "image/png";
 
-export default async function OpengraphImage() {
-	const mark = await readFile(join(process.cwd(), "public/brand/grid-mark.png"));
-	const markSrc = `data:image/png;base64,${mark.toString("base64")}`;
-
+export default function OpengraphImage() {
 	return new ImageResponse(
 		<div
 			style={{
@@ -29,8 +26,10 @@ export default async function OpengraphImage() {
 			}}
 		>
 			<div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-				{/* oxlint-disable-next-line nextjs/no-img-element -- ImageResponse asset buffer, not an HTML img */}
-				<img src={markSrc} width={144} height={144} alt="" />
+				<svg width={144} height={144} viewBox="0 0 64 64">
+					<path fillRule="evenodd" clipRule="evenodd" d={MARK_INK} fill="#ffffff" />
+					<path fillRule="evenodd" clipRule="evenodd" d={MARK_ACCENT} fill={BRAND_BLUE} />
+				</svg>
 				<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 					<div style={{ fontSize: 64, fontWeight: 700, lineHeight: 1 }}>{SITE.name}</div>
 					<div

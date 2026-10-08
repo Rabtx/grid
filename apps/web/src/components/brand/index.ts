@@ -1,1 +1,1 @@
-export { BrandLogo, BrandMark } from "./brand-logo";
+export { BRAND_BLUE, BrandLogo, BrandMark, BrandWordmark } from "./brand-logo";
