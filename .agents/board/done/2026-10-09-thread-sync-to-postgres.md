@@ -5,7 +5,7 @@ type: feature
 from: human
 to: backend
 priority: high
-status: doing
+status: done
 assignee: claude
 reviewer: human
 parent: none
@@ -59,4 +59,25 @@ carrying a restored thread's history into a fresh agent session.
 - Installer with `GRID_DATABASE_URL` against the scratch Postgres.
 
 ## Resolution
+
+Done by claude on `agent/backend/thread-sync`.
+
+- `packages/db`: `threads` + `thread_events` (migration `0014_threads`).
+- `apps/api/src/modules/runner`: `/api/v1/runner/{sync,machines,machines/:id/threads,threads/:id/events,machines/:id/claim}`,
+  behind `Authorization: Runner <GRID_RUNNER_KEY>`, off without a key. A thread is written only by
+  the machine holding it; the server answers how far its copy is whole, so gaps are refilled.
+- `apps/runner/src/sync/thread-sync.ts`: batched rounds every 5 s, deletions via a trigger, a machine
+  id kept in `chat.db`; `apps/runner/src/restore.ts` + `ChatStore.importThread`.
+- Launcher: `runnerKey` in `secrets.json`, `bun run grid:restore`. Installer: `GRID_DATABASE_URL`;
+  `grid restore`.
+
+Validation: API runner routes 6 pass (in-memory PGlite with migrations); runner suite 491 pass;
+`bun run typecheck` and `bun run lint` clean; shellcheck clean. End to end on a scratch Postgres
+16 container: machine A (one-line install with `GRID_DATABASE_URL`) ran a real Codex thread whose 12
+events reached Postgres; A stopped; fresh machine B on the same database, `grid restore` listed A
+and restored the thread with its history (seen in B's console); a follow-up on B started a fresh
+agent and the new events synced (18 in SQLite, 18 in Postgres).
+
+Follow-ups raised: grid-sync-environment-threads, grid-restore-from-settings,
+grid-restored-thread-context, grid-sync-thread-attachments, grid-runner-key-for-checkouts.
 

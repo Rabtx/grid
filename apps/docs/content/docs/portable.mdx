@@ -29,6 +29,7 @@ under launchd — and links a `grid` command into `~/.local/bin`:
 | `grid pair` | A one-time pairing code (and, for a runner, its address) |
 | `grid setup-link` | The account link, until someone uses it |
 | `grid update` | Fetch the latest version, rebuild and restart |
+| `grid restore [machine]` | Bring another machine's threads here from Grid's database (see below) |
 | `grid uninstall [--purge]` | Remove the service and code; `--purge` removes the data too |
 
 - **Grid** runs the launcher below with an embedded database, on port 8080, with projects in
@@ -41,6 +42,32 @@ under launchd — and links a `grid` command into `~/.local/bin`:
 `GRID_HOME`, `GRID_PORT`, `GRID_API_PORT`, `GRID_RUNNER_PORT`, `GRID_PROJECTS_DIR`, `GRID_REF` and
 `GRID_NO_SERVICE=1` (start in the background without a service) change the defaults on a first
 install. The installer checks the ports before downloading anything.
+
+### A hosted database, and threads that outlive the machine
+
+By default Grid keeps its data in an embedded database on the machine. Give the Grid install a
+hosted Postgres instead (Neon, your own server) and it outlives the machine:
+
+```bash
+curl -fsSL https://grid.rabtx.dev/install.sh | GRID_DATABASE_URL='postgres://…' bash
+```
+
+The URL goes into `~/.grid/grid.env`; giving it again on a reinstall replaces it. Only the Grid
+install takes one: a runner never holds the database password, it only talks to Grid.
+
+**Threads** (messages, tool calls, diffs, approvals) are written first to the runner's own SQLite,
+so the runner stays fast and keeps working offline. The runner then sends them to Grid's database
+through the API, with a key only the API and its runner share (`GRID_RUNNER_KEY`, generated in
+`secrets.json`). It sends only the events after the last one the server confirmed, so a restart or
+the API being down only delays it. On a new machine pointed at the same database:
+
+```bash
+grid restore              # lists the machines with threads in Grid's database
+grid restore <machine id> # brings that machine's threads here; this machine holds them from now on
+```
+
+A restored thread has its full history. Its agent session stayed on the old machine, so the next
+message starts a fresh one. Threads on paired environments are not sent yet.
 
 ## From a checkout
 
@@ -197,4 +224,5 @@ process manager of choice.
 | `GRID_PUBLIC_URL` | — | The address printed at start |
 | `GRID_API_PORT` / `GRID_RUNNER_PORT` | `4000` / `4100` | Internal loopback ports |
 | `GRID_PAIRING` | on when `TS_AUTH_KEY` is set | Let a home Grid pair with this one over the tailnet |
+| `GRID_RUNNER_KEY` | generated in `secrets.json` | What the runner sends threads to the API with; unset, threads stay on the machine |
 | `RUNNER_ENVIRONMENT_HOSTS` | — | Non-tailnet hosts a home Grid may add as environments (https only) |
