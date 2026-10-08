@@ -17,6 +17,7 @@ import type { EmailSender } from "./modules/email/email";
 import { healthRoutes } from "./modules/health/routes";
 import { instanceRoutes } from "./modules/instance/routes";
 import { projectRoutes } from "./modules/projects/routes";
+import { runnerRoutes } from "./modules/runner/routes";
 import { profileRoutes, uploadedFile } from "./modules/profiles/routes";
 import { inviteRoutes, workspaceRoutes } from "./modules/workspaces/routes";
 
@@ -95,6 +96,8 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 		profileRoutes({ db: deps.db, sessions: deps.sessions, uploadsDir: config.uploadsDir }),
 	);
 	api.route("/billing", billingRoutes({ db: deps.db, sessions: deps.sessions }));
+	// This Grid's runners, with the machine key: their threads, kept beyond the machine.
+	api.route("/runner", runnerRoutes({ db: deps.db }));
 	app.route(base, api);
 
 	app.get("/uploads/*", (c) => uploadedFile(c, config.uploadsDir));

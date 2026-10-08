@@ -238,6 +238,7 @@ grid — this machine's Grid ($mode)
   grid pair         a one-time code for adding this machine to another Grid
 EOF
     [[ "$mode" == grid ]] && echo "  grid setup-link   the link that creates the owner account, until someone uses it"
+    [[ "$mode" == grid ]] && echo "  grid restore      bring another machine's threads here from Grid's database"
     cat <<EOF
   grid update       update to the latest version and restart
   grid uninstall    remove Grid (keeps its data; --purge removes that too)
@@ -269,6 +270,13 @@ setup-link)
     sed "s|^http://[^/]*|$(url)|" "$GRID_DATA_DIR/setup-link.txt"
     ;;
 update) update ;;
+restore)
+    [[ "$mode" == grid ]] || {
+        echo "A runner keeps no threads of its own in Grid's database; restore on the Grid it belongs to." >&2
+        exit 1
+    }
+    cd "$app/apps/launcher" && exec "$bun" src/restore.ts "${@:2}"
+    ;;
 uninstall) uninstall "${2:-}" ;;
 help | -h | --help) usage ;;
 *)

@@ -20,6 +20,9 @@
 #   GRID_RUNNER_PORT   the runner's port (default 4100)
 #   GRID_PROJECTS_DIR  where project folders live (default ~/Projects)
 #   GRID_NO_SERVICE=1  start in the background without a user service
+#   GRID_DATABASE_URL  a hosted Postgres (postgres://…) for Grid's data instead of the embedded
+#                      database, so it survives this machine: threads too, sent there by the
+#                      runner. A runner install never takes one; runners only talk to Grid.
 set -euo pipefail
 
 mode="${1:-grid}"
@@ -45,7 +48,7 @@ fail() {
 case "$mode" in
 grid | runner) ;;
 -h | --help | help)
-    sed -n '2,24p' "${BASH_SOURCE[0]}" 2>/dev/null | sed 's/^# \{0,1\}//' || true
+    sed -n '2,/^set -euo pipefail/p' "${BASH_SOURCE[0]}" 2>/dev/null | sed '$d' | sed 's/^# \{0,1\}//' || true
     exit 0
     ;;
 *) fail "unknown mode '$mode': use 'grid' (the default) or 'runner'" ;;
@@ -64,6 +67,12 @@ port_free() { ! (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
 
 if [[ -f "$home/grid.env" ]] && ! grep -q "^GRID_MODE=$mode$" "$home/grid.env"; then
     fail "$home already holds a Grid of another kind. Use GRID_HOME=… to install this one elsewhere."
+fi
+
+database_url="${GRID_DATABASE_URL:-}"
+if [[ -n "$database_url" ]]; then
+    [[ "$mode" == grid ]] || fail "GRID_DATABASE_URL is for a Grid install. A runner reaches Grid's data through Grid itself."
+    [[ "$database_url" =~ ^postgres(ql)?:// ]] || fail "GRID_DATABASE_URL must be a postgres:// URL."
 fi
 
 # Checked before anything is downloaded; a reinstall keeps the ports it was given.
@@ -132,6 +141,13 @@ GRID_DATA_DIR=$home/data
 GRID_PROJECTS_DIR=${GRID_PROJECTS_DIR:-$HOME/Projects}
 EOF
     chmod 600 "$home/grid.env"
+fi
+# Given again on a reinstall, the database replaces the one in grid.env. Quoted, since a password
+# may hold characters the shell would read.
+if [[ -n "$database_url" ]]; then
+    sed -i.bak '/^DATABASE_URL=/d' "$home/grid.env" && rm -f "$home/grid.env.bak"
+    printf 'DATABASE_URL=%q\n' "$database_url" >>"$home/grid.env"
+    say "Grid's data goes to the database in GRID_DATABASE_URL"
 fi
 mkdir -p "$home/data" "$home/logs"
 

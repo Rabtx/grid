@@ -6,7 +6,6 @@
  * (Docker, when DATABASE_URL isn't set), migrations and a first-run setup link — then runs the API, the
  * runner and the console behind a single gateway port and stops them together.
  */
-import { randomBytes } from "node:crypto";
 import {
 	cpSync,
 	existsSync,
@@ -19,25 +18,12 @@ import {
 import { join, resolve } from "node:path";
 
 import { gatewayUrl, readLaunchConfig, type LaunchConfig } from "./config";
+import { loadSecrets } from "./secrets";
 import { waitForTailnet } from "./tailnet";
 
 const root = resolve(import.meta.dir, "../../..");
 const app = (name: string): string => join(root, "apps", name);
 const pkg = (name: string): string => join(root, "packages", name);
-
-type Secrets = { jwtSecret: string; authTokenSecret: string };
-
-/** Secrets are generated once per data directory, so sessions survive restarts. */
-function loadSecrets(dataDir: string): Secrets {
-	const file = join(dataDir, "secrets.json");
-	if (existsSync(file)) return JSON.parse(readFileSync(file, "utf8")) as Secrets;
-	const secrets: Secrets = {
-		jwtSecret: randomBytes(32).toString("hex"),
-		authTokenSecret: randomBytes(32).toString("hex"),
-	};
-	writeFileSync(file, JSON.stringify(secrets), { mode: 0o600 });
-	return secrets;
-}
 
 function log(message: string): void {
 	console.log(`[grid] ${message}`);
@@ -200,6 +186,7 @@ async function start(config: LaunchConfig): Promise<void> {
 				PORT: String(config.apiPort),
 				JWT_SECRET: secrets.jwtSecret,
 				AUTH_TOKEN_SECRET: secrets.authTokenSecret,
+				GRID_RUNNER_KEY: secrets.runnerKey,
 				AUTH_DEV_EXPOSE_CODES: "false",
 				GRID_UPLOADS_DIR: uploadsDir,
 				GRID_DATA_DIR: config.dataDir,
@@ -214,6 +201,7 @@ async function start(config: LaunchConfig): Promise<void> {
 				RUNNER_HOST: runnerHost,
 				RUNNER_PAIRING: runnerHost === "127.0.0.1" ? "0" : "1",
 				GRID_API_URL: `http://127.0.0.1:${config.apiPort}`,
+				GRID_RUNNER_KEY: secrets.runnerKey,
 				RUNNER_CHAT_DB: join(config.dataDir, "chat.db"),
 				RUNNER_PROJECTS_DIR: config.projectsDir,
 				RUNNER_CWD: config.projectsDir,
