@@ -488,7 +488,7 @@ describe("ChatHub", () => {
 	it("asks for attention when a turn ends only if no device is looking", async () => {
 		const chat = hub();
 		const heard: string[] = [];
-		chat.onUnwatchedAttention((session, event) => heard.push(`${session.id}:${event.type}`));
+		chat.onAttention((session, event) => heard.push(`${session.id}:${event.type}`));
 		const session = chat.create(
 			{ userId: "me", workspace: "me" },
 			{ project: "alpha", provider: "echo", cwd: "/tmp" },
@@ -1017,6 +1017,47 @@ describe("agents on this machine", () => {
 			["a", "yes"],
 			["b", "no"],
 		]);
+	});
+	it("reports an approval and its answer even while the thread is on screen", async () => {
+		// Like the real adapters, this agent says so once an approval is answered.
+		let answered = () => {};
+		const provider: Provider = {
+			info: () => ({ id: "echo", name: "Echo", available: true, models: [], modes: [] }),
+			start: async (context) => ({
+				prompt: async () => {
+					context.emit({ type: "approval", id: "a", title: "bun add zod", options: [] });
+					await new Promise<void>((resolve) => {
+						answered = resolve;
+					});
+					return { reason: "done" };
+				},
+				cancel: () => {},
+				approve: (id, optionId) => {
+					context.emit({ type: "approval_resolved", id, optionId });
+					answered();
+				},
+				setModel: async () => {},
+				setMode: async () => {},
+				setEffort: async () => {},
+				close: () => {},
+			}),
+		};
+		const chat = new ChatHub(new ChatStore(":memory:"), new Map([["echo", provider]]), tmpdir());
+		const heard: string[] = [];
+		chat.onAttention((_session, event, watched) =>
+			heard.push(`${event.type}:${watched ? "watched" : "away"}`),
+		);
+		const session = chat.create(
+			{ userId: "me", workspace: "w" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
+		chat.attach("w", session.id, { event: () => {}, state: () => {}, watching: () => true });
+		const turn = chat.prompt("w", session.id, "Go");
+		await Bun.sleep(1);
+		chat.approve("w", session.id, "a", "yes");
+		await turn;
+		// The finished turn is not reported: someone was looking. The approval and its answer are.
+		expect(heard).toEqual(["approval:watched", "approval_resolved:watched"]);
 	});
 	it("lists approvals waiting across the workspace, and takes an answer from outside the thread", async () => {
 		let answer: (optionId: string | null) => void = () => {};
