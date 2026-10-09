@@ -7,12 +7,18 @@ import {
 	INSTALLS,
 	PRINCIPLES,
 	SITE,
+	STUDIO,
 } from "./landing.data";
 
 describe("landing copy", () => {
 	it("points at the real repository", () => {
 		expect(SITE.repoUrl).toBe("https://github.com/rabtx/grid");
 		expect(SITE.docsUrl.startsWith(SITE.repoUrl)).toBe(true);
+	});
+
+	it("credits the studio and links to its page about Grid", () => {
+		expect(STUDIO.url).toBe("https://rabtx.dev");
+		expect(STUDIO.gridPage.startsWith(STUDIO.url)).toBe(true);
 	});
 
 	it("offers no sign-in link unless a console is hosted", () => {
