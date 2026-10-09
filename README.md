@@ -13,9 +13,9 @@ threads, the files and the terminal, on the machine that holds the project, from
 **Beta** · Any AI provider · Runs on a laptop, a VPS or a Codespace ·
 [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-Apache-2.0)
 
-<a href="https://github.com/shabirkhan-dev/grid/releases/tag/v0.2.0-beta"><img src=".github/assets/grid-intro.webp" alt="Grid in under a minute: install with one command, plan on the board, and watch an agent do the work, asking before it acts" width="880"></a>
+<a href="https://github.com/rabtx/grid/releases/tag/v0.2.0-beta"><img src=".github/assets/grid-intro.webp" alt="Grid in under a minute: install with one command, plan on the board, and watch an agent do the work, asking before it acts" width="880"></a>
 
-[**Website**](https://grid.rabtx.dev) · [Watch the intro](https://github.com/shabirkhan-dev/grid/releases/tag/v0.2.0-beta) · [Install](#install) · [What works today](#what-works-today) · [Docs](apps/docs/content/docs/index.mdx)
+[**Website**](https://grid.rabtx.dev) · [Watch the intro](https://github.com/rabtx/grid/releases/tag/v0.2.0-beta) · [Install](#install) · [What works today](#what-works-today) · [Docs](apps/docs/content/docs/index.mdx)
 
 </div>
 
@@ -147,7 +147,7 @@ The script is [scripts/bash/install.sh](scripts/bash/install.sh).
 You need [Bun](https://bun.sh) **1.4.2**.
 
 ```bash
-git clone https://github.com/shabirkhan-dev/grid.git
+git clone https://github.com/rabtx/grid.git
 cd grid
 bun install
 bun run grid
