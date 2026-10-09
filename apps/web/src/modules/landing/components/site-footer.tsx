@@ -2,7 +2,7 @@ import { buttonVariants } from "@grid/ui/components/button";
 import Link from "next/link";
 import { BrandLogo, BrandMark } from "@/components/brand";
 import { cn } from "@/lib/utils";
-import { SITE } from "../data/landing.data";
+import { SITE, STUDIO } from "../data/landing.data";
 
 export function SiteFooter() {
 	return (
@@ -43,7 +43,13 @@ export function SiteFooter() {
 						GitHub
 					</Link>
 				</nav>
-				<p className="text-muted-foreground text-sm">MIT or Apache-2.0</p>
+				<p className="text-muted-foreground text-sm">
+					Built by{" "}
+					<a href={STUDIO.url} className="font-medium text-foreground hover:underline">
+						{STUDIO.name}
+					</a>{" "}
+					· MIT or Apache-2.0
+				</p>
 			</div>
 		</footer>
 	);

@@ -22,6 +22,14 @@ export const SITE = {
 	signInUrl: CONSOLE_URL ? `${CONSOLE_URL}/login` : null,
 } as const;
 
+/** The studio that builds Grid, credited in the footer and named as publisher in the page's schema. */
+export const STUDIO = {
+	name: "RabtX",
+	url: "https://rabtx.dev",
+	/** RabtX's write-up of Grid, which links back here. */
+	gridPage: "https://rabtx.dev/products/grid",
+} as const;
+
 /** The installer this site serves (app/install.sh/route.ts). */
 export const INSTALL_URL = `${SITE_URL}/install.sh`;
 
