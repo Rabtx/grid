@@ -11,7 +11,7 @@ import {
 
 describe("landing copy", () => {
 	it("points at the real repository", () => {
-		expect(SITE.repoUrl).toBe("https://github.com/shabirkhan-dev/grid");
+		expect(SITE.repoUrl).toBe("https://github.com/rabtx/grid");
 		expect(SITE.docsUrl.startsWith(SITE.repoUrl)).toBe(true);
 	});
 

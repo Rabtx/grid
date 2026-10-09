@@ -15,7 +15,7 @@ curl -fsSL https://grid.rabtx.dev/install.sh | bash               # Grid itself
 curl -fsSL https://grid.rabtx.dev/install.sh | bash -s -- runner  # only a runner
 ```
 
-The script ([`scripts/bash/install.sh`](https://github.com/shabirkhan-dev/grid/blob/main/scripts/bash/install.sh))
+The script ([`scripts/bash/install.sh`](https://github.com/rabtx/grid/blob/main/scripts/bash/install.sh))
 installs Bun if it is missing and puts everything in `~/.grid`: the code in `app/`, the data in
 `data/`, logs in `logs/`, and the settings it chose in `grid.env`. It keeps Grid running as a user
 service — `grid.service` or `grid-runner.service` under systemd, `dev.grid` or `dev.grid.runner`

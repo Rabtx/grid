@@ -17,8 +17,8 @@ export const SITE = {
 	tagline: "A workspace for you and your coding agents",
 	summary:
 		"Grid gives you and agents like Claude Code, Codex and opencode one board, live threads, terminals and pull requests. It runs on your own machine, and you open it from any browser.",
-	repoUrl: "https://github.com/shabirkhan-dev/grid",
-	docsUrl: "https://github.com/shabirkhan-dev/grid/blob/main/apps/docs/content/docs/portable.mdx",
+	repoUrl: "https://github.com/rabtx/grid",
+	docsUrl: "https://github.com/rabtx/grid/blob/main/apps/docs/content/docs/portable.mdx",
 	signInUrl: CONSOLE_URL ? `${CONSOLE_URL}/login` : null,
 } as const;
 
