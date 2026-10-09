@@ -62,7 +62,7 @@ export default function OpengraphImage() {
 				>
 					Open source · early
 				</div>
-				<div style={{ display: "flex" }}>github.com/shabirkhan-dev/grid</div>
+				<div style={{ display: "flex" }}>github.com/rabtx/grid</div>
 			</div>
 		</div>,
 		{
