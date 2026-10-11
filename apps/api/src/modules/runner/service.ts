@@ -23,7 +23,8 @@ export type SyncResult = { seqs: Record<string, number>; skipped: string[] };
  * keyed by `(thread, seq)`, so a round sent twice changes nothing. A thread in a workspace this
  * Grid does not have is skipped, not fatal: the rest of the round still lands.
  */
-export async function sync(db: Database, input: SyncInput): Promise<SyncResult> {
+export async function sync(db: Database, round: SyncInput): Promise<SyncResult> {
+	const input = withoutNul(round);
 	const skipped: string[] = [];
 	const seqs: Record<string, number> = {};
 	const workspaceIds = [...new Set(input.threads.map((thread) => thread.workspaceId))];
@@ -164,6 +165,22 @@ async function keepThread(
 		})
 		.returning({ id: threads.id });
 	return Boolean(row);
+}
+
+/**
+ * `value` with every NUL character (in strings and keys) swapped for U+FFFD. Postgres can store
+ * NUL neither in text nor in jsonb, and agents' terminal output does carry it: one such event
+ * would otherwise fail every round it is in, and the thread would never sync.
+ */
+export function withoutNul<T>(value: T): T {
+	if (typeof value === "string")
+		return (value.includes("\0") ? value.replaceAll("\0", "\uFFFD") : value) as T;
+	if (Array.isArray(value)) return value.map(withoutNul) as T;
+	if (value && typeof value === "object")
+		return Object.fromEntries(
+			Object.entries(value).map(([key, item]) => [withoutNul(key), withoutNul(item)]),
+		) as T;
+	return value;
 }
 
 /** Every machine with threads in this Grid, newest sync first: what a restore picks from. */

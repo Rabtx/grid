@@ -99,6 +99,12 @@ share() {
     write_status "running"
     (cd "$release" && bun run build)
 
+    # The new version's tables, before it starts: `bun run start` does not migrate. Migrations only
+    # add, so the version still running keeps working on the migrated database.
+    step="migrating"
+    write_status "running"
+    (cd "$release" && bun run db:migrate)
+
     # The switch: `serve` points at the new release in one rename. A checkout still sitting at
     # `serve` (before the first update) moves into releases/; what runs from it keeps running.
     step="switching"

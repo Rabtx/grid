@@ -23,8 +23,11 @@ const STEP: Record<string, string> = {
 	starting: "Starting",
 	fetching: "Getting the latest version",
 	"checking out": "Switching to it",
+	preparing: "Preparing the new version",
 	installing: "Installing packages",
 	building: "Building",
+	migrating: "Updating the database",
+	switching: "Switching to it",
 	restarting: "Restarting Grid",
 };
 
