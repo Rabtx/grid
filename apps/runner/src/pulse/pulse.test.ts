@@ -58,8 +58,8 @@ describe("shipping", () => {
 		const result = await shipping(
 			gh,
 			{
-				grid: repo("grid", "git@github.com:rabtx/grid.git"),
-				site: repo("site", "https://github.com/rabtx/grid"),
+				grid: repo("grid", "git@github.com:Rabtx/grid.git"),
+				site: repo("site", "https://github.com/Rabtx/grid"),
 			},
 			() => new Set(["worked-on"]),
 			new Date("2026-09-04T00:00:00Z"),

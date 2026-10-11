@@ -27,7 +27,7 @@ set -euo pipefail
 
 mode="${1:-grid}"
 home="${GRID_HOME:-$HOME/.grid}"
-repo="${GRID_REPO:-https://github.com/rabtx/grid.git}"
+repo="${GRID_REPO:-https://github.com/Rabtx/grid.git}"
 ref="${GRID_REF:-main}"
 app="$home/app"
 bin="$HOME/.local/bin"

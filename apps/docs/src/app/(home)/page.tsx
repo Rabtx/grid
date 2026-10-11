@@ -19,7 +19,7 @@ export default function HomePage() {
 					Read the docs
 				</Link>
 				<Link
-					href="https://github.com/rabtx/grid"
+					href="https://github.com/Rabtx/grid"
 					className="rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-fd-accent"
 				>
 					View repository
