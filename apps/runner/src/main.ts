@@ -44,6 +44,7 @@ import { OperateTelemetry } from "./operate/telemetry";
 import { TelemetryStore } from "./operate/telemetry-store";
 import { PullRequests } from "./github/pulls";
 import { approvalItemId, inboxItem } from "./inbox/attention";
+import { type RestoreDeps, restoreMachine, storedMachines } from "./restore";
 import { EnvironmentSync } from "./sync/environment-sync";
 import { machineRunnerKey } from "./sync/runner-key";
 import { ThreadSync } from "./sync/thread-sync";
@@ -183,6 +184,16 @@ const environmentSync = runnerKey
 		})
 	: null;
 environmentSync?.start();
+// Restoring another machine's threads here, from Settings → Machines.
+const restoreDeps: RestoreDeps | null =
+	threadSync && runnerKey
+		? {
+				store: chatStore,
+				sync: threadSync,
+				api: { url: config.apiUrl, key: runnerKey },
+				projectsDir: config.projectsDir,
+			}
+		: null;
 // What people kept here before workspaces moves into their default workspace when they use it.
 // What each workspace sets for everyone, as last heard from the API: the run-log retention below.
 const workspaceSettings = new Map<string, WorkspaceSettings>();
@@ -378,6 +389,20 @@ const server = startServer(config, store, verify, chat, {
 		removeAgent: (id) => providers.delete(id),
 		knownAgent: (id) => providers.has(id),
 		updater: new GridUpdater(),
+		stored: restoreDeps
+			? {
+					// A paired environment still answering keeps its own threads; it is not "gone".
+					list: () =>
+						storedMachines(restoreDeps, (id) =>
+							environments.store.all().some((environment) => `env-${environment.id}` === id),
+						),
+					restore: async (id) => {
+						const machine = (await storedMachines(restoreDeps)).find((row) => row.id === id);
+						if (!machine) throw new Error("No such machine has threads to restore");
+						return restoreMachine(restoreDeps, machine);
+					},
+				}
+			: undefined,
 	},
 });
 

@@ -2,6 +2,7 @@ import type { Who } from "../auth";
 import { may } from "../permissions";
 import { type AcpAgentStore, agentId, splitCommand } from "../agents/acp-agents";
 import { machineInfo } from "./info";
+import type { StoredMachine } from "../restore";
 import type { GridUpdater } from "./update";
 import {
 	CONCURRENCY_CHOICES,
@@ -28,6 +29,11 @@ export type MachineDeps = {
 	knownAgent: (id: string) => boolean;
 	/** Updating Grid itself and restarting it (Settings → Machines). */
 	updater?: GridUpdater;
+	/** Other machines' threads in Grid's database, to restore here; absent when this runner keeps none. */
+	stored?: {
+		list: () => Promise<StoredMachine[]>;
+		restore: (id: string) => Promise<{ imported: number; total: number }>;
+	};
 };
 
 function failure(status: number, message: string): Response {
@@ -89,6 +95,21 @@ export async function machineRequest(
 	}
 
 	// Grid's own version: which commit it runs, whether main is ahead, and updating to it.
+	// Settings → Machines → Restore threads: what other machines left in Grid's database.
+	if (url.pathname === "/machine/stored" && request.method === "GET") {
+		if (!mayManage(who)) return failure(403, "Only admins can restore threads");
+		if (!deps.stored) return failure(404, "This runner does not keep threads in Grid's database");
+		return Response.json({ data: await deps.stored.list() });
+	}
+	const restoring = url.pathname.match(/^\/machine\/stored\/([\w-]+)\/restore$/);
+	if (restoring?.[1] && request.method === "POST") {
+		if (!mayManage(who)) return failure(403, "Only admins can restore threads");
+		if (!deps.stored) return failure(404, "This runner does not keep threads in Grid's database");
+		const machine = (await deps.stored.list()).find((row) => row.id === restoring[1]);
+		if (!machine) return failure(404, "No such machine has threads to restore");
+		return Response.json({ data: await deps.stored.restore(machine.id) });
+	}
+
 	if (url.pathname === "/machine/update" || url.pathname === "/machine/update/check") {
 		const updater = deps.updater;
 		if (!updater) return failure(404, "This runner cannot update itself");

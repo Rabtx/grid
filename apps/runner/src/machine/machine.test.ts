@@ -81,3 +81,39 @@ describe("this machine", () => {
 		expect((await call("DELETE", "/agents/acp/gemini", admin, d))?.status).toBe(404);
 	});
 });
+
+describe("restoring threads from Settings → Machines", () => {
+	const laptop = { id: "old-laptop-1", name: "laptop", threads: 3, lastSyncedAt: "2026-10-09" };
+	const withStored = () => {
+		const restored: string[] = [];
+		const d: MachineDeps = {
+			...deps(),
+			stored: {
+				list: async () => [laptop],
+				restore: async (id) => {
+					restored.push(id);
+					return { imported: 3, total: 3 };
+				},
+			},
+		};
+		return { d, restored };
+	};
+
+	it("lists and restores for people who manage machines, and no one else", async () => {
+		const { d, restored } = withStored();
+		expect((await call("GET", "/machine/stored", member, d))?.status).toBe(403);
+		expect((await call("POST", "/machine/stored/old-laptop-1/restore", member, d))?.status).toBe(
+			403,
+		);
+		const listed = await call("GET", "/machine/stored", admin, d);
+		expect(((await listed?.json()) as { data: unknown }).data).toEqual([laptop]);
+		const done = await call("POST", "/machine/stored/old-laptop-1/restore", admin, d);
+		expect(((await done?.json()) as { data: unknown }).data).toEqual({ imported: 3, total: 3 });
+		expect(restored).toEqual(["old-laptop-1"]);
+		expect((await call("POST", "/machine/stored/nobody/restore", admin, d))?.status).toBe(404);
+	});
+
+	it("says so on a runner that keeps no threads in Grid's database", async () => {
+		expect((await call("GET", "/machine/stored", admin, deps()))?.status).toBe(404);
+	});
+});

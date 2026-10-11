@@ -43,6 +43,14 @@ export type UpdateStatus = {
 	last: UpdateRun | null;
 };
 
+/** A machine whose threads Grid's database keeps, that this one can restore (Settings → Machines). */
+export type StoredMachine = {
+	id: string;
+	name: string | null;
+	threads: number;
+	lastSyncedAt: string;
+};
+
 export const machineService = {
 	status: (token: string, scope = "") => runnerCall<MachineStatus>(`${scope}/machine`, token),
 	update: (token: string, patch: Partial<MachinePrefs>) =>
@@ -57,6 +65,13 @@ export const machineService = {
 		runnerCall<UpdateStatus>("/machine/update/check", token, { method: "POST" }),
 	updateGrid: (token: string) =>
 		runnerCall<UpdateStatus>("/machine/update", token, { method: "POST" }),
+	storedMachines: (token: string) => runnerCall<StoredMachine[]>("/machine/stored", token),
+	restoreMachine: (token: string, id: string) =>
+		runnerCall<{ imported: number; total: number }>(
+			`/machine/stored/${encodeURIComponent(id)}/restore`,
+			token,
+			{ method: "POST" },
+		),
 	removeAgent: (token: string, id: string) =>
 		runnerCall<void>(`/agents/acp/${encodeURIComponent(id)}`, token, { method: "DELETE" }),
 };
