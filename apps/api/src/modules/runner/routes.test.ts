@@ -230,4 +230,20 @@ describe("runner routes", () => {
 		});
 		expect(reply.status).toBe(400);
 	});
+
+	it("keeps a thread whose output carries NUL characters, which Postgres cannot store", async () => {
+		const round = {
+			machine: { id: "machine-n-0001", name: "server" },
+			threads: [
+				thread("t-nul", [{ seq: 1, data: { type: "tool", output: "a\u0000b", "k\u0000": 1 } }], {
+					title: "x\u0000y",
+				}),
+			],
+		};
+		const reply = await call("/sync", { method: "POST", body: JSON.stringify(round) });
+		expect(reply.status).toBe(200);
+		expect(await data<Seqs>(reply)).toEqual({ seqs: { "t-nul": 1 }, skipped: [] });
+		const [event] = await data<Row[]>(call("/threads/t-nul/events?after=0"));
+		expect(event?.data).toEqual({ type: "tool", output: "a\uFFFDb", "k\uFFFD": 1 });
+	});
 });
