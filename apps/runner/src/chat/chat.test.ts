@@ -1124,16 +1124,22 @@ describe("agents on this machine", () => {
 		};
 		const chat = new ChatHub(new ChatStore(":memory:"), new Map([["echo", provider]]), tmpdir());
 		const heard: string[] = [];
-		chat.onAttention((_session, event, watched) =>
-			heard.push(`${event.type}:${watched ? "watched" : "away"}`),
-		);
+		let asked = () => {};
+		const approval = new Promise<void>((resolve) => {
+			asked = resolve;
+		});
+		chat.onAttention((_session, event, watched) => {
+			heard.push(`${event.type}:${watched ? "watched" : "away"}`);
+			if (event.type === "approval") asked();
+		});
 		const session = chat.create(
 			{ userId: "me", workspace: "w" },
 			{ project: "alpha", provider: "echo", cwd: "/tmp" },
 		);
 		chat.attach("w", session.id, { event: () => {}, state: () => {}, watching: () => true });
 		const turn = chat.prompt("w", session.id, "Go");
-		await Bun.sleep(1);
+		// Answer only once the agent has asked, however slow the machine is.
+		await approval;
 		chat.approve("w", session.id, "a", "yes");
 		await turn;
 		// The finished turn is not reported: someone was looking. The approval and its answer are.
