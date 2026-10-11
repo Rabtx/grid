@@ -38,7 +38,7 @@ const pull = (over: Partial<PullSummary> = {}): PullSummary => ({
 	createdAt: "2026-09-28T08:00:00.000Z",
 	updatedAt: "2026-09-28T09:00:00.000Z",
 	head: "abc123",
-	url: "https://github.com/shabirkhan-dev/grid/pull/12",
+	url: "https://github.com/Rabtx/grid/pull/12",
 	...over,
 });
 

@@ -34,7 +34,7 @@ describe("rules", () => {
 
 	it("keeps agents off the default branch and out of repositories not shared", () => {
 		const policy = toolPolicy(github.capabilities, rules, "rules", {
-			repositories: ["rabtx/grid"],
+			repositories: ["Rabtx/grid"],
 			defaultBranch: "main",
 		});
 		expect(
