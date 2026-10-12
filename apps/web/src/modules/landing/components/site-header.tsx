@@ -14,7 +14,7 @@ export function SiteHeader() {
 				</Link>
 				<nav className="flex items-center gap-1">
 					<Link
-						href="#features"
+						href="/#features"
 						className={cn(
 							buttonVariants({ variant: "ghost", size: "sm" }),
 							"hidden sm:inline-flex",
@@ -23,13 +23,16 @@ export function SiteHeader() {
 						Features
 					</Link>
 					<Link
-						href="#install"
+						href="/#install"
 						className={cn(
 							buttonVariants({ variant: "ghost", size: "sm" }),
 							"hidden sm:inline-flex",
 						)}
 					>
 						Install
+					</Link>
+					<Link href="/blog" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
+						Blog
 					</Link>
 					<Link
 						href={SITE.repoUrl}
