@@ -366,6 +366,28 @@ export function UiUxDesignInTheAiEra() {
 					</p>
 				</div>
 			</div>
+			<PostH3>From my Figma: a CRM workspace</PostH3>
+			<PostP>
+				The same rules hold outside Grid. This companies view for a CRM was designed with AI in the
+				loop, on the same kind of written spec as the cheat sheet below.
+			</PostP>
+			<PostFigure
+				dir={SHOTS}
+				name="crm-companies"
+				frame="wide"
+				themed={false}
+				className="mt-6"
+				alt="A CRM companies table with connection strength, last interaction, domain and category columns, and a detail panel for Figma showing stats and a team role engagement chart."
+				caption="Companies view. Connection strength reads as an icon and a colour together, categories are tinted hash chips, and the detail panel pairs four stat tiles with a weekly engagement chart."
+			/>
+			<PostList
+				items={[
+					"Strong states: Very strong, Strong, Good and Weak each get their own icon and colour, so the column scans without reading a word.",
+					"Empty data is designed too: “No contact” sits in subtle text instead of leaving a blank cell.",
+					"One row height, one radius and one icon size from the sidebar to the table footer.",
+					"The detail panel repeats the row’s values first, then adds the numbers the table cannot show.",
+				]}
+			/>
 			<PostH3>What to notice</PostH3>
 			<PostList
 				items={[

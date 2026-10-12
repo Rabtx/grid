@@ -21,7 +21,8 @@ updated: 2026-10-12
 ## What
 
 A `/blog` section on the marketing site and a first post: UI/UX design tips, tricks and skills
-for the AI era, a showcase of real Grid console screens, a live app UI cheat sheet and Hugeicons.
+for the AI era, a showcase of real Grid console screens and the owner's CRM companies design, a
+live app UI cheat sheet and Hugeicons.
 
 ## Why / Context
 
