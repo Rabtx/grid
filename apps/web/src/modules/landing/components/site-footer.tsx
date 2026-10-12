@@ -16,7 +16,7 @@ export function SiteFooter() {
 					Try it on your own machine, and tell us what breaks on GitHub.
 				</p>
 				<div className="mt-8 flex flex-wrap justify-center gap-2">
-					<Link href="/#install" className={cn(buttonVariants(), "rounded-full")}>
+					<Link href="#install" className={cn(buttonVariants(), "rounded-full")}>
 						Install Grid
 					</Link>
 					<Link
@@ -30,14 +30,11 @@ export function SiteFooter() {
 			<div className="mx-auto flex max-w-[1088px] flex-col items-center gap-4 border-border/60 border-t py-8 sm:flex-row sm:justify-between">
 				<BrandLogo />
 				<nav className="flex items-center gap-5 text-muted-foreground text-sm">
-					<Link href="/#features" className="hover:text-foreground">
+					<Link href="#features" className="hover:text-foreground">
 						Features
 					</Link>
-					<Link href="/#install" className="hover:text-foreground">
+					<Link href="#install" className="hover:text-foreground">
 						Install
-					</Link>
-					<Link href="/blog" className="hover:text-foreground">
-						Blog
 					</Link>
 					<Link href={SITE.docsUrl} className="hover:text-foreground">
 						Guide
