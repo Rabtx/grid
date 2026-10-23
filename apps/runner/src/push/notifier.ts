@@ -110,6 +110,9 @@ export type Attention = { kind: "approval" | "turn_done" | "turn_error"; body: s
 export function attention(event: ChatEvent): Attention | null {
 	if (event.type === "approval")
 		return { kind: "approval", body: `Needs your approval: ${event.title}` };
+	// A question waits on the person as an approval does, and settles the same way.
+	if (event.type === "question")
+		return { kind: "approval", body: `Asks you: ${event.questions[0]?.question ?? "a question"}` };
 	if (event.type !== "turn_end") return null;
 	if (event.reason === "done") {
 		return { kind: "turn_done", body: "Finished — tap to see what it did." };
@@ -136,6 +139,7 @@ export function lastReply(events: readonly ChatEvent[]): string {
  */
 export function notifyKind(event: ChatEvent, reply: string): NotifyKind {
 	if (event.type === "approval") return "approvals";
+	if (event.type === "question") return "questions";
 	if (event.type === "turn_end" && event.reason === "done" && reply.endsWith("?"))
 		return "questions";
 	return "runs";

@@ -4,7 +4,12 @@ import { createSignal, For } from "solid-js";
 import { APPEARANCE_LIMITS, appearance, type Theme, updateAppearance } from "@/lib/appearance";
 
 import { AppPrototype } from "./design/app-prototype";
-import { FeedbackSection, FormsSection, WorkSection } from "./design/more-sections";
+import {
+	AgentTurnsSection,
+	FeedbackSection,
+	FormsSection,
+	WorkSection,
+} from "./design/more-sections";
 import {
 	Attachment,
 	Avatar,
@@ -133,6 +138,9 @@ export function DesignGallery(): JSX.Element {
 				</Section>
 				<Section title="Agent work">
 					<AgentWork />
+				</Section>
+				<Section title="Agent turns">
+					<AgentTurnsSection />
 				</Section>
 				<Section title="Feedback">
 					<FeedbackSection />

@@ -50,6 +50,12 @@ export const GRID_COMMANDS: readonly SlashCommand[] = [
 	}),
 	grid({ id: "stop", name: "stop", description: "Stop the agent's turn" }),
 	grid({ id: "split", name: "split", description: "Open this thread beside its terminal" }),
+	grid({
+		id: "fork",
+		name: "fork",
+		description: "Fork this thread: here, or into a new worktree",
+		argument: "[worktree]",
+	}),
 	grid({ id: "task", name: "task", description: "Add a board task", argument: "<title>" }),
 	grid({
 		id: "note",
@@ -101,6 +107,7 @@ const APPLIES: Record<string, (context: SlashCommandContext) => boolean> = {
 	mode: (context) => context.modes,
 	stop: (context) => context.running,
 	split: (context) => Boolean(context.split),
+	fork: (context) => Boolean(context.split),
 	task: (context) => context.project,
 	note: (context) => context.project,
 	clear: () => true,

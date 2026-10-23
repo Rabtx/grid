@@ -14,7 +14,23 @@ import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
-import type { AgentCommand, ApprovalOption, ChatEvent, ToolKind } from "../agents/events";
+import type {
+	AgentCommand,
+	ApprovalOption,
+	ChatAttachment,
+	ChatEvent,
+	QueuedMessage,
+	ToolKind,
+} from "../agents/events";
+import {
+	changedFiles,
+	CheckpointError,
+	checkpointRef,
+	dropCheckpoints,
+	restore,
+	snapshot,
+} from "./checkpoints";
+import { readVisual, VisualError, VISUALS_PER_TURN } from "./visuals";
 import { type AgentPolicy, answerFor, branchNote, DEFAULT_POLICY } from "../agents/policy";
 import type { AgentSession, McpServerSpec, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
@@ -90,6 +106,8 @@ export type ChatCursor = { epoch: string; next: number };
 // Recent live events kept per session, so a device back from the background gets only what it
 // missed. Streamed text arrives in many small pieces, hence the generous count.
 const JOURNAL_LIMIT = 20_000;
+/** Messages that may wait for an agent at once. */
+const MAX_QUEUE = 20;
 /**
  * Messages a device is sent when it opens a thread, with what followed each; earlier ones come a
  * page at a time as the reader scrolls up. A long thread opened in full was slow on phones.
@@ -118,7 +136,21 @@ type Live = {
 	toolKinds?: Map<string, ToolKind>;
 	/** The skills index the current agent process was last given, and which process that was. */
 	skillsSent?: { to: Promise<AgentSession>; index: string };
+	/** Messages sent while the agent worked, in the order they go once it is done. */
+	queue: QueuedMessage[];
+	/** The queue waits for the person: the last turn was stopped or failed. */
+	paused: boolean;
+	/** The turn was stopped to take a steer the agent could not take mid-turn: the queue goes on. */
+	steering?: boolean;
+	/** Visuals shown in the turn going on, against `VISUALS_PER_TURN`. */
+	visuals?: number;
 };
+
+/** What a queue can be told to do (the composer's queued messages). */
+export type QueueAction = "remove" | "clear" | "pause" | "resume" | "steer";
+
+/** How a message is sent: as usual, or while the agent works, delivered into its turn. */
+export type Delivery = "send" | "steer";
 
 /** Whether Grid can install and sign in an agent here, and whether it is signed in. */
 export type ProviderSetup = {
@@ -294,6 +326,8 @@ export class ChatHub {
 		{ thread: string; answer: (optionId: string | null) => void }
 	>();
 	private describe: DescribeAgent = async () => ({ version: null, custom: false });
+	/** Grid's own tools for agents (`grid-tools.ts`): where the runner is, and the key they prove with. */
+	private tools: { url: () => string; key: string } | null = null;
 	/** How many agents may work at once on this machine; the rest wait their turn. */
 	private turnLimit = Number.POSITIVE_INFINITY;
 	private turnsRunning = 0;
@@ -426,6 +460,54 @@ export class ChatHub {
 	/** The MCP servers a thread's agent starts with: the workspace's connectors it may use. */
 	setMcp(servers: (workspace: string, agent: string, thread: string) => McpServerSpec[]): void {
 		this.mcp = servers;
+	}
+
+	/**
+	 * Give each thread's agent Grid's own tools (`show_visual`), which call back to the runner at
+	 * `url` with a key made here.
+	 */
+	setGridTools(url: () => string): void {
+		this.tools = { url, key: crypto.randomUUID() };
+	}
+
+	/** Grid's tools as an MCP server for one thread, when they are on. */
+	private gridServer(thread: string): McpServerSpec[] {
+		if (!this.tools) return [];
+		return [
+			{
+				name: "grid",
+				command: process.execPath,
+				args: [join(import.meta.dir, "grid-tools.ts")],
+				env: {
+					GRID_RUNNER_URL: this.tools.url(),
+					GRID_TOOLS_KEY: this.tools.key,
+					GRID_TOOLS_THREAD: thread,
+				},
+			},
+		];
+	}
+
+	/**
+	 * A visual an agent shows through `show_visual`, into the turn it is working on. The key is
+	 * the one its tools were started with; a thread not answering cannot show one.
+	 */
+	showVisual(key: string, thread: string, args: Record<string, unknown>): void {
+		if (!this.tools || key !== this.tools.key) throw new ChatError("Not one of Grid's tools", 401);
+		if (!this.store.get(thread)) throw new ChatError("That chat does not exist", 404);
+		const live = this.live.get(thread);
+		if (!live?.running)
+			throw new ChatError("A visual can only be shown while you are answering", 409);
+		if ((live.visuals ?? 0) >= VISUALS_PER_TURN)
+			throw new ChatError(`At most ${VISUALS_PER_TURN} visuals in one turn`, 429);
+		let visual: ReturnType<typeof readVisual>;
+		try {
+			visual = readVisual(args);
+		} catch (cause) {
+			if (cause instanceof VisualError) throw new ChatError(cause.message, 400);
+			throw cause;
+		}
+		live.visuals = (live.visuals ?? 0) + 1;
+		this.record(thread, { type: "visual", id: crypto.randomUUID(), ...visual });
 	}
 
 	/** Enabled workspace and project skills, added to each provider's message context. */
@@ -963,6 +1045,13 @@ export class ChatHub {
 		// below is removed while the agent may still be working in it.
 		if (this.live.get(id)?.running) throw new ChatError("Stop the agent first", 409);
 		this.park(id);
+		// Its checkpoints are refs in the repository the thread worked in, which outlives it.
+		void dropCheckpoints(session.worktree?.origin ?? session.cwd, id).catch((cause: unknown) => {
+			console.warn(
+				"[runner] could not forget a deleted chat's checkpoints:",
+				cause instanceof Error ? cause.message : cause,
+			);
+		});
 		if (session.worktree) {
 			try {
 				removeWorktree(session.worktree, { deleteBranch: true });
@@ -1011,6 +1100,9 @@ export class ChatHub {
 		live.clients.add(client);
 		// The list is not in the log, so it is sent here as well as when it changes.
 		if (live.commands) client.event({ type: "commands", commands: live.commands });
+		// Nor is the queue: a device that attaches is told what is waiting.
+		if (live.queue.length || live.paused)
+			client.event({ type: "queue", items: live.queue, paused: live.paused });
 		const recent = canResume
 			? { events: [], earlier: null }
 			: this.store.recentEvents(id, HISTORY_TURNS);
@@ -1076,15 +1168,8 @@ export class ChatHub {
 		}
 	}
 
-	async prompt(
-		workspace: string,
-		id: string,
-		text: string,
-		attachmentIds: unknown = [],
-	): Promise<void> {
-		const session = this.owned(workspace, id);
-		const live = this.liveFor(id);
-		const message = text.trim();
+	/** A thread's files by id, checked to be still there, with where each is on this machine. */
+	private resolveAttachments(id: string, attachmentIds: unknown) {
 		if (
 			!Array.isArray(attachmentIds) ||
 			attachmentIds.length > MAX_ATTACHMENTS ||
@@ -1092,7 +1177,7 @@ export class ChatHub {
 			new Set(attachmentIds).size !== attachmentIds.length
 		)
 			throw new ChatError("Send up to 20 attachment ids", 400);
-		const attachments = attachmentIds.map((attachmentId) => {
+		return attachmentIds.map((attachmentId) => {
 			const metadata = this.store.attachment(id, attachmentId);
 			if (!metadata) throw new ChatError("Attachment not found", 404);
 			try {
@@ -1101,10 +1186,13 @@ export class ChatHub {
 				throw new ChatError("Attachment is no longer available", 404);
 			}
 		});
-		if (!message && !attachments.length) return;
-		// Before any image is read: a second send while the agent works costs nothing.
-		if (live.running) throw new ChatError("The agent is still working on the last message", 409);
-		// Images the agent can take inline, within what a model accepts; the rest go by path.
+	}
+
+	/** Images the agent can take inline, within what a model accepts; the rest go by path. */
+	private inlineImages(
+		id: string,
+		attachments: { metadata: Attachment; path: string }[],
+	): { mimeType: string; data: string }[] {
 		const images: { mimeType: string; data: string }[] = [];
 		let inline = 0;
 		for (const item of attachments) {
@@ -1119,6 +1207,45 @@ export class ChatHub {
 				throw new ChatError("Attachment is no longer available", 404);
 			}
 		}
+		return images;
+	}
+
+	/**
+	 * Send a message. While the agent works, it waits in the thread's queue and goes when the turn
+	 * is done, unless `delivery` is `steer`: then it goes into the turn going on (or, for an agent
+	 * that cannot take one mid-turn, the turn is stopped and it goes next).
+	 */
+	async prompt(
+		workspace: string,
+		id: string,
+		text: string,
+		attachmentIds: unknown = [],
+		delivery: Delivery = "send",
+	): Promise<void> {
+		const session = this.owned(workspace, id);
+		const live = this.liveFor(id);
+		const message = text.trim();
+		const attachments = this.resolveAttachments(id, attachmentIds);
+		if (!message && !attachments.length) return;
+		// Before any image is read: a message sent while the agent works only waits.
+		if (live.running) {
+			if (delivery === "steer") return this.steer(id, live, message, attachments);
+			if (live.queue.length >= MAX_QUEUE)
+				throw new ChatError(`At most ${MAX_QUEUE} messages can wait; remove one first`, 409);
+			live.queue.push({
+				id: crypto.randomUUID(),
+				text: message,
+				...(attachments.length ? { attachments: attachments.map((item) => item.metadata) } : {}),
+			});
+			this.publishQueue(id, live);
+			return;
+		}
+		// Someone sending by hand is ready again: a queue held after a stop goes on after this.
+		if (live.paused) {
+			live.paused = false;
+			this.publishQueue(id, live);
+		}
+		const images = this.inlineImages(id, attachments);
 
 		if (session.title === "New chat") {
 			this.store.update(id, {
@@ -1131,15 +1258,28 @@ export class ChatHub {
 		const earlier = this.store.events(id);
 		this.record(id, {
 			type: "user",
+			id: crypto.randomUUID(),
 			text: message,
 			...(attachments.length ? { attachments: attachments.map((item) => item.metadata) } : {}),
 		});
-		const firstTurn = !answeredMessage(this.store.events(id));
-		// An agent opened without a session to resume (a thread restored from another machine, or
-		// one whose session was cleared) has no memory of the turns before: it is told them, once.
+		// An agent opened without a session to resume (a thread restored from another machine, a
+		// fork, or one whose session was cleared) has no memory of the turns before: it is told
+		// them, once, and the notes a first message carries.
 		const opensFresh = !live.agent && !session.resumeToken && answeredMessage(earlier);
+		const firstTurn = !answeredMessage(this.store.events(id)) || opensFresh;
 		this.setRunning(id, live, true);
+		live.visuals = 0;
+		const turn = this.store.count(id, "turn_start") + 1;
 		this.record(id, { type: "turn_start", at: new Date().toISOString() });
+		const cwd = this.store.get(id)?.cwd ?? session.cwd;
+		// The files as the turn finds them, kept before the agent can change any.
+		const before = snapshot(cwd, checkpointRef(id, turn, "start")).catch((cause: unknown) => {
+			console.warn(
+				"[runner] could not checkpoint a turn:",
+				cause instanceof Error ? cause.message : cause,
+			);
+			return null;
+		});
 
 		let result: Awaited<ReturnType<AgentSession["prompt"]>>;
 		let briefRole = false;
@@ -1185,6 +1325,7 @@ export class ChatHub {
 			const contextualPrompt = skillsNote ? `${skillsNote}\n\n---\n\n${prompt}` : prompt;
 			await this.takeTurn();
 			try {
+				await before;
 				result = await agent.prompt(contextualPrompt, images);
 			} finally {
 				this.endTurn();
@@ -1203,6 +1344,7 @@ export class ChatHub {
 			if (briefNotes && session.notes)
 				this.store.update(id, { notes: { ...session.notes, briefed: true } });
 		}
+		await this.keepCheckpoint(id, cwd, turn, await before);
 		const failure =
 			result.reason === "error" && result.error ? this.explainFailure(session, result.error) : null;
 		this.record(id, {
@@ -1226,6 +1368,260 @@ export class ChatHub {
 				);
 			});
 		}
+		this.afterTurn(session.workspaceId, id, live, result.reason);
+	}
+
+	/** The turn's checkpoint, when the turn changed files: what it changed, for Undo. */
+	private async keepCheckpoint(
+		id: string,
+		cwd: string,
+		turn: number,
+		start: string | null,
+	): Promise<void> {
+		if (!start) return;
+		try {
+			const end = await snapshot(cwd, checkpointRef(id, turn, "end"));
+			if (!end) return;
+			const files = await changedFiles(cwd, start, end);
+			if (files.length)
+				this.record(id, { type: "checkpoint", turn, files, at: new Date().toISOString() });
+		} catch (cause) {
+			console.warn(
+				"[runner] could not checkpoint a turn:",
+				cause instanceof Error ? cause.message : cause,
+			);
+		}
+	}
+
+	/**
+	 * After a turn: the next queued message goes, unless the turn was stopped or failed, which
+	 * holds the queue until the person says to go on (a stop made to take a steer does not).
+	 */
+	private afterTurn(
+		workspace: string,
+		id: string,
+		live: Live,
+		reason: "done" | "cancelled" | "error",
+	): void {
+		const steered = live.steering === true;
+		live.steering = false;
+		if (!live.queue.length) return;
+		if (reason !== "done" && !steered) {
+			live.paused = true;
+			this.publishQueue(id, live);
+			return;
+		}
+		this.drain(workspace, id, live);
+	}
+
+	/** Send the first queued message, when the agent is free and the queue is not held. */
+	private drain(workspace: string, id: string, live: Live): void {
+		if (live.running || live.paused) return;
+		const next = live.queue.shift();
+		if (!next) return;
+		this.publishQueue(id, live);
+		const ids = (next.attachments ?? []).map((item) => item.id);
+		this.prompt(workspace, id, next.text, ids).catch((cause: unknown) => {
+			// It could not go (a file it carried is gone): it waits again, at the front, held.
+			live.queue.unshift(next);
+			live.paused = true;
+			this.publishQueue(id, live);
+			this.record(id, {
+				type: "error",
+				message: `A queued message could not be sent: ${cause instanceof Error ? cause.message : String(cause)}`,
+			});
+		});
+	}
+
+	/**
+	 * A message into the turn going on. The agent takes it mid-turn when it can; otherwise the
+	 * turn is stopped and the message goes first once it has, the queue carrying on after it.
+	 */
+	private async steer(
+		id: string,
+		live: Live,
+		message: string,
+		attachments: { metadata: Attachment; path: string }[],
+	): Promise<void> {
+		const item: QueuedMessage = {
+			id: crypto.randomUUID(),
+			text: message,
+			...(attachments.length ? { attachments: attachments.map((entry) => entry.metadata) } : {}),
+		};
+		const agent = live.agent ? await live.agent.catch(() => null) : null;
+		if (agent?.steer && live.running) {
+			const paths = attachments
+				.map((entry) => `${JSON.stringify(entry.metadata.name)}: ${JSON.stringify(entry.path)}`)
+				.join("\n");
+			const text = paths
+				? `${message}\n\nAttached files (absolute paths on this machine):\n${paths}`
+				: message;
+			const taken = await agent.steer(text, this.inlineImages(id, attachments)).catch(() => false);
+			if (taken) {
+				this.record(id, {
+					type: "steer",
+					text: message,
+					...(attachments.length
+						? { attachments: attachments.map((entry) => entry.metadata) }
+						: {}),
+				});
+				return;
+			}
+		}
+		// Not taken: it goes first, once this turn is over.
+		live.queue.unshift(item);
+		live.paused = false;
+		this.publishQueue(id, live);
+		if (!live.running) {
+			this.drain(this.store.get(id)?.workspaceId ?? "", id, live);
+			return;
+		}
+		// An agent that cannot take a message mid-turn is stopped, so the message goes now.
+		if (agent && !agent.steer) {
+			live.steering = true;
+			agent.cancel();
+		}
+	}
+
+	/** Change a thread's queue: drop a message, hold or go on, or send one into the turn now. */
+	async queueAction(
+		workspace: string,
+		id: string,
+		action: QueueAction,
+		itemId?: string,
+	): Promise<void> {
+		this.owned(workspace, id);
+		const live = this.liveFor(id);
+		const item = itemId ? live.queue.find((entry) => entry.id === itemId) : undefined;
+		if ((action === "remove" || action === "steer") && !item)
+			throw new ChatError("That message is no longer waiting", 404);
+		if (action === "remove" || action === "steer")
+			live.queue = live.queue.filter((entry) => entry !== item);
+		if (action === "clear") live.queue = [];
+		if (action === "pause") live.paused = live.queue.length > 0;
+		if (action === "resume" || !live.queue.length) live.paused = false;
+		this.publishQueue(id, live);
+		if (action === "steer" && item) {
+			const ids = (item.attachments ?? []).map((entry) => entry.id);
+			if (live.running) await this.steer(id, live, item.text, this.resolveAttachments(id, ids));
+			else await this.prompt(workspace, id, item.text, ids);
+			return;
+		}
+		if (action === "resume") this.drain(workspace, id, live);
+	}
+
+	/** Tell every device the queue, and keep it, so a restarted runner still has it. */
+	private publishQueue(id: string, live: Live): void {
+		this.store.setQueue(id, { items: live.queue, paused: live.paused });
+		const event: ChatEvent = { type: "queue", items: live.queue, paused: live.paused };
+		for (const client of live.clients) client.event(event);
+	}
+
+	/**
+	 * Answer a question the agent asked: picked labels or typed text per question id; null
+	 * dismisses it. Refused once it is no longer waiting.
+	 */
+	async answerQuestion(
+		workspace: string,
+		id: string,
+		questionId: string,
+		answers: Record<string, string[]> | null,
+	): Promise<void> {
+		this.owned(workspace, id);
+		const open = new Set<string>();
+		for (const event of this.store.eventsFromLast(id, "turn_start")) {
+			if (event.type === "question") open.add(event.id);
+			else if (event.type === "question_answered") open.delete(event.id);
+		}
+		if (!open.has(questionId)) throw new ChatError("That question is no longer waiting", 409);
+		const live = this.live.get(id);
+		const pending = live?.agent;
+		if (!live?.running || !pending) throw new ChatError("The agent is no longer running", 409);
+		const agent = await pending;
+		if (!agent.answer) throw new ChatError("This agent cannot take answers", 409);
+		agent.answer(questionId, answers);
+	}
+
+	/**
+	 * Put a thread's files back to how they were before one of its turns. Refused while its agent
+	 * works, or while another agent works in the same checkout: its edits would be undone too.
+	 */
+	async restoreCheckpoint(workspace: string, id: string, turn: number): Promise<void> {
+		const session = this.owned(workspace, id);
+		if (this.live.get(id)?.running) throw new ChatError("Stop the agent first", 409);
+		const root = repoRoot(session.cwd);
+		if (!root) throw new ChatError("This thread's folder is not in a git repository", 409);
+		for (const [other, live] of this.live) {
+			if (other === id || !live.running) continue;
+			const row = this.store.get(other);
+			if (row && repoRoot(row.cwd) === root)
+				throw new ChatError(
+					`Another agent is working in this folder (${row.title}); wait for it to finish`,
+					409,
+				);
+		}
+		try {
+			const files = await restore(
+				session.cwd,
+				checkpointRef(id, turn, "start"),
+				checkpointRef(id, turn, "undo"),
+			);
+			this.record(id, { type: "checkpoint_restored", turn, files, at: new Date().toISOString() });
+		} catch (cause) {
+			if (cause instanceof CheckpointError) throw new ChatError(cause.message, cause.status);
+			throw cause;
+		}
+	}
+
+	/**
+	 * A new thread that carries on from this one: its conversation up to the end of the turn of
+	 * `at` (a message id; the whole settled thread when not given), then a divider where the
+	 * fork's own work begins. It works in the same folder, or in a worktree of its own. Its agent
+	 * starts fresh and is told the conversation so far with its first message.
+	 */
+	fork(who: Who, id: string, input: { at?: string; worktree?: boolean }): ChatSessionRow {
+		const source = this.owned(who.workspace, id);
+		const events = this.store.events(id);
+		let end = events.length;
+		if (input.at) {
+			const at = events.findIndex((event) => event.type === "user" && event.id === input.at);
+			if (at < 0) throw new ChatError("That message is not in this thread", 404);
+			const next = events.findIndex((event, i) => i > at && event.type === "user");
+			end = next < 0 ? events.length : next;
+			if (!events.slice(at, end).some((event) => event.type === "turn_end"))
+				throw new ChatError("Wait for that turn to finish before forking from it", 409);
+		} else if (this.live.get(id)?.running) {
+			// The turn going on is not settled: the fork takes what is.
+			end = events.findLastIndex((event) => event.type === "turn_end") + 1;
+		}
+		// Checkpoints are kept under this thread's name; the fork starts its own.
+		const copied = events
+			.slice(0, end)
+			.filter((event) => event.type !== "checkpoint" && event.type !== "checkpoint_restored");
+		if (!copied.some((event) => event.type === "user"))
+			throw new ChatError("There is nothing to fork yet", 409);
+		const row = this.create(who, {
+			project: source.project,
+			provider: source.provider,
+			cwd: source.cwd,
+			...(source.model ? { model: source.model } : {}),
+			...(source.mode ? { mode: source.mode } : {}),
+			...(source.effort ? { effort: source.effort } : {}),
+			worktree: input.worktree === true,
+			role: source.role ? { ...source.role, briefed: false } : null,
+			notes: source.notes ? { text: source.notes.text } : null,
+		});
+		const title = `${source.title} · fork`.slice(0, 120);
+		this.store.update(row.id, { title });
+		this.store.append(row.id, [
+			...copied,
+			{
+				type: "forked",
+				from: { id: source.id, title: source.title },
+				at: new Date().toISOString(),
+			},
+		]);
+		return { ...row, title };
 	}
 
 	/**
@@ -1470,10 +1866,20 @@ export class ChatHub {
 				buffered: null,
 				flushTimer: undefined,
 				idleTimer: undefined,
+				...this.keptQueue(id),
 			};
 			this.live.set(id, live);
 		}
 		return live;
+	}
+
+	/**
+	 * The queue a thread had when this runner last held it. After a restart it is held: the turn
+	 * it waited on was cut off, and the person says when to go on.
+	 */
+	private keptQueue(id: string): { queue: QueuedMessage[]; paused: boolean } {
+		const kept = this.store.queue(id);
+		return { queue: kept.items, paused: kept.items.length > 0 };
 	}
 
 	private agentFor(session: ChatSessionRow, live: Live): Promise<AgentSession> {
@@ -1495,7 +1901,10 @@ export class ChatHub {
 				effort: fresh.effort ?? undefined,
 				resume: fresh.resumeToken ?? undefined,
 				env: this.personal(fresh.ownerId).env,
-				mcpServers: this.mcp(fresh.workspaceId, fresh.provider, fresh.id),
+				mcpServers: [
+					...this.mcp(fresh.workspaceId, fresh.provider, fresh.id),
+					...this.gridServer(fresh.id),
+				],
 				emit: (event) => this.record(session.id, event),
 				onResumeToken: (token) => this.store.update(session.id, { resumeToken: token }),
 			});
@@ -1592,6 +2001,8 @@ export class ChatHub {
 		if (
 			(event.type === "approval" && !answered) ||
 			event.type === "approval_resolved" ||
+			event.type === "question" ||
+			event.type === "question_answered" ||
 			(event.type === "turn_end" && !watched)
 		) {
 			const session = this.store.get(id);
@@ -1659,18 +2070,28 @@ export class ChatHub {
 	private closeStaleTurn(id: string, live: Live): void {
 		const events = this.store.events(id);
 		const openApprovals = new Set<string>();
+		const openQuestions = new Set<string>();
 		let open = false;
 		for (const event of events) {
 			if (event.type === "turn_start") open = true;
 			else if (event.type === "turn_end") open = false;
 			else if (event.type === "approval") openApprovals.add(event.id);
 			else if (event.type === "approval_resolved") openApprovals.delete(event.id);
+			else if (event.type === "question") openQuestions.add(event.id);
+			else if (event.type === "question_answered") openQuestions.delete(event.id);
 		}
-		const fixes: ChatEvent[] = [...openApprovals].map((approvalId) => ({
-			type: "approval_resolved",
-			id: approvalId,
-			optionId: null,
-		}));
+		const fixes: ChatEvent[] = [
+			...[...openApprovals].map((approvalId): ChatEvent => ({
+				type: "approval_resolved",
+				id: approvalId,
+				optionId: null,
+			})),
+			...[...openQuestions].map((questionId): ChatEvent => ({
+				type: "question_answered",
+				id: questionId,
+				answers: null,
+			})),
+		];
 		if (open)
 			fixes.push({
 				type: "turn_end",

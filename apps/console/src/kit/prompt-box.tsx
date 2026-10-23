@@ -120,6 +120,9 @@ const TOUCH_32 = "pointer-coarse:size-8 after:absolute after:-inset-1";
 export const SEND_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${TOUCH_32} ${ICON_SIZE.md}`;
 
 /** Stop, in place of send while the agent works: a ring turns inside it until it is done. */
+/** Beside stop while the agent works: send the message into the turn going on. */
+export const STEER_BUTTON = `focus-ring relative inline-flex h-7 shrink-0 items-center rounded-full px-2.5 font-medium text-caption text-fg ring-line-strong transition-colors duration-fast hover:bg-fill disabled:text-fg-faint pointer-coarse:h-10`;
+
 export const STOP_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-full bg-fill-strong text-fg transition-transform duration-fast active:scale-95 ${TOUCH_32} ${ICON_SIZE.md}`;
 
 /** The ring turning inside the stop button while the agent works. */

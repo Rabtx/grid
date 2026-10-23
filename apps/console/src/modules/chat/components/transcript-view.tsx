@@ -15,8 +15,10 @@ import {
 	AgentLogo,
 	AgentMessage,
 	Badge,
+	BranchIcon,
 	Button,
 	ButtonLink,
+	ChangedFilesRow,
 	CheckIcon,
 	CloseIcon,
 	CodeChip,
@@ -27,10 +29,13 @@ import {
 	Disclosure,
 	EditIcon,
 	FileIcon,
+	ForkDivider,
+	iconButton,
 	GlobeIcon,
 	IconButton,
 	IdeaIcon,
 	InlineNotice,
+	InlineVisual,
 	LinkButton,
 	Menu,
 	NoteAddIcon,
@@ -38,6 +43,7 @@ import {
 	type PopoverControl,
 	Pre,
 	Prose,
+	QuestionCard,
 	RestoreIcon,
 	RunFailedCard,
 	SearchIcon,
@@ -49,6 +55,8 @@ import {
 	ToolIcon,
 	TurnHeader,
 	UserMessage,
+	type VisualBlock,
+	VisualFrame,
 	WorkCard,
 	WorkStep,
 } from "@/kit";
@@ -156,6 +164,14 @@ export function TranscriptView(props: {
 	onRegenerate?: (prompt: UserPrompt) => void;
 	/** Save a message to the project's notes; no action is shown without it. */
 	onNote?: (text: string) => void;
+	/** Undo a turn's changes (its checkpoint's turn number); no action is shown without it. */
+	onUndo?: (turn: number) => void;
+	/** Fork the thread from a message (its id), here or in a new worktree. */
+	onFork?: (at: string, worktree: boolean) => void;
+	/** Send a visual's choice as the next message. */
+	onChoose?: (message: string) => void;
+	/** Where the thread a fork came from opens. */
+	forkedHref?: (id: string) => string | undefined;
 }): JSX.Element {
 	const turns = createMemo(() => groupTurns(props.blocks));
 
@@ -175,12 +191,21 @@ export function TranscriptView(props: {
 						onApprove={props.onApprove}
 						onRegenerate={props.onRegenerate}
 						onNote={props.onNote}
+						extras={props}
 					/>
 				)}
 			</For>
 		</div>
 	);
 }
+
+/** What the newer blocks need from the conversation: Undo, Fork, a visual's choices. */
+type Extras = {
+	onUndo?: (turn: number) => void;
+	onFork?: (at: string, worktree: boolean) => void;
+	onChoose?: (message: string) => void;
+	forkedHref?: (id: string) => string | undefined;
+};
 
 function TurnView(props: {
 	loadAttachment?: LoadAttachment;
@@ -193,8 +218,14 @@ function TurnView(props: {
 	onApprove: (id: string, optionId: string | null) => void;
 	onRegenerate?: (prompt: UserPrompt) => void;
 	onNote?: (text: string) => void;
+	extras: Extras;
 }): JSX.Element {
 	const now = useNow(() => props.live);
+	// A settled turn can be forked from; one still going, or a message from an older log, cannot.
+	const forkable = () => {
+		const user = props.turn.user;
+		return user?.id && user.outcome && props.extras.onFork ? user.id : null;
+	};
 	const header = () => {
 		const user = props.turn.user;
 		const started = user?.startedAt ? Date.parse(user.startedAt) : null;
@@ -219,6 +250,14 @@ function TurnView(props: {
 						attachments={user().attachments}
 						loadAttachment={props.loadAttachment}
 						onNote={props.onNote}
+						onFork={
+							forkable()
+								? (worktree) => {
+										const at = forkable();
+										if (at) props.extras.onFork?.(at, worktree);
+									}
+								: undefined
+						}
 					/>
 				)}
 			</Show>
@@ -273,9 +312,11 @@ function TurnView(props: {
 									people={props.people}
 									blocks={props.blocks}
 									running={props.running}
+									live={props.live}
 									onApprove={props.onApprove}
 									onRegenerate={props.onRegenerate}
 									onNote={props.onNote}
+									extras={props.extras}
 								/>
 							)}
 						</Match>
@@ -291,9 +332,11 @@ function BlockView(props: {
 	people?: ThreadPeople;
 	blocks: Block[];
 	running: boolean;
+	live: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
 	onRegenerate?: (prompt: UserPrompt) => void;
 	onNote?: (text: string) => void;
+	extras: Extras;
 }): JSX.Element {
 	const userPrompt = createMemo(() => {
 		const block = props.block;
@@ -362,6 +405,87 @@ function BlockView(props: {
 				when={props.block.kind === "plan" && (props.block as Extract<Block, { kind: "plan" }>)}
 			>
 				{(plan) => <PlanList entries={plan().entries} />}
+			</Match>
+			<Match
+				when={props.block.kind === "steer" && (props.block as Extract<Block, { kind: "steer" }>)}
+			>
+				{(steer) => (
+					<UserMessage
+						meta="Sent into this turn"
+						actions={<CopyButton text={steer().text} label="Copy message" />}
+					>
+						{steer().text}
+					</UserMessage>
+				)}
+			</Match>
+			<Match
+				when={
+					props.block.kind === "question" && (props.block as Extract<Block, { kind: "question" }>)
+				}
+			>
+				{(question) => (
+					// A waiting question is docked over the composer; answered ones stay as the record.
+					<Show when={question().answers !== undefined}>
+						<QuestionCard questions={question().questions} answers={question().answers} />
+					</Show>
+				)}
+			</Match>
+			<Match
+				when={
+					props.block.kind === "subagent" && (props.block as Extract<Block, { kind: "subagent" }>)
+				}
+			>
+				{(agent) => <SubagentCard agent={agent()} live={props.live} />}
+			</Match>
+			<Match
+				when={props.block.kind === "visual" && (props.block as Extract<Block, { kind: "visual" }>)}
+			>
+				{(visual) => (
+					<Show
+						when={visual().format === "html"}
+						fallback={
+							<InlineVisual
+								title={visual().title}
+								blocks={(visual().blocks ?? []) as VisualBlock[]}
+								onChoose={props.extras.onChoose}
+								markdown={(text) => <Prose html={renderMarkdown(text)} />}
+							/>
+						}
+					>
+						<VisualFrame
+							title={visual().title}
+							html={visual().html ?? ""}
+							height={visual().height ?? 360}
+						/>
+					</Show>
+				)}
+			</Match>
+			<Match
+				when={
+					props.block.kind === "checkpoint" &&
+					(props.block as Extract<Block, { kind: "checkpoint" }>)
+				}
+			>
+				{(checkpoint) => (
+					<Show when={props.extras.onUndo}>
+						<ChangedFilesRow
+							files={checkpoint().files}
+							undone={checkpoint().undone}
+							canUndo={!props.running}
+							onUndo={() => props.extras.onUndo?.(checkpoint().turn)}
+						/>
+					</Show>
+				)}
+			</Match>
+			<Match
+				when={props.block.kind === "forked" && (props.block as Extract<Block, { kind: "forked" }>)}
+			>
+				{(forked) => (
+					<ForkDivider
+						from={forked().from.title}
+						href={props.extras.forkedHref?.(forked().from.id)}
+					/>
+				)}
 			</Match>
 			<Match
 				when={props.block.kind === "notice" && (props.block as Extract<Block, { kind: "notice" }>)}
@@ -490,6 +614,8 @@ function UserMessageView(props: {
 	attachments?: ChatAttachment[];
 	loadAttachment?: LoadAttachment;
 	onNote?: (text: string) => void;
+	/** Fork the thread from the end of this message's turn; in a new worktree when asked. */
+	onFork?: (worktree: boolean) => void;
 }): JSX.Element {
 	let menu: PopoverControl | undefined;
 	const long = () => props.text.split("\n").length > 4 || props.text.length > 400;
@@ -500,12 +626,20 @@ function UserMessageView(props: {
 				items={[
 					{ id: "copy", label: "Copy message" },
 					...(props.onNote ? [{ id: "note", label: "Add as note" }] : []),
+					...(props.onFork
+						? [
+								{ id: "fork", label: "Fork from here" },
+								{ id: "fork-worktree", label: "Fork into a new worktree" },
+							]
+						: []),
 				]}
 				control={(control) => {
 					menu = control;
 				}}
 				onSelect={(id) => {
 					if (id === "note") props.onNote?.(props.text);
+					else if (id === "fork") props.onFork?.(false);
+					else if (id === "fork-worktree") props.onFork?.(true);
 					else void navigator.clipboard?.writeText(props.text);
 				}}
 			/>
@@ -522,6 +656,26 @@ function UserMessageView(props: {
 					<>
 						<CopyButton text={props.text} label="Copy message" />
 						<NoteButton text={props.text} onNote={props.onNote} />
+						<Show when={props.onFork}>
+							{(fork) => (
+								<Menu
+									label="Fork from here"
+									title="Fork from here"
+									placement="top-end"
+									triggerClass={iconButton({ size: "xs" })}
+									trigger={<BranchIcon size="sm" />}
+									groups={[
+										{
+											items: [
+												{ id: "here", label: "Fork in this folder" },
+												{ id: "worktree", label: "Fork into a new worktree" },
+											],
+										},
+									]}
+									onSelect={(id) => fork()(id === "worktree")}
+								/>
+							)}
+						</Show>
 					</>
 				}
 			>
@@ -805,5 +959,68 @@ export function ApprovalCard(props: {
 			resolved={resolved()}
 			onChoose={(id) => props.onApprove(props.approval.id, id)}
 		/>
+	);
+}
+
+const SUBAGENT_STATUS: Record<
+	Extract<Block, { kind: "subagent" }>["status"],
+	{ tone: "accent" | "success" | "danger" | "neutral"; label: string }
+> = {
+	running: { tone: "accent", label: "Running" },
+	completed: { tone: "success", label: "Done" },
+	failed: { tone: "danger", label: "Failed" },
+	cancelled: { tone: "neutral", label: "Stopped" },
+};
+
+/**
+ * A subagent the agent started: what it was asked, its own steps as the agent's are drawn, and
+ * what it reported back. Closed to its title and status until opened.
+ */
+function SubagentCard(props: {
+	agent: Extract<Block, { kind: "subagent" }>;
+	live: boolean;
+}): JSX.Element {
+	const status = () => SUBAGENT_STATUS[props.agent.status];
+	const took = () => {
+		const start = props.agent.at ? Date.parse(props.agent.at) : null;
+		const end = props.agent.endedAt ? Date.parse(props.agent.endedAt) : null;
+		return start && end ? formatDuration(end - start) : null;
+	};
+	const steps = () =>
+		`${props.agent.tools.length} step${props.agent.tools.length === 1 ? "" : "s"}`;
+	return (
+		<div data-subagent={props.agent.id}>
+			<WorkCard
+				glyphs={
+					<StepGlyph tone="violet">
+						<Show when={props.agent.status === "running" && props.live} fallback={<ToolIcon />}>
+							<SpinnerIcon class="animate-spin" />
+						</Show>
+					</StepGlyph>
+				}
+				title={props.agent.title}
+				detail={[props.agent.agent, steps(), took()].filter(Boolean).join(" · ")}
+				trailing={<Badge tone={status().tone}>{status().label}</Badge>}
+			>
+				<Stack gap={2} class="px-3 py-2">
+					<Show when={props.agent.status === "running" && props.agent.activity}>
+						<p class="truncate text-caption text-fg-subtle">{props.agent.activity}</p>
+					</Show>
+					<Show when={props.agent.prompt}>
+						<Disclosure summary="Brief" chevron>
+							<p class="mt-1 whitespace-pre-wrap text-body text-fg-muted">{props.agent.prompt}</p>
+						</Disclosure>
+					</Show>
+				</Stack>
+				<For each={props.agent.tools} keyed={false}>
+					{(tool) => <StepView tool={tool()} live={props.live} hide={null} />}
+				</For>
+				<Show when={props.agent.result}>
+					<div class="border-line border-t px-3 py-2">
+						<Prose html={renderMarkdown(props.agent.result ?? "")} />
+					</div>
+				</Show>
+			</WorkCard>
+		</div>
 	);
 }

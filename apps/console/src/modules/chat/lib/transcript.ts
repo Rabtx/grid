@@ -1,11 +1,15 @@
 import type {
 	AgentCommand,
+	AgentQuestion,
 	ApprovalOption,
+	CheckpointFile,
 	ChatAttachment,
 	ChatEvent,
 	Choice,
 	FileDiff,
 	PlanEntry,
+	QueuedMessage,
+	SubagentStatus,
 	ToolKind,
 	ToolStatus,
 } from "../types/chat.types";
@@ -16,6 +20,8 @@ export type Block =
 			kind: "user";
 			attachments?: ChatAttachment[];
 			key: string;
+			/** The message's id, for forking from it; older logs lack it. */
+			id?: string;
 			text: string;
 			/** When the turn this message started began and ended (ISO times, when logged). */
 			startedAt?: string;
@@ -47,6 +53,45 @@ export type Block =
 			resolved?: string | null;
 	  }
 	| { kind: "plan"; key: string; entries: PlanEntry[] }
+	/** What the person sent into the turn while the agent worked. */
+	| { kind: "steer"; key: string; text: string; attachments?: ChatAttachment[] }
+	| {
+			kind: "question";
+			key: string;
+			id: string;
+			questions: AgentQuestion[];
+			/** undefined while waiting; the answers, or null when dismissed. */
+			answers?: Record<string, string[]> | null;
+	  }
+	| {
+			kind: "subagent";
+			key: string;
+			id: string;
+			title: string;
+			agent?: string;
+			status: SubagentStatus;
+			prompt?: string;
+			result?: string;
+			activity?: string;
+			at?: string;
+			endedAt?: string;
+			/** The steps it took, as the agent's own are drawn. */
+			tools: Extract<Block, { kind: "tool" }>[];
+	  }
+	| {
+			kind: "visual";
+			key: string;
+			id: string;
+			title: string;
+			format: "components" | "html";
+			blocks?: unknown[];
+			html?: string;
+			height?: number;
+	  }
+	/** The files a turn changed, which Undo puts back; `undone` once it has been. */
+	| { kind: "checkpoint"; key: string; turn: number; files: CheckpointFile[]; undone?: boolean }
+	/** Where a forked thread's own work begins. */
+	| { kind: "forked"; key: string; from: { id: string; title: string } }
 	| {
 			kind: "notice";
 			key: string;
@@ -69,6 +114,8 @@ export type Transcript = {
 	usage: Extract<ChatEvent, { type: "usage" }> | null;
 	/** What the agent can be asked to do, when it has said. Never part of the log. */
 	commands: AgentCommand[];
+	/** Messages waiting for the agent, and whether they are held. Never part of the log. */
+	queue: { items: QueuedMessage[]; paused: boolean };
 };
 
 export function emptyTranscript(): Transcript {
@@ -82,7 +129,53 @@ export function emptyTranscript(): Transcript {
 		effort: null,
 		usage: null,
 		commands: [],
+		queue: { items: [], paused: false },
 	};
+}
+
+type ToolEvent = Extract<ChatEvent, { type: "tool" }>;
+type ToolRow = Extract<Block, { kind: "tool" }>;
+type SubagentBlock = Extract<Block, { kind: "subagent" }>;
+
+/** A tool call added to a list, or the earlier one with the same id updated. */
+function upsertTool(tools: ToolRow[], event: ToolEvent, key: string): ToolRow[] {
+	const index = tools.findIndex((tool) => tool.id === event.id);
+	if (index >= 0) {
+		const earlier = tools[index] as ToolRow;
+		const updated: ToolRow = {
+			...earlier,
+			title: event.title ?? earlier.title,
+			tool: event.kind ?? earlier.tool,
+			status: event.status ?? earlier.status,
+			input: event.input ?? earlier.input,
+			output: event.output ?? earlier.output,
+			diffs: event.diffs ?? earlier.diffs,
+		};
+		return tools.map((tool, i) => (i === index ? updated : tool));
+	}
+	return [
+		...tools,
+		{
+			kind: "tool",
+			key,
+			id: event.id,
+			title: event.title ?? "Tool",
+			tool: event.kind ?? "other",
+			status: event.status ?? "running",
+			input: event.input,
+			output: event.output,
+			diffs: event.diffs,
+		},
+	];
+}
+
+/** The subagent block a call belongs to: named by `parent`, or already holding the call. */
+function subagentOf(blocks: Block[], event: ToolEvent): number {
+	return blocks.findIndex(
+		(block) =>
+			block.kind === "subagent" &&
+			(block.id === event.parent || block.tools.some((tool) => tool.id === event.id)),
+	);
 }
 
 /**
@@ -106,6 +199,7 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 					{
 						kind: "user",
 						key,
+						...(event.id ? { id: event.id } : {}),
 						text: event.text,
 						...(event.attachments ? { attachments: event.attachments } : {}),
 					},
@@ -123,38 +217,125 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 			return { ...transcript, blocks: [...blocks, { kind, key, text: event.text }] };
 		}
 		case "tool": {
+			// A subagent's step goes under it; the agent's own steps are rows of the turn.
+			const owner = subagentOf(blocks, event);
+			if (owner >= 0) {
+				const agent = blocks[owner] as SubagentBlock;
+				const updated: Block = {
+					...agent,
+					tools: upsertTool(agent.tools, event, `${agent.key}-${agent.tools.length}`),
+				};
+				return { ...transcript, blocks: blocks.map((block, i) => (i === owner ? updated : block)) };
+			}
 			const index = blocks.findIndex((block) => block.kind === "tool" && block.id === event.id);
 			if (index >= 0) {
-				const earlier = blocks[index] as Extract<Block, { kind: "tool" }>;
-				const updated: Block = {
-					...earlier,
-					title: event.title ?? earlier.title,
-					tool: event.kind ?? earlier.tool,
-					status: event.status ?? earlier.status,
-					input: event.input ?? earlier.input,
-					output: event.output ?? earlier.output,
-					diffs: event.diffs ?? earlier.diffs,
+				const [updated] = upsertTool([blocks[index] as ToolRow], event, key);
+				return {
+					...transcript,
+					blocks: blocks.map((block, i) => (i === index ? (updated as Block) : block)),
 				};
-				return { ...transcript, blocks: blocks.map((block, i) => (i === index ? updated : block)) };
 			}
+			return { ...transcript, blocks: [...blocks, ...upsertTool([], event, key)] };
+		}
+		case "subagent": {
+			const index = blocks.findIndex((block) => block.kind === "subagent" && block.id === event.id);
+			const earlier = index >= 0 ? (blocks[index] as SubagentBlock) : null;
+			const next: SubagentBlock = {
+				kind: "subagent",
+				key: earlier?.key ?? key,
+				id: event.id,
+				title: event.title ?? earlier?.title ?? "Subagent",
+				agent: event.agent ?? earlier?.agent,
+				status: event.status ?? earlier?.status ?? "running",
+				prompt: event.prompt ?? earlier?.prompt,
+				result: event.result ?? earlier?.result,
+				activity: event.activity ?? earlier?.activity,
+				at: event.at ?? earlier?.at,
+				endedAt: event.endedAt ?? earlier?.endedAt,
+				tools: earlier?.tools ?? [],
+			};
+			return {
+				...transcript,
+				blocks: earlier
+					? blocks.map((block, i) => (i === index ? next : block))
+					: [...blocks, next],
+			};
+		}
+		case "steer":
 			return {
 				...transcript,
 				blocks: [
 					...blocks,
 					{
-						kind: "tool",
+						kind: "steer",
+						key,
+						text: event.text,
+						...(event.attachments ? { attachments: event.attachments } : {}),
+					},
+				],
+			};
+		case "question":
+			return {
+				...transcript,
+				blocks: [...blocks, { kind: "question", key, id: event.id, questions: event.questions }],
+			};
+		case "question_answered":
+			return {
+				...transcript,
+				blocks: blocks.map((block) =>
+					block.kind === "question" && block.id === event.id
+						? { ...block, answers: event.answers }
+						: block,
+				),
+			};
+		case "visual":
+			return {
+				...transcript,
+				blocks: [
+					...blocks,
+					{
+						kind: "visual",
 						key,
 						id: event.id,
-						title: event.title ?? "Tool",
-						tool: event.kind ?? "other",
-						status: event.status ?? "running",
-						input: event.input,
-						output: event.output,
-						diffs: event.diffs,
+						title: event.title,
+						format: event.format,
+						...(event.blocks ? { blocks: event.blocks } : {}),
+						...(event.html !== undefined ? { html: event.html } : {}),
+						...(event.height !== undefined ? { height: event.height } : {}),
+					},
+				],
+			};
+		case "checkpoint":
+			return {
+				...transcript,
+				blocks: [...blocks, { kind: "checkpoint", key, turn: event.turn, files: event.files }],
+			};
+		case "checkpoint_restored": {
+			const count = event.files.length;
+			return {
+				...transcript,
+				blocks: [
+					// That turn's changes and every later one's are gone now.
+					...blocks.map((block) =>
+						block.kind === "checkpoint" && block.turn >= event.turn
+							? { ...block, undone: true }
+							: block,
+					),
+					{
+						kind: "notice",
+						key,
+						tone: "muted",
+						text: count
+							? `Undone: ${count} file${count === 1 ? "" : "s"} put back to how that turn found them.`
+							: "Undone: nothing had changed since that turn.",
 					},
 				],
 			};
 		}
+		case "forked":
+			return { ...transcript, blocks: [...blocks, { kind: "forked", key, from: event.from }] };
+		case "queue":
+			return { ...transcript, queue: { items: event.items, paused: event.paused } };
 		case "approval":
 			return {
 				...transcript,
@@ -245,7 +426,15 @@ function endTurn(
 	event: Extract<ChatEvent, { type: "turn_end" }>,
 	key: string,
 ): Transcript {
-	const blocks = transcript.blocks;
+	// A subagent still running when its turn is stopped or fails went with it.
+	const blocks =
+		event.reason === "done"
+			? transcript.blocks
+			: transcript.blocks.map((block) =>
+					block.kind === "subagent" && block.status === "running"
+						? { ...block, status: "cancelled" as const }
+						: block,
+				);
 	if (event.reason === "error") {
 		return {
 			...transcript,
@@ -273,7 +462,9 @@ function endTurn(
 		blocks: blocks.map((block) =>
 			block.kind === "tool" && (block.status === "running" || block.status === "pending")
 				? { ...block, status: "completed" }
-				: block,
+				: block.kind === "subagent" && block.status === "running"
+					? { ...block, status: "completed" }
+					: block,
 		),
 	};
 }
@@ -296,6 +487,21 @@ export function pendingApprovals(transcript: Transcript): Extract<Block, { kind:
 }
 
 type ToolBlock = Extract<Block, { kind: "tool" }>;
+
+/** Questions the agent is still waiting on an answer to. */
+export function pendingQuestions(transcript: Transcript): Extract<Block, { kind: "question" }>[] {
+	return transcript.blocks.filter(
+		(block): block is Extract<Block, { kind: "question" }> =>
+			block.kind === "question" && block.answers === undefined,
+	);
+}
+
+/** The subagents at work now, for the strip above the composer. */
+export function runningSubagents(transcript: Transcript): SubagentBlock[] {
+	return transcript.blocks.filter(
+		(block): block is SubagentBlock => block.kind === "subagent" && block.status === "running",
+	);
+}
 
 /** A conversation row: one block, or a run of consecutive tool calls shown as one line. */
 export type Row =

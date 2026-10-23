@@ -4,7 +4,7 @@ import type { Database } from "bun:sqlite";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import type { ChatEvent, Choice } from "../agents/events";
+import type { ChatEvent, Choice, QueuedMessage } from "../agents/events";
 
 import type { Worktree } from "./worktrees";
 import { openPrivateDatabase } from "../private-database";
@@ -245,6 +245,10 @@ export class ChatStore {
 		}
 		if (!hasColumn(this.db, "sessions", "notes")) {
 			this.db.exec("ALTER TABLE sessions ADD COLUMN notes TEXT");
+		}
+		// Messages waiting for the agent, kept so a restart does not lose them.
+		if (!hasColumn(this.db, "sessions", "queue")) {
+			this.db.exec("ALTER TABLE sessions ADD COLUMN queue TEXT");
 		}
 		// Additions agents suggested to the project's shared notes, until someone adds or dismisses them.
 		this.db.exec(`
@@ -747,6 +751,37 @@ export class ChatStore {
 				.query<{ one: number }, [string]>("SELECT 1 FROM sessions WHERE id = ?")
 				.get(sessionId) !== null
 		);
+	}
+
+	/** How many events of a type a thread has logged (`turn_start`: how many turns it has had). */
+	count(sessionId: string, type: ChatEvent["type"]): number {
+		return (
+			this.db
+				.query<{ n: number }, [string, string]>(
+					"SELECT COUNT(*) AS n FROM events WHERE session_id = ? AND json_extract(data, '$.type') = ?",
+				)
+				.get(sessionId, type)?.n ?? 0
+		);
+	}
+
+	/** The messages waiting for a thread's agent, and whether they are held. */
+	queue(sessionId: string): { items: QueuedMessage[]; paused: boolean } {
+		const row = this.db
+			.query<{ queue: string | null }, [string]>("SELECT queue FROM sessions WHERE id = ?")
+			.get(sessionId);
+		if (!row?.queue) return { items: [], paused: false };
+		try {
+			const kept = JSON.parse(row.queue) as { items?: QueuedMessage[]; paused?: boolean };
+			return { items: Array.isArray(kept.items) ? kept.items : [], paused: kept.paused === true };
+		} catch {
+			return { items: [], paused: false };
+		}
+	}
+
+	setQueue(sessionId: string, queue: { items: QueuedMessage[]; paused: boolean }): void {
+		this.db
+			.query("UPDATE sessions SET queue = ? WHERE id = ?")
+			.run(queue.items.length || queue.paused ? JSON.stringify(queue) : null, sessionId);
 	}
 
 	events(sessionId: string): ChatEvent[] {

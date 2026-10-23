@@ -37,9 +37,34 @@ export type ApprovalOption = { id: string; label: string; kind: "allow" | "allow
  */
 export type AgentCommand = { name: string; description: string; hint?: string };
 
+/** One question an agent asks the person, with the answers it offers (none: type an answer). */
+export type AgentQuestion = {
+	id: string;
+	/** A short label for the question ("Database", "Scope"). */
+	header: string;
+	question: string;
+	options: { label: string; description?: string }[];
+	/** More than one option may be picked. */
+	multiSelect?: boolean;
+};
+
+export type SubagentStatus = "running" | "completed" | "failed" | "cancelled";
+
+/** A message waiting for the agent to finish its turn; sent in order once it does. */
+export type QueuedMessage = { id: string; text: string; attachments?: ChatAttachment[] };
+
+/** A file a turn changed, as its checkpoint counts it. */
+export type CheckpointFile = { path: string; added: number; removed: number };
+
 export type ChatEvent =
 	/** What the person sent. */
-	| { type: "user"; text: string; attachments?: ChatAttachment[] }
+	| {
+			type: "user";
+			/** Names the message, for forking from it; older logs lack it. */
+			id?: string;
+			text: string;
+			attachments?: ChatAttachment[];
+	  }
 	/** A piece of the agent's reply (Markdown). */
 	| { type: "message"; text: string }
 	/** A piece of the agent's visible reasoning. */
@@ -57,6 +82,8 @@ export type ChatEvent =
 			output?: string;
 			/** The files an edit changed, as unified diffs. */
 			diffs?: FileDiff[];
+			/** The subagent that made this call, when it was not the agent itself. */
+			parent?: string;
 	  }
 	/** The agent wants permission before it acts. */
 	| { type: "approval"; id: string; title: string; detail?: string; options: ApprovalOption[] }
@@ -93,6 +120,58 @@ export type ChatEvent =
 			effort?: string;
 	  }
 	| { type: "error"; message: string }
+	/** What the person sent while the agent was working, delivered into the turn going on. */
+	| { type: "steer"; text: string; attachments?: ChatAttachment[] }
+	/** The agent asks the person something and waits for the answer. */
+	| { type: "question"; id: string; questions: AgentQuestion[] }
+	/** Answers by question id (each a list of picked labels or typed text); null when dismissed. */
+	| { type: "question_answered"; id: string; answers: Record<string, string[]> | null }
+	/**
+	 * A child agent the agent started (Claude's Task, a Codex sub-agent), created or updated by
+	 * id. Its own tool calls carry `parent: id`.
+	 */
+	| {
+			type: "subagent";
+			id: string;
+			title?: string;
+			/** The kind of agent it is ("general-purpose", "Explore"). */
+			agent?: string;
+			status?: SubagentStatus;
+			/** What it was asked to do. */
+			prompt?: string;
+			/** What it reported back. */
+			result?: string;
+			/** The last thing it said or did, for a one-line status. */
+			activity?: string;
+			at?: string;
+			endedAt?: string;
+	  }
+	/** A visual the agent put in its reply (see `visuals.ts`): native blocks, or a sandboxed page. */
+	| {
+			type: "visual";
+			id: string;
+			title: string;
+			format: "components" | "html";
+			/** The blocks, for `components`. */
+			blocks?: unknown[];
+			/** The page, for `html`. */
+			html?: string;
+			height?: number;
+	  }
+	/**
+	 * The working tree as a turn left it, saved under a git ref: `files` is what the turn changed,
+	 * and `turn` is which turn it was (counted from 1). Undo puts the tree back to before it.
+	 */
+	| { type: "checkpoint"; turn: number; files: CheckpointFile[]; at?: string }
+	/** The working tree was put back to how it was before `turn`. */
+	| { type: "checkpoint_restored"; turn: number; files: CheckpointFile[]; at?: string }
+	/** Where a forked thread's own work begins: everything above came from `from`. */
+	| { type: "forked"; from: { id: string; title: string }; at?: string }
+	/**
+	 * The messages waiting for the agent, and whether sending them is paused (after a stop or a
+	 * failure). Like `commands`, not part of the log: sent on attach and whenever it changes.
+	 */
+	| { type: "queue"; items: QueuedMessage[]; paused: boolean }
 	/**
 	 * The commands this agent offers, as it reported them: the whole list, each time it changes.
 	 * Not part of the conversation — the hub keeps the latest list per live session and sends it

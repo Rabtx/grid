@@ -222,6 +222,22 @@ export const chatService = {
 		return attachments;
 	},
 	/** A page of a thread's history from before `before` (see the `ready` message's `earlier`). */
+	/** A new thread carrying on from this one, up to the turn of message `at` (all of it when unset). */
+	fork: (token: string, id: string, input: { at?: string; worktree?: boolean }, scope = "") =>
+		call<ChatSession>(
+			`/chat/sessions/${id}/fork`,
+			token,
+			{ method: "POST", body: JSON.stringify(input) },
+			scope,
+		),
+	/** Undo a turn: the thread's files put back to how that turn found them. */
+	restoreCheckpoint: (token: string, id: string, turn: number, scope = "") =>
+		call<void>(
+			`/chat/sessions/${id}/checkpoints/${turn}/restore`,
+			token,
+			{ method: "POST" },
+			scope,
+		),
 	earlierEvents: (token: string, id: string, before: number, scope = "") =>
 		call<{ events: ChatEvent[]; earlier: number | null }>(
 			`/chat/sessions/${id}/events?before=${before}`,

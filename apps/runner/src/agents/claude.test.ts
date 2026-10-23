@@ -111,3 +111,201 @@ describe("Claude Code turns", () => {
 		);
 	});
 });
+
+describe("Claude Code subagents, questions and steering", () => {
+	async function started() {
+		const { spawn, turns } = fakeClaude();
+		const sent: Sent[] = [];
+		const watched: Spawn = (command, options) => {
+			const proc = spawn(command, options);
+			const send = proc.send;
+			proc.send = (message) => {
+				sent.push(message as Sent);
+				send(message);
+			};
+			return proc;
+		};
+		const provider = claudeProvider({ binary: "claude", available: () => true, spawn: watched });
+		const ctx = context();
+		const session = await provider.start(ctx);
+		return { session, ctx, turns, sent };
+	}
+
+	it("shows a Task as a subagent, with its own steps, and not its text as the reply", async () => {
+		const { session, ctx, turns } = await started();
+		const turn = session.prompt("look around");
+		const proc = turns()[0];
+		proc?.push({
+			type: "assistant",
+			message: {
+				content: [
+					{
+						type: "tool_use",
+						id: "task1",
+						name: "Task",
+						input: {
+							description: "Map the routes",
+							prompt: "Find every route",
+							subagent_type: "Explore",
+						},
+					},
+				],
+			},
+		});
+		proc?.push({
+			type: "stream_event",
+			parent_tool_use_id: "task1",
+			event: { type: "content_block_delta", delta: { type: "text_delta", text: "child text" } },
+		});
+		proc?.push({
+			type: "assistant",
+			parent_tool_use_id: "task1",
+			message: {
+				content: [{ type: "tool_use", id: "read1", name: "Read", input: { file_path: "a.ts" } }],
+			},
+		});
+		proc?.push({
+			type: "user",
+			message: {
+				content: [{ type: "tool_result", tool_use_id: "task1", content: "Found 4 routes" }],
+			},
+		});
+		proc?.push({ type: "result", subtype: "success", is_error: false });
+		await turn;
+		const events = ctx.events;
+		expect(events.some((event) => event.type === "message")).toBe(false);
+		expect(events.find((event) => event.type === "subagent")).toMatchObject({
+			id: "task1",
+			title: "Map the routes",
+			agent: "Explore",
+			status: "running",
+		});
+		expect(events.find((event) => event.type === "tool")).toMatchObject({
+			id: "read1",
+			parent: "task1",
+		});
+		expect(events.findLast((event) => event.type === "subagent")).toMatchObject({
+			id: "task1",
+			status: "completed",
+			result: "Found 4 routes",
+		});
+	});
+
+	it("asks AskUserQuestion of the person and answers with the labels picked", async () => {
+		const { session, ctx, turns, sent } = await started();
+		const turn = session.prompt("plan");
+		const proc = turns()[0];
+		proc?.push({
+			type: "control_request",
+			request_id: "r1",
+			request: {
+				subtype: "can_use_tool",
+				tool_name: "AskUserQuestion",
+				input: {
+					questions: [
+						{
+							question: "Which database?",
+							header: "Database",
+							options: [{ label: "Postgres", description: "Relational" }, { label: "SQLite" }],
+							multiSelect: false,
+						},
+					],
+				},
+			},
+		});
+		await Bun.sleep(5);
+		expect(ctx.events.find((event) => event.type === "question")).toMatchObject({
+			id: "r1",
+			questions: [{ id: "q0", header: "Database", question: "Which database?" }],
+		});
+		expect(ctx.events.some((event) => event.type === "approval")).toBe(false);
+		session.answer?.("r1", { q0: ["Postgres"] });
+		const reply = sent.findLast((message) => message.type === "control_response") as {
+			response: {
+				response: { behavior: string; updatedInput: { answers: Record<string, string> } };
+			};
+		};
+		expect(reply.response.response.behavior).toBe("allow");
+		expect(reply.response.response.updatedInput.answers).toEqual({ "Which database?": "Postgres" });
+		proc?.push({ type: "result", subtype: "success", is_error: false });
+		await turn;
+	});
+
+	it("keeps a turn going when its result comes before Claude read a steer", async () => {
+		const { session, turns, sent } = await started();
+		let ended = false;
+		const turn = session.prompt("build").then((result) => {
+			ended = true;
+			return result;
+		});
+		const proc = turns()[0];
+		expect(await session.steer?.("use tabs")).toBe(true);
+		const steer = sent.findLast((message) => message.type === "user") as { uuid: string };
+		// The answer to the first message ends, but the steer was never echoed back as read.
+		proc?.push({ type: "result", subtype: "success", is_error: false });
+		await Bun.sleep(5);
+		expect(ended).toBe(false);
+		// Claude reads it and answers it: that answer ends the turn.
+		proc?.push({
+			type: "user",
+			uuid: steer.uuid,
+			message: { content: [{ type: "text", text: "use tabs" }] },
+		});
+		proc?.push({ type: "assistant", message: { content: [] } });
+		proc?.push({ type: "result", subtype: "success", is_error: false });
+		expect(await turn).toEqual({ reason: "done" });
+	});
+});
+
+describe("Claude Code and Grid's own tools", () => {
+	it("lets the agent show a visual without asking the person", async () => {
+		const { spawn, turns } = fakeClaude();
+		const sent: Sent[] = [];
+		const watched: Spawn = (command, options) => {
+			const proc = spawn(command, options);
+			const send = proc.send;
+			proc.send = (message) => {
+				sent.push(message as Sent);
+				send(message);
+			};
+			return proc;
+		};
+		const provider = claudeProvider({ binary: "claude", available: () => true, spawn: watched });
+		const ctx = context();
+		const session = await provider.start(ctx);
+		const turn = session.prompt("chart it");
+		const proc = turns()[0];
+		proc?.push({
+			type: "control_request",
+			request_id: "v1",
+			request: {
+				subtype: "can_use_tool",
+				tool_name: "mcp__grid__show_visual",
+				input: { title: "x" },
+			},
+		});
+		await Bun.sleep(5);
+		expect(ctx.events.some((event) => event.type === "approval")).toBe(false);
+		expect(sent.findLast((message) => message.type === "control_response")).toMatchObject({
+			response: { request_id: "v1", response: { behavior: "allow" } },
+		});
+		proc?.push({ type: "result", subtype: "success", is_error: false });
+		await turn;
+	});
+
+	it("knows a steer was read when Claude echoes it back under another uuid", async () => {
+		const { spawn, turns } = fakeClaude();
+		const provider = claudeProvider({ binary: "claude", available: () => true, spawn });
+		const session = await provider.start(context());
+		const turn = session.prompt("build");
+		const proc = turns()[0];
+		await session.steer?.("use tabs");
+		proc?.push({
+			type: "user",
+			uuid: "other",
+			message: { content: [{ type: "text", text: "use tabs" }] },
+		});
+		proc?.push({ type: "result", subtype: "success", is_error: false });
+		expect(await turn).toEqual({ reason: "done" });
+	});
+});

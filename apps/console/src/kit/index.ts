@@ -65,6 +65,7 @@ export {
 	StatusStrip,
 } from "./code-lines";
 export { ConfirmDialog, Dialog, PanelBar, PanelFooter } from "./dialog";
+export { framedDocument, InlineVisual, type VisualBlock, VisualFrame } from "./visual";
 export { diffLines } from "./diff";
 export { PreviewFrame, RadiusScale, Specimen, SurfaceSwatches } from "./docs";
 export { ActivityItem, DropZone, InlineAdd, SplitLayout, WorkspacePreview } from "./extras";
@@ -144,6 +145,7 @@ export {
 	PromptBox,
 	PromptHints,
 	SEND_BUTTON,
+	STEER_BUTTON,
 	STOP_BUTTON,
 	Suggestions,
 	ContextMeter,
@@ -428,3 +430,12 @@ export {
 	WaitingLine,
 } from "./notification";
 export { ScrollRail, type ScrollRailProps } from "./scroll-rail";
+export {
+	ChangedFilesRow,
+	ForkDivider,
+	QuestionCard,
+	type QuestionItem,
+	QueueList,
+	type QueuedItem,
+	SubagentStrip,
+} from "./agent-work";
