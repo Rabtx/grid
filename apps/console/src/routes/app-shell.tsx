@@ -33,6 +33,7 @@ import {
 } from "@/modules/shell";
 import { AttentionNotifications } from "@/modules/notifications";
 import { SettingsSidebar, settingsReturn } from "@/modules/settings";
+import { FeatureTour } from "@/modules/tour";
 import { VoiceControls } from "@/modules/voice";
 import { CreateWorkspaceSheet, WorkspacesProvider } from "@/modules/workspaces";
 import { showAppBadge } from "@/pwa/app-badge";
@@ -177,6 +178,7 @@ function SignedIn(props: { children: JSX.Element }): JSX.Element {
 					<CreateWorkspaceSheet />
 					<VoiceControls />
 					<ShortcutsHelp />
+					<FeatureTour />
 					<RouteProgress />
 					<Show when={!runnerUp()}>
 						<FloatingNotice position="top">Runner offline — reconnecting…</FloatingNotice>

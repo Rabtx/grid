@@ -14,6 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the home runner, and a fresh agent on a restored thread is told the earlier turns.
 - The installer asks for an optional hosted database (`GRID_DATABASE_URL`), and a checkout's API
   and runner share a runner key so threads sync without settings.
+- Messages sent while an agent works wait in a queue and go when its turn ends; Steer sends one
+  into the turn going on (Claude Code and Codex take it mid-turn, other agents are stopped and
+  sent it next). A stop or a failed turn holds the queue until Resume.
+- Subagents an agent starts (Claude Code's Task, Codex sub-agents) get their own cards with their
+  brief, steps and result, and running ones show above the composer.
+- Agent questions (Claude Code's AskUserQuestion, Codex's input requests) are answered in a form
+  that stays in the transcript, and notify like approvals.
+- Inline visuals: agents can show stats, charts, tables, comparisons, checklists, calculators and
+  choices in a reply through Grid's `show_visual` tool, or a sandboxed HTML page.
+- Every turn that changes files is checkpointed under a hidden git ref, with Undo to put them back.
+- Fork a thread from any finished turn (or `/fork`), in the same folder or a new worktree.
+- A feature tour of the above, shown once and replayable from Settings → General.
 
 ### Fixed
 

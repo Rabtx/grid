@@ -40,6 +40,7 @@ import {
 	Button,
 	ChevronDownIcon,
 	ClockIcon,
+	ConfirmDialog,
 	ContextMeter,
 	DetailAside,
 	DiffStat,
@@ -50,6 +51,9 @@ import {
 	ThreadHeader,
 	notify,
 	type PopoverControl,
+	QuestionCard,
+	QueueList,
+	SubagentStrip,
 	Text,
 } from "@/kit";
 
@@ -60,7 +64,9 @@ import {
 	emptyTranscript,
 	formatDuration,
 	pendingApprovals,
+	pendingQuestions,
 	replay,
+	runningSubagents,
 	type Transcript,
 } from "../lib/transcript";
 import { chatService, chatSocketUrl } from "../services/chat.service";
@@ -246,12 +252,13 @@ export function Conversation(props: {
 			addNote: slug ? (text) => void saveNote(text) : undefined,
 			openSplit: () =>
 				layoutsStore.update(props.id, (layout) => openTab(layout, { kind: "terminal" })),
+			fork: (worktree) => void fork(undefined, worktree),
 		});
 	}
 
 	function handleRegenerate(prompt: UserPrompt): void {
 		if (running()) return;
-		void send(prompt.text, [], prompt.attachments).catch((cause) =>
+		void send(prompt.text, [], false, prompt.attachments).catch((cause) =>
 			setError(cause instanceof Error ? cause.message : "Could not send message"),
 		);
 	}
@@ -297,7 +304,11 @@ export function Conversation(props: {
 				setOlderMessages(
 					(count) => count + page.events.filter((event) => event.type === "user").length,
 				);
-				setTranscript((current) => ({ ...replay(log), commands: current.commands }));
+				setTranscript((current) => ({
+					...replay(log),
+					commands: current.commands,
+					queue: current.queue,
+				}));
 				setEarlier(page.earlier);
 				saver.schedule();
 				// Drawn now rather than next frame, so the page never shows jumped for a frame.
@@ -340,6 +351,7 @@ export function Conversation(props: {
 						setTranscript((current) => ({
 							...replay(ready.history),
 							commands: current.commands,
+							queue: current.queue,
 						}));
 					}
 					saver.schedule();
@@ -379,7 +391,8 @@ export function Conversation(props: {
 				onEvent: (event) => {
 					// The agent's command list is not conversation: it comes again on every attach,
 					// so it is not worth keeping with the log.
-					if (event.type === "commands") {
+					// Nor is the queue: the runner sends what waits on every attach and change.
+					if (event.type === "commands" || event.type === "queue") {
 						setTranscript((current) => applyEvent(current, event));
 						return;
 					}
@@ -461,8 +474,16 @@ export function Conversation(props: {
 		},
 	);
 
-	/** Sends a message with new files and, for Regenerate, files the thread already holds. */
-	async function send(text: string, files: File[] = [], existing: string[] = []): Promise<boolean> {
+	/**
+	 * Sends a message with new files and, for Regenerate, files the thread already holds. While
+	 * the agent works it waits in the queue, or with `steer` goes into the turn going on.
+	 */
+	async function send(
+		text: string,
+		files: File[] = [],
+		steer = false,
+		existing: string[] = [],
+	): Promise<boolean> {
 		const token = auth.token();
 		if (!token || connection() !== "open") {
 			setError("Not connected to the runner right now — your message is still in the box.");
@@ -472,7 +493,14 @@ export function Conversation(props: {
 		setError(null);
 		setRestartNotice(null);
 		const ids = [...existing, ...attachments.map((item) => item.id)];
-		if (!socket?.send({ t: "prompt", text, attachments: ids })) {
+		if (
+			!socket?.send({
+				t: "prompt",
+				text,
+				attachments: ids,
+				...(steer ? { delivery: "steer" as const } : {}),
+			})
+		) {
 			setError("Not connected to the runner right now — your message is still in the box.");
 			return false;
 		}
@@ -482,6 +510,59 @@ export function Conversation(props: {
 	const facts = createMemo(() => threadFacts(transcript().blocks));
 	// What the agent is waiting on, docked over the composer where the answer is given.
 	const waitingOn = createMemo(() => pendingApprovals(transcript()));
+	const asking = createMemo(() => pendingQuestions(transcript()));
+	const subagents = createMemo(() => runningSubagents(transcript()));
+
+	/** Bring a subagent's card into view, from its chip above the composer. */
+	function openSubagent(id: string): void {
+		const card = scroller?.querySelector<HTMLElement>(`[data-subagent="${CSS.escape(id)}"]`);
+		if (!card) return;
+		setPinned(false);
+		card.scrollIntoView({ behavior: "smooth", block: "center" });
+		if (card instanceof HTMLDetailsElement) card.open = true;
+	}
+
+	// Undo asks first: it puts files back, which may throw away edits made since.
+	const [undoTurn, setUndoTurn] = createSignal<number | null>(null);
+	const [undoing, setUndoing] = createSignal(false);
+	async function undo(turn: number): Promise<void> {
+		const token = auth.token();
+		if (!token) return;
+		setUndoing(true);
+		try {
+			await chatService.restoreCheckpoint(token, props.id, turn, props.scope);
+			setUndoTurn(null);
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not undo that turn",
+				tone: "danger",
+			});
+		} finally {
+			setUndoing(false);
+		}
+	}
+
+	/** A new thread from this one, up to message `at` (the whole thread when unset), then open it. */
+	async function fork(at?: string, worktree = false): Promise<void> {
+		const token = auth.token();
+		const current = session();
+		if (!token || !current) return;
+		try {
+			const forked = await chatService.fork(
+				token,
+				props.id,
+				{ ...(at ? { at } : {}), worktree },
+				props.scope,
+			);
+			threadsStore.upsert(forked);
+			navigate(`/chat/${encodeURIComponent(forked.project)}/${encodeURIComponent(forked.id)}`);
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not fork this thread",
+				tone: "danger",
+			});
+		}
+	}
 	const subtitle = () =>
 		[
 			facts().files.length
@@ -631,6 +712,19 @@ export function Conversation(props: {
 							onRegenerate={handleRegenerate}
 							onNote={(text) => void saveNote(text)}
 							onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
+							onUndo={(turn) => setUndoTurn(turn)}
+							onFork={(at, worktree) => void fork(at, worktree)}
+							onChoose={(message) =>
+								void send(message, [], running()).catch((cause) =>
+									setError(cause instanceof Error ? cause.message : "Could not send message"),
+								)
+							}
+							forkedHref={(id) => {
+								const project = session()?.project;
+								return project
+									? `/chat/${encodeURIComponent(project)}/${encodeURIComponent(id)}`
+									: undefined;
+							}}
 						/>
 					</div>
 				</div>
@@ -670,6 +764,18 @@ export function Conversation(props: {
 					<Show when={!shell.desktop() ? workspaceProps() : null}>
 						{(workspaceOf) => <DockedWorkspace {...workspaceOf()} />}
 					</Show>
+					<Show when={subagents().length > 0}>
+						<div class="mb-2">
+							<SubagentStrip
+								agents={subagents().map((agent) => ({
+									id: agent.id,
+									title: agent.title,
+									activity: agent.activity,
+								}))}
+								onOpen={openSubagent}
+							/>
+						</div>
+					</Show>
 					<For each={waitingOn()}>
 						{(approval) => (
 							<div class="mb-2">
@@ -680,6 +786,33 @@ export function Conversation(props: {
 							</div>
 						)}
 					</For>
+					<For each={asking()}>
+						{(question) => (
+							<div class="mb-2">
+								<QuestionCard
+									questions={question.questions}
+									onAnswer={(answers) => socket?.send({ t: "answer", id: question.id, answers })}
+								/>
+							</div>
+						)}
+					</For>
+					<Show when={transcript().queue.items.length > 0}>
+						<div class="mb-2">
+							<QueueList
+								items={transcript().queue.items.map((item) => ({
+									id: item.id,
+									text: item.text,
+									files: item.attachments?.length ?? 0,
+								}))}
+								paused={transcript().queue.paused}
+								running={running()}
+								onRemove={(id) => socket?.send({ t: "queue", action: "remove", id })}
+								onSendNow={(id) => socket?.send({ t: "queue", action: "steer", id })}
+								onResume={() => socket?.send({ t: "queue", action: "resume" })}
+								onClear={() => socket?.send({ t: "queue", action: "clear" })}
+							/>
+						</div>
+					</Show>
 					<Composer
 						project={session()?.project}
 						running={running()}
@@ -746,6 +879,20 @@ export function Conversation(props: {
 
 	return (
 		<div class="flex min-h-0 flex-1">
+			<ConfirmDialog
+				open={undoTurn() !== null}
+				onClose={() => setUndoTurn(null)}
+				onConfirm={() => {
+					const turn = undoTurn();
+					if (turn !== null) void undo(turn);
+				}}
+				title="Undo this turn?"
+				description="The files this turn changed, and any changed after it, go back to how this turn found them. Your git history and branch stay as they are; what is there now is kept under a hidden git ref."
+				confirm="Undo changes"
+				danger
+				pending={undoing()}
+				stayOpen
+			/>
 			<Show when={shell.desktop() && workspaceProps()}>
 				<ShellSlot name="actions">
 					<SplitSwitch thread={props.id} />

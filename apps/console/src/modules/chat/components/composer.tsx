@@ -35,6 +35,7 @@ import {
 	SEND_BUTTON,
 	SendIcon,
 	SpinnerIcon,
+	STEER_BUTTON,
 	STOP_BUTTON,
 	WorkingRing,
 	StopSquareIcon,
@@ -75,8 +76,9 @@ const isTouchDevice = () => {
 
 /**
  * Where a message is written. Enter sends on a physical keyboard (Shift+Enter for a new line);
- * on a phone Enter is a new line and the send button sends. While the agent works, the button
- * stops it. A text field, so voice input lands here with no extra wiring.
+ * on a phone Enter is a new line and the send button sends. While the agent works, a message
+ * waits in the queue for the turn to end, Steer (⌘/Ctrl+Enter) sends it into the turn now, and
+ * the stop button stops it. A text field, so voice input lands here with no extra wiring.
  */
 export function Composer(props: {
 	placeholder?: string;
@@ -84,8 +86,11 @@ export function Composer(props: {
 	disabled?: boolean;
 	sessionId?: string;
 	scope?: string;
-	/** Send the text; return false to keep the draft (e.g. the link is down). */
-	onSend: (text: string, files: File[]) => boolean | Promise<boolean>;
+	/**
+	 * Send the text; return false to keep the draft (e.g. the link is down). `steer` sends it into
+	 * the turn going on rather than queueing it for after.
+	 */
+	onSend: (text: string, files: File[], steer?: boolean) => boolean | Promise<boolean>;
 	onStop?: () => void;
 	/** The toolbar's pickers: model and mode. */
 	controls?: JSX.Element;
@@ -470,7 +475,7 @@ export function Composer(props: {
 		];
 	};
 
-	async function send(): Promise<void> {
+	async function send(steer = false): Promise<void> {
 		if (hasPendingUploads()) return;
 		const text = draft().trim();
 		const attached = files();
@@ -495,17 +500,23 @@ export function Composer(props: {
 			}
 		}
 
-		if (props.running || sending()) return;
+		if (sending()) return;
 		setSending(true);
 
 		const fullText = appendProjectReferences(text, refs);
 
 		try {
 			if (
-				await props.onSend(
-					fullText,
-					attached.map((item) => item.file),
-				)
+				await (steer && props.running
+					? props.onSend(
+							fullText,
+							attached.map((item) => item.file),
+							true,
+						)
+					: props.onSend(
+							fullText,
+							attached.map((item) => item.file),
+						))
 			) {
 				clearDraft();
 				clearFiles();
@@ -683,7 +694,8 @@ export function Composer(props: {
 									matchMedia("(pointer: fine)").matches
 								) {
 									event.preventDefault();
-									void send();
+									// While the agent works, ⌘/Ctrl+Enter steers; Enter queues.
+									void send(event.metaKey || event.ctrlKey);
 								}
 							}}
 							class={PROMPT_FIELD}
@@ -769,6 +781,27 @@ export function Composer(props: {
 								</button>
 							}
 						>
+							<Show when={draft().trim() || files().length || projectFiles().length}>
+								<button
+									type="button"
+									aria-label="Steer: send into this turn now"
+									title="Steer: send into this turn now (⌘/Ctrl+Enter)"
+									disabled={props.disabled || sending() || hasPendingUploads() || hasUploadErrors()}
+									onClick={() => void send(true)}
+									class={STEER_BUTTON}
+								>
+									Steer
+								</button>
+								<button
+									type="submit"
+									aria-label="Queue: send when this turn ends"
+									title="Queue: send when this turn ends (Enter)"
+									disabled={props.disabled || sending() || hasPendingUploads() || hasUploadErrors()}
+									class={SEND_BUTTON}
+								>
+									<SendIcon />
+								</button>
+							</Show>
 							<button
 								type="button"
 								aria-label="Stop"

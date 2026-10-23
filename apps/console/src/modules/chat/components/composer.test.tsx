@@ -410,15 +410,33 @@ describe("Composer", () => {
 		);
 		expect(textarea.value).toBe("");
 
-		// A message for the agent still waits for the turn to end.
+		// A message for the agent is sent to wait in its queue until the turn ends.
 		typeInto(textarea, "and then this");
 		await settle();
 		container
 			.querySelector("form")
 			?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 		await settle();
-		expect(onSend).not.toHaveBeenCalled();
-		expect(textarea.value).toBe("and then this");
+		expect(onSend).toHaveBeenCalledWith("and then this", []);
+		expect(textarea.value).toBe("");
+	});
+
+	it("steers a message into the turn going on", async () => {
+		const onSend = vi.fn().mockReturnValue(true);
+		mount(onSend, undefined, { running: true });
+		await settle();
+		const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+		if (!textarea) return;
+		// Nothing typed: only Stop.
+		expect(container.querySelector('[aria-label="Steer: send into this turn now"]')).toBeNull();
+		typeInto(textarea, "use tabs instead");
+		await settle();
+		container
+			.querySelector<HTMLButtonElement>('[aria-label="Steer: send into this turn now"]')
+			?.click();
+		await settle();
+		expect(onSend).toHaveBeenCalledWith("use tabs instead", [], true);
+		expect(container.querySelector('[aria-label="Stop"]')).not.toBeNull();
 	});
 
 	it("sends words after a command that takes none to the agent as typed", async () => {

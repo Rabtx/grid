@@ -24,8 +24,25 @@ export type AgentCommand = { name: string; description: string; hint?: string };
 
 export type ApprovalOption = { id: string; label: string; kind: "allow" | "allow_always" | "deny" };
 
+/** A question an agent asks, with the answers it offers (none: type an answer). */
+export type AgentQuestion = {
+	id: string;
+	header: string;
+	question: string;
+	options: { label: string; description?: string }[];
+	multiSelect?: boolean;
+};
+
+export type SubagentStatus = "running" | "completed" | "failed" | "cancelled";
+
+/** A message waiting for the agent to finish its turn. */
+export type QueuedMessage = { id: string; text: string; attachments?: ChatAttachment[] };
+
+/** A file a turn changed, as its checkpoint counts it. */
+export type CheckpointFile = { path: string; added: number; removed: number };
+
 export type ChatEvent =
-	| { type: "user"; text: string; attachments?: ChatAttachment[] }
+	| { type: "user"; id?: string; text: string; attachments?: ChatAttachment[] }
 	| { type: "message"; text: string }
 	| { type: "reasoning"; text: string }
 	| {
@@ -37,6 +54,8 @@ export type ChatEvent =
 			input?: string;
 			output?: string;
 			diffs?: FileDiff[];
+			/** The subagent that made the call. */
+			parent?: string;
 	  }
 	| { type: "approval"; id: string; title: string; detail?: string; options: ApprovalOption[] }
 	| { type: "approval_resolved"; id: string; optionId: string | null }
@@ -69,6 +88,35 @@ export type ChatEvent =
 			effort?: string;
 	  }
 	| { type: "error"; message: string }
+	| { type: "steer"; text: string; attachments?: ChatAttachment[] }
+	| { type: "question"; id: string; questions: AgentQuestion[] }
+	| { type: "question_answered"; id: string; answers: Record<string, string[]> | null }
+	| {
+			type: "subagent";
+			id: string;
+			title?: string;
+			agent?: string;
+			status?: SubagentStatus;
+			prompt?: string;
+			result?: string;
+			activity?: string;
+			at?: string;
+			endedAt?: string;
+	  }
+	| {
+			type: "visual";
+			id: string;
+			title: string;
+			format: "components" | "html";
+			blocks?: unknown[];
+			html?: string;
+			height?: number;
+	  }
+	| { type: "checkpoint"; turn: number; files: CheckpointFile[]; at?: string }
+	| { type: "checkpoint_restored"; turn: number; files: CheckpointFile[]; at?: string }
+	| { type: "forked"; from: { id: string; title: string }; at?: string }
+	/** What waits for the agent, and whether it is held. Like `commands`, never logged. */
+	| { type: "queue"; items: QueuedMessage[]; paused: boolean }
 	/**
 	 * What the agent can be asked to do right now, for the composer's `/` menu. It is not part of
 	 * the conversation: the runner sends it on attach and whenever it changes, and never logs it.

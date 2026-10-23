@@ -22,6 +22,8 @@ export type SlashCommandActions = {
 	addNote?: (text: string) => void;
 	/** Open the thread's workspace on its terminal; left out where there is no thread. */
 	openSplit?: () => void;
+	/** Fork the whole thread, into a new worktree when asked; left out where there is no thread. */
+	fork?: (worktree: boolean) => void;
 };
 
 function refuse(title: string): false {
@@ -88,6 +90,10 @@ export function runSlashCommand(
 			if (!actions.addTask) return refuse("Open a project to add tasks");
 			if (!argument) return refuse("Add a title: /task <title>");
 			actions.addTask(argument);
+			return true;
+		case "fork":
+			if (!actions.fork) return refuse("Open a thread to fork it");
+			actions.fork(/^(worktree|wt|new)$/i.test(argument.trim()));
 			return true;
 		case "split":
 			if (!actions.openSplit) return refuse("Open a thread to split it");

@@ -11,7 +11,9 @@ import type { ChatEvent, ChatSession } from "../types/chat.types";
 export type ChatConnection = "connecting" | "open" | "reconnecting" | "gone" | "signed-out";
 
 export type ChatCommand =
-	| { t: "prompt"; text: string; attachments?: string[] }
+	| { t: "prompt"; text: string; attachments?: string[]; delivery?: "send" | "steer" }
+	| { t: "answer"; id: string; answers: Record<string, string[]> | null }
+	| { t: "queue"; action: "remove" | "clear" | "pause" | "resume" | "steer"; id?: string }
 	| { t: "cancel" }
 	| { t: "approve"; id: string; optionId: string | null }
 	| { t: "configure"; model?: string; mode?: string; effort?: string };

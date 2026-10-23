@@ -32,6 +32,7 @@ import { useShell } from "@/modules/shell";
 import { useWorkspaces } from "@/modules/workspaces";
 import { isAdmin, memberName, ROLE_LABEL } from "@/modules/workspaces/lib/members";
 import { workspacesService } from "@/modules/workspaces/services/workspaces.service";
+import { tourStore } from "@/modules/tour";
 import type {
 	DataStatus,
 	Member,
@@ -423,6 +424,22 @@ export function GeneralScreen(): JSX.Element {
 								</Show>
 							</SettingsGroup>
 						</Show>
+
+						<SettingsGroup title="What's new">
+							<SettingsRow
+								inline
+								label="Feature tour"
+								description={
+									shell.desktop()
+										? "Queue and steer, subagents, questions, visuals, Undo and forks"
+										: undefined
+								}
+							>
+								<Button size="sm" onClick={() => tourStore.show()}>
+									Replay tour
+								</Button>
+							</SettingsRow>
+						</SettingsGroup>
 
 						<Show when={owner()}>
 							<SettingsGroup title="Danger zone">

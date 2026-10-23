@@ -67,6 +67,7 @@ import {
 	EffortSlider,
 	playArrival,
 } from "@/kit";
+import { TOUR_SLIDES } from "@/modules/tour/content";
 
 function Specimen(props: { label: string; children: JSX.Element; class?: string }): JSX.Element {
 	return (
@@ -74,6 +75,19 @@ function Specimen(props: { label: string; children: JSX.Element; class?: string 
 			<p class="text-caption text-fg-subtle">{props.label}</p>
 			{props.children}
 		</Card>
+	);
+}
+
+/* ── Agent turns ──────────────────────────────────────────────────────────────────────────── */
+
+/** The pieces a turn's work adds (queue, subagents, questions, visuals, Undo, forks), as the tour shows them. */
+export function AgentTurnsSection(): JSX.Element {
+	return (
+		<div class="grid gap-4 md:grid-cols-2">
+			<For each={TOUR_SLIDES}>
+				{(slide) => <Specimen label={slide.title}>{slide.preview()}</Specimen>}
+			</For>
+		</div>
 	);
 }
 

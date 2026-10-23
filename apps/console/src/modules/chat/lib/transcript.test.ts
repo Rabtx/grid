@@ -8,6 +8,7 @@ import {
 	groupRows,
 	groupTurns,
 	pendingApprovals,
+	pendingQuestions,
 	replay,
 	summariseTools,
 	toolLabel,
@@ -279,5 +280,66 @@ it("replays attachment metadata on its user turn", () => {
 		kind: "user",
 		text: "see this",
 		attachments,
+	});
+});
+
+describe("agent work in the transcript", () => {
+	it("nests a subagent's steps under it, and settles it when the turn ends", () => {
+		const t = replay([
+			{ type: "user", id: "m1", text: "map it" },
+			{ type: "turn_start" },
+			{ type: "subagent", id: "s1", title: "Map routes", status: "running" },
+			{ type: "tool", id: "r1", title: "Read a.ts", kind: "read", status: "running", parent: "s1" },
+			{ type: "tool", id: "r1", status: "completed", output: "ok" },
+			{ type: "turn_end", reason: "done" },
+		]);
+		expect(t.blocks.map((block) => block.kind)).toEqual(["user", "subagent"]);
+		const agent = t.blocks[1];
+		expect(agent?.kind === "subagent" && agent.status).toBe("completed");
+		expect(agent?.kind === "subagent" && agent.tools.map((tool) => [tool.id, tool.status])).toEqual(
+			[["r1", "completed"]],
+		);
+		expect(t.blocks[0]?.kind === "user" && t.blocks[0].id).toBe("m1");
+	});
+
+	it("keeps a question waiting until it is answered", () => {
+		const asked = replay([
+			{ type: "user", text: "plan" },
+			{
+				type: "question",
+				id: "q",
+				questions: [{ id: "a", header: "A", question: "Which?", options: [] }],
+			},
+		]);
+		expect(pendingQuestions(asked)).toHaveLength(1);
+		const answered = applyEvent(asked, {
+			type: "question_answered",
+			id: "q",
+			answers: { a: ["x"] },
+		});
+		expect(pendingQuestions(answered)).toHaveLength(0);
+	});
+
+	it("marks a turn's checkpoint and every later one undone", () => {
+		const t = replay([
+			{ type: "user", text: "one" },
+			{ type: "checkpoint", turn: 1, files: [{ path: "a", added: 1, removed: 0 }] },
+			{ type: "user", text: "two" },
+			{ type: "checkpoint", turn: 2, files: [{ path: "b", added: 1, removed: 0 }] },
+			{ type: "checkpoint_restored", turn: 1, files: [{ path: "a", added: 1, removed: 0 }] },
+		]);
+		const undone = t.blocks.flatMap((block) => (block.kind === "checkpoint" ? [block.undone] : []));
+		expect(undone).toEqual([true, true]);
+		expect(t.blocks.at(-1)).toMatchObject({ kind: "notice", tone: "muted" });
+	});
+
+	it("takes the queue as the runner reports it, outside the conversation", () => {
+		const t = applyEvent(emptyTranscript(), {
+			type: "queue",
+			items: [{ id: "1", text: "next" }],
+			paused: true,
+		});
+		expect(t.queue).toEqual({ items: [{ id: "1", text: "next" }], paused: true });
+		expect(t.blocks).toEqual([]);
 	});
 });
