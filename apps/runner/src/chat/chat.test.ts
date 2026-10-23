@@ -242,6 +242,7 @@ describe("Claude adapter", () => {
 			"--include-partial-messages",
 			"--permission-prompt-tool",
 			"stdio",
+			"--replay-user-messages",
 			"--model",
 			"opus",
 			"--permission-mode",
@@ -791,7 +792,7 @@ describe("ChatHub", () => {
 		// The log's shape is the point of this test, so `at` is matched loosely: the turn stamps
 		// itself with a time for the console's "Worked for…" line, and that clock is not pinned here.
 		expect(replay.history).toEqual([
-			{ type: "user", text: "say hello" },
+			{ type: "user", id: expect.any(String), text: "say hello" },
 			{ type: "turn_start", at: expect.any(String) },
 			{ type: "message", text: "Hello" },
 			{ type: "turn_end", reason: "done", error: undefined, at: expect.any(String) },

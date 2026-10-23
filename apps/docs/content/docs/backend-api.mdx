@@ -193,6 +193,50 @@ not all-time run analytics; the Console labels its metrics accordingly. No trans
 messages, reasoning or file contents are returned. Stop requires `startAgents`,
 answers `409` for an ended agent and uses the same `404` workspace boundary.
 
+### Runner agent turns: queue, steering, questions, subagents, visuals, checkpoints and forks
+
+Same prefix, authentication and workspace selection as above.
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/runner/chat/sessions/:id/fork` | `startAgents` | New thread from `{ at?, worktree? }` (`201`, the thread) |
+| `POST` | `/runner/chat/sessions/:id/checkpoints/:turn/restore` | `startAgents` | Undo a turn: its files back to how it found them (`204`) |
+
+A fork copies the source's log up to the end of the turn of user message `at` (a user event's
+`id`; the whole settled log when left out), then appends `{ type: "forked", from: { id, title } }`.
+It works in the source's folder, or in a new worktree with `worktree: true`, and its agent starts
+fresh with the earlier conversation in its first message. Forking from a message that is not in
+the thread answers `404`; from a turn still running, `409`.
+
+Undo restores the files the turn and every later turn changed to the turn's start checkpoint,
+saving the current tree under `refs/grid/checkpoints/<thread>/<turn>/undo` first. It answers `409`
+while the thread's agent, or another running thread in the same repository, is working, or when
+the folder is not in git; `404` when the checkpoint is gone.
+
+The chat socket takes these commands after `hello`, besides `prompt`, `cancel`, `approve` and
+`configure`:
+
+| Command | Purpose |
+| --- | --- |
+| `{ t: "prompt", text, attachments?, delivery? }` | While the agent works, the message waits in the thread's queue; `delivery: "steer"` sends it into the turn going on |
+| `{ t: "queue", action, id? }` | `remove`, `steer` (send one now), `clear`, `pause` or `resume` the queue |
+| `{ t: "answer", id, answers }` | Answer a `question` event: `{ [questionId]: string[] }`, or `null` to dismiss |
+
+New events in the log: `steer` (`text`, `attachments?`); `question` (`id`, `questions` with
+`id`, `header`, `question`, `options`, `multiSelect?`) and `question_answered` (`id`, `answers`
+or `null`); `subagent` (upserted by `id`: `title`, `agent`, `status` `running` / `completed` /
+`failed` / `cancelled`, `prompt`, `result`, `activity`, `at`, `endedAt`), with a subagent's own
+`tool` events carrying `parent`; `visual` (`id`, `title`, `format` `components` or `html`,
+`blocks` or `html`, `height`); `checkpoint` and `checkpoint_restored` (`turn`, `files` of
+`path`, `added`, `removed`); and `forked`. `user` events now carry an `id`. The queue is not in
+the log: `{ type: "queue", items, paused }` is sent on attach and whenever it changes, and is
+kept with the thread so a restarted runner still has it, held.
+
+Agents publish visuals through Grid's own MCP server (`grid`, tool `show_visual`), started per
+thread. It calls `POST /chat/tools/visual` on the runner with the key the runner started it with;
+the runner checks the spec (16 blocks, 64 KB of blocks or 256 KB of HTML, six per turn) and
+records it only while that thread's turn is running.
+
 ### Runner file attribution
 
 Project Files listing, content and blame routes return live agent attribution only

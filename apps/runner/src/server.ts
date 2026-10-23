@@ -27,7 +27,7 @@ import type { DiagnosticInput, DiagnosticJournal } from "./diagnostics/journal";
 import { RefusalTally } from "./diagnostics/refusals";
 import { DiagnosticRoutes, safeCloseReason } from "./diagnostics/routes";
 import { watchEventLoop } from "./diagnostics/stall";
-import { chatRequest } from "./chat/routes";
+import { chatRequest, chatToolsRequest } from "./chat/routes";
 import type { RunnerConfig } from "./config";
 import type { PairingStore } from "./environments/pairing";
 import { RELAYED_SOCKETS, relayHttp, SocketRelay } from "./environments/relay";
@@ -277,6 +277,12 @@ export function startServer(
 				// A connector sign-in's window finishing it: proved by the sign-in's own state.
 				if (connectors) {
 					const handled = await connectorCallbackRequest(request, url, connectors);
+					if (handled) return handled;
+				}
+
+				// Grid's own tools in a thread, proved the same way.
+				if (url.pathname.startsWith("/chat/tools/")) {
+					const handled = await chatToolsRequest(request, url, chat);
 					if (handled) return handled;
 				}
 

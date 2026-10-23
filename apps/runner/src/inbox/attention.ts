@@ -21,7 +21,7 @@ export function inboxItem(
 	const at = event.type === "turn_end" ? (event.at ?? now) : now;
 	return {
 		id:
-			event.type === "approval"
+			event.type === "approval" || event.type === "question"
 				? approvalItemId(session.id, event.id)
 				: `${what.kind}:${session.id}:${at}`,
 		workspaceId: session.workspaceId,

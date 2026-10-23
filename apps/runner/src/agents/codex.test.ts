@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { codexModelChoices, codexPolicy, codexProvider, codexTool } from "./codex";
+import { codexModelChoices, codexPolicy, codexProvider, codexQuestions, codexTool } from "./codex";
 import type { ChatEvent } from "./events";
 import type { JsonProcess, Spawn } from "./stdio";
 
@@ -376,5 +376,33 @@ describe("Codex start failures", () => {
 		expect(tracked.killed()).toBe(0);
 		session.close();
 		expect(tracked.killed()).toBe(1);
+	});
+});
+
+describe("Codex questions", () => {
+	it("keeps the questions it can show, with their options", () => {
+		expect(
+			codexQuestions({
+				questions: [
+					{
+						id: "scope",
+						header: "Scope",
+						question: "How far?",
+						options: [
+							{ label: "Small", description: "Small" },
+							{ label: "Big", description: "All of it" },
+						],
+					},
+					{ id: "", question: "No id" },
+				],
+			}),
+		).toEqual([
+			{
+				id: "scope",
+				header: "Scope",
+				question: "How far?",
+				options: [{ label: "Small" }, { label: "Big", description: "All of it" }],
+			},
+		]);
 	});
 });

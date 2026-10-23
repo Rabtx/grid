@@ -143,7 +143,7 @@ chat.onTurnFailed((session) => {
 });
 chat.onAttention((session, event, watched) => {
 	// Answered, from the thread, the inbox or a notification: nothing is waiting any more.
-	if (event.type === "approval_resolved") {
+	if (event.type === "approval_resolved" || event.type === "question_answered") {
 		inbox.settle(approvalItemId(session.id, event.id));
 		return;
 	}
@@ -260,6 +260,8 @@ const connectors = new Connectors({
 	runnerUrl: () => `http://127.0.0.1:${server.port}`,
 });
 chat.setMcp((workspace, agent, thread) => connectors.serversFor(workspace, agent, thread));
+// Grid's own tools for each thread's agent (show_visual), calling back on this machine.
+chat.setGridTools(() => `http://127.0.0.1:${server.port}`);
 const pulseStore = new PulseStore(config.chatDb);
 const pulse = new Pulse({ chat, gh, connections, store: pulseStore });
 // Ship: deploys as GitHub records them, promoted the way each project already deploys. Sites

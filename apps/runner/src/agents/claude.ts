@@ -4,7 +4,14 @@ import { join } from "node:path";
 
 import { cached, effortChoices } from "./catalog";
 import { agentCommands } from "./commands";
-import { type AgentCommand, type Choice, clip, type PlanEntry, type ToolKind } from "./events";
+import {
+	type AgentCommand,
+	type AgentQuestion,
+	type Choice,
+	clip,
+	type PlanEntry,
+	type ToolKind,
+} from "./events";
 import { diffTexts, type FileDiff } from "./diff";
 import type { AgentContext, AgentSession, Provider, ProviderInfo, TurnResult } from "./provider";
 import { type JsonProcess, type Spawn, spawnJsonProcess } from "./stdio";
@@ -311,6 +318,9 @@ export function claudeArgs(
 		"--include-partial-messages",
 		"--permission-prompt-tool",
 		"stdio",
+		// Messages sent mid-turn (steering) are echoed back once Claude takes them, so a turn
+		// that ends before it read one is known to have more to do.
+		"--replay-user-messages",
 	];
 	if (input.model && input.model !== "default") args.push("--model", input.model);
 	if (input.effort) args.push("--effort", input.effort);
@@ -372,6 +382,7 @@ export function toolTitle(
 		case "WebSearch":
 			return { title: `Search the web for ${input.query as string}` };
 		case "Task":
+		case "Agent":
 			return { title: (input.description as string) || "Run a sub-agent" };
 		default:
 			return { title: name };
@@ -405,6 +416,52 @@ function resultText(content: unknown): string {
 	return "";
 }
 
+/** The tools that start a subagent: `Task`, called `Agent` by newer Claude Code versions. */
+const SUBAGENT_TOOLS = new Set(["Task", "Agent"]);
+
+/** AskUserQuestion's input as questions Grid can show. */
+export function claudeQuestions(input: Record<string, unknown>): AgentQuestion[] {
+	const raw = Array.isArray(input.questions) ? input.questions : [];
+	return raw.flatMap((entry, index): AgentQuestion[] => {
+		if (!entry || typeof entry !== "object") return [];
+		const item = entry as Record<string, unknown>;
+		const question = typeof item.question === "string" ? item.question.trim() : "";
+		if (!question) return [];
+		const header =
+			typeof item.header === "string" && item.header ? item.header : `Question ${index + 1}`;
+		const options = (Array.isArray(item.options) ? item.options : []).flatMap((option) => {
+			const fields = (option ?? {}) as Record<string, unknown>;
+			const label = typeof fields.label === "string" ? fields.label.trim() : "";
+			if (!label) return [];
+			const description =
+				typeof fields.description === "string" && fields.description.trim()
+					? fields.description.trim()
+					: undefined;
+			return [{ label, ...(description ? { description } : {}) }];
+		});
+		return [{ id: `q${index}`, header, question, options, multiSelect: item.multiSelect === true }];
+	});
+}
+
+/** The answers as AskUserQuestion takes them: keyed by the question's text, labels joined. */
+export function claudeAnswers(
+	questions: AgentQuestion[],
+	answers: Record<string, string[]>,
+): Record<string, string> {
+	const out: Record<string, string> = {};
+	for (const question of questions) {
+		const picked = answers[question.id]?.filter((value) => value.trim());
+		if (picked?.length) out[question.question] = picked.join(", ");
+	}
+	return out;
+}
+
+/** Grid's own MCP server (`chat/grid-tools.ts`), as Claude Code names its tools. */
+const GRID_TOOLS = "mcp__grid__";
+
+/** How long a turn that ended with a steer not yet read waits for Claude to start on it. */
+const STEER_GRACE_MS = 20_000;
+
 type ControlRequest = {
 	type: "control_request";
 	request_id: string;
@@ -429,12 +486,38 @@ async function startClaudeSession(
 	let finishTurn: ((result: TurnResult) => void) | null = null;
 	let controlId = 0;
 	const approvals = new Map<string, ControlRequest>();
+	// AskUserQuestion requests waiting for the person, with the questions as Grid showed them.
+	const questions = new Map<string, { request: ControlRequest; asked: AgentQuestion[] }>();
 	// Tool names by id, to map a later tool_result back to its kind.
 	const tools = new Map<string, string>();
+	// Steering messages sent but not yet echoed back, by the uuid they were sent with.
+	const steers = new Map<string, string>();
+	// A turn whose result came while a steer was unread: it ends once Claude has worked on it.
+	let held: { result: TurnResult; timer: ReturnType<typeof setTimeout> } | null = null;
 	let stderr: string[] = [];
+
+	function endTurn(result: TurnResult): void {
+		if (held) clearTimeout(held.timer);
+		held = null;
+		steers.clear();
+		finishTurn?.(result);
+		finishTurn = null;
+	}
+
+	/** The subagent a message belongs to, when a subagent sent it. */
+	function parentOf(message: Record<string, unknown>): string | undefined {
+		const parent = message.parent_tool_use_id;
+		return typeof parent === "string" && parent ? parent : undefined;
+	}
 
 	function handle(message: Record<string, unknown>): void {
 		const type = message.type;
+		// Claude has started on a steer it had not read when its last result came: that result
+		// was not the end of the turn after all, and the next one ends it instead.
+		if (held && type !== "user") {
+			clearTimeout(held.timer);
+			held = null;
+		}
 		if (type === "system" && message.subtype === "init") {
 			if (typeof message.session_id === "string") {
 				resume = message.session_id;
@@ -443,6 +526,8 @@ async function startClaudeSession(
 			return;
 		}
 		if (type === "stream_event") {
+			// A subagent's text is its own; the reply streams only the agent's.
+			if (parentOf(message)) return;
 			const event = message.event as {
 				type?: string;
 				delta?: { type?: string; text?: string; thinking?: string };
@@ -458,12 +543,37 @@ async function startClaudeSession(
 		}
 		if (type === "assistant") {
 			const content = (message.message as { content?: Record<string, unknown>[] })?.content ?? [];
+			const parent = parentOf(message);
 			for (const block of content) {
+				if (
+					parent &&
+					block.type === "text" &&
+					typeof block.text === "string" &&
+					block.text.trim()
+				) {
+					context.emit({ type: "subagent", id: parent, activity: clip(block.text.trim(), 280) });
+					continue;
+				}
 				if (block.type !== "tool_use") continue;
 				const name = String(block.name);
 				const input = (block.input as Record<string, unknown>) ?? {};
 				tools.set(String(block.id), name);
+				if (name === "AskUserQuestion") continue;
+				if (SUBAGENT_TOOLS.has(name)) {
+					context.emit({
+						type: "subagent",
+						id: String(block.id),
+						title: (input.description as string) || "Subagent",
+						...(typeof input.subagent_type === "string" ? { agent: input.subagent_type } : {}),
+						...(typeof input.prompt === "string" ? { prompt: clip(input.prompt, 8_000) } : {}),
+						status: "running",
+						at: new Date().toISOString(),
+					});
+					continue;
+				}
 				if (name === "TodoWrite" && Array.isArray(input.todos)) {
+					// A subagent's own todo list is not the agent's plan.
+					if (parent) continue;
 					context.emit({
 						type: "plan",
 						entries: (input.todos as { content: string; status: string }[]).map(
@@ -488,16 +598,39 @@ async function startClaudeSession(
 					status: "running",
 					input: detail,
 					...(diffs.length ? { diffs } : {}),
+					...(parent ? { parent } : {}),
 				});
+				if (parent) context.emit({ type: "subagent", id: parent, activity: title });
 			}
 			return;
 		}
 		if (type === "user") {
 			const content = (message.message as { content?: Record<string, unknown>[] })?.content ?? [];
+			// A steer Claude has read: the turn it went into is still the one going on. It comes back
+			// with the uuid it was sent with, or failing that, as the same words.
+			const uuid = typeof message.uuid === "string" ? message.uuid : null;
+			if (uuid && steers.delete(uuid)) return;
+			const said = content.find((block) => block.type === "text")?.text;
+			const read = [...steers].find(([, text]) => text === said)?.[0];
+			if (read) {
+				steers.delete(read);
+				return;
+			}
 			for (const block of content) {
 				if (block.type !== "tool_result") continue;
 				const id = String(block.tool_use_id);
-				if (tools.get(id) === "TodoWrite") continue;
+				const name = tools.get(id);
+				if (name === "TodoWrite" || name === "AskUserQuestion") continue;
+				if (name && SUBAGENT_TOOLS.has(name)) {
+					context.emit({
+						type: "subagent",
+						id,
+						status: block.is_error ? "failed" : "completed",
+						result: clip(resultText(block.content), 8_000),
+						endedAt: new Date().toISOString(),
+					});
+					continue;
+				}
 				context.emit({
 					type: "tool",
 					id,
@@ -516,6 +649,26 @@ async function startClaudeSession(
 					response: { subtype: "success", request_id: request.request_id, response: {} },
 				});
 				return;
+			}
+			// Grid's own tools only add to the thread's transcript: nothing to ask the person about.
+			if (request.request.tool_name?.startsWith(GRID_TOOLS)) {
+				proc?.send({
+					type: "control_response",
+					response: {
+						subtype: "success",
+						request_id: request.request_id,
+						response: { behavior: "allow", updatedInput: request.request.input ?? {} },
+					},
+				});
+				return;
+			}
+			if (request.request.tool_name === "AskUserQuestion") {
+				const asked = claudeQuestions(request.request.input ?? {});
+				if (asked.length) {
+					questions.set(request.request_id, { request, asked });
+					context.emit({ type: "question", id: request.request_id, questions: asked });
+					return;
+				}
 			}
 			approvals.set(request.request_id, request);
 			const { title, detail } = toolTitle(
@@ -557,15 +710,19 @@ async function startClaudeSession(
 			const failed =
 				message.is_error === true ||
 				(typeof message.subtype === "string" && message.subtype.startsWith("error"));
-			finishTurn?.(
-				failed
-					? {
-							reason: "error",
-							error: String(message.result ?? message.subtype ?? "Claude Code failed"),
-						}
-					: { reason: "done" },
-			);
-			finishTurn = null;
+			const result: TurnResult = failed
+				? {
+						reason: "error",
+						error: String(message.result ?? message.subtype ?? "Claude Code failed"),
+					}
+				: { reason: "done" };
+			// A steer sent too late for this answer is Claude's next thing to do, still this turn.
+			if (!failed && steers.size > 0 && finishTurn) {
+				if (held) clearTimeout(held.timer);
+				held = { result, timer: setTimeout(() => endTurn(result), STEER_GRACE_MS) };
+				return;
+			}
+			endTurn(result);
 		}
 	}
 
@@ -590,11 +747,10 @@ async function startClaudeSession(
 			// after the new turn has begun, and ending that one instead threw its real result away.
 			if (proc !== started) return;
 			proc = null;
-			finishTurn?.({
+			endTurn({
 				reason: "error",
 				error: `Claude Code exited (code ${code}). ${stderr.slice(-3).join(" ")}`.trim(),
 			});
-			finishTurn = null;
 		});
 		proc = started;
 		return started;
@@ -608,6 +764,9 @@ async function startClaudeSession(
 		finishTurn = null;
 		proc?.kill();
 		proc = null;
+		if (held) clearTimeout(held.timer);
+		held = null;
+		steers.clear();
 		stopping?.({ reason: "cancelled" });
 	}
 
@@ -639,11 +798,56 @@ async function startClaudeSession(
 					},
 				});
 			}),
+		steer: async (text, images = []) => {
+			if (!proc || !finishTurn) return false;
+			const uuid = crypto.randomUUID();
+			steers.set(uuid, text);
+			proc.send({
+				type: "user",
+				uuid,
+				session_id: "",
+				parent_tool_use_id: null,
+				message: {
+					role: "user",
+					content: [
+						{ type: "text", text },
+						...images.map((image) => ({
+							type: "image",
+							source: { type: "base64", media_type: image.mimeType, data: image.data },
+						})),
+					],
+				},
+			});
+			return true;
+		},
+		answer: (id, answers) => {
+			const pending = questions.get(id);
+			if (!pending || !proc) return;
+			questions.delete(id);
+			const input = pending.request.request.input ?? {};
+			proc.send({
+				type: "control_response",
+				response: {
+					subtype: "success",
+					request_id: id,
+					response: answers
+						? {
+								behavior: "allow",
+								updatedInput: { ...input, answers: claudeAnswers(pending.asked, answers) },
+							}
+						: { behavior: "deny", message: "The person dismissed the question in Grid." },
+				},
+			});
+			context.emit({ type: "question_answered", id, answers });
+		},
 		cancel: () => {
 			if (!proc) return;
 			for (const id of approvals.keys())
 				context.emit({ type: "approval_resolved", id, optionId: null });
 			approvals.clear();
+			for (const id of questions.keys())
+				context.emit({ type: "question_answered", id, answers: null });
+			questions.clear();
 			proc.send({
 				type: "control_request",
 				request_id: `grid-${++controlId}`,

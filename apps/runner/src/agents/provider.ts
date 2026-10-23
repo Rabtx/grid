@@ -35,6 +35,13 @@ export type AgentSession = {
 	cancel: () => void;
 	/** Answer an approval request; null means dismissed. */
 	approve: (id: string, optionId: string | null) => void;
+	/**
+	 * Deliver a message into the turn going on, for an agent that can take one mid-turn. False
+	 * when there was no turn to deliver it into. Agents without it are stopped and sent it next.
+	 */
+	steer?: (text: string, images?: { mimeType: string; data: string }[]) => Promise<boolean>;
+	/** Answer a `question` event: picked labels or typed text per question id; null dismisses. */
+	answer?: (id: string, answers: Record<string, string[]> | null) => void;
 	setModel: (model: string) => Promise<void>;
 	setMode: (mode: string) => Promise<void>;
 	setEffort: (effort: string) => Promise<void>;

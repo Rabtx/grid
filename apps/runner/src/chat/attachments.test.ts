@@ -74,7 +74,12 @@ it("uploads binary safely, sends image bytes and file paths, and replays to anot
 	const otherHub = new ChatHub(otherStore, new Map(), root);
 
 	const replay = otherHub.attach("team", session.id, { event() {}, state() {} });
-	expect(replay.history[0]).toEqual({ type: "user", text: "Look", attachments: [image, text] });
+	expect(replay.history[0]).toEqual({
+		type: "user",
+		id: expect.any(String),
+		text: "Look",
+		attachments: [image, text],
+	});
 	expect(otherHub.attachment("team", session.id, image.id).bytes).toEqual(png);
 	const download = await request(`/${image.id}`);
 	expect(download?.headers.get("content-type")).toBe("image/png");

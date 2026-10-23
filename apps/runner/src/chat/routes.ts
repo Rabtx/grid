@@ -4,7 +4,7 @@ import { may, NOT_ALLOWED, readOnly } from "../permissions";
 import type { RoleStore } from "../roles/store";
 import type { ChatSessionRow } from "./store";
 
-import { ChatError, type ChatHub } from "./hub";
+import { ChatError, type ChatHub, type QueueAction } from "./hub";
 
 /**
  * A thread as devices are sent it: the notes it started with stay on this machine (they can be
@@ -275,6 +275,38 @@ export async function chatRequest(
 			return failure(405, "Method not allowed");
 		});
 	}
+	// A new thread that carries on from this one (`{ at?: messageId, worktree?: boolean }`).
+	const fork = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/fork$/);
+	if (fork && request.method === "POST") {
+		if (!may(who, "startAgents")) return failure(403, NOT_ALLOWED);
+		const body = (await request.json().catch(() => ({}))) as { at?: unknown; worktree?: unknown };
+		if (body.at !== undefined && typeof body.at !== "string")
+			return failure(400, "Say which message");
+		return run(() =>
+			Response.json(
+				{
+					data: listed(
+						hub.fork(who, fork[1] ?? "", {
+							...(typeof body.at === "string" ? { at: body.at } : {}),
+							worktree: body.worktree === true,
+						}),
+					),
+				},
+				{ status: 201 },
+			),
+		);
+	}
+	// Undo a turn: the thread's files back to how that turn found them.
+	const undo = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/checkpoints\/(\d+)\/restore$/);
+	if (undo && request.method === "POST") {
+		if (!may(who, "startAgents")) return failure(403, NOT_ALLOWED);
+		const turn = Number(undo[2]);
+		if (!Number.isSafeInteger(turn) || turn < 1) return failure(400, "Say which turn");
+		return runAsync(async () => {
+			await hub.restoreCheckpoint(workspace, undo[1] ?? "", turn);
+			return new Response(null, { status: 204 });
+		});
+	}
 	const match = url.pathname.match(/^\/chat\/sessions\/([\w-]+)$/);
 	if (match) {
 		const id = match[1];
@@ -299,7 +331,9 @@ export async function chatRequest(
 
 /** What the console sends on a chat socket after hello. */
 export type ChatCommand =
-	| { t: "prompt"; text: string; attachments?: string[] }
+	| { t: "prompt"; text: string; attachments?: string[]; delivery?: "send" | "steer" }
+	| { t: "answer"; id: string; answers: Record<string, string[]> | null }
+	| { t: "queue"; action: QueueAction; id?: string }
 	| { t: "cancel" }
 	| { t: "approve"; id: string; optionId: string | null }
 	| { t: "configure"; model?: string; mode?: string; effort?: string };
@@ -316,7 +350,7 @@ export function chatCommand(
 		reportError(cause instanceof Error ? cause.message : String(cause));
 	// Writing to an agent is starting its work; answering it is approving; a viewer only watches.
 	const needs =
-		command.t === "prompt"
+		command.t === "prompt" || command.t === "answer" || command.t === "queue"
 			? may(who, "startAgents")
 			: command.t === "approve"
 				? may(who, "approveCommands")
@@ -327,7 +361,28 @@ export function chatCommand(
 	}
 	try {
 		if (command.t === "prompt" && typeof command.text === "string") {
-			hub.prompt(workspace, sessionId, command.text, command.attachments).catch(fail);
+			hub
+				.prompt(
+					workspace,
+					sessionId,
+					command.text,
+					command.attachments,
+					command.delivery === "steer" ? "steer" : "send",
+				)
+				.catch(fail);
+		} else if (command.t === "answer" && typeof command.id === "string") {
+			const answers = readAnswers(command.answers);
+			if (answers === undefined) return reportError("Send an answer for each question");
+			hub.answerQuestion(workspace, sessionId, command.id, answers).catch(fail);
+		} else if (command.t === "queue" && QUEUE_ACTIONS.has(command.action)) {
+			hub
+				.queueAction(
+					workspace,
+					sessionId,
+					command.action,
+					typeof command.id === "string" ? command.id : undefined,
+				)
+				.catch(fail);
 		} else if (command.t === "cancel") {
 			hub.cancel(workspace, sessionId);
 		} else if (command.t === "approve" && typeof command.id === "string") {
@@ -349,6 +404,52 @@ export function chatCommand(
 	} catch (cause) {
 		fail(cause);
 	}
+}
+
+const QUEUE_ACTIONS = new Set<QueueAction>(["remove", "clear", "pause", "resume", "steer"]);
+
+/**
+ * Answers as a question takes them: up to 20 questions, each a list of short strings, or null to
+ * dismiss. Undefined when they are not that.
+ */
+export function readAnswers(raw: unknown): Record<string, string[]> | null | undefined {
+	if (raw === null) return null;
+	if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+	const entries = Object.entries(raw as Record<string, unknown>);
+	if (entries.length > 20) return undefined;
+	const answers: Record<string, string[]> = {};
+	for (const [id, value] of entries) {
+		if (!Array.isArray(value) || value.length > 20) return undefined;
+		if (value.some((item) => typeof item !== "string" || item.length > 4_000)) return undefined;
+		answers[id] = value as string[];
+	}
+	return answers;
+}
+
+/**
+ * Grid's own tools calling back from an agent (`grid-tools.ts`): proved with the key the runner
+ * started them with, not a person's sign-in. Null for paths it does not own.
+ */
+export async function chatToolsRequest(
+	request: Request,
+	url: URL,
+	hub: ChatHub,
+): Promise<Response | null> {
+	if (url.pathname !== "/chat/tools/visual" || request.method !== "POST") return null;
+	const body = (await request.json().catch(() => null)) as {
+		thread?: unknown;
+		args?: unknown;
+	} | null;
+	if (!body || typeof body.thread !== "string" || !body.args || typeof body.args !== "object")
+		return failure(400, "Say which thread, and what to show");
+	return run(() => {
+		hub.showVisual(
+			request.headers.get("x-grid-tools-key") ?? "",
+			body.thread as string,
+			body.args as Record<string, unknown>,
+		);
+		return new Response(null, { status: 204 });
+	});
 }
 
 function run(respond: () => Response): Response {

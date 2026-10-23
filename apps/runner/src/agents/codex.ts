@@ -1,7 +1,14 @@
 import { homedir } from "node:os";
 
 import { cached, effortChoices } from "./catalog";
-import { type ApprovalOption, type Choice, clip, type ToolKind, type ToolStatus } from "./events";
+import {
+	type AgentQuestion,
+	type ApprovalOption,
+	type Choice,
+	clip,
+	type ToolKind,
+	type ToolStatus,
+} from "./events";
 import { diffFromPatch, diffTexts, type FileDiff } from "./diff";
 import type { AgentContext, AgentSession, Provider, ProviderInfo, TurnResult } from "./provider";
 import { JsonRpc, type Spawn, spawnJsonProcess } from "./stdio";
@@ -183,7 +190,54 @@ type Item = {
 	server?: string;
 	tool?: string;
 	query?: string;
+	/** A sub-agent call (`collabAgentToolCall`): what it was asked, and the threads it runs in. */
+	prompt?: string | null;
+	receiverThreadIds?: string[];
 };
+
+/** `item/tool/requestUserInput`'s questions as Grid shows them; those it cannot show are left out. */
+export function codexQuestions(params: Record<string, unknown>): AgentQuestion[] {
+	const raw = Array.isArray(params.questions) ? params.questions : [];
+	return raw.flatMap((entry): AgentQuestion[] => {
+		const item = (entry ?? {}) as Record<string, unknown>;
+		const id = typeof item.id === "string" ? item.id.trim() : "";
+		const question = typeof item.question === "string" ? item.question.trim() : "";
+		if (!id || !question) return [];
+		const header = typeof item.header === "string" && item.header.trim() ? item.header.trim() : id;
+		const options = (Array.isArray(item.options) ? item.options : []).flatMap((option) => {
+			const fields = (option ?? {}) as Record<string, unknown>;
+			const label = typeof fields.label === "string" ? fields.label.trim() : "";
+			if (!label) return [];
+			const description =
+				typeof fields.description === "string" && fields.description.trim() !== label
+					? fields.description.trim()
+					: "";
+			return [{ label, ...(description ? { description } : {}) }];
+		});
+		return [
+			{
+				id,
+				header,
+				question,
+				options,
+				...(item.multiSelect === true ? { multiSelect: true } : {}),
+			},
+		];
+	});
+}
+
+/** The threads a sub-agent call runs its agents in, under whichever name Codex used. */
+function receivers(item: Record<string, unknown>): string[] {
+	for (const key of ["receiverThreadIds", "receiver_thread_ids"]) {
+		const value = item[key];
+		if (Array.isArray(value)) return value.filter((id): id is string => typeof id === "string");
+	}
+	for (const key of ["receiverThreadId", "receiver_thread_id", "newThreadId"]) {
+		const value = item[key];
+		if (typeof value === "string" && value) return [value];
+	}
+	return [];
+}
 
 const STATUS: Record<string, ToolStatus> = {
 	inProgress: "running",
@@ -283,6 +337,9 @@ async function startCodexSession(
 	let finishTurn: ((result: TurnResult) => void) | null = null;
 	const streamed = new Set<string>();
 	const approvals = new Map<string, (result: unknown) => void>();
+	const questions = new Map<string, (result: unknown) => void>();
+	// Sub-agents' own threads, each to the sub-agent call that started it.
+	const children = new Map<string, string>();
 	let stderr: string[] = [];
 	let rpc: JsonRpc | null = null;
 
@@ -302,9 +359,70 @@ async function startCodexSession(
 		finishTurn = null;
 	}
 
+	/** What a sub-agent's own thread reports: its steps, what it said, and how it ended. */
+	function onChildNotification(parent: string, method: string, params: Record<string, unknown>) {
+		if (method === "item/started" || method === "item/completed") {
+			const item = params.item as Item;
+			const tool = codexTool(item);
+			if (tool) {
+				context.emit({ type: "tool", ...tool, parent });
+				context.emit({ type: "subagent", id: parent, activity: tool.title });
+			} else if (method === "item/completed" && item.type === "agentMessage" && item.text) {
+				context.emit({
+					type: "subagent",
+					id: parent,
+					activity: clip(item.text, 280),
+					result: clip(item.text, 8_000),
+				});
+			}
+			return;
+		}
+		if (method === "turn/completed") {
+			const turn = params.turn as { status?: string };
+			context.emit({
+				type: "subagent",
+				id: parent,
+				status:
+					turn?.status === "failed"
+						? "failed"
+						: turn?.status === "interrupted"
+							? "cancelled"
+							: "completed",
+				endedAt: new Date().toISOString(),
+			});
+		}
+	}
+
+	/** A sub-agent call: Grid shows each one Codex spawns as a subagent of the turn. */
+	function onCollab(item: Item & Record<string, unknown>, started: boolean): void {
+		if (item.tool !== "spawnAgent" && item.tool !== "spawn_agent") return;
+		// Its completing is the spawn returning; the sub-agent's own thread says when it ends.
+		if (started)
+			context.emit({
+				type: "subagent",
+				id: item.id,
+				status: "running",
+				at: new Date().toISOString(),
+			});
+		for (const child of receivers(item)) children.set(child, item.id);
+		const prompt = typeof item.prompt === "string" ? item.prompt : undefined;
+		const title = prompt?.split("\n")[0]?.slice(0, 80) || "Sub-agent";
+		context.emit({
+			type: "subagent",
+			id: item.id,
+			title,
+			...(prompt ? { prompt: clip(prompt, 8_000) } : {}),
+			...(item.status === "failed" ? { status: "failed" } : {}),
+		});
+	}
+
 	function onNotification(method: string, raw: unknown): void {
 		const params = (raw ?? {}) as Record<string, unknown>;
-		if (params.threadId && threadId && params.threadId !== threadId) return;
+		if (params.threadId && threadId && params.threadId !== threadId) {
+			const parent = children.get(params.threadId as string);
+			if (parent) onChildNotification(parent, method, params);
+			return;
+		}
 		switch (method) {
 			case "turn/started":
 				turnId = (params.turn as { id?: string })?.id ?? turnId;
@@ -320,6 +438,10 @@ async function startCodexSession(
 			case "item/started":
 			case "item/completed": {
 				const item = params.item as Item;
+				if (item.type === "collabAgentToolCall" || item.type === "collabToolCall") {
+					onCollab(item as Item & Record<string, unknown>, method === "item/started");
+					return;
+				}
 				const tool = codexTool(item);
 				if (tool) context.emit({ type: "tool", ...tool });
 				// A reply that arrived whole rather than as deltas.
@@ -405,7 +527,16 @@ async function startCodexSession(
 			});
 			return;
 		}
-		// Anything else (questions, MCP prompts) Grid cannot answer yet: say so, and decline.
+		if (method === "item/tool/requestUserInput") {
+			const asked = codexQuestions(params);
+			if (asked.length) {
+				const id = (params.itemId as string) || crypto.randomUUID();
+				questions.set(id, respond);
+				context.emit({ type: "question", id, questions: asked });
+				return;
+			}
+		}
+		// Anything else (MCP prompts) Grid cannot answer yet: say so, and decline.
 		context.emit({
 			type: "error",
 			message: `Codex asked for something Grid cannot answer yet (${method}); it was declined.`,
@@ -488,9 +619,37 @@ async function startCodexSession(
 						}),
 					);
 			}),
+		steer: async (text) => {
+			if (!threadId || !turnId || !finishTurn) return false;
+			await rpc?.request("turn/steer", {
+				threadId,
+				input: [{ type: "text", text, text_elements: [] }],
+				expectedTurnId: turnId,
+			});
+			return true;
+		},
+		answer: (id, answers) => {
+			const respond = questions.get(id);
+			if (!respond) return;
+			questions.delete(id);
+			respond({
+				answers: Object.fromEntries(
+					Object.entries(answers ?? {}).map(([question, picked]) => [
+						question,
+						{ answers: picked },
+					]),
+				),
+			});
+			context.emit({ type: "question_answered", id, answers });
+		},
 		cancel: () => {
 			if (threadId && turnId)
 				void rpc?.request("turn/interrupt", { threadId, turnId }).catch(() => undefined);
+			for (const [id, respond] of questions) {
+				respond({ answers: {} });
+				context.emit({ type: "question_answered", id, answers: null });
+			}
+			questions.clear();
 			for (const [id, respond] of approvals) {
 				respond({ decision: "cancel" });
 				context.emit({ type: "approval_resolved", id, optionId: null });
