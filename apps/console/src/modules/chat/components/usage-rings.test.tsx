@@ -25,9 +25,7 @@ describe("usage rings", () => {
 	it("draw a window as a ring with its share inside", () => {
 		const container = document.createElement("div");
 		const dispose = render(() => <UsageRing window="5h" used={64} detail="64% used" />, container);
-		expect(container.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe(
-			"5h: 64% used",
-		);
+		expect(container.querySelector(".sr-only")?.textContent).toBe("5h: 64% used");
 		expect(container.textContent).toContain("64");
 		dispose();
 	});
