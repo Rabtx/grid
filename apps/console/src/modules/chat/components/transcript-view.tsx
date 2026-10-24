@@ -14,6 +14,8 @@ import {
 	AgentHeader,
 	AgentLogo,
 	AgentMessage,
+	BackgroundList,
+	BackgroundRow,
 	Badge,
 	BranchIcon,
 	Button,
@@ -52,6 +54,7 @@ import {
 	Stack,
 	StepGlyph,
 	type StepTone,
+	StopSquareIcon,
 	TerminalIcon,
 	ToolIcon,
 	TurnHeader,
@@ -69,6 +72,7 @@ import { useTerminalAccess } from "@/modules/workspaces";
 import { diffRows } from "../lib/diff";
 import { copyCodeFrom, renderMarkdown } from "../lib/markdown";
 import {
+	type BackgroundItem,
 	type Block,
 	countWork,
 	formatDuration,
@@ -77,6 +81,8 @@ import {
 	summariseTools,
 	toolFile,
 	type Turn,
+	turnSummary,
+	turnTiming,
 } from "../lib/transcript";
 import type { ChatAttachment, FileDiff, ToolKind } from "../types/chat.types";
 import { MessageAttachments, type LoadAttachment } from "./message-attachments";
@@ -230,12 +236,23 @@ function TurnView(props: {
 		const user = props.turn.user;
 		return user?.id && user.outcome && props.extras.onFork ? user.id : null;
 	};
+	const timing = () => turnTiming(props.turn.user, props.live, now());
+	const summary = () => turnSummary(props.turn);
+	const ended = () =>
+		props.live
+			? undefined
+			: props.turn.user?.outcome === "cancelled"
+				? ("stopped" as const)
+				: props.turn.user?.outcome === "error"
+					? ("failed" as const)
+					: undefined;
+	// Every turn the agent answered gets a header: its time (or how it ended) and what it did.
 	const header = () => {
-		const user = props.turn.user;
-		const started = user?.startedAt ? Date.parse(user.startedAt) : null;
-		if (props.live) return started ? `Working for ${formatDuration(now() - started)}` : "Working…";
-		const ended = user?.endedAt ? Date.parse(user.endedAt) : null;
-		return started && ended ? `Worked for ${formatDuration(ended - started)}` : null;
+		if (!props.live && !props.turn.rows.length) return null;
+		const time = timing();
+		const what = summary();
+		if (time) return { time, summary: what };
+		return what ? { time: what, summary: "" } : null;
 	};
 
 	return (
@@ -265,11 +282,12 @@ function TurnView(props: {
 					/>
 				)}
 			</Show>
-			{/* No steps to carry the turn's time (a plain answer, or still thinking): it gets its own line. */}
-			<Show
-				when={props.live || !props.turn.rows.some((row) => row.kind === "work") ? header() : null}
-			>
-				{(line) => <TurnHeader live={props.live}>{line()}</TurnHeader>}
+			<Show when={header()}>
+				{(line) => (
+					<TurnHeader live={props.live} summary={line().summary} ended={ended()}>
+						{line().time}
+					</TurnHeader>
+				)}
 			</Show>
 			<Show when={props.people && props.turn.rows.length > 0 ? props.people : null}>
 				{(people) => (
@@ -295,15 +313,15 @@ function TurnView(props: {
 						<Match
 							when={row().kind === "work" && (row() as Extract<TranscriptRow, { kind: "work" }>)}
 						>
-							{(work) => (
-								<WorkGroup
-									tools={work().tools}
-									live={props.live}
-									title={
-										props.turn.rows.find((item) => item.kind === "work") === row() ? header() : null
-									}
-								/>
-							)}
+							{(work) => <WorkGroup tools={work().tools} live={props.live} />}
+						</Match>
+						<Match
+							when={
+								row().kind === "background" &&
+								(row() as Extract<TranscriptRow, { kind: "background" }>)
+							}
+						>
+							{(background) => <BackgroundWork items={background().items} live={props.live} />}
 						</Match>
 						<Match
 							when={
@@ -433,13 +451,6 @@ function BlockView(props: {
 						<QuestionCard questions={question().questions} answers={question().answers} />
 					</Show>
 				)}
-			</Match>
-			<Match
-				when={
-					props.block.kind === "subagent" && (props.block as Extract<Block, { kind: "subagent" }>)
-				}
-			>
-				{(agent) => <SubagentCard agent={agent()} live={props.live} />}
 			</Match>
 			<Match
 				when={props.block.kind === "visual" && (props.block as Extract<Block, { kind: "visual" }>)}
@@ -800,6 +811,8 @@ function stepLook(tool: ToolBlock): { tone: StepTone; glyph: () => JSX.Element; 
 		/^(write|create)/i.test(tool.title);
 	if (tool.status === "failed")
 		return { tone: "danger", glyph: () => <CloseIcon />, verb: toolParts(tool)[0] };
+	if (tool.interrupted)
+		return { tone: "neutral", glyph: () => <StopSquareIcon />, verb: toolParts(tool)[0] };
 	if (created) return { tone: "success", glyph: () => <NoteAddIcon />, verb: "Created" };
 	switch (tool.tool) {
 		case "edit":
@@ -833,16 +846,13 @@ function stepFigure(tool: ToolBlock): JSX.Element | undefined {
  * tiles, the turn's time or a summary, and each step as a row that opens to its detail. A short run
  * is open; a long one is closed to its count. After it, the biggest change it made, as a diff.
  */
-function WorkGroup(props: {
-	tools: ToolBlock[];
-	live: boolean;
-	title: string | null;
-}): JSX.Element {
+function WorkGroup(props: { tools: ToolBlock[]; live: boolean }): JSX.Element {
 	// A stopped or failed turn leaves its last tools "running" in the log: only a live turn spins.
 	const busy = () =>
 		props.live &&
 		props.tools.some((tool) => tool.status === "running" || tool.status === "pending");
 	const failed = () => props.tools.some((tool) => tool.status === "failed");
+	const interrupted = () => !props.live && props.tools.some((tool) => tool.interrupted);
 	// One glyph per kind of step, in the order they first happen, at most three.
 	const glyphs = () => {
 		const seen = new Map<StepTone, ToolBlock>();
@@ -890,14 +900,20 @@ function WorkGroup(props: {
 				title={
 					busy()
 						? (props.tools.at(-1)?.title ?? "Working…")
-						: (props.title ??
-							(props.tools.some((tool) => tool.tool === "edit" || tool.tool === "execute")
-								? countWork(props.tools)
-								: summariseTools(props.tools)))
+						: props.tools.some((tool) => tool.tool === "edit" || tool.tool === "execute")
+							? countWork(props.tools)
+							: summariseTools(props.tools)
 				}
-				detail={props.title || busy() ? steps() : undefined}
+				detail={busy() ? steps() : undefined}
 				trailing={
-					<Show when={failed()}>
+					<Show
+						when={failed()}
+						fallback={
+							<Show when={interrupted()}>
+								<Badge tone="warning">Interrupted</Badge>
+							</Show>
+						}
+					>
 						<Badge tone="danger">Failed</Badge>
 					</Show>
 				}
@@ -931,7 +947,7 @@ function StepView(props: { tool: ToolBlock; live: boolean; hide: FileDiff | null
 			verb={look().verb}
 			failed={props.tool.status === "failed"}
 			target={toolParts(props.tool)[1]}
-			trailing={stepFigure(props.tool)}
+			trailing={props.tool.interrupted && !props.live ? "Interrupted" : stepFigure(props.tool)}
 		>
 			<Show when={hasDetail()}>
 				<Stack gap={1.5}>
@@ -993,14 +1009,41 @@ const SUBAGENT_STATUS: Record<
 	cancelled: { tone: "neutral", label: "Stopped" },
 };
 
+type SubagentBlock = Extract<Block, { kind: "subagent" }>;
+
 /**
- * A subagent the agent started: what it was asked, its own steps as the agent's are drawn, and
- * what it reported back. Closed to its title and status until opened.
+ * Work set going beside the agent's own, as compact rows under one caption: each subagent (what it
+ * was asked, its steps, its report, once opened) and each command left running in the background.
  */
-function SubagentCard(props: {
-	agent: Extract<Block, { kind: "subagent" }>;
-	live: boolean;
-}): JSX.Element {
+function BackgroundWork(props: { items: BackgroundItem[]; live: boolean }): JSX.Element {
+	const label = () => {
+		const running = props.items.filter((item) =>
+			item.kind === "subagent"
+				? item.status === "running"
+				: !item.interrupted && (item.status === "running" || item.status === "pending"),
+		).length;
+		const n = props.items.length;
+		const what = `${n} in the background`;
+		return props.live && running ? `${what} · ${running} running` : what;
+	};
+	return (
+		<BackgroundList label={label()}>
+			<For each={props.items} keyed={false}>
+				{(item) => (
+					<Show
+						when={item().kind === "subagent" && (item() as SubagentBlock)}
+						fallback={<BackgroundCommand tool={item() as ToolBlock} live={props.live} />}
+					>
+						{(agent) => <SubagentRow agent={agent()} live={props.live} />}
+					</Show>
+				)}
+			</For>
+		</BackgroundList>
+	);
+}
+
+/** A subagent as one line, opening to its brief, its own steps and what it reported back. */
+function SubagentRow(props: { agent: SubagentBlock; live: boolean }): JSX.Element {
 	const status = () => SUBAGENT_STATUS[props.agent.status];
 	const took = () => {
 		const start = props.agent.at ? Date.parse(props.agent.at) : null;
@@ -1009,39 +1052,73 @@ function SubagentCard(props: {
 	};
 	const steps = () =>
 		`${props.agent.tools.length} step${props.agent.tools.length === 1 ? "" : "s"}`;
+	const spinning = () => props.agent.status === "running" && props.live;
 	return (
 		<div data-subagent={props.agent.id}>
-			<WorkCard
-				glyphs={
+			<BackgroundRow
+				glyph={
 					<StepGlyph tone="violet">
-						<Show when={props.agent.status === "running" && props.live} fallback={<ToolIcon />}>
+						<Show when={spinning()} fallback={<ToolIcon />}>
 							<SpinnerIcon class="animate-spin" />
 						</Show>
 					</StepGlyph>
 				}
-				title={props.agent.title}
-				detail={[props.agent.agent, steps(), took()].filter(Boolean).join(" · ")}
-				trailing={<Badge tone={status().tone}>{status().label}</Badge>}
+				label={props.agent.title}
+				detail={[
+					props.agent.agent,
+					spinning() && props.agent.activity ? props.agent.activity : steps(),
+					took(),
+				]
+					.filter(Boolean)
+					.join(" · ")}
+				status={<Badge tone={status().tone}>{status().label}</Badge>}
 			>
-				<Stack gap={2} class="px-3 py-2">
-					<Show when={props.agent.status === "running" && props.agent.activity}>
-						<p class="truncate text-caption text-fg-subtle">{props.agent.activity}</p>
-					</Show>
+				<Stack gap={2} class="py-2">
 					<Show when={props.agent.prompt}>
 						<Disclosure summary="Brief" chevron>
 							<p class="mt-1 whitespace-pre-wrap text-body text-fg-muted">{props.agent.prompt}</p>
 						</Disclosure>
 					</Show>
-				</Stack>
-				<For each={props.agent.tools} keyed={false}>
-					{(tool) => <StepView tool={tool()} live={props.live} hide={null} />}
-				</For>
-				<Show when={props.agent.result}>
-					<div class="border-line border-t px-3 py-2">
+					<Show when={props.agent.tools.length}>
+						<div class="flex flex-col">
+							<For each={props.agent.tools} keyed={false}>
+								{(tool) => <StepView tool={tool()} live={props.live} hide={null} />}
+							</For>
+						</div>
+					</Show>
+					<Show when={props.agent.result}>
 						<Prose html={renderMarkdown(props.agent.result ?? "")} />
-					</div>
-				</Show>
-			</WorkCard>
+					</Show>
+				</Stack>
+			</BackgroundRow>
 		</div>
+	);
+}
+
+/** A command the agent left running on its own, as one line opening to its output. */
+function BackgroundCommand(props: { tool: ToolBlock; live: boolean }): JSX.Element {
+	const state = (): { tone: "accent" | "success" | "danger" | "neutral"; label: string } => {
+		if (props.tool.status === "failed") return { tone: "danger", label: "Failed" };
+		if (props.tool.interrupted) return { tone: "neutral", label: "Stopped" };
+		if (props.tool.status === "completed") return { tone: "success", label: "Started" };
+		return { tone: "accent", label: props.live ? "Running" : "Started" };
+	};
+	return (
+		<BackgroundRow
+			glyph={
+				<StepGlyph tone="violet">
+					<TerminalIcon />
+				</StepGlyph>
+			}
+			label={props.tool.title}
+			detail="Command"
+			status={<Badge tone={state().tone}>{state().label}</Badge>}
+		>
+			<Show when={props.tool.output || props.tool.input}>
+				<div class="py-2">
+					<Pre tone="output">{props.tool.output ?? props.tool.input}</Pre>
+				</div>
+			</Show>
+		</BackgroundRow>
 	);
 }

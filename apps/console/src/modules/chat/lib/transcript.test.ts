@@ -12,6 +12,8 @@ import {
 	replay,
 	summariseTools,
 	toolLabel,
+	turnSummary,
+	turnTiming,
 	type Block,
 } from "./transcript";
 
@@ -195,8 +197,56 @@ describe("tool call summaries", () => {
 	it("groups consecutive tool calls and never folds approvals", () => {
 		const rows = groupRows(replay(events).blocks);
 		expect(
-			rows.map((row) => (row.kind === "work" ? `work:${row.tools.length}` : row.block.kind)),
+			rows.map((row) =>
+				row.kind === "work"
+					? `work:${row.tools.length}`
+					: row.kind === "background"
+						? `background:${row.items.length}`
+						: row.block.kind,
+			),
 		).toEqual(["user", "work:3", "assistant", "approval", "work:1"]);
+	});
+
+	it("puts subagents and background commands in compact rows of their own", () => {
+		const rows = groupRows(
+			replay([
+				{ type: "user", text: "go" },
+				tool({ type: "tool", id: "r", kind: "read", title: "Read a.ts", status: "completed" }),
+				tool({
+					type: "tool",
+					id: "s",
+					kind: "execute",
+					title: "bun dev",
+					input: JSON.stringify({ command: "bun dev", run_in_background: true }),
+					status: "completed",
+				}),
+				{ type: "subagent", id: "x", title: "Explore", status: "running" },
+				tool({ type: "tool", id: "e", kind: "edit", title: "Edit b.ts", status: "completed" }),
+			]).blocks,
+		);
+		expect(rows.map((row) => row.kind)).toEqual(["block", "work", "background", "work"]);
+	});
+
+	it("heads each turn with its time and what it did, and keeps a stopped turn's work", () => {
+		const transcript = replay([
+			{ type: "user", text: "go" },
+			{ type: "turn_start", at: "2026-10-24T10:00:00.000Z" },
+			tool({
+				type: "tool",
+				id: "e",
+				kind: "edit",
+				title: "Edit",
+				input: JSON.stringify({ file_path: "/repo/a.ts" }),
+				status: "running",
+			}),
+			{ type: "turn_end", reason: "cancelled", at: "2026-10-24T10:00:12.000Z" },
+		]);
+		const [turn] = groupTurns(transcript.blocks);
+		expect(turn && turnTiming(turn.user, false, 0)).toBe("Stopped after 12s");
+		expect(turn && turnSummary(turn)).toBe("1 step · 1 file changed");
+		const edit = transcript.blocks.find((block) => block.kind === "tool");
+		expect(edit?.kind === "tool" && edit.interrupted).toBe(true);
+		expect(turnTiming(null, true, 0)).toBe("Working…");
 	});
 
 	it("names each call by what it touched", () => {

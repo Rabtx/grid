@@ -173,6 +173,8 @@ export {
 	StepGlyph,
 	type StepStatus,
 	type StepTone,
+	BackgroundList,
+	BackgroundRow,
 	TurnHeader,
 	WorkCard,
 	WorkStep,
