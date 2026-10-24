@@ -26,6 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Every turn that changes files is checkpointed under a hidden git ref, with Undo to put them back.
 - Fork a thread from any finished turn (or `/fork`), in the same folder or a new worktree.
 - A feature tour of the above, shown once and replayable from Settings → General.
+- Crews: start a chat as a crew and its agent coordinates, handing tasks to member threads (a few
+  at a time, the rest queued), hearing back as each finishes, fails or stalls. Grid nudges a quiet
+  member, restarts it once, then hands it to you with Retry; members' approvals can be answered
+  from the coordinator.
+- Hand a thread to another agent from the agent picker or `/handoff`, in the same thread or a new
+  one; the new agent is told the conversation so far.
+- Side chats (`/side`, or the chat button in a thread's top bar) open beside a thread in its
+  workspace, with its conversation, and stay out of the thread list.
+- Agents can read, add and move tasks on the project's board, acting as you.
+- Settings → Appearance → Background: a picture behind the sidebar or the whole app, with interface
+  opacity and blur.
 
 ### Fixed
 

@@ -19,6 +19,7 @@ import {
 	IdeaIcon,
 	notify,
 	type PopoverControl,
+	PROMPT_CHIP,
 	ProjectTile,
 	RoleChipGroup,
 	Stack,
@@ -461,6 +462,42 @@ function NewChat(props: {
 
 	// Where the new thread will work: chosen in the git control, the folder unless changed.
 	const [place, setPlace] = createSignal<WorkPlace>({ worktree: false, branch: "" });
+	// Start as a crew: this agent coordinates, handing the work to member threads of its own.
+	const [asCrew, setAsCrew] = createSignal(false);
+
+	/** A crew for the message: its coordinator thread opens and is sent the message first. */
+	async function startCrew(text: string, files: File[]): Promise<boolean> {
+		const token = auth.token();
+		const provider = chosen();
+		if (!token || !provider || !props.project || !props.folder) return false;
+		setError(null);
+		const scope = placementsStore.scopeOf(props.project);
+		try {
+			const name = text.replace(/\s+/g, " ").trim().slice(0, 60) || "New crew";
+			const { session } = await chatService.createCrew(
+				token,
+				{
+					project: props.project,
+					name,
+					provider: provider.id,
+					cwd: props.folder,
+					...(model() ? { model: model() ?? undefined } : {}),
+				},
+				scope,
+			);
+			const attachments = await chatService.upload(token, session.id, files, scope);
+			queueFirstMessage(
+				session.id,
+				text,
+				attachments.map((item) => item.id),
+			);
+			props.onCreated(session);
+			return true;
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : "Could not start the crew");
+			return false;
+		}
+	}
 
 	async function start(text: string, files: File[]): Promise<boolean> {
 		const token = auth.token();
@@ -666,7 +703,7 @@ function NewChat(props: {
 								role() ? `Describe a task for your ${role()?.name.toLowerCase()}…` : undefined
 							}
 							disabled={!chosen() || !props.project || !props.folder}
-							onSend={start}
+							onSend={(text, files) => (asCrew() ? startCrew(text, files) : start(text, files))}
 							header={
 								<>
 									<Show when={props.folder && props.project}>
@@ -683,6 +720,15 @@ function NewChat(props: {
 								<Show when={chosen()}>
 									{(provider) => (
 										<>
+											<button
+												type="button"
+												aria-pressed={asCrew() ? "true" : "false"}
+												title="Start a crew: this agent coordinates, and hands the work to member threads of its own"
+												onClick={() => setAsCrew((on) => !on)}
+												class={`${PROMPT_CHIP} aria-pressed:bg-accent/15 aria-pressed:text-accent`}
+											>
+												Crew
+											</button>
 											<Show when={rolesStore.loaded(roleScope())}>
 												<RoleChipGroup>
 													<RoleMenu

@@ -38,13 +38,16 @@ import {
 	Banner,
 	BranchIcon,
 	Button,
+	ChatIcon,
 	ChevronDownIcon,
 	ClockIcon,
 	ConfirmDialog,
+	CrewPanel,
 	ContextMeter,
 	DetailAside,
 	DiffStat,
 	FactGroup,
+	IconButton,
 	LaptopIcon,
 	RoleMark,
 	ScrollRail,
@@ -71,13 +74,21 @@ import {
 } from "../lib/transcript";
 import { chatService, chatSocketUrl } from "../services/chat.service";
 import { threadsStore } from "../stores/threads";
-import type { ChatEvent, ChatProvider, ChatSession, FileDiff } from "../types/chat.types";
+import type {
+	ChatEvent,
+	ChatProvider,
+	ChatSession,
+	Crew,
+	FileDiff,
+	WaitingApproval,
+} from "../types/chat.types";
 
 import { mergeModels } from "../lib/choices";
 import { addBoardTask, runSlashCommand } from "../lib/run-slash-command";
 import { agentCommands, availableCommands, type SlashCommand } from "../lib/slash-commands";
 
 import { Composer } from "./composer";
+import { CrewSettingsDialog } from "./crew-settings";
 import { GitControl } from "./git-control";
 import { ModelPicker, ModePicker } from "./pickers";
 import {
@@ -86,6 +97,9 @@ import {
 	TranscriptView,
 	type UserPrompt,
 } from "./transcript-view";
+
+/** How often an open crew's members are read again. */
+const CREW_POLL_MS = 5_000;
 
 /** A first message typed on the new-chat screen, sent as soon as the session's socket is up. */
 const firstMessages = new Map<string, { text: string; attachments: string[] }>();
@@ -105,7 +119,10 @@ export function Conversation(props: {
 	scope: string;
 	providers: ChatProvider[];
 	onSession: (session: ChatSession) => void;
+	/** Drawn inside another thread's workspace (a side chat): the conversation alone, no chrome. */
+	embedded?: boolean;
 }): JSX.Element {
+	const embedded = untrack(() => props.embedded === true);
 	const auth = useAuth();
 	const shell = useShell();
 	const workspace = useWorkspace();
@@ -253,6 +270,18 @@ export function Conversation(props: {
 			openSplit: () =>
 				layoutsStore.update(props.id, (layout) => openTab(layout, { kind: "terminal" })),
 			fork: (worktree) => void fork(undefined, worktree),
+			side: (agent) => {
+				const named = agent.trim() ? agentNamed(agent) : undefined;
+				if (agent.trim() && !named) return false;
+				void openSide(named?.id);
+				return true;
+			},
+			handoff: (agent, newThread) => {
+				const named = agentNamed(agent);
+				if (!named) return false;
+				void handoff(named.id, newThread);
+				return true;
+			},
 		});
 	}
 
@@ -412,6 +441,17 @@ export function Conversation(props: {
 						setRunning(true);
 					}
 					if (event.type === "turn_end") setRunning(false);
+					// The thread is another agent's now: its picker, its models, its name.
+					if (event.type === "handoff") {
+						const moved = session();
+						if (moved) {
+							const next = { ...moved, provider: event.to.provider, model: event.to.model ?? null };
+							setSession(next);
+							props.onSession(next);
+						}
+					}
+					// A crew's report means its members moved: read them again.
+					if (event.type === "user" && event.text.startsWith("[Crew report]")) void loadCrew();
 					scrollToEnd();
 				},
 				onRunning: setRunning,
@@ -542,6 +582,115 @@ export function Conversation(props: {
 		}
 	}
 
+	// The agents this thread can be handed to: installed and not turned off.
+	const agents = () =>
+		props.providers.filter((item) => item.available && item.settings?.enabled !== false);
+	/** An agent named the way a person types it: its id or its name, any case. */
+	const agentNamed = (text: string) => {
+		const wanted = text.trim().toLowerCase();
+		return agents().find(
+			(item) => item.id.toLowerCase() === wanted || item.name.toLowerCase() === wanted,
+		);
+	};
+
+	/** Hand this thread to another agent: here, or in a new thread that then opens. */
+	async function handoff(providerId: string, newThread = false): Promise<void> {
+		const token = auth.token();
+		const current = session();
+		if (!token || !current) return;
+		if (running()) {
+			notify({
+				title: "Wait for this turn to finish, or stop it, before handing off",
+				tone: "danger",
+			});
+			return;
+		}
+		const name = props.providers.find((item) => item.id === providerId)?.name ?? providerId;
+		try {
+			const moved = await chatService.handoff(
+				token,
+				props.id,
+				{ provider: providerId, newThread },
+				props.scope,
+			);
+			if (newThread) {
+				threadsStore.upsert(moved);
+				navigate(`/chat/${encodeURIComponent(moved.project)}/${encodeURIComponent(moved.id)}`);
+				return;
+			}
+			setSession(moved);
+			props.onSession(moved);
+			notify({ title: `${name} carries on this thread`, tone: "success" });
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not hand off",
+				tone: "danger",
+			});
+		}
+	}
+
+	/** Open a side chat beside this thread, in the workspace, optionally with another agent. */
+	async function openSide(providerId?: string): Promise<void> {
+		const token = auth.token();
+		if (!token || !session()) return;
+		try {
+			const side = await chatService.side(
+				token,
+				props.id,
+				providerId ? { provider: providerId } : {},
+				props.scope,
+			);
+			layoutsStore.update(props.id, (layout) =>
+				openTab(layout, { kind: "chat", id: side.id, title: side.title }),
+			);
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not open a side chat",
+				tone: "danger",
+			});
+		}
+	}
+
+	// A crew's coordinator: its members, and their approvals, kept fresh while it is open.
+	const [crew, setCrew] = createSignal<Crew | null>(null);
+	const [memberApprovals, setMemberApprovals] = createSignal<WaitingApproval[]>([]);
+	const [crewSettings, setCrewSettings] = createSignal(false);
+	async function loadCrew(): Promise<void> {
+		const token = auth.token();
+		if (!token || embedded) return;
+		try {
+			const found = await chatService.crew(token, props.id, props.scope);
+			setCrew(found);
+			if (!found) return;
+			const members = new Set(found.workers.map((item) => item.sessionId).filter(Boolean));
+			const waiting = await chatService.waiting(token, props.scope);
+			setMemberApprovals(waiting.filter((item) => members.has(item.sessionId)));
+		} catch (cause) {
+			console.warn("[chat] could not read the crew:", cause);
+		}
+	}
+	onSettled(() => {
+		void loadCrew();
+		const timer = setInterval(() => {
+			if (crew() && document.visibilityState === "visible") void loadCrew();
+		}, CREW_POLL_MS);
+		return () => clearInterval(timer);
+	});
+	async function crewAction(run: (token: string, crew: Crew) => Promise<unknown>): Promise<void> {
+		const token = auth.token();
+		const current = crew();
+		if (!token || !current) return;
+		try {
+			await run(token, current);
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "The crew could not do that",
+				tone: "danger",
+			});
+		}
+		await loadCrew();
+	}
+
 	/** A new thread from this one, up to message `at` (the whole thread when unset), then open it. */
 	async function fork(at?: string, worktree = false): Promise<void> {
 		const token = auth.token();
@@ -619,13 +768,22 @@ export function Conversation(props: {
 			folder: workspace.folders()[current.project],
 			files: facts().files,
 			diffsFor,
+			renderChat: (id) => (
+				<Conversation
+					id={id}
+					scope={props.scope}
+					providers={props.providers}
+					onSession={() => undefined}
+					embedded
+				/>
+			),
 		};
 	};
 	const split = () => layoutsStore.of(props.id).mode !== "focus";
 
 	const threadColumn = (): JSX.Element => (
 		<div class="flex min-h-0 min-w-0 flex-1 flex-col">
-			<Show when={subtitle()}>
+			<Show when={!embedded && subtitle()}>
 				<ShellSlot name="subtitle">{subtitle()}</ShellSlot>
 			</Show>
 			<Show
@@ -656,7 +814,7 @@ export function Conversation(props: {
 					class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 md:px-6"
 				>
 					<div class="mx-auto flex w-full max-w-160 flex-col gap-6">
-						<Show when={session()}>
+						<Show when={embedded ? null : session()}>
 							{(current) => (
 								<div class="hidden md:block">
 									<ThreadHeader
@@ -719,6 +877,7 @@ export function Conversation(props: {
 									setError(cause instanceof Error ? cause.message : "Could not send message"),
 								)
 							}
+							agentName={(id) => props.providers.find((item) => item.id === id)?.name ?? id}
 							forkedHref={(id) => {
 								const project = session()?.project;
 								return project
@@ -761,8 +920,75 @@ export function Conversation(props: {
 							</div>
 						)}
 					</Show>
-					<Show when={!shell.desktop() ? workspaceProps() : null}>
+					<Show when={!embedded && !shell.desktop() ? workspaceProps() : null}>
 						{(workspaceOf) => <DockedWorkspace {...workspaceOf()} />}
+					</Show>
+					<Show when={crew()}>
+						{(current) => (
+							<div class="mb-2">
+								<CrewPanel
+									name={current().name}
+									parallel={current().parallel}
+									paused={current().paused}
+									members={current().workers.map((member) => ({
+										id: member.id,
+										key: member.key,
+										title: member.title,
+										state: member.state,
+										running: member.running,
+										waiting: member.waiting,
+										href: member.sessionId
+											? `/chat/${encodeURIComponent(current().project)}/${encodeURIComponent(member.sessionId)}`
+											: undefined,
+									}))}
+									approvals={
+										memberApprovals().length ? (
+											<For each={memberApprovals()}>
+												{(item) => (
+													<ApprovalCard
+														approval={{
+															kind: "approval",
+															key: item.approval.id,
+															id: item.approval.id,
+															title: `${item.thread}: ${item.approval.title}`,
+															detail: item.approval.detail ?? undefined,
+															options: item.approval.options,
+														}}
+														onApprove={(approvalId, optionId) =>
+															void crewAction((token) =>
+																chatService.answerApproval(
+																	token,
+																	item.sessionId,
+																	approvalId,
+																	optionId,
+																	props.scope,
+																),
+															)
+														}
+													/>
+												)}
+											</For>
+										) : undefined
+									}
+									onRetry={(worker) =>
+										void crewAction((token, current) =>
+											chatService.crewWorker(token, current.id, worker, "retry", props.scope),
+										)
+									}
+									onStop={(worker) =>
+										void crewAction((token, current) =>
+											chatService.crewWorker(token, current.id, worker, "stop", props.scope),
+										)
+									}
+									onPause={(paused) =>
+										void crewAction((token, current) =>
+											chatService.updateCrew(token, current.id, { paused }, props.scope),
+										)
+									}
+									onSettings={() => setCrewSettings(true)}
+								/>
+							</div>
+						)}
 					</Show>
 					<Show when={subagents().length > 0}>
 						<div class="mb-2">
@@ -836,13 +1062,15 @@ export function Conversation(props: {
 						}
 						controls={
 							<>
-								<Show when={!shell.desktop()}>
+								<Show when={!embedded && !shell.desktop()}>
 									<WorkspaceToggle thread={props.id} />
 								</Show>
 								<Show when={models().length > 0}>
 									<ModelPicker
 										agent={session()?.provider}
 										agentName={provider()?.name}
+										agents={agents()}
+										onAgent={(id) => void handoff(id)}
 										models={models()}
 										model={model()}
 										onModel={chooseModel}
@@ -877,6 +1105,28 @@ export function Conversation(props: {
 		</div>
 	);
 
+	// A side chat inside another thread's workspace: the conversation, and Undo's question.
+	if (embedded)
+		return (
+			<div class="flex min-h-0 flex-1">
+				<ConfirmDialog
+					open={undoTurn() !== null}
+					onClose={() => setUndoTurn(null)}
+					onConfirm={() => {
+						const turn = undoTurn();
+						if (turn !== null) void undo(turn);
+					}}
+					title="Undo this turn?"
+					description="The files this turn changed, and any changed after it, go back to how this turn found them."
+					confirm="Undo changes"
+					danger
+					pending={undoing()}
+					stayOpen
+				/>
+				{threadColumn()}
+			</div>
+		);
+
 	return (
 		<div class="flex min-h-0 flex-1">
 			<ConfirmDialog
@@ -893,8 +1143,32 @@ export function Conversation(props: {
 				pending={undoing()}
 				stayOpen
 			/>
+			<Show when={crew()}>
+				{(current) => (
+					<CrewSettingsDialog
+						open={crewSettings()}
+						crew={current()}
+						onClose={() => setCrewSettings(false)}
+						onSave={(patch) =>
+							crewAction((token, saved) =>
+								chatService.updateCrew(token, saved.id, patch, props.scope),
+							).then(() => {
+								setCrewSettings(false);
+							})
+						}
+					/>
+				)}
+			</Show>
 			<Show when={shell.desktop() && workspaceProps()}>
 				<ShellSlot name="actions">
+					<IconButton
+						size="sm"
+						label="Open a side chat"
+						tooltip="Side chat: ask a narrow question beside this thread"
+						onClick={() => void openSide()}
+					>
+						<ChatIcon size="sm" />
+					</IconButton>
 					<SplitSwitch thread={props.id} />
 				</ShellSlot>
 			</Show>

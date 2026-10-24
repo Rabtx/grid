@@ -6,6 +6,7 @@ import {
 	Button,
 	ColorSwatches,
 	Input,
+	notify,
 	playArrival,
 	Row,
 	Select,
@@ -32,6 +33,7 @@ import {
 	type Theme,
 	updateAppearance,
 } from "@/lib/appearance";
+import { clearBackdropImage, hasBackdropImage, setBackdropImage } from "@/lib/backdrop";
 import { playChime } from "@/lib/chime";
 import { useShell } from "@/modules/shell";
 
@@ -88,6 +90,7 @@ export function AppearanceScreen(): JSX.Element {
 	const signal = () =>
 		SIGNAL_PRESETS.find((preset) => preset.value === appearance().signal)?.id ?? "Blue";
 	const shell = useShell();
+	let picker: HTMLInputElement | undefined;
 	// Desktop rows show their value as a pill; phones as quiet text with a chevron.
 	const rowLook = () => (shell.desktop() ? "pill" : "value");
 	// Phones keep rows to their names, as the Figma phone frame does.
@@ -140,6 +143,90 @@ export function AppearanceScreen(): JSX.Element {
 					]}
 				/>
 			</section>
+
+			<SettingsGroup
+				title="Background"
+				description={desktopOnly("A picture behind the sidebar, or behind the whole app")}
+			>
+				<SettingsRow
+					inline
+					label="Image"
+					description={desktopOnly(
+						hasBackdropImage()
+							? "Kept on this device"
+							: "Any photo or wallpaper; kept on this device",
+					)}
+				>
+					<Row gap={2}>
+						<input
+							ref={(el) => {
+								picker = el;
+							}}
+							type="file"
+							accept="image/*"
+							hidden
+							aria-label="Choose a background image"
+							onChange={(event) => {
+								const file = event.currentTarget.files?.[0];
+								event.currentTarget.value = "";
+								if (!file) return;
+								setBackdropImage(file).catch((cause: unknown) =>
+									notify({
+										title: cause instanceof Error ? cause.message : "Could not use that image",
+										tone: "danger",
+									}),
+								);
+							}}
+						/>
+						<Button size="sm" onClick={() => picker?.click()}>
+							{hasBackdropImage() ? "Change" : "Choose image"}
+						</Button>
+						<Show when={hasBackdropImage()}>
+							<Button size="sm" variant="ghost" onClick={() => void clearBackdropImage()}>
+								Remove
+							</Button>
+						</Show>
+					</Row>
+				</SettingsRow>
+				<Show when={hasBackdropImage()}>
+					<SettingsRow
+						inline
+						label="Whole app"
+						description={desktopOnly(
+							appearance().backdrop === "app"
+								? "Behind every screen"
+								: "Off: behind the sidebar only",
+						)}
+					>
+						<Switch
+							label="Background behind the whole app"
+							checked={appearance().backdrop === "app"}
+							onChange={(on) => updateAppearance({ backdrop: on ? "app" : "sidebar" })}
+						/>
+					</SettingsRow>
+					<SettingsRow
+						label="Interface opacity"
+						description={desktopOnly("Lower lets more of the picture through")}
+					>
+						<RowSlider
+							label="Interface opacity"
+							limits={APPEARANCE_LIMITS.backdropOpacity}
+							value={appearance().backdropOpacity}
+							onChange={(backdropOpacity) => updateAppearance({ backdropOpacity })}
+							format={(value) => `${Math.round(value)}%`}
+						/>
+					</SettingsRow>
+					<SettingsRow label="Blur" description={desktopOnly("Softens the picture behind text")}>
+						<RowSlider
+							label="Background blur"
+							limits={APPEARANCE_LIMITS.backdropBlur}
+							value={appearance().backdropBlur}
+							onChange={(backdropBlur) => updateAppearance({ backdropBlur })}
+							format={(value) => `${Math.round(value)}px`}
+						/>
+					</SettingsRow>
+				</Show>
+			</SettingsGroup>
 
 			<SettingsGroup title="Accent">
 				<Show when={shell.desktop()} fallback={<div class="px-3 py-3">{swatches(true)}</div>}>

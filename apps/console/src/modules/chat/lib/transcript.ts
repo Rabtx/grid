@@ -92,6 +92,13 @@ export type Block =
 	| { kind: "checkpoint"; key: string; turn: number; files: CheckpointFile[]; undone?: boolean }
 	/** Where a forked thread's own work begins. */
 	| { kind: "forked"; key: string; from: { id: string; title: string } }
+	/** The thread moved from one agent to another here. */
+	| {
+			kind: "handoff";
+			key: string;
+			from: { provider: string; model?: string | null };
+			to: { provider: string; model?: string | null };
+	  }
 	| {
 			kind: "notice";
 			key: string;
@@ -334,6 +341,19 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 		}
 		case "forked":
 			return { ...transcript, blocks: [...blocks, { kind: "forked", key, from: event.from }] };
+		case "handoff":
+			// The new agent reports its own models and modes once it starts: the old one's are gone.
+			return {
+				...transcript,
+				blocks: [...blocks, { kind: "handoff", key, from: event.from, to: event.to }],
+				models: [],
+				model: event.to.model ?? null,
+				modes: [],
+				mode: null,
+				efforts: null,
+				effort: null,
+				commands: [],
+			};
 		case "queue":
 			return { ...transcript, queue: { items: event.items, paused: event.paused } };
 		case "approval":

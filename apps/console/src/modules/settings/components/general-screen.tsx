@@ -431,7 +431,7 @@ export function GeneralScreen(): JSX.Element {
 								label="Feature tour"
 								description={
 									shell.desktop()
-										? "Queue and steer, subagents, questions, visuals, Undo and forks"
+										? "Crews, handoffs, side chats, backgrounds, and the agent features before them"
 										: undefined
 								}
 							>

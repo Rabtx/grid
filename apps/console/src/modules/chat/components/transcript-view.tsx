@@ -30,6 +30,7 @@ import {
 	EditIcon,
 	FileIcon,
 	ForkDivider,
+	HandoffDivider,
 	iconButton,
 	GlobeIcon,
 	IconButton,
@@ -172,6 +173,8 @@ export function TranscriptView(props: {
 	onChoose?: (message: string) => void;
 	/** Where the thread a fork came from opens. */
 	forkedHref?: (id: string) => string | undefined;
+	/** An agent's name as people know it, for a handoff's line. */
+	agentName?: (id: string) => string;
 }): JSX.Element {
 	const turns = createMemo(() => groupTurns(props.blocks));
 
@@ -205,6 +208,7 @@ type Extras = {
 	onFork?: (at: string, worktree: boolean) => void;
 	onChoose?: (message: string) => void;
 	forkedHref?: (id: string) => string | undefined;
+	agentName?: (id: string) => string;
 };
 
 function TurnView(props: {
@@ -476,6 +480,23 @@ function BlockView(props: {
 						/>
 					</Show>
 				)}
+			</Match>
+			<Match
+				when={
+					props.block.kind === "handoff" && (props.block as Extract<Block, { kind: "handoff" }>)
+				}
+			>
+				{(moved) => {
+					const agent = (id: string) => (
+						<span class="inline-flex items-center gap-1 text-fg-muted">
+							<AgentLogo id={id} name={props.extras.agentName?.(id) ?? id} />
+							{props.extras.agentName?.(id) ?? id}
+						</span>
+					);
+					return (
+						<HandoffDivider from={agent(moved().from.provider)} to={agent(moved().to.provider)} />
+					);
+				}}
 			</Match>
 			<Match
 				when={props.block.kind === "forked" && (props.block as Extract<Block, { kind: "forked" }>)}

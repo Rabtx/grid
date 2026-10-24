@@ -133,3 +133,16 @@ describe("moving between panes", () => {
 		expect(moved.panes[0].active).toBe("preview");
 	});
 });
+
+describe("side chat tabs", () => {
+	it("keep their thread and title through a save, and drop a malformed one", () => {
+		const layout = openTab(defaultLayout(), { kind: "chat", id: "abc-1", title: "Side chat 1" });
+		const saved = normalize(JSON.parse(JSON.stringify(layout)));
+		expect(ids(saved)[0]).toContain("chat:abc-1");
+		const bad = normalize({
+			mode: "split",
+			panes: [{ tabs: [{ kind: "chat", id: "../x" }, { kind: "terminal" }], active: "terminal" }],
+		});
+		expect(ids(bad)).toEqual([["terminal"]]);
+	});
+});

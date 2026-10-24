@@ -62,12 +62,12 @@ export function AppFrame(props: {
 		<Show
 			when={!props.floating}
 			fallback={
-				<div class="flex h-[var(--app-height,100dvh)] flex-col overflow-hidden bg-surface text-fg">
+				<div class="backdrop-app flex h-[var(--app-height,100dvh)] flex-col overflow-hidden bg-surface text-fg">
 					{props.header}
 					<div class="relative flex min-h-0 flex-1">
 						{/* 16px around a 232px card; its foot is kept clear for the corner controls. */}
 						<Show when={props.sidebar}>
-							<div class="hidden w-66 shrink-0 min-h-0 flex-col px-4 pt-2 pb-14 lg:flex">
+							<div class="backdrop-sidebar hidden w-66 shrink-0 min-h-0 flex-col px-4 pt-2 pb-14 lg:flex">
 								{props.sidebar}
 							</div>
 						</Show>
@@ -78,10 +78,10 @@ export function AppFrame(props: {
 				</div>
 			}
 		>
-			<div class="flex h-[var(--app-height,100dvh)] overflow-hidden bg-surface text-fg">
+			<div class="backdrop-app flex h-[var(--app-height,100dvh)] overflow-hidden bg-surface text-fg">
 				{/* Rail and panel share the Figma bg/subtle: a breath of ink over the app surface. */}
 				<Show when={props.rail || props.sidebar}>
-					<div class="hidden shrink-0 border-line border-r bg-fill lg:flex">
+					<div class="backdrop-sidebar hidden shrink-0 border-line border-r bg-fill lg:flex">
 						<Show when={props.rail}>
 							<div class="w-12 shrink-0 rail-labels:w-17">{props.rail}</div>
 						</Show>

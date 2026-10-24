@@ -57,3 +57,17 @@ describe("feature tour", () => {
 		tourStore.close();
 	});
 });
+
+describe("a new edition", () => {
+	it("shows only its own slides to a device that saw the last one", () => {
+		localStorage.setItem("grid:feature-tour:agent-threads-1", "seen");
+		mount();
+		vi.advanceTimersByTime(2000);
+		flush();
+		const shown = tourStore.slides();
+		expect(shown.length).toBeGreaterThan(0);
+		expect(shown.every((slide) => slide.edition !== "agent-threads-1")).toBe(true);
+		tourStore.close();
+		expect(tourStore.seen()).toBe(true);
+	});
+});

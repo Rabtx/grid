@@ -2,7 +2,7 @@ import { render } from "@solidjs/web";
 import { flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { QuestionCard } from "./agent-work";
+import { CrewPanel, QuestionCard } from "./agent-work";
 import { framedDocument, InlineVisual } from "./visual";
 
 let dispose: (() => void) | undefined;
@@ -94,5 +94,49 @@ describe("InlineVisual", () => {
 		const page = framedDocument("<p>hi</p>", "");
 		expect(page).toContain("default-src 'none'");
 		expect(page.indexOf("Content-Security-Policy")).toBeLessThan(page.indexOf("<p>hi</p>"));
+	});
+});
+
+describe("CrewPanel", () => {
+	it("lists the members needing the person first, with Retry and Stop", () => {
+		const onRetry = vi.fn();
+		const onStop = vi.fn();
+		const root = mount(() => (
+			<CrewPanel
+				name="Launch"
+				parallel={2}
+				paused={false}
+				members={[
+					{
+						id: "a",
+						key: "api",
+						title: "API routes",
+						state: "working",
+						running: true,
+						waiting: false,
+					},
+					{
+						id: "b",
+						key: "docs",
+						title: "Docs",
+						state: "needs_you",
+						running: false,
+						waiting: false,
+					},
+				]}
+				onRetry={onRetry}
+				onStop={onStop}
+				onPause={() => undefined}
+				onSettings={() => undefined}
+			/>
+		));
+		expect(root.textContent).toContain("1 of 2 working");
+		expect(root.textContent).toContain("1 needs you");
+		const rows = [...root.querySelectorAll("li")].map((row) => row.textContent ?? "");
+		expect(rows[0]).toContain("Docs");
+		[...root.querySelectorAll("button")].find((button) => button.textContent === "Retry")?.click();
+		expect(onRetry).toHaveBeenCalledWith("b");
+		[...root.querySelectorAll("button")].find((button) => button.textContent === "Stop")?.click();
+		expect(onStop).toHaveBeenCalledWith("a");
 	});
 });
