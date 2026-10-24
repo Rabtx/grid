@@ -10,6 +10,7 @@ import {
 	untrack,
 } from "solid-js";
 
+import { useCommand } from "@/lib/keybindings";
 import { useAuth } from "@/modules/auth";
 import { placementsStore } from "@/modules/environments";
 import { useWorkspace } from "@/modules/projects";
@@ -131,6 +132,11 @@ export function Composer(props: {
 	let cameraPicker: HTMLInputElement | undefined;
 	let textarea: HTMLTextAreaElement | undefined;
 	let form: HTMLFormElement | undefined;
+
+	useCommand("composer.focus", () => {
+		if (!textarea?.isConnected) return false;
+		textarea.focus();
+	});
 
 	const projectSlug = () => props.project ?? workspace.currentSlug();
 	const activeSessionId = () =>

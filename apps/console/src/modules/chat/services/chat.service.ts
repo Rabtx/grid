@@ -11,6 +11,7 @@ import type {
 	ProviderSettings,
 	Role,
 	RoleDraft,
+	RunningThread,
 	WaitingApproval,
 	WorktreeStatus,
 } from "../types/chat.types";
@@ -353,8 +354,7 @@ export const chatService = {
 			scope,
 		),
 	/** Threads with an agent working right now, across projects. */
-	running: (token: string, scope = "") =>
-		call<{ id: string; project: string }[]>("/chat/running", token, {}, scope),
+	running: (token: string, scope = "") => call<RunningThread[]>("/chat/running", token, {}, scope),
 	sessions: (token: string, project: string, scope = "") =>
 		call<ChatSession[]>(`/chat/sessions?project=${encodeURIComponent(project)}`, token, {}, scope),
 	create: (

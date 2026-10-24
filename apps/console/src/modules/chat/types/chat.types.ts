@@ -275,6 +275,9 @@ export type Crew = {
 	workers: CrewWorker[];
 };
 
+/** A thread with a turn in flight, and whether it waits on a person (an approval, a question). */
+export type RunningThread = { id: string; project: string; waiting: boolean };
+
 /** An approval waiting in a running thread, as the runner lists them across a workspace. */
 export type WaitingApproval = {
 	sessionId: string;

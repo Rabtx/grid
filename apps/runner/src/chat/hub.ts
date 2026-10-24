@@ -742,13 +742,13 @@ export class ChatHub {
 		this.failedTurn = listener;
 	}
 
-	/** The workspace's threads with an agent working right now, for the "running" indicators. */
-	running(workspace: string): { id: string; project: string }[] {
+	/** The workspace's threads with an agent working right now (and whether each waits on a person). */
+	running(workspace: string): { id: string; project: string; waiting: boolean }[] {
 		return [...this.live]
 			.filter(([, live]) => live.running)
 			.map(([id]) => this.store.get(id))
 			.filter((row): row is ChatSessionRow => row?.workspaceId === workspace)
-			.map((row) => ({ id: row.id, project: row.project }));
+			.map((row) => ({ id: row.id, project: row.project, waiting: this.waitsOnPerson(row.id) }));
 	}
 
 	/**

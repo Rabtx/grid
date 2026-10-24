@@ -12,6 +12,7 @@ import {
 } from "solid-js";
 
 import { onAppResume } from "@/lib/app-resume";
+import { useCommand } from "@/lib/keybindings";
 import { localStore, saveSoon } from "@/lib/local-store";
 import { linkFor } from "@/lib/runner-link";
 import { quietReconnects } from "@/lib/quiet-reconnects";
@@ -628,6 +629,11 @@ export function Conversation(props: {
 			});
 		}
 	}
+
+	useCommand("chat.side", () => {
+		if (embedded) return false;
+		void openSide();
+	});
 
 	/** Open a side chat beside this thread, in the workspace, optionally with another agent. */
 	async function openSide(providerId?: string): Promise<void> {

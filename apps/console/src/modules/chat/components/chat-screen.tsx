@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from
 
 import { onRunnerRecovered, runnerUp } from "@/lib/runner-health";
 import { accountStorage } from "@/lib/account-storage";
+import { shortcutHint, useCommand } from "@/lib/keybindings";
 
 import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
@@ -17,6 +18,8 @@ import {
 	Button,
 	CheckIcon,
 	IdeaIcon,
+	Menu,
+	type MenuGroup,
 	notify,
 	type PopoverControl,
 	PROMPT_CHIP,
@@ -28,6 +31,18 @@ import {
 	ToolIcon,
 } from "@/kit";
 
+import {
+	close as closeTabsIn,
+	move as moveTab,
+	neighbour,
+	open as openTab,
+	ordered,
+	others,
+	rightOf,
+	step as stepTab,
+	type TabState,
+	togglePin,
+} from "../lib/chat-tabs";
 import { addBoardTask, runSlashCommand } from "../lib/run-slash-command";
 import { availableCommands, type SlashCommand } from "../lib/slash-commands";
 import { chatService } from "../services/chat.service";
@@ -90,13 +105,37 @@ function rememberedTabs(project: string): string[] {
 	}
 }
 
-function rememberTabs(project: string, ids: string[]): void {
+function rememberTabs(project: string, ids: readonly string[]): void {
 	try {
 		accountStorage.set(tabsKey(project), JSON.stringify(ids));
 	} catch {
 		// Not remembered; the tabs start empty next time.
 	}
 }
+
+const pinsKey = (project: string) => `grid.chat.pinned.${project}`;
+
+function rememberedPins(project: string): string[] {
+	try {
+		const saved: unknown = JSON.parse(accountStorage.get(pinsKey(project)) ?? "[]");
+		return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === "string") : [];
+	} catch {
+		return [];
+	}
+}
+
+function rememberPins(project: string, ids: readonly string[]): void {
+	try {
+		if (ids.length) accountStorage.set(pinsKey(project), JSON.stringify(ids));
+		else accountStorage.delete(pinsKey(project));
+	} catch {
+		// Not remembered; the tabs start unpinned next time.
+	}
+}
+
+// Closed tabs, newest last, per project: what "reopen closed tab" brings back (this visit only).
+const CLOSED_LIMIT = 20;
+const closedTabs = new Map<string, string[]>();
 
 /**
  * Chat with agents, per project. The project's chats are the workspace panel (a column on
@@ -134,7 +173,15 @@ export function ChatScreen(): JSX.Element {
 	const scope = () => scopeFor(placementsStore.environmentOf(project()));
 	const providers = () => providersStore.providers(scope());
 	const sessions = () => threadsStore.threads(project() ?? "");
-	const [tabIds, setTabIds] = createSignal<string[]>([]);
+	// `tabsNow` is read at once by the commands; the signal (written in batches) draws the strip.
+	let tabsNow: TabState = { ids: [], pinned: [] };
+	const [tabState, setTabState] = createSignal<TabState>(tabsNow);
+	const saveTabs = (slug: string, next: TabState) => {
+		tabsNow = next;
+		setTabState(next);
+		rememberTabs(slug, next.ids);
+		rememberPins(slug, next.pinned);
+	};
 
 	// The agents are read once per visit and kept; the threads are shared with the sidebar. Where
 	// the project runs is known first, so both come from the right machine.
@@ -161,11 +208,14 @@ export function ChatScreen(): JSX.Element {
 		return unsub;
 	});
 
-	// Each project remembers its open tabs; opening a chat adds it to them.
+	// Each project remembers its open tabs and pins; opening a chat adds it to them.
 	createEffect(
 		() => project(),
 		(slug) => {
-			if (slug) setTabIds(rememberedTabs(slug));
+			if (!slug) return;
+			const ids = rememberedTabs(slug);
+			tabsNow = { ids, pinned: rememberedPins(slug).filter((id) => ids.includes(id)) };
+			setTabState(tabsNow);
 		},
 	);
 	// A chat that no longer exists (removed on the runner) falls back to a new one. Only a read
@@ -198,45 +248,146 @@ export function ChatScreen(): JSX.Element {
 	createEffect(
 		() => activeId(),
 		(id) => {
+			threadsStore.setViewing(id);
 			const slug = untrack(project);
-			if (!id || !slug || untrack(tabIds).includes(id)) return;
-			const next = [...untrack(tabIds), id];
-			setTabIds(next);
-			rememberTabs(slug, next);
+			if (!id || !slug || tabsNow.ids.includes(id)) return;
+			saveTabs(slug, openTab(tabsNow, id));
 		},
 	);
-	// Tabs for chats that still exist, in the order they were opened.
+	onSettled(() => () => threadsStore.setViewing(null));
+	// Tabs for chats that still exist: pinned first, then in the order they were opened or dragged.
 	const tabs = createMemo(() =>
-		tabIds()
+		ordered(tabState())
 			.map((id) => sessions().find((session) => session.id === id))
 			.filter((session): session is ChatSession => Boolean(session)),
 	);
+	const tabList = () => {
+		const live = new Set(untrack(sessions).map((session) => session.id));
+		return ordered(tabsNow).filter((id) => live.has(id));
+	};
 
 	const chatUrl = (id?: string) => (id ? `/chat/${project()}/${id}` : `/chat/${project()}`);
 
-	function closeTab(id: string): void {
+	function closeTabs(ids: readonly string[]): void {
 		const slug = project();
-		if (!slug) return;
-		const open = tabs().map((tab) => tab.id);
-		const next = tabIds().filter((item) => item !== id);
-		setTabIds(next);
-		rememberTabs(slug, next);
-		if (activeId() !== id) return;
+		if (!slug || !ids.length) return;
+		const list = tabList();
+		const current = untrack(activeId);
+		saveTabs(slug, closeTabsIn(tabsNow, ids));
+		closedTabs.set(slug, [...(closedTabs.get(slug) ?? []), ...ids].slice(-CLOSED_LIMIT));
+		if (!current || !ids.includes(current)) return;
 		// Closing the current tab shows its neighbour, as a browser does, or the composer.
-		const index = open.indexOf(id);
-		const neighbour = open[index + 1] ?? open[index - 1];
-		navigate(neighbour ? chatUrl(neighbour) : chatUrl());
+		const next = neighbour(list, current, ids);
+		navigate(next ? chatUrl(next) : chatUrl());
 	}
+	const closeTab = (id: string) => closeTabs([id]);
+
+	function reopenTab(): boolean {
+		const slug = project();
+		const stack = slug ? (closedTabs.get(slug) ?? []) : [];
+		const live = new Set(untrack(sessions).map((session) => session.id));
+		while (stack.length) {
+			const id = stack.pop() ?? "";
+			if (live.has(id) && !tabsNow.ids.includes(id)) {
+				navigate(chatUrl(id));
+				return true;
+			}
+		}
+		return false;
+	}
+
+	const go = (id: string | null) => {
+		if (!id) return false;
+		navigate(chatUrl(id));
+	};
+	useCommand("tab.new", () => navigate(chatUrl()));
+	useCommand("tab.close", () => {
+		const id = untrack(activeId);
+		if (!id) return false;
+		closeTab(id);
+	});
+	useCommand("tab.reopen", reopenTab);
+	useCommand("tab.next", () => go(stepTab(tabList(), untrack(activeId), 1)));
+	useCommand("tab.previous", () => go(stepTab(tabList(), untrack(activeId), -1)));
+	for (const n of [1, 2, 3, 4, 5, 6, 7, 8] as const)
+		useCommand(`tab.go${n}`, () => go(tabList()[n - 1] ?? null));
+	useCommand("tab.go9", () => go(tabList().at(-1) ?? null));
+
+	// A tab's own menu, at the point it was asked for.
+	let tabMenu: PopoverControl | undefined;
+	const [menuTab, setMenuTab] = createSignal<string | null>(null);
+	const tabMenuGroups = (): MenuGroup[] => {
+		const id = menuTab();
+		if (!id) return [];
+		const state = tabState();
+		const pinned = state.pinned.includes(id);
+		return [
+			{
+				items: [
+					{ id: "pin", label: pinned ? "Unpin tab" : "Pin tab" },
+					{
+						id: "close",
+						label: "Close tab",
+						shortcut: shortcutHint("tab.close"),
+						disabled: pinned,
+					},
+					{ id: "others", label: "Close other tabs", disabled: !others(state, id).length },
+					{ id: "right", label: "Close tabs to the right", disabled: !rightOf(state, id).length },
+				],
+			},
+			{
+				items: [
+					{
+						id: "reopen",
+						label: "Reopen closed tab",
+						shortcut: shortcutHint("tab.reopen"),
+						disabled: !(closedTabs.get(project() ?? "") ?? []).length,
+					},
+				],
+			},
+		];
+	};
+	const onTabMenu = (action: string) => {
+		const id = untrack(menuTab);
+		const slug = untrack(project);
+		if (!id || !slug) return;
+		if (action === "pin") saveTabs(slug, togglePin(tabsNow, id));
+		else if (action === "close") closeTab(id);
+		else if (action === "others") closeTabs(others(tabsNow, id));
+		else if (action === "right") closeTabs(rightOf(tabsNow, id));
+		else if (action === "reopen") reopenTab();
+	};
 
 	return (
 		<>
 			<ShellSlot name="tabs">
 				<SessionTabs
 					tabs={tabs()}
+					pinned={tabState().pinned}
 					activeId={activeId()}
 					compact={!shell.desktop()}
 					hrefFor={chatUrl}
 					onClose={closeTab}
+					onMenuAt={(id, point) => {
+						setMenuTab(id);
+						tabMenu?.open(point);
+					}}
+					onReorder={(id, target, after) => {
+						const slug = project();
+						if (slug) saveTabs(slug, moveTab(tabsNow, id, target, after));
+					}}
+					onPick={(id) => navigate(chatUrl(id || undefined))}
+				/>
+				<Menu
+					label="Tab actions"
+					pointerOnly
+					trigger={<span class="sr-only">Tab actions</span>}
+					triggerClass="sr-only"
+					groups={tabMenuGroups()}
+					onSelect={onTabMenu}
+					control={(control) => {
+						tabMenu = control;
+					}}
 				/>
 			</ShellSlot>
 			<Show

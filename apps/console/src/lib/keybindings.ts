@@ -238,6 +238,21 @@ export function chordLabel(chord: string): string[][] {
 	);
 }
 
+/**
+ * A command's first binding in the kit's hint format ("Mod K", "Alt Shift T", "G B"), for menus and
+ * tooltips; undefined when it has no keys.
+ */
+export function shortcutHint(id: CommandId): string | undefined {
+	const chord = bindings(id)[0];
+	if (!chord) return undefined;
+	const names: Record<string, string> = { mod: "Mod", alt: "Alt", shift: "Shift", space: "Space" };
+	return chord
+		.split(" ")
+		.flatMap((step) => step.split(/\+(?!$)/))
+		.map((part) => names[part] ?? part)
+		.join(" ");
+}
+
 type Handler = { run: () => boolean | void };
 const handlers = new Map<CommandId, Handler[]>();
 

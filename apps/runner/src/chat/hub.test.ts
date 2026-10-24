@@ -297,7 +297,7 @@ describe("ChatHub running threads", () => {
 		hub.create({ userId: "u2", workspace: "u2" }, { project: "shop", provider: "fake" });
 		const turn = hub.prompt("u1", mine.id, "go");
 		await until(() => store.events(mine.id).some((event) => event.type === "turn_start"));
-		expect(hub.running("u1")).toEqual([{ id: mine.id, project: "shop" }]);
+		expect(hub.running("u1")).toEqual([{ id: mine.id, project: "shop", waiting: false }]);
 		expect(hub.running("u2")).toEqual([]);
 		held.finish();
 		await turn;
