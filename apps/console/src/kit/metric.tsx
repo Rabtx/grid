@@ -155,6 +155,8 @@ function usageTone(used: number | null, limited: boolean): string {
  */
 export function UsageRing(props: {
 	window: string;
+	/** The name under the ring when the window's own is long ("Week" for "Weekly · Opus"). */
+	short?: string;
 	/** 0–100, or null when only "allowed" is known. */
 	used: number | null;
 	limited?: boolean;
@@ -205,7 +207,7 @@ export function UsageRing(props: {
 				</span>
 			</span>
 			<span aria-hidden="true" class="max-w-full truncate text-micro text-fg-subtle">
-				{props.window}
+				{props.short ?? props.window}
 			</span>
 		</span>
 	);

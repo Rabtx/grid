@@ -62,7 +62,8 @@ export function claudeRateLimits(message: Record<string, unknown>): UsageLimit[]
 					: "Usage";
 		const status = typeof entry.status === "string" ? entry.status : null;
 		const used = percent(number(entry.utilization), true);
-		if (used === null && !status) return [];
+		// "Allowed", with no share used, has nothing to draw: only a number or a refusal is news.
+		if (used === null && status !== "rejected") return [];
 		return [
 			{
 				window: label,

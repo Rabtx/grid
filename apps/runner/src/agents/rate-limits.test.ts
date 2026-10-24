@@ -30,6 +30,17 @@ describe("rate limits", () => {
 			}),
 		).toEqual([{ window: "Weekly", usedPercent: 100, resetsAt: null, limited: true }]);
 		expect(claudeRateLimits({ type: "rate_limit_event" })).toEqual([]);
+		// What Claude Code sends on a plan with no meter: nothing to draw.
+		expect(
+			claudeRateLimits({
+				type: "rate_limit_event",
+				rate_limit_info: {
+					status: "allowed",
+					rateLimitType: "ccr_promotional",
+					resetsAt: 1_793_000_000,
+				},
+			}),
+		).toEqual([]);
 	});
 
 	it("read Codex's primary and secondary windows", () => {

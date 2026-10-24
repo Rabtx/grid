@@ -20,6 +20,13 @@ function until(iso: string, now: number): string {
 	return `in ${Math.round(hours / 24)}d`;
 }
 
+/** A window's name short enough to sit under its ring: "Week" for "Weekly · Opus". */
+export function shortWindow(window: string): string {
+	if (window.startsWith("Weekly"))
+		return window.includes("·") ? (window.split("·")[1]?.trim() ?? "Week") : "Week";
+	return window.length > 5 ? window.slice(0, 5) : window;
+}
+
 export function limitDetail(limit: UsageLimit, now = Date.now()): string {
 	const used = limit.limited
 		? "Used up"
@@ -38,8 +45,13 @@ export function UsageRings(): JSX.Element {
 	const auth = useAuth();
 	onSettled(() => accountsStore.watch(auth.token));
 
+	// A window with no share used and no refusal has nothing to draw (an older runner kept those).
+	const drawable = (limit: UsageLimit) => limit.usedPercent !== null || limit.limited;
 	const entries = createMemo(() =>
-		accountsStore.usage().filter((entry) => entry.limits.length > 0),
+		accountsStore
+			.usage()
+			.map((entry) => ({ ...entry, limits: entry.limits.filter(drawable) }))
+			.filter((entry) => entry.limits.length > 0),
 	);
 	const agentName = (provider: string, scope: string) =>
 		providersStore.providers(scope).find((item) => item.id === provider)?.name ??
@@ -62,6 +74,7 @@ export function UsageRings(): JSX.Element {
 								{(limit) => (
 									<UsageRing
 										window={limit.window}
+										short={shortWindow(limit.window)}
 										used={limit.usedPercent}
 										limited={limit.limited}
 										detail={limitDetail(limit)}

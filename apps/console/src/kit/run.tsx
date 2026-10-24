@@ -481,15 +481,19 @@ export function WorkStep(props: {
 		<>
 			{props.glyph}
 			<span class="shrink-0 text-body text-fg-muted">{props.verb}</span>
-			<span class="min-w-0 truncate rounded-kit-sm bg-fill-strong px-1.5 py-0.5 font-mono text-caption text-fg">
-				{props.target}
-			</span>
+			<Show when={props.target}>
+				<span class="min-w-0 truncate rounded-kit-sm bg-fill-strong px-1.5 py-0.5 font-mono text-caption text-fg">
+					{props.target}
+				</span>
+			</Show>
 			<Show when={props.failed}>
 				<span class="sr-only">(failed)</span>
 			</Show>
 			<span class="flex-1" />
 			<Show when={props.trailing}>
-				<span class="shrink-0 text-caption text-fg-subtle tabular-nums">{props.trailing}</span>
+				<span class="min-w-0 max-w-2/5 shrink truncate text-caption text-fg-subtle tabular-nums">
+					{props.trailing}
+				</span>
 			</Show>
 		</>
 	);

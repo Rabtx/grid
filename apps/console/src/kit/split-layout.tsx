@@ -162,7 +162,7 @@ export function RemotePage(props: {
 		<button
 			type="button"
 			aria-label={`${props.title}: click, type and scroll to use the page`}
-			class="focus-ring relative block min-h-0 w-full flex-1 cursor-default overflow-hidden bg-white text-left"
+			class="focus-ring relative flex min-h-0 w-full flex-1 cursor-default flex-col justify-start overflow-hidden bg-white text-left"
 			onClick={(event) => {
 				// A click from the keyboard (Enter, Space) has no place on the page: those keys are sent.
 				if (event.detail === 0) return;
