@@ -312,7 +312,8 @@ from what the agents report as they work (Claude Code's `rate_limit_event`, Code
 `GET /runner/chat/running` entries carry `waiting` (the turn waits on a person).
 
 The browser is one headless Chromium on the runner's machine (`GRID_BROWSER` points at one when
-it is not in the usual places; `available: false` when there is none), started on the first page
+it is not in the usual places; `available: false` when there is none; `GRID_BROWSER_NO_SANDBOX=1`
+runs it without Chromium's sandbox on a machine that cannot give it one), started on the first page
 and stopped ten minutes after the last closes; each thread's page is its own browser context.
 Agents drive it with Grid's tools `browser_open`, `browser_snapshot`, `browser_click`,
 `browser_type`, `browser_press`, `browser_scroll`, `browser_back` and `browser_screenshot` (which
