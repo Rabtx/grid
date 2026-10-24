@@ -30,7 +30,13 @@ import {
 	restore,
 	snapshot,
 } from "./checkpoints";
-import { readVisual, VisualError, VISUALS_PER_TURN } from "./visuals";
+import {
+	readVisual,
+	SHOW_VISUAL_DESCRIPTION,
+	SHOW_VISUAL_SCHEMA,
+	VisualError,
+	VISUALS_PER_TURN,
+} from "./visuals";
 import { type AgentPolicy, answerFor, branchNote, DEFAULT_POLICY } from "../agents/policy";
 import type { AgentSession, McpServerSpec, Provider, ProviderInfo } from "../agents/provider";
 import { AGENT_SETUP } from "../agents/setup";
@@ -144,10 +150,25 @@ type Live = {
 	steering?: boolean;
 	/** Visuals shown in the turn going on, against `VISUALS_PER_TURN`. */
 	visuals?: number;
+	/** When the agent last did anything (wrote, used a tool, asked): for spotting a stuck turn. */
+	activeAt?: number;
 };
 
 /** What a queue can be told to do (the composer's queued messages). */
 export type QueueAction = "remove" | "clear" | "pause" | "resume" | "steer";
+
+/**
+ * One of Grid's own tools for agents, served by `grid-tools.ts`: what the agent is told, the
+ * arguments it takes (JSON Schema), and what it does for a thread. Its answer is text for the agent.
+ */
+export type GridTool = {
+	name: string;
+	description: string;
+	inputSchema: Record<string, unknown>;
+	/** Whether a thread's agent gets it; every thread's does when left out. */
+	offered?: (session: ChatSessionRow) => boolean;
+	run: (session: ChatSessionRow, args: Record<string, unknown>) => Promise<string> | string;
+};
 
 /** How a message is sent: as usual, or while the agent works, delivered into its turn. */
 export type Delivery = "send" | "steer";
@@ -317,6 +338,10 @@ export class ChatHub {
 	private readonly live = new Map<string, Live>();
 	private attention: AttentionListener | null = null;
 	private failedTurn: ((session: ChatSessionRow) => void) | null = null;
+	private readonly turnEnded: ((
+		session: ChatSessionRow,
+		reason: "done" | "cancelled" | "error",
+	) => void)[] = [];
 	private personal: PersonalSetup = () => ({ env: {}, note: null });
 	private mcp: (workspace: string, agent: string, thread: string) => McpServerSpec[] = () => [];
 	private skills: (workspace: string, project: string) => Promise<string> | string = () => "";
@@ -328,6 +353,7 @@ export class ChatHub {
 	private describe: DescribeAgent = async () => ({ version: null, custom: false });
 	/** Grid's own tools for agents (`grid-tools.ts`): where the runner is, and the key they prove with. */
 	private tools: { url: () => string; key: string } | null = null;
+	private readonly gridTools = new Map<string, GridTool>();
 	/** How many agents may work at once on this machine; the rest wait their turn. */
 	private turnLimit = Number.POSITIVE_INFINITY;
 	private turnsRunning = 0;
@@ -463,11 +489,59 @@ export class ChatHub {
 	}
 
 	/**
-	 * Give each thread's agent Grid's own tools (`show_visual`), which call back to the runner at
-	 * `url` with a key made here.
+	 * Give each thread's agent Grid's own tools (`grid-tools.ts`), which call back to the runner at
+	 * `url` with a key made here. `show_visual` is always among them; others are registered.
 	 */
 	setGridTools(url: () => string): void {
 		this.tools = { url, key: crypto.randomUUID() };
+		this.registerTool({
+			name: "show_visual",
+			description: SHOW_VISUAL_DESCRIPTION,
+			inputSchema: SHOW_VISUAL_SCHEMA,
+			run: (session, args) => {
+				this.showVisual(session.id, args);
+				return "Shown to the reader above your reply. Do not describe it or say where it is; state the key finding in words.";
+			},
+		});
+	}
+
+	/** Add one of Grid's tools; `offered` says which threads get it (all, when left out). */
+	registerTool(tool: GridTool): void {
+		this.gridTools.set(tool.name, tool);
+	}
+
+	private checkTools(key: string, thread: string): ChatSessionRow {
+		if (!this.tools || key !== this.tools.key) throw new ChatError("Not one of Grid's tools", 401);
+		const session = this.store.get(thread);
+		if (!session) throw new ChatError("That chat does not exist", 404);
+		return session;
+	}
+
+	/** The tools a thread's agent is offered, as its MCP server lists them. */
+	toolsFor(key: string, thread: string): Pick<GridTool, "name" | "description" | "inputSchema">[] {
+		const session = this.checkTools(key, thread);
+		return [...this.gridTools.values()]
+			.filter((tool) => tool.offered?.(session) ?? true)
+			.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+	}
+
+	/** Run one of Grid's tools for a thread's agent: its answer, or a ChatError saying why not. */
+	async callTool(
+		key: string,
+		thread: string,
+		name: string,
+		args: Record<string, unknown>,
+	): Promise<string> {
+		const session = this.checkTools(key, thread);
+		const tool = this.gridTools.get(name);
+		if (!tool || !(tool.offered?.(session) ?? true))
+			throw new ChatError(`Grid has no tool called ${name} here`, 404);
+		try {
+			return await tool.run(session, args);
+		} catch (cause) {
+			if (cause instanceof ChatError) throw cause;
+			throw new ChatError(cause instanceof Error ? cause.message : String(cause), 502);
+		}
 	}
 
 	/** Grid's tools as an MCP server for one thread, when they are on. */
@@ -487,13 +561,8 @@ export class ChatHub {
 		];
 	}
 
-	/**
-	 * A visual an agent shows through `show_visual`, into the turn it is working on. The key is
-	 * the one its tools were started with; a thread not answering cannot show one.
-	 */
-	showVisual(key: string, thread: string, args: Record<string, unknown>): void {
-		if (!this.tools || key !== this.tools.key) throw new ChatError("Not one of Grid's tools", 401);
-		if (!this.store.get(thread)) throw new ChatError("That chat does not exist", 404);
+	/** A visual an agent shows through `show_visual`, into the turn it is working on. */
+	private showVisual(thread: string, args: Record<string, unknown>): void {
 		const live = this.live.get(thread);
 		if (!live?.running)
 			throw new ChatError("A visual can only be shown while you are answering", 409);
@@ -629,6 +698,43 @@ export class ChatHub {
 	 */
 	onAttention(listener: AttentionListener): void {
 		this.attention = listener;
+	}
+
+	/** Hear about every turn that ends, after it has: how it ended. */
+	onTurnEnded(
+		listener: (session: ChatSessionRow, reason: "done" | "cancelled" | "error") => void,
+	): void {
+		this.turnEnded.push(listener);
+	}
+
+	/** Whether a thread's agent is working now. */
+	isRunning(id: string): boolean {
+		return this.live.get(id)?.running ?? false;
+	}
+
+	/** When a thread's agent last did anything in the turn going on (ms), or null. */
+	lastActivity(id: string): number | null {
+		return this.live.get(id)?.activeAt ?? null;
+	}
+
+	/** Whether a thread's turn waits on a person: an approval or a question nobody has answered. */
+	waitsOnPerson(id: string): boolean {
+		const open = new Set<string>();
+		for (const event of this.store.eventsFromLast(id, "turn_start")) {
+			if (event.type === "approval" || event.type === "question") open.add(event.id);
+			else if (event.type === "approval_resolved" || event.type === "question_answered")
+				open.delete(event.id);
+		}
+		return open.size > 0;
+	}
+
+	/** What the agent said in a thread's last turn, for reporting it elsewhere. */
+	lastReply(id: string): string {
+		return this.store
+			.eventsFromLast(id, "turn_start")
+			.map((event) => (event.type === "message" ? event.text : ""))
+			.join("")
+			.trim();
 	}
 
 	/** Hear about every turn that ends in an error, once per turn, watched or not. */
@@ -783,6 +889,8 @@ export class ChatHub {
 			role?: SessionRole | null;
 			/** The project's shared notes it starts with (see `SessionNotes`). */
 			notes?: SessionNotes | null;
+			/** A side chat's thread (see `side`). */
+			parentId?: string | null;
 		},
 	): ChatSessionRow {
 		const provider = this.providers.get(input.provider);
@@ -819,6 +927,7 @@ export class ChatHub {
 			worktree: own?.worktree ?? null,
 			role: input.role ?? null,
 			notes: input.notes?.text.trim() ? { text: input.notes.text } : null,
+			parentId: input.parentId ?? null,
 		});
 	}
 
@@ -1044,6 +1153,14 @@ export class ChatHub {
 		// no longer exists (its events are gone with it, `turn_end` among them), and the worktree
 		// below is removed while the agent may still be working in it.
 		if (this.live.get(id)?.running) throw new ChatError("Stop the agent first", 409);
+		// Its side chats go with it; one still answering keeps the thread until it is stopped.
+		const sides = this.store.sides(id);
+		if (sides.some((side) => this.live.get(side.id)?.running))
+			throw new ChatError("Stop its side chat first", 409);
+		for (const side of sides) {
+			this.park(side.id);
+			this.store.delete(side.id);
+		}
 		this.park(id);
 		// Its checkpoints are refs in the repository the thread worked in, which outlives it.
 		void dropCheckpoints(session.worktree?.origin ?? session.cwd, id).catch((cause: unknown) => {
@@ -1309,7 +1426,15 @@ export class ChatHub {
 			if (note) text = `${note}\n\n---\n\n${text}`;
 			if (briefNotes && session.notes) text = withSharedNotes(session.notes, text);
 			if (briefRole && session.role) text = withRoleBrief(session.role, text);
-			const history = opensFresh && !command ? historyBrief(earlier) : null;
+			// A thread handed to this agent says so: it carries on someone else's work.
+			const handoff = earlier.findLast((event) => event.type === "handoff");
+			const takesOver =
+				handoff?.type === "handoff" &&
+				earlier.lastIndexOf(handoff) > earlier.findLastIndex((event) => event.type === "user");
+			const intro = takesOver
+				? `You are taking over this thread from ${this.providerName(handoff.from.provider)}. Here is the conversation so far, oldest first; your messages in it were that agent's:`
+				: undefined;
+			const history = opensFresh && !command ? historyBrief(earlier, undefined, intro) : null;
 			if (history) text = `${history}\n\n---\n\n${text}`;
 			const prompt = paths
 				? `${text}\n\nAttached files (absolute paths on this machine):\n${paths}`
@@ -1369,6 +1494,18 @@ export class ChatHub {
 			});
 		}
 		this.afterTurn(session.workspaceId, id, live, result.reason);
+		const ended = this.store.get(id);
+		if (ended)
+			for (const listener of this.turnEnded) {
+				try {
+					listener(ended, result.reason);
+				} catch (cause) {
+					console.warn(
+						"[runner] a turn-end listener failed:",
+						cause instanceof Error ? cause.message : cause,
+					);
+				}
+			}
 	}
 
 	/** The turn's checkpoint, when the turn changed files: what it changed, for Undo. */
@@ -1579,7 +1716,21 @@ export class ChatHub {
 	 * fork's own work begins. It works in the same folder, or in a worktree of its own. Its agent
 	 * starts fresh and is told the conversation so far with its first message.
 	 */
-	fork(who: Who, id: string, input: { at?: string; worktree?: boolean }): ChatSessionRow {
+	fork(
+		who: Who,
+		id: string,
+		input: {
+			at?: string;
+			worktree?: boolean;
+			/** Another agent to carry on with (a handoff into a new thread), and its settings. */
+			provider?: string;
+			model?: string;
+			mode?: string;
+			effort?: string;
+			/** Open it as a side chat of this thread, under this title. */
+			side?: string;
+		},
+	): ChatSessionRow {
 		const source = this.owned(who.workspace, id);
 		const events = this.store.events(id);
 		let end = events.length;
@@ -1600,28 +1751,115 @@ export class ChatHub {
 			.filter((event) => event.type !== "checkpoint" && event.type !== "checkpoint_restored");
 		if (!copied.some((event) => event.type === "user"))
 			throw new ChatError("There is nothing to fork yet", 409);
+		const other = input.provider && input.provider !== source.provider;
+		const pick = (given: string | undefined, kept: string | null) =>
+			given ?? (other ? undefined : (kept ?? undefined));
+		const model = pick(input.model, source.model);
+		const mode = pick(input.mode, source.mode);
+		const effort = pick(input.effort, source.effort);
 		const row = this.create(who, {
 			project: source.project,
-			provider: source.provider,
+			provider: input.provider ?? source.provider,
 			cwd: source.cwd,
-			...(source.model ? { model: source.model } : {}),
-			...(source.mode ? { mode: source.mode } : {}),
-			...(source.effort ? { effort: source.effort } : {}),
+			...(model ? { model } : {}),
+			...(mode ? { mode } : {}),
+			...(effort ? { effort } : {}),
 			worktree: input.worktree === true,
 			role: source.role ? { ...source.role, briefed: false } : null,
 			notes: source.notes ? { text: source.notes.text } : null,
+			...(input.side ? { parentId: source.id } : {}),
 		});
-		const title = `${source.title} · fork`.slice(0, 120);
+		const title = (
+			input.side ??
+			(other ? `${source.title} · ${this.providerName(row.provider)}` : `${source.title} · fork`)
+		).slice(0, 120);
 		this.store.update(row.id, { title });
+		const at = new Date().toISOString();
 		this.store.append(row.id, [
 			...copied,
-			{
-				type: "forked",
-				from: { id: source.id, title: source.title },
-				at: new Date().toISOString(),
-			},
+			{ type: "forked", from: { id: source.id, title: source.title }, at },
+			...(other
+				? [
+						{
+							type: "handoff",
+							from: { provider: source.provider, model: source.model },
+							to: { provider: row.provider, model: row.model },
+							at,
+						} satisfies ChatEvent,
+					]
+				: []),
 		]);
 		return { ...row, title };
+	}
+
+	/** An agent's name as people know it. */
+	private providerName(id: string): string {
+		return this.providers.get(id)?.info().name ?? id;
+	}
+
+	/**
+	 * Hand a thread to another agent. In this thread, it keeps its history, folder and worktree:
+	 * the old agent is put away, and the new one is told the conversation with the next message.
+	 * With `newThread`, a copy carries on with the new agent and this one is left as it was.
+	 * Refused while the agent works: a handoff happens between turns.
+	 */
+	handoff(
+		who: Who,
+		id: string,
+		input: {
+			provider: string;
+			model?: string;
+			mode?: string;
+			effort?: string;
+			newThread?: boolean;
+		},
+	): ChatSessionRow {
+		const session = this.owned(who.workspace, id);
+		const provider = this.providers.get(input.provider);
+		if (!provider?.info().available)
+			throw new ChatError("That agent is not installed on this machine", 400);
+		assertMayStart(who, input.provider, provider.info().name);
+		if (this.live.get(id)?.running)
+			throw new ChatError("Wait for this turn to finish, or stop it, before handing off", 409);
+		if (input.newThread) return this.fork(who, id, input);
+		if (input.provider === session.provider)
+			throw new ChatError(`This thread is already with ${provider.info().name}`, 400);
+		this.park(id);
+		const live = this.liveFor(id);
+		// The old agent's commands are not the new one's.
+		this.setCommands(live, []);
+		const model = input.model ?? null;
+		this.store.update(id, {
+			provider: input.provider,
+			model,
+			mode: input.mode ?? provider.info().defaultMode ?? null,
+			effort: input.effort ?? null,
+			resumeToken: null,
+		});
+		this.record(id, {
+			type: "handoff",
+			from: { provider: session.provider, model: session.model },
+			to: { provider: input.provider, model },
+			at: new Date().toISOString(),
+		});
+		return this.store.get(id) ?? session;
+	}
+
+	/**
+	 * A side chat: a copy of this thread to ask a narrow question in, beside it and in the same
+	 * folder, left out of the project's list. Optionally with another agent.
+	 */
+	side(who: Who, id: string, input: { provider?: string; model?: string } = {}): ChatSessionRow {
+		const source = this.owned(who.workspace, id);
+		if (source.parentId) throw new ChatError("A side chat cannot have side chats of its own", 400);
+		const opened = this.sides(who.workspace, id).length + 1;
+		return this.fork(who, id, { ...input, side: `Side chat ${opened} · ${source.title}` });
+	}
+
+	/** The side chats opened beside a thread. */
+	sides(workspace: string, id: string): ChatSessionRow[] {
+		this.owned(workspace, id);
+		return this.store.sides(id);
 	}
 
 	/**
@@ -1960,6 +2198,8 @@ export class ChatHub {
 	/** Log an event and send it to every device watching. Streamed text is merged before it is written. */
 	private record(id: string, event: ChatEvent): void {
 		const live = this.liveFor(id);
+		// What the person or Grid sent in does not count: only the agent's own doing shows it alive.
+		if (event.type !== "steer" && event.type !== "user") live.activeAt = Date.now();
 		// What the agent can be asked to do is not part of the conversation: it is kept for the
 		// session and sent again to whoever attaches, rather than written into the log.
 		if (event.type === "commands") {

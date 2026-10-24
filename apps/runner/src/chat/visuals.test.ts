@@ -90,13 +90,23 @@ describe("inline visuals", () => {
 });
 
 describe("Grid's tools server", () => {
-	it("lists show_visual and hands a call to the runner with its key", async () => {
-		const calls: { key: string | null; body: unknown }[] = [];
+	it("lists the thread's tools and hands a call to the runner with its key", async () => {
+		const calls: { key: string | null; path: string; body?: unknown }[] = [];
 		const runner = Bun.serve({
 			port: 0,
 			fetch: async (request) => {
-				calls.push({ key: request.headers.get("x-grid-tools-key"), body: await request.json() });
-				return new Response(null, { status: 204 });
+				const url = new URL(request.url);
+				const key = request.headers.get("x-grid-tools-key");
+				if (request.method === "GET") {
+					calls.push({ key, path: `${url.pathname}${url.search}` });
+					return Response.json({
+						data: [
+							{ name: "show_visual", description: "Show it", inputSchema: { type: "object" } },
+						],
+					});
+				}
+				calls.push({ key, path: url.pathname, body: await request.json() });
+				return Response.json({ data: { text: "Shown" } });
 			},
 		});
 		const child = Bun.spawn([process.execPath, join(import.meta.dir, "grid-tools.ts")], {
@@ -141,9 +151,17 @@ describe("Grid's tools server", () => {
 				method: "tools/call",
 				params: { name: "show_visual", arguments: { title: "x", blocks: [] } },
 			});
-			expect(await next()).toMatchObject({ id: 3, result: { isError: false } });
+			expect(await next()).toMatchObject({
+				id: 3,
+				result: { isError: false, content: [{ text: "Shown" }] },
+			});
 			expect(calls).toEqual([
-				{ key: "secret", body: { thread: "t1", args: { title: "x", blocks: [] } } },
+				{ key: "secret", path: "/chat/tools?thread=t1" },
+				{
+					key: "secret",
+					path: "/chat/tools/call",
+					body: { thread: "t1", name: "show_visual", args: { title: "x", blocks: [] } },
+				},
 			]);
 		} finally {
 			child.kill();

@@ -87,6 +87,12 @@ function setup(agent: ReturnType<typeof handAgent>, cwd = tmpdir()) {
 	return { hub, store, session, seen };
 }
 
+/** Wait for a thread's turn to be fully over: its checkpoint is taken after the agent ends. */
+async function idle(hub: ChatHub, id: string): Promise<void> {
+	for (let i = 0; i < 250 && hub.running("me").some((row) => row.id === id); i++)
+		await Bun.sleep(20);
+}
+
 /** Wait for the hub to reach the agent (it opens the agent and takes a checkpoint first). */
 async function settle(): Promise<void> {
 	await Bun.sleep(40);
@@ -217,12 +223,12 @@ describe("inline visuals", () => {
 		const key = (hub as unknown as { tools: { key: string } }).tools.key;
 		const call = (args: unknown, header = key) =>
 			chatToolsRequest(
-				new Request("http://runner/chat/tools/visual", {
+				new Request("http://runner/chat/tools/call", {
 					method: "POST",
 					headers: { "x-grid-tools-key": header },
-					body: JSON.stringify({ thread: session.id, args }),
+					body: JSON.stringify({ thread: session.id, name: "show_visual", args }),
 				}),
-				new URL("http://runner/chat/tools/visual"),
+				new URL("http://runner/chat/tools/call"),
 				hub,
 			);
 		const blocks = [{ type: "stats", items: [{ label: "p95", value: "120 ms", tone: "accent" }] }];
@@ -234,7 +240,7 @@ describe("inline visuals", () => {
 		const bad = await call({ title: "Latency", blocks: [{ type: "pie" }] });
 		expect(bad?.status).toBe(400);
 		expect(((await bad?.json()) as { message: string }).message).toContain("blocks[0]");
-		expect((await call({ title: "Latency", blocks }))?.status).toBe(204);
+		expect((await call({ title: "Latency", blocks }))?.status).toBe(200);
 		expect(store.events(session.id).find((event) => event.type === "visual")).toMatchObject({
 			title: "Latency",
 			format: "components",
@@ -275,9 +281,11 @@ describe("checkpoints", () => {
 		void hub.prompt("me", session.id, "first");
 		await settle();
 		await agent.end();
+		await idle(hub, session.id);
 		void hub.prompt("me", session.id, "second");
 		await settle();
 		await agent.end();
+		await idle(hub, session.id);
 
 		const checkpoints = store.events(session.id).filter((event) => event.type === "checkpoint");
 		expect(checkpoints).toMatchObject([

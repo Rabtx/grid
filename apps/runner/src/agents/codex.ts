@@ -10,6 +10,7 @@ import {
 	type ToolStatus,
 } from "./events";
 import { diffFromPatch, diffTexts, type FileDiff } from "./diff";
+import { gridToolTitle } from "./grid-titles";
 import type { AgentContext, AgentSession, Provider, ProviderInfo, TurnResult } from "./provider";
 import { JsonRpc, type Spawn, spawnJsonProcess } from "./stdio";
 
@@ -305,7 +306,14 @@ export function codexTool(item: Item): {
 			};
 		}
 		case "mcpToolCall":
-			return { id: item.id, title: `${item.server}.${item.tool}`, kind: "other", status };
+			return {
+				id: item.id,
+				title:
+					(item.server === "grid" ? gridToolTitle(`grid.${item.tool}`) : null) ??
+					`${item.server}.${item.tool}`,
+				kind: "other",
+				status,
+			};
 		case "webSearch":
 			return {
 				id: item.id,

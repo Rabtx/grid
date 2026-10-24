@@ -296,6 +296,50 @@ export async function chatRequest(
 			),
 		);
 	}
+	// Hand the thread to another agent: here, or in a new thread (`newThread`).
+	const handoff = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/handoff$/);
+	if (handoff && request.method === "POST") {
+		if (!may(who, "startAgents")) return failure(403, NOT_ALLOWED);
+		const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+		if (typeof body.provider !== "string") return failure(400, "Say which agent to hand off to");
+		const text = (key: string) =>
+			typeof body[key] === "string" ? (body[key] as string) : undefined;
+		return run(() => {
+			const session = hub.handoff(who, handoff[1] ?? "", {
+				provider: body.provider as string,
+				model: text("model"),
+				mode: text("mode"),
+				effort: text("effort"),
+				newThread: body.newThread === true,
+			});
+			return Response.json(
+				{ data: listed(session) },
+				{ status: body.newThread === true ? 201 : 200 },
+			);
+		});
+	}
+	// A thread's side chats: listing them, and opening one (`{ provider?, model? }`).
+	const sides = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/sides$/);
+	if (sides && request.method === "GET") {
+		return run(() => Response.json({ data: hub.sides(workspace, sides[1] ?? "").map(listed) }));
+	}
+	if (sides && request.method === "POST") {
+		if (!may(who, "startAgents")) return failure(403, NOT_ALLOWED);
+		const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+		return run(() =>
+			Response.json(
+				{
+					data: listed(
+						hub.side(who, sides[1] ?? "", {
+							...(typeof body.provider === "string" ? { provider: body.provider } : {}),
+							...(typeof body.model === "string" ? { model: body.model } : {}),
+						}),
+					),
+				},
+				{ status: 201 },
+			),
+		);
+	}
 	// Undo a turn: the thread's files back to how that turn found them.
 	const undo = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/checkpoints\/(\d+)\/restore$/);
 	if (undo && request.method === "POST") {
@@ -435,21 +479,28 @@ export async function chatToolsRequest(
 	url: URL,
 	hub: ChatHub,
 ): Promise<Response | null> {
-	if (url.pathname !== "/chat/tools/visual" || request.method !== "POST") return null;
+	const key = request.headers.get("x-grid-tools-key") ?? "";
+	if (url.pathname === "/chat/tools" && request.method === "GET") {
+		const thread = url.searchParams.get("thread") ?? "";
+		return run(() => Response.json({ data: hub.toolsFor(key, thread) }));
+	}
+	if (url.pathname !== "/chat/tools/call" || request.method !== "POST") return null;
 	const body = (await request.json().catch(() => null)) as {
 		thread?: unknown;
+		name?: unknown;
 		args?: unknown;
 	} | null;
-	if (!body || typeof body.thread !== "string" || !body.args || typeof body.args !== "object")
-		return failure(400, "Say which thread, and what to show");
-	return run(() => {
-		hub.showVisual(
-			request.headers.get("x-grid-tools-key") ?? "",
-			body.thread as string,
-			body.args as Record<string, unknown>,
-		);
-		return new Response(null, { status: 204 });
-	});
+	if (!body || typeof body.thread !== "string" || typeof body.name !== "string")
+		return failure(400, "Say which thread, and which tool");
+	const args =
+		body.args && typeof body.args === "object" && !Array.isArray(body.args)
+			? (body.args as Record<string, unknown>)
+			: {};
+	return runAsync(async () =>
+		Response.json({
+			data: { text: await hub.callTool(key, body.thread as string, body.name as string, args) },
+		}),
+	);
 }
 
 function run(respond: () => Response): Response {

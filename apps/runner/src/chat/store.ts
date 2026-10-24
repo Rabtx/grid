@@ -49,6 +49,8 @@ export type ChatSessionRow = {
 	role?: SessionRole | null;
 	/** The project's notes shared with agents, as they were when it started (see `SessionNotes`). */
 	notes?: SessionNotes | null;
+	/** A side chat's thread: it opens beside that one and is left out of the project's list. */
+	parentId?: string | null;
 	createdAt: string;
 	updatedAt: string;
 };
@@ -96,6 +98,7 @@ type Row = {
 	worktree: string | null;
 	role?: string | null;
 	notes?: string | null;
+	parent_id?: string | null;
 	created_at: string;
 	updated_at: string;
 };
@@ -143,6 +146,7 @@ function toSession(row: Row): ChatSessionRow {
 		worktree: readWorktree(row.worktree),
 		role: readRole(row.role ?? null),
 		notes: readNotes(row.notes ?? null),
+		parentId: row.parent_id ?? null,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -245,6 +249,9 @@ export class ChatStore {
 		}
 		if (!hasColumn(this.db, "sessions", "notes")) {
 			this.db.exec("ALTER TABLE sessions ADD COLUMN notes TEXT");
+		}
+		if (!hasColumn(this.db, "sessions", "parent_id")) {
+			this.db.exec("ALTER TABLE sessions ADD COLUMN parent_id TEXT");
 		}
 		// Messages waiting for the agent, kept so a restart does not lose them.
 		if (!hasColumn(this.db, "sessions", "queue")) {
@@ -409,8 +416,8 @@ export class ChatStore {
 		const now = new Date().toISOString();
 		this.db
 			.query(
-				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, worktree, role, notes, created_at, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)`,
+				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, worktree, role, notes, parent_id, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)`,
 			)
 			.run(
 				session.id,
@@ -426,6 +433,7 @@ export class ChatStore {
 				session.worktree ? JSON.stringify(session.worktree) : null,
 				session.role ? JSON.stringify(session.role) : null,
 				session.notes ? JSON.stringify(session.notes) : null,
+				session.parentId ?? null,
 				now,
 				now,
 			);
@@ -433,6 +441,7 @@ export class ChatStore {
 			...session,
 			role: session.role ?? null,
 			notes: session.notes ?? null,
+			parentId: session.parentId ?? null,
 			resumeToken: null,
 			createdAt: now,
 			updatedAt: now,
@@ -525,12 +534,21 @@ export class ChatStore {
 		return row ? toSession(row) : null;
 	}
 
+	/** A project's threads, newest first; side chats are left out (see `sides`). */
 	list(workspace: string, project: string): ChatSessionRow[] {
 		return this.db
 			.query<Row, [string, string]>(
-				"SELECT * FROM sessions WHERE workspace_id = ? AND project = ? ORDER BY updated_at DESC",
+				"SELECT * FROM sessions WHERE workspace_id = ? AND project = ? AND parent_id IS NULL ORDER BY updated_at DESC",
 			)
 			.all(workspace, project)
+			.map(toSession);
+	}
+
+	/** The side chats opened beside a thread, newest first. */
+	sides(parentId: string): ChatSessionRow[] {
+		return this.db
+			.query<Row, [string]>("SELECT * FROM sessions WHERE parent_id = ? ORDER BY updated_at DESC")
+			.all(parentId)
 			.map(toSession);
 	}
 
@@ -574,6 +592,7 @@ export class ChatStore {
 			Pick<
 				ChatSessionRow,
 				| "title"
+				| "provider"
 				| "model"
 				| "mode"
 				| "effort"
@@ -587,6 +606,7 @@ export class ChatStore {
 	): void {
 		const columns: Record<string, string> = {
 			title: "title",
+			provider: "provider",
 			model: "model",
 			mode: "mode",
 			effort: "effort",

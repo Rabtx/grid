@@ -13,7 +13,12 @@ type Turn = { asked: string; replied: string; files: Set<string> };
  * agent's reply and the files it changed, newest kept first when the budget runs out. Null when
  * there is nothing earlier worth telling.
  */
-export function historyBrief(events: readonly ChatEvent[], budget: number = BUDGET): string | null {
+export function historyBrief(
+	events: readonly ChatEvent[],
+	budget: number = BUDGET,
+	/** What the agent is told first, in place of the usual "you have no memory of it". */
+	intro = "This thread began before this session, so you have no memory of it. Here is what was said, oldest first:",
+): string | null {
 	const turns: Turn[] = [];
 	let turn: Turn | null = null;
 	for (const event of events) {
@@ -47,11 +52,7 @@ export function historyBrief(events: readonly ChatEvent[], budget: number = BUDG
 		used += text.length;
 	}
 	const skipped = left ? `(${left} earlier ${left === 1 ? "turn" : "turns"} left out.)\n\n` : "";
-	return [
-		"This thread began before this session, so you have no memory of it. Here is what was said, oldest first:",
-		"",
-		`${skipped}${parts.join("\n\n")}`,
-	].join("\n");
+	return [intro, "", `${skipped}${parts.join("\n\n")}`].join("\n");
 }
 
 function cut(text: string): string {

@@ -57,3 +57,11 @@ export const claimSchema = z.object({ machine: machineSchema }).strict();
 export type SyncInput = z.infer<typeof syncSchema>;
 export type SyncThread = SyncInput["threads"][number];
 export type Machine = z.infer<typeof machineSchema>;
+
+/** An agent's board change, sent by its runner: whose thread it is, and the task fields. */
+export const agentTaskSchema = z
+	.object({
+		user: z.uuid(),
+		task: z.record(z.string(), z.unknown()),
+	})
+	.strict();
