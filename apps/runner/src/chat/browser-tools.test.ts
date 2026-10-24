@@ -1,13 +1,30 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Browsers, readUrl } from "../browser/browsers";
-import { findBrowser } from "../browser/cdp";
+import { browserSandbox, findBrowser, launchBrowser } from "../browser/cdp";
 import { gridToolTitle } from "../agents/grid-titles";
 import { browserTools } from "./browser-tools";
 import type { ChatSessionRow } from "./store";
+
+describe("starting the browser", () => {
+	it("says why Chromium would not start, and how to run it without a sandbox", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "grid-fake-chrome-"));
+		const fake = join(dir, "chrome");
+		await Bun.write(
+			fake,
+			"#!/bin/sh\necho '[FATAL:zygote_host_impl_linux.cc] No usable sandbox!' >&2\nexit 1\n",
+		);
+		chmodSync(fake, 0o755);
+		await expect(launchBrowser(fake, join(dir, "profile"))).rejects.toThrow(
+			"GRID_BROWSER_NO_SANDBOX=1",
+		);
+		rmSync(dir, { recursive: true, force: true });
+		expect(browserSandbox({ GRID_BROWSER_NO_SANDBOX: "1" })).toBe(false);
+	});
+});
 
 describe("browser addresses", () => {
 	it("open http(s) only, adding the scheme people leave out", () => {
@@ -25,7 +42,8 @@ describe("browser addresses", () => {
 const binary = findBrowser();
 describe.skipIf(!binary)("browser tools", () => {
 	const profile = mkdtempSync(join(tmpdir(), "grid-browser-"));
-	const browsers = new Browsers(profile, binary);
+	// A local test page needs no sandbox, and CI machines often cannot give Chromium one.
+	const browsers = new Browsers(profile, binary, false);
 	const opened: string[] = [];
 	const tools = new Map(
 		browserTools(browsers, (_session, state) => opened.push(state.url)).map((tool) => [

@@ -136,6 +136,14 @@ export class Cdp {
 	}
 }
 
+/**
+ * Whether Chromium may use its sandbox here: not as root (it refuses), and not when
+ * `GRID_BROWSER_NO_SANDBOX=1` says the machine cannot give it one.
+ */
+export function browserSandbox(env: Record<string, string | undefined> = process.env): boolean {
+	return process.getuid?.() !== 0 && env.GRID_BROWSER_NO_SANDBOX !== "1";
+}
+
 /** Where a Chromium is on this machine: `GRID_BROWSER`, then the usual places, else null. */
 export function findBrowser(env: Record<string, string | undefined> = process.env): string | null {
 	const candidates = [
@@ -159,6 +167,8 @@ export function findBrowser(env: Record<string, string | undefined> = process.en
 export async function launchBrowser(
 	binary: string,
 	profile: string,
+	/** Chromium's own sandbox for the pages it opens; off only when the machine cannot give it one. */
+	sandbox = true,
 ): Promise<{ cdp: Cdp; stop: () => void }> {
 	const child = Bun.spawn(
 		[
@@ -173,8 +183,7 @@ export async function launchBrowser(
 			"--hide-scrollbars",
 			"--mute-audio",
 			"--disable-background-networking",
-			// Chromium refuses its sandbox to root, as in containers.
-			...(process.getuid?.() === 0 ? ["--no-sandbox"] : []),
+			...(sandbox ? [] : ["--no-sandbox"]),
 			"about:blank",
 		],
 		{ stdin: "ignore", stdout: "ignore", stderr: "pipe" },
@@ -202,7 +211,14 @@ export async function launchBrowser(
 			}
 			if (found) return;
 			clearTimeout(timer);
-			reject(new CdpError("The browser stopped before it started"));
+			// Chromium says why on its way out (most often: no usable sandbox); pass that on.
+			const said = text.trim().split("\n").slice(-3).join(" ").slice(0, 400);
+			const why = /sandbox/i.test(said)
+				? " Its sandbox is not available on this machine; set GRID_BROWSER_NO_SANDBOX=1 to run it without one."
+				: "";
+			reject(
+				new CdpError(`The browser stopped before it started.${why}${said ? ` (${said})` : ""}`),
+			);
 		})();
 	}).catch((cause: unknown) => {
 		child.kill();

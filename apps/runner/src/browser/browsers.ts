@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
-import { type Cdp, CdpError, findBrowser, launchBrowser } from "./cdp";
+import { browserSandbox, type Cdp, CdpError, findBrowser, launchBrowser } from "./cdp";
 
 /**
  * One browser page per thread, shared by the thread's agent and the people looking at it: the
@@ -120,6 +120,7 @@ export class Browsers {
 	constructor(
 		private readonly profileDir: string,
 		private readonly binary: string | null = findBrowser(),
+		private readonly sandbox: boolean = browserSandbox(),
 	) {}
 
 	available(): boolean {
@@ -347,7 +348,7 @@ export class Browsers {
 		if (this.browser) return this.browser;
 		mkdirSync(this.profileDir, { recursive: true, mode: 0o700 });
 		const binary = this.binary;
-		const starting = launchBrowser(binary, this.profileDir).then((running) => {
+		const starting = launchBrowser(binary, this.profileDir, this.sandbox).then((running) => {
 			running.cdp.on((method, params, session) => this.heard(method, params, session));
 			void running.cdp.send("Target.setDiscoverTargets", { discover: true }).catch(() => undefined);
 			return running;
