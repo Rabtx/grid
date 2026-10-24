@@ -296,7 +296,7 @@ export function startServer(
 				}
 
 				// Grid's own tools in a thread, proved the same way.
-				if (url.pathname.startsWith("/chat/tools/")) {
+				if (url.pathname === "/chat/tools" || url.pathname.startsWith("/chat/tools/")) {
 					const handled = await chatToolsRequest(request, url, chat);
 					if (handled) return handled;
 				}

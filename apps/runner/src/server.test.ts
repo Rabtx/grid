@@ -27,12 +27,14 @@ const config = {
 };
 const store = new TerminalStore(config, spawnPty);
 const chatStore = new ChatStore(":memory:");
+const hub = new ChatHub(chatStore, new Map(), projectsDir);
+hub.setGridTools(() => base);
 const server = startServer(
 	config,
 	store,
 	async (token) =>
 		token === "good" ? { who: { userId: "user-1", workspace: "ws-1" } } : signedOut,
-	new ChatHub(chatStore, new Map(), projectsDir),
+	hub,
 );
 const base = `http://127.0.0.1:${server.port}`;
 const auth = { Authorization: "Bearer good" };
@@ -80,6 +82,33 @@ function closeCode(ws: WebSocket): Promise<number> {
 }
 
 describe("runner server", () => {
+	it("lets Grid's tools list themselves with their key, without a person's sign-in", async () => {
+		const key = (hub as unknown as { tools: { key: string } }).tools.key;
+		chatStore.create({
+			id: "thread-tools",
+			ownerId: "user-1",
+			workspaceId: "ws-1",
+			project: "alpha",
+			provider: "none",
+			title: "Tools",
+			cwd: projectsDir,
+			model: null,
+			mode: null,
+			effort: null,
+			worktree: null,
+		});
+		const listed = await fetch(`${base}/chat/tools?thread=thread-tools`, {
+			headers: { "x-grid-tools-key": key },
+		});
+		expect(listed.status).toBe(200);
+		const { data } = (await listed.json()) as { data: { name: string }[] };
+		expect(data.map((tool) => tool.name)).toContain("show_visual");
+		const wrong = await fetch(`${base}/chat/tools?thread=thread-tools`, {
+			headers: { "x-grid-tools-key": "nope" },
+		});
+		expect(wrong.status).toBe(401);
+	});
+
 	it("refuses to list terminals without a valid token", async () => {
 		expect((await fetch(`${base}/terminals`)).status).toBe(401);
 		expect(
