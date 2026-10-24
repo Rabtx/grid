@@ -51,6 +51,8 @@ export type ChatSessionRow = {
 	notes?: SessionNotes | null;
 	/** A side chat's thread: it opens beside that one and is left out of the project's list. */
 	parentId?: string | null;
+	/** The provider account it runs as (Settings → Agents → Accounts); null is the machine's own. */
+	account?: string | null;
 	createdAt: string;
 	updatedAt: string;
 };
@@ -99,6 +101,7 @@ type Row = {
 	role?: string | null;
 	notes?: string | null;
 	parent_id?: string | null;
+	account?: string | null;
 	created_at: string;
 	updated_at: string;
 };
@@ -147,6 +150,7 @@ function toSession(row: Row): ChatSessionRow {
 		role: readRole(row.role ?? null),
 		notes: readNotes(row.notes ?? null),
 		parentId: row.parent_id ?? null,
+		account: row.account ?? null,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -252,6 +256,9 @@ export class ChatStore {
 		}
 		if (!hasColumn(this.db, "sessions", "parent_id")) {
 			this.db.exec("ALTER TABLE sessions ADD COLUMN parent_id TEXT");
+		}
+		if (!hasColumn(this.db, "sessions", "account")) {
+			this.db.exec("ALTER TABLE sessions ADD COLUMN account TEXT");
 		}
 		// Messages waiting for the agent, kept so a restart does not lose them.
 		if (!hasColumn(this.db, "sessions", "queue")) {
@@ -416,8 +423,8 @@ export class ChatStore {
 		const now = new Date().toISOString();
 		this.db
 			.query(
-				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, worktree, role, notes, parent_id, created_at, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)`,
+				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, worktree, role, notes, parent_id, account, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
 			)
 			.run(
 				session.id,
@@ -434,6 +441,7 @@ export class ChatStore {
 				session.role ? JSON.stringify(session.role) : null,
 				session.notes ? JSON.stringify(session.notes) : null,
 				session.parentId ?? null,
+				session.account ?? null,
 				now,
 				now,
 			);
@@ -442,6 +450,7 @@ export class ChatStore {
 			role: session.role ?? null,
 			notes: session.notes ?? null,
 			parentId: session.parentId ?? null,
+			account: session.account ?? null,
 			resumeToken: null,
 			createdAt: now,
 			updatedAt: now,
@@ -601,6 +610,7 @@ export class ChatStore {
 				| "worktree"
 				| "role"
 				| "notes"
+				| "account"
 			>
 		>,
 	): void {
@@ -615,6 +625,7 @@ export class ChatStore {
 			worktree: "worktree",
 			role: "role",
 			notes: "notes",
+			account: "account",
 		};
 		// `undefined` means "leave it alone", not "clear it": callers pass whole shapes, and
 		// binding undefined stores NULL, which is how one `configure` with no fields in it

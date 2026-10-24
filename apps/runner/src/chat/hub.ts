@@ -8,6 +8,7 @@ import {
 	MAX_SESSION_ATTACHMENTS,
 	MAX_SESSION_BYTES,
 } from "./attachments";
+import type { Accounts } from "./accounts";
 import { historyBrief } from "./history-brief";
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
@@ -167,8 +168,11 @@ export type GridTool = {
 	inputSchema: Record<string, unknown>;
 	/** Whether a thread's agent gets it; every thread's does when left out. */
 	offered?: (session: ChatSessionRow) => boolean;
-	run: (session: ChatSessionRow, args: Record<string, unknown>) => Promise<string> | string;
+	run: (session: ChatSessionRow, args: Record<string, unknown>) => Promise<ToolAnswer> | ToolAnswer;
 };
+
+/** What a tool answers the agent: words, and a picture with them when it has one (a screenshot). */
+export type ToolAnswer = string | { text: string; image?: { data: string; mimeType: string } };
 
 /** How a message is sent: as usual, or while the agent works, delivered into its turn. */
 export type Delivery = "send" | "steer";
@@ -343,6 +347,8 @@ export class ChatHub {
 		reason: "done" | "cancelled" | "error",
 	) => void)[] = [];
 	private personal: PersonalSetup = () => ({ env: {}, note: null });
+	private accounts: Accounts | null = null;
+	private readonly removed: ((thread: string) => void)[] = [];
 	private mcp: (workspace: string, agent: string, thread: string) => McpServerSpec[] = () => [];
 	private skills: (workspace: string, project: string) => Promise<string> | string = () => "";
 	/** Grid's own questions waiting in threads, by their approval id. */
@@ -525,13 +531,24 @@ export class ChatHub {
 			.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
 	}
 
-	/** Run one of Grid's tools for a thread's agent: its answer, or a ChatError saying why not. */
+	/** Run one of Grid's tools for a thread's agent: its answer in words, or a ChatError. */
 	async callTool(
 		key: string,
 		thread: string,
 		name: string,
 		args: Record<string, unknown>,
 	): Promise<string> {
+		const answer = await this.answerTool(key, thread, name, args);
+		return typeof answer === "string" ? answer : answer.text;
+	}
+
+	/** Run one of Grid's tools for a thread's agent: its whole answer, picture included. */
+	async answerTool(
+		key: string,
+		thread: string,
+		name: string,
+		args: Record<string, unknown>,
+	): Promise<ToolAnswer> {
 		const session = this.checkTools(key, thread);
 		const tool = this.gridTools.get(name);
 		if (!tool || !(tool.offered?.(session) ?? true))
@@ -629,6 +646,21 @@ export class ChatHub {
 	/** What each person's agents start with: their git identity, and a note for the first message. */
 	setPersonal(setup: PersonalSetup): void {
 		this.personal = setup;
+	}
+
+	/** Hear when a thread is deleted, to let go of what it held (its browser page). */
+	onRemoved(listener: (thread: string) => void): void {
+		this.removed.push(listener);
+	}
+
+	/** The thread's agent opened a page in its browser: logged, so the console shows the pane. */
+	showBrowser(thread: string, url: string, title: string): void {
+		if (this.store.get(thread)) this.record(thread, { type: "browser", url, title });
+	}
+
+	/** Where provider accounts live, so a thread can run as one and its usage is kept. */
+	setAccounts(accounts: Accounts): void {
+		this.accounts = accounts;
 	}
 
 	/**
@@ -742,13 +774,13 @@ export class ChatHub {
 		this.failedTurn = listener;
 	}
 
-	/** The workspace's threads with an agent working right now, for the "running" indicators. */
-	running(workspace: string): { id: string; project: string }[] {
+	/** The workspace's threads with an agent working right now (and whether each waits on a person). */
+	running(workspace: string): { id: string; project: string; waiting: boolean }[] {
 		return [...this.live]
 			.filter(([, live]) => live.running)
 			.map(([id]) => this.store.get(id))
 			.filter((row): row is ChatSessionRow => row?.workspaceId === workspace)
-			.map((row) => ({ id: row.id, project: row.project }));
+			.map((row) => ({ id: row.id, project: row.project, waiting: this.waitsOnPerson(row.id) }));
 	}
 
 	/**
@@ -891,12 +923,17 @@ export class ChatHub {
 			notes?: SessionNotes | null;
 			/** A side chat's thread (see `side`). */
 			parentId?: string | null;
+			/** The provider account it runs as (see `Accounts`); the machine's own when not given. */
+			account?: string | null;
 		},
 	): ChatSessionRow {
 		const provider = this.providers.get(input.provider);
 		if (!provider?.info().available)
 			throw new ChatError("That agent is not installed on this machine", 400);
 		assertMayStart(who, input.provider, provider.info().name);
+		const account = input.account ? this.accounts?.find(who.userId, input.account) : null;
+		if (input.account && account?.provider !== input.provider)
+			throw new ChatError("That account is not one of yours for this agent", 400);
 		const cwd = input.cwd?.trim() || this.defaultCwd(who.workspace, input.project);
 		if (!existsSync(cwd) || !isDirectory(cwd))
 			throw new ChatError(`${cwd} is not a folder on this machine`, 400);
@@ -928,6 +965,7 @@ export class ChatHub {
 			role: input.role ?? null,
 			notes: input.notes?.text.trim() ? { text: input.notes.text } : null,
 			parentId: input.parentId ?? null,
+			account: account?.id ?? null,
 		});
 	}
 
@@ -1160,8 +1198,10 @@ export class ChatHub {
 		for (const side of sides) {
 			this.park(side.id);
 			this.store.delete(side.id);
+			for (const listener of this.removed) listener(side.id);
 		}
 		this.park(id);
+		for (const listener of this.removed) listener(id);
 		// Its checkpoints are refs in the repository the thread worked in, which outlives it.
 		void dropCheckpoints(session.worktree?.origin ?? session.cwd, id).catch((cause: unknown) => {
 			console.warn(
@@ -1862,6 +1902,11 @@ export class ChatHub {
 		return this.store.sides(id);
 	}
 
+	/** A thread of this workspace, or a 404 ChatError for one that is not (or not here). */
+	thread(workspace: string, id: string): ChatSessionRow {
+		return this.owned(workspace, id);
+	}
+
 	/**
 	 * What the agent suggested adding to the shared notes it was given, from the turn just ended,
 	 * kept for the team to add or dismiss on the note.
@@ -2138,7 +2183,12 @@ export class ChatHub {
 				mode: fresh.mode ?? undefined,
 				effort: fresh.effort ?? undefined,
 				resume: fresh.resumeToken ?? undefined,
-				env: this.personal(fresh.ownerId).env,
+				env: {
+					...this.personal(fresh.ownerId).env,
+					...this.accounts?.env(fresh.ownerId, fresh.provider, fresh.account),
+				},
+				onRateLimits: (limits) =>
+					this.accounts?.recordUsage(fresh.ownerId, fresh.provider, fresh.account ?? null, limits),
 				mcpServers: [
 					...this.mcp(fresh.workspaceId, fresh.provider, fresh.id),
 					...this.gridServer(fresh.id),

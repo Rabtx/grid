@@ -33,6 +33,7 @@ import {
 	TerminalIcon,
 	Text,
 } from "@/kit";
+import { useCommand } from "@/lib/keybindings";
 import { useAuth } from "@/modules/auth";
 import { ProjectIcon, projectsService, useWorkspace } from "@/modules/projects";
 import {
@@ -73,11 +74,6 @@ const SOURCE_ICONS: Record<AskSource["kind"], () => JSX.Element> = {
 	pull: () => <PullRequestIcon />,
 };
 
-/** True for Ctrl+<key> on Linux and Windows, ⌘+<key> on a Mac. */
-function withModifier(event: KeyboardEvent, key: string): boolean {
-	return (event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === key;
-}
-
 function reason(cause: unknown, fallback: string): string {
 	return cause instanceof Error && cause.message ? cause.message : fallback;
 }
@@ -95,7 +91,7 @@ function relative(iso: string): string {
  * Search and Ask Grid (Figma 25), from Ctrl+K or any search button. Search finds threads (by what
  * was said in them), files, tasks, notes, projects and commands, in the project you are in first.
  * Tab switches to Ask: a question answered by an agent from the notes, threads, tasks, commits and
- * pull requests you can already see, every claim citing one. Also owns Ctrl+, for settings.
+ * pull requests you can already see, every claim citing one. Also owns the settings command (Ctrl+,).
  */
 export function CommandPalette(): JSX.Element {
 	const shell = useShell();
@@ -124,22 +120,9 @@ export function CommandPalette(): JSX.Element {
 		navigate(path);
 	};
 
-	onSettled(() => {
-		const onKeydown = (event: KeyboardEvent) => {
-			if (withModifier(event, "k")) {
-				event.preventDefault();
-				shell.setPaletteOpen(!shell.paletteOpen());
-			} else if (withModifier(event, ",")) {
-				event.preventDefault();
-				navigate("/settings");
-			}
-		};
-		document.addEventListener("keydown", onKeydown);
-		return () => {
-			document.removeEventListener("keydown", onKeydown);
-			clearTimeout(timer);
-		};
-	});
+	useCommand("palette.toggle", () => shell.setPaletteOpen(!shell.paletteOpen()));
+	useCommand("settings.open", () => navigate("/settings"));
+	onSettled(() => () => clearTimeout(timer));
 
 	// Each opening starts fresh, in the mode it was opened for.
 	createEffect(

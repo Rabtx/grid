@@ -1,7 +1,8 @@
 import type { JSX } from "@solidjs/web";
-import { For, Show } from "solid-js";
+import { createSignal, For, onCleanup, Show } from "solid-js";
 
 import { iconButton } from "./button";
+import { attachContextMenu, type MenuPoint } from "./context-menu";
 import { CloseIcon, PlusIcon } from "./icons";
 
 /** Where you are: `Chat / Meta ROAS dropped`, the last part in full ink. */
@@ -53,46 +54,116 @@ export type HeaderTab = {
 	closable?: boolean;
 	/** A quiet word after the label: where it runs, or that it ended. */
 	badge?: string;
+	/** Kept at the front as its icon alone, and not closed by "close others". */
+	pinned?: boolean;
+	/** A dot on its icon: its agent waits on you, or finished while you were elsewhere. */
+	attention?: "waiting" | "done";
 };
+
+const ATTENTION_LABEL = { waiting: "waiting on you", done: "finished" } as const;
 
 /**
  * Open things as tabs along the top, as a browser has them: the current one raised, each closable,
- * a plus for a new one. Scrolls sideways when there are many.
+ * a plus for a new one. Scrolls sideways when there are many. Pinned tabs sit first as their icon;
+ * a tab's menu opens on right-click or a long press, and tabs drag into a new order.
  */
 export function HeaderTabs(props: {
 	tabs: readonly HeaderTab[];
 	current: string | null;
 	onClose?: (id: string) => void;
+	/** Right-click or long press on a tab: its menu (pin, close others…), at that point. */
+	onMenuAt?: (id: string, point: MenuPoint) => void;
+	/** A tab was dropped beside another: move `id` before (or after) `target`. */
+	onReorder?: (id: string, target: string, after: boolean) => void;
 	newHref?: string;
 	newLabel?: string;
 	/** In place of the plus link: a button or a menu that opens the new tab. */
 	newAction?: JSX.Element;
 }): JSX.Element {
+	const [dragging, setDragging] = createSignal<string | null>(null);
+	const [over, setOver] = createSignal<{ id: string; after: boolean } | null>(null);
+	const half = (event: DragEvent) => {
+		const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		return event.clientX > box.left + box.width / 2;
+	};
 	return (
 		<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
 			<For each={props.tabs}>
 				{(tab) => (
 					<div
+						ref={(el) => {
+							if (!props.onMenuAt) return;
+							onCleanup(attachContextMenu(el, (point) => props.onMenuAt?.(tab.id, point)));
+						}}
 						aria-current={props.current === tab.id ? "page" : undefined}
-						class="group/tab relative flex h-kit-control-sm min-w-0 max-w-60 shrink items-center rounded-kit text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg pointer-coarse:h-10"
+						data-tab={tab.id}
+						draggable={props.onReorder && tab.closable !== false ? "true" : undefined}
+						onDragStart={(event) => {
+							setDragging(tab.id);
+							event.dataTransfer?.setData("text/plain", tab.id);
+							if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+						}}
+						onDragOver={(event) => {
+							const from = dragging();
+							if (!from || from === tab.id || tab.closable === false) return;
+							event.preventDefault();
+							setOver({ id: tab.id, after: half(event) });
+						}}
+						onDragLeave={() => setOver(null)}
+						onDrop={(event) => {
+							const from = dragging();
+							const target = over();
+							event.preventDefault();
+							setOver(null);
+							setDragging(null);
+							if (from && target) props.onReorder?.(from, target.id, target.after);
+						}}
+						onDragEnd={() => {
+							setDragging(null);
+							setOver(null);
+						}}
+						class={`group/tab relative flex h-kit-control-sm min-w-0 shrink items-center rounded-kit text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg pointer-coarse:h-10 ${tab.pinned ? "shrink-0" : "max-w-60"} ${dragging() === tab.id ? "opacity-50" : ""}`}
 					>
+						<Show when={over()?.id === tab.id}>
+							<span
+								aria-hidden="true"
+								class={`absolute inset-y-1 w-0.5 rounded-full bg-accent ${over()?.after ? "-right-0.5" : "-left-0.5"}`}
+							/>
+						</Show>
 						<a
 							href={tab.href}
-							class="focus-ring flex min-w-0 flex-1 items-center gap-2 rounded-kit py-1 pr-2.5 pl-2.5"
+							draggable="false"
+							aria-label={
+								tab.pinned || tab.attention
+									? `${tab.label}${tab.pinned ? ", pinned" : ""}${tab.attention ? `, ${ATTENTION_LABEL[tab.attention]}` : ""}`
+									: undefined
+							}
+							title={tab.pinned ? tab.label : undefined}
+							class={`focus-ring flex min-w-0 flex-1 items-center gap-2 rounded-kit py-1 ${tab.pinned ? "px-2" : "pr-2.5 pl-2.5"}`}
 						>
 							<Show when={tab.icon}>
-								<span class="grid size-4 shrink-0 place-items-center text-fg-muted [&_svg]:size-3.5">
+								<span class="relative grid size-4 shrink-0 place-items-center text-fg-muted [&_svg]:size-3.5">
 									{tab.icon}
+									<Show when={tab.attention}>
+										{(kind) => (
+											<span
+												aria-hidden="true"
+												class={`absolute -top-0.5 -right-0.5 size-1.5 rounded-full ring-2 ring-surface ${kind() === "waiting" ? "bg-warning" : "bg-accent"}`}
+											/>
+										)}
+									</Show>
 								</span>
 							</Show>
-							<span class={`truncate ${tab.running ? "thread-running" : ""}`}>{tab.label}</span>
-							<Show when={tab.badge}>
-								<span class="max-w-24 shrink-0 truncate rounded-kit-sm bg-fill-strong px-1 text-caption text-fg-subtle">
-									{tab.badge}
-								</span>
+							<Show when={!tab.pinned}>
+								<span class={`truncate ${tab.running ? "thread-running" : ""}`}>{tab.label}</span>
+								<Show when={tab.badge}>
+									<span class="max-w-24 shrink-0 truncate rounded-kit-sm bg-fill-strong px-1 text-caption text-fg-subtle">
+										{tab.badge}
+									</span>
+								</Show>
 							</Show>
 						</a>
-						<Show when={props.onClose && tab.closable !== false}>
+						<Show when={props.onClose && tab.closable !== false && !tab.pinned}>
 							<button
 								type="button"
 								aria-label={`Close ${tab.label}`}

@@ -144,6 +144,7 @@ export async function chatRequest(
 					? body.pull
 					: undefined,
 			fork: body.fork === true,
+			account: typeof body.account === "string" ? body.account : undefined,
 			role: undefined as { id: string; name: string; icon: string; brief: string } | undefined,
 			notes: undefined as { text: string } | undefined,
 		};
@@ -496,11 +497,10 @@ export async function chatToolsRequest(
 		body.args && typeof body.args === "object" && !Array.isArray(body.args)
 			? (body.args as Record<string, unknown>)
 			: {};
-	return runAsync(async () =>
-		Response.json({
-			data: { text: await hub.callTool(key, body.thread as string, body.name as string, args) },
-		}),
-	);
+	return runAsync(async () => {
+		const answer = await hub.answerTool(key, body.thread as string, body.name as string, args);
+		return Response.json({ data: typeof answer === "string" ? { text: answer } : answer });
+	});
 }
 
 function run(respond: () => Response): Response {

@@ -123,6 +123,8 @@ export type ChatEvent =
 	  }
 	/** What waits for the agent, and whether it is held. Like `commands`, never logged. */
 	| { type: "queue"; items: QueuedMessage[]; paused: boolean }
+	/** The agent opened a page in the thread's browser: the browser pane shows it. */
+	| { type: "browser"; url: string; title: string }
 	/**
 	 * What the agent can be asked to do right now, for the composer's `/` menu. It is not part of
 	 * the conversation: the runner sends it on attach and whenever it changes, and never logs it.
@@ -186,8 +188,45 @@ export type ChatSession = {
 	role?: SessionRole | null;
 	/** A side chat's thread, when this is one. */
 	parentId?: string | null;
+	/** The provider account it runs as; null is the machine's own sign-in. */
+	account?: string | null;
 	createdAt: string;
 	updatedAt: string;
+};
+
+/** A thread's browser page: whether one is open, where, and a count that rises as it changes. */
+export type BrowserState = {
+	available?: boolean;
+	open: boolean;
+	url: string;
+	title: string;
+	version: number;
+};
+
+/** A second sign-in with an agent's provider on a machine (another Claude or ChatGPT plan). */
+export type ProviderAccount = { id: string; provider: string; label: string; createdAt: string };
+
+/** One window of a plan's limits, as the agent last reported it. */
+export type UsageLimit = {
+	window: string;
+	usedPercent: number | null;
+	resetsAt: string | null;
+	limited: boolean;
+};
+
+/** What an account (null: the machine's own sign-in) has used of its plan. */
+export type AccountUsage = {
+	provider: string;
+	account: string | null;
+	limits: UsageLimit[];
+	updatedAt: string;
+};
+
+export type AccountsListing = {
+	/** The agents that can run as another account here. */
+	supported: string[];
+	accounts: ProviderAccount[];
+	usage: AccountUsage[];
 };
 
 /** How a chat's worktree stands: what removing it would throw away. */
@@ -274,6 +313,9 @@ export type Crew = {
 	createdAt: string;
 	workers: CrewWorker[];
 };
+
+/** A thread with a turn in flight, and whether it waits on a person (an approval, a question). */
+export type RunningThread = { id: string; project: string; waiting: boolean };
 
 /** An approval waiting in a running thread, as the runner lists them across a workspace. */
 export type WaitingApproval = {

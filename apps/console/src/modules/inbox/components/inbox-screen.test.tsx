@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JSX } from "@solidjs/web";
 import { flush } from "solid-js";
 
+import { installKeybindings } from "@/lib/keybindings";
 import { AuthProvider } from "@/modules/auth";
 import { ShellProvider, useShell } from "@/modules/shell";
 
@@ -114,8 +115,10 @@ async function settle(): Promise<void> {
 describe("InboxScreen", () => {
 	let container: HTMLElement;
 	let dispose: () => void;
+	let stopKeys: () => void;
 
 	beforeEach(() => {
+		stopKeys = installKeybindings(document);
 		container = document.createElement("div");
 		document.body.append(container);
 		// A phone: rows open where they live. Desktop rows pick the one shown beside the list.
@@ -128,6 +131,7 @@ describe("InboxScreen", () => {
 	});
 
 	afterEach(() => {
+		stopKeys();
 		dispose();
 		container.remove();
 		vi.unstubAllGlobals();

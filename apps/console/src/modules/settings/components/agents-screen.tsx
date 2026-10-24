@@ -1,6 +1,6 @@
 import { useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, For, onSettled, Show } from "solid-js";
 
 import {
 	AgentLogo,
@@ -12,6 +12,7 @@ import {
 	ExternalIcon,
 	Field,
 	FileIcon,
+	IconButton,
 	GlobeIcon,
 	iconButton,
 	Input,
@@ -29,10 +30,13 @@ import {
 	Switch,
 	TerminalIcon,
 	Text,
+	TrashIcon,
 } from "@/kit";
 import { useAuth } from "@/modules/auth";
 import { ModelPicker, ModePicker } from "@/modules/chat/components/pickers";
 import { chatService } from "@/modules/chat/services/chat.service";
+import { limitDetail } from "@/modules/chat/components/usage-rings";
+import { accountsStore } from "@/modules/chat/stores/accounts";
 import { providersStore } from "@/modules/chat/stores/providers";
 import type { ChatProvider, ProviderSettings } from "@/modules/chat/types/chat.types";
 import { environmentsStore, MachinePicker, scopeFor } from "@/modules/environments";
@@ -505,6 +509,7 @@ function AgentSheet(props: {
 							</Show>
 						</SettingsRow>
 					</Show>
+					<AccountRows provider={props.provider} scope={props.scope} />
 					<SettingsRow inline label="Models" description={`${props.provider.models.length} known`}>
 						<Button
 							size="sm"
@@ -547,6 +552,135 @@ function AgentSheet(props: {
 				</div>
 			</Stack>
 		</Dialog>
+	);
+}
+
+/**
+ * An agent's other accounts on the machine (Claude and Codex): each a separate sign-in in its own
+ * folder, which a new thread can pick. Each shows what its plan has used, once an agent has said.
+ */
+function AccountRows(props: { provider: ChatProvider; scope: string }): JSX.Element {
+	const auth = useAuth();
+	const navigate = useNavigate();
+	const terminals = useTerminalAccess();
+	const [adding, setAdding] = createSignal(false);
+	const [label, setLabel] = createSignal("");
+	const [error, setError] = createSignal<string | null>(null);
+	onSettled(() => {
+		const token = auth.token();
+		if (token) void accountsStore.load(token, props.scope).catch(() => undefined);
+	});
+	const accounts = () => accountsStore.accounts(props.provider.id, props.scope);
+	const usageOf = (id: string) =>
+		accountsStore
+			.usage()
+			.find((entry) => entry.scope === props.scope && entry.account === id)
+			?.limits.map((limit) => `${limit.window} ${limitDetail(limit).toLowerCase()}`)
+			.join(" · ");
+
+	async function act(work: (token: string) => Promise<unknown>, failure: string): Promise<boolean> {
+		const token = auth.token();
+		if (!token) return false;
+		setError(null);
+		try {
+			await work(token);
+			return true;
+		} catch (cause) {
+			setError(reason(cause, failure));
+			return false;
+		}
+	}
+	async function add(): Promise<void> {
+		const name = label().trim();
+		if (!name) return;
+		const done = await act(async (token) => {
+			const account = await accountsStore.create(token, props.provider.id, name, props.scope);
+			if (terminals()) {
+				const terminal = await chatService.signInAccount(token, account.id, props.scope);
+				navigate(`/terminal/${terminal.id}`);
+			}
+		}, "Could not add the account");
+		if (done) {
+			setLabel("");
+			setAdding(false);
+		}
+	}
+
+	return (
+		<Show when={accountsStore.supports(props.provider.id, props.scope)}>
+			<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
+			<For each={accounts()}>
+				{(account) => (
+					<SettingsRow
+						inline
+						label={account.label}
+						description={usageOf(account.id) ?? "Another account · sign in once to use it"}
+					>
+						<Show when={terminals()}>
+							<Button
+								size="sm"
+								onClick={() =>
+									void act(async (token) => {
+										const terminal = await chatService.signInAccount(
+											token,
+											account.id,
+											props.scope,
+										);
+										navigate(`/terminal/${terminal.id}`);
+									}, "Could not open a terminal for that")
+								}
+							>
+								Sign in
+							</Button>
+						</Show>
+						<IconButton
+							label={`Remove ${account.label}`}
+							variant="danger"
+							size="sm"
+							onClick={() =>
+								void act(
+									(token) => accountsStore.remove(token, account.id, props.scope),
+									"Could not remove the account",
+								)
+							}
+						>
+							<TrashIcon />
+						</IconButton>
+					</SettingsRow>
+				)}
+			</For>
+			<Show
+				when={adding()}
+				fallback={
+					<SettingsRow
+						inline
+						label="Other accounts"
+						description="Another plan with this agent's vendor; threads pick which one to run as"
+					>
+						<Button size="sm" icon={<PlusIcon size="sm" />} onClick={() => setAdding(true)}>
+							Add account
+						</Button>
+					</SettingsRow>
+				}
+			>
+				<SettingsRow label="New account" description="Its own sign-in opens in a terminal next">
+					<Input
+						aria-label="Account name"
+						placeholder="Work plan"
+						value={label()}
+						autofocus
+						onInput={(event) => setLabel(event.currentTarget.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter") void add();
+							if (event.key === "Escape") setAdding(false);
+						}}
+					/>
+					<Button size="sm" variant="primary" disabled={!label().trim()} onClick={() => void add()}>
+						Add
+					</Button>
+				</SettingsRow>
+			</Show>
+		</Show>
 	);
 }
 

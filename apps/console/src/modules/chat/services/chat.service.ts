@@ -3,14 +3,18 @@ import type { ChatAttachment } from "../types/chat.types";
 import type { TerminalInfo } from "@/modules/terminal/types/terminal.types";
 
 import type {
+	AccountsListing,
+	BrowserState,
 	ChatEvent,
 	ChatProvider,
 	ChatSession,
 	Crew,
 	ProjectChatSettings,
+	ProviderAccount,
 	ProviderSettings,
 	Role,
 	RoleDraft,
+	RunningThread,
 	WaitingApproval,
 	WorktreeStatus,
 } from "../types/chat.types";
@@ -345,6 +349,52 @@ export const chatService = {
 	 * Install or sign in an agent on its machine: opens a terminal there running the agent's own
 	 * command, to watch and answer.
 	 */
+	/** Where the thread's browser page is (Grid's browser, which its agent drives). */
+	browser: (token: string, thread: string, scope = "") =>
+		call<BrowserState>(`/chat/browser/${thread}`, token, {}, scope),
+	/** A picture of the thread's browser page as it is now; null when nothing is open. */
+	async browserFrame(token: string, thread: string, scope = ""): Promise<Blob | null> {
+		const response = await fetch(runnerUrl(`/chat/browser/${thread}/frame`, scope), {
+			headers: { ...workspaceHeaders(), Authorization: `Bearer ${token}` },
+		}).catch(() => null);
+		return response?.ok ? response.blob() : null;
+	},
+	/** The person using the thread's browser: open an address, click, type, press, scroll, go back. */
+	browserAct: (
+		token: string,
+		thread: string,
+		action: "open" | "back" | "reload" | "click" | "type" | "key" | "scroll" | "close",
+		body: Record<string, unknown> = {},
+		scope = "",
+	) =>
+		call<BrowserState | undefined>(
+			`/chat/browser/${thread}/${action}`,
+			token,
+			{ method: "POST", body: JSON.stringify(body) },
+			scope,
+		),
+	/** This person's provider accounts on the machine, and what each has used of its plan. */
+	accounts: (token: string, scope = "") =>
+		call<AccountsListing>("/chat/accounts", token, {}, scope),
+	createAccount: (token: string, input: { provider: string; label: string }, scope = "") =>
+		call<ProviderAccount>(
+			"/chat/accounts",
+			token,
+			{ method: "POST", body: JSON.stringify(input) },
+			scope,
+		),
+	renameAccount: (token: string, id: string, label: string, scope = "") =>
+		call<ProviderAccount>(
+			`/chat/accounts/${id}`,
+			token,
+			{ method: "PATCH", body: JSON.stringify({ label }) },
+			scope,
+		),
+	removeAccount: (token: string, id: string, scope = "") =>
+		call<void>(`/chat/accounts/${id}`, token, { method: "DELETE" }, scope),
+	/** A terminal running the agent's own sign-in for that account. */
+	signInAccount: (token: string, id: string, scope = "") =>
+		call<TerminalInfo>(`/chat/accounts/${id}/sign-in`, token, { method: "POST" }, scope),
 	setupProvider: (token: string, id: string, step: "install" | "sign-in", scope = "") =>
 		call<TerminalInfo>(
 			`/chat/providers/${id}/setup`,
@@ -353,8 +403,7 @@ export const chatService = {
 			scope,
 		),
 	/** Threads with an agent working right now, across projects. */
-	running: (token: string, scope = "") =>
-		call<{ id: string; project: string }[]>("/chat/running", token, {}, scope),
+	running: (token: string, scope = "") => call<RunningThread[]>("/chat/running", token, {}, scope),
 	sessions: (token: string, project: string, scope = "") =>
 		call<ChatSession[]>(`/chat/sessions?project=${encodeURIComponent(project)}`, token, {}, scope),
 	create: (
@@ -380,6 +429,8 @@ export const chatService = {
 			role?: string;
 			/** The project's notes shared with agents; they go with the first message too. */
 			notes?: string;
+			/** The provider account it runs as; the machine's own sign-in when not given. */
+			account?: string;
 		},
 		scope = "",
 	) =>

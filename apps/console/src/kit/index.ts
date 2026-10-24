@@ -14,6 +14,7 @@ export {
 	NobodyMark,
 } from "./avatar";
 export { Badge, Count, Kbd, type Tone } from "./badge";
+export { KeyRecorder } from "./key-recorder";
 export { BrandLogo, BrandMark, BrandWordmark, Splash } from "./brand";
 export {
 	Button,
@@ -172,6 +173,8 @@ export {
 	StepGlyph,
 	type StepStatus,
 	type StepTone,
+	BackgroundList,
+	BackgroundRow,
 	TurnHeader,
 	WorkCard,
 	WorkStep,
@@ -239,7 +242,14 @@ export {
 	TermText,
 	TouchScrollbar,
 } from "./terminal";
-export { DockedPane, LivePreview, SplitDropTarget, SplitHandle, SplitShare } from "./split-layout";
+export {
+	DockedPane,
+	LivePreview,
+	RemotePage,
+	SplitDropTarget,
+	SplitHandle,
+	SplitShare,
+} from "./split-layout";
 export { SPLIT_TAB_TYPE, type SplitTab, SplitTabs } from "./split-tabs";
 export { Segmented, type TabOption, Tabs } from "./tabs";
 export { Code, Heading, Text, type TextSize, type TextTone } from "./text";
@@ -384,6 +394,8 @@ export {
 	MetricCard,
 	MetricGrid,
 	SplitBar,
+	UsageRing,
+	UsageStrip,
 } from "./metric";
 export {
 	Citation,

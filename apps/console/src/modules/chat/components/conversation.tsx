@@ -12,6 +12,7 @@ import {
 } from "solid-js";
 
 import { onAppResume } from "@/lib/app-resume";
+import { useCommand } from "@/lib/keybindings";
 import { localStore, saveSoon } from "@/lib/local-store";
 import { linkFor } from "@/lib/runner-link";
 import { quietReconnects } from "@/lib/quiet-reconnects";
@@ -28,6 +29,7 @@ import {
 	openTab,
 	SplitFrame,
 	SplitSwitch,
+	toggleTab,
 	type WorkspaceProps,
 	WorkspaceToggle,
 } from "@/modules/split";
@@ -450,6 +452,13 @@ export function Conversation(props: {
 							props.onSession(next);
 						}
 					}
+					// The agent opened a page: show the thread's browser beside it, where it can be watched.
+					if (event.type === "browser" && !embedded)
+						layoutsStore.update(props.id, (layout) =>
+							layout.panes.some((pane) => pane.tabs.some((tab) => tab.kind === "browser"))
+								? layout
+								: openTab(layout, { kind: "browser" }),
+						);
 					// A crew's report means its members moved: read them again.
 					if (event.type === "user" && event.text.startsWith("[Crew report]")) void loadCrew();
 					scrollToEnd();
@@ -628,6 +637,15 @@ export function Conversation(props: {
 			});
 		}
 	}
+
+	useCommand("browser.toggle", () => {
+		if (embedded) return false;
+		layoutsStore.update(props.id, (layout) => toggleTab(layout, { kind: "browser" }));
+	});
+	useCommand("chat.side", () => {
+		if (embedded) return false;
+		void openSide();
+	});
 
 	/** Open a side chat beside this thread, in the workspace, optionally with another agent. */
 	async function openSide(providerId?: string): Promise<void> {

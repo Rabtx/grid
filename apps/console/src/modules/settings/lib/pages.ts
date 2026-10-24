@@ -23,6 +23,11 @@ export const SETTINGS_SECTIONS = [
 				label: "Appearance",
 				description: "Theme, colour, text and motion",
 			},
+			{
+				href: "/settings/keybindings",
+				label: "Keybindings",
+				description: "The keys for every command",
+			},
 		],
 	},
 	{

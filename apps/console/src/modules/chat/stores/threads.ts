@@ -4,7 +4,7 @@ import { localStore } from "@/lib/local-store";
 import { placementsStore } from "@/modules/environments";
 
 import { chatService } from "../services/chat.service";
-import type { ChatSession } from "../types/chat.types";
+import type { ChatSession, RunningThread } from "../types/chat.types";
 
 // Each project's threads, shared by the sidebar tree and the chat screen, so a rename or a new
 // thread shows everywhere at once.
@@ -14,10 +14,20 @@ const [errors, setErrors] = createSignal<Record<string, string | null>>({});
 const pending = new Map<string, Promise<void>>();
 // Threads with a turn in flight: read from the runner every few seconds, and set at once by the
 // open conversation when its own turn starts or ends.
-const [running, setRunning] = createSignal<{ id: string; project: string }[]>([]);
+const [running, setRunningList] = createSignal<RunningThread[]>([]);
+// Threads whose turn ended while nobody was looking at them: their tab shows a dot until opened.
+const [unseen, setUnseen] = createSignal<ReadonlySet<string>>(new Set<string>());
+let viewing: string | null = null;
 const POLL_MS = 3000;
 // Each machine's last answer, by scope, for a machine that misses one poll.
-const lastRunning = new Map<string, { id: string; project: string }[]>();
+const lastRunning = new Map<string, RunningThread[]>();
+
+function setRunning(next: RunningThread[]): void {
+	const still = new Set(next.map((item) => item.id));
+	const ended = untrack(running).filter((item) => !still.has(item.id) && item.id !== viewing);
+	if (ended.length) setUnseen(new Set([...untrack(unseen), ...ended.map((item) => item.id)]));
+	setRunningList(next);
+}
 const reads = new Map<string, number>();
 const changedDuringRead = new Map<string, Set<string>>();
 let sequence = 0;
@@ -25,7 +35,8 @@ localStore.onUserChange(() => {
 	setByProject({});
 	setLoaded({});
 	setErrors({});
-	setRunning([]);
+	setRunningList([]);
+	setUnseen(new Set<string>());
 	pending.clear();
 	lastRunning.clear();
 	reads.clear();
@@ -50,13 +61,27 @@ function put(project: string, list: ChatSession[]): void {
 export const threadsStore = {
 	/** True while an agent is working in this thread. */
 	isRunning: (id: string): boolean => running().some((item) => item.id === id),
+	/** True while this thread's agent waits on a person: an approval or a question. */
+	isWaiting: (id: string): boolean => running().some((item) => item.id === id && item.waiting),
+	/** True when this thread's turn ended since it was last open. */
+	isUnseen: (id: string): boolean => unseen().has(id),
+	/** The thread in front of the person: its turns ending are seen as they happen. */
+	setViewing(id: string | null): void {
+		viewing = id;
+		if (id && untrack(unseen).has(id)) {
+			const next = new Set(untrack(unseen));
+			next.delete(id);
+			setUnseen(next);
+		}
+	},
 	/** How many threads in this project are working. */
 	runningIn: (project: string): number =>
 		running().filter((item) => item.project === project).length,
 	/** The open conversation knows first: mark its thread running or done straight away. */
 	markRunning(id: string, project: string, value: boolean): void {
+		const waiting = untrack(running).some((item) => item.id === id && item.waiting);
 		const rest = untrack(running).filter((item) => item.id !== id);
-		setRunning(value ? [...rest, { id, project }] : rest);
+		setRunning(value ? [...rest, { id, project, waiting }] : rest);
 	},
 	/** Keep the running list fresh while the app is visible; returns a stop function. */
 	watchRunning(token: () => string | null): () => void {

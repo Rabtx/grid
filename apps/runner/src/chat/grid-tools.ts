@@ -34,8 +34,12 @@ function write(message: JsonRpc): void {
 	process.stdout.write(`${JSON.stringify(message)}\n`);
 }
 
-function result(id: JsonRpc["id"], text: string, isError = false): JsonRpc {
-	return { jsonrpc: "2.0", id, result: { content: [{ type: "text", text }], isError } };
+type Image = { data: string; mimeType: string };
+
+function result(id: JsonRpc["id"], text: string, isError = false, image?: Image): JsonRpc {
+	const content: Record<string, unknown>[] = [{ type: "text", text }];
+	if (image) content.push({ type: "image", data: image.data, mimeType: image.mimeType });
+	return { jsonrpc: "2.0", id, result: { content, isError } };
 }
 
 async function list(id: JsonRpc["id"]): Promise<void> {
@@ -53,11 +57,11 @@ async function list(id: JsonRpc["id"]): Promise<void> {
 
 async function call(id: JsonRpc["id"], name: string, args: Record<string, unknown>): Promise<void> {
 	try {
-		const done = await ask<{ text: string }>("/chat/tools/call", {
+		const done = await ask<{ text: string; image?: Image }>("/chat/tools/call", {
 			method: "POST",
 			body: JSON.stringify({ thread, name, args }),
 		});
-		write(result(id, done.text));
+		write(result(id, done.text, false, done.image));
 	} catch (cause) {
 		write(result(id, cause instanceof Error ? cause.message : String(cause), true));
 	}

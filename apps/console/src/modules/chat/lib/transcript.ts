@@ -41,6 +41,8 @@ export type Block =
 			input?: string;
 			output?: string;
 			diffs?: FileDiff[];
+			/** Still going when its turn was stopped or failed: it never finished. */
+			interrupted?: boolean;
 	  }
 	| {
 			kind: "approval";
@@ -446,14 +448,17 @@ function endTurn(
 	event: Extract<ChatEvent, { type: "turn_end" }>,
 	key: string,
 ): Transcript {
-	// A subagent still running when its turn is stopped or fails went with it.
+	// A subagent or a call still running when its turn is stopped or fails went with it.
+	const unfinished = (status: ToolStatus) => status === "running" || status === "pending";
 	const blocks =
 		event.reason === "done"
 			? transcript.blocks
 			: transcript.blocks.map((block) =>
 					block.kind === "subagent" && block.status === "running"
 						? { ...block, status: "cancelled" as const }
-						: block,
+						: block.kind === "tool" && unfinished(block.status)
+							? { ...block, interrupted: true }
+							: block,
 				);
 	if (event.reason === "error") {
 		return {
@@ -523,17 +528,45 @@ export function runningSubagents(transcript: Transcript): SubagentBlock[] {
 	);
 }
 
-/** A conversation row: one block, or a run of consecutive tool calls shown as one line. */
+/** Work the agent set going beside its own: a subagent, or a command left running in the background. */
+export type BackgroundItem = ToolBlock | SubagentBlock;
+
+/**
+ * A conversation row: one block, a run of consecutive tool calls shown as one card, or a run of
+ * background work shown as compact rows.
+ */
 export type Row =
 	| { kind: "block"; block: Block }
-	| { kind: "work"; key: string; tools: ToolBlock[] };
+	| { kind: "work"; key: string; tools: ToolBlock[] }
+	| { kind: "background"; key: string; items: BackgroundItem[] };
 
-/** Group consecutive tool calls; every other block (approvals included) stands on its own. */
+/** A call the agent sent to run on its own while it carries on (`run_in_background`). */
+export function isBackgroundTool(tool: Pick<ToolBlock, "input">): boolean {
+	if (!tool.input) return false;
+	try {
+		const input: unknown = JSON.parse(tool.input);
+		return Boolean(
+			input &&
+			typeof input === "object" &&
+			(input as Record<string, unknown>).run_in_background === true,
+		);
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Group consecutive tool calls, and consecutive background work (subagents, background commands);
+ * every other block (approvals included) stands on its own.
+ */
 export function groupRows(blocks: Block[]): Row[] {
 	const out: Row[] = [];
 	for (const block of blocks) {
 		const last = out.at(-1);
-		if (block.kind === "tool") {
+		if (block.kind === "subagent" || (block.kind === "tool" && isBackgroundTool(block))) {
+			if (last?.kind === "background") last.items.push(block);
+			else out.push({ kind: "background", key: block.key, items: [block] });
+		} else if (block.kind === "tool") {
 			if (last?.kind === "work") last.tools.push(block);
 			else out.push({ kind: "work", key: block.key, tools: [block] });
 		} else {
@@ -541,6 +574,49 @@ export function groupRows(blocks: Block[]): Row[] {
 		}
 	}
 	return out;
+}
+
+/**
+ * What a turn's header says beside its time: "8 steps · 3 files changed · 2 in the background".
+ * Empty for a turn that only talked.
+ */
+export function turnSummary(turn: Turn): string {
+	const tools = turn.rows.flatMap((row) => (row.kind === "work" ? row.tools : []));
+	const background = turn.rows.flatMap((row) => (row.kind === "background" ? row.items : []));
+	const files = new Set(
+		tools.flatMap((tool) =>
+			tool.diffs?.length
+				? tool.diffs.map((diff) => diff.path)
+				: tool.tool === "edit"
+					? [toolFile(tool) ?? tool.title]
+					: [],
+		),
+	).size;
+	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+	return [
+		...(tools.length ? [plural(tools.length, "step")] : []),
+		...(files ? [`${plural(files, "file")} changed`] : []),
+		...(background.length ? [`${background.length} in the background`] : []),
+	].join(" · ");
+}
+
+/**
+ * A turn's header: how long it worked, or that it was stopped or failed partway (its work stays in
+ * view under it). Null when the log has no times for it (an older one) and it is not live.
+ */
+export function turnTiming(user: UserBlock | null, live: boolean, now: number): string | null {
+	const started = user?.startedAt ? Date.parse(user.startedAt) : null;
+	if (live) return started ? `Working for ${formatDuration(now - started)}` : "Working…";
+	const ended = user?.endedAt ? Date.parse(user.endedAt) : null;
+	const took = started && ended ? formatDuration(ended - started) : null;
+	switch (user?.outcome) {
+		case "cancelled":
+			return took ? `Stopped after ${took}` : "Stopped";
+		case "error":
+			return took ? `Failed after ${took}` : "Failed";
+		default:
+			return took ? `Worked for ${took}` : null;
+	}
 }
 
 /**

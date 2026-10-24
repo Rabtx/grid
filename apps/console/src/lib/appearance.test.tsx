@@ -13,6 +13,7 @@ import {
 	restoreAppearance,
 	updateAppearance,
 } from "./appearance";
+import { installKeybindings } from "./keybindings";
 
 afterEach(() => {
 	resetAppearance();
@@ -174,10 +175,13 @@ describe("persistence", () => {
 
 describe("installScaleShortcuts", () => {
 	it("zooms with Ctrl + = / - / 0", () => {
-		const dispose = installScaleShortcuts(window);
+		const dispose = installScaleShortcuts();
+		const stop = installKeybindings(document);
 		// Presses land back to back, as a held shortcut would, before any flush.
 		const press = (key: string) =>
-			window.dispatchEvent(new KeyboardEvent("keydown", { key, ctrlKey: true }));
+			document.body.dispatchEvent(
+				new KeyboardEvent("keydown", { key, ctrlKey: true, bubbles: true }),
+			);
 		const scale = () => {
 			flush();
 			return appearance().uiScale;
@@ -192,5 +196,6 @@ describe("installScaleShortcuts", () => {
 		dispose();
 		press("=");
 		expect(scale()).toBe(1);
+		stop();
 	});
 });

@@ -77,6 +77,9 @@ const AgentsScreen = lazy(() => import("@/modules/settings/components/agents-scr
 const AppearanceScreen = lazy(() => import("@/modules/settings/components/appearance-screen"), {
 	export: "AppearanceScreen",
 });
+const KeybindingsScreen = lazy(() => import("@/modules/settings/components/keybindings-screen"), {
+	export: "KeybindingsScreen",
+});
 const DiagnosticsScreen = lazy(() => import("@/modules/settings/components/diagnostics-screen"), {
 	export: "DiagnosticsScreen",
 });
@@ -150,6 +153,7 @@ const Router = createRouter({
 		// Settings is a section of its own, with its own sidebar: `/settings` opens it, then a page.
 		{ path: "/settings", component: () => <Authed screen={SettingsRoute} /> },
 		{ path: "/settings/appearance", component: () => <Authed screen={AppearanceScreen} /> },
+		{ path: "/settings/keybindings", component: () => <Authed screen={KeybindingsScreen} /> },
 		{ path: "/settings/notifications", component: () => <Authed screen={NotificationsScreen} /> },
 		{ path: "/settings/agents", component: () => <Authed screen={AgentsScreen} /> },
 		{ path: "/settings/skills", component: () => <Authed screen={SkillsScreen} /> },

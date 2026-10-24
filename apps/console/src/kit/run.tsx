@@ -208,11 +208,80 @@ export function Disclosure(props: {
  * The line that opens an agent's turn: how long it has been working (shimmering while it goes)
  * or how long it took, over a hairline.
  */
-export function TurnHeader(props: { children: JSX.Element; live?: boolean }): JSX.Element {
+export function TurnHeader(props: {
+	children: JSX.Element;
+	live?: boolean;
+	/** What the turn did, after its time: "8 steps · 3 files changed". */
+	summary?: string;
+	/** The turn was stopped or failed partway: its time reads in that tone. */
+	ended?: "stopped" | "failed";
+}): JSX.Element {
 	return (
-		<p class="border-line border-b px-1 pb-2.5 text-body-lg text-fg-subtle tabular-nums">
-			<Shimmer active={Boolean(props.live)}>{props.children}</Shimmer>
+		<p class="flex min-w-0 flex-wrap items-baseline gap-x-2 border-line border-b px-1 pb-2.5 text-body-lg text-fg-subtle tabular-nums">
+			<span
+				class={
+					props.ended === "failed" ? "text-danger" : props.ended === "stopped" ? "text-warning" : ""
+				}
+			>
+				<Shimmer active={Boolean(props.live)}>{props.children}</Shimmer>
+			</span>
+			<Show when={props.summary}>
+				<span class="min-w-0 truncate text-body text-fg-faint">{props.summary}</span>
+			</Show>
 		</p>
+	);
+}
+
+/**
+ * Work an agent set going beside its own (a subagent, a command in the background), as one quiet
+ * line: its glyph, what it is, a detail and its status; it opens to what it did.
+ */
+export function BackgroundRow(props: {
+	glyph: JSX.Element;
+	label: string;
+	detail?: string;
+	status: JSX.Element;
+	children?: JSX.Element;
+}): JSX.Element {
+	const line = (
+		<>
+			{props.glyph}
+			<span class="min-w-0 truncate text-body text-fg">{props.label}</span>
+			<Show when={props.detail}>
+				<span class="shrink-0 truncate text-caption text-fg-subtle max-sm:hidden">
+					{props.detail}
+				</span>
+			</Show>
+			<span class="flex-1" />
+			{props.status}
+		</>
+	);
+	return (
+		<Show
+			when={props.children}
+			fallback={<div class="flex min-h-9 items-center gap-2.5 px-2.5 py-1">{line}</div>}
+		>
+			<details class="group/bg">
+				<summary class="flex min-h-9 cursor-pointer list-none items-center gap-2.5 rounded-kit-md px-2.5 py-1 transition-colors duration-fast hover:bg-fill pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
+					{line}
+					<ChevronDownIcon
+						size="xs"
+						class="shrink-0 text-fg-subtle transition-transform duration-fast group-open/bg:rotate-180"
+					/>
+				</summary>
+				<div class="ml-4 border-line border-l pl-3">{props.children}</div>
+			</details>
+		</Show>
+	);
+}
+
+/** A run of background work: its rows in one quiet frame with a caption. */
+export function BackgroundList(props: { label: string; children: JSX.Element }): JSX.Element {
+	return (
+		<section aria-label={props.label} class="flex flex-col rounded-kit-lg py-1 ring-line">
+			<p class="px-2.5 pt-1 pb-0.5 text-caption text-fg-subtle">{props.label}</p>
+			{props.children}
+		</section>
 	);
 }
 
@@ -412,15 +481,19 @@ export function WorkStep(props: {
 		<>
 			{props.glyph}
 			<span class="shrink-0 text-body text-fg-muted">{props.verb}</span>
-			<span class="min-w-0 truncate rounded-kit-sm bg-fill-strong px-1.5 py-0.5 font-mono text-caption text-fg">
-				{props.target}
-			</span>
+			<Show when={props.target}>
+				<span class="min-w-0 truncate rounded-kit-sm bg-fill-strong px-1.5 py-0.5 font-mono text-caption text-fg">
+					{props.target}
+				</span>
+			</Show>
 			<Show when={props.failed}>
 				<span class="sr-only">(failed)</span>
 			</Show>
 			<span class="flex-1" />
 			<Show when={props.trailing}>
-				<span class="shrink-0 text-caption text-fg-subtle tabular-nums">{props.trailing}</span>
+				<span class="min-w-0 max-w-2/5 shrink truncate text-caption text-fg-subtle tabular-nums">
+					{props.trailing}
+				</span>
 			</Show>
 		</>
 	);

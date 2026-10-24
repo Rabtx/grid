@@ -78,3 +78,5 @@ export { ShieldIcon } from "./glyphs/shield-icon";
 export { ListIcon } from "./glyphs/list-icon";
 export { ChecklistIcon } from "./glyphs/checklist-icon";
 export { AtIcon } from "./glyphs/at-icon";
+export { KeyboardIcon } from "./glyphs/keyboard-icon";
+export { BrowserIcon } from "./glyphs/browser-icon";

@@ -282,8 +282,44 @@ through the API with `Authorization: Runner <key>`, acting as the thread's owner
 
 The person's own access applies: a project they cannot see is `404`, and invalid fields `400`.
 Grid's tools are listed per thread at `GET /chat/tools?thread=` and called at
-`POST /chat/tools/call` (`{ thread, name, args }` → `{ data: { text } }`), both proved with the key
-the runner started `grid-tools.ts` with.
+`POST /chat/tools/call` (`{ thread, name, args }` → `{ data: { text, image? } }`, `image` being
+`{ data, mimeType }` for a tool that answers with a picture), both proved with the key the runner
+started `grid-tools.ts` with and needing no person's sign-in.
+
+### Runner accounts, usage and the browser
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/runner/chat/accounts` | member | `{ supported, accounts, usage }`: the agents that can run as another account here, your accounts, and what each (`account: null` is the machine's own sign-in) has used |
+| `POST` | `/runner/chat/accounts` | member | Add an account: `{ provider, label }` (`201`); `400` for an agent without accounts, `409` past 8 per agent |
+| `PATCH` | `/runner/chat/accounts/:id` | member | Rename: `{ label }` |
+| `DELETE` | `/runner/chat/accounts/:id` | member | Remove it and its config folder (`204`) |
+| `POST` | `/runner/chat/accounts/:id/sign-in` | terminals | A terminal running the agent's own sign-in for that account (`201`, the terminal) |
+| `GET` | `/runner/chat/browser/:thread` | member | The thread's page: `{ available, open, url, title, version }` |
+| `GET` | `/runner/chat/browser/:thread/frame` | member | A JPEG of the page as it is now (`404` when none is open) |
+| `POST` | `/runner/chat/browser/:thread/open` | `startAgents` | Open `{ url }` (http, https; `localhost:3000` is taken as http) |
+| `POST` | `/runner/chat/browser/:thread/back` · `/reload` | `startAgents` | Go back, reload |
+| `POST` | `/runner/chat/browser/:thread/click` | `startAgents` | Click `{ x, y }` in page pixels (1280×800) |
+| `POST` | `/runner/chat/browser/:thread/type` · `/key` · `/scroll` | `startAgents` | Type `{ text }`, press `{ key }`, scroll `{ by }` pixels |
+| `POST` | `/runner/chat/browser/:thread/close` | `startAgents` | Close the page and its cookies (`204`) |
+
+An account is a config folder of its own (`CLAUDE_CONFIG_DIR` for Claude Code, `CODEX_HOME` for
+Codex) under the runner's data folder; `POST /runner/chat/sessions` takes `account` to run a thread
+as one (`400` when it is not yours for that agent), and threads report it as `account`. Usage comes
+from what the agents report as they work (Claude Code's `rate_limit_event`, Codex's
+`account/rateLimits/updated` and `account/rateLimits/read`): each `limits` entry is
+`{ window, usedPercent, resetsAt, limited }`, and a window past its reset reads `0`.
+`GET /runner/chat/running` entries carry `waiting` (the turn waits on a person).
+
+The browser is one headless Chromium on the runner's machine (`GRID_BROWSER` points at one when
+it is not in the usual places; `available: false` when there is none; `GRID_BROWSER_NO_SANDBOX=1`
+runs it without Chromium's sandbox on a machine that cannot give it one), started on the first page
+and stopped ten minutes after the last closes; each thread's page is its own browser context.
+Agents drive it with Grid's tools `browser_open`, `browser_snapshot`, `browser_click`,
+`browser_type`, `browser_press`, `browser_scroll`, `browser_back` and `browser_screenshot` (which
+answers with the picture); each answers with the page's numbered elements and text. Opening or
+moving to another address records `{ type: "browser", url, title }`, which opens the browser pane
+beside the thread. A thread's page closes with the thread.
 
 ### Runner file attribution
 
@@ -414,6 +450,7 @@ Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-10-24 | Runner: provider accounts and usage, `account` on threads, `waiting` on running threads, the thread browser and Grid's browser tools; tool answers may carry an image; `GET /chat/tools` answers without a sign-in | no |
 | 2026-10-06 | Auth: optional signed bearer proof on logout revokes the same session across refresh-cookie rotation | no |
 | 2026-10-06 | Auth: concurrent incorrect OTP/MFA codes count atomically toward the existing challenge attempt limit | no |
 | 2026-10-06 | Runner Files: scope live agent attribution to the selected workspace; Operate rejects inherited or invalid project folder entries | no |

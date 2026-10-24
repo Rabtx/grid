@@ -37,9 +37,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Agents can read, add and move tasks on the project's board, acting as you.
 - Settings → Appearance → Background: a picture behind the sidebar or the whole app, with interface
   opacity and blur.
+- A browser per thread that agents drive with Grid's browser tools (open, read, click, type,
+  scroll, screenshot) and people watch and use in the workspace's Browser pane; it opens by itself
+  when the agent opens a page.
+- Chat tabs: a tab menu (pin, close, close others, close to the right, reopen closed), pinned tabs
+  first, drag to reorder, dots for threads waiting on you or finished while away, Alt-key commands,
+  and a tab switcher on phones.
+- Settings → Keybindings: every keyboard command in one place, each remappable with a key recorder.
+- Several accounts per agent (Claude Code, Codex), each signed in on its own and picked per thread,
+  and usage rings for each plan's windows at the foot of the sidebar.
+- A clearer transcript: each turn's header says how long it took (or that it was stopped or
+  failed) and what it did, subagents and background commands sit in compact rows, and steps a stop
+  cut short read Interrupted.
+- A third edition of the feature tour for the above.
 
 ### Fixed
 
+- Agents saw none of Grid's own tools (visuals, board, crews): the runner asked for a sign-in on
+  the tool list.
 - Approvals stay in the inbox while their thread is open, and are settled once answered.
 - The landing page shows the real install URL instead of localhost.
 
