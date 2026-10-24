@@ -4,6 +4,7 @@ import type { TerminalInfo } from "@/modules/terminal/types/terminal.types";
 
 import type {
 	AccountsListing,
+	BrowserState,
 	ChatEvent,
 	ChatProvider,
 	ChatSession,
@@ -348,6 +349,30 @@ export const chatService = {
 	 * Install or sign in an agent on its machine: opens a terminal there running the agent's own
 	 * command, to watch and answer.
 	 */
+	/** Where the thread's browser page is (Grid's browser, which its agent drives). */
+	browser: (token: string, thread: string, scope = "") =>
+		call<BrowserState>(`/chat/browser/${thread}`, token, {}, scope),
+	/** A picture of the thread's browser page as it is now; null when nothing is open. */
+	async browserFrame(token: string, thread: string, scope = ""): Promise<Blob | null> {
+		const response = await fetch(runnerUrl(`/chat/browser/${thread}/frame`, scope), {
+			headers: { ...workspaceHeaders(), Authorization: `Bearer ${token}` },
+		}).catch(() => null);
+		return response?.ok ? response.blob() : null;
+	},
+	/** The person using the thread's browser: open an address, click, type, press, scroll, go back. */
+	browserAct: (
+		token: string,
+		thread: string,
+		action: "open" | "back" | "reload" | "click" | "type" | "key" | "scroll" | "close",
+		body: Record<string, unknown> = {},
+		scope = "",
+	) =>
+		call<BrowserState | undefined>(
+			`/chat/browser/${thread}/${action}`,
+			token,
+			{ method: "POST", body: JSON.stringify(body) },
+			scope,
+		),
 	/** This person's provider accounts on the machine, and what each has used of its plan. */
 	accounts: (token: string, scope = "") =>
 		call<AccountsListing>("/chat/accounts", token, {}, scope),

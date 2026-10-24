@@ -123,6 +123,8 @@ export type ChatEvent =
 	  }
 	/** What waits for the agent, and whether it is held. Like `commands`, never logged. */
 	| { type: "queue"; items: QueuedMessage[]; paused: boolean }
+	/** The agent opened a page in the thread's browser: the browser pane shows it. */
+	| { type: "browser"; url: string; title: string }
 	/**
 	 * What the agent can be asked to do right now, for the composer's `/` menu. It is not part of
 	 * the conversation: the runner sends it on attach and whenever it changes, and never logs it.
@@ -190,6 +192,15 @@ export type ChatSession = {
 	account?: string | null;
 	createdAt: string;
 	updatedAt: string;
+};
+
+/** A thread's browser page: whether one is open, where, and a count that rises as it changes. */
+export type BrowserState = {
+	available?: boolean;
+	open: boolean;
+	url: string;
+	title: string;
+	version: number;
 };
 
 /** A second sign-in with an agent's provider on a machine (another Claude or ChatGPT plan). */

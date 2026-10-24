@@ -168,8 +168,11 @@ export type GridTool = {
 	inputSchema: Record<string, unknown>;
 	/** Whether a thread's agent gets it; every thread's does when left out. */
 	offered?: (session: ChatSessionRow) => boolean;
-	run: (session: ChatSessionRow, args: Record<string, unknown>) => Promise<string> | string;
+	run: (session: ChatSessionRow, args: Record<string, unknown>) => Promise<ToolAnswer> | ToolAnswer;
 };
+
+/** What a tool answers the agent: words, and a picture with them when it has one (a screenshot). */
+export type ToolAnswer = string | { text: string; image?: { data: string; mimeType: string } };
 
 /** How a message is sent: as usual, or while the agent works, delivered into its turn. */
 export type Delivery = "send" | "steer";
@@ -345,6 +348,7 @@ export class ChatHub {
 	) => void)[] = [];
 	private personal: PersonalSetup = () => ({ env: {}, note: null });
 	private accounts: Accounts | null = null;
+	private readonly removed: ((thread: string) => void)[] = [];
 	private mcp: (workspace: string, agent: string, thread: string) => McpServerSpec[] = () => [];
 	private skills: (workspace: string, project: string) => Promise<string> | string = () => "";
 	/** Grid's own questions waiting in threads, by their approval id. */
@@ -527,13 +531,24 @@ export class ChatHub {
 			.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
 	}
 
-	/** Run one of Grid's tools for a thread's agent: its answer, or a ChatError saying why not. */
+	/** Run one of Grid's tools for a thread's agent: its answer in words, or a ChatError. */
 	async callTool(
 		key: string,
 		thread: string,
 		name: string,
 		args: Record<string, unknown>,
 	): Promise<string> {
+		const answer = await this.answerTool(key, thread, name, args);
+		return typeof answer === "string" ? answer : answer.text;
+	}
+
+	/** Run one of Grid's tools for a thread's agent: its whole answer, picture included. */
+	async answerTool(
+		key: string,
+		thread: string,
+		name: string,
+		args: Record<string, unknown>,
+	): Promise<ToolAnswer> {
 		const session = this.checkTools(key, thread);
 		const tool = this.gridTools.get(name);
 		if (!tool || !(tool.offered?.(session) ?? true))
@@ -631,6 +646,16 @@ export class ChatHub {
 	/** What each person's agents start with: their git identity, and a note for the first message. */
 	setPersonal(setup: PersonalSetup): void {
 		this.personal = setup;
+	}
+
+	/** Hear when a thread is deleted, to let go of what it held (its browser page). */
+	onRemoved(listener: (thread: string) => void): void {
+		this.removed.push(listener);
+	}
+
+	/** The thread's agent opened a page in its browser: logged, so the console shows the pane. */
+	showBrowser(thread: string, url: string, title: string): void {
+		if (this.store.get(thread)) this.record(thread, { type: "browser", url, title });
 	}
 
 	/** Where provider accounts live, so a thread can run as one and its usage is kept. */
@@ -1173,8 +1198,10 @@ export class ChatHub {
 		for (const side of sides) {
 			this.park(side.id);
 			this.store.delete(side.id);
+			for (const listener of this.removed) listener(side.id);
 		}
 		this.park(id);
+		for (const listener of this.removed) listener(id);
 		// Its checkpoints are refs in the repository the thread worked in, which outlives it.
 		void dropCheckpoints(session.worktree?.origin ?? session.cwd, id).catch((cause: unknown) => {
 			console.warn(
@@ -1873,6 +1900,11 @@ export class ChatHub {
 	sides(workspace: string, id: string): ChatSessionRow[] {
 		this.owned(workspace, id);
 		return this.store.sides(id);
+	}
+
+	/** A thread of this workspace, or a 404 ChatError for one that is not (or not here). */
+	thread(workspace: string, id: string): ChatSessionRow {
+		return this.owned(workspace, id);
 	}
 
 	/**

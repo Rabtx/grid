@@ -28,7 +28,9 @@ import { RefusalTally } from "./diagnostics/refusals";
 import { DiagnosticRoutes, safeCloseReason } from "./diagnostics/routes";
 import { watchEventLoop } from "./diagnostics/stall";
 import { crewRequest } from "./chat/crew-routes";
+import type { Browsers } from "./browser/browsers";
 import { accountRequest } from "./chat/account-routes";
+import { browserRequest } from "./chat/browser-routes";
 import type { Accounts } from "./chat/accounts";
 import type { Crews } from "./chat/crews";
 import { chatRequest, chatToolsRequest } from "./chat/routes";
@@ -164,6 +166,8 @@ export function startServer(
 		crews?: Crews;
 		/** People's provider accounts and what each has used of its plan. */
 		accounts?: Accounts;
+		/** Each thread's browser page, shared by its agent and the browser pane. */
+		browsers?: Browsers;
 		/** Whether a notification's approval buttons still answer for the person it went to. */
 		mayApprove?: (act: PushAct) => boolean;
 		/** Settings → Connectors, and the proxies agents run for them. */
@@ -195,6 +199,7 @@ export function startServer(
 		roles,
 		crews,
 		accounts,
+		browsers,
 		mayApprove,
 		connectors,
 		skills,
@@ -634,6 +639,8 @@ export function startServer(
 					if (crew) return crew;
 					const account = accounts ? await accountRequest(request, url, who, accounts) : null;
 					if (account) return account;
+					const page = browsers ? await browserRequest(request, url, who, chat, browsers) : null;
+					if (page) return page;
 					const handled = await chatRequest(request, url, who, chat, roles?.store);
 					if (handled) return handled;
 				}

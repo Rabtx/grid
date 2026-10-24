@@ -2,7 +2,7 @@
  * A thread's split view, kept as plain data so it can be saved per thread and checked on load.
  *
  * Focus is the thread alone. Split puts one workspace pane beside it; Three stacks two. Each pane
- * holds tabs: the thread's terminal, a preview of what that terminal serves, or a file.
+ * holds tabs: the thread's terminal, a preview of what that terminal serves, its browser, or a file.
  */
 
 export type SplitMode = "focus" | "split" | "three";
@@ -10,6 +10,8 @@ export type SplitMode = "focus" | "split" | "three";
 export type PaneTab =
 	| { kind: "terminal" }
 	| { kind: "preview" }
+	/** The thread's own browser page, which its agent drives with Grid's browser tools. */
+	| { kind: "browser" }
 	| { kind: "file"; path: string }
 	/** A side chat beside the thread: another thread, by its id. */
 	| { kind: "chat"; id: string; title: string };
@@ -44,6 +46,7 @@ export function tabId(tab: PaneTab): string {
 
 const TERMINAL: PaneTab = { kind: "terminal" };
 const PREVIEW: PaneTab = { kind: "preview" };
+const BROWSER: PaneTab = { kind: "browser" };
 
 export function defaultLayout(): SplitLayout {
 	return {
@@ -70,6 +73,7 @@ function readTab(value: unknown): PaneTab | null {
 	const tab = value as Record<string, unknown>;
 	if (tab.kind === "terminal") return TERMINAL;
 	if (tab.kind === "preview") return PREVIEW;
+	if (tab.kind === "browser") return BROWSER;
 	if (tab.kind === "file" && typeof tab.path === "string" && tab.path.trim())
 		return { kind: "file", path: tab.path };
 	if (tab.kind === "chat" && typeof tab.id === "string" && /^[\w-]{1,120}$/.test(tab.id))
@@ -212,6 +216,15 @@ export function closeTab(layout: SplitLayout, pane: number, id: string): SplitLa
 	const panes = layout.panes.filter((_, i) => i !== pane);
 	if (panes.length === 0) return { ...defaultLayout(), ratio: layout.ratio, stack: layout.stack };
 	return { ...layout, mode: layout.mode === "three" ? "split" : layout.mode, panes };
+}
+
+/** Show a tab (opening the workspace if it is shut), or close it when it is the one showing. */
+export function toggleTab(layout: SplitLayout, tab: PaneTab): SplitLayout {
+	const id = tabId(tab);
+	const where = paneOf(layout, id);
+	if (layout.mode !== "focus" && where >= 0 && layout.panes[where]?.active === id)
+		return closeTab(layout, where, id);
+	return openTab(layout, tab);
 }
 
 /**

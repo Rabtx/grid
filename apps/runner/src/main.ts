@@ -48,7 +48,9 @@ import { type RestoreDeps, restoreMachine, storedMachines } from "./restore";
 import { EnvironmentSync } from "./sync/environment-sync";
 import { machineRunnerKey } from "./sync/runner-key";
 import { boardTools } from "./chat/board-tools";
+import { Browsers } from "./browser/browsers";
 import { Accounts } from "./chat/accounts";
+import { browserTools } from "./chat/browser-tools";
 import { Crews, CrewStore } from "./chat/crews";
 import { ThreadSync } from "./sync/thread-sync";
 import { GithubInbox } from "./inbox/github";
@@ -269,6 +271,13 @@ chat.setGridTools(() => `http://127.0.0.1:${server.port}`);
 const crews = new Crews(new CrewStore(config.chatDb), chat);
 const accounts = new Accounts(config.chatDb, join(dirname(config.chatDb), "accounts"));
 chat.setAccounts(accounts);
+// Each thread's browser page: Chromium starts on the first one and stops when none are left.
+const browsers = new Browsers(join(dirname(config.chatDb), "browser"));
+for (const tool of browserTools(browsers, (session, page) =>
+	chat.showBrowser(session.id, page.url, page.title),
+))
+	chat.registerTool(tool);
+chat.onRemoved((thread) => void browsers.close(thread));
 crews.watch();
 // The board, for agents: through the API, as the thread's person (needs the runner key).
 for (const tool of boardTools(runnerKey ? { url: config.apiUrl, key: runnerKey } : null))
@@ -393,6 +402,7 @@ const server = startServer(config, store, verify, chat, {
 	roles: { store: roles, knownProvider: (id) => chat.knowsProvider(id) },
 	crews,
 	accounts,
+	browsers,
 	machine: {
 		prefs: machinePrefs,
 		acpAgents,
@@ -435,6 +445,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 	process.on(signal, () => {
 		store.closeAll();
 		chat.closeAll();
+		browsers.shutdown();
 		automations.stop();
 		threadSync?.close();
 		environmentSync?.close();

@@ -179,6 +179,8 @@ export type ChatEvent =
 	 * failure). Like `commands`, not part of the log: sent on attach and whenever it changes.
 	 */
 	| { type: "queue"; items: QueuedMessage[]; paused: boolean }
+	/** The agent opened a page in the thread's browser (Grid's browser tools): the pane shows it. */
+	| { type: "browser"; url: string; title: string }
 	/**
 	 * The commands this agent offers, as it reported them: the whole list, each time it changes.
 	 * Not part of the conversation — the hub keeps the latest list per live session and sends it

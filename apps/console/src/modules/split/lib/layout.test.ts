@@ -12,6 +12,7 @@ import {
 	STACK,
 	type SplitLayout,
 	tabId,
+	toggleTab,
 } from "./layout";
 
 const ids = (layout: SplitLayout) => layout.panes.map((pane) => pane.tabs.map(tabId));
@@ -144,5 +145,18 @@ describe("side chat tabs", () => {
 			panes: [{ tabs: [{ kind: "chat", id: "../x" }, { kind: "terminal" }], active: "terminal" }],
 		});
 		expect(ids(bad)).toEqual([["terminal"]]);
+	});
+});
+
+describe("the browser tab", () => {
+	it("is kept when saved, and toggles open and shut", () => {
+		const opened = toggleTab(defaultLayout(), { kind: "browser" });
+		expect(opened.mode).toBe("split");
+		expect(ids(opened)).toEqual([["terminal", "preview", "browser"]]);
+		expect(ids(normalize(JSON.parse(JSON.stringify(opened))))).toEqual([
+			["terminal", "preview", "browser"],
+		]);
+		const shut = toggleTab(opened, { kind: "browser" });
+		expect(ids(shut)).toEqual([["terminal", "preview"]]);
 	});
 });

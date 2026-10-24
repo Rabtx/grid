@@ -113,3 +113,106 @@ export function LivePreview(props: { title: string; src: string }): JSX.Element 
 		/>
 	);
 }
+
+/** Keys a remote page is sent as keys rather than typed as text. */
+const PAGE_KEYS = new Set([
+	"Enter",
+	"Tab",
+	"Backspace",
+	"Delete",
+	"Escape",
+	"ArrowUp",
+	"ArrowDown",
+	"ArrowLeft",
+	"ArrowRight",
+	"Home",
+	"End",
+	"PageUp",
+	"PageDown",
+]);
+
+/**
+ * A page running elsewhere (the thread's browser on its machine), shown as its latest picture and
+ * usable through it: a click lands at the same spot on the page, keys go to whatever has focus
+ * there, the wheel scrolls it. Points are in the page's own pixels.
+ */
+export function RemotePage(props: {
+	title: string;
+	/** The latest picture of the page; null until the first arrives. */
+	src: string | null;
+	onClickAt: (x: number, y: number) => void;
+	onType: (text: string) => void;
+	onKey: (key: string) => void;
+	onScroll: (by: number) => void;
+	/** Something the person did is on its way: the picture is about to change. */
+	busy?: boolean;
+}): JSX.Element {
+	let image: HTMLImageElement | undefined;
+	let wheel = 0;
+	let wheelTimer: ReturnType<typeof setTimeout> | undefined;
+	const point = (event: MouseEvent) => {
+		if (!image?.naturalWidth) return null;
+		const box = image.getBoundingClientRect();
+		return {
+			x: Math.round(((event.clientX - box.left) * image.naturalWidth) / box.width),
+			y: Math.round(((event.clientY - box.top) * image.naturalHeight) / box.height),
+		};
+	};
+	return (
+		<button
+			type="button"
+			aria-label={`${props.title}: click, type and scroll to use the page`}
+			class="focus-ring relative block min-h-0 w-full flex-1 cursor-default overflow-hidden bg-white text-left"
+			onClick={(event) => {
+				// A click from the keyboard (Enter, Space) has no place on the page: those keys are sent.
+				if (event.detail === 0) return;
+				const at = point(event);
+				if (at) props.onClickAt(at.x, at.y);
+			}}
+			onKeyUp={(event) => {
+				if (event.key === " ") event.preventDefault();
+			}}
+			onKeyDown={(event) => {
+				if (event.metaKey || event.ctrlKey || event.altKey) return;
+				if (PAGE_KEYS.has(event.key)) {
+					event.preventDefault();
+					props.onKey(event.key);
+				} else if (event.key.length === 1) {
+					event.preventDefault();
+					props.onType(event.key);
+				}
+			}}
+			onWheel={(event) => {
+				event.preventDefault();
+				// Many small wheel steps become one scroll a moment later.
+				wheel += event.deltaY;
+				clearTimeout(wheelTimer);
+				wheelTimer = setTimeout(() => {
+					const by = Math.round(wheel);
+					wheel = 0;
+					if (by) props.onScroll(by);
+				}, 120);
+			}}
+		>
+			<Show when={props.src}>
+				{(src) => (
+					<img
+						ref={(el) => {
+							image = el;
+						}}
+						src={src()}
+						alt={props.title}
+						draggable={false}
+						class="block h-auto w-full select-none"
+					/>
+				)}
+			</Show>
+			<Show when={props.busy}>
+				<span
+					class="absolute top-2 right-2 size-2 animate-pulse rounded-full bg-accent"
+					aria-hidden="true"
+				/>
+			</Show>
+		</button>
+	);
+}

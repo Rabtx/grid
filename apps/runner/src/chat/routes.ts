@@ -497,11 +497,10 @@ export async function chatToolsRequest(
 		body.args && typeof body.args === "object" && !Array.isArray(body.args)
 			? (body.args as Record<string, unknown>)
 			: {};
-	return runAsync(async () =>
-		Response.json({
-			data: { text: await hub.callTool(key, body.thread as string, body.name as string, args) },
-		}),
-	);
+	return runAsync(async () => {
+		const answer = await hub.answerTool(key, body.thread as string, body.name as string, args);
+		return Response.json({ data: typeof answer === "string" ? { text: answer } : answer });
+	});
 }
 
 function run(respond: () => Response): Response {

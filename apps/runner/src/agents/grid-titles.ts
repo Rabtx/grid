@@ -26,6 +26,26 @@ export function gridToolTitle(tool: string, input: Record<string, unknown> = {})
 			return "Checked the crew";
 		case "crew_stop_worker":
 			return "Stopped a crew member";
+		case "browser_open": {
+			const url = typeof input.url === "string" ? input.url.replace(/^https?:\/\//, "") : null;
+			return url ? `Opened ${url.slice(0, 80)} in the browser` : "Opened a page in the browser";
+		}
+		case "browser_snapshot":
+			return "Read the page";
+		case "browser_click":
+			return typeof input.ref === "number" ? `Clicked element ${input.ref}` : "Clicked on the page";
+		case "browser_type":
+			return typeof input.ref === "number"
+				? `Typed into element ${input.ref}`
+				: "Typed on the page";
+		case "browser_press":
+			return typeof input.key === "string" ? `Pressed ${input.key}` : "Pressed a key";
+		case "browser_scroll":
+			return "Scrolled the page";
+		case "browser_back":
+			return "Went back a page";
+		case "browser_screenshot":
+			return "Took a screenshot of the page";
 		default:
 			return null;
 	}

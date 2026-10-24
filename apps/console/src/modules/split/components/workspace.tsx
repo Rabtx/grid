@@ -6,6 +6,7 @@ import type { FileDiff } from "@/modules/chat/types/chat.types";
 import {
 	ChatIcon,
 	CodeIcon,
+	BrowserIcon,
 	GlobeIcon,
 	iconButton,
 	Menu,
@@ -37,6 +38,7 @@ import { layoutsStore } from "../stores/layouts";
 import type { ThreadPlace } from "../stores/thread-terminals";
 
 import { FilePane } from "./file-pane";
+import { BrowserPane } from "./browser-pane";
 import { PreviewPane } from "./preview-pane";
 import { TerminalPane } from "./terminal-pane";
 
@@ -64,6 +66,8 @@ type PaneActions = {
 function describe(tab: PaneTab): SplitTab {
 	if (tab.kind === "terminal") return { id: "terminal", label: "Terminal", icon: <TerminalIcon /> };
 	if (tab.kind === "preview") return { id: "preview", label: "Preview", icon: <GlobeIcon /> };
+	if (tab.kind === "browser")
+		return { id: "browser", label: "Browser", icon: <BrowserIcon />, closable: true };
 	if (tab.kind === "chat")
 		return { id: tabId(tab), label: tab.title, icon: <ChatIcon />, closable: true };
 	return { id: tabId(tab), label: baseName(tab.path), icon: <CodeIcon />, closable: true };
@@ -244,6 +248,7 @@ function PaneView(
 		const candidates: PaneTab[] = [
 			{ kind: "terminal" },
 			{ kind: "preview" },
+			{ kind: "browser" },
 			...props.files.map((file): PaneTab => ({ kind: "file", path: file.path })),
 		];
 		const offers = candidates.filter(open);
@@ -283,7 +288,9 @@ function PaneView(
 					? { kind: "terminal" }
 					: key === "preview"
 						? { kind: "preview" }
-						: { kind: "file", path: key.slice("file:".length) };
+						: key === "browser"
+							? { kind: "browser" }
+							: { kind: "file", path: key.slice("file:".length) };
 			props.actions.open(tab);
 		} else if (id === "move") {
 			props.actions.move(active);
@@ -335,6 +342,9 @@ function PaneView(
 										active={tabId(tab()) === props.pane.active}
 										onShowTerminal={() => props.actions.open({ kind: "terminal" })}
 									/>
+								</Show>
+								<Show when={tab().kind === "browser"}>
+									<BrowserPane place={props.place} active={tabId(tab()) === props.pane.active} />
 								</Show>
 								<Show
 									when={
