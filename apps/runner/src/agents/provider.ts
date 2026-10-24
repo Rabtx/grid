@@ -1,4 +1,5 @@
 import type { ChatEvent, Choice } from "./events";
+import type { UsageLimit } from "./rate-limits";
 
 /** How a provider's session reports what happens. */
 /** An MCP server an agent starts with: a command it runs and speaks to over stdio. */
@@ -22,6 +23,8 @@ export type AgentContext = {
 	/** The workspace's connectors this agent may use (Settings → Connectors). */
 	mcpServers?: McpServerSpec[];
 	emit: (event: ChatEvent) => void;
+	/** How much of its plan's limits the account has used, whenever the agent says. */
+	onRateLimits?: (limits: UsageLimit[]) => void;
 	/** The provider's session id, once it has one: stored so a later run can resume. */
 	onResumeToken: (token: string) => void;
 };

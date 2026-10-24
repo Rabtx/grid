@@ -28,6 +28,8 @@ import { RefusalTally } from "./diagnostics/refusals";
 import { DiagnosticRoutes, safeCloseReason } from "./diagnostics/routes";
 import { watchEventLoop } from "./diagnostics/stall";
 import { crewRequest } from "./chat/crew-routes";
+import { accountRequest } from "./chat/account-routes";
+import type { Accounts } from "./chat/accounts";
 import type { Crews } from "./chat/crews";
 import { chatRequest, chatToolsRequest } from "./chat/routes";
 import type { RunnerConfig } from "./config";
@@ -160,6 +162,8 @@ export function startServer(
 		roles?: RoleDeps;
 		/** Crews: coordinator chats and their members. */
 		crews?: Crews;
+		/** People's provider accounts and what each has used of its plan. */
+		accounts?: Accounts;
 		/** Whether a notification's approval buttons still answer for the person it went to. */
 		mayApprove?: (act: PushAct) => boolean;
 		/** Settings → Connectors, and the proxies agents run for them. */
@@ -190,6 +194,7 @@ export function startServer(
 		automations,
 		roles,
 		crews,
+		accounts,
 		mayApprove,
 		connectors,
 		skills,
@@ -598,6 +603,23 @@ export function startServer(
 					return Response.json({ data: info }, { status: 201 });
 				}
 
+				// Sign a provider account in: the agent's own sign-in, in a terminal, pointed at its folder.
+				const accountSignIn = url.pathname.match(/^\/chat\/accounts\/([\w-]+)\/sign-in$/);
+				if (accounts && accountSignIn && request.method === "POST") {
+					const who = await whoFrom(request, "Sign in to set up agents");
+					if (who instanceof Response) return who;
+					if (!mayUseTerminals(who)) return error(403, NOT_ALLOWED);
+					const id = accountSignIn[1] ?? "";
+					const command = accounts.signInCommand(who.userId, id);
+					if (!command) return error(404, "No such account");
+					const info = store.open(who.userId, { cols: 100, rows: 30 }, undefined, {
+						command,
+						title: `Sign in ${accounts.find(who.userId, id)?.label ?? "account"}`,
+					});
+					if (!info) return error(429, "Close a terminal before opening another");
+					return Response.json({ data: info }, { status: 201 });
+				}
+
 				if (roles && (url.pathname === "/roles" || url.pathname.startsWith("/roles/"))) {
 					const who = await whoFrom(request, "Sign in to see your team");
 					if (who instanceof Response) return who;
@@ -610,6 +632,8 @@ export function startServer(
 					if (who instanceof Response) return who;
 					const crew = crews ? await crewRequest(request, url, who, crews) : null;
 					if (crew) return crew;
+					const account = accounts ? await accountRequest(request, url, who, accounts) : null;
+					if (account) return account;
 					const handled = await chatRequest(request, url, who, chat, roles?.store);
 					if (handled) return handled;
 				}

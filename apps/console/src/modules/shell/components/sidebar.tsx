@@ -12,6 +12,7 @@ import {
 	Skeleton,
 	Stack,
 } from "@/kit";
+import { UsageRings } from "@/modules/chat/components/usage-rings";
 import { useWorkspace } from "@/modules/projects";
 
 import { useShell } from "../context/shell-context";
@@ -134,6 +135,7 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 					</div>
 				)}
 			</Show>
+			<UsageRings />
 		</nav>
 	);
 }

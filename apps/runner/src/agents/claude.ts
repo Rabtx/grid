@@ -14,6 +14,7 @@ import {
 } from "./events";
 import { diffTexts, type FileDiff } from "./diff";
 import { gridToolTitle } from "./grid-titles";
+import { claudeRateLimits } from "./rate-limits";
 import type { AgentContext, AgentSession, Provider, ProviderInfo, TurnResult } from "./provider";
 import { type JsonProcess, type Spawn, spawnJsonProcess } from "./stdio";
 
@@ -518,6 +519,11 @@ async function startClaudeSession(
 		if (held && type !== "user") {
 			clearTimeout(held.timer);
 			held = null;
+		}
+		if (type === "rate_limit_event") {
+			const limits = claudeRateLimits(message);
+			if (limits.length) context.onRateLimits?.(limits);
+			return;
 		}
 		if (type === "system" && message.subtype === "init") {
 			if (typeof message.session_id === "string") {

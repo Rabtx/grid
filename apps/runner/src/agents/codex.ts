@@ -11,6 +11,7 @@ import {
 } from "./events";
 import { diffFromPatch, diffTexts, type FileDiff } from "./diff";
 import { gridToolTitle } from "./grid-titles";
+import { codexRateLimits } from "./rate-limits";
 import type { AgentContext, AgentSession, Provider, ProviderInfo, TurnResult } from "./provider";
 import { JsonRpc, type Spawn, spawnJsonProcess } from "./stdio";
 
@@ -477,6 +478,11 @@ async function startCodexSession(
 				});
 				return;
 			}
+			case "account/rateLimits/updated": {
+				const limits = codexRateLimits(params);
+				if (limits.length) context.onRateLimits?.(limits);
+				return;
+			}
 			case "thread/tokenUsage/updated": {
 				const usage = params.tokenUsage as {
 					total: { inputTokens: number; outputTokens: number; totalTokens: number };
@@ -569,6 +575,16 @@ async function startCodexSession(
 	try {
 		await rpc.request("initialize", { clientInfo: CLIENT_INFO, capabilities: null });
 		rpc.notify("initialized", undefined);
+		// What the account has used so far, before any turn reports it. Older Codex has no such
+		// call; the next turn's update says it instead.
+		if (context.onRateLimits)
+			void rpc.request<Record<string, unknown>>("account/rateLimits/read", {}).then(
+				(answer) => {
+					const limits = codexRateLimits(answer ?? {});
+					if (limits.length) context.onRateLimits?.(limits);
+				},
+				() => undefined,
+			);
 
 		let started: Started | null = null;
 		if (context.resume) {

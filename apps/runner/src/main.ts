@@ -48,6 +48,7 @@ import { type RestoreDeps, restoreMachine, storedMachines } from "./restore";
 import { EnvironmentSync } from "./sync/environment-sync";
 import { machineRunnerKey } from "./sync/runner-key";
 import { boardTools } from "./chat/board-tools";
+import { Accounts } from "./chat/accounts";
 import { Crews, CrewStore } from "./chat/crews";
 import { ThreadSync } from "./sync/thread-sync";
 import { GithubInbox } from "./inbox/github";
@@ -266,6 +267,8 @@ chat.setMcp((workspace, agent, thread) => connectors.serversFor(workspace, agent
 chat.setGridTools(() => `http://127.0.0.1:${server.port}`);
 // Crews: coordinator chats that hand tasks to member threads, and watch them for stalls.
 const crews = new Crews(new CrewStore(config.chatDb), chat);
+const accounts = new Accounts(config.chatDb, join(dirname(config.chatDb), "accounts"));
+chat.setAccounts(accounts);
 crews.watch();
 // The board, for agents: through the API, as the thread's person (needs the runner key).
 for (const tool of boardTools(runnerKey ? { url: config.apiUrl, key: runnerKey } : null))
@@ -389,6 +392,7 @@ const server = startServer(config, store, verify, chat, {
 	automations,
 	roles: { store: roles, knownProvider: (id) => chat.knowsProvider(id) },
 	crews,
+	accounts,
 	machine: {
 		prefs: machinePrefs,
 		acpAgents,

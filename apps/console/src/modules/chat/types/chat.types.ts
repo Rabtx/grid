@@ -186,8 +186,36 @@ export type ChatSession = {
 	role?: SessionRole | null;
 	/** A side chat's thread, when this is one. */
 	parentId?: string | null;
+	/** The provider account it runs as; null is the machine's own sign-in. */
+	account?: string | null;
 	createdAt: string;
 	updatedAt: string;
+};
+
+/** A second sign-in with an agent's provider on a machine (another Claude or ChatGPT plan). */
+export type ProviderAccount = { id: string; provider: string; label: string; createdAt: string };
+
+/** One window of a plan's limits, as the agent last reported it. */
+export type UsageLimit = {
+	window: string;
+	usedPercent: number | null;
+	resetsAt: string | null;
+	limited: boolean;
+};
+
+/** What an account (null: the machine's own sign-in) has used of its plan. */
+export type AccountUsage = {
+	provider: string;
+	account: string | null;
+	limits: UsageLimit[];
+	updatedAt: string;
+};
+
+export type AccountsListing = {
+	/** The agents that can run as another account here. */
+	supported: string[];
+	accounts: ProviderAccount[];
+	usage: AccountUsage[];
 };
 
 /** How a chat's worktree stands: what removing it would throw away. */

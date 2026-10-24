@@ -387,6 +387,8 @@ export {
 	MetricCard,
 	MetricGrid,
 	SplitBar,
+	UsageRing,
+	UsageStrip,
 } from "./metric";
 export {
 	Citation,

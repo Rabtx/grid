@@ -29,6 +29,7 @@ import {
 	Suggestions,
 	Text,
 	ToolIcon,
+	UserIcon,
 } from "@/kit";
 
 import {
@@ -49,6 +50,7 @@ import { chatService } from "../services/chat.service";
 import { draftsStore } from "../stores/drafts";
 import { offeredProviders, providersStore } from "../stores/providers";
 import { rolesStore } from "../stores/roles";
+import { accountsStore } from "../stores/accounts";
 import { threadsStore } from "../stores/threads";
 import type { ChatProvider, ChatSession, Role, RoleDraft } from "../types/chat.types";
 
@@ -93,6 +95,7 @@ function remember(key: string, value: string | null): void {
 // The last model and effort chosen for each agent, so a new chat starts where the last one did.
 const modelKey = (agent: string) => `grid.chat.model.${agent}`;
 const effortKey = (agent: string) => `grid.chat.effort.${agent}`;
+const accountKey = (agent: string) => `grid.chat.account.${agent}`;
 
 const tabsKey = (project: string) => `grid.chat.tabs.${project}`;
 
@@ -650,6 +653,33 @@ function NewChat(props: {
 		}
 	}
 
+	// Which of this person's accounts with the agent's provider the thread runs as.
+	const accountScope = () => placementsStore.scopeOf(props.project ?? "");
+	const [pickedAccount, setPickedAccount] = createSignal<Record<string, string | null>>({});
+	const account = (): string | null => {
+		const provider = chosen();
+		if (!provider) return null;
+		const picked = pickedAccount();
+		const wanted =
+			provider.id in picked ? picked[provider.id] : remembered(accountKey(provider.id));
+		return accountsStore.accounts(provider.id, accountScope()).some((item) => item.id === wanted)
+			? (wanted ?? null)
+			: null;
+	};
+	const chooseAccount = (provider: string, id: string | null) => {
+		setPickedAccount({ ...untrack(pickedAccount), [provider]: id });
+		try {
+			if (id) localStorage.setItem(accountKey(provider), id);
+			else localStorage.removeItem(accountKey(provider));
+		} catch {
+			// Not remembered; the next thread runs as your own sign-in.
+		}
+	};
+	onSettled(() => {
+		const token = auth.token();
+		if (token) void accountsStore.load(token, untrack(accountScope)).catch(() => undefined);
+	});
+
 	async function start(text: string, files: File[]): Promise<boolean> {
 		const token = auth.token();
 		const provider = chosen();
@@ -671,6 +701,7 @@ function NewChat(props: {
 					worktree: place().worktree,
 					...(place().worktree && place().branch.trim() ? { branch: place().branch.trim() } : {}),
 					...(role() ? { role: role()?.id } : {}),
+					...(account() ? { account: account() ?? undefined } : {}),
 					// The notes the project shares with agents go with the first message.
 					notes: await notesStore.sharedText(token, props.project, provider.id),
 				},
@@ -939,6 +970,43 @@ function NewChat(props: {
 													control={(control) => {
 														modelPicker = control;
 													}}
+												/>
+											</Show>
+											<Show when={accountsStore.accounts(provider().id, accountScope()).length}>
+												<Menu
+													label="Account"
+													title="Run as"
+													trigger={
+														<>
+															<UserIcon size="sm" />
+															<span class="max-w-32 truncate">
+																{accountsStore.label(accountScope(), account()) ?? "Your sign-in"}
+															</span>
+														</>
+													}
+													triggerClass={PROMPT_CHIP}
+													groups={[
+														{
+															label: "Run as",
+															items: [
+																{
+																	id: "",
+																	label: "Your sign-in",
+																	description: "The machine's own sign-in",
+																	trailing: account() ? undefined : <CheckIcon size="sm" />,
+																},
+																...accountsStore
+																	.accounts(provider().id, accountScope())
+																	.map((item) => ({
+																		id: item.id,
+																		label: item.label,
+																		trailing:
+																			account() === item.id ? <CheckIcon size="sm" /> : undefined,
+																	})),
+															],
+														},
+													]}
+													onSelect={(id) => chooseAccount(provider().id, id || null)}
 												/>
 											</Show>
 											<Show when={provider().modes.length > 0}>

@@ -144,6 +144,7 @@ export async function chatRequest(
 					? body.pull
 					: undefined,
 			fork: body.fork === true,
+			account: typeof body.account === "string" ? body.account : undefined,
 			role: undefined as { id: string; name: string; icon: string; brief: string } | undefined,
 			notes: undefined as { text: string } | undefined,
 		};

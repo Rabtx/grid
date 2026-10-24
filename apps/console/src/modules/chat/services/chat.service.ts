@@ -3,11 +3,13 @@ import type { ChatAttachment } from "../types/chat.types";
 import type { TerminalInfo } from "@/modules/terminal/types/terminal.types";
 
 import type {
+	AccountsListing,
 	ChatEvent,
 	ChatProvider,
 	ChatSession,
 	Crew,
 	ProjectChatSettings,
+	ProviderAccount,
 	ProviderSettings,
 	Role,
 	RoleDraft,
@@ -346,6 +348,28 @@ export const chatService = {
 	 * Install or sign in an agent on its machine: opens a terminal there running the agent's own
 	 * command, to watch and answer.
 	 */
+	/** This person's provider accounts on the machine, and what each has used of its plan. */
+	accounts: (token: string, scope = "") =>
+		call<AccountsListing>("/chat/accounts", token, {}, scope),
+	createAccount: (token: string, input: { provider: string; label: string }, scope = "") =>
+		call<ProviderAccount>(
+			"/chat/accounts",
+			token,
+			{ method: "POST", body: JSON.stringify(input) },
+			scope,
+		),
+	renameAccount: (token: string, id: string, label: string, scope = "") =>
+		call<ProviderAccount>(
+			`/chat/accounts/${id}`,
+			token,
+			{ method: "PATCH", body: JSON.stringify({ label }) },
+			scope,
+		),
+	removeAccount: (token: string, id: string, scope = "") =>
+		call<void>(`/chat/accounts/${id}`, token, { method: "DELETE" }, scope),
+	/** A terminal running the agent's own sign-in for that account. */
+	signInAccount: (token: string, id: string, scope = "") =>
+		call<TerminalInfo>(`/chat/accounts/${id}/sign-in`, token, { method: "POST" }, scope),
 	setupProvider: (token: string, id: string, step: "install" | "sign-in", scope = "") =>
 		call<TerminalInfo>(
 			`/chat/providers/${id}/setup`,
@@ -380,6 +404,8 @@ export const chatService = {
 			role?: string;
 			/** The project's notes shared with agents; they go with the first message too. */
 			notes?: string;
+			/** The provider account it runs as; the machine's own sign-in when not given. */
+			account?: string;
 		},
 		scope = "",
 	) =>

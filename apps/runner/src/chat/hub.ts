@@ -8,6 +8,7 @@ import {
 	MAX_SESSION_ATTACHMENTS,
 	MAX_SESSION_BYTES,
 } from "./attachments";
+import type { Accounts } from "./accounts";
 import { historyBrief } from "./history-brief";
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
@@ -343,6 +344,7 @@ export class ChatHub {
 		reason: "done" | "cancelled" | "error",
 	) => void)[] = [];
 	private personal: PersonalSetup = () => ({ env: {}, note: null });
+	private accounts: Accounts | null = null;
 	private mcp: (workspace: string, agent: string, thread: string) => McpServerSpec[] = () => [];
 	private skills: (workspace: string, project: string) => Promise<string> | string = () => "";
 	/** Grid's own questions waiting in threads, by their approval id. */
@@ -631,6 +633,11 @@ export class ChatHub {
 		this.personal = setup;
 	}
 
+	/** Where provider accounts live, so a thread can run as one and its usage is kept. */
+	setAccounts(accounts: Accounts): void {
+		this.accounts = accounts;
+	}
+
 	/**
 	 * Every agent, with its model list (exact names, effort levels) and this person's settings for
 	 * it. Model lists are asked of each agent once and kept, since they rarely change;
@@ -891,12 +898,17 @@ export class ChatHub {
 			notes?: SessionNotes | null;
 			/** A side chat's thread (see `side`). */
 			parentId?: string | null;
+			/** The provider account it runs as (see `Accounts`); the machine's own when not given. */
+			account?: string | null;
 		},
 	): ChatSessionRow {
 		const provider = this.providers.get(input.provider);
 		if (!provider?.info().available)
 			throw new ChatError("That agent is not installed on this machine", 400);
 		assertMayStart(who, input.provider, provider.info().name);
+		const account = input.account ? this.accounts?.find(who.userId, input.account) : null;
+		if (input.account && account?.provider !== input.provider)
+			throw new ChatError("That account is not one of yours for this agent", 400);
 		const cwd = input.cwd?.trim() || this.defaultCwd(who.workspace, input.project);
 		if (!existsSync(cwd) || !isDirectory(cwd))
 			throw new ChatError(`${cwd} is not a folder on this machine`, 400);
@@ -928,6 +940,7 @@ export class ChatHub {
 			role: input.role ?? null,
 			notes: input.notes?.text.trim() ? { text: input.notes.text } : null,
 			parentId: input.parentId ?? null,
+			account: account?.id ?? null,
 		});
 	}
 
@@ -2138,7 +2151,12 @@ export class ChatHub {
 				mode: fresh.mode ?? undefined,
 				effort: fresh.effort ?? undefined,
 				resume: fresh.resumeToken ?? undefined,
-				env: this.personal(fresh.ownerId).env,
+				env: {
+					...this.personal(fresh.ownerId).env,
+					...this.accounts?.env(fresh.ownerId, fresh.provider, fresh.account),
+				},
+				onRateLimits: (limits) =>
+					this.accounts?.recordUsage(fresh.ownerId, fresh.provider, fresh.account ?? null, limits),
 				mcpServers: [
 					...this.mcp(fresh.workspaceId, fresh.provider, fresh.id),
 					...this.gridServer(fresh.id),
