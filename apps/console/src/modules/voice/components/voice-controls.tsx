@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, onSettled, Show } from "solid-js";
 
 import { FLOATING_MIC, MicIcon, VoiceDock, VoiceError, VoiceStatus } from "@/kit";
+import { registerCommand } from "@/lib/keybindings";
 import { useAuth } from "@/modules/auth";
 
 import { dictation, configureTranscription } from "../lib/dictation";
@@ -46,23 +47,18 @@ export function VoiceControls(): JSX.Element {
 		window.visualViewport?.addEventListener("scroll", place);
 
 		const onKey = (event: KeyboardEvent) => {
-			const mod = event.ctrlKey || event.metaKey;
-			if (mod && event.shiftKey && event.code === "Space") {
-				event.preventDefault();
-				event.stopPropagation();
-				dictation.toggle(lastTarget());
-			} else if (event.key === "Escape" && active()) {
-				dictation.cancel();
-			}
+			if (event.key === "Escape" && active()) dictation.cancel();
 		};
 		// Capture, so it works while the terminal (which eats keys) has focus.
 		document.addEventListener("keydown", onKey, { capture: true });
+		const stopCommand = registerCommand("voice.toggle", () => dictation.toggle(lastTarget()));
 
 		return () => {
 			stopTracking();
 			window.visualViewport?.removeEventListener("resize", place);
 			window.visualViewport?.removeEventListener("scroll", place);
 			document.removeEventListener("keydown", onKey, { capture: true });
+			stopCommand();
 		};
 	});
 

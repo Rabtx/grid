@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 
 import {
 	Alert,
@@ -29,7 +29,7 @@ import {
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
 import { now as clockNow } from "@/lib/clock";
-import { installShortcuts } from "@/lib/shortcuts";
+import { useCommand } from "@/lib/keybindings";
 import { useAuth } from "@/modules/auth";
 import { relativeTime } from "@/modules/projects/lib/relative-time";
 import { ShellSlot, useShell } from "@/modules/shell";
@@ -167,23 +167,13 @@ export function InboxScreen(): JSX.Element {
 	const keysLive = () => shell.desktop() && !shell.paletteOpen() && !shell.drawerOpen();
 
 	// Desktop keys, as the Figma list's footer shows them: E done, J and K next and previous.
-	onSettled(() =>
-		installShortcuts(
-			[
-				{ keys: "j", label: "Next item", run: () => keysLive() && step(1) },
-				{ keys: "k", label: "Previous item", run: () => keysLive() && step(-1) },
-				{
-					keys: "e",
-					label: "Mark done",
-					run: () => {
-						const item = selected();
-						if (keysLive() && item) markDone(item);
-					},
-				},
-			],
-			document,
-		),
-	);
+	useCommand("list.next", () => keysLive() && step(1));
+	useCommand("list.previous", () => keysLive() && step(-1));
+	useCommand("list.done", () => {
+		const item = selected();
+		if (!keysLive() || !item) return false;
+		markDone(item);
+	});
 
 	const viewLink = (next: View) =>
 		workspaceHref(`/inbox${next === "needs" ? "" : `?view=${next}`}`);

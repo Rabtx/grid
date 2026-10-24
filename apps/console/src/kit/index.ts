@@ -14,6 +14,7 @@ export {
 	NobodyMark,
 } from "./avatar";
 export { Badge, Count, Kbd, type Tone } from "./badge";
+export { KeyRecorder } from "./key-recorder";
 export { BrandLogo, BrandMark, BrandWordmark, Splash } from "./brand";
 export {
 	Button,

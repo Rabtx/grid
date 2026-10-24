@@ -1,5 +1,7 @@
 import { createSignal } from "solid-js";
 
+import { registerCommand } from "./keybindings";
+
 /**
  * How the console looks on this device: theme, tint, accent, shape and scale. Settings →
  * Appearance edits it; `restoreAppearance()` applies it before the first render. It is stored
@@ -372,20 +374,17 @@ export function restoreAppearance(): void {
 }
 
 /**
- * Ctrl/⌘ with `=` or `+`, `-` and `0` zoom the interface, as in the settings screen. Returns a
- * function that removes the listener.
+ * The zoom commands (Ctrl/⌘ with `=`, `-` and `0` unless moved in Settings → Keybindings) scale the
+ * interface, as the settings screen does. Returns a function that removes them.
  */
-export function installScaleShortcuts(target: Window = window): () => void {
+export function installScaleShortcuts(): () => void {
 	const step = APPEARANCE_LIMITS.uiScale.step;
-	function onKeyDown(event: KeyboardEvent): void {
-		if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-		const scale = state.uiScale;
-		if (event.key === "=" || event.key === "+") updateAppearance({ uiScale: scale + step });
-		else if (event.key === "-") updateAppearance({ uiScale: scale - step });
-		else if (event.key === "0") updateAppearance({ uiScale: APPEARANCE_DEFAULTS.uiScale });
-		else return;
-		event.preventDefault();
-	}
-	target.addEventListener("keydown", onKeyDown);
-	return () => target.removeEventListener("keydown", onKeyDown);
+	const removers = [
+		registerCommand("zoom.in", () => updateAppearance({ uiScale: state.uiScale + step })),
+		registerCommand("zoom.out", () => updateAppearance({ uiScale: state.uiScale - step })),
+		registerCommand("zoom.reset", () => updateAppearance({ uiScale: APPEARANCE_DEFAULTS.uiScale })),
+	];
+	return () => {
+		for (const remove of removers) remove();
+	};
 }
