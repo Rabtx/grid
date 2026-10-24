@@ -24,6 +24,10 @@ export type SlashCommandActions = {
 	openSplit?: () => void;
 	/** Fork the whole thread, into a new worktree when asked; left out where there is no thread. */
 	fork?: (worktree: boolean) => void;
+	/** Open a side chat, with the agent named (or this one); false when no agent has that name. */
+	side?: (agent: string) => boolean;
+	/** Hand the thread to the agent named; false when no agent has that name. */
+	handoff?: (agent: string, newThread: boolean) => boolean;
 };
 
 function refuse(title: string): false {
@@ -91,6 +95,17 @@ export function runSlashCommand(
 			if (!argument) return refuse("Add a title: /task <title>");
 			actions.addTask(argument);
 			return true;
+		case "side":
+			if (!actions.side) return refuse("Open a thread to start a side chat");
+			return actions.side(argument) || refuse(`No agent called ${argument.trim()} is available`);
+		case "handoff": {
+			if (!actions.handoff) return refuse("Open a thread to hand it off");
+			const words = argument.trim().split(/\s+/);
+			const newThread = words.length > 1 && /^(new|thread)$/i.test(words.at(-1) ?? "");
+			const agent = (newThread ? words.slice(0, -1) : words).join(" ");
+			if (!agent) return refuse("Name the agent: /handoff codex");
+			return actions.handoff(agent, newThread) || refuse(`No agent called ${agent} is available`);
+		}
 		case "fork":
 			if (!actions.fork) return refuse("Open a thread to fork it");
 			actions.fork(/^(worktree|wt|new)$/i.test(argument.trim()));

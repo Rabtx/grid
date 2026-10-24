@@ -237,6 +237,54 @@ thread. It calls `POST /chat/tools/visual` on the runner with the key the runner
 the runner checks the spec (16 blocks, 64 KB of blocks or 256 KB of HTML, six per turn) and
 records it only while that thread's turn is running.
 
+### Runner handoffs, side chats and crews
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/runner/chat/sessions/:id/handoff` | `startAgents` | Hand the thread to `{ provider, model?, mode?, effort?, newThread? }` (`200`, or `201` with `newThread`) |
+| `GET` | `/runner/chat/sessions/:id/sides` | member | The thread's side chats |
+| `POST` | `/runner/chat/sessions/:id/sides` | `startAgents` | Open a side chat, `{ provider?, model? }` (`201`) |
+| `GET` | `/runner/chat/crews?project=:slug` | member | A project's crews, each with its `workers` |
+| `POST` | `/runner/chat/crews` | `startAgents` | Start a crew: `{ project, name, provider, model?, instructions?, workerProvider?, workerModel?, parallel?, cwd? }` (`201`, `{ crew, session }`) |
+| `GET` | `/runner/chat/crews/:id` | member | A crew by its id or its coordinator thread's id; `null` when none |
+| `PATCH` | `/runner/chat/crews/:id` | `startAgents` | Change `name`, `instructions`, `parallel` (1–8), `paused`, `workerProvider`, `workerModel` |
+| `POST` | `/runner/chat/crews/:id/workers/:worker/retry` | `startAgents` | Give a member another go (`204`) |
+| `POST` | `/runner/chat/crews/:id/workers/:worker/stop` | `startAgents` | Stop a member (`204`) |
+
+A same-thread handoff is refused while the agent works (`409`), to the agent it already has
+(`400`) or to one not installed (`400`). It parks the old agent, records
+`{ type: "handoff", from: { provider, model }, to: { provider, model } }`, and the new agent's
+first message carries the conversation so far. With `newThread` it is a fork (see above) with the
+new agent. A side chat is a fork with `parentId` set: it is left out of the project's thread list,
+cannot have side chats of its own, and is deleted with its thread.
+
+A crew's coordinator is a thread started with a crew role whose brief is the crew's instructions.
+Only that thread's agent is offered the crew tools (`crew_start_worker`, `crew_message_worker`,
+`crew_list_workers`, `crew_stop_worker`). Members are threads of their own (in a worktree unless
+the folder is not in git); at most `parallel` work at once and the rest are `queued`. A worker's
+`state` is `queued`, `working`, `done`, `failed`, `stopped` or `needs_you`, with `running` and
+`waiting` (its turn waits on a person) alongside. Turn ends are reported to the coordinator as a
+`[Crew report]` message. A running member quiet for 10 minutes is nudged in its turn; quiet 5
+more, its turn is restarted once; quiet again, it is stopped and marked `needs_you`. Members
+waiting on a person are never nudged, and a runner restart marks members that were working as
+`needs_you`.
+
+### Runner-key board routes (API)
+
+Grid's board tools for agents (`board_list_tasks`, `board_create_task`, `board_update_task`) go
+through the API with `Authorization: Runner <key>`, acting as the thread's owner:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/runner/tasks/:workspaceId/:slug?user=:userId` | The project's tasks |
+| `POST` | `/api/v1/runner/tasks/:workspaceId/:slug` | `{ user, task }`: create, with the board's own fields |
+| `PATCH` | `/api/v1/runner/tasks/:workspaceId/:slug/:number` | `{ user, task }`: update |
+
+The person's own access applies: a project they cannot see is `404`, and invalid fields `400`.
+Grid's tools are listed per thread at `GET /chat/tools?thread=` and called at
+`POST /chat/tools/call` (`{ thread, name, args }` → `{ data: { text } }`), both proved with the key
+the runner started `grid-tools.ts` with.
+
 ### Runner file attribution
 
 Project Files listing, content and blame routes return live agent attribution only

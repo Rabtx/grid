@@ -148,3 +148,21 @@ describe("addBoardTask", () => {
 		expect(lastToast()).toBe("Board is full");
 	});
 });
+
+describe("handing off and side chats", () => {
+	it("names the agent for /handoff, and new for a new thread", () => {
+		const handoff = vi.fn().mockReturnValue(true);
+		expect(runSlashCommand(command("handoff"), "codex", actions({ handoff }))).toBe(true);
+		expect(handoff).toHaveBeenLastCalledWith("codex", false);
+		runSlashCommand(command("handoff"), "Claude Code new", actions({ handoff }));
+		expect(handoff).toHaveBeenLastCalledWith("Claude Code", true);
+		expect(runSlashCommand(command("handoff"), "", actions({ handoff }))).toBe(false);
+		expect(lastToast()).toContain("Name the agent");
+	});
+
+	it("says when no agent has the name given", () => {
+		const side = vi.fn().mockReturnValue(false);
+		expect(runSlashCommand(command("side"), "gemini", actions({ side }))).toBe(false);
+		expect(lastToast()).toBe("No agent called gemini is available");
+	});
+});

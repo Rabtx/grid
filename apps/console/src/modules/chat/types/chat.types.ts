@@ -115,6 +115,12 @@ export type ChatEvent =
 	| { type: "checkpoint"; turn: number; files: CheckpointFile[]; at?: string }
 	| { type: "checkpoint_restored"; turn: number; files: CheckpointFile[]; at?: string }
 	| { type: "forked"; from: { id: string; title: string }; at?: string }
+	| {
+			type: "handoff";
+			from: { provider: string; model?: string | null };
+			to: { provider: string; model?: string | null };
+			at?: string;
+	  }
 	/** What waits for the agent, and whether it is held. Like `commands`, never logged. */
 	| { type: "queue"; items: QueuedMessage[]; paused: boolean }
 	/**
@@ -178,6 +184,8 @@ export type ChatSession = {
 	} | null;
 	/** The role it was started as, if any. */
 	role?: SessionRole | null;
+	/** A side chat's thread, when this is one. */
+	parentId?: string | null;
 	createdAt: string;
 	updatedAt: string;
 };
@@ -231,4 +239,47 @@ export type ProviderSettings = {
 	model?: string;
 	effort?: string;
 	mode?: string;
+};
+
+export type CrewWorkerState = "queued" | "working" | "done" | "failed" | "stopped" | "needs_you";
+
+/** A crew member: a worker thread its coordinator started for one task. */
+export type CrewWorker = {
+	id: string;
+	key: string;
+	title: string;
+	brief: string;
+	provider: string;
+	model: string | null;
+	sessionId: string | null;
+	state: CrewWorkerState;
+	attempts: number;
+	running: boolean;
+	/** Its turn waits on a person: an approval or a question. */
+	waiting: boolean;
+	updatedAt: string;
+};
+
+/** A crew: a coordinator thread and the members it started. */
+export type Crew = {
+	id: string;
+	project: string;
+	name: string;
+	coordinatorId: string;
+	instructions: string;
+	workerProvider: string;
+	workerModel: string | null;
+	parallel: number;
+	paused: boolean;
+	createdAt: string;
+	workers: CrewWorker[];
+};
+
+/** An approval waiting in a running thread, as the runner lists them across a workspace. */
+export type WaitingApproval = {
+	sessionId: string;
+	project: string;
+	thread: string;
+	provider: string;
+	approval: { id: string; title: string; detail: string | null; options: ApprovalOption[] };
 };

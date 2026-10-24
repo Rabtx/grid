@@ -343,3 +343,21 @@ describe("agent work in the transcript", () => {
 		expect(t.blocks).toEqual([]);
 	});
 });
+
+describe("handoffs", () => {
+	it("mark where the thread moved, and forget the old agent's models and modes", () => {
+		const t = replay([
+			{ type: "user", text: "plan" },
+			{ type: "info", model: "opus", models: [{ id: "opus", name: "Opus" }], mode: "plan" },
+			{
+				type: "handoff",
+				from: { provider: "claude", model: "opus" },
+				to: { provider: "codex", model: null },
+			},
+		]);
+		expect(t.blocks.at(-1)).toMatchObject({ kind: "handoff", to: { provider: "codex" } });
+		expect(t.model).toBeNull();
+		expect(t.models).toEqual([]);
+		expect(t.mode).toBeNull();
+	});
+});

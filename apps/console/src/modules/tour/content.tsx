@@ -1,9 +1,13 @@
 import type { JSX } from "@solidjs/web";
 
 import {
+	BoardIcon,
 	BranchIcon,
 	ChangedFilesRow,
 	ChatIcon,
+	CrewPanel,
+	HandoffDivider,
+	PaletteIcon,
 	ForkDivider,
 	IdeaIcon,
 	InlineVisual,
@@ -21,6 +25,8 @@ import {
  */
 export type TourSlide = {
 	id: string;
+	/** The release it came with: a device sees each edition's slides once. */
+	edition: string;
 	icon: () => JSX.Element;
 	title: string;
 	pitch: string;
@@ -30,9 +36,160 @@ export type TourSlide = {
 
 const noop = () => undefined;
 
+/** The second edition: crews, handoffs, side chats, the board from chat, and backgrounds. */
+const CREWS_EDITION = "crews-1";
+
 export const TOUR_SLIDES: TourSlide[] = [
 	{
+		id: "crews",
+		edition: CREWS_EDITION,
+		icon: () => <ToolIcon />,
+		title: "Crews: one chat that runs many agents",
+		pitch:
+			"Turn on Crew when you start a chat and that agent coordinates: it splits your request into tasks and hands each to a crew member working in its own thread and worktree.",
+		highlights: [
+			"Members run a few at a time; the rest wait their turn.",
+			"Grid watches them: a quiet member is nudged, restarted once, then handed to you with Retry.",
+			"Members' approvals show over the coordinator's composer, answered there or in their thread.",
+		],
+		preview: () => (
+			<CrewPanel
+				name="Launch the pricing page"
+				parallel={3}
+				paused={false}
+				members={[
+					{
+						id: "a",
+						key: "copy",
+						title: "Write the pricing copy",
+						state: "done",
+						running: false,
+						waiting: false,
+					},
+					{
+						id: "b",
+						key: "page",
+						title: "Build the page",
+						state: "working",
+						running: true,
+						waiting: false,
+					},
+					{
+						id: "c",
+						key: "tests",
+						title: "Add checkout tests",
+						state: "needs_you",
+						running: false,
+						waiting: false,
+					},
+				]}
+				onRetry={noop}
+				onStop={noop}
+				onPause={noop}
+				onSettings={noop}
+			/>
+		),
+	},
+	{
+		id: "handoff",
+		edition: CREWS_EDITION,
+		icon: () => <SendIcon />,
+		title: "Hand a thread to another agent",
+		pitch:
+			"Pick another agent in the composer's agent picker, or type /handoff codex. It carries on the same thread, folder and worktree, and is told the conversation so far.",
+		highlights: [
+			"/handoff codex new carries on in a new thread instead, leaving this one as it was.",
+			"A line in the thread shows where one agent took over from the other.",
+			"Handoffs wait for the current turn to end.",
+		],
+		preview: () => (
+			<HandoffDivider
+				from={<span class="text-fg-muted">Claude Code</span>}
+				to={<span class="text-fg-muted">Codex</span>}
+			/>
+		),
+	},
+	{
+		id: "side",
+		edition: CREWS_EDITION,
+		icon: () => <ChatIcon />,
+		title: "Side chats",
+		pitch:
+			"Ask a narrow question without derailing the thread: a side chat opens beside it with the conversation so far, in the same folder, and stays out of your thread list.",
+		highlights: [
+			"The chat button in the thread's top bar, or /side (or /side codex).",
+			"It opens as a tab in the thread's workspace, next to the terminal.",
+			"Deleting the thread deletes its side chats.",
+		],
+		preview: () => (
+			<div class="surface-card flex flex-col gap-1 p-3">
+				<span class="text-caption text-fg-subtle">Side chat 1 · Add passkey login</span>
+				<span class="text-body text-fg">Why does the login test flake on CI?</span>
+			</div>
+		),
+	},
+	{
+		id: "board",
+		edition: CREWS_EDITION,
+		icon: () => <BoardIcon />,
+		title: "Agents keep the board up to date",
+		pitch:
+			"Agents can read this project's board, add tasks and move them along, acting as you, with your access.",
+		highlights: [
+			"Ask: file the follow-ups as board tasks, or move GRID-12 to review.",
+			"Tasks an agent adds say which agent owns them.",
+			"Each change shows as a step in the thread.",
+		],
+		preview: () => (
+			<InlineVisual
+				title="Board"
+				markdown={(text) => <p>{text}</p>}
+				blocks={[
+					{
+						type: "list",
+						style: "steps",
+						items: [
+							{ title: "GRID-41 Add passkey login", detail: "Moved to review", status: "done" },
+							{
+								title: "GRID-42 Rate-limit the login route",
+								detail: "Added to backlog",
+								status: "current",
+							},
+						],
+					},
+				]}
+			/>
+		),
+	},
+	{
+		id: "background",
+		edition: CREWS_EDITION,
+		icon: () => <PaletteIcon />,
+		title: "Make it yours: a background",
+		pitch:
+			"Settings → Appearance → Background: put a picture behind the sidebar, or switch on Whole app to have it behind everything.",
+		highlights: [
+			"Interface opacity sets how much of the picture shows through.",
+			"Blur keeps text easy to read over a busy photo.",
+			"Menus and dialogs stay solid; the picture is kept on this device.",
+		],
+		preview: () => (
+			<div class="surface-card flex flex-col gap-1.5 p-3 text-body">
+				<span class="flex justify-between text-fg">
+					Whole app <span class="text-fg-subtle">On</span>
+				</span>
+				<span class="flex justify-between text-fg">
+					Interface opacity <span class="text-fg-subtle">78%</span>
+				</span>
+				<span class="flex justify-between text-fg">
+					Blur <span class="text-fg-subtle">8px</span>
+				</span>
+			</div>
+		),
+	},
+	{
 		id: "queue",
+		edition: "agent-threads-1",
 		icon: () => <SendIcon />,
 		title: "Keep typing while the agent works",
 		pitch:
@@ -59,6 +216,7 @@ export const TOUR_SLIDES: TourSlide[] = [
 	},
 	{
 		id: "subagents",
+		edition: "agent-threads-1",
 		icon: () => <ToolIcon />,
 		title: "See the subagents an agent starts",
 		pitch:
@@ -80,6 +238,7 @@ export const TOUR_SLIDES: TourSlide[] = [
 	},
 	{
 		id: "questions",
+		edition: "agent-threads-1",
 		icon: () => <ChatIcon />,
 		title: "Answer an agent's questions properly",
 		pitch:
@@ -108,6 +267,7 @@ export const TOUR_SLIDES: TourSlide[] = [
 	},
 	{
 		id: "visuals",
+		edition: "agent-threads-1",
 		icon: () => <IdeaIcon />,
 		title: "Charts and tables inside replies",
 		pitch:
@@ -152,6 +312,7 @@ export const TOUR_SLIDES: TourSlide[] = [
 	},
 	{
 		id: "checkpoints",
+		edition: "agent-threads-1",
 		icon: () => <RestoreIcon />,
 		title: "Undo a turn",
 		pitch:
@@ -174,6 +335,7 @@ export const TOUR_SLIDES: TourSlide[] = [
 	},
 	{
 		id: "forks",
+		edition: "agent-threads-1",
 		icon: () => <BranchIcon />,
 		title: "Fork a thread from any turn",
 		pitch:

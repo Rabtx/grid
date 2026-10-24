@@ -3,7 +3,6 @@ import { createSignal, onSettled, Show } from "solid-js";
 
 import { Button, Dialog, PageDots, Stack, StepGlyph, Text } from "@/kit";
 
-import { TOUR_SLIDES } from "./content";
 import { tourStore } from "./store";
 
 // Not the instant the app opens: the screen settles first.
@@ -16,14 +15,14 @@ const SHOW_AFTER_MS = 1500;
  */
 export function FeatureTour(): JSX.Element {
 	const [index, setIndex] = createSignal(0);
-	const slide = () => TOUR_SLIDES[index()] ?? TOUR_SLIDES[0];
-	const last = () => index() === TOUR_SLIDES.length - 1;
+	const slide = () => tourStore.slides()[index()] ?? tourStore.slides()[0];
+	const last = () => index() >= tourStore.slides().length - 1;
 
 	onSettled(() => {
 		if (tourStore.seen()) return;
 		const timer = setTimeout(() => {
 			setIndex(0);
-			tourStore.show();
+			tourStore.showNew();
 		}, SHOW_AFTER_MS);
 		return () => clearTimeout(timer);
 	});
@@ -38,7 +37,7 @@ export function FeatureTour(): JSX.Element {
 			open={tourStore.open()}
 			onClose={close}
 			title="New in Grid"
-			description={`${index() + 1} of ${TOUR_SLIDES.length}`}
+			description={`${index() + 1} of ${tourStore.slides().length}`}
 			width="34rem"
 			footer={
 				<>
@@ -73,7 +72,7 @@ export function FeatureTour(): JSX.Element {
 							))}
 						</ul>
 						<div class="flex justify-center text-fg-subtle">
-							<PageDots count={TOUR_SLIDES.length} current={index()} />
+							<PageDots count={tourStore.slides().length} current={index()} />
 						</div>
 					</Stack>
 				)}

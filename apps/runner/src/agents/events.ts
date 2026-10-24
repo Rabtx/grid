@@ -165,6 +165,13 @@ export type ChatEvent =
 	| { type: "checkpoint"; turn: number; files: CheckpointFile[]; at?: string }
 	/** The working tree was put back to how it was before `turn`. */
 	| { type: "checkpoint_restored"; turn: number; files: CheckpointFile[]; at?: string }
+	/** The thread moved to another agent: earlier turns are the `from` agent's, later ones `to`'s. */
+	| {
+			type: "handoff";
+			from: { provider: string; model?: string | null };
+			to: { provider: string; model?: string | null };
+			at?: string;
+	  }
 	/** Where a forked thread's own work begins: everything above came from `from`. */
 	| { type: "forked"; from: { id: string; title: string }; at?: string }
 	/**

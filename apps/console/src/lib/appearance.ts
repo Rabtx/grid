@@ -49,7 +49,15 @@ export type Appearance = {
 	agentCursors: boolean;
 	/** A soft chime when an agent needs you. */
 	sounds: boolean;
+	/** Where the background image shows (when one is chosen): behind the sidebar, or everything. */
+	backdrop: BackdropScope;
+	/** How solid the interface is over the image, in percent: 100 hides it, lower shows it through. */
+	backdropOpacity: number;
+	/** How soft the image is behind the interface, in pixels of blur. */
+	backdropBlur: number;
 };
+
+export type BackdropScope = "sidebar" | "app";
 
 /** The code faces offered, each a stack that falls back to the system's monospace. */
 export const CODE_FONTS = {
@@ -90,6 +98,9 @@ export const APPEARANCE_DEFAULTS: Appearance = {
 	reduceMotion: false,
 	agentCursors: true,
 	sounds: true,
+	backdrop: "sidebar",
+	backdropOpacity: 78,
+	backdropBlur: 8,
 };
 
 export const APPEARANCE_LIMITS = {
@@ -100,6 +111,8 @@ export const APPEARANCE_LIMITS = {
 	radius: { min: 0, max: 2, step: 0.05 },
 	spacing: { min: 0.85, max: 1.2, step: 0.01 },
 	lines: { min: 0.5, max: 2, step: 0.05 },
+	backdropOpacity: { min: 30, max: 100, step: 1 },
+	backdropBlur: { min: 0, max: 40, step: 1 },
 } as const;
 
 /** Accent presets offered next to the custom colour picker (null is the default). */
@@ -163,6 +176,13 @@ export function normalizeAppearance(input: unknown): Appearance {
 		reduceMotion: typeof raw.reduceMotion === "boolean" ? raw.reduceMotion : d.reduceMotion,
 		agentCursors: typeof raw.agentCursors === "boolean" ? raw.agentCursors : d.agentCursors,
 		sounds: typeof raw.sounds === "boolean" ? raw.sounds : d.sounds,
+		backdrop: oneOf(raw.backdrop, ["sidebar", "app"], d.backdrop),
+		backdropOpacity: Math.round(
+			clamp(raw.backdropOpacity, l.backdropOpacity.min, l.backdropOpacity.max, d.backdropOpacity),
+		),
+		backdropBlur: Math.round(
+			clamp(raw.backdropBlur, l.backdropBlur.min, l.backdropBlur.max, d.backdropBlur),
+		),
 	};
 }
 
@@ -236,6 +256,10 @@ export function applyAppearance(
 	root.classList.toggle("light", value.theme === "light");
 	root.setAttribute("data-density", value.density);
 	root.setAttribute("data-depth", value.depth ? "on" : "off");
+	// The background image's place and look; the image itself is `lib/backdrop.ts`'s.
+	root.setAttribute("data-backdrop", value.backdrop);
+	style.setProperty("--backdrop-opacity", `${value.backdropOpacity}%`);
+	style.setProperty("--backdrop-blur", `${value.backdropBlur}px`);
 	if (root === document.documentElement) syncThemeColor(value);
 }
 

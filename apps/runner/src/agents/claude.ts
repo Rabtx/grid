@@ -13,6 +13,7 @@ import {
 	type ToolKind,
 } from "./events";
 import { diffTexts, type FileDiff } from "./diff";
+import { gridToolTitle } from "./grid-titles";
 import type { AgentContext, AgentSession, Provider, ProviderInfo, TurnResult } from "./provider";
 import { type JsonProcess, type Spawn, spawnJsonProcess } from "./stdio";
 
@@ -385,7 +386,7 @@ export function toolTitle(
 		case "Agent":
 			return { title: (input.description as string) || "Run a sub-agent" };
 		default:
-			return { title: name };
+			return { title: gridToolTitle(name, input) ?? name };
 	}
 }
 

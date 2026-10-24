@@ -7,7 +7,12 @@
 
 export type SplitMode = "focus" | "split" | "three";
 
-export type PaneTab = { kind: "terminal" } | { kind: "preview" } | { kind: "file"; path: string };
+export type PaneTab =
+	| { kind: "terminal" }
+	| { kind: "preview" }
+	| { kind: "file"; path: string }
+	/** A side chat beside the thread: another thread, by its id. */
+	| { kind: "chat"; id: string; title: string };
 
 export type Pane = {
 	tabs: PaneTab[];
@@ -32,7 +37,9 @@ export const STACK = { min: 0.25, max: 0.75, initial: 0.5 } as const;
 export const MODES: readonly SplitMode[] = ["focus", "split", "three"];
 
 export function tabId(tab: PaneTab): string {
-	return tab.kind === "file" ? `file:${tab.path}` : tab.kind;
+	if (tab.kind === "file") return `file:${tab.path}`;
+	if (tab.kind === "chat") return `chat:${tab.id}`;
+	return tab.kind;
 }
 
 const TERMINAL: PaneTab = { kind: "terminal" };
@@ -65,6 +72,12 @@ function readTab(value: unknown): PaneTab | null {
 	if (tab.kind === "preview") return PREVIEW;
 	if (tab.kind === "file" && typeof tab.path === "string" && tab.path.trim())
 		return { kind: "file", path: tab.path };
+	if (tab.kind === "chat" && typeof tab.id === "string" && /^[\w-]{1,120}$/.test(tab.id))
+		return {
+			kind: "chat",
+			id: tab.id,
+			title: typeof tab.title === "string" && tab.title.trim() ? tab.title : "Side chat",
+		};
 	return null;
 }
 

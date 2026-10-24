@@ -5,6 +5,7 @@ import { Toasts, TooltipLayer } from "./kit";
 import { App } from "./app";
 import { urlWithWorkspace } from "./lib/active-workspace";
 import { installScaleShortcuts, restoreAppearance } from "./lib/appearance";
+import { restoreBackdrop } from "./lib/backdrop";
 import { loadFileIcons } from "./lib/file-icons";
 import { installTouchGuards } from "./lib/touch-guards";
 import { registerServiceWorker } from "./pwa/register";
@@ -14,6 +15,8 @@ const root = document.getElementById("root");
 if (!root) throw new Error("index.html is missing the #root element");
 
 restoreAppearance();
+// The background image lives in IndexedDB: it arrives a moment after the first paint.
+void restoreBackdrop();
 installScaleShortcuts();
 installTouchGuards();
 void loadFileIcons();

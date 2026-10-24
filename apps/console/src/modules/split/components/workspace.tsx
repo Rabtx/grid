@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, For, Show, untrack } from "soli
 import type { ChangedFile } from "@/modules/chat/lib/thread-facts";
 import type { FileDiff } from "@/modules/chat/types/chat.types";
 import {
+	ChatIcon,
 	CodeIcon,
 	GlobeIcon,
 	iconButton,
@@ -49,6 +50,8 @@ export type WorkspaceProps = {
 	diffsFor: (path: string) => FileDiff[];
 	/** One pane only, whatever the layout says: the phone's docked card. */
 	single?: boolean;
+	/** Draws a side chat's tab: the chat module's conversation, which this module cannot import. */
+	renderChat?: (id: string) => JSX.Element;
 };
 
 type PaneActions = {
@@ -61,6 +64,8 @@ type PaneActions = {
 function describe(tab: PaneTab): SplitTab {
 	if (tab.kind === "terminal") return { id: "terminal", label: "Terminal", icon: <TerminalIcon /> };
 	if (tab.kind === "preview") return { id: "preview", label: "Preview", icon: <GlobeIcon /> };
+	if (tab.kind === "chat")
+		return { id: tabId(tab), label: tab.title, icon: <ChatIcon />, closable: true };
 	return { id: tabId(tab), label: baseName(tab.path), icon: <CodeIcon />, closable: true };
 }
 
@@ -250,7 +255,8 @@ function PaneView(
 				items: offers.map((tab) => ({
 					id: `open:${tabId(tab)}`,
 					label: describe(tab).label,
-					description: tab.kind === "file" ? tab.path : undefined,
+					description:
+						tab.kind === "file" ? tab.path : tab.kind === "chat" ? "Side chat" : undefined,
 					icon: describe(tab).icon,
 				})),
 			});
@@ -329,6 +335,13 @@ function PaneView(
 										active={tabId(tab()) === props.pane.active}
 										onShowTerminal={() => props.actions.open({ kind: "terminal" })}
 									/>
+								</Show>
+								<Show
+									when={
+										tab().kind === "chat" && props.renderChat ? (tab() as { id: string }).id : null
+									}
+								>
+									{(id) => props.renderChat?.(id())}
 								</Show>
 								<Show when={tab().kind === "file" ? (tab() as { path: string }).path : null}>
 									{(path) => (

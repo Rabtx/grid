@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, For, Show } from "solid-js";
 
 import { Button, IconButton } from "./button";
+import { Badge, type Tone } from "./badge";
 import { BranchIcon, CloseIcon, RestoreIcon, SendIcon, SpinnerIcon } from "./icons";
 
 /**
@@ -285,5 +286,149 @@ export function ForkDivider(props: { from: string; href?: string }): JSX.Element
 			</span>
 			<span class="h-px flex-1 bg-line" />
 		</div>
+	);
+}
+
+/** Where a thread moved from one agent to another. */
+export function HandoffDivider(props: { from: JSX.Element; to: JSX.Element }): JSX.Element {
+	return (
+		<div class="flex items-center gap-3 text-caption text-fg-subtle">
+			<span class="h-px flex-1 bg-line" />
+			<span class="inline-flex min-w-0 items-center gap-1.5">
+				<span class="truncate">Handed off from</span>
+				{props.from}
+				<span>to</span>
+				{props.to}
+			</span>
+			<span class="h-px flex-1 bg-line" />
+		</div>
+	);
+}
+
+export type CrewMember = {
+	id: string;
+	key: string;
+	title: string;
+	state: "queued" | "working" | "done" | "failed" | "stopped" | "needs_you";
+	running: boolean;
+	waiting: boolean;
+	href?: string;
+};
+
+const MEMBER_STATE: Record<CrewMember["state"], { tone: Tone; label: string }> = {
+	queued: { tone: "neutral", label: "Queued" },
+	working: { tone: "accent", label: "Working" },
+	done: { tone: "success", label: "Done" },
+	failed: { tone: "danger", label: "Failed" },
+	stopped: { tone: "neutral", label: "Stopped" },
+	needs_you: { tone: "warning", label: "Waiting on you" },
+};
+
+/**
+ * A crew, over its coordinator's composer: its members and where each stands (needing the person
+ * first), with Retry and Stop; members' approvals, answered here or in their own thread; and the
+ * crew's pause and settings. Folds to its summary line.
+ */
+export function CrewPanel(props: {
+	name: string;
+	members: CrewMember[];
+	parallel: number;
+	paused: boolean;
+	/** Members' approvals, drawn by the screen. */
+	approvals?: JSX.Element;
+	onRetry: (id: string) => void;
+	onStop: (id: string) => void;
+	onPause: (paused: boolean) => void;
+	onSettings: () => void;
+}): JSX.Element {
+	const order: CrewMember["state"][] = [
+		"needs_you",
+		"working",
+		"queued",
+		"failed",
+		"stopped",
+		"done",
+	];
+	const sorted = () =>
+		[...props.members].sort(
+			(a, b) =>
+				Number(b.waiting) - Number(a.waiting) || order.indexOf(a.state) - order.indexOf(b.state),
+		);
+	const working = () => props.members.filter((member) => member.state === "working").length;
+	const attention = () =>
+		props.members.filter((member) => member.waiting || member.state === "needs_you").length;
+	return (
+		<details
+			class="surface-card group/crew flex flex-col"
+			open={attention() > 0 ? true : undefined}
+		>
+			<summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 md:min-h-9 [&::-webkit-details-marker]:hidden">
+				<span class="min-w-0 flex-1 truncate text-body text-fg">
+					{props.name}
+					<span class="text-fg-subtle">
+						{" · "}
+						{props.members.length
+							? `${working()} of ${props.parallel} working · ${props.members.length} member${props.members.length === 1 ? "" : "s"}`
+							: "no members yet"}
+					</span>
+				</span>
+				<Show when={attention() > 0}>
+					<Badge tone="warning" dot>
+						{attention()} need{attention() === 1 ? "s" : ""} you
+					</Badge>
+				</Show>
+				<Show when={props.paused}>
+					<Badge tone="neutral">Paused</Badge>
+				</Show>
+			</summary>
+			<div class="flex flex-col border-line border-t">
+				<Show when={props.approvals}>
+					<div class="flex flex-col gap-2 p-2">{props.approvals}</div>
+				</Show>
+				<ol class="flex flex-col">
+					<For each={sorted()}>
+						{(member) => {
+							const look = () =>
+								member.waiting
+									? { tone: "warning" as Tone, label: "Needs approval" }
+									: MEMBER_STATE[member.state];
+							return (
+								<li class="flex min-h-11 items-center gap-2 border-line border-b px-3 last:border-b-0 md:min-h-9">
+									<Show when={member.running} fallback={<span class="size-3 shrink-0" />}>
+										<SpinnerIcon class="size-3 shrink-0 animate-spin text-fg-subtle" />
+									</Show>
+									<span class="min-w-0 flex-1 truncate text-body text-fg" title={member.key}>
+										<Show when={member.href} fallback={member.title}>
+											<a class="focus-ring underline-offset-2 hover:underline" href={member.href}>
+												{member.title}
+											</a>
+										</Show>
+									</span>
+									<Badge tone={look().tone}>{look().label}</Badge>
+									<Show when={["needs_you", "failed", "stopped"].includes(member.state)}>
+										<Button variant="ghost" size="sm" onClick={() => props.onRetry(member.id)}>
+											Retry
+										</Button>
+									</Show>
+									<Show when={member.state === "working" || member.state === "queued"}>
+										<Button variant="ghost" size="sm" onClick={() => props.onStop(member.id)}>
+											Stop
+										</Button>
+									</Show>
+								</li>
+							);
+						}}
+					</For>
+				</ol>
+				<div class="flex items-center justify-end gap-1 border-line border-t px-2 py-1">
+					<Button variant="ghost" size="sm" onClick={() => props.onPause(!props.paused)}>
+						{props.paused ? "Resume crew" : "Pause crew"}
+					</Button>
+					<Button variant="ghost" size="sm" onClick={() => props.onSettings()}>
+						Crew settings
+					</Button>
+				</div>
+			</div>
+		</details>
 	);
 }

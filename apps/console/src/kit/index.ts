@@ -431,6 +431,9 @@ export {
 } from "./notification";
 export { ScrollRail, type ScrollRailProps } from "./scroll-rail";
 export {
+	type CrewMember,
+	CrewPanel,
+	HandoffDivider,
 	ChangedFilesRow,
 	ForkDivider,
 	QuestionCard,

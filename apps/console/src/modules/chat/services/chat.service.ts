@@ -6,10 +6,12 @@ import type {
 	ChatEvent,
 	ChatProvider,
 	ChatSession,
+	Crew,
 	ProjectChatSettings,
 	ProviderSettings,
 	Role,
 	RoleDraft,
+	WaitingApproval,
 	WorktreeStatus,
 } from "../types/chat.types";
 
@@ -228,6 +230,74 @@ export const chatService = {
 			`/chat/sessions/${id}/fork`,
 			token,
 			{ method: "POST", body: JSON.stringify(input) },
+			scope,
+		),
+	/** Hand the thread to another agent, here or (with `newThread`) in a copy. */
+	handoff: (
+		token: string,
+		id: string,
+		input: { provider: string; model?: string; newThread?: boolean },
+		scope = "",
+	) =>
+		call<ChatSession>(
+			`/chat/sessions/${id}/handoff`,
+			token,
+			{ method: "POST", body: JSON.stringify(input) },
+			scope,
+		),
+	/** Open a side chat beside a thread, optionally with another agent. */
+	side: (token: string, id: string, input: { provider?: string } = {}, scope = "") =>
+		call<ChatSession>(
+			`/chat/sessions/${id}/sides`,
+			token,
+			{ method: "POST", body: JSON.stringify(input) },
+			scope,
+		),
+	/** A crew, by its id or its coordinator thread's id; null when the thread is no crew's. */
+	crew: (token: string, id: string, scope = "") =>
+		call<Crew | null>(`/chat/crews/${id}`, token, {}, scope),
+	createCrew: (
+		token: string,
+		input: {
+			project: string;
+			name: string;
+			provider: string;
+			model?: string;
+			cwd?: string;
+			instructions?: string;
+			parallel?: number;
+		},
+		scope = "",
+	) =>
+		call<{ crew: Crew; session: ChatSession }>(
+			"/chat/crews",
+			token,
+			{ method: "POST", body: JSON.stringify(input) },
+			scope,
+		),
+	updateCrew: (
+		token: string,
+		id: string,
+		patch: Partial<Pick<Crew, "name" | "instructions" | "parallel" | "paused">>,
+		scope = "",
+	) =>
+		call<Crew>(`/chat/crews/${id}`, token, { method: "PATCH", body: JSON.stringify(patch) }, scope),
+	crewWorker: (token: string, crew: string, worker: string, action: "retry" | "stop", scope = "") =>
+		call<void>(`/chat/crews/${crew}/workers/${worker}/${action}`, token, { method: "POST" }, scope),
+	/** Approvals waiting across the workspace, for answering a crew member's from its coordinator. */
+	waiting: (token: string, scope = "") =>
+		call<WaitingApproval[]>("/chat/waiting", token, {}, scope),
+	answerApproval: (
+		token: string,
+		id: string,
+		approvalId: string,
+		optionId: string | null,
+		scope = "",
+	) =>
+		call<void>(
+			`/chat/sessions/${id}/approve`,
+			token,
+			{ method: "POST", body: JSON.stringify({ approvalId, optionId }) },
 			scope,
 		),
 	/** Undo a turn: the thread's files put back to how that turn found them. */

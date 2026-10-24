@@ -560,3 +560,49 @@ html[data-motion="reduced"] *::after {
 	transition-duration: 0.01ms !important;
 	scroll-behavior: auto !important;
 }
+
+/*
+ * The background image (Settings → Appearance → Background): drawn under the sidebar or under the
+ * whole app, softened by `--backdrop-blur`, with the interface over it as see-through as
+ * `--backdrop-opacity` says. Menus, dialogs and sheets stay solid, so what you read is never on a
+ * busy picture. Off (no image, `data-backdrop-image="off"`), nothing here applies.
+ */
+:root[data-backdrop-image="on"][data-backdrop="app"] .backdrop-app,
+:root[data-backdrop-image="on"][data-backdrop="sidebar"] .backdrop-sidebar {
+	position: relative;
+	isolation: isolate;
+	overflow: hidden;
+}
+/* The picture, softened; it reaches past the edges so the blur does not fade them in. */
+:root[data-backdrop-image="on"][data-backdrop="app"] .backdrop-app::before,
+:root[data-backdrop-image="on"][data-backdrop="sidebar"] .backdrop-sidebar::before {
+	content: "";
+	position: absolute;
+	inset: calc(var(--backdrop-blur) * -2);
+	z-index: -1;
+	pointer-events: none;
+	background: var(--backdrop-image) center / cover no-repeat;
+	filter: blur(var(--backdrop-blur));
+}
+/*
+ * A veil of the canvas over the picture, as solid as `--backdrop-opacity`: it is what keeps text
+ * legible. It comes after the picture, so it lies over it and under everything else.
+ */
+:root[data-backdrop-image="on"][data-backdrop="app"] .backdrop-app::after,
+:root[data-backdrop-image="on"][data-backdrop="sidebar"] .backdrop-sidebar::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background: color-mix(in srgb, var(--canvas) var(--backdrop-opacity), transparent);
+}
+:root[data-backdrop-image="on"][data-backdrop="app"] .backdrop-app,
+:root[data-backdrop-image="on"][data-backdrop="sidebar"] .backdrop-sidebar {
+	background-color: transparent;
+}
+/* Everything: cards and panels let the veiled picture through as well. */
+:root[data-backdrop-image="on"][data-backdrop="app"] {
+	--kit-surface: color-mix(in srgb, var(--canvas) var(--backdrop-opacity), transparent);
+	--kit-surface-sunken: color-mix(in srgb, var(--backdrop) var(--backdrop-opacity), transparent);
+}

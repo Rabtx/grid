@@ -27,6 +27,8 @@ import type { DiagnosticInput, DiagnosticJournal } from "./diagnostics/journal";
 import { RefusalTally } from "./diagnostics/refusals";
 import { DiagnosticRoutes, safeCloseReason } from "./diagnostics/routes";
 import { watchEventLoop } from "./diagnostics/stall";
+import { crewRequest } from "./chat/crew-routes";
+import type { Crews } from "./chat/crews";
 import { chatRequest, chatToolsRequest } from "./chat/routes";
 import type { RunnerConfig } from "./config";
 import type { PairingStore } from "./environments/pairing";
@@ -156,6 +158,8 @@ export function startServer(
 		automations?: Automations;
 		/** The workspace's team: the roles its threads are started as. */
 		roles?: RoleDeps;
+		/** Crews: coordinator chats and their members. */
+		crews?: Crews;
 		/** Whether a notification's approval buttons still answer for the person it went to. */
 		mayApprove?: (act: PushAct) => boolean;
 		/** Settings → Connectors, and the proxies agents run for them. */
@@ -185,6 +189,7 @@ export function startServer(
 		inbox,
 		automations,
 		roles,
+		crews,
 		mayApprove,
 		connectors,
 		skills,
@@ -603,6 +608,8 @@ export function startServer(
 				if (url.pathname.startsWith("/chat/")) {
 					const who = await whoFrom(request, "Sign in to chat with agents");
 					if (who instanceof Response) return who;
+					const crew = crews ? await crewRequest(request, url, who, crews) : null;
+					if (crew) return crew;
 					const handled = await chatRequest(request, url, who, chat, roles?.store);
 					if (handled) return handled;
 				}

@@ -398,3 +398,19 @@ export const SHOW_VISUAL_DESCRIPTION = [
 	"Send html instead of blocks only for what blocks cannot draw (a diagram, a custom interactive view): one self-contained HTML document with inline <style> and <script>. Network loads are blocked, so draw with inline SVG or canvas and embed images as data: URIs. CSS variables --background --foreground --muted --border --accent follow Grid's theme.",
 	`At most ${VISUALS_PER_TURN} visuals per turn.`,
 ].join(" ");
+
+/** The tool's arguments, as its MCP server lists them. */
+export const SHOW_VISUAL_SCHEMA: Record<string, unknown> = {
+	type: "object",
+	properties: {
+		title: { type: "string", description: "A short name for the visual (not shown)." },
+		blocks: {
+			type: "array",
+			description: "The components to draw, in reading order.",
+			items: { type: "object" },
+		},
+		html: { type: "string", description: "One self-contained HTML document, instead of blocks." },
+		height: { type: "number", description: "For html: the frame's starting height in pixels." },
+	},
+	required: ["title"],
+};

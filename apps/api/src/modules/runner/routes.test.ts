@@ -247,3 +247,45 @@ describe("runner routes", () => {
 		expect(event?.data).toEqual({ type: "tool", output: "a\uFFFDb", "k\uFFFD": 1 });
 	});
 });
+
+describe("agents' board tasks", () => {
+	it("acts as the thread's owner, with their access, in the workspace given by id", async () => {
+		await db
+			.insert(schema.workspaceMembers)
+			.values({ workspaceId, userId, role: "owner" })
+			.onConflictDoNothing();
+		const created = await call(`/tasks/${workspaceId}/kestrel-board`, {
+			method: "POST",
+			body: JSON.stringify({ user: userId, task: { title: "x" } }),
+		});
+		// No such project yet: the same answer the board's own routes give.
+		expect(created.status).toBe(404);
+		await db.insert(schema.projects).values({ workspaceId, slug: "kestrel-board", name: "Board" });
+		const made = await data<{ number: number; status: string }>(
+			call(`/tasks/${workspaceId}/kestrel-board`, {
+				method: "POST",
+				body: JSON.stringify({ user: userId, task: { title: "Wire the queue", status: "ready" } }),
+			}),
+		);
+		expect(made.status).toBe("ready");
+		const moved = await data<{ status: string }>(
+			call(`/tasks/${workspaceId}/kestrel-board/${made.number}`, {
+				method: "PATCH",
+				body: JSON.stringify({ user: userId, task: { status: "in_progress" } }),
+			}),
+		);
+		expect(moved.status).toBe("in_progress");
+		const listed = await data<{ number: number }[]>(
+			call(`/tasks/${workspaceId}/kestrel-board?user=${userId}`),
+		);
+		expect(listed.map((task) => task.number)).toContain(made.number);
+
+		const bad = await call(`/tasks/${workspaceId}/kestrel-board`, {
+			method: "POST",
+			body: JSON.stringify({ user: userId, task: { title: "" } }),
+		});
+		expect(bad.status).toBe(400);
+		const stranger = await call(`/tasks/${workspaceId}/kestrel-board?user=${crypto.randomUUID()}`);
+		expect(stranger.status).toBe(404);
+	});
+});
