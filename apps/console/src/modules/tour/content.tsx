@@ -1,8 +1,27 @@
 import type { JSX } from "@solidjs/web";
 
 import {
+	AgentLogo,
+	BackgroundList,
+	BackgroundRow,
+	Badge,
 	BoardIcon,
 	BranchIcon,
+	BrowserIcon,
+	EditIcon,
+	GlobeIcon,
+	HeaderTabs,
+	ImageIcon,
+	KeyboardIcon,
+	KeyRecorder,
+	ListIcon,
+	StepGlyph,
+	TurnHeader,
+	UsageRing,
+	UsageStrip,
+	UserIcon,
+	WorkCard,
+	WorkStep,
 	ChangedFilesRow,
 	ChatIcon,
 	CrewPanel,
@@ -36,10 +55,202 @@ export type TourSlide = {
 
 const noop = () => undefined;
 
+/** The third edition: the browser, tabs, keybindings, accounts and usage, a clearer transcript. */
+const WORKBENCH_EDITION = "workbench-1";
+
 /** The second edition: crews, handoffs, side chats, the board from chat, and backgrounds. */
 const CREWS_EDITION = "crews-1";
 
 export const TOUR_SLIDES: TourSlide[] = [
+	{
+		id: "browser",
+		edition: WORKBENCH_EDITION,
+		icon: () => <BrowserIcon />,
+		title: "A browser your agents drive",
+		pitch:
+			"Agents open pages in Grid's own browser, read them, click and type, and take screenshots, to check a site or the app they are building. You watch the same page beside the thread.",
+		highlights: [
+			"It opens by itself when the agent opens a page; Ctrl/⌘ Shift B shows or hides it.",
+			"Use it too: type an address, click and type on the page.",
+			"Each thread has its own page and cookies, on the machine the thread runs on.",
+		],
+		preview: () => (
+			<WorkCard
+				open
+				glyphs={
+					<StepGlyph tone="accent">
+						<BrowserIcon />
+					</StepGlyph>
+				}
+				title="Checked the sign-in flow"
+				detail="4 steps"
+			>
+				<WorkStep
+					glyph={
+						<StepGlyph tone="accent">
+							<GlobeIcon />
+						</StepGlyph>
+					}
+					verb="Opened"
+					target="localhost:3000/login"
+				/>
+				<WorkStep
+					glyph={
+						<StepGlyph tone="neutral">
+							<EditIcon />
+						</StepGlyph>
+					}
+					verb="Typed into"
+					target="Email"
+				/>
+				<WorkStep
+					glyph={
+						<StepGlyph tone="neutral">
+							<ToolIcon />
+						</StepGlyph>
+					}
+					verb="Clicked"
+					target="Continue"
+				/>
+				<WorkStep
+					glyph={
+						<StepGlyph tone="neutral">
+							<ImageIcon />
+						</StepGlyph>
+					}
+					verb="Took"
+					target="a screenshot"
+				/>
+			</WorkCard>
+		),
+	},
+	{
+		id: "tabs",
+		edition: WORKBENCH_EDITION,
+		icon: () => <ChatIcon />,
+		title: "Tabs that keep up",
+		pitch:
+			"Right-click a tab (or long-press it) to pin it, close others or close those to its right. Drag tabs into the order you want; a dot says a thread is waiting on you or finished while you were away.",
+		highlights: [
+			"Alt+W closes, Alt+Shift+T reopens, Alt+[ and Alt+] step through, Alt+1–9 jump.",
+			"Pinned tabs stay first, as their icon.",
+			"On a phone, tap the thread's title to switch between open tabs.",
+		],
+		preview: () => (
+			<HeaderTabs
+				current="b"
+				tabs={[
+					{ id: "a", label: "Pricing page", href: "#", icon: <ChatIcon size="sm" />, pinned: true },
+					{ id: "b", label: "Fix the login redirect", href: "#", icon: <ChatIcon size="sm" /> },
+					{
+						id: "c",
+						label: "Release notes",
+						href: "#",
+						icon: <ChatIcon size="sm" />,
+						attention: "waiting",
+					},
+					{
+						id: "d",
+						label: "Dependency bump",
+						href: "#",
+						icon: <ChatIcon size="sm" />,
+						attention: "done",
+					},
+				]}
+			/>
+		),
+	},
+	{
+		id: "keybindings",
+		edition: WORKBENCH_EDITION,
+		icon: () => <KeyboardIcon />,
+		title: "Every key is yours to move",
+		pitch:
+			"Settings → Keybindings lists every keyboard command. Click one and press the keys you want; a key another command had moves over, and Grid tells you.",
+		highlights: [
+			"Chords work everywhere, even while typing; single keys never fire in a field.",
+			"Restore one command or all of them to the defaults.",
+			"Press ? anywhere to see them all.",
+		],
+		preview: () => (
+			<div class="flex flex-col gap-2">
+				<KeyRecorder
+					label="Close tab"
+					bindings={[[["Alt", "W"]]]}
+					recording={false}
+					onRecord={noop}
+				/>
+				<KeyRecorder
+					label="Go to board"
+					bindings={[[["G"], ["B"]]]}
+					recording={false}
+					onRecord={noop}
+				/>
+				<KeyRecorder label="Show or hide the browser" bindings={[]} recording onRecord={noop} />
+			</div>
+		),
+	},
+	{
+		id: "usage",
+		edition: WORKBENCH_EDITION,
+		icon: () => <UserIcon />,
+		title: "Accounts and how much is left",
+		pitch:
+			"Add more than one Claude or ChatGPT plan per machine in Settings → Agents, each signed in on its own, and pick which one a new thread runs as. Rings at the foot of the sidebar show how much of each plan's window is used.",
+		highlights: [
+			"A ring per window: the next five hours, the week.",
+			"Amber past 70%, red past 90% or once a window is used up.",
+			"Read from what the agents report as they work; nothing is fetched behind your back.",
+		],
+		preview: () => (
+			<div class="flex flex-col">
+				<UsageStrip
+					mark={<AgentLogo id="claude" name="Claude Code" />}
+					name="Claude Code"
+					detail="Work plan"
+				>
+					<UsageRing window="5h" used={42} detail="42% used" />
+					<UsageRing window="Weekly" short="Week" used={76} detail="76% used" />
+				</UsageStrip>
+				<UsageStrip mark={<AgentLogo id="codex" name="Codex" />} name="Codex" detail="This machine">
+					<UsageRing window="5h" used={93} detail="93% used" />
+					<UsageRing window="Weekly" short="Week" used={18} detail="18% used" />
+				</UsageStrip>
+			</div>
+		),
+	},
+	{
+		id: "transcript",
+		edition: WORKBENCH_EDITION,
+		icon: () => <ListIcon />,
+		title: "A clearer transcript",
+		pitch:
+			"Every turn starts with how long it took and what it did. Work running beside the agent (subagents, background commands) gets compact rows of its own, and a stopped turn keeps its work in view, marked where it was cut short.",
+		highlights: [
+			'"Worked for 1m 12s · 8 steps · 3 files changed" at the head of each turn.',
+			"Open a background row for its brief, its steps and what it reported.",
+			"Steps left running by a stop read Interrupted.",
+		],
+		preview: () => (
+			<div class="flex flex-col gap-3">
+				<TurnHeader summary="6 steps · 2 files changed · 1 in the background" ended="stopped">
+					Stopped after 48s
+				</TurnHeader>
+				<BackgroundList label="1 in the background">
+					<BackgroundRow
+						glyph={
+							<StepGlyph tone="violet">
+								<ToolIcon />
+							</StepGlyph>
+						}
+						label="Explore the auth module"
+						detail="Explore · 9 steps · 31s"
+						status={<Badge tone="success">Done</Badge>}
+					/>
+				</BackgroundList>
+			</div>
+		),
+	},
 	{
 		id: "crews",
 		edition: CREWS_EDITION,
