@@ -64,7 +64,12 @@ const THREAD_LINK = /^grid-thread:\/\/([\w-]{1,80})$/;
 function threadAnchor(href: string, text: string): string | null {
 	const id = THREAD_LINK.exec(href.trim())?.[1];
 	if (!id) return null;
-	return `<a href="${escapeHtml(workspaceHref(`/thread/${id}`))}" data-thread="${id}">${text}</a>`;
+	return `<a href="${escapeHtml(workspaceHref(`/thread/${encodeURIComponent(id)}`))}" data-thread="${escapeHtml(id)}">${text}</a>`;
+}
+
+/** A thread id as links carry it (`[\w-]`, up to 80), or null for anything else. */
+function threadIdOf(value: string | null | undefined): string | null {
+	return /^[\w-]{1,80}$/.exec(value ?? "")?.[0] ?? null;
 }
 
 /**
@@ -81,8 +86,8 @@ export function threadLinkFrom(event: MouseEvent): string | null {
 	)
 		return null;
 	const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[data-thread]");
-	const id = anchor?.dataset.thread;
-	if (!id || !/^[\w-]{1,80}$/.test(id)) return null;
+	const id = threadIdOf(anchor?.dataset.thread);
+	if (!id) return null;
 	event.preventDefault();
 	return id;
 }
@@ -321,19 +326,17 @@ function sanitizeNode(node: Node): void {
 		}
 
 		if (name === "data-thread") {
-			if (!/^[\w-]{1,80}$/.test(val)) element.removeAttribute(attr.name);
+			if (!threadIdOf(val)) element.removeAttribute(attr.name);
 			continue;
 		}
 
 		if (name === "href") {
 			if (tag !== "a" || !isSafeUrl(val)) {
 				element.removeAttribute(attr.name);
-			} else if (/^[\w-]{1,80}$/.test(element.getAttribute("data-thread") ?? "")) {
+			} else if (threadIdOf(element.getAttribute("data-thread"))) {
 				// A thread in this workspace opens in place, and only ever at the thread's own address.
-				element.setAttribute(
-					"href",
-					workspaceHref(`/thread/${element.getAttribute("data-thread")}`),
-				);
+				const id = threadIdOf(element.getAttribute("data-thread")) ?? "";
+				element.setAttribute("href", workspaceHref(`/thread/${encodeURIComponent(id)}`));
 				element.removeAttribute("target");
 			} else {
 				element.setAttribute("target", "_blank");
