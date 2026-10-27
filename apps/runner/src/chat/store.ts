@@ -109,9 +109,14 @@ export type SessionNotes = {
 export type ProjectSettings = {
 	/** New chats start in their own git worktree unless the composer says otherwise (off by default). */
 	worktrees: boolean;
+	/**
+	 * Claude Code threads with a large conversation are compacted shortly before their prompt
+	 * cache expires when they go quiet (see `idle-compaction.ts`; off by default).
+	 */
+	idleCompact?: boolean;
 };
 
-const DEFAULT_PROJECT_SETTINGS: ProjectSettings = { worktrees: false };
+const DEFAULT_PROJECT_SETTINGS: ProjectSettings = { worktrees: false, idleCompact: false };
 
 type Row = {
 	id: string;

@@ -385,6 +385,52 @@ stopped, and when it asks a question, as a `user` message with
 `origin: { kind: "grid", reason: "report" }`. Crew members' questions go to their coordinator the
 same way.
 
+### Runner autonomy: usage limits, pull request watches, goals and idle compaction
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/runner/chat/sessions/:id/goal` | member | The thread's goal, or `null` |
+| `POST` | `/runner/chat/sessions/:id/goal` | `startAgents` | Set one, `{ objective, maxTurns? }` (`201`; 20 turns by default, 100 at most), or `{ action: "pause" \| "resume" \| "clear" }` |
+| `DELETE` | `/runner/chat/sessions/:id/limit-wait` | `startAgents` | Don't carry the thread on when its usage limit resets (`204`; `404` when it is not waiting) |
+
+`PUT /runner/chat/projects/:slug/settings` now takes either or both of `worktrees` and
+`idleCompact`; those left out keep their value.
+
+**Usage limits.** A turn that fails because the person's plan is used up ends with an error the
+console reads as "usage limit" (`retryable: false`). When its reset time is known (from the agent's
+words: Claude's `…|<unix seconds>`, "try again at …", "resets 3pm (Zone)"; or from what the
+account's agents last reported as `limited` with a `resetsAt`), Grid logs
+`{ type: "limit_wait", resetsAt }` and carries the thread on a minute after the reset with a
+`user` message, `origin: { kind: "grid", reason: "limit" }`, then logs the wait as
+`ended: "resumed"`. A message from the person first, or the `DELETE` above, ends it as
+`"cancelled"`. The wait is kept across restarts; resets more than eight days off are not waited
+for, nor is the same reset twice. `GRID_LIMIT_RESUME=0` turns it off.
+
+**Pull request watches.** Every thread's agent has `watch_pull_request` (`number`, `repo?` as
+`owner/name`, by default the GitHub remote of the thread's folder) and `unwatch_pull_request`
+(`number?`; none stops them all). Grid reads each watched pull request every two minutes through
+GitHub's REST API (`gh api`), once for all threads watching it, and wakes each thread with a
+`user` message, `origin: { kind: "grid", reason: "pull" }`, when a check on the head fails, every
+check has passed, the branch starts to conflict, or someone other than the signed-in GitHub user
+reviews or comments. A watch ends when the pull request is merged or closed, when the person
+stops the thread, after ten wakes in a row with only comments, or after eight failed reads in a
+row; a rate limit only pauses it.
+
+**Goals.** `/goal <what done means>` in the composer (or the route above) sets the thread's goal
+and logs `{ type: "goal", objective, status, turns, maxTurns, note? }` each time it changes;
+`status` is `active`, `paused`, `met`, `blocked` or `cleared`. Grid sends the agent a turn for the
+goal (`origin: { kind: "grid", reason: "goal" }`) each time a turn ends, behind anything queued,
+until the agent's reply begins with `GOAL MET` (and how it checked) or `GOAL BLOCKED` (and what it
+needs), or the goal's turns run out (paused; resuming gives as many again). The person's Stop
+pauses it; a failed turn leaves it for the next turn to end.
+
+**Idle compaction** (project setting `idleCompact`, off by default): a Claude Code thread whose
+conversation is 60,000 tokens or more and goes quiet is sent `/compact`
+(`origin: { kind: "grid", reason: "compact" }`) 90 seconds before Claude's prompt cache for it
+expires: an hour after its last turn on a plan, five minutes with `ANTHROPIC_API_KEY`. Anything
+happening in the thread first cancels it; timers do not survive a restart. Claude Code `usage`
+events now carry `contextUsed`, the input its latest request read.
+
 ### Runner file attribution
 
 Project Files listing, content and blame routes return live agent attribution only
@@ -514,6 +560,7 @@ Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-10-27 | Runner: `limit_wait` and `goal` events and `GridReason`s `limit`, `pull`, `goal`, `compact`; goal and limit-wait routes; `idleCompact` project setting; `watch_pull_request` and `unwatch_pull_request`; `contextUsed` on Claude Code usage | no |
 | 2026-10-27 | Runner: agent `capabilities`; steering by restart (`steered`, `restarted`); `requestId` on `prompt`; turns carried on after a restart (`continued`, `origin`); native forks and handing a thread back; `POST /chat/sessions/:id/merge` and `merged`; Grid's thread tools and `delegatedBy` | no |
 | 2026-10-24 | Runner: provider accounts and usage, `account` on threads, `waiting` on running threads, the thread browser and Grid's browser tools; tool answers may carry an image; `GET /chat/tools` answers without a sign-in | no |
 | 2026-10-06 | Auth: optional signed bearer proof on logout revokes the same session across refresh-cookie rotation | no |

@@ -41,7 +41,7 @@ import { chatService } from "@/modules/chat/services/chat.service";
 import { threadsStore } from "@/modules/chat/stores/threads";
 import { inboxStore } from "@/modules/inbox";
 import { placementsStore } from "@/modules/environments/stores/placements";
-import type { ChatSession } from "@/modules/chat/types/chat.types";
+import type { ChatSession, ProjectChatSettings } from "@/modules/chat/types/chat.types";
 import { type Project, ProjectIcon, useWorkspace } from "@/modules/projects";
 
 import { useShell } from "../context/shell-context";
@@ -51,10 +51,10 @@ import { WorktreeDialog } from "./worktree-dialog";
 const OPEN_KEY = "grid.sidebar.open";
 
 /**
- * A project's menu. `worktrees` is whether its new threads get their own git worktree (null
- * while that is not known yet).
+ * A project's menu. `settings` says whether its new threads get their own git worktree and
+ * whether idle Claude Code threads are compacted (null while that is not known yet).
  */
-function projectMenu(worktrees: boolean | null): MenuGroup[] {
+function projectMenu(settings: ProjectChatSettings | null): MenuGroup[] {
 	return [
 		{
 			items: [
@@ -78,8 +78,14 @@ function projectMenu(worktrees: boolean | null): MenuGroup[] {
 					id: "worktrees",
 					label: "Start threads in a worktree",
 					icon: <BranchIcon />,
-					disabled: worktrees === null,
-					trailing: worktrees ? <CheckIcon size="sm" /> : undefined,
+					disabled: settings === null,
+					trailing: settings?.worktrees ? <CheckIcon size="sm" /> : undefined,
+				},
+				{
+					id: "idleCompact",
+					label: "Compact idle Claude Code threads",
+					disabled: settings === null,
+					trailing: settings?.idleCompact ? <CheckIcon size="sm" /> : undefined,
 				},
 			],
 		},
@@ -297,44 +303,51 @@ function ProjectNode(props: {
 		},
 	);
 
-	// Whether new threads get their own worktree, read when the project is opened.
-	const [worktrees, setWorktrees] = createSignal<boolean | null>(null);
+	// The project's chat settings on its machine, read when the project is opened.
+	const [settings, setSettings] = createSignal<ProjectChatSettings | null>(null);
 	createEffect(
 		() => [props.open, auth.token(), slug()] as const,
 		([open, token, project]) => {
 			if (!open || !token) return;
 			chatService
 				.projectSettings(token, project, placementsStore.scopeOf(project))
-				.then((settings) => setWorktrees(settings.worktrees))
-				.catch(() => setWorktrees(null));
+				.then((loaded) => setSettings(loaded))
+				.catch(() => setSettings(null));
 		},
 	);
 
-	async function toggleWorktrees(): Promise<void> {
+	/** Flip one of the project's chat settings, saying what it now does. */
+	async function toggleSetting(key: "worktrees" | "idleCompact"): Promise<void> {
 		const token = auth.token();
-		const next = !worktrees();
-		if (!token) return;
-		setWorktrees(next);
+		const current = settings();
+		if (!token || !current) return;
+		const next = !current[key];
+		setSettings({ ...current, [key]: next });
 		try {
 			await chatService.saveProjectSettings(
 				token,
 				slug(),
-				{ worktrees: next },
+				{ [key]: next } as Partial<ProjectChatSettings>,
 				placementsStore.scopeOf(slug()),
 			);
 			notify({
-				title: next
-					? "New threads get their own worktree"
-					: "New threads work in the project folder",
+				title:
+					key === "worktrees"
+						? next
+							? "New threads get their own worktree"
+							: "New threads work in the project folder"
+						: next
+							? "Idle Claude Code threads are compacted before their cache expires"
+							: "Idle threads are left as they are",
 			});
 		} catch (cause) {
-			setWorktrees(!next);
+			setSettings(current);
 			notify({ title: cause instanceof Error ? cause.message : "Not saved", tone: "danger" });
 		}
 	}
 
 	function onMenu(id: string): void {
-		if (id === "worktrees") return void toggleWorktrees();
+		if (id === "worktrees" || id === "idleCompact") return void toggleSetting(id);
 		// The dialogs open over the page, so the phone drawer steps aside first.
 		if (id !== "new" && id !== "board") shell.setDrawerOpen(false);
 		if (id === "new") navigate(`/chat/${slug()}`);
@@ -394,7 +407,7 @@ function ProjectNode(props: {
 							width="md:w-56"
 							triggerClass={iconButton({ size: "xs" })}
 							trigger={<MoreIcon />}
-							groups={projectMenu(worktrees())}
+							groups={projectMenu(settings())}
 							onSelect={onMenu}
 							control={(control) => {
 								menu = control;

@@ -502,6 +502,8 @@ async function startClaudeSession(
 	// A fork branches once, in the first process: Claude names the new session in its init, and
 	// every later process (a model change restarts it) continues that one.
 	let fork = context.fork === true && Boolean(context.resume);
+	// The input the agent's latest request read: the conversation's size, for the usage report.
+	let contextUsed = 0;
 	let proc: JsonProcess | null = null;
 	let finishTurn: ((result: TurnResult) => void) | null = null;
 	let controlId = 0;
@@ -570,6 +572,14 @@ async function startClaudeSession(
 		if (type === "assistant") {
 			const content = (message.message as { content?: Record<string, unknown>[] })?.content ?? [];
 			const parent = parentOf(message);
+			// How big the conversation is: what the agent's own latest request read (a subagent's
+			// requests are its own conversation).
+			const read = (message.message as { usage?: Record<string, number | undefined> })?.usage;
+			if (read && !parent)
+				contextUsed =
+					(read.input_tokens ?? 0) +
+					(read.cache_read_input_tokens ?? 0) +
+					(read.cache_creation_input_tokens ?? 0);
 			for (const block of content) {
 				if (
 					parent &&
@@ -730,6 +740,7 @@ async function startClaudeSession(
 						(usage.cache_read_input_tokens ?? 0) +
 						(usage.cache_creation_input_tokens ?? 0),
 					outputTokens: usage.output_tokens,
+					...(contextUsed ? { contextUsed } : {}),
 					costUsd: typeof message.total_cost_usd === "number" ? message.total_cost_usd : undefined,
 				});
 			}

@@ -51,12 +51,22 @@ export type AgentQuestion = {
 export type SubagentStatus = "running" | "completed" | "failed" | "cancelled";
 
 /**
+ * Why Grid itself sent a message: carrying a turn on after the runner restarted, reporting on
+ * threads this one started, carrying on once a usage limit reset, news of a watched pull request,
+ * working toward the thread's goal, or compacting an idle conversation before its cache expires.
+ */
+export type GridReason = "restart" | "report" | "limit" | "pull" | "goal" | "compact";
+
+/** A thread's goal as the person set it (`/goal`), and where it stands. */
+export type GoalStatus = "active" | "paused" | "met" | "blocked" | "cleared";
+
+/**
  * Who a message is from when the person did not type it: Grid itself (carrying a turn on after
  * the runner restarted, or reporting on threads this one's agent started), another thread's
  * agent (Grid's thread tools), or a fork's work brought back into the thread it branched from.
  */
 export type MessageOrigin =
-	| { kind: "grid"; reason: "restart" | "report" }
+	| { kind: "grid"; reason: GridReason }
 	| { kind: "agent"; thread: { id: string; title: string } }
 	| { kind: "merge"; thread: { id: string; title: string } };
 
@@ -204,6 +214,22 @@ export type ChatEvent =
 	  }
 	/** Where a forked thread's own work begins: everything above came from `from`. */
 	| { type: "forked"; from: { id: string; title: string }; at?: string }
+	/**
+	 * A usage limit stopped the thread: Grid carries it on at `resetsAt` (`ended` once it has, or
+	 * once the person cancels or sends something themselves).
+	 */
+	| { type: "limit_wait"; resetsAt: string; ended?: "resumed" | "cancelled"; at?: string }
+	/** The thread's goal changed: set, a turn spent on it, paused, met, blocked or cleared. */
+	| {
+			type: "goal";
+			objective: string;
+			status: GoalStatus;
+			turns: number;
+			maxTurns: number;
+			/** Why it stopped, in words (the agent's reason when blocked). */
+			note?: string;
+			at?: string;
+	  }
 	/** This fork's work since it branched was brought back into the thread it came from. */
 	| { type: "merged"; into: { id: string; title: string }; turns: number; at?: string }
 	/**

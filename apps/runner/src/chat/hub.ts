@@ -427,6 +427,8 @@ export class ChatHub {
 	private busyListener: ((running: number) => void) | null = null;
 	private workspacePolicy: (workspace: string) => { policy: AgentPolicy; defaultBranch: string } =
 		() => ({ policy: DEFAULT_POLICY, defaultBranch: "main" });
+	/** Hearers of a person stopping a turn (see `onStopped`). */
+	private readonly stopListeners: ((session: ChatSessionRow) => void)[] = [];
 	/** Hearers of every event a thread logs (see `onEvent`). */
 	private readonly eventListeners: ((session: ChatSessionRow, event: ChatEvent) => void)[] = [];
 	/** The runner is stopping: turns cut off now are left open, to carry on when it starts. */
@@ -2365,8 +2367,13 @@ export class ChatHub {
 		}
 	}
 
-	cancel(workspace: string, id: string): void {
-		this.owned(workspace, id);
+	/**
+	 * Stop the turn going on. `byPerson` when someone pressed Stop (not Grid or another agent):
+	 * what keeps the thread going on its own (a goal, pull request watches) stops with it.
+	 */
+	cancel(workspace: string, id: string, byPerson = false): void {
+		const session = this.owned(workspace, id);
+		if (byPerson) this.stoppedByPerson(session);
 		const live = this.live.get(id);
 		const opened = live?.agent;
 		if (!live || !opened) return;
@@ -2409,11 +2416,13 @@ export class ChatHub {
 			.catch(() => undefined);
 	}
 
+	/** Someone stopped this thread's turn from Machines, Agents or a notification. */
 	async stopRunning(workspace: string, id: string): Promise<void> {
-		this.owned(workspace, id);
+		const session = this.owned(workspace, id);
 		const live = this.live.get(id);
 		const opened = live?.agent;
 		if (!live?.running || !opened) throw new ChatError("That agent is no longer running", 409);
+		this.stoppedByPerson(session);
 		const agent = await opened;
 		if (!live.running) throw new ChatError("That agent is no longer running", 409);
 		this.stopTurn(id, live, opened, agent);
@@ -2558,6 +2567,37 @@ export class ChatHub {
 			});
 		}
 		return { carried, held };
+	}
+
+	/** Hear when a person stops a thread's turn (see `cancel`). */
+	onStopped(listener: (session: ChatSessionRow) => void): void {
+		this.stopListeners.push(listener);
+	}
+
+	private stoppedByPerson(session: ChatSessionRow): void {
+		for (const listener of this.stopListeners) {
+			try {
+				listener(session);
+			} catch (cause) {
+				console.warn(
+					"[runner] a stop listener failed:",
+					cause instanceof Error ? cause.message : cause,
+				);
+			}
+		}
+	}
+
+	/**
+	 * Log one of Grid's own events in a thread (a goal changing, a wait for a usage limit) and
+	 * send it to every device watching, as the agent's events are.
+	 */
+	logEvent(id: string, event: Extract<ChatEvent, { type: "goal" | "limit_wait" }>): void {
+		if (this.store.get(id)) this.record(id, event);
+	}
+
+	/** How many messages wait in a thread's queue. */
+	queued(id: string): number {
+		return this.live.get(id)?.queue.length ?? this.store.queue(id).items.length;
 	}
 
 	/** Hear every event a thread logs (streamed text aside), after it is logged. */

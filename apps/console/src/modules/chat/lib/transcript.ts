@@ -7,6 +7,7 @@ import type {
 	ChatEvent,
 	Choice,
 	FileDiff,
+	GridReason,
 	MessageOrigin,
 	PlanEntry,
 	QueuedMessage,
@@ -134,6 +135,10 @@ export type Transcript = {
 	commands: AgentCommand[];
 	/** Messages waiting for the agent, and whether they are held. Never part of the log. */
 	queue: { items: QueuedMessage[]; paused: boolean };
+	/** The thread's goal as last logged; null without one (or once cleared). */
+	goal: Extract<ChatEvent, { type: "goal" }> | null;
+	/** When Grid carries the thread on after its usage limit resets; null when it does not. */
+	limitWait: string | null;
 };
 
 export function emptyTranscript(): Transcript {
@@ -148,6 +153,8 @@ export function emptyTranscript(): Transcript {
 		usage: null,
 		commands: [],
 		queue: { items: [], paused: false },
+		goal: null,
+		limitWait: null,
 	};
 }
 
@@ -383,6 +390,25 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 			};
 		case "queue":
 			return { ...transcript, queue: { items: event.items, paused: event.paused } };
+		case "goal": {
+			const line = goalLine(event);
+			return {
+				...transcript,
+				goal: event.status === "cleared" ? null : event,
+				blocks: line ? [...blocks, { kind: "notice", key, tone: "muted", text: line }] : blocks,
+			};
+		}
+		case "limit_wait": {
+			if (event.ended === "resumed") return { ...transcript, limitWait: null };
+			const text = event.ended
+				? "Grid won't carry this on when the usage limit resets."
+				: `Grid carries this on when the usage limit resets, at ${new Date(event.resetsAt).toLocaleString(undefined, { hour: "numeric", minute: "2-digit", weekday: "short" })}.`;
+			return {
+				...transcript,
+				limitWait: event.ended ? null : event.resetsAt,
+				blocks: [...blocks, { kind: "notice", key, tone: "muted", text }],
+			};
+		}
 		case "approval":
 			return {
 				...transcript,
@@ -781,6 +807,33 @@ export function toolTag(tool: Pick<ToolBlock, "tool">): string | null {
 	return KIND_TAGS[tool.tool];
 }
 
+const GRID_REASONS: Record<GridReason, string> = {
+	restart: "Grid · carried on after the runner restarted",
+	report: "Grid · about threads this one started",
+	limit: "Grid · carried on after the usage limit reset",
+	pull: "Grid · news of a watched pull request",
+	goal: "Grid · working toward the goal",
+	compact: "Grid · compacting before the cache expires",
+};
+
+/** A goal's change as one line in the transcript; null for a turn counted on it. */
+export function goalLine(event: Extract<ChatEvent, { type: "goal" }>): string | null {
+	const note = event.note ? `: ${event.note}` : "";
+	const turns = `${event.turns} ${event.turns === 1 ? "turn" : "turns"}`;
+	switch (event.status) {
+		case "active":
+			return event.turns === 0 ? `Goal set: ${event.objective}` : null;
+		case "met":
+			return `Goal met in ${turns}${note}`;
+		case "blocked":
+			return `Goal blocked${note}`;
+		case "paused":
+			return `Goal paused${note}`;
+		case "cleared":
+			return "Goal cleared";
+	}
+}
+
 /**
  * Who sent a message the person did not type, as its line under the bubble says it; null for
  * the person's own.
@@ -788,10 +841,7 @@ export function toolTag(tool: Pick<ToolBlock, "tool">): string | null {
 export function messageSource(block: Pick<UserBlock, "origin" | "steered">): string | null {
 	const origin = block.origin;
 	if (!origin) return block.steered ? "Sent while it worked" : null;
-	if (origin.kind === "grid")
-		return origin.reason === "restart"
-			? "Grid · carried on after the runner restarted"
-			: "Grid · about threads this one started";
+	if (origin.kind === "grid") return GRID_REASONS[origin.reason];
 	if (origin.kind === "merge") return `Brought back from the fork "${origin.thread.title}"`;
 	return `From the agent in "${origin.thread.title}"`;
 }

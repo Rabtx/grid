@@ -58,6 +58,9 @@ import {
 	type PopoverControl,
 	QuestionCard,
 	QueueList,
+	GoalBar,
+	type GoalState,
+	LimitWaitBar,
 	SubagentStrip,
 	Text,
 } from "@/kit";
@@ -300,7 +303,48 @@ export function Conversation(props: {
 				void handoff(named.id, newThread);
 				return true;
 			},
+			goal: (input) => void changeGoal(input),
 		});
+	}
+
+	/** Set, pause, resume or clear the thread's goal; `show` says what it is. */
+	async function changeGoal(
+		input: { objective: string } | { action: "pause" | "resume" | "clear" | "show" },
+	): Promise<void> {
+		const token = auth.token();
+		if (!token) return;
+		if ("action" in input && input.action === "show") {
+			const goal = transcript().goal;
+			notify({
+				title: goal
+					? `Goal (${goal.status}, ${goal.turns}/${goal.maxTurns} turns): ${goal.objective}`
+					: "This thread has no goal. Set one with /goal and what done means",
+			});
+			return;
+		}
+		try {
+			await chatService.setGoal(
+				token,
+				props.id,
+				"objective" in input ? input : { action: input.action as "pause" | "resume" | "clear" },
+				props.scope,
+			);
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not change the goal",
+				tone: "danger",
+			});
+		}
+	}
+
+	async function cancelLimitWait(): Promise<void> {
+		const token = auth.token();
+		if (!token) return;
+		try {
+			await chatService.cancelLimitWait(token, props.id, props.scope);
+		} catch (cause) {
+			notify({ title: cause instanceof Error ? cause.message : "Not cancelled", tone: "danger" });
+		}
 	}
 
 	function handleRegenerate(prompt: UserPrompt): void {
@@ -1102,6 +1146,30 @@ export function Conversation(props: {
 							</div>
 						)}
 					</For>
+					<Show when={transcript().limitWait}>
+						{(resetsAt) => (
+							<div class="mb-2">
+								<LimitWaitBar resetsAt={resetsAt()} onCancel={() => void cancelLimitWait()} />
+							</div>
+						)}
+					</Show>
+					<Show
+						when={(() => {
+							const goal = transcript().goal;
+							return goal && goal.status !== "cleared" ? { ...goal, status: goal.status } : null;
+						})()}
+					>
+						{(goal) => (
+							<div class="mb-2">
+								<GoalBar
+									goal={goal() as GoalState}
+									onPause={() => void changeGoal({ action: "pause" })}
+									onResume={() => void changeGoal({ action: "resume" })}
+									onClear={() => void changeGoal({ action: "clear" })}
+								/>
+							</div>
+						)}
+					</Show>
 					<Show when={transcript().queue.items.length > 0}>
 						<div class="mb-2">
 							<QueueList

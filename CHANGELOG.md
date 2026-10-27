@@ -66,6 +66,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Handing a thread back to an agent it was with resumes that agent's conversation and tells it
   only what it missed; an agent told a thread gets the first request and the newest turns with
   their commands and outcomes, and can read the rest with `thread_read`.
+- A thread a usage limit stopped carries on by itself once the limit resets, unless you carry on
+  or cancel first.
+- Agents can watch a pull request: they are woken when a check fails, every check passes, someone
+  reviews or comments, or the branch conflicts, until it merges or closes.
+- `/goal <what done means>` keeps the agent working turn after turn until it says the goal is met
+  (and how it checked) or blocked; the goal shows above the composer with Pause, Resume and Clear.
+- Projects can compact idle Claude Code threads with large conversations just before their prompt
+  cache expires (project menu → Compact idle Claude Code threads).
 
 ### Fixed
 
