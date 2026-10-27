@@ -59,7 +59,11 @@ async function call(path: string, init: { method?: string; body?: unknown } = {}
 
 /** A thread's row in the sidebar, and its menu opened. */
 async function threadMenu(id: string): Promise<void> {
-	await page.locator(`a[href$="/${id}"]`).first().click({ button: "right" });
+	// A click that lands while the page is still settling opens nothing: try again until it does.
+	await expect(async () => {
+		await page.locator(`a[href$="/${id}"]`).first().click({ button: "right" });
+		await expect(page.getByRole("menuitem").first()).toBeVisible({ timeout: 2_000 });
+	}).toPass({ timeout: 15_000 });
 }
 
 async function send(text: string): Promise<void> {
