@@ -3,6 +3,16 @@ import type { ChatHub } from "../chat/hub";
 import type { InboxStore } from "../inbox/store";
 import { automationPrompt, costSoFar, runOutcome, touchedOffLimits } from "./outcome";
 import { nextScheduled, type EventTrigger } from "./schedule";
+import {
+	DeliveryLimit,
+	deliveryBrief,
+	deliveryId,
+	deliveryProved,
+	deliveryWanted,
+	MAX_BODY_BYTES,
+	type WebhookSecrets,
+	webhookOf,
+} from "./webhooks";
 import type { AutomationStore, Automation, AutomationRun, RunOutcome } from "./store";
 
 /** What a run needs from the rest of the runner beyond chats and the inbox. */
@@ -12,6 +22,8 @@ export type AutomationDeps = {
 		workspace: string,
 		id: string,
 	) => { id: string; name: string; icon: string; brief: string } | null;
+	/** Each automation's webhook secret (see `webhooks.ts`); webhooks are refused without it. */
+	hooks?: WebhookSecrets;
 	/** The open pull request from a branch, to say a run opened one. */
 	pullOf?: (
 		ownerId: string,
@@ -45,6 +57,11 @@ export class Automations {
 		}
 		this.wake();
 	}
+	/** Webhook secrets, when this runner takes webhooks. */
+	get hooks(): WebhookSecrets | undefined {
+		return this.deps.hooks;
+	}
+
 	stop(): void {
 		this.stopped = true;
 		if (this.timer) clearTimeout(this.timer);
@@ -99,6 +116,57 @@ export class Automations {
 					console.warn("[automations] GitHub refresh failed:", cause);
 				});
 		this.arm();
+	}
+
+	private readonly deliveries = new DeliveryLimit();
+
+	/**
+	 * A webhook delivery (`POST /hooks/automations/<id>`, with no sign-in): proved with the
+	 * automation's secret, run once, and given to the agent as data (see `webhooks.ts`).
+	 */
+	async hook(id: string, request: Request, url: URL): Promise<Response> {
+		const answer = (status: number, message: string, data?: unknown) =>
+			Response.json(data === undefined ? { message } : { message, data }, { status });
+		if (request.method !== "POST") return answer(405, "Webhooks are POSTed");
+		const item = /^[\w-]{1,120}$/.test(id) ? this.store.listForRun(id) : null;
+		const trigger = item ? webhookOf(item) : null;
+		const hooks = this.deps.hooks;
+		// One that does not exist answers like one with a wrong secret: nothing to learn either way.
+		if (!item || !trigger || !hooks?.has(item.id)) return answer(401, "Not a webhook Grid knows");
+		const length = Number(request.headers.get("content-length") ?? 0);
+		if (length > MAX_BODY_BYTES) return answer(413, "Webhook bodies are 256 KB at most");
+		const body = await request.text();
+		if (body.length > MAX_BODY_BYTES) return answer(413, "Webhook bodies are 256 KB at most");
+		if (
+			!deliveryProved(hooks.secret(item.id), body, request.headers, url.searchParams.get("token"))
+		)
+			return answer(401, "Not a webhook Grid knows");
+		if (!item.enabled) return answer(409, "This automation is turned off");
+		if (!this.deliveries.take(item.id)) return answer(429, "Too many deliveries; slow down");
+		let payload: unknown;
+		try {
+			payload = body.trim() ? JSON.parse(body) : undefined;
+		} catch {
+			payload = undefined;
+		}
+		if (!deliveryWanted(trigger, payload)) return answer(202, "Filtered out; nothing ran");
+		try {
+			const run = this.launch(
+				item,
+				"webhook",
+				null,
+				`webhook:${deliveryId(body, request.headers)}`,
+				deliveryBrief(trigger, payload, body),
+			);
+			return answer(202, run.status === "skipped" ? (run.error ?? "Skipped") : "Running", {
+				run: run.id,
+				status: run.status,
+			});
+		} catch (cause) {
+			if (cause instanceof AutomationError && cause.status === 409)
+				return answer(200, "This delivery already ran");
+			throw cause;
+		}
 	}
 
 	runNow(who: Who, id: string): AutomationRun {
@@ -172,6 +240,8 @@ export class Automations {
 		trigger: AutomationRun["trigger"],
 		scheduledFor: string | null,
 		eventKey: string | null,
+		/** What the run is told beyond its prompt (a webhook's delivery). */
+		extra: string | null = null,
 	): AutomationRun {
 		// Record each refusal as a run, so history explains why it did not execute.
 		const overlapping = this.store.active(item.id);
@@ -193,13 +263,13 @@ export class Automations {
 					: "Two automations are already running",
 			};
 		}
-		void this.execute(item, run).catch((cause: unknown) => {
+		void this.execute(item, run, extra).catch((cause: unknown) => {
 			console.error("[automations] could not record a run outcome:", cause);
 		});
 		return run;
 	}
 
-	private async execute(item: Automation, run: AutomationRun): Promise<void> {
+	private async execute(item: Automation, run: AutomationRun, extra: string | null): Promise<void> {
 		let sessionId: string | null = null;
 		let limit: ReturnType<typeof setTimeout> | null = null;
 		let budget: ReturnType<typeof setInterval> | null = null;
@@ -244,7 +314,8 @@ export class Automations {
 						stop(`Stopped over its $${most} budget`);
 				}, BUDGET_CHECK_MS);
 			}
-			await this.chat.prompt(item.workspace, id, automationPrompt(item.prompt, options));
+			const prompt = automationPrompt(item.prompt, options);
+			await this.chat.prompt(item.workspace, id, extra ? `${prompt}\n\n---\n\n${extra}` : prompt);
 			const result = this.chat.turnOutcome(item.workspace, id);
 			if (!result) throw new Error("Agent turn ended without an outcome");
 			const events = this.chat.events(item.workspace, id);

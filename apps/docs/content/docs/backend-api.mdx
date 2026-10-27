@@ -125,6 +125,9 @@ workspace is used. Responses wrap values in `{ "data": ... }`; errors use `{ "me
 | `POST` | `/runner/automations/:id/toggle` | Flip enabled state (owner only) |
 | `POST` | `/runner/automations/:id/run` | Start a run now (`202`, owner only) |
 | `GET` | `/runner/automations/:id/runs` | Latest 50 runs, newest first |
+| `GET` | `/runner/automations/:id/webhook` | Its webhook's `{ path, secret }` (owner only; the secret is made on first read) |
+| `POST` | `/runner/automations/:id/webhook/rotate` | A new secret; the old one stops working at once (owner only) |
+| `POST` | `/runner/hooks/automations/:id` | A webhook delivery, with no sign-in (below) |
 
 Create and replace take the complete form: `{ name, prompt, provider, model, effort, mode,
 project, workspaceMode, enabled, triggers }`. `model`, `effort`, and `mode` may be `null`.
@@ -136,6 +139,19 @@ project, workspaceMode, enabled, triggers }`. `model`, `effort`, and `mode` may 
 `review_requested`, `checks_failed`); GitHub must be connected. The returned job includes its
 `id`, owner and workspace, timestamps, and `nextRunAt`. A run includes its trigger, status,
 timestamps, error, and `sessionId`; that ID opens an ordinary chat transcript.
+
+A webhook trigger is `{ kind: "webhook", filter?, template? }`: `filter` is `{ path, equals }`
+(a dotted path into the JSON sent, run only when its value is `equals`) and `template` is what
+the agent is told, with each `{{path}}` filled in (the whole payload, cut to 12,000 characters,
+when there is none). A delivery proves itself with the automation's secret: an HMAC-SHA256 of the
+raw body as `X-Grid-Signature` or `X-Hub-Signature-256` (`sha256=<hex>`), or `?token=<secret>` for
+a service that cannot sign. It answers `401` unproved (and for an automation without a webhook),
+`409` when the automation is off, `413` over 256 KiB, `429` past 30 a minute, `202` "filtered out"
+or "running" (`{ run, status }`), and `200` for a delivery already run: each is run once, by
+`X-GitHub-Delivery`, `X-Request-Id`, `Idempotency-Key`, `X-Delivery-Id` or `X-Webhook-Id`, else by
+the body's hash. The run's trigger is `webhook`, and its first message says what was sent comes
+from outside Grid, as data and not instructions. From outside the machine the address is the
+console's `/runner/hooks/automations/:id`.
 
 Unknown IDs return `404`; invalid fields and disconnected GitHub triggers return `400`.
 Nonowners receive `403` for changes and run-now. Active job deletion and the 200-job limit
@@ -431,6 +447,55 @@ expires: an hour after its last turn on a plan, five minutes with `ANTHROPIC_API
 happening in the thread first cancels it; timers do not survive a restart. Claude Code `usage`
 events now carry `contextUsed`, the input its latest request read.
 
+### Runner outside agents, guests, search and snooze
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/runner/chat/agent-keys` | member | Your agent keys (never their tokens) |
+| `POST` | `/runner/chat/agent-keys` | `startAgents` | Make one, `{ name, write?, mode?, project?, provider? }` (`201`, `{ key, token }`; the token is shown only now; 20 a person) |
+| `DELETE` | `/runner/chat/agent-keys/:id` | member | Revoke one of yours (`204`) |
+| `POST` | `/runner/mcp` | agent key | Grid's MCP endpoint (below) |
+| `GET` | `/runner/chat/sessions/:id/guest-links` | member | The thread's live guest links |
+| `POST` | `/runner/chat/sessions/:id/guest-links` | member | Share it, `201`, `{ link, token }` (a day; 5 a thread) |
+| `DELETE` | `/runner/chat/sessions/:id/guest-links(/:linkId)?` | member | Stop one link, or every link to the thread (`204`) |
+| `POST` | `/runner/chat/sessions/:id/guest-requests/:requestId` | `startAgents` | `{ action: "send" \| "dismiss" }` a guest's question (`204`; `409` once handled) |
+| `GET` | `/runner/guest/:token?after=` | the link | What a guest sees, no sign-in |
+| `POST` | `/runner/guest/:token/messages` | the link | A guest asks, `{ name?, text }` (`201`) |
+| `PUT` | `/runner/chat/sessions/:id/snooze` | member | `{ until }` (ISO, up to 90 days) or `{ until: null }` to wake |
+| `GET` | `/runner/chat/sessions/:id` | member | One thread by id (what a `grid-thread://` link names) |
+
+**Outside agents.** `POST /runner/mcp` speaks MCP's Streamable HTTP with JSON answers
+(`initialize`, `ping`, `tools/list`, `tools/call`; protocol versions `2025-06-18`, `2025-03-26` and
+`2024-11-05`), for `Authorization: Bearer grid_ak_…`; anything else is `401` with
+`WWW-Authenticate`. The tools are `list_projects` and Grid's thread tools (`thread_list`,
+`thread_read`, `thread_wait`, and for a key with `write`, `thread_start`, `thread_send`,
+`thread_stop` and `thread_answer`), acting as the key's person with at most the key's `mode`.
+`thread_start` needs a project (the key's or its argument) and an agent (`provider`, the key's or
+its argument), and starts at most a few threads a minute; `requestId` makes a retry safe. What an
+outside agent sends is a `user` message with `origin: { kind: "outside", agent }`, the key's name.
+
+**Guests.** A guest link's token (`grid_gl_…`) is kept only as a hash. Its view has the thread's
+`title`, `running`, `expiresAt`, `next` (pass as `after` for what is new) and `events`, each with
+its number `n`: `user` (`text`; `guest` for a guest's own; `from` for one the person did not type),
+`message`, `tool` (`id`, `title`, `status` only), `turn_start`, `turn_end`, `guest_request` and
+`guest_request_resolved`. A guest's question is logged as
+`{ type: "guest_request", id, name, text }` and waits for the person; sent on, it is a `user`
+message with `origin: { kind: "guest", name }` and `guest_request_resolved` with
+`action: "sent"`, or `"dismissed"`. A link takes 6 questions a minute, 5 waiting at once, 4,000
+characters each. Ended, stopped and unknown links all answer `404`.
+
+**Search** (`GET /runner/search`, Ask Grid) is full-text over threads' titles and messages:
+words match by prefix, accents are folded, and the best match comes first with its passage.
+
+**Snooze.** A snoozed thread's finished turns do not notify or reach the Inbox until it wakes;
+an approval, a question or a failed turn wakes it at once. Threads carry `snoozedUntil`.
+
+**Thread links.** Grid's thread tools name threads as `[Title](grid-thread://<id>)`, and take
+such a link wherever they take a thread id; the console opens it at `/thread/<id>`.
+
+**Replay tests.** With `GRID_AGENT_RECORD_DIR` set, the runner records every agent process it
+starts (what it sent and what came back, as NDJSON) for `replaySpawn` in `agents/replay.ts`.
+
 ### Runner file attribution
 
 Project Files listing, content and blame routes return live agent attribution only
@@ -560,6 +625,7 @@ Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-10-27 | Runner: webhook triggers and their routes; run trigger `webhook`; agent keys and `POST /mcp`; guest links, guest routes and `guest_request` events; origins `outside` and `guest`; snooze and `snoozedUntil`; `GET /chat/sessions/:id`; thread tools answer with `grid-thread://` links; full-text search | no |
 | 2026-10-27 | Runner: `limit_wait` and `goal` events and `GridReason`s `limit`, `pull`, `goal`, `compact`; goal and limit-wait routes; `idleCompact` project setting; `watch_pull_request` and `unwatch_pull_request`; `contextUsed` on Claude Code usage | no |
 | 2026-10-27 | Runner: agent `capabilities`; steering by restart (`steered`, `restarted`); `requestId` on `prompt`; turns carried on after a restart (`continued`, `origin`); native forks and handing a thread back; `POST /chat/sessions/:id/merge` and `merged`; Grid's thread tools and `delegatedBy` | no |
 | 2026-10-24 | Runner: provider accounts and usage, `account` on threads, `waiting` on running threads, the thread browser and Grid's browser tools; tool answers may carry an image; `GET /chat/tools` answers without a sign-in | no |

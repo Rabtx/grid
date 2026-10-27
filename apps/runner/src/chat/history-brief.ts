@@ -71,6 +71,8 @@ function askedBy(origin: MessageOrigin | undefined): string {
 	if (!origin) return "Person";
 	if (origin.kind === "grid") return "Grid";
 	if (origin.kind === "merge") return `Brought back from the fork "${origin.thread.title}"`;
+	if (origin.kind === "outside") return `${origin.agent} (an agent outside Grid)`;
+	if (origin.kind === "guest") return `${origin.name} (a guest)`;
 	return `The agent in "${origin.thread.title}"`;
 }
 

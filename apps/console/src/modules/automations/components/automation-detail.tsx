@@ -14,9 +14,11 @@ import {
 	Button,
 	button,
 	ClockIcon,
+	CopyLine,
 	EditIcon,
 	EyeIcon,
 	FolderIcon,
+	GlobeIcon,
 	GuardrailCard,
 	Guardrails,
 	IconButton,
@@ -59,7 +61,8 @@ import {
 	triggerLine,
 	triggerRecipe,
 } from "../lib/automation-look";
-import type { Automation, AutomationRun } from "../services/automations.service";
+import { webhookUrl } from "../lib/triggers";
+import type { Automation, AutomationRun, Webhook } from "../services/automations.service";
 
 /**
  * One automation, opened (Figma 20 · Automations): when it runs next and who made it, its recipe
@@ -83,6 +86,9 @@ export function AutomationDetail(props: {
 	onRun: () => void;
 	onToggle: () => void;
 	onOpenRun: (run: AutomationRun) => void;
+	/** Its webhook's address and secret, when it has a webhook trigger and they have been read. */
+	webhook?: Webhook | null;
+	onRotateWebhook?: () => void;
 }): JSX.Element {
 	const options = () => props.item.options;
 	const role = () => props.roles.find((item) => item.id === options().role) ?? null;
@@ -271,7 +277,10 @@ export function AutomationDetail(props: {
 									{(trigger, index) => (
 										<>
 											<span>{index() === 0 ? triggerRecipe(trigger).lead : "or"}</span>
-											<RecipeToken icon={<ClockIcon />} tone="accent">
+											<RecipeToken
+												icon={trigger.kind === "webhook" ? <GlobeIcon /> : <ClockIcon />}
+												tone="accent"
+											>
 												{index() === 0
 													? triggerRecipe(trigger).token
 													: `${triggerRecipe(trigger).lead.toLowerCase()} ${triggerRecipe(trigger).token}`}
@@ -326,6 +335,33 @@ export function AutomationDetail(props: {
 								</Recipe>
 							</Show>
 						</AutomationCard>
+
+						<Show when={props.webhook}>
+							{(hook) => (
+								<AutomationCard label="Webhook">
+									<Stack gap={2}>
+										<Text size="caption" tone="subtle">
+											POST JSON here to run it. Sign the body with the secret (HMAC-SHA256, sent as
+											X-Grid-Signature or X-Hub-Signature-256: sha256=…), or add ?token=secret for a
+											service that cannot sign. The same delivery is run once; what it sends reaches
+											the agent as data, not instructions.
+										</Text>
+										<CopyLine label="webhook address" value={webhookUrl(hook().path)} />
+										<CopyLine label="webhook secret" value={hook().secret} secret />
+										<div>
+											<Button
+												size="sm"
+												variant="ghost"
+												disabled={props.busy}
+												onClick={() => props.onRotateWebhook?.()}
+											>
+												New secret
+											</Button>
+										</div>
+									</Stack>
+								</AutomationCard>
+							)}
+						</Show>
 
 						<Guardrails>
 							<GuardrailCard

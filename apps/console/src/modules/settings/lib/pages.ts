@@ -59,6 +59,11 @@ export const SETTINGS_SECTIONS = [
 				description: "Coding agents and what new threads start with",
 			},
 			{
+				href: "/settings/agent-keys",
+				label: "Agent keys",
+				description: "Let agents outside Grid start and follow threads",
+			},
+			{
 				href: "/settings/skills",
 				label: "Skills",
 				description: "Instructions available to every agent",

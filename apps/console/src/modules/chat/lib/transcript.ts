@@ -139,6 +139,8 @@ export type Transcript = {
 	goal: Extract<ChatEvent, { type: "goal" }> | null;
 	/** When Grid carries the thread on after its usage limit resets; null when it does not. */
 	limitWait: string | null;
+	/** What guests with the thread's link asked that its person has not sent on or dismissed. */
+	guestRequests: { id: string; name: string; text: string }[];
 };
 
 export function emptyTranscript(): Transcript {
@@ -155,6 +157,7 @@ export function emptyTranscript(): Transcript {
 		queue: { items: [], paused: false },
 		goal: null,
 		limitWait: null,
+		guestRequests: [],
 	};
 }
 
@@ -407,6 +410,33 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 				...transcript,
 				limitWait: event.ended ? null : event.resetsAt,
 				blocks: [...blocks, { kind: "notice", key, tone: "muted", text }],
+			};
+		}
+		case "guest_request":
+			return {
+				...transcript,
+				guestRequests: [
+					...transcript.guestRequests.filter((item) => item.id !== event.id),
+					{ id: event.id, name: event.name, text: event.text },
+				],
+			};
+		case "guest_request_resolved": {
+			const request = transcript.guestRequests.find((item) => item.id === event.id);
+			return {
+				...transcript,
+				guestRequests: transcript.guestRequests.filter((item) => item.id !== event.id),
+				blocks:
+					request && event.action === "dismissed"
+						? [
+								...blocks,
+								{
+									kind: "notice",
+									key,
+									tone: "muted",
+									text: `${request.name}'s question was dismissed.`,
+								},
+							]
+						: blocks,
 			};
 		}
 		case "approval":
@@ -843,5 +873,7 @@ export function messageSource(block: Pick<UserBlock, "origin" | "steered">): str
 	if (!origin) return block.steered ? "Sent while it worked" : null;
 	if (origin.kind === "grid") return GRID_REASONS[origin.reason];
 	if (origin.kind === "merge") return `Brought back from the fork "${origin.thread.title}"`;
+	if (origin.kind === "outside") return `From ${origin.agent}, an agent outside Grid`;
+	if (origin.kind === "guest") return `From ${origin.name}, a guest`;
 	return `From the agent in "${origin.thread.title}"`;
 }

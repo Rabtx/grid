@@ -333,6 +333,18 @@ export async function chatRequest(
 			);
 		});
 	}
+	// Snooze a thread until a time (`{ until }`), or wake it (`{ until: null }`).
+	const snooze = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/snooze$/);
+	if (snooze && request.method === "PUT") {
+		const body = (await request.json().catch(() => ({}))) as { until?: unknown };
+		if (body.until !== null && typeof body.until !== "string")
+			return failure(400, "Say until when, or null to wake it");
+		return run(() =>
+			Response.json({
+				data: listed(hub.snooze(workspace, snooze[1] ?? "", body.until as string | null)),
+			}),
+		);
+	}
 	// Bring a fork's work back into the thread it was forked from, as that thread's next message.
 	const merge = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/merge$/);
 	if (merge && request.method === "POST") {
@@ -384,6 +396,8 @@ export async function chatRequest(
 				return new Response(null, { status: 204 });
 			});
 		}
+		if (request.method === "GET")
+			return run(() => Response.json({ data: listed(hub.thread(workspace, id)) }));
 		if (request.method === "PATCH") {
 			const body = (await request.json().catch(() => ({}))) as { title?: unknown };
 			if (typeof body.title !== "string") return failure(400, "Nothing to change");

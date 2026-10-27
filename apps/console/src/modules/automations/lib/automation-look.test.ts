@@ -41,6 +41,9 @@ describe("automation look", () => {
 		const tonight = item({ nextRunAt: new Date(at(4, 2)).toISOString() });
 		expect(whenWord(tonight, now)).toBe("Tonight");
 		expect(nextLine(tonight, now)).toBe("Next run tonight at 02:00");
+		expect(nextLine(item({ triggers: [{ kind: "webhook" }] }), now)).toBe(
+			"Runs when its webhook is called",
+		);
 		expect(whenWord(item({ nextRunAt: new Date(at(4, 9)).toISOString() }), now)).toBe("Tomorrow");
 		expect(whenWord(item({ nextRunAt: new Date(at(6, 9)).toISOString() }), now)).toMatch(/^\w{3}$/);
 		expect(whenWord(item({ enabled: false }), now)).toBe("Paused");

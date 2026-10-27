@@ -68,7 +68,11 @@ export type GoalStatus = "active" | "paused" | "met" | "blocked" | "cleared";
 export type MessageOrigin =
 	| { kind: "grid"; reason: GridReason }
 	| { kind: "agent"; thread: { id: string; title: string } }
-	| { kind: "merge"; thread: { id: string; title: string } };
+	| { kind: "merge"; thread: { id: string; title: string } }
+	/** An agent outside Grid, signed in with one of its person's keys (named as the key is). */
+	| { kind: "outside"; agent: string }
+	/** Someone following the thread through a guest link, once its person sent it on. */
+	| { kind: "guest"; name: string };
 
 /** A message waiting for the agent to finish its turn; sent in order once it does. */
 export type QueuedMessage = {
@@ -230,6 +234,10 @@ export type ChatEvent =
 			note?: string;
 			at?: string;
 	  }
+	/** Someone following the thread through a guest link asks something; it waits for the person. */
+	| { type: "guest_request"; id: string; name: string; text: string; at?: string }
+	/** The person sent a guest's request on to the agent, or dismissed it. */
+	| { type: "guest_request_resolved"; id: string; action: "sent" | "dismissed" }
 	/** This fork's work since it branched was brought back into the thread it came from. */
 	| { type: "merged"; into: { id: string; title: string }; turns: number; at?: string }
 	/**

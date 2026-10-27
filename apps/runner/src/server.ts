@@ -29,6 +29,8 @@ import { DiagnosticRoutes, safeCloseReason } from "./diagnostics/routes";
 import { watchEventLoop } from "./diagnostics/stall";
 import { type AutonomyDeps, autonomyRequest } from "./chat/autonomy-routes";
 import { crewRequest } from "./chat/crew-routes";
+import type { Guests } from "./chat/guests";
+import type { OutsideAgents } from "./chat/outside-agents";
 import type { Browsers } from "./browser/browsers";
 import { accountRequest } from "./chat/account-routes";
 import { browserRequest } from "./chat/browser-routes";
@@ -167,6 +169,10 @@ export function startServer(
 		crews?: Crews;
 		/** Threads' goals and their waits for a usage limit to reset. */
 		autonomy?: AutonomyDeps;
+		/** Agents outside Grid, over MCP with a person's key. */
+		outside?: OutsideAgents;
+		/** People following a thread through a guest link. */
+		guests?: Guests;
 		/** People's provider accounts and what each has used of its plan. */
 		accounts?: Accounts;
 		/** Each thread's browser page, shared by its agent and the browser pane. */
@@ -202,6 +208,8 @@ export function startServer(
 		roles,
 		crews,
 		autonomy,
+		outside,
+		guests,
 		accounts,
 		browsers,
 		mayApprove,
@@ -298,6 +306,22 @@ export function startServer(
 					const handled = await connectorCallbackRequest(request, url, connectors);
 					if (handled) return handled;
 				}
+
+				// Agents outside Grid, proved with a person's agent key rather than a sign-in.
+				if (outside && url.pathname === "/mcp") {
+					const handled = await outside.mcpRequest(request, url);
+					if (handled) return handled;
+				}
+
+				// A guest following a thread: the link's token is all it has, and all it needs.
+				if (guests && url.pathname.startsWith("/guest/")) {
+					const handled = await guests.guestRequest(request, url);
+					if (handled) return handled;
+				}
+
+				// A service's webhook to an automation, proved with the automation's secret.
+				const hook = /^\/hooks\/automations\/([^/]+)$/.exec(url.pathname);
+				if (automations && hook?.[1]) return automations.hook(hook[1], request, url);
 
 				// Grid's own tools in a thread, proved the same way.
 				if (url.pathname === "/chat/tools" || url.pathname.startsWith("/chat/tools/")) {
@@ -643,6 +667,10 @@ export function startServer(
 					if (crew) return crew;
 					const own = autonomy ? await autonomyRequest(request, url, who, autonomy) : null;
 					if (own) return own;
+					const keys = outside ? await outside.keysRequest(request, url, who) : null;
+					if (keys) return keys;
+					const shared = guests ? await guests.personRequest(request, url, who) : null;
+					if (shared) return shared;
 					const account = accounts ? await accountRequest(request, url, who, accounts) : null;
 					if (account) return account;
 					const page = browsers ? await browserRequest(request, url, who, chat, browsers) : null;

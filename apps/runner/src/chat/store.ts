@@ -66,6 +66,11 @@ export type ChatSessionRow = {
 	 * the turns it missed.
 	 */
 	agentTokens?: Record<string, AgentToken> | null;
+	/**
+	 * Snoozed until then (ISO time): left out of what asks for attention, unless it fails or
+	 * asks something first. Null when it is not snoozed.
+	 */
+	snoozedUntil?: string | null;
 	createdAt: string;
 	updatedAt: string;
 };
@@ -138,6 +143,7 @@ type Row = {
 	fork_token?: string | null;
 	delegated_by?: string | null;
 	agent_tokens?: string | null;
+	snoozed_until?: string | null;
 	created_at: string;
 	updated_at: string;
 };
@@ -199,6 +205,7 @@ function toSession(row: Row): ChatSessionRow {
 		forkToken: row.fork_token ?? null,
 		delegatedBy: row.delegated_by ?? null,
 		agentTokens: readJson<Record<string, AgentToken>>(row.agent_tokens ?? null),
+		snoozedUntil: row.snoozed_until ?? null,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -312,12 +319,30 @@ export class ChatStore {
 		if (!hasColumn(this.db, "sessions", "queue")) {
 			this.db.exec("ALTER TABLE sessions ADD COLUMN queue TEXT");
 		}
-		for (const column of ["active_turn", "fork_token", "delegated_by", "agent_tokens"])
+		for (const column of [
+			"active_turn",
+			"fork_token",
+			"delegated_by",
+			"agent_tokens",
+			"snoozed_until",
+		])
 			if (!hasColumn(this.db, "sessions", column))
 				this.db.exec(`ALTER TABLE sessions ADD COLUMN ${column} TEXT`);
 		this.db.exec(
 			"CREATE INDEX IF NOT EXISTS sessions_by_delegator ON sessions (delegated_by) WHERE delegated_by IS NOT NULL",
 		);
+		// Full-text search over every thread's title and messages (see `searchText`), built once from
+		// the log for a database that predates it, then kept as events are written.
+		this.db.exec(`
+			CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(
+				session_id UNINDEXED,
+				kind UNINDEXED,
+				body,
+				tokenize = "unicode61 remove_diacritics 2"
+			);
+			CREATE TABLE IF NOT EXISTS search_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+		`);
+		this.backfillSearch();
 		// What each command a device or an agent sent with a request id did, so sending it again
 		// (a retry after a dropped connection) does not do it twice. Kept a week.
 		this.db.exec(`
@@ -512,6 +537,7 @@ export class ChatStore {
 				now,
 				now,
 			);
+		this.indexTitle(session.id, session.title);
 		return {
 			...session,
 			role: session.role ?? null,
@@ -521,6 +547,7 @@ export class ChatStore {
 			forkToken: session.forkToken ?? null,
 			delegatedBy: session.delegatedBy ?? null,
 			agentTokens: null,
+			snoozedUntil: null,
 			resumeToken: null,
 			createdAt: now,
 			updatedAt: now,
@@ -561,6 +588,17 @@ export class ChatStore {
 	}
 
 	/** A page of a thread's events after `after`, with their numbers. */
+	/** The number of a thread's latest event; 0 for one with none. */
+	lastSeq(sessionId: string): number {
+		return (
+			this.db
+				.query<{ seq: number | null }, [string]>(
+					"SELECT MAX(seq) AS seq FROM events WHERE session_id = ?",
+				)
+				.get(sessionId)?.seq ?? 0
+		);
+	}
+
 	eventsAfter(sessionId: string, after: number, limit: number): { seq: number; data: unknown }[] {
 		return this.db
 			.query<{ seq: number; data: string }, [string, number, number]>(
@@ -603,7 +641,11 @@ export class ChatStore {
 					session.createdAt,
 					session.updatedAt,
 				);
-			for (const event of events) insert.run(session.id, event.seq, JSON.stringify(event.data));
+			for (const event of events) {
+				insert.run(session.id, event.seq, JSON.stringify(event.data));
+				this.indexEvent(session.id, event.data);
+			}
+			this.indexTitle(session.id, session.title);
 		})();
 		return true;
 	}
@@ -683,6 +725,7 @@ export class ChatStore {
 				| "account"
 				| "forkToken"
 				| "agentTokens"
+				| "snoozedUntil"
 			>
 		>,
 	): void {
@@ -700,6 +743,7 @@ export class ChatStore {
 			account: "account",
 			forkToken: "fork_token",
 			agentTokens: "agent_tokens",
+			snoozedUntil: "snoozed_until",
 		};
 		// `undefined` means "leave it alone", not "clear it": callers pass whole shapes, and
 		// binding undefined stores NULL, which is how one `configure` with no fields in it
@@ -719,6 +763,7 @@ export class ChatStore {
 		this.db
 			.query(`UPDATE sessions SET ${sets}, updated_at = ? WHERE id = ?`)
 			.run(...values, new Date().toISOString(), id);
+		if (typeof fields.title === "string") this.indexTitle(id, fields.title);
 	}
 
 	/** The workspace's chats that have a worktree. */
@@ -803,6 +848,7 @@ export class ChatStore {
 	delete(id: string): void {
 		this.attachmentFiles.remove(id);
 		this.db.query("DELETE FROM sessions WHERE id = ?").run(id);
+		this.db.query("DELETE FROM search_fts WHERE session_id = ?").run(id);
 	}
 
 	/**
@@ -845,7 +891,51 @@ export class ChatStore {
 		let seq = (next?.seq ?? 0) + 1;
 		const insert = this.db.query("INSERT INTO events (session_id, seq, data) VALUES (?, ?, ?)");
 		this.db.transaction(() => {
-			for (const event of events) insert.run(sessionId, seq++, JSON.stringify(event));
+			for (const event of events) {
+				insert.run(sessionId, seq++, JSON.stringify(event));
+				this.indexEvent(sessionId, event);
+			}
+		})();
+	}
+
+	/** Keep a message's words findable (`searchText`): what the person and the agent wrote. */
+	private indexEvent(sessionId: string, event: unknown): void {
+		const { type, text } = (event ?? {}) as { type?: unknown; text?: unknown };
+		if ((type === "user" || type === "message") && typeof text === "string" && text.trim())
+			this.db
+				.query("INSERT INTO search_fts (session_id, kind, body) VALUES (?, 'text', ?)")
+				.run(sessionId, text);
+	}
+
+	private indexTitle(sessionId: string, title: string): void {
+		this.db.query("DELETE FROM search_fts WHERE session_id = ? AND kind = 'title'").run(sessionId);
+		this.db
+			.query("INSERT INTO search_fts (session_id, kind, body) VALUES (?, 'title', ?)")
+			.run(sessionId, title);
+	}
+
+	/** Index a database written before search did, once. */
+	private backfillSearch(): void {
+		const done = this.db
+			.query<{ value: string }, []>("SELECT value FROM search_meta WHERE key = 'indexed'")
+			.get();
+		if (done) return;
+		this.db.transaction(() => {
+			for (const row of this.db
+				.query<{ id: string; title: string }, []>("SELECT id, title FROM sessions")
+				.all())
+				this.indexTitle(row.id, row.title);
+			const rows = this.db.query<{ session_id: string; data: string }, []>(
+				`SELECT session_id, data FROM events WHERE data LIKE '{"type":"user"%' OR data LIKE '{"type":"message"%'`,
+			);
+			for (const row of rows.iterate()) {
+				try {
+					this.indexEvent(row.session_id, JSON.parse(row.data));
+				} catch {
+					// A malformed event is left out.
+				}
+			}
+			this.db.query("INSERT INTO search_meta (key, value) VALUES ('indexed', '1')").run();
 		})();
 	}
 
@@ -1022,8 +1112,9 @@ export class ChatStore {
 
 	/** Every project folder the workspace has linked on this machine, by project slug. */
 	/**
-	 * Threads in a workspace whose title or messages mention any of the words, newest first: each
-	 * with the words it matched and a passage around the first one (Search, Ask Grid).
+	 * Threads in a workspace whose title or messages mention any of the words, best match first,
+	 * with the passage that matched (Search, Ask Grid). Full-text over every thread, with prefixes
+	 * ("deploy" finds "deployment") and accents folded.
 	 */
 	searchText(
 		workspace: string,
@@ -1039,52 +1130,66 @@ export class ChatStore {
 		passage: string;
 	}[] {
 		const terms = words
-			.map((word) => word.toLowerCase())
+			.map((word) =>
+				word
+					.replace(/["*^:()]/g, " ")
+					.trim()
+					.toLowerCase(),
+			)
 			.filter(Boolean)
 			.slice(0, 8);
 		if (!terms.length) return [];
-		const sessions = this.db
-			.query<
-				{ id: string; project: string; provider: string; title: string; updated_at: string },
-				[string]
-			>(
-				"SELECT id, project, provider, title, updated_at FROM sessions WHERE workspace_id = ? ORDER BY updated_at DESC LIMIT 400",
-			)
-			.all(workspace);
-		const texts = this.db.query<{ data: string }, [string]>(
-			`SELECT data FROM events WHERE session_id = ? AND (data LIKE '{"type":"user"%' OR data LIKE '{"type":"message"%') ORDER BY seq LIMIT 200`,
-		);
-		const found: ReturnType<ChatStore["searchText"]> = [];
-		for (const session of sessions) {
-			const parts = [session.title];
-			for (const row of texts.all(session.id)) {
-				try {
-					const event = JSON.parse(row.data) as { text?: unknown };
-					if (typeof event.text === "string") parts.push(event.text);
-				} catch {
-					// A malformed event is skipped.
-				}
+		const match = terms.map((term) => `"${term}"*`).join(" OR ");
+		let rows: {
+			session_id: string;
+			passage: string;
+			project: string;
+			provider: string;
+			title: string;
+			updated_at: string;
+		}[];
+		try {
+			rows = this.db
+				.query<
+					{
+						session_id: string;
+						passage: string;
+						project: string;
+						provider: string;
+						title: string;
+						updated_at: string;
+					},
+					[string, string]
+				>(
+					`SELECT f.session_id, snippet(search_fts, 2, '', '', '…', 48) AS passage,
+						s.project, s.provider, s.title, s.updated_at
+					 FROM search_fts f JOIN sessions s ON s.id = f.session_id
+					 WHERE search_fts MATCH ? AND s.workspace_id = ?
+					 ORDER BY bm25(search_fts) LIMIT 400`,
+				)
+				.all(match, workspace);
+		} catch {
+			return [];
+		}
+		const found = new Map<string, ReturnType<ChatStore["searchText"]>[number]>();
+		for (const row of rows) {
+			const known = found.get(row.session_id);
+			if (known) {
+				known.hits++;
+				continue;
 			}
-			const body = parts.join("\n");
-			const lower = body.toLowerCase();
-			const matched = terms.filter((term) => lower.includes(term));
-			if (!matched.length) continue;
-			const at = lower.indexOf(matched[0] ?? "");
-			const passage = body
-				.slice(Math.max(0, at - 160), at + 320)
-				.replace(/\s+/g, " ")
-				.trim();
-			found.push({
-				id: session.id,
-				project: session.project,
-				provider: session.provider,
-				title: session.title,
-				updatedAt: session.updated_at,
-				hits: matched.length,
-				passage,
+			found.set(row.session_id, {
+				id: row.session_id,
+				project: row.project,
+				provider: row.provider,
+				title: row.title,
+				updatedAt: row.updated_at,
+				hits: 1,
+				passage: row.passage.replace(/\s+/g, " ").trim(),
 			});
 		}
-		return found.sort((a, b) => b.hits - a.hits).slice(0, limit);
+		// Best match first: the order of the first row each thread has, more matches breaking ties.
+		return [...found.values()].slice(0, limit);
 	}
 
 	/** Every workspace with chats or linked folders here. */

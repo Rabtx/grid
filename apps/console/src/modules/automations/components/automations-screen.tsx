@@ -40,6 +40,7 @@ import {
 	type AutomationInput,
 	type AutomationRun,
 	type Template,
+	type Webhook,
 } from "../services/automations.service";
 import { AutomationDetail } from "./automation-detail";
 import { AutomationEditor } from "./automation-editor";
@@ -187,6 +188,37 @@ export function AutomationsScreen(): JSX.Element {
 			);
 		},
 	);
+	// The open one's webhook (address and secret), when it has a webhook trigger.
+	const [webhook, setWebhook] = createSignal<Webhook | null>(null);
+	const hooked = () => {
+		const item = items().find((entry) => entry.id === openId());
+		return item?.triggers.some((trigger) => trigger.kind === "webhook") ? item.id : null;
+	};
+	createEffect(
+		() => [auth.token(), hooked()] as const,
+		([token, id]) => {
+			setWebhook(null);
+			if (!token || !id) return;
+			void automationsService.webhook(token, id).then(
+				(hook) => {
+					if (untrack(hooked) === id) setWebhook(hook);
+				},
+				(cause) => setError(reason(cause)),
+			);
+		},
+	);
+	async function rotateWebhook(id: string): Promise<void> {
+		const token = auth.token();
+		if (!token) return;
+		setBusy(true);
+		try {
+			setWebhook(await automationsService.rotateWebhook(token, id));
+		} catch (cause) {
+			setError(reason(cause));
+		} finally {
+			setBusy(false);
+		}
+	}
 	createEffect(running, (live) => {
 		if (!live) return;
 		const timer = setInterval(() => {
@@ -530,6 +562,8 @@ export function AutomationsScreen(): JSX.Element {
 						onRun={() => void act("run", item())}
 						onToggle={() => void act("toggle", item())}
 						onOpenRun={(run) => openRun(item(), run)}
+						webhook={webhook()}
+						onRotateWebhook={() => void rotateWebhook(item().id)}
 					/>
 				)}
 			</Show>

@@ -1,8 +1,27 @@
 import { describe, expect, it } from "vitest";
 
-import { describeTrigger, LOCAL_ZONE, newTrigger, untilLabel } from "./triggers";
+import {
+	describeTrigger,
+	LOCAL_ZONE,
+	newTrigger,
+	triggerKind,
+	untilLabel,
+	webhookUrl,
+} from "./triggers";
 
 describe("triggers", () => {
+	it("makes and describes webhook triggers, and their address through the console", () => {
+		const hook = newTrigger("webhook");
+		expect(hook).toEqual({ kind: "webhook", filter: null, template: null });
+		expect(triggerKind(hook)).toBe("webhook");
+		expect(describeTrigger(hook)).toBe("Webhook");
+		expect(
+			describeTrigger({ kind: "webhook", filter: { path: "data.level", equals: "error" } }),
+		).toBe("Webhook when data.level is error");
+		expect(webhookUrl("/hooks/automations/a1", "https://grid.test")).toBe(
+			"https://grid.test/runner/hooks/automations/a1",
+		);
+	});
 	it("describes schedules in words, naming the zone only when it is not this one", () => {
 		expect(describeTrigger(newTrigger("daily"))).toBe("Every day at 09:00");
 		expect(

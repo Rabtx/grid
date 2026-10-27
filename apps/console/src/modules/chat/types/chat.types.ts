@@ -53,7 +53,11 @@ export type GoalStatus = "active" | "paused" | "met" | "blocked" | "cleared";
 export type MessageOrigin =
 	| { kind: "grid"; reason: GridReason }
 	| { kind: "agent"; thread: { id: string; title: string } }
-	| { kind: "merge"; thread: { id: string; title: string } };
+	| { kind: "merge"; thread: { id: string; title: string } }
+	/** An agent outside Grid, with a person's agent key (Settings → Agent keys). */
+	| { kind: "outside"; agent: string }
+	/** A guest following a shared link, sent on by the thread's person. */
+	| { kind: "guest"; name: string };
 
 /** A message waiting for the agent to finish its turn. */
 export type QueuedMessage = {
@@ -166,6 +170,9 @@ export type ChatEvent =
 			note?: string;
 			at?: string;
 	  }
+	/** A guest with the thread's link asked something; it waits for the person to send it on. */
+	| { type: "guest_request"; id: string; name: string; text: string; at?: string }
+	| { type: "guest_request_resolved"; id: string; action: "sent" | "dismissed"; at?: string }
 	/** This fork's work was brought back into the thread it came from. */
 	| { type: "merged"; into: { id: string; title: string }; turns: number; at?: string }
 	| {
@@ -247,6 +254,8 @@ export type ChatSession = {
 	account?: string | null;
 	/** The thread whose agent started this one with Grid's thread tools, if one did. */
 	delegatedBy?: string | null;
+	/** Snoozed until then (ISO): its finished turns do not ask for attention before it. */
+	snoozedUntil?: string | null;
 	createdAt: string;
 	updatedAt: string;
 };

@@ -93,6 +93,7 @@ export {
 	SectionCard,
 	ToneTile,
 } from "./feed";
+export { CopyLine } from "./copy-line";
 export { attachContextMenu, LONG_PRESS_MS, type MenuPoint } from "./context-menu";
 export { AppFrame, AuthCard, AuthFrame, AuthHead, CanvasCorner } from "./frame";
 export {
@@ -451,6 +452,7 @@ export {
 	MergedDivider,
 	GoalBar,
 	type GoalState,
+	GuestRequestCard,
 	LimitWaitBar,
 	QuestionCard,
 	type QuestionItem,

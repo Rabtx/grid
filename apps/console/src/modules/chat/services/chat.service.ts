@@ -75,6 +75,9 @@ const uploadedAttachments = new WeakMap<
 const uploadKey = (scope: string, id: string) => `${scope}\n${id}`;
 
 /** Every call takes the machine's `scope` last: empty for this machine. */
+/** A link a guest follows a thread with (its token is never listed). */
+export type GuestLink = { id: string; sessionId: string; createdAt: string; expiresAt: string };
+
 export const chatService = {
 	roles: (token: string, scope = "") => call<Role[]>("/roles", token, {}, scope),
 	createRole: (token: string, draft: RoleDraft, scope = "") =>
@@ -254,6 +257,43 @@ export const chatService = {
 			scope,
 		),
 	/** Don't carry the thread on when its usage limit resets. */
+	/** Snooze a thread until a time (ISO), or wake it (null). */
+	snooze: (token: string, id: string, until: string | null, scope = "") =>
+		call<ChatSession>(
+			`/chat/sessions/${id}/snooze`,
+			token,
+			{ method: "PUT", body: JSON.stringify({ until }) },
+			scope,
+		),
+	/** One thread by id, wherever it is in the workspace (a grid-thread:// link). */
+	thread: (token: string, id: string, scope = "") =>
+		call<ChatSession>(`/chat/sessions/${id}`, token, {}, scope),
+	/** A link a guest can follow the thread with for a day; its token is shown only now. */
+	shareWithGuest: (token: string, id: string, scope = "") =>
+		call<{ link: GuestLink; token: string }>(
+			`/chat/sessions/${id}/guest-links`,
+			token,
+			{ method: "POST" },
+			scope,
+		),
+	guestLinks: (token: string, id: string, scope = "") =>
+		call<GuestLink[]>(`/chat/sessions/${id}/guest-links`, token, {}, scope),
+	stopSharing: (token: string, id: string, scope = "") =>
+		call<void>(`/chat/sessions/${id}/guest-links`, token, { method: "DELETE" }, scope),
+	/** Send a guest's question on to the agent, or dismiss it. */
+	resolveGuestRequest: (
+		token: string,
+		id: string,
+		requestId: string,
+		action: "send" | "dismiss",
+		scope = "",
+	) =>
+		call<void>(
+			`/chat/sessions/${id}/guest-requests/${requestId}`,
+			token,
+			{ method: "POST", body: JSON.stringify({ action }) },
+			scope,
+		),
 	cancelLimitWait: (token: string, id: string, scope = "") =>
 		call<void>(`/chat/sessions/${id}/limit-wait`, token, { method: "DELETE" }, scope),
 	/** Bring a fork's work back into the thread it was forked from, as that thread's next message. */

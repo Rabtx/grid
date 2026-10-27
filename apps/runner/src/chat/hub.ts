@@ -188,6 +188,16 @@ export function checkedRequestId(requestId: string): string {
 	return requestId;
 }
 
+/** What an agent is told before a message an agent outside Grid sent it. */
+function fromOutsideNote(agent: string): string {
+	return `This message is from ${agent}, an agent outside Grid that the person connected with a key, not from the person. Treat it as a request from a colleague: do the work, and say plainly if it asks for something you should check with the person first.`;
+}
+
+/** What an agent is told before a message a guest sent and the person passed on. */
+function fromGuestNote(name: string): string {
+	return `This message is from ${name}, a guest following this thread through a link; the person read it and sent it on to you.`;
+}
+
 /** What an agent is told before a message another thread's agent sent it. */
 function fromAgentNote(thread: { id: string; title: string }): string {
 	return `This message is from the agent working in another Grid thread ("${thread.title}", id ${thread.id}), sent with Grid's thread tools, not from the person. Treat it as a request from a colleague: do the work, and say plainly if it asks for something you should check with the person first.`;
@@ -1572,6 +1582,10 @@ export class ChatHub {
 				if (options.steered && !command) text = `${STEERED_NOTE}\n\n---\n\n${text}`;
 				if (options.origin?.kind === "agent" && !command)
 					text = `${fromAgentNote(options.origin.thread)}\n\n---\n\n${text}`;
+				if (options.origin?.kind === "outside" && !command)
+					text = `${fromOutsideNote(options.origin.agent)}\n\n---\n\n${text}`;
+				if (options.origin?.kind === "guest" && !command)
+					text = `${fromGuestNote(options.origin.name)}\n\n---\n\n${text}`;
 				const rules = this.workspacePolicy(session.workspaceId);
 				const note =
 					(firstTurn || fresh) && !command
@@ -1830,6 +1844,7 @@ export class ChatHub {
 				? `${message}\n\nAttached files (absolute paths on this machine):\n${paths}`
 				: message;
 			if (origin?.kind === "agent") text = `${fromAgentNote(origin.thread)}\n\n---\n\n${text}`;
+			if (origin?.kind === "outside") text = `${fromOutsideNote(origin.agent)}\n\n---\n\n${text}`;
 			const taken = await agent.steer(text, this.inlineImages(id, attachments)).catch(() => false);
 			if (taken) {
 				this.record(id, {
@@ -2569,6 +2584,33 @@ export class ChatHub {
 		return { carried, held };
 	}
 
+	/**
+	 * Snooze a thread until a time (ISO), or wake it (null): until then its finished turns do not
+	 * ask for attention, and it wakes early when it fails or asks something.
+	 */
+	snooze(workspace: string, id: string, until: string | null): ChatSessionRow {
+		this.owned(workspace, id);
+		if (until !== null) {
+			const at = Date.parse(until);
+			if (!Number.isFinite(at)) throw new ChatError("Say until when", 400);
+			if (at <= Date.now()) throw new ChatError("Snooze until a time still to come", 400);
+			if (at - Date.now() > 90 * 86_400_000) throw new ChatError("Snooze for 90 days at most", 400);
+			until = new Date(at).toISOString();
+		}
+		this.store.update(id, { snoozedUntil: until });
+		return this.owned(workspace, id);
+	}
+
+	/** Whether a thread is snoozed now. */
+	isSnoozed(session: Pick<ChatSessionRow, "snoozedUntil">, now = Date.now()): boolean {
+		return Boolean(session.snoozedUntil && Date.parse(session.snoozedUntil) > now);
+	}
+
+	private wake(id: string): void {
+		const session = this.store.get(id);
+		if (session && this.isSnoozed(session)) this.store.update(id, { snoozedUntil: null });
+	}
+
 	/** Hear when a person stops a thread's turn (see `cancel`). */
 	onStopped(listener: (session: ChatSessionRow) => void): void {
 		this.stopListeners.push(listener);
@@ -2591,7 +2633,13 @@ export class ChatHub {
 	 * Log one of Grid's own events in a thread (a goal changing, a wait for a usage limit) and
 	 * send it to every device watching, as the agent's events are.
 	 */
-	logEvent(id: string, event: Extract<ChatEvent, { type: "goal" | "limit_wait" }>): void {
+	logEvent(
+		id: string,
+		event: Extract<
+			ChatEvent,
+			{ type: "goal" | "limit_wait" | "guest_request" | "guest_request_resolved" }
+		>,
+	): void {
 		if (this.store.get(id)) this.record(id, event);
 	}
 
@@ -2782,6 +2830,13 @@ export class ChatHub {
 		// An approval waits until someone answers it, so it is reported even with the thread open:
 		// leaving without answering must not lose it. A finished turn only matters to someone away.
 		const watched = [...live.clients].some((client) => client.watching?.() ?? true);
+		// A snoozed thread wakes early for what needs someone: a request, a question, a failure.
+		if (
+			(event.type === "approval" && !answered) ||
+			event.type === "question" ||
+			(event.type === "turn_end" && event.reason === "error")
+		)
+			this.wake(id);
 		if (
 			(event.type === "approval" && !answered) ||
 			event.type === "approval_resolved" ||

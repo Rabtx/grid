@@ -125,7 +125,7 @@ describe("thread tools (G)", () => {
 			prompt: "Write the changelog",
 			title: "Changelog",
 		});
-		expect(answer).toContain('Started "Changelog"');
+		expect(answer).toContain("Started [Changelog](grid-thread://");
 		const child = hub.list("me", "alpha").find((row) => row.title === "Changelog");
 		expect(child?.delegatedBy).toBe(lead.id);
 		await until(() => agents.seat("Write the changelog") !== undefined);
@@ -142,7 +142,7 @@ describe("thread tools (G)", () => {
 		await until(() => users(store, lead.id).length === 2);
 		const report = users(store, lead.id)[1];
 		expect(report?.origin).toEqual({ kind: "grid", reason: "report" });
-		expect(report?.text).toContain('"Changelog" (thread');
+		expect(report?.text).toContain("[Changelog](grid-thread://");
 		expect(report?.text).toContain("finished.\nChangelog written.");
 	});
 
@@ -275,7 +275,7 @@ describe("thread tools (G)", () => {
 			await tool(lead.id, "thread_send", { thread: other.id, message: "Update the README" }),
 		).toContain("working on it now");
 		await until(() => agents.seat("Update the README") !== undefined);
-		expect(await tool(lead.id, "thread_list", {})).toContain('"Docs" (thread');
+		expect(await tool(lead.id, "thread_list", {})).toContain("[Docs](grid-thread://");
 		const read = await tool(lead.id, "thread_read", { thread: other.id });
 		expect(read).toContain('Turn 1 — Agent in "Lead": Update the README');
 		expect(read).toContain("(Still going.)");

@@ -185,6 +185,18 @@ export const threadsStore = {
 		if (started !== localStore.version()) return;
 		threadsStore.upsert({ ...session, title });
 	},
+	/** Snooze a thread until a time, or wake it (null). */
+	async snooze(token: string, session: ChatSession, until: Date | null): Promise<void> {
+		const started = localStore.version();
+		const next = await chatService.snooze(
+			token,
+			session.id,
+			until ? until.toISOString() : null,
+			placementsStore.scopeOf(session.project),
+		);
+		if (started !== localStore.version()) return;
+		threadsStore.upsert({ ...session, snoozedUntil: next?.snoozedUntil ?? null });
+	},
 	/** Remove a thread's worktree; it carries on in the project's own folder. */
 	async discardWorktree(
 		token: string,

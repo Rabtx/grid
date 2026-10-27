@@ -13,7 +13,19 @@ export type EventTrigger = {
 	event: "pull_opened" | "review_requested" | "checks_failed";
 };
 
-export type Trigger = ScheduleTrigger | EventTrigger;
+/**
+ * A webhook: any service POSTs to the automation's URL (signed with its secret) and a run starts,
+ * with what it sent. `filter` keeps only deliveries whose JSON has `equals` at `path` (dotted,
+ * e.g. `action` or `data.level`); `template` says what of the payload the agent is told, with
+ * `{{path}}` for each value, instead of the whole payload.
+ */
+export type WebhookTrigger = {
+	kind: "webhook";
+	filter?: { path: string; equals: string } | null;
+	template?: string | null;
+};
+
+export type Trigger = ScheduleTrigger | EventTrigger | WebhookTrigger;
 
 const formatter = new Map<string, Intl.DateTimeFormat>();
 
@@ -97,6 +109,23 @@ export function validTriggers(input: unknown): input is Trigger[] {
 		const trigger = value as Record<string, unknown>;
 		if (trigger.kind === "event")
 			return ["pull_opened", "review_requested", "checks_failed"].includes(String(trigger.event));
+		if (trigger.kind === "webhook") {
+			const filter = trigger.filter as Record<string, unknown> | null | undefined;
+			const filterOk =
+				filter === undefined ||
+				filter === null ||
+				(typeof filter === "object" &&
+					typeof filter.path === "string" &&
+					/^[\w.-]{1,120}$/.test(filter.path) &&
+					typeof filter.equals === "string" &&
+					filter.equals.length <= 200);
+			const template = trigger.template;
+			const templateOk =
+				template === undefined ||
+				template === null ||
+				(typeof template === "string" && template.length <= 4_000);
+			return filterOk && templateOk;
+		}
 		if (trigger.kind !== "schedule" || typeof trigger.timezone !== "string") return false;
 		try {
 			new Intl.DateTimeFormat("en", { timeZone: trigger.timezone });

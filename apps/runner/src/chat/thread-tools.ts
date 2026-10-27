@@ -1,4 +1,4 @@
-import type { AgentQuestion, ChatEvent } from "../agents/events";
+import type { AgentQuestion, ChatEvent, MessageOrigin } from "../agents/events";
 import type { Who } from "../auth";
 import { may } from "../permissions";
 import { turnsOf, type TurnRecord } from "./history-brief";
@@ -117,8 +117,38 @@ function questionText(thread: string, asked: { id: string; questions: AgentQuest
 	return `Question "${asked.id}" in thread "${thread}":\n${lines.join("\n")}`;
 }
 
-function rankOf(mode: string | null | undefined): number {
+export function rankOf(mode: string | null | undefined): number {
 	return mode ? (MODE_RANK[mode] ?? DEFAULT_RANK) : DEFAULT_RANK;
+}
+
+/**
+ * Who is using the thread tools: a thread's agent, or an agent outside Grid signed in with one
+ * of its person's keys (`outside-agents.ts`). Either acts as its person.
+ */
+export type Caller = {
+	/** The thread whose agent calls; null for an outside agent. */
+	thread: ChatSessionRow | null;
+	who: Who;
+	/** The project it works in when a call names none; null when every call must name one. */
+	project: string | null;
+	/** The broadest permission mode (as `rankOf` counts) it may hand out. */
+	rank: number;
+	/** Whether it may change threads (start, send, stop, answer), not only read them. */
+	write: boolean;
+	/** Who its messages are from, as threads show them. */
+	origin: MessageOrigin;
+	/** Where what a call with a request id did is kept (see `requestId`). */
+	receipts: {
+		get: (key: string) => string | null;
+		keep: (key: string, result: string) => void;
+	};
+	/** The agent the threads it starts use by default. */
+	provider: string | null;
+};
+
+/** A thread as agents are told it: a link they can follow and give the person. */
+export function threadLink(session: Pick<ChatSessionRow, "id" | "title">): string {
+	return `[${session.title.replace(/[[\]]/g, "")}](grid-thread://${session.id})`;
 }
 
 export class ThreadTools {
@@ -147,6 +177,23 @@ export class ThreadTools {
 		for (const tool of this.tools()) hub.registerTool(tool);
 	}
 
+	/** A thread's agent as a caller of these tools. */
+	callerOf(thread: ChatSessionRow): Caller {
+		return {
+			thread,
+			who: this.whoFor(thread),
+			project: thread.project,
+			rank: this.rank(thread),
+			write: true,
+			origin: { kind: "agent", thread: { id: thread.id, title: thread.title } },
+			receipts: {
+				get: (key) => this.hub.receipt(thread.id, key),
+				keep: (key, result) => this.hub.keepReceipt(thread.id, key, result),
+			},
+			provider: thread.provider,
+		};
+	}
+
 	private turnEnded(session: ChatSessionRow, reason: "done" | "cancelled" | "error"): void {
 		this.wake(session.id, "ended");
 		for (const key of this.started.keys())
@@ -158,7 +205,7 @@ export class ThreadTools {
 		const reply = this.hub.lastReply(session.id);
 		this.report(
 			parent,
-			`"${session.title}" (thread ${session.id}) ${said}.${reply ? `\n${cut(reply, EXCERPT)}` : ""}`,
+			`${threadLink(session)} ${said}.${reply ? `\n${cut(reply, EXCERPT)}` : ""}`,
 		);
 	}
 
@@ -181,7 +228,7 @@ export class ThreadTools {
 			if (!asked) return;
 			this.report(
 				parent,
-				`"${session.title}" (thread ${session.id}), which you started, is waiting on an answer.\n${questionText(session.id, asked)}\nAnswer it with thread_answer if you can; if it is the person's to decide, ask them.`,
+				`${threadLink(session)}, which you started, is waiting on an answer.\n${questionText(session.id, asked)}\nAnswer it with thread_answer if you can; if it is the person's to decide, ask them.`,
 			);
 		}, this.reportDelayMs);
 		timer.unref?.();
@@ -260,18 +307,19 @@ export class ThreadTools {
 	}
 
 	/** A thread an agent names, in its workspace; one elsewhere is one that does not exist. */
-	private target(caller: ChatSessionRow, args: Record<string, unknown>): ChatSessionRow {
-		const id = str(args, "thread", 64);
-		if (id === caller.id) throw new ChatError("That is your own thread", 400);
-		return this.hub.thread(caller.workspaceId, id);
+	private target(caller: Caller, args: Record<string, unknown>): ChatSessionRow {
+		const id = threadId(str(args, "thread", 120));
+		if (id === caller.thread?.id) throw new ChatError("That is your own thread", 400);
+		return this.hub.thread(caller.who.workspace, id);
 	}
 
 	/** A thread the caller may change: its person's, and in no broader a mode than the caller's. */
-	private changeable(caller: ChatSessionRow, args: Record<string, unknown>): ChatSessionRow {
+	private changeable(caller: Caller, args: Record<string, unknown>): ChatSessionRow {
+		if (!caller.write) throw new ChatError("This key may read threads but not change them", 403);
 		const target = this.target(caller, args);
-		if (target.ownerId !== caller.ownerId)
+		if (target.ownerId !== caller.who.userId)
 			throw new ChatError("That thread is someone else's; you can read it but not change it", 403);
-		if (this.rank(target) > this.rank(caller))
+		if (this.rank(target) > caller.rank)
 			throw new ChatError(
 				"That thread runs with broader permissions than yours, so you cannot direct it",
 				403,
@@ -283,7 +331,7 @@ export class ThreadTools {
 		return rankOf(session.mode ?? this.hub.agentInfo(session.provider)?.defaultMode);
 	}
 
-	private depth(session: ChatSessionRow): number {
+	private depth(session: ChatSessionRow | null): number {
 		let depth = 0;
 		let at: ChatSessionRow | null = session;
 		while (at?.delegatedBy && depth <= MAX_DEPTH) {
@@ -298,9 +346,9 @@ export class ThreadTools {
 	 * agent's default; never broader than the caller's, stepping down to the broadest the new
 	 * agent has within it.
 	 */
-	private modeFor(caller: ChatSessionRow, provider: string, asked: string): string | undefined {
+	private modeFor(caller: Caller, provider: string, asked: string): string | undefined {
 		const info = this.hub.agentInfo(provider);
-		const ceiling = this.rank(caller);
+		const ceiling = caller.rank;
 		const modes = info?.modes ?? [];
 		if (asked) {
 			if (modes.length && !modes.some((mode) => mode.id === asked))
@@ -309,7 +357,8 @@ export class ThreadTools {
 				throw new ChatError(`${asked} gives broader permissions than your own mode`, 403);
 			return asked;
 		}
-		if (provider === caller.provider && caller.mode) return caller.mode;
+		if (caller.thread && provider === caller.thread.provider && caller.thread.mode)
+			return caller.thread.mode;
 		const fallback = info?.defaultMode;
 		if (rankOf(fallback) <= ceiling) return fallback;
 		const within = modes
@@ -335,46 +384,67 @@ export class ThreadTools {
 	private afterWait(target: ChatSessionRow, end: WaitEnd): string {
 		const events = this.hub.events(target.workspaceId, target.id);
 		if (end === "timeout")
-			return `"${target.title}" (thread ${target.id}) is still ${this.status(target)}. Call thread_wait again to keep waiting; it carries on either way.`;
+			return `${this.link(target)} is still ${this.status(target)}. Call thread_wait again to keep waiting; it carries on either way.`;
 		if (end === "waiting") {
 			const asked = openQuestions(events);
 			if (asked.length)
-				return `"${target.title}" (thread ${target.id}) is waiting on an answer.\n${asked.map((item) => questionText(target.id, item)).join("\n\n")}\nAnswer it with thread_answer if you can; if it is the person's to decide, ask them.`;
-			return `"${target.title}" (thread ${target.id}) is waiting for the person to approve something; only they can. It carries on once they do.`;
+				return `${this.link(target)} is waiting on an answer.\n${asked.map((item) => questionText(target.id, item)).join("\n\n")}\nAnswer it with thread_answer if you can; if it is the person's to decide, ask them.`;
+			return `${this.link(target)} is waiting for the person to approve something; only they can. It carries on once they do.`;
 		}
 		const reply = this.hub.lastReply(target.id);
-		return `"${target.title}" (thread ${target.id}) ${this.status(target)}.${reply ? `\n\nIts last reply:\n${cut(reply, REPLY_MAX)}` : ""}`;
+		return `${this.link(target)} ${this.status(target)}.${reply ? `\n\nIts last reply:\n${cut(reply, REPLY_MAX)}` : ""}`;
 	}
 
 	private link(session: ChatSessionRow): string {
-		return `"${session.title}" (thread ${session.id})`;
+		return threadLink(session);
 	}
 
 	private tools(): GridTool[] {
+		return this.operations().map((operation) => ({
+			name: operation.name,
+			description: operation.description,
+			inputSchema: operation.inputSchema,
+			run: (session, args) => operation.run(this.callerOf(session), args),
+		}));
+	}
+
+	/**
+	 * The thread tools for any caller (see `Caller`): what a thread's agent is offered as Grid's
+	 * tools, and what an outside agent is offered over MCP.
+	 */
+	operations(): ThreadOperation[] {
 		const once = async (
-			caller: ChatSessionRow,
+			caller: Caller,
 			tool: string,
 			args: Record<string, unknown>,
 			run: () => Promise<string> | string,
 		): Promise<ToolAnswer> => {
 			const requestId = requestIdOf(args);
 			const key = requestId ? `tool:${tool}:${requestId}` : null;
-			const kept = key ? this.hub.receipt(caller.id, key) : null;
+			const kept = key ? caller.receipts.get(key) : null;
 			if (kept) return `${kept}\n(Already done for request ${requestId}; nothing was repeated.)`;
 			const answer = await run();
-			if (key) this.hub.keepReceipt(caller.id, key, answer);
+			if (key) caller.receipts.keep(key, answer);
 			return answer;
 		};
-		const live = (caller: ChatSessionRow) => {
-			if (!this.hub.isRunning(caller.id))
+		// A thread's agent acts during its own turn; an outside agent whenever its key allows.
+		const live = (caller: Caller) => {
+			if (!caller.write) throw new ChatError("This key may read threads but not change them", 403);
+			if (caller.thread && !this.hub.isRunning(caller.thread.id))
 				throw new ChatError("Thread tools work during your own turn", 409);
 		};
+		const projectOf = (caller: Caller, args: Record<string, unknown>) => {
+			const project = str(args, "project", 120, false) || caller.project;
+			if (!project) throw new ChatError("Say which project (list_projects names them)", 400);
+			return project;
+		};
+		const LINKS =
+			" Threads are named as [title](grid-thread://id): the id is what follows grid-thread://, and writing the same link mentions the thread to the person.";
 
 		return [
 			{
 				name: "thread_list",
-				description:
-					"List threads in this project (or project): id, title, agent and whether each is working, waiting on an answer, finished or idle. query filters by title.",
+				description: `List threads in a project (yours by default): each as a link, its agent, and whether it is working, waiting on an answer, finished, idle or snoozed. query filters by title.${LINKS}`,
 				inputSchema: {
 					type: "object",
 					properties: {
@@ -385,40 +455,40 @@ export class ThreadTools {
 					},
 				},
 				run: (caller, args) => {
-					const project = str(args, "project", 120, false) || caller.project;
+					const project = projectOf(caller, args);
 					const query = str(args, "query", 200, false).toLowerCase();
 					const limit = Math.min(50, Math.max(1, Number(args.limit) || 20));
+					const self = caller.thread?.id;
 					const rows = this.hub
-						.list(caller.workspaceId, project)
-						.filter((row) => row.id !== caller.id)
-						.filter((row) => args.mine !== true || row.delegatedBy === caller.id)
+						.list(caller.who.workspace, project)
+						.filter((row) => row.id !== self)
+						.filter((row) => args.mine !== true || (self !== undefined && row.delegatedBy === self))
 						.filter((row) => !query || row.title.toLowerCase().includes(query))
 						.slice(0, limit);
 					if (!rows.length) return "No threads found.";
 					return rows
 						.map(
 							(row) =>
-								`- ${this.link(row)} · ${this.hub.agentInfo(row.provider)?.name ?? row.provider} · ${this.status(row)}${row.delegatedBy === caller.id ? " · started by you" : ""}`,
+								`- ${this.link(row)} · ${this.hub.agentInfo(row.provider)?.name ?? row.provider} · ${this.status(row)}${this.hub.isSnoozed(row) ? " · snoozed" : ""}${self !== undefined && row.delegatedBy === self ? " · started by you" : ""}`,
 						)
 						.join("\n");
 				},
 			},
 			{
 				name: "thread_read",
-				description:
-					"Read a thread's turns: what was asked, the reply, files changed and commands run, oldest first, plus any question it is waiting on. from is the turn to start at (from 1; newest turns by default); use it to read turns a summary left out.",
+				description: `Read a thread's turns: what was asked, the reply, files changed and commands run, oldest first, plus any question it is waiting on. from is the turn to start at (from 1; newest turns by default); use it to read turns a summary left out.${LINKS}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						thread: { type: "string" },
+						thread: { type: "string", description: "Its id or grid-thread:// link" },
 						from: { type: "number" },
 						limit: { type: "number" },
 					},
 					required: ["thread"],
 				},
 				run: (caller, args) => {
-					const id = str(args, "thread", 64);
-					const target = this.hub.thread(caller.workspaceId, id);
+					const id = threadId(str(args, "thread", 120));
+					const target = this.hub.thread(caller.who.workspace, id);
 					const events = this.hub.events(target.workspaceId, target.id);
 					const turns = turnsOf(events);
 					const limit = Math.min(READ_MAX_TURNS, Math.max(1, Number(args.limit) || READ_TURNS));
@@ -442,11 +512,12 @@ export class ThreadTools {
 			{
 				name: "thread_start",
 				description:
-					"Start a new thread in this project with its own agent and send it a task. It sees only the prompt, so make it self-contained (goal, context, constraints, what to report). provider and model pick the agent (yours by default); mode may not be broader than yours. worktree gives it its own git worktree (otherwise it shares your folder). wait: true waits for it (up to timeout seconds) and returns its reply; otherwise you get a [Thread report] when it finishes, and its questions come to you. requestId makes a retry safe.",
+					"Start a new thread with its own agent and send it a task (in your project unless project says another). It sees only the prompt, so make it self-contained (goal, context, constraints, what to report). provider and model pick the agent; mode may not be broader than yours. worktree gives it its own git worktree. wait: true waits for it (up to timeout seconds) and returns its reply; otherwise a thread's agent gets a [Thread report] when it finishes, and its questions come to it. requestId makes a retry safe.",
 				inputSchema: {
 					type: "object",
 					properties: {
 						prompt: { type: "string" },
+						project: { type: "string" },
 						title: { type: "string" },
 						provider: { type: "string" },
 						model: { type: "string" },
@@ -463,17 +534,17 @@ export class ThreadTools {
 					const prompt = str(args, "prompt", 32_000);
 					let child: ChatSessionRow | null = null;
 					const answer = await once(caller, "thread_start", args, () => {
-						child = this.start(caller, args, prompt);
+						child = this.start(caller, args, prompt, projectOf(caller, args));
 						return `Started ${this.link(child)} with ${this.hub.agentInfo(child.provider)?.name ?? child.provider}.`;
 					});
 					const started = child as ChatSessionRow | null;
 					if (args.wait !== true || !started) {
 						return typeof answer === "string" && started
-							? `${answer} It works on its own; you will get a [Thread report] when it finishes, and its questions come to you.`
+							? `${answer} It works on its own;${caller.thread ? " you will get a [Thread report] when it finishes, and its questions come to you." : " check on it with thread_wait or thread_read."}`
 							: answer;
 					}
 					const end = await this.waitFor(started.id, seconds(args));
-					return `${answer}\n\n${this.afterWait(this.hub.thread(caller.workspaceId, started.id), end)}`;
+					return `${answer}\n\n${this.afterWait(this.hub.thread(caller.who.workspace, started.id), end)}`;
 				},
 			},
 			{
@@ -502,10 +573,11 @@ export class ThreadTools {
 					const steer = delivery === "steer" || (delivery === "auto" && running);
 					if (delivery === "steer" && !running)
 						throw new ChatError("That thread is not working; send it with auto or queue", 409);
+					const scope = caller.thread?.id ?? caller.who.userId;
 					void this.hub
 						.prompt(target.workspaceId, target.id, message, [], steer ? "steer" : "send", {
-							origin: { kind: "agent", thread: { id: caller.id, title: caller.title } },
-							...(requestId ? { requestId: `${caller.id.slice(0, 36)}-${requestId}` } : {}),
+							origin: caller.origin,
+							...(requestId ? { requestId: `${scope.slice(0, 36)}-${requestId}` } : {}),
 						})
 						.catch((cause: unknown) => {
 							console.warn(
@@ -529,7 +601,7 @@ export class ThreadTools {
 				run: async (caller, args) => {
 					const target = this.target(caller, args);
 					const end = await this.waitFor(target.id, seconds(args));
-					return this.afterWait(this.hub.thread(caller.workspaceId, target.id), end);
+					return this.afterWait(this.hub.thread(caller.who.workspace, target.id), end);
 				},
 			},
 			{
@@ -542,8 +614,10 @@ export class ThreadTools {
 					required: ["thread"],
 				},
 				run: (caller, args) => {
+					if (!caller.write)
+						throw new ChatError("This key may read threads but not change them", 403);
 					const target = this.target(caller, args);
-					if (target.ownerId !== caller.ownerId)
+					if (target.ownerId !== caller.who.userId)
 						throw new ChatError("That thread is someone else's; you cannot stop it", 403);
 					if (!this.hub.isRunning(target.id)) return `${this.link(target)} is not working.`;
 					this.hub.cancel(target.workspaceId, target.id);
@@ -591,61 +665,94 @@ export class ThreadTools {
 
 	/** Make a thread an agent asked for and send it its prompt (`thread_start`). */
 	private start(
-		caller: ChatSessionRow,
+		caller: Caller,
 		args: Record<string, unknown>,
 		prompt: string,
+		project: string,
 	): ChatSessionRow {
-		if (this.depth(caller) >= MAX_DEPTH)
+		const parent = caller.thread;
+		if (this.depth(parent) >= MAX_DEPTH)
 			throw new ChatError(
 				`Threads started from threads go ${MAX_DEPTH} deep at most; do this one yourself`,
 				409,
 			);
-		const turnKey = `${caller.id}:${this.hub.turnCount(caller.id)}`;
+		// A thread's starts count per turn; an outside agent's per minute.
+		const turnKey = parent
+			? `${parent.id}:${this.hub.turnCount(parent.id)}`
+			: `${caller.who.userId}:outside:${Math.floor(Date.now() / 60_000)}`;
 		const count = this.started.get(turnKey) ?? 0;
 		if (count >= STARTS_PER_TURN)
-			throw new ChatError(`At most ${STARTS_PER_TURN} threads can be started in one turn`, 429);
-		const who = this.whoFor(caller);
-		if (!may(who, "startAgents")) throw new ChatError("Your person may not start agents here", 403);
-		const provider = str(args, "provider", 64, false) || caller.provider;
-		const model =
-			str(args, "model", 200, false) || (provider === caller.provider ? (caller.model ?? "") : "");
+			throw new ChatError(
+				`At most ${STARTS_PER_TURN} threads can be started ${parent ? "in one turn" : "a minute"}`,
+				429,
+			);
+		if (!may(caller.who, "startAgents"))
+			throw new ChatError("Your person may not start agents here", 403);
+		const provider = str(args, "provider", 64, false) || caller.provider || "";
+		if (!provider) throw new ChatError("Say which agent (provider) to start it with", 400);
+		const sameAgent = parent && provider === parent.provider;
+		const model = str(args, "model", 200, false) || (sameAgent ? (parent.model ?? "") : "");
 		const mode = this.modeFor(caller, provider, str(args, "mode", 64, false));
-		const child = this.hub.create(who, {
-			project: caller.project,
+		const inParentFolder = parent && project === parent.project;
+		const child = this.hub.create(caller.who, {
+			project,
 			provider,
-			cwd: caller.cwd,
+			...(inParentFolder ? { cwd: parent.cwd } : {}),
 			...(model ? { model } : {}),
 			...(mode ? { mode } : {}),
 			worktree: args.worktree === true,
-			delegatedBy: caller.id,
-			...(provider === caller.provider && caller.account ? { account: caller.account } : {}),
+			...(parent ? { delegatedBy: parent.id } : {}),
+			...(sameAgent && parent.account ? { account: parent.account } : {}),
 		});
 		this.started.set(turnKey, count + 1);
 		const title = str(args, "title", 120, false);
-		if (title) this.hub.rename(caller.workspaceId, child.id, title);
+		if (title) this.hub.rename(caller.who.workspace, child.id, title);
 		void this.hub
-			.prompt(child.workspaceId, child.id, prompt, [], "send", {
-				origin: { kind: "agent", thread: { id: caller.id, title: caller.title } },
-			})
+			.prompt(child.workspaceId, child.id, prompt, [], "send", { origin: caller.origin })
 			.catch((cause: unknown) => {
-				this.report(
-					caller.id,
-					`"${title || child.title}" (thread ${child.id}) could not start: ${cause instanceof Error ? cause.message : String(cause)}`,
-				);
+				if (parent)
+					this.report(
+						parent.id,
+						`${threadLink({ id: child.id, title: title || child.title })} could not start: ${cause instanceof Error ? cause.message : String(cause)}`,
+					);
+				else
+					console.warn(
+						"[threads] a thread an outside agent started could not start:",
+						cause instanceof Error ? cause.message : cause,
+					);
 			});
 		return this.hub.sessionRow(child.id) ?? child;
 	}
 }
 
+/** One of the thread tools, for any caller. */
+export type ThreadOperation = {
+	name: string;
+	description: string;
+	inputSchema: Record<string, unknown>;
+	run: (caller: Caller, args: Record<string, unknown>) => Promise<ToolAnswer> | ToolAnswer;
+};
+
+/** A thread's id from what an agent passed: the id, or a grid-thread:// link to it. */
+function threadId(given: string): string {
+	const linked = given.match(/grid-thread:\/\/([\w-]{1,64})/);
+	return linked?.[1] ?? given;
+}
+
 /** A turn as `thread_read` shows it. */
 function readTurn(turn: TurnRecord): string {
-	const from = !turn.origin
+	const origin = turn.origin;
+	const from = !origin
 		? "Person"
-		: turn.origin.kind === "grid"
+		: origin.kind === "grid"
 			? "Grid"
-			: turn.origin.kind === "merge"
-				? `Fork "${turn.origin.thread.title}"`
-				: `Agent in "${turn.origin.thread.title}"`;
+			: origin.kind === "merge"
+				? `Fork "${origin.thread.title}"`
+				: origin.kind === "outside"
+					? `${origin.agent} (outside Grid)`
+					: origin.kind === "guest"
+						? `${origin.name} (guest)`
+						: `Agent in "${origin.thread.title}"`;
 	const lines = [`Turn ${turn.n} — ${from}: ${cut(turn.asked, ASKED_MAX)}`];
 	if (turn.replied.trim()) lines.push(`Reply: ${cut(turn.replied.trim(), REPLY_MAX)}`);
 	if (turn.outcome !== "done")
