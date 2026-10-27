@@ -133,3 +133,6 @@ for await (const line of createInterface({ input: process.stdin })) {
 		queue = queue.then(() => turn(text));
 	}
 }
+// Its input closed: the runner that started it is gone (killed, in the chaos tests). Claude Code
+// exits then rather than finishing the turn for nobody, and so does this.
+process.exit(0);

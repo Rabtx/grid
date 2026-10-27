@@ -134,8 +134,9 @@ describe("chaos: the runner killed and started again", () => {
 			message: "This delivery already ran",
 		});
 		expect(grid.runs(hook.id)).toHaveLength(1);
-		expect(grid.runs(hook.id)[0]?.status).toBe("running");
+		// Not failed for the crash: it ends as the thread carried on does.
 		await grid.until(() => grid.runs(hook.id)[0]?.status === "succeeded", 30_000);
+		expect(grid.runs(hook.id)).toHaveLength(1);
 		expect(said(grid.events(thread))).toContain("carried on");
 	}, 60_000);
 
