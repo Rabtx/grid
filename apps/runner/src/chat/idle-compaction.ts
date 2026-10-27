@@ -27,7 +27,8 @@ export function compactDelay(
  * Claude's prompt cache for it expires. Compacting then reads the conversation at the cached
  * price, and the next message starts from the shorter one instead of reading it all again at
  * full price. Nothing is sent when anything happens in the thread first, when it waits on
- * someone, or when it has messages queued. Timers live in memory: a restart skips them.
+ * someone, or when it has messages queued. Timers live in memory; after a restart `resume` sets
+ * them again from each thread's last turn.
  */
 export class IdleCompaction {
 	private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -56,6 +57,23 @@ export class IdleCompaction {
 		return this.timers.has(sessionId);
 	}
 
+	/**
+	 * After a restart: the compactions that were waiting, worked out again from when each Claude
+	 * Code thread's last turn ended. One whose time has passed is left: its cache has expired.
+	 */
+	resume(now = Date.now()): number {
+		const since = new Date(now - PLAN_CACHE_MS).toISOString();
+		for (const session of this.hub.recentThreads("claude", since)) {
+			if (this.hub.isRunning(session.id)) continue;
+			const last = this.hub
+				.events(session.workspaceId, session.id)
+				.findLast((event) => event.type === "turn_start" || event.type === "turn_end");
+			if (last?.type !== "turn_end" || last.reason !== "done" || !last.at) continue;
+			this.schedule(session, Date.parse(last.at), now);
+		}
+		return this.timers.size;
+	}
+
 	stop(): void {
 		for (const id of this.timers.keys()) this.clear(id);
 	}
@@ -65,7 +83,7 @@ export class IdleCompaction {
 		this.timers.delete(id);
 	}
 
-	private schedule(session: ChatSessionRow): void {
+	private schedule(session: ChatSessionRow, endedAt = Date.now(), now = Date.now()): void {
 		if (session.provider !== "claude" || !this.options.enabled(session)) return;
 		const usage =
 			(this.hub
@@ -88,6 +106,8 @@ export class IdleCompaction {
 			this.options.apiKey?.() ?? Boolean(process.env.ANTHROPIC_API_KEY),
 		);
 		if (delay === null) return;
+		const wait = delay - (now - endedAt);
+		if (wait <= 0) return;
 		const turns = this.hub.turnCount(session.id);
 		const timer = setTimeout(() => {
 			this.timers.delete(session.id);
@@ -109,7 +129,7 @@ export class IdleCompaction {
 						cause instanceof Error ? cause.message : cause,
 					);
 				});
-		}, delay);
+		}, wait);
 		timer.unref?.();
 		this.timers.set(session.id, timer);
 	}

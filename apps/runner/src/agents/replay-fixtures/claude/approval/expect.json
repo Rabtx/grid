@@ -1,0 +1,24 @@
+{
+	"agent": "claude",
+	"scenario": "approval",
+	"model": "haiku",
+	"resume": null,
+	"expect": {
+		"result": {
+			"reason": "done"
+		},
+		"kinds": [
+			"tool",
+			"approval",
+			"approval_resolved",
+			"tool",
+			"message"
+		],
+		"text": "Done.",
+		"tools": [
+			"Write grid-replay into note.txt"
+		],
+		"approvals": 1,
+		"questions": 0
+	}
+}

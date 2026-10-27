@@ -1,0 +1,20 @@
+{
+	"agent": "claude",
+	"scenario": "question",
+	"model": "haiku",
+	"resume": null,
+	"expect": {
+		"result": {
+			"reason": "done"
+		},
+		"kinds": [
+			"question",
+			"question_answered",
+			"message"
+		],
+		"text": "You chose **Red**.",
+		"tools": [],
+		"approvals": 0,
+		"questions": 1
+	}
+}

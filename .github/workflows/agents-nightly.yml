@@ -1,0 +1,113 @@
+# Nightly check with real agents: the CLIs Grid drives change every week, and a change in how
+# one talks to Grid should show up here before it shows up in someone's thread.
+#
+# Each agent runs only when its key is set as a repository secret (ANTHROPIC_API_KEY for Claude
+# Code, OPENAI_API_KEY for Codex). It runs Grid's smoke check (a thread that creates a file, a
+# restart, a resumed thread that changes it), records the standard scenarios again, and compares
+# them with the committed fixtures. Anything wrong is reported on one open issue labelled
+# `agent-nightly`, commented on again each night it stays wrong.
+name: Agents nightly
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: agents-nightly
+  cancel-in-progress: false
+
+jobs:
+  agents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Setup Node (agent CLIs)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install the agents that have keys
+        id: agents
+        run: |
+          agents=""
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            npm install -g @anthropic-ai/claude-code
+            agents="$agents claude"
+          fi
+          if [ -n "$OPENAI_API_KEY" ]; then
+            npm install -g @openai/codex
+            printenv OPENAI_API_KEY | codex login --with-api-key
+            agents="$agents codex"
+          fi
+          echo "list=${agents# }" >> "$GITHUB_OUTPUT"
+          echo "Agents to check: ${agents:-none}"
+
+      - name: Smoke check
+        id: smoke
+        if: steps.agents.outputs.list != ''
+        continue-on-error: true
+        working-directory: apps/runner
+        run: bun run smoke ${{ steps.agents.outputs.list }} 2>&1 | tee "$RUNNER_TEMP/smoke.txt"; exit "${PIPESTATUS[0]}"
+
+      - name: Record the scenarios again
+        id: record
+        if: steps.agents.outputs.list != ''
+        continue-on-error: true
+        working-directory: apps/runner
+        run: bun run record:agents ${{ steps.agents.outputs.list }} 2>&1 | tee "$RUNNER_TEMP/record.txt"; exit "${PIPESTATUS[0]}"
+
+      - name: Compare with the committed recordings
+        id: drift
+        if: steps.agents.outputs.list != ''
+        continue-on-error: true
+        working-directory: apps/runner
+        run: bun run scripts/agent-drift.ts > "$RUNNER_TEMP/drift.md"; status=$?; cat "$RUNNER_TEMP/drift.md"; exit "$status"
+
+      - name: Report on the agent-nightly issue
+        if: steps.smoke.outcome == 'failure' || steps.record.outcome == 'failure' || steps.drift.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "Nightly agent check failed: $RUN_URL"
+            echo
+            echo "- Smoke check: ${{ steps.smoke.outcome }}"
+            echo "- Recording: ${{ steps.record.outcome }}"
+            echo "- Drift: ${{ steps.drift.outcome }}"
+            echo
+            cat "$RUNNER_TEMP/drift.md" 2>/dev/null || true
+            echo
+            echo '<details><summary>Smoke check output</summary>'
+            echo
+            echo '```'
+            tail -n 60 "$RUNNER_TEMP/smoke.txt" 2>/dev/null || true
+            echo '```'
+            echo '</details>'
+          } > "$RUNNER_TEMP/report.md"
+          gh label create agent-nightly --color B60205 --description "Nightly real-agent check" 2>/dev/null || true
+          open=$(gh issue list --label agent-nightly --state open --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body-file "$RUNNER_TEMP/report.md"
+          else
+            gh issue create --title "Nightly agent check is failing" --label agent-nightly --body-file "$RUNNER_TEMP/report.md"
+          fi
+          exit 1

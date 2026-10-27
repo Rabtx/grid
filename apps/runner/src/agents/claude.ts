@@ -506,6 +506,9 @@ async function startClaudeSession(
 	let contextUsed = 0;
 	let proc: JsonProcess | null = null;
 	let finishTurn: ((result: TurnResult) => void) | null = null;
+	// Grid asked this turn to stop: Claude Code then ends it as `error_during_execution`, which is
+	// the person's stop, not a failure.
+	let stopping = false;
 	let controlId = 0;
 	const approvals = new Map<string, ControlRequest>();
 	// AskUserQuestion requests waiting for the person, with the questions as Grid showed them.
@@ -522,6 +525,7 @@ async function startClaudeSession(
 		if (held) clearTimeout(held.timer);
 		held = null;
 		steers.clear();
+		stopping = false;
 		finishTurn?.(result);
 		finishTurn = null;
 	}
@@ -747,12 +751,15 @@ async function startClaudeSession(
 			const failed =
 				message.is_error === true ||
 				(typeof message.subtype === "string" && message.subtype.startsWith("error"));
-			const result: TurnResult = failed
-				? {
-						reason: "error",
-						error: String(message.result ?? message.subtype ?? "Claude Code failed"),
-					}
-				: { reason: "done" };
+			const result: TurnResult =
+				failed && stopping
+					? { reason: "cancelled" }
+					: failed
+						? {
+								reason: "error",
+								error: String(message.result ?? message.subtype ?? "Claude Code failed"),
+							}
+						: { reason: "done" };
 			// A steer sent too late for this answer is Claude's next thing to do, still this turn.
 			if (!failed && steers.size > 0 && finishTurn) {
 				if (held) clearTimeout(held.timer);
@@ -886,6 +893,7 @@ async function startClaudeSession(
 			for (const id of questions.keys())
 				context.emit({ type: "question_answered", id, answers: null });
 			questions.clear();
+			if (finishTurn) stopping = true;
 			proc.send({
 				type: "control_request",
 				request_id: `grid-${++controlId}`,

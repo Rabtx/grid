@@ -8,6 +8,7 @@
 		"commands-and-tooling",
 		"development-workflow",
 		"backend-api",
+		"reliability-tests",
 		"---",
 		"portable",
 		"docker",

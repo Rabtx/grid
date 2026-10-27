@@ -4,6 +4,7 @@ import type { ChatEvent, MessageOrigin } from "../agents/events";
 import type { Who } from "../auth";
 import { may, NOT_ALLOWED } from "../permissions";
 import { openPrivateDatabase } from "../private-database";
+import { RateLog } from "../rate-log";
 import { ChatError, type ChatHub } from "./hub";
 import type { ChatStore } from "./store";
 
@@ -110,8 +111,8 @@ export function guestEvent(event: ChatEvent): Record<string, unknown> | null {
 
 export class Guests {
 	private readonly db: Database;
-	/** When each link last sent messages, for `MESSAGES_PER_MINUTE`. */
-	private readonly sent = new Map<string, number[]>();
+	/** What each link asked lately, for `MESSAGES_PER_MINUTE`, kept across restarts. */
+	private readonly rates: RateLog;
 
 	constructor(
 		path: string,
@@ -120,6 +121,7 @@ export class Guests {
 		private readonly now: () => Date = () => new Date(),
 	) {
 		this.db = openPrivateDatabase(path);
+		this.rates = new RateLog(path);
 		this.db.exec(`
 			CREATE TABLE IF NOT EXISTS guest_links (
 				id TEXT PRIMARY KEY,
@@ -247,15 +249,13 @@ export class Guests {
 		if (!text) throw new ChatError("Write something to ask", 400);
 		if (text.length > TEXT_MAX) throw new ChatError(`Keep it under ${TEXT_MAX} characters`, 400);
 		const now = this.now().getTime();
-		const recent = (this.sent.get(link.id) ?? []).filter((at) => now - at < 60_000);
-		if (recent.length >= MESSAGES_PER_MINUTE)
-			throw new ChatError("That is a lot at once; wait a minute", 429);
 		if (this.pending(link.sessionId).length >= PENDING_PER_LINK)
 			throw new ChatError(
 				"Several questions already wait for the thread's person; wait for them",
 				429,
 			);
-		this.sent.set(link.id, [...recent, now]);
+		if (!this.rates.take("guest", link.id, MESSAGES_PER_MINUTE, 60_000, now))
+			throw new ChatError("That is a lot at once; wait a minute", 429);
 		const id = crypto.randomUUID();
 		this.hub.logEvent(link.sessionId, {
 			type: "guest_request",

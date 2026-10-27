@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 /** A child process that speaks newline-delimited JSON on stdin/stdout. */
@@ -85,8 +85,11 @@ export function recordedSpawn(folder: string, spawn: Spawn): Spawn {
 			`${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomUUID().slice(0, 8)}.ndjson`,
 		);
 		const began = Date.now();
-		const write = (entry: Record<string, unknown>) =>
-			appendFileSync(file, `${JSON.stringify({ t: Date.now() - began, ...entry })}\n`);
+		// A recording whose folder was taken away (its scenario is over) is not written to again.
+		const write = (entry: Record<string, unknown>) => {
+			if (existsSync(folder))
+				appendFileSync(file, `${JSON.stringify({ t: Date.now() - began, ...entry })}\n`);
+		};
 		write({ start: { command: command.slice(1), cwd: options.cwd } });
 		const child = spawn(command, {
 			...options,

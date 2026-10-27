@@ -968,6 +968,11 @@ export class ChatHub {
 	}
 
 	/** Every workspace with work kept here. */
+	/** Threads on one agent that changed since a time (ISO), in every workspace. */
+	recentThreads(provider: string, since: string): ChatSessionRow[] {
+		return this.store.recentOn(provider, since);
+	}
+
 	workspaces(): string[] {
 		return this.store.workspaces();
 	}

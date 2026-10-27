@@ -144,8 +144,36 @@ describe("automation runs", () => {
 		service.runNow(who, item.id);
 		service.stop();
 		const restarted = new Automations(store, {} as ChatHub, inbox);
+		restarted.recover([]);
 		expect(store.runs("alpha", item.id)[0].status).toBe("failed");
 		expect(inbox.list("alpha", "alice").items[0].kind).toBe("turn_error");
+		restarted.stop();
+	});
+	test("a run whose thread was carried on after a restart ends with that thread's turn", async () => {
+		const { store, inbox, service } = setup(true);
+		const item = store.create("alpha", "alice", input());
+		service.runNow(who, item.id);
+		await Bun.sleep(1);
+		service.stop();
+		let ended: ((session: { id: string }, reason: "done") => void) | undefined;
+		const restarted = new Automations(
+			store,
+			{
+				onTurnEnded: (listener: typeof ended) => {
+					ended = listener;
+				},
+				events: () => [{ type: "message", text: "Carried on and done." }],
+			} as unknown as ChatHub,
+			inbox,
+		);
+		restarted.recover(["thread-1"]);
+		expect(store.runs("alpha", item.id)[0].status).toBe("running");
+		ended?.({ id: "thread-1" }, "done");
+		expect(store.runs("alpha", item.id)[0]).toMatchObject({
+			status: "succeeded",
+			sessionId: "thread-1",
+		});
+		expect(inbox.list("alpha", "alice").items).toHaveLength(0);
 		restarted.stop();
 	});
 	test("missed schedules beyond grace are recorded once and moved forward", () => {

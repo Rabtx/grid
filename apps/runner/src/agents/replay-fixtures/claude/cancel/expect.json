@@ -1,0 +1,18 @@
+{
+	"agent": "claude",
+	"scenario": "cancel",
+	"model": "haiku",
+	"resume": null,
+	"expect": {
+		"result": {
+			"reason": "cancelled"
+		},
+		"kinds": [
+			"message"
+		],
+		"text": "1",
+		"tools": [],
+		"approvals": 0,
+		"questions": 0
+	}
+}
