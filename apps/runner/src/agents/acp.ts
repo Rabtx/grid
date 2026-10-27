@@ -167,6 +167,8 @@ async function startAcpSession(
 	});
 
 	let sessionId = "";
+	// Whether the stored session was loaded; an agent that lost it (or cannot load) starts afresh.
+	let resumed: boolean | undefined;
 	// While the agent replays an old conversation (session/load) we already have it in our log.
 	let replaying = false;
 	const approvals = new Map<string, (result: unknown) => void>();
@@ -339,6 +341,7 @@ async function startAcpSession(
 		});
 
 		let session: NewSessionResult | null = null;
+		// A fork is never asked of ACP agents (no fork capability): a resume is a resume.
 		if (context.resume && init.agentCapabilities?.loadSession) {
 			replaying = true;
 			try {
@@ -362,6 +365,7 @@ async function startAcpSession(
 		sessionId = session.sessionId;
 		context.onResumeToken(sessionId);
 		report(session);
+		if (context.resume) resumed = sessionId === context.resume;
 	} catch (cause) {
 		proc.kill();
 		throw cause;
@@ -392,6 +396,7 @@ async function startAcpSession(
 	if (context.mode) await setMode(context.mode).catch(() => undefined);
 
 	return {
+		...(resumed !== undefined ? { resumed } : {}),
 		prompt: async (text, images = []) => {
 			try {
 				const result = await rpc.request<{ stopReason?: string }>("session/prompt", {

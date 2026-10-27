@@ -92,6 +92,8 @@ export function Composer(props: {
 	 * the turn going on rather than queueing it for after.
 	 */
 	onSend: (text: string, files: File[], steer?: boolean) => boolean | Promise<boolean>;
+	/** The agent cannot take a message mid-turn: steering stops its turn and starts the next. */
+	steerRestarts?: boolean;
 	onStop?: () => void;
 	/** The toolbar's pickers: model and mode. */
 	controls?: JSX.Element;
@@ -790,8 +792,16 @@ export function Composer(props: {
 							<Show when={draft().trim() || files().length || projectFiles().length}>
 								<button
 									type="button"
-									aria-label="Steer: send into this turn now"
-									title="Steer: send into this turn now (⌘/Ctrl+Enter)"
+									aria-label={
+										props.steerRestarts
+											? "Steer: stop this turn and send this now"
+											: "Steer: send into this turn now"
+									}
+									title={
+										props.steerRestarts
+											? "Steer: this agent cannot take a message mid-turn, so its turn stops and it carries on with this (⌘/Ctrl+Enter)"
+											: "Steer: send into this turn now (⌘/Ctrl+Enter)"
+									}
 									disabled={props.disabled || sending() || hasPendingUploads() || hasUploadErrors()}
 									onClick={() => void send(true)}
 									class={STEER_BUTTON}

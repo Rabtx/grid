@@ -52,6 +52,7 @@ import { Browsers } from "./browser/browsers";
 import { Accounts } from "./chat/accounts";
 import { browserTools } from "./chat/browser-tools";
 import { Crews, CrewStore } from "./chat/crews";
+import { ThreadTools } from "./chat/thread-tools";
 import { ThreadSync } from "./sync/thread-sync";
 import { GithubInbox } from "./inbox/github";
 import { InboxStore } from "./inbox/store";
@@ -269,6 +270,15 @@ chat.setMcp((workspace, agent, thread) => connectors.serversFor(workspace, agent
 chat.setGridTools(() => `http://127.0.0.1:${server.port}`);
 // Crews: coordinator chats that hand tasks to member threads, and watch them for stalls.
 const crews = new Crews(new CrewStore(config.chatDb), chat);
+// Grid's thread tools: any thread's agent starts, messages, waits on and reads other threads,
+// acting as its person with the access they last signed in with.
+new ThreadTools(chat, {
+	whoFor: (session) =>
+		lastSeen.get(`${session.ownerId}:${session.workspaceId}`) ?? {
+			userId: session.ownerId,
+			workspace: session.workspaceId,
+		},
+});
 const accounts = new Accounts(config.chatDb, join(dirname(config.chatDb), "accounts"));
 chat.setAccounts(accounts);
 // Each thread's browser page: Chromium starts on the first one and stops when none are left.
@@ -434,6 +444,14 @@ const server = startServer(config, store, verify, chat, {
 console.log(
 	`[runner] terminals on http://${server.hostname}:${server.port} (shell ${config.shell})`,
 );
+// Turns the runner cut off when it last stopped are carried on (GRID_CONTINUE_TURNS=0: closed
+// and left for the person), now that agents can reach Grid's tools on this server.
+const recovered = chat.recover({ carryOn: process.env.GRID_CONTINUE_TURNS !== "0" });
+if (recovered.carried.length || recovered.held.length)
+	console.log(
+		`[runner] after the restart: carried on ${recovered.carried.length} cut-off turns, left ${recovered.held.length} for their person`,
+	);
+crews.recover();
 if (pairing && pairing.peers().length === 0) {
 	console.log(
 		`[runner] pairing is on. Pair from your home Grid with code ${pairing.newCode()} (valid 10 minutes; bun --cwd=apps/runner run pair makes another).`,
@@ -444,7 +462,7 @@ if (pairing && pairing.peers().length === 0) {
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
 	process.on(signal, () => {
 		store.closeAll();
-		chat.closeAll();
+		chat.shutdown();
 		browsers.shutdown();
 		automations.stop();
 		threadSync?.close();

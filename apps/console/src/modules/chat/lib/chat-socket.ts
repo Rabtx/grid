@@ -11,7 +11,14 @@ import type { ChatEvent, ChatSession } from "../types/chat.types";
 export type ChatConnection = "connecting" | "open" | "reconnecting" | "gone" | "signed-out";
 
 export type ChatCommand =
-	| { t: "prompt"; text: string; attachments?: string[]; delivery?: "send" | "steer" }
+	| {
+			t: "prompt";
+			text: string;
+			attachments?: string[];
+			delivery?: "send" | "steer";
+			/** Names the send; the runner takes each once (see `sendPrompt` in conversation.tsx). */
+			requestId?: string;
+	  }
 	| { t: "answer"; id: string; answers: Record<string, string[]> | null }
 	| { t: "queue"; action: "remove" | "clear" | "pause" | "resume" | "steer"; id?: string }
 	| { t: "cancel" }

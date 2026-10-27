@@ -267,7 +267,7 @@ the folder is not in git); at most `parallel` work at once and the rest are `que
 `[Crew report]` message. A running member quiet for 10 minutes is nudged in its turn; quiet 5
 more, its turn is restarted once; quiet again, it is stopped and marked `needs_you`. Members
 waiting on a person are never nudged, and a runner restart marks members that were working as
-`needs_you`.
+`needs_you` unless Grid carried their turn on (see below).
 
 ### Runner-key board routes (API)
 
@@ -320,6 +320,70 @@ Agents drive it with Grid's tools `browser_open`, `browser_snapshot`, `browser_c
 answers with the picture); each answers with the page's numbered elements and text. Opening or
 moving to another address records `{ type: "browser", url, title }`, which opens the browser pane
 beside the thread. A thread's page closes with the thread.
+
+### Runner orchestration: steering, restarts, retries, forks and thread tools
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/runner/chat/sessions/:id/merge` | `startAgents` | Bring a fork's finished work back into the thread it was forked from (`200`, `{ into, turns }`) |
+
+**Agent capabilities.** `GET /runner/chat/providers` entries carry
+`capabilities: { steer: "native" | "restart", resume, fork }` (left out: `restart`, `false`,
+`false`). Claude Code and Codex steer, resume and fork natively; ACP agents resume when they can
+load a session.
+
+**Steering an agent that cannot take a message mid-turn** stops its turn and starts the next with
+the message, which is logged as `user` with `steered: true` and is told it was stopped for it.
+The stopped turn ends with `{ type: "turn_end", reason: "cancelled", restarted: true }`. A stop
+that has not taken effect after 30 seconds ends the agent's process; the turn ends as `cancelled`
+and the next message resumes the conversation in a new process.
+
+**Safe retries.** `{ t: "prompt", …, requestId }` on the chat socket names a send (up to 100
+letters, digits, `-`, `_`): the same id again in that thread is taken as already sent and does
+nothing. Receipts are kept a week. The console sends a request id with every message and sends
+recent ones again after a reconnect.
+
+**Restarts.** The turn an agent is working on is kept with its thread until it ends. When the
+runner starts, each thread cut off mid-turn has that turn closed (approvals and questions it was
+waiting on are voided) and is carried on: its turn ends `{ reason: "cancelled", continued: true }`
+and Grid sends `CONTINUE_PROMPT` as a `user` event with `origin: { kind: "grid", reason:
+"restart" }`, resuming the agent's own conversation; its queue goes on after. A turn that was
+waiting on the person, whose agent is not installed, or that was carried on three times within
+five minutes is closed as an `error` instead and left for the person. `GRID_CONTINUE_TURNS=0`
+turns carrying on off. A runner stopped with SIGINT or SIGTERM leaves its turns to be carried on.
+
+**Forks and handoffs.** A fork of a whole settled thread, with the same agent, by an agent with
+`fork`, branches the agent's own conversation (`claude --resume … --fork-session`, Codex
+`thread/fork`): the fork's agent remembers everything, not only the transcript. Otherwise, and if
+branching fails, the fork's agent is told the thread. A handoff keeps the leaving agent's session;
+handing the thread back to it (within 20 turns) resumes that session, records `handoff` with
+`resumes: { turns }`, and tells it only the turns it missed. An agent that turns out not to have
+the session it was asked to resume starts a new one and is told the thread, once.
+
+What an agent is told of a thread it does not remember is a budgeted selection of the real
+conversation, not a summary: the first request, then the newest turns, each with the reply, files
+changed, commands run (and which failed), and whether it was stopped or failed. Turns left out are
+named, to read with `thread_read`.
+
+**Merge-back** sends what a fork did since it branched (or since it was last brought back) to the
+source thread as its next message, `origin: { kind: "merge", thread: { id, title } }`, queued
+while its agent works, and records `{ type: "merged", into: { id, title }, turns }` in the fork.
+It answers `400` for a thread that is not a fork, `404` when the source is gone, and `409` when
+nothing new has finished.
+
+**Thread tools.** Every thread's agent gets Grid's thread tools: `thread_list`, `thread_read`
+(turns from `from`, with any question waiting), `thread_start` (`prompt`, `title?`, `provider?`,
+`model?`, `mode?`, `worktree?`, `wait?`, `timeout?`, `requestId?`), `thread_send` (`delivery`
+`auto`, `queue` or `steer`), `thread_wait` (up to 100 seconds), `thread_stop` and `thread_answer`
+(answer a thread's question). A thread acts as its person: it reads any thread of the workspace
+but changes only its person's, starts threads only when they may start agents, and never gives a
+thread a broader permission mode than its own (`403`). Threads started from threads go three deep
+at most, and one turn starts ten at most. A thread started this way carries `delegatedBy` and gets
+only its prompt, as `user` with `origin: { kind: "agent", thread: { id, title } }`. Unless the
+starting thread was waiting on it, Grid tells the starting thread when it finishes, fails or is
+stopped, and when it asks a question, as a `user` message with
+`origin: { kind: "grid", reason: "report" }`. Crew members' questions go to their coordinator the
+same way.
 
 ### Runner file attribution
 
@@ -450,6 +514,7 @@ Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-10-27 | Runner: agent `capabilities`; steering by restart (`steered`, `restarted`); `requestId` on `prompt`; turns carried on after a restart (`continued`, `origin`); native forks and handing a thread back; `POST /chat/sessions/:id/merge` and `merged`; Grid's thread tools and `delegatedBy` | no |
 | 2026-10-24 | Runner: provider accounts and usage, `account` on threads, `waiting` on running threads, the thread browser and Grid's browser tools; tool answers may carry an image; `GET /chat/tools` answers without a sign-in | no |
 | 2026-10-06 | Auth: optional signed bearer proof on logout revokes the same session across refresh-cookie rotation | no |
 | 2026-10-06 | Auth: concurrent incorrect OTP/MFA codes count atomically toward the existing challenge attempt limit | no |

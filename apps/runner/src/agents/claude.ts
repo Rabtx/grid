@@ -274,6 +274,7 @@ export function claudeProvider(options: {
 		id: "claude",
 		name: "Claude Code",
 		available: options.available(),
+		capabilities: { steer: "native", resume: true, fork: true },
 		models: FALLBACK_MODELS,
 		modes: MODES,
 		defaultMode: "default",
@@ -299,6 +300,17 @@ export function claudeProvider(options: {
 	};
 }
 
+/**
+ * What a runner started from inside Claude Code inherits from it: the session that Claude Code
+ * is. Passed on, every thread's agent would report that one session as its own, and threads
+ * would resume (and fork) one another's conversation. Each agent is its own session instead.
+ */
+const INHERITED_SESSION = [
+	"CLAUDE_CODE_SESSION_ID",
+	"CLAUDE_CODE_REMOTE_SESSION_ID",
+	"CLAUDE_CODE_CHILD_SESSION",
+];
+
 export function claudeArgs(
 	binary: string,
 	input: {
@@ -306,6 +318,8 @@ export function claudeArgs(
 		mode?: string;
 		effort?: string;
 		resume?: string;
+		/** Branch `resume` into a new session (`--fork-session`) rather than continue it. */
+		fork?: boolean;
 		mcpServers?: AgentContext["mcpServers"];
 	},
 ): string[] {
@@ -329,6 +343,7 @@ export function claudeArgs(
 	if (input.mode) args.push("--permission-mode", input.mode);
 	if (input.mode === "bypassPermissions") args.push("--allow-dangerously-skip-permissions");
 	if (input.resume) args.push("--resume", input.resume);
+	if (input.resume && input.fork) args.push("--fork-session");
 	if (input.mcpServers?.length)
 		args.push(
 			"--mcp-config",
@@ -484,6 +499,9 @@ async function startClaudeSession(
 	let mode = context.mode;
 	let effort = context.effort;
 	let resume = context.resume;
+	// A fork branches once, in the first process: Claude names the new session in its init, and
+	// every later process (a model change restarts it) continues that one.
+	let fork = context.fork === true && Boolean(context.resume);
 	let proc: JsonProcess | null = null;
 	let finishTurn: ((result: TurnResult) => void) | null = null;
 	let controlId = 0;
@@ -528,6 +546,7 @@ async function startClaudeSession(
 		if (type === "system" && message.subtype === "init") {
 			if (typeof message.session_id === "string") {
 				resume = message.session_id;
+				fork = false;
 				context.onResumeToken(message.session_id);
 			}
 			return;
@@ -737,10 +756,11 @@ async function startClaudeSession(
 		if (proc) return proc;
 		stderr = [];
 		const started = spawn(
-			claudeArgs(binary, { model, mode, effort, resume, mcpServers: context.mcpServers }),
+			claudeArgs(binary, { model, mode, effort, resume, fork, mcpServers: context.mcpServers }),
 			{
 				cwd: context.cwd,
 				env: context.env,
+				unset: INHERITED_SESSION,
 				onMessage: (message) => handle(message as Record<string, unknown>),
 				onStderr: (line) => {
 					stderr.push(line);

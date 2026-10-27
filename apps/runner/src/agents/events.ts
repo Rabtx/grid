@@ -50,8 +50,25 @@ export type AgentQuestion = {
 
 export type SubagentStatus = "running" | "completed" | "failed" | "cancelled";
 
+/**
+ * Who a message is from when the person did not type it: Grid itself (carrying a turn on after
+ * the runner restarted, or reporting on threads this one's agent started), another thread's
+ * agent (Grid's thread tools), or a fork's work brought back into the thread it branched from.
+ */
+export type MessageOrigin =
+	| { kind: "grid"; reason: "restart" | "report" }
+	| { kind: "agent"; thread: { id: string; title: string } }
+	| { kind: "merge"; thread: { id: string; title: string } };
+
 /** A message waiting for the agent to finish its turn; sent in order once it does. */
-export type QueuedMessage = { id: string; text: string; attachments?: ChatAttachment[] };
+export type QueuedMessage = {
+	id: string;
+	text: string;
+	attachments?: ChatAttachment[];
+	origin?: MessageOrigin;
+	/** Sent into a turn the agent could not take it into: that turn was stopped for it. */
+	steered?: boolean;
+};
 
 /** A file a turn changed, as its checkpoint counts it. */
 export type CheckpointFile = { path: string; added: number; removed: number };
@@ -64,6 +81,10 @@ export type ChatEvent =
 			id?: string;
 			text: string;
 			attachments?: ChatAttachment[];
+			/** Not typed by the person (see `MessageOrigin`). */
+			origin?: MessageOrigin;
+			/** Sent while the agent worked: the turn it could not take it into was stopped for it. */
+			steered?: boolean;
 	  }
 	/** A piece of the agent's reply (Markdown). */
 	| { type: "message"; text: string }
@@ -107,6 +128,10 @@ export type ChatEvent =
 			at?: string;
 			/** A failed turn that sending the message again can fix (a busy provider, a gone model). */
 			retryable?: boolean;
+			/** Stopped so a message sent meanwhile could go in: the next turn carries on with it. */
+			restarted?: boolean;
+			/** Cut off by the runner restarting, and carried on by Grid in the next turn. */
+			continued?: boolean;
 	  }
 	/** What the agent offers and has chosen: models, modes. Sent when it changes. */
 	| {
@@ -121,7 +146,7 @@ export type ChatEvent =
 	  }
 	| { type: "error"; message: string }
 	/** What the person sent while the agent was working, delivered into the turn going on. */
-	| { type: "steer"; text: string; attachments?: ChatAttachment[] }
+	| { type: "steer"; text: string; attachments?: ChatAttachment[]; origin?: MessageOrigin }
 	/** The agent asks the person something and waits for the answer. */
 	| { type: "question"; id: string; questions: AgentQuestion[] }
 	/** Answers by question id (each a list of picked labels or typed text); null when dismissed. */
@@ -170,10 +195,17 @@ export type ChatEvent =
 			type: "handoff";
 			from: { provider: string; model?: string | null };
 			to: { provider: string; model?: string | null };
+			/**
+			 * The thread goes back to an agent it was with before, which continues its own
+			 * conversation from when it left (after this many turns) and is told only the rest.
+			 */
+			resumes?: { turns: number };
 			at?: string;
 	  }
 	/** Where a forked thread's own work begins: everything above came from `from`. */
 	| { type: "forked"; from: { id: string; title: string }; at?: string }
+	/** This fork's work since it branched was brought back into the thread it came from. */
+	| { type: "merged"; into: { id: string; title: string }; turns: number; at?: string }
 	/**
 	 * The messages waiting for the agent, and whether sending them is paused (after a stop or a
 	 * failure). Like `commands`, not part of the log: sent on attach and whenever it changes.

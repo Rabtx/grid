@@ -1,7 +1,6 @@
 import type { ChatEvent, Choice } from "./events";
 import type { UsageLimit } from "./rate-limits";
 
-/** How a provider's session reports what happens. */
 /** An MCP server an agent starts with: a command it runs and speaks to over stdio. */
 export type McpServerSpec = {
 	name: string;
@@ -18,6 +17,11 @@ export type AgentContext = {
 	effort?: string;
 	/** The provider's own session id from an earlier run, to continue that conversation. */
 	resume?: string;
+	/**
+	 * Continue `resume` as a new conversation of its own, leaving that one as it was: a fork that
+	 * keeps everything the agent knew. Only asked of an agent whose capabilities say `fork`.
+	 */
+	fork?: boolean;
 	/** Environment for the agent's process beyond the runner's own: who its commits are by. */
 	env?: Record<string, string>;
 	/** The workspace's connectors this agent may use (Settings → Connectors). */
@@ -33,6 +37,12 @@ export type TurnResult = { reason: "done" | "cancelled" | "error"; error?: strin
 
 /** One running conversation with an agent process. */
 export type AgentSession = {
+	/**
+	 * Set when `AgentContext.resume` was asked: whether that conversation was picked up (or
+	 * forked). False when the agent no longer had it and began a new one, which knows nothing of
+	 * the thread: Grid tells it the conversation with the next message.
+	 */
+	resumed?: boolean;
 	/** Send a message; resolves when the agent has finished the turn. */
 	prompt: (text: string, images?: { mimeType: string; data: string }[]) => Promise<TurnResult>;
 	cancel: () => void;
@@ -51,10 +61,40 @@ export type AgentSession = {
 	close: () => void;
 };
 
+/**
+ * What an agent can do beyond sending a message and stopping, so Grid chooses how to do the rest
+ * by what the agent says rather than by which agent it is:
+ *
+ * - `steer`: a message sent while it works goes into the turn (`native`), or the turn is stopped
+ *   and the message starts the next one, told it was stopped for it (`restart`);
+ * - `resume`: it continues its own conversation in a new process from a stored session id;
+ * - `fork`: it branches that conversation into a new one (`AgentContext.fork`), so a fork keeps
+ *   all the agent knew; without it a fork is told the conversation instead.
+ */
+export type AgentCapabilities = {
+	steer: "native" | "restart";
+	resume: boolean;
+	fork: boolean;
+};
+
+/** What Grid assumes of an agent that says nothing: the least, which always works. */
+export const BASIC_CAPABILITIES: AgentCapabilities = {
+	steer: "restart",
+	resume: false,
+	fork: false,
+};
+
+/** An agent's capabilities, with what it leaves out at the basic level. */
+export function capabilitiesOf(info: Pick<ProviderInfo, "capabilities">): AgentCapabilities {
+	return { ...BASIC_CAPABILITIES, ...info.capabilities };
+}
+
 export type ProviderInfo = {
 	id: string;
 	name: string;
 	available: boolean;
+	/** See `AgentCapabilities`; left out, the basic ones. */
+	capabilities?: Partial<AgentCapabilities>;
 	/** Models known before a session starts; the agent may report a fuller list once running. */
 	models: Choice[];
 	modes: Choice[];

@@ -50,11 +50,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failed) and what it did, subagents and background commands sit in compact rows, and steps a stop
   cut short read Interrupted.
 - A third edition of the feature tour for the above.
+- Agents work with other threads through Grid's thread tools: start one (on any agent) and wait
+  for it or hear back when it finishes, send it messages, read it, stop it, and answer its
+  questions. A thread acts as its person and never hands out broader permissions than its own.
+- A question asked in a thread another agent started goes to that agent (and a crew member's to
+  its coordinator), which answers it or asks you.
+- After a restart (a crash, an update) the runner carries on every turn it cut off, resuming each
+  agent's own conversation; turns that were waiting on you wait for you instead.
+- Steering an agent that cannot take a message mid-turn stops its turn and carries on with the
+  message, saying so; a stop that does not take effect in 30 seconds ends the agent's process.
+- Messages carry a request id, so one sent again after a dropped connection is not sent twice;
+  the console sends recent messages again when it reconnects.
+- Forks keep the agent's own memory when Claude Code or Codex can branch their conversation, and a
+  fork's work can be brought back into the thread it came from.
+- Handing a thread back to an agent it was with resumes that agent's conversation and tells it
+  only what it missed; an agent told a thread gets the first request and the newest turns with
+  their commands and outcomes, and can read the rest with `thread_read`.
 
 ### Fixed
 
 - Agents saw none of Grid's own tools (visuals, board, crews): the runner asked for a sign-in on
   the tool list.
+- An agent that no longer had a session it was asked to resume (Codex, ACP agents) started afresh
+  without being told the thread.
+- Claude Code agents started by a runner that itself runs inside Claude Code all took that
+  session's id, so threads resumed one another's conversation.
 - Approvals stay in the inbox while their thread is open, and are settled once answered.
 - The landing page shows the real install URL instead of localhost.
 

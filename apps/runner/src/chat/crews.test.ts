@@ -227,4 +227,34 @@ describe("crews", () => {
 		expect(api?.steers).toEqual([]);
 		expect(crewStore.workers(crew.id)[0]?.nudgedAt).toBeNull();
 	});
+
+	it("tell the coordinator a member's question, with how to answer it", async () => {
+		const { tool, crewStore, crew, sessions, chat, coordinator } = setup();
+		await tool("crew_start_worker", { key: "api", title: "API routes", brief: "Build the API" });
+		await settle();
+		const api = sessionFor(sessions, "Build the API");
+		const thread = crewStore.workers(crew.id)[0]?.sessionId;
+		api?.ctx.emit({
+			type: "question",
+			id: "q9",
+			questions: [
+				{
+					id: "auth",
+					header: "Auth",
+					question: "Sessions or tokens?",
+					options: [{ label: "Tokens" }],
+				},
+			],
+		});
+		await settle();
+		const report = chat
+			.events(coordinator.id)
+			.filter((event): event is Extract<ChatEvent, { type: "user" }> => event.type === "user")
+			.at(-1);
+		expect(report?.text).toContain(
+			`API routes (api) is waiting on an answer (thread ${thread}, question "q9")`,
+		);
+		expect(report?.text).toContain('[auth] Sessions or tokens? Options: "Tokens"');
+		expect(report?.text).toContain("thread_answer");
+	});
 });

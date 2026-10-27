@@ -7,6 +7,7 @@ import type {
 	ChatEvent,
 	Choice,
 	FileDiff,
+	MessageOrigin,
 	PlanEntry,
 	QueuedMessage,
 	SubagentStatus,
@@ -28,6 +29,10 @@ export type Block =
 			endedAt?: string;
 			/** How the turn ended; undefined while it is still going. */
 			outcome?: "done" | "cancelled" | "error";
+			/** Who sent it, when the person did not type it. */
+			origin?: MessageOrigin;
+			/** Sent while the agent worked; its turn was stopped to take it. */
+			steered?: boolean;
 	  }
 	| { kind: "assistant"; key: string; text: string }
 	| { kind: "reasoning"; key: string; text: string }
@@ -94,12 +99,16 @@ export type Block =
 	| { kind: "checkpoint"; key: string; turn: number; files: CheckpointFile[]; undone?: boolean }
 	/** Where a forked thread's own work begins. */
 	| { kind: "forked"; key: string; from: { id: string; title: string } }
+	/** This fork's work was brought back into the thread it came from. */
+	| { kind: "merged"; key: string; into: { id: string; title: string }; turns: number }
 	/** The thread moved from one agent to another here. */
 	| {
 			kind: "handoff";
 			key: string;
 			from: { provider: string; model?: string | null };
 			to: { provider: string; model?: string | null };
+			/** Back to an agent it was with, which continues its own conversation. */
+			resumes?: boolean;
 	  }
 	| {
 			kind: "notice";
@@ -211,6 +220,8 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 						...(event.id ? { id: event.id } : {}),
 						text: event.text,
 						...(event.attachments ? { attachments: event.attachments } : {}),
+						...(event.origin ? { origin: event.origin } : {}),
+						...(event.steered ? { steered: true } : {}),
 					},
 				],
 			};
@@ -343,11 +354,25 @@ export function applyEvent(transcript: Transcript, event: ChatEvent): Transcript
 		}
 		case "forked":
 			return { ...transcript, blocks: [...blocks, { kind: "forked", key, from: event.from }] };
+		case "merged":
+			return {
+				...transcript,
+				blocks: [...blocks, { kind: "merged", key, into: event.into, turns: event.turns }],
+			};
 		case "handoff":
 			// The new agent reports its own models and modes once it starts: the old one's are gone.
 			return {
 				...transcript,
-				blocks: [...blocks, { kind: "handoff", key, from: event.from, to: event.to }],
+				blocks: [
+					...blocks,
+					{
+						kind: "handoff",
+						key,
+						from: event.from,
+						to: event.to,
+						...(event.resumes ? { resumes: true } : {}),
+					},
+				],
 				models: [],
 				model: event.to.model ?? null,
 				modes: [],
@@ -476,10 +501,12 @@ function endTurn(
 		};
 	}
 	if (event.reason === "cancelled") {
-		return {
-			...transcript,
-			blocks: [...blocks, { kind: "notice", key, tone: "muted", text: "Stopped." }],
-		};
+		const text = event.continued
+			? (event.error ?? "Interrupted: the runner restarted. Grid carries the turn on below.")
+			: event.restarted
+				? "Stopped to take your message; it carries on below."
+				: "Stopped.";
+		return { ...transcript, blocks: [...blocks, { kind: "notice", key, tone: "muted", text }] };
 	}
 	// Tools still marked running when the turn ends did finish; the agent just never said.
 	return {
@@ -752,4 +779,19 @@ const KIND_TAGS: Record<ToolBlock["tool"], string | null> = {
  */
 export function toolTag(tool: Pick<ToolBlock, "tool">): string | null {
 	return KIND_TAGS[tool.tool];
+}
+
+/**
+ * Who sent a message the person did not type, as its line under the bubble says it; null for
+ * the person's own.
+ */
+export function messageSource(block: Pick<UserBlock, "origin" | "steered">): string | null {
+	const origin = block.origin;
+	if (!origin) return block.steered ? "Sent while it worked" : null;
+	if (origin.kind === "grid")
+		return origin.reason === "restart"
+			? "Grid · carried on after the runner restarted"
+			: "Grid · about threads this one started";
+	if (origin.kind === "merge") return `Brought back from the fork "${origin.thread.title}"`;
+	return `From the agent in "${origin.thread.title}"`;
 }

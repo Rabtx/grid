@@ -62,7 +62,12 @@ import {
 	Text,
 } from "@/kit";
 
-import { type ChatConnection, connectChat, type ChatSocket } from "../lib/chat-socket";
+import {
+	type ChatCommand,
+	type ChatConnection,
+	connectChat,
+	type ChatSocket,
+} from "../lib/chat-socket";
 import { threadFacts } from "../lib/thread-facts";
 import {
 	applyEvent,
@@ -102,6 +107,17 @@ import {
 
 /** How often an open crew's members are read again. */
 const CREW_POLL_MS = 5_000;
+
+/** How long, and how many, sent messages are kept to send again after a reconnect. */
+const RESEND_MS = 2 * 60_000;
+const RESEND_MAX = 10;
+
+/** A name for one send, unique enough for the runner to tell a retry from a new message. */
+function requestId(): string {
+	return typeof crypto.randomUUID === "function"
+		? crypto.randomUUID()
+		: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
 
 /** A first message typed on the new-chat screen, sent as soon as the session's socket is up. */
 const firstMessages = new Map<string, { text: string; attachments: string[] }>();
@@ -409,6 +425,9 @@ export function Conversation(props: {
 					} else {
 						setRunning(ready.running);
 					}
+					// Messages sent just before the link dropped may not have arrived: they go again,
+					// and the runner takes each request id once, so none is sent twice.
+					if (attachedBefore) resendRecent();
 					// Opening a chat lands on its latest message; coming back to it keeps your place.
 					if (!attachedBefore) setPinned(true);
 					attachedBefore = true;
@@ -416,7 +435,7 @@ export function Conversation(props: {
 					const first = firstMessages.get(props.id);
 					if (first && !ready.missed && ready.history.length === 0) {
 						firstMessages.delete(props.id);
-						chat.send({ t: "prompt", ...first });
+						sendPrompt({ t: "prompt", ...first });
 					}
 				},
 				onEvent: (event) => {
@@ -524,6 +543,28 @@ export function Conversation(props: {
 	);
 
 	/**
+	 * Messages sent lately, each with a request id. They are sent again whenever the socket
+	 * attaches anew, since one sent as the link dropped may never have arrived; the runner takes
+	 * a request id once, so one that did arrive is not sent twice.
+	 */
+	let recentSends: { at: number; command: Extract<ChatCommand, { t: "prompt" }> }[] = [];
+
+	function sendPrompt(command: Omit<Extract<ChatCommand, { t: "prompt" }>, "requestId">): boolean {
+		const named = { ...command, requestId: requestId() };
+		if (!socket?.send(named)) return false;
+		recentSends = [
+			...recentSends.filter((sent) => Date.now() - sent.at < RESEND_MS),
+			{ at: Date.now(), command: named },
+		].slice(-RESEND_MAX);
+		return true;
+	}
+
+	function resendRecent(): void {
+		recentSends = recentSends.filter((sent) => Date.now() - sent.at < RESEND_MS);
+		for (const sent of recentSends) socket?.send(sent.command);
+	}
+
+	/**
 	 * Sends a message with new files and, for Regenerate, files the thread already holds. While
 	 * the agent works it waits in the queue, or with `steer` goes into the turn going on.
 	 */
@@ -543,7 +584,7 @@ export function Conversation(props: {
 		setRestartNotice(null);
 		const ids = [...existing, ...attachments.map((item) => item.id)];
 		if (
-			!socket?.send({
+			!sendPrompt({
 				t: "prompt",
 				text,
 				attachments: ids,
@@ -601,6 +642,24 @@ export function Conversation(props: {
 			(item) => item.id.toLowerCase() === wanted || item.name.toLowerCase() === wanted,
 		);
 	};
+
+	/** Bring this fork's work back into the thread it was forked from. */
+	async function mergeBack(): Promise<void> {
+		const token = auth.token();
+		if (!token) return;
+		try {
+			const { into, turns } = await chatService.mergeBack(token, props.id, props.scope);
+			notify({
+				title: `${turns === 1 ? "1 turn" : `${turns} turns`} brought back into ${into.title}`,
+				tone: "success",
+			});
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not bring the fork's work back",
+				tone: "danger",
+			});
+		}
+	}
 
 	/** Hand this thread to another agent: here, or in a new thread that then opens. */
 	async function handoff(providerId: string, newThread = false): Promise<void> {
@@ -859,7 +918,9 @@ export function Conversation(props: {
 											},
 											{
 												icon: <ClockIcon />,
-												label: `Started ${relativeTime(current().createdAt)}`,
+												label: current().delegatedBy
+													? `Started by another thread's agent ${relativeTime(current().createdAt)}`
+													: `Started ${relativeTime(current().createdAt)}`,
 											},
 										]}
 									/>
@@ -896,6 +957,7 @@ export function Conversation(props: {
 								)
 							}
 							agentName={(id) => props.providers.find((item) => item.id === id)?.name ?? id}
+							onMergeBack={() => void mergeBack()}
 							forkedHref={(id) => {
 								const project = session()?.project;
 								return project
@@ -1050,6 +1112,7 @@ export function Conversation(props: {
 								}))}
 								paused={transcript().queue.paused}
 								running={running()}
+								steerRestarts={provider()?.capabilities?.steer !== "native"}
 								onRemove={(id) => socket?.send({ t: "queue", action: "remove", id })}
 								onSendNow={(id) => socket?.send({ t: "queue", action: "steer", id })}
 								onResume={() => socket?.send({ t: "queue", action: "resume" })}
@@ -1060,6 +1123,7 @@ export function Conversation(props: {
 					<Composer
 						project={session()?.project}
 						running={running()}
+						steerRestarts={provider()?.capabilities?.steer !== "native"}
 						commands={commands()}
 						onCommand={runCommand}
 						disabled={connection() === "gone" || connection() === "signed-out"}

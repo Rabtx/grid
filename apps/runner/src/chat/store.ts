@@ -53,8 +53,36 @@ export type ChatSessionRow = {
 	parentId?: string | null;
 	/** The provider account it runs as (Settings → Agents → Accounts); null is the machine's own. */
 	account?: string | null;
+	/**
+	 * A fork's source conversation, for an agent that branches its own (see `AgentCapabilities`):
+	 * its first agent starts from this session id as a new one. Cleared once it has its own.
+	 */
+	forkToken?: string | null;
+	/** The thread whose agent started this one with Grid's thread tools, if one did. */
+	delegatedBy?: string | null;
+	/**
+	 * Each agent the thread was with before a handoff: its session id, and how many turns the
+	 * thread had when it left. Handed back, the agent continues that conversation and is told only
+	 * the turns it missed.
+	 */
+	agentTokens?: Record<string, AgentToken> | null;
 	createdAt: string;
 	updatedAt: string;
+};
+
+/** Where an agent left a thread it was handed away from (see `ChatSessionRow.agentTokens`). */
+export type AgentToken = { token: string; turns: number };
+
+/**
+ * The turn an agent was working on, kept until it ends: a runner that stops mid-turn finds it on
+ * starting and carries it on (see `ChatHub.recover`). `continuations` counts the times in a row
+ * a turn was carried on that way since `chainSince`, so a restart loop gives up.
+ */
+export type ActiveTurn = {
+	turn: number;
+	startedAt: string;
+	continuations: number;
+	chainSince: string;
 };
 
 /** A role as a thread keeps it: renaming or removing the role later does not change the thread. */
@@ -102,6 +130,9 @@ type Row = {
 	notes?: string | null;
 	parent_id?: string | null;
 	account?: string | null;
+	fork_token?: string | null;
+	delegated_by?: string | null;
+	agent_tokens?: string | null;
 	created_at: string;
 	updated_at: string;
 };
@@ -133,6 +164,15 @@ function readNotes(raw: string | null): SessionNotes | null {
 	}
 }
 
+function readJson<T>(raw: string | null): T | null {
+	if (!raw) return null;
+	try {
+		return JSON.parse(raw) as T;
+	} catch {
+		return null;
+	}
+}
+
 function toSession(row: Row): ChatSessionRow {
 	return {
 		id: row.id,
@@ -151,6 +191,9 @@ function toSession(row: Row): ChatSessionRow {
 		notes: readNotes(row.notes ?? null),
 		parentId: row.parent_id ?? null,
 		account: row.account ?? null,
+		forkToken: row.fork_token ?? null,
+		delegatedBy: row.delegated_by ?? null,
+		agentTokens: readJson<Record<string, AgentToken>>(row.agent_tokens ?? null),
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -264,6 +307,23 @@ export class ChatStore {
 		if (!hasColumn(this.db, "sessions", "queue")) {
 			this.db.exec("ALTER TABLE sessions ADD COLUMN queue TEXT");
 		}
+		for (const column of ["active_turn", "fork_token", "delegated_by", "agent_tokens"])
+			if (!hasColumn(this.db, "sessions", column))
+				this.db.exec(`ALTER TABLE sessions ADD COLUMN ${column} TEXT`);
+		this.db.exec(
+			"CREATE INDEX IF NOT EXISTS sessions_by_delegator ON sessions (delegated_by) WHERE delegated_by IS NOT NULL",
+		);
+		// What each command a device or an agent sent with a request id did, so sending it again
+		// (a retry after a dropped connection) does not do it twice. Kept a week.
+		this.db.exec(`
+			CREATE TABLE IF NOT EXISTS command_receipts (
+				session_id TEXT NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
+				key TEXT NOT NULL,
+				result TEXT NOT NULL,
+				created_at TEXT NOT NULL,
+				PRIMARY KEY (session_id, key)
+			);
+		`);
 		// Additions agents suggested to the project's shared notes, until someone adds or dismisses them.
 		this.db.exec(`
 			CREATE TABLE IF NOT EXISTS note_suggestions (
@@ -423,8 +483,8 @@ export class ChatStore {
 		const now = new Date().toISOString();
 		this.db
 			.query(
-				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, worktree, role, notes, parent_id, account, created_at, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, worktree, role, notes, parent_id, account, fork_token, delegated_by, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			)
 			.run(
 				session.id,
@@ -442,6 +502,8 @@ export class ChatStore {
 				session.notes ? JSON.stringify(session.notes) : null,
 				session.parentId ?? null,
 				session.account ?? null,
+				session.forkToken ?? null,
+				session.delegatedBy ?? null,
 				now,
 				now,
 			);
@@ -451,6 +513,9 @@ export class ChatStore {
 			notes: session.notes ?? null,
 			parentId: session.parentId ?? null,
 			account: session.account ?? null,
+			forkToken: session.forkToken ?? null,
+			delegatedBy: session.delegatedBy ?? null,
+			agentTokens: null,
 			resumeToken: null,
 			createdAt: now,
 			updatedAt: now,
@@ -611,6 +676,8 @@ export class ChatStore {
 				| "role"
 				| "notes"
 				| "account"
+				| "forkToken"
+				| "agentTokens"
 			>
 		>,
 	): void {
@@ -626,6 +693,8 @@ export class ChatStore {
 			role: "role",
 			notes: "notes",
 			account: "account",
+			forkToken: "fork_token",
+			agentTokens: "agent_tokens",
 		};
 		// `undefined` means "leave it alone", not "clear it": callers pass whole shapes, and
 		// binding undefined stores NULL, which is how one `configure` with no fields in it
@@ -636,7 +705,7 @@ export class ChatStore {
 		if (entries.length === 0) return;
 		const sets = entries.map(([key]) => `${columns[key]} = ?`).join(", ");
 		const values = entries.map(([key, value]) =>
-			key === "worktree" || key === "role" || key === "notes"
+			key === "worktree" || key === "role" || key === "notes" || key === "agentTokens"
 				? value
 					? JSON.stringify(value)
 					: null
@@ -813,6 +882,69 @@ export class ChatStore {
 		this.db
 			.query("UPDATE sessions SET queue = ? WHERE id = ?")
 			.run(queue.items.length || queue.paused ? JSON.stringify(queue) : null, sessionId);
+	}
+
+	/** The turn a thread's agent is working on, or null between turns (see `ActiveTurn`). */
+	activeTurn(sessionId: string): ActiveTurn | null {
+		const row = this.db
+			.query<{ active_turn: string | null }, [string]>(
+				"SELECT active_turn FROM sessions WHERE id = ?",
+			)
+			.get(sessionId);
+		return readJson<ActiveTurn>(row?.active_turn ?? null);
+	}
+
+	setActiveTurn(sessionId: string, turn: ActiveTurn | null): void {
+		this.db
+			.query("UPDATE sessions SET active_turn = ? WHERE id = ?")
+			.run(turn ? JSON.stringify(turn) : null, sessionId);
+	}
+
+	/** Threads whose agent was working when the runner last stopped, with the turn it was on. */
+	cutOff(): { id: string; turn: ActiveTurn }[] {
+		return this.db
+			.query<{ id: string; active_turn: string }, []>(
+				"SELECT id, active_turn FROM sessions WHERE active_turn IS NOT NULL",
+			)
+			.all()
+			.flatMap((row) => {
+				const turn = readJson<ActiveTurn>(row.active_turn);
+				return turn ? [{ id: row.id, turn }] : [];
+			});
+	}
+
+	/** The threads another thread's agent started (see `ChatSessionRow.delegatedBy`), newest first. */
+	delegated(sessionId: string): ChatSessionRow[] {
+		return this.db
+			.query<Row, [string]>(
+				"SELECT * FROM sessions WHERE delegated_by = ? ORDER BY created_at DESC",
+			)
+			.all(sessionId)
+			.map(toSession);
+	}
+
+	/** What a command sent with this key did, when it was sent before; null the first time. */
+	receipt(sessionId: string, key: string): string | null {
+		return (
+			this.db
+				.query<{ result: string }, [string, string]>(
+					"SELECT result FROM command_receipts WHERE session_id = ? AND key = ?",
+				)
+				.get(sessionId, key)?.result ?? null
+		);
+	}
+
+	/** Keep what a command did under its key; receipts older than a week go as new ones come. */
+	keepReceipt(sessionId: string, key: string, result: string, now: Date = new Date()): void {
+		const weekAgo = new Date(now.getTime() - 7 * 86_400_000).toISOString();
+		this.db.transaction(() => {
+			this.db.query("DELETE FROM command_receipts WHERE created_at < ?").run(weekAgo);
+			this.db
+				.query(
+					"INSERT OR IGNORE INTO command_receipts (session_id, key, result, created_at) VALUES (?, ?, ?, ?)",
+				)
+				.run(sessionId, key, result, now.toISOString());
+		})();
 	}
 
 	events(sessionId: string): ChatEvent[] {

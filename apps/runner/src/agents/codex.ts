@@ -167,6 +167,7 @@ export function codexProvider(options: {
 		id: "codex",
 		name: "Codex",
 		available: options.available(),
+		capabilities: { steer: "native", resume: true, fork: true },
 		models: [],
 		modes: MODES,
 		defaultMode: "supervised",
@@ -342,6 +343,8 @@ async function startCodexSession(
 	let effort = context.effort;
 	let mode = context.mode ?? "supervised";
 	let threadId: string | null = null;
+	// Whether a stored thread was picked up (or forked): one Codex no longer has starts afresh.
+	let resumed: boolean | undefined;
 	let turnId: string | null = null;
 	let finishTurn: ((result: TurnResult) => void) | null = null;
 	const streamed = new Set<string>();
@@ -588,14 +591,19 @@ async function startCodexSession(
 
 		let started: Started | null = null;
 		if (context.resume) {
+			// A fork branches the stored thread into a new one; never resume it instead, or the
+			// fork would carry on the conversation it came from.
 			started = await rpc
-				.request<Started>("thread/resume", {
+				.request<Started>(context.fork ? "thread/fork" : "thread/resume", {
 					threadId: context.resume,
 					cwd: context.cwd,
+					...(context.fork && model ? { model } : {}),
 					approvalPolicy: policy().approvalPolicy,
 					sandbox: policy().sandbox,
 				})
 				.catch(() => null);
+			resumed = Boolean(started?.thread?.id);
+			if (!resumed) started = null;
 		}
 		started ??= await rpc.request<Started>("thread/start", {
 			cwd: context.cwd,
@@ -619,6 +627,7 @@ async function startCodexSession(
 	}
 
 	return {
+		...(resumed !== undefined ? { resumed } : {}),
 		prompt: (text) =>
 			new Promise<TurnResult>((resolve) => {
 				finishTurn = resolve;
