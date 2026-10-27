@@ -187,15 +187,26 @@ export async function chatRequest(
 			return new Response(null, { status: 204 });
 		});
 	}
-	// A project's chat settings on this machine: whether new chats get their own worktree.
+	// A project's chat settings on this machine: whether new chats get their own worktree, and
+	// whether idle Claude Code threads are compacted before their cache expires.
 	const settings = url.pathname.match(/^\/chat\/projects\/([a-z0-9-]+)\/settings$/);
 	if (settings && request.method === "GET") {
 		return Response.json({ data: hub.projectSettings(workspace, settings[1]) });
 	}
 	if (settings && request.method === "PUT") {
-		const body = (await request.json().catch(() => ({}))) as { worktrees?: unknown };
-		if (typeof body.worktrees !== "boolean") return failure(400, "Say whether to use worktrees");
-		hub.setProjectSettings(workspace, settings[1], { worktrees: body.worktrees });
+		const body = (await request.json().catch(() => ({}))) as {
+			worktrees?: unknown;
+			idleCompact?: unknown;
+		};
+		const given = (["worktrees", "idleCompact"] as const).filter((key) => body[key] !== undefined);
+		if (!given.length || given.some((key) => typeof body[key] !== "boolean"))
+			return failure(400, "Say whether to use worktrees, or whether to compact idle threads");
+		const current = hub.projectSettings(workspace, settings[1]);
+		hub.setProjectSettings(workspace, settings[1], {
+			...current,
+			...(typeof body.worktrees === "boolean" ? { worktrees: body.worktrees } : {}),
+			...(typeof body.idleCompact === "boolean" ? { idleCompact: body.idleCompact } : {}),
+		});
 		return new Response(null, { status: 204 });
 	}
 	// Every worktree of the workspace (Settings → Worktrees), removing one, and cleaning up.
@@ -449,7 +460,7 @@ export function chatCommand(
 				)
 				.catch(fail);
 		} else if (command.t === "cancel") {
-			hub.cancel(workspace, sessionId);
+			hub.cancel(workspace, sessionId, true);
 		} else if (command.t === "approve" && typeof command.id === "string") {
 			hub.approve(
 				workspace,

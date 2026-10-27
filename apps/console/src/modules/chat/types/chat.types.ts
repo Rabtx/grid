@@ -36,12 +36,22 @@ export type AgentQuestion = {
 export type SubagentStatus = "running" | "completed" | "failed" | "cancelled";
 
 /**
+ * Why Grid itself sent a message: carrying a turn on after a restart, reporting on threads this
+ * one started, carrying on after a usage limit reset, pull request news, the thread's goal, or
+ * compacting an idle conversation.
+ */
+export type GridReason = "restart" | "report" | "limit" | "pull" | "goal" | "compact";
+
+/** Where a thread's goal stands. */
+export type GoalStatus = "active" | "paused" | "met" | "blocked" | "cleared";
+
+/**
  * Who a message is from when the person did not type it: Grid (carrying a turn on after the
  * runner restarted, or reporting on threads this one started), another thread's agent, or a
  * fork's work brought back.
  */
 export type MessageOrigin =
-	| { kind: "grid"; reason: "restart" | "report" }
+	| { kind: "grid"; reason: GridReason }
 	| { kind: "agent"; thread: { id: string; title: string } }
 	| { kind: "merge"; thread: { id: string; title: string } };
 
@@ -144,6 +154,18 @@ export type ChatEvent =
 	| { type: "checkpoint"; turn: number; files: CheckpointFile[]; at?: string }
 	| { type: "checkpoint_restored"; turn: number; files: CheckpointFile[]; at?: string }
 	| { type: "forked"; from: { id: string; title: string }; at?: string }
+	/** A usage limit stopped the thread; Grid carries it on at `resetsAt` unless `ended`. */
+	| { type: "limit_wait"; resetsAt: string; ended?: "resumed" | "cancelled"; at?: string }
+	/** The thread's goal changed (`/goal`). */
+	| {
+			type: "goal";
+			objective: string;
+			status: GoalStatus;
+			turns: number;
+			maxTurns: number;
+			note?: string;
+			at?: string;
+	  }
 	/** This fork's work was brought back into the thread it came from. */
 	| { type: "merged"; into: { id: string; title: string }; turns: number; at?: string }
 	| {
@@ -279,7 +301,11 @@ export type WorktreeStatus = {
 };
 
 /** A project's chat settings on the machine it runs on. */
-export type ProjectChatSettings = { worktrees: boolean };
+export type ProjectChatSettings = {
+	worktrees: boolean;
+	/** Idle Claude Code threads with a large conversation are compacted before their cache expires. */
+	idleCompact?: boolean;
+};
 
 /** An agent the runner can drive, and whether it is installed. */
 export type ChatProvider = {
@@ -364,4 +390,14 @@ export type WaitingApproval = {
 	thread: string;
 	provider: string;
 	approval: { id: string; title: string; detail: string | null; options: ApprovalOption[] };
+};
+
+/** A thread's goal as the runner keeps it. */
+export type ThreadGoal = {
+	sessionId: string;
+	objective: string;
+	status: GoalStatus;
+	turns: number;
+	maxTurns: number;
+	updatedAt: string;
 };

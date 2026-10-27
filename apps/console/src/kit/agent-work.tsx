@@ -131,6 +131,83 @@ export function QuestionCard(props: {
 	);
 }
 
+/** A thread's goal as the bar above the composer shows it. */
+export type GoalState = {
+	objective: string;
+	status: "active" | "paused" | "met" | "blocked";
+	turns: number;
+	maxTurns: number;
+};
+
+const GOAL_TONE: Record<GoalState["status"], { tone: Tone; label: string }> = {
+	active: { tone: "accent", label: "Goal" },
+	paused: { tone: "neutral", label: "Goal paused" },
+	met: { tone: "success", label: "Goal met" },
+	blocked: { tone: "warning", label: "Goal blocked" },
+};
+
+/**
+ * The thread's goal over the composer: what done means, how many turns it has taken, and the
+ * controls that fit where it stands (pause a running goal, resume a stopped one, clear it).
+ */
+export function GoalBar(props: {
+	goal: GoalState;
+	onPause: () => void;
+	onResume: () => void;
+	onClear: () => void;
+}): JSX.Element {
+	const look = () => GOAL_TONE[props.goal.status];
+	return (
+		<div class="flex min-w-0 items-center gap-2 rounded-kit-lg border border-line bg-surface px-3 py-2">
+			<Badge tone={look().tone}>{look().label}</Badge>
+			<span class="min-w-0 flex-1 truncate text-body text-fg" title={props.goal.objective}>
+				{props.goal.objective}
+			</span>
+			<span class="shrink-0 text-caption text-fg-subtle tabular-nums">
+				{props.goal.turns}/{props.goal.maxTurns}
+			</span>
+			<Show
+				when={props.goal.status === "active"}
+				fallback={
+					<Show when={props.goal.status !== "met"}>
+						<Button variant="ghost" size="sm" onClick={() => props.onResume()}>
+							Resume
+						</Button>
+					</Show>
+				}
+			>
+				<Button variant="ghost" size="sm" onClick={() => props.onPause()}>
+					Pause
+				</Button>
+			</Show>
+			<IconButton size="xs" label="Clear the goal" onClick={() => props.onClear()}>
+				<CloseIcon size="sm" />
+			</IconButton>
+		</div>
+	);
+}
+
+/** The thread waits for its usage limit to reset, then carries on: when, and a way to say no. */
+export function LimitWaitBar(props: { resetsAt: string; onCancel: () => void }): JSX.Element {
+	const when = () =>
+		new Date(props.resetsAt).toLocaleString(undefined, {
+			weekday: "short",
+			hour: "numeric",
+			minute: "2-digit",
+		});
+	return (
+		<div class="flex min-w-0 items-center gap-2 rounded-kit-lg border border-line bg-surface px-3 py-2">
+			<RestoreIcon size="sm" class="shrink-0 text-fg-subtle" />
+			<span class="min-w-0 flex-1 text-body text-fg-muted">
+				Usage limit reached. Carries on by itself {when()}.
+			</span>
+			<Button variant="ghost" size="sm" onClick={() => props.onCancel()}>
+				Don't
+			</Button>
+		</div>
+	);
+}
+
 export type QueuedItem = { id: string; text: string; files: number };
 
 /**

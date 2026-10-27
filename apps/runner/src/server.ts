@@ -27,6 +27,7 @@ import type { DiagnosticInput, DiagnosticJournal } from "./diagnostics/journal";
 import { RefusalTally } from "./diagnostics/refusals";
 import { DiagnosticRoutes, safeCloseReason } from "./diagnostics/routes";
 import { watchEventLoop } from "./diagnostics/stall";
+import { type AutonomyDeps, autonomyRequest } from "./chat/autonomy-routes";
 import { crewRequest } from "./chat/crew-routes";
 import type { Browsers } from "./browser/browsers";
 import { accountRequest } from "./chat/account-routes";
@@ -164,6 +165,8 @@ export function startServer(
 		roles?: RoleDeps;
 		/** Crews: coordinator chats and their members. */
 		crews?: Crews;
+		/** Threads' goals and their waits for a usage limit to reset. */
+		autonomy?: AutonomyDeps;
 		/** People's provider accounts and what each has used of its plan. */
 		accounts?: Accounts;
 		/** Each thread's browser page, shared by its agent and the browser pane. */
@@ -198,6 +201,7 @@ export function startServer(
 		automations,
 		roles,
 		crews,
+		autonomy,
 		accounts,
 		browsers,
 		mayApprove,
@@ -637,6 +641,8 @@ export function startServer(
 					if (who instanceof Response) return who;
 					const crew = crews ? await crewRequest(request, url, who, crews) : null;
 					if (crew) return crew;
+					const own = autonomy ? await autonomyRequest(request, url, who, autonomy) : null;
+					if (own) return own;
 					const account = accounts ? await accountRequest(request, url, who, accounts) : null;
 					if (account) return account;
 					const page = browsers ? await browserRequest(request, url, who, chat, browsers) : null;

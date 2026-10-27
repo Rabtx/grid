@@ -6,6 +6,7 @@ import {
 	countWork,
 	formatDuration,
 	groupRows,
+	goalLine,
 	groupTurns,
 	messageSource,
 	pendingApprovals,
@@ -485,5 +486,66 @@ describe("messages the person did not type", () => {
 		]);
 		expect(t.blocks[0]).toMatchObject({ kind: "merged", into: { title: "Main" }, turns: 2 });
 		expect(t.blocks[1]).toMatchObject({ kind: "handoff", resumes: true });
+	});
+});
+
+describe("what keeps a thread going on its own", () => {
+	it("tracks the goal, with a line for each change but not each turn", () => {
+		const goal = (
+			status: "active" | "paused" | "met" | "blocked" | "cleared",
+			turns: number,
+			note?: string,
+		) =>
+			({
+				type: "goal",
+				objective: "tests pass",
+				status,
+				turns,
+				maxTurns: 20,
+				...(note ? { note } : {}),
+			}) as const;
+		const t = replay([goal("active", 0), goal("active", 1), goal("met", 2, "bun test is green")]);
+		expect(t.goal).toMatchObject({ status: "met", turns: 2 });
+		const lines = t.blocks.map((block) => (block as { text?: string }).text);
+		expect(lines).toEqual(["Goal set: tests pass", "Goal met in 2 turns: bun test is green"]);
+		expect(replay([goal("active", 0), goal("cleared", 0)]).goal).toBeNull();
+		expect(goalLine(goal("blocked", 3, "needs a key"))).toBe("Goal blocked: needs a key");
+	});
+
+	it("shows the wait for a usage limit until it is resumed or cancelled", () => {
+		const waiting = replay([{ type: "limit_wait", resetsAt: "2026-10-27T15:01:00Z" }]);
+		expect(waiting.limitWait).toBe("2026-10-27T15:01:00Z");
+		expect((waiting.blocks[0] as { text: string }).text).toContain(
+			"Grid carries this on when the usage limit resets",
+		);
+		const resumed = replay([
+			{ type: "limit_wait", resetsAt: "2026-10-27T15:01:00Z" },
+			{ type: "limit_wait", resetsAt: "2026-10-27T15:01:00Z", ended: "resumed" },
+		]);
+		expect(resumed.limitWait).toBeNull();
+		expect(resumed.blocks).toHaveLength(1);
+		const cancelled = replay([
+			{ type: "limit_wait", resetsAt: "2026-10-27T15:01:00Z" },
+			{ type: "limit_wait", resetsAt: "2026-10-27T15:01:00Z", ended: "cancelled" },
+		]);
+		expect(cancelled.limitWait).toBeNull();
+		expect((cancelled.blocks[1] as { text: string }).text).toBe(
+			"Grid won't carry this on when the usage limit resets.",
+		);
+	});
+
+	it("names Grid's other reasons for writing", () => {
+		expect(messageSource({ origin: { kind: "grid", reason: "limit" } })).toBe(
+			"Grid · carried on after the usage limit reset",
+		);
+		expect(messageSource({ origin: { kind: "grid", reason: "pull" } })).toBe(
+			"Grid · news of a watched pull request",
+		);
+		expect(messageSource({ origin: { kind: "grid", reason: "goal" } })).toBe(
+			"Grid · working toward the goal",
+		);
+		expect(messageSource({ origin: { kind: "grid", reason: "compact" } })).toBe(
+			"Grid · compacting before the cache expires",
+		);
 	});
 });

@@ -10,6 +10,7 @@ import type {
 	ChatSession,
 	Crew,
 	ProjectChatSettings,
+	ThreadGoal,
 	ProviderAccount,
 	ProviderSettings,
 	Role,
@@ -236,6 +237,25 @@ export const chatService = {
 			{ method: "POST", body: JSON.stringify(input) },
 			scope,
 		),
+	/** A thread's goal, or null without one. */
+	goal: (token: string, id: string, scope = "") =>
+		call<ThreadGoal | null>(`/chat/sessions/${id}/goal`, token, {}, scope),
+	/** Set a thread's goal (`objective`), or pause, resume or clear it (`action`). */
+	setGoal: (
+		token: string,
+		id: string,
+		input: { objective: string; maxTurns?: number } | { action: "pause" | "resume" | "clear" },
+		scope = "",
+	) =>
+		call<ThreadGoal | null>(
+			`/chat/sessions/${id}/goal`,
+			token,
+			{ method: "POST", body: JSON.stringify(input) },
+			scope,
+		),
+	/** Don't carry the thread on when its usage limit resets. */
+	cancelLimitWait: (token: string, id: string, scope = "") =>
+		call<void>(`/chat/sessions/${id}/limit-wait`, token, { method: "DELETE" }, scope),
 	/** Bring a fork's work back into the thread it was forked from, as that thread's next message. */
 	mergeBack: (token: string, id: string, scope = "") =>
 		call<{ into: ChatSession; turns: number }>(
@@ -474,10 +494,11 @@ export const chatService = {
 		),
 	projectSettings: (token: string, project: string, scope = "") =>
 		call<ProjectChatSettings>(`/chat/projects/${project}/settings`, token, {}, scope),
+	/** Change some of a project's chat settings; those left out stay as they are. */
 	saveProjectSettings: (
 		token: string,
 		project: string,
-		settings: ProjectChatSettings,
+		settings: Partial<ProjectChatSettings>,
 		scope = "",
 	) =>
 		call<void>(

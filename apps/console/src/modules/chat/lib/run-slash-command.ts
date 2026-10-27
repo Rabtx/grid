@@ -28,6 +28,8 @@ export type SlashCommandActions = {
 	side?: (agent: string) => boolean;
 	/** Hand the thread to the agent named; false when no agent has that name. */
 	handoff?: (agent: string, newThread: boolean) => boolean;
+	/** Set the thread's goal, or pause, resume or clear it; left out where there is no thread. */
+	goal?: (input: { objective: string } | { action: "pause" | "resume" | "clear" | "show" }) => void;
 };
 
 function refuse(title: string): false {
@@ -110,6 +112,16 @@ export function runSlashCommand(
 			if (!actions.fork) return refuse("Open a thread to fork it");
 			actions.fork(/^(worktree|wt|new)$/i.test(argument.trim()));
 			return true;
+		case "goal": {
+			if (!actions.goal) return refuse("Open a thread to give it a goal");
+			const said = argument.trim();
+			const action = said.toLowerCase();
+			if (!said || action === "show") actions.goal({ action: "show" });
+			else if (action === "pause" || action === "resume" || action === "clear")
+				actions.goal({ action });
+			else actions.goal({ objective: said });
+			return true;
+		}
 		case "split":
 			if (!actions.openSplit) return refuse("Open a thread to split it");
 			actions.openSplit();

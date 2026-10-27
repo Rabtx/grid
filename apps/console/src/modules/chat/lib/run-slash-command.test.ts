@@ -84,6 +84,20 @@ describe("runSlashCommand", () => {
 		expect(stop).toHaveBeenCalled();
 	});
 
+	it("sets, shows, pauses, resumes and clears a goal", () => {
+		const goal = vi.fn();
+		expect(runSlashCommand(command("goal"), "all tests pass", actions({ goal }))).toBe(true);
+		expect(goal).toHaveBeenLastCalledWith({ objective: "all tests pass" });
+		runSlashCommand(command("goal"), "", actions({ goal }));
+		expect(goal).toHaveBeenLastCalledWith({ action: "show" });
+		for (const action of ["pause", "Resume", "clear"]) {
+			runSlashCommand(command("goal"), action, actions({ goal }));
+			expect(goal).toHaveBeenLastCalledWith({ action: action.toLowerCase() });
+		}
+		expect(runSlashCommand(command("goal"), "x", actions())).toBe(false);
+		expect(lastToast()).toBe("Open a thread to give it a goal");
+	});
+
 	it("adds tasks and notes mid-turn", () => {
 		const addTask = vi.fn();
 		const addNote = vi.fn();

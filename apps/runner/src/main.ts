@@ -53,6 +53,11 @@ import { Accounts } from "./chat/accounts";
 import { browserTools } from "./chat/browser-tools";
 import { Crews, CrewStore } from "./chat/crews";
 import { ThreadTools } from "./chat/thread-tools";
+import { AutonomyStore } from "./chat/autonomy-store";
+import { Goals } from "./chat/goals";
+import { IdleCompaction } from "./chat/idle-compaction";
+import { LimitResumes } from "./chat/limit-resume";
+import { PullWatches } from "./chat/pull-watch";
 import { ThreadSync } from "./sync/thread-sync";
 import { GithubInbox } from "./inbox/github";
 import { InboxStore } from "./inbox/store";
@@ -281,6 +286,18 @@ new ThreadTools(chat, {
 });
 const accounts = new Accounts(config.chatDb, join(dirname(config.chatDb), "accounts"));
 chat.setAccounts(accounts);
+// What keeps threads going on their own: carrying on after a usage limit resets, pull requests
+// agents watch, goals, and compacting idle Claude Code threads where a project asks for it.
+const autonomyStore = new AutonomyStore(config.chatDb);
+const limits = new LimitResumes(chat, autonomyStore, { accounts });
+const goals = new Goals(chat, autonomyStore);
+const pullWatches = new PullWatches(chat, autonomyStore, gh);
+new IdleCompaction(chat, {
+	enabled: (session) =>
+		chat.projectSettings(session.workspaceId, session.project).idleCompact === true,
+});
+if (process.env.GRID_LIMIT_RESUME !== "0") limits.watch();
+pullWatches.watch();
 // Each thread's browser page: Chromium starts on the first one and stops when none are left.
 const browsers = new Browsers(join(dirname(config.chatDb), "browser"));
 for (const tool of browserTools(browsers, (session, page) =>
@@ -411,6 +428,7 @@ const server = startServer(config, store, verify, chat, {
 	automations,
 	roles: { store: roles, knownProvider: (id) => chat.knowsProvider(id) },
 	crews,
+	autonomy: { goals, limits },
 	accounts,
 	browsers,
 	machine: {

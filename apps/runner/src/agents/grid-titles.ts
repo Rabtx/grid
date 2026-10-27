@@ -26,6 +26,14 @@ export function gridToolTitle(tool: string, input: Record<string, unknown> = {})
 			return "Checked the crew";
 		case "crew_stop_worker":
 			return "Stopped a crew member";
+		case "watch_pull_request":
+			return typeof input.number === "number"
+				? `Watching pull request #${input.number}`
+				: "Watching a pull request";
+		case "unwatch_pull_request":
+			return typeof input.number === "number"
+				? `Stopped watching pull request #${input.number}`
+				: "Stopped watching pull requests";
 		case "thread_start":
 			return title ? `Started a thread: ${title}` : "Started a thread";
 		case "thread_send":
