@@ -71,9 +71,17 @@ export type ChatSessionRow = {
 	 * asks something first. Null when it is not snoozed.
 	 */
 	snoozedUntil?: string | null;
+	/**
+	 * Its agent runs in a throwaway container (see `sandbox/sandbox.ts`), not on this machine
+	 * itself: the image it runs in. Null runs it here.
+	 */
+	sandbox?: SessionSandbox | null;
 	createdAt: string;
 	updatedAt: string;
 };
+
+/** How a sandboxed thread's agent runs: in a container from this image. */
+export type SessionSandbox = { image: string };
 
 /** Where an agent left a thread it was handed away from (see `ChatSessionRow.agentTokens`). */
 export type AgentToken = { token: string; turns: number };
@@ -112,6 +120,8 @@ export type SessionNotes = {
 
 /** What each project is set to on this machine. */
 export type ProjectSettings = {
+	/** New threads run their agent in a throwaway container (off by default; see `sandbox/`). */
+	sandbox?: boolean;
 	/** New chats start in their own git worktree unless the composer says otherwise (off by default). */
 	worktrees: boolean;
 	/**
@@ -144,6 +154,7 @@ type Row = {
 	delegated_by?: string | null;
 	agent_tokens?: string | null;
 	snoozed_until?: string | null;
+	sandbox?: string | null;
 	created_at: string;
 	updated_at: string;
 };
@@ -206,6 +217,7 @@ function toSession(row: Row): ChatSessionRow {
 		delegatedBy: row.delegated_by ?? null,
 		agentTokens: readJson<Record<string, AgentToken>>(row.agent_tokens ?? null),
 		snoozedUntil: row.snoozed_until ?? null,
+		sandbox: readJson<SessionSandbox>(row.sandbox ?? null),
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -325,6 +337,7 @@ export class ChatStore {
 			"delegated_by",
 			"agent_tokens",
 			"snoozed_until",
+			"sandbox",
 		])
 			if (!hasColumn(this.db, "sessions", column))
 				this.db.exec(`ALTER TABLE sessions ADD COLUMN ${column} TEXT`);
@@ -513,8 +526,8 @@ export class ChatStore {
 		const now = new Date().toISOString();
 		this.db
 			.query(
-				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, worktree, role, notes, parent_id, account, fork_token, delegated_by, created_at, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				`INSERT INTO sessions (id, owner_id, workspace_id, project, provider, title, cwd, model, mode, effort, resume_token, worktree, role, notes, parent_id, account, fork_token, delegated_by, sandbox, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			)
 			.run(
 				session.id,
@@ -534,6 +547,7 @@ export class ChatStore {
 				session.account ?? null,
 				session.forkToken ?? null,
 				session.delegatedBy ?? null,
+				session.sandbox ? JSON.stringify(session.sandbox) : null,
 				now,
 				now,
 			);
@@ -546,6 +560,7 @@ export class ChatStore {
 			account: session.account ?? null,
 			forkToken: session.forkToken ?? null,
 			delegatedBy: session.delegatedBy ?? null,
+			sandbox: session.sandbox ?? null,
 			agentTokens: null,
 			snoozedUntil: null,
 			resumeToken: null,
@@ -726,6 +741,7 @@ export class ChatStore {
 				| "forkToken"
 				| "agentTokens"
 				| "snoozedUntil"
+				| "sandbox"
 			>
 		>,
 	): void {
@@ -744,6 +760,7 @@ export class ChatStore {
 			forkToken: "fork_token",
 			agentTokens: "agent_tokens",
 			snoozedUntil: "snoozed_until",
+			sandbox: "sandbox",
 		};
 		// `undefined` means "leave it alone", not "clear it": callers pass whole shapes, and
 		// binding undefined stores NULL, which is how one `configure` with no fields in it
@@ -754,7 +771,11 @@ export class ChatStore {
 		if (entries.length === 0) return;
 		const sets = entries.map(([key]) => `${columns[key]} = ?`).join(", ");
 		const values = entries.map(([key, value]) =>
-			key === "worktree" || key === "role" || key === "notes" || key === "agentTokens"
+			key === "worktree" ||
+			key === "role" ||
+			key === "notes" ||
+			key === "agentTokens" ||
+			key === "sandbox"
 				? value
 					? JSON.stringify(value)
 					: null

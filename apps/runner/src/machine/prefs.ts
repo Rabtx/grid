@@ -9,7 +9,12 @@ import { openPrivateDatabase } from "../private-database";
  * person logs in, whether the machine stays awake while agents work, and how many agents may work
  * at the same time. Per machine, not per person or workspace.
  */
-export type MachinePrefs = { keepAwake: boolean; concurrency: number };
+export type MachinePrefs = {
+	keepAwake: boolean;
+	concurrency: number;
+	/** The image sandboxed threads run in; empty for Grid's own (see `sandbox/sandbox.ts`). */
+	sandboxImage?: string;
+};
 
 export const DEFAULT_MACHINE_PREFS: MachinePrefs = { keepAwake: false, concurrency: 4 };
 export const CONCURRENCY_CHOICES = [1, 2, 4] as const;

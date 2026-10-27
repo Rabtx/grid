@@ -10,6 +10,7 @@ Compose is split into **fragments** under `compose/` and merged by the root
 | `compose/api.yml` | The Grid API image (`apps/api/Dockerfile`, Bun) |
 | `compose/grid.yml` | Portable Grid — the whole product in one image (`docker/grid.Dockerfile`); run with `postgres.yml`, see `/docs/portable` |
 | `compose/web.yml` | Next.js web image (standalone output) |
+| `sandbox/Dockerfile` | The image sandboxed threads run their agent in (`bun run sandbox:build` tags it `grid-sandbox`) |
 
 **Env:** copy `env.docker.example` from the repo root to `.env`.
 

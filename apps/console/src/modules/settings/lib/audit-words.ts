@@ -17,6 +17,11 @@ const ACTIONS: Record<string, string> = {
 	"webhook.refused": "Refused a webhook delivery for",
 	"budget.warning": "Warned:",
 	"budget.reached": "Used up:",
+	"memory.save": "Kept in the project's memory, from",
+	"memory.edit": "Changed a memory of",
+	"memory.remove": "Removed a memory of",
+	"review.posted": "Reviewed a pull request in",
+	"review.failed": "Could not review a pull request in",
 };
 
 export function actionWords(action: string): string {
@@ -26,6 +31,7 @@ export function actionWords(action: string): string {
 /** What kind of actor did it, for its line and the filter. */
 export const ACTOR_KINDS: Record<AuditActorKind, string> = {
 	person: "Person",
+	agent: "Agent",
 	agent_key: "Agent key",
 	guest: "Guest",
 	webhook: "Webhook",

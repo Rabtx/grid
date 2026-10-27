@@ -143,6 +143,8 @@ const Router = createRouter({
 		{ path: "/files/:slug", component: FilesRoute },
 		// A project's notes; the open one (or `new`) after it.
 		{ path: "/notes/:slug/:note?", component: NotesRoute },
+		// What a project's threads and people kept for later work.
+		{ path: "/memory/:slug", component: MemoryRoute },
 		// A project's pull requests on GitHub; the open one by its number, its review after it.
 		{ path: "/pulls/:slug/:number?/:view?", component: PullsRoute },
 		// Ship: a project's environments, previews and pipelines; the open one after it.
@@ -328,6 +330,20 @@ function NotesRoute(): JSX.Element {
 
 const NotesScreen = lazy(() => import("@/modules/projects/components/notes-screen"), {
 	export: "NotesScreen",
+});
+
+function MemoryRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<Loading fallback={<Opening>Opening memory…</Opening>}>
+				<MemoryScreen />
+			</Loading>
+		</RequireAuth>
+	);
+}
+
+const MemoryScreen = lazy(() => import("@/modules/projects/components/memory-screen"), {
+	export: "MemoryScreen",
 });
 
 function PullsRoute(): JSX.Element {

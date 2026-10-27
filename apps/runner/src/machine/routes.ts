@@ -83,6 +83,13 @@ export async function machineRequest(
 				return failure(400, "Choose 1, 2 or 4 agents at the same time");
 			next.concurrency = body.concurrency as number;
 		}
+		if (body.sandboxImage !== undefined) {
+			const image = typeof body.sandboxImage === "string" ? body.sandboxImage.trim() : null;
+			// A Docker image reference: name[:tag][@digest], nothing a shell or Docker reads otherwise.
+			if (image === null || (image && !/^[a-z0-9][\w./:@-]{0,254}$/i.test(image)))
+				return failure(400, "Name a Docker image, like ghcr.io/you/sandbox:latest");
+			next.sandboxImage = image;
+		}
 		if (body.startAtLogin !== undefined) {
 			if (typeof body.startAtLogin !== "boolean")
 				return failure(400, "Start at login is on or off");

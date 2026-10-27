@@ -35,6 +35,7 @@
 		"db:seed": "bun run --filter @grid/db seed",
 		"ci:e2e:web": "bun run test:e2e:web",
 		"test:e2e:console": "bun --cwd=apps/console run test:e2e",
+		"sandbox:build": "docker build -t grid-sandbox docker/sandbox",
 		"scripts:lint": "shellcheck scripts/bash/*.sh scripts/git-hooks/*.sh scripts/architecture/*.sh",
 		"scripts:format": "shfmt -i 4 -w scripts/bash/*.sh scripts/git-hooks/*.sh scripts/architecture/*.sh || true",
 		"prepare": "git rev-parse --git-dir >/dev/null 2>&1 || exit 0; lefthook install"

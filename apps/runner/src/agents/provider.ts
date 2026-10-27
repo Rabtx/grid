@@ -1,4 +1,5 @@
 import type { ChatEvent, Choice } from "./events";
+import type { Sandbox } from "../sandbox/sandbox";
 import type { UsageLimit } from "./rate-limits";
 
 /** An MCP server an agent starts with: a command it runs and speaks to over stdio. */
@@ -24,6 +25,8 @@ export type AgentContext = {
 	fork?: boolean;
 	/** Environment for the agent's process beyond the runner's own: who its commits are by. */
 	env?: Record<string, string>;
+	/** Run the agent in this container instead of on the machine (see `sandbox/sandbox.ts`). */
+	sandbox?: Sandbox;
 	/** The workspace's connectors this agent may use (Settings → Connectors). */
 	mcpServers?: McpServerSpec[];
 	emit: (event: ChatEvent) => void;

@@ -476,7 +476,8 @@ export class PullWatches {
 }
 
 /** The `origin` remote of a folder, or null. */
-function originOf(cwd: string): string | null {
+/** The `origin` remote of a folder's git repository, or null. */
+export function originOf(cwd: string): string | null {
 	try {
 		const result = Bun.spawnSync(["git", "-C", cwd, "remote", "get-url", "origin"], {
 			stdout: "pipe",

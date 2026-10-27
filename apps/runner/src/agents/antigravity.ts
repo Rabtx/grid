@@ -284,6 +284,7 @@ async function startAgySession(
 			{
 				cwd: context.cwd,
 				env: context.env,
+				sandbox: context.sandbox,
 				onMessage: (message) => handle(message as Record<string, unknown>),
 				onStderr: (line) => {
 					stderr.push(line);

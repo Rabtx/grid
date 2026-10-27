@@ -140,6 +140,7 @@ export async function chatRequest(
 			mode: typeof body.mode === "string" ? body.mode : undefined,
 			effort: typeof body.effort === "string" ? body.effort : undefined,
 			worktree: typeof body.worktree === "boolean" ? body.worktree : undefined,
+			sandbox: typeof body.sandbox === "boolean" ? body.sandbox : undefined,
 			branch: typeof body.branch === "string" ? body.branch : undefined,
 			existing: typeof body.existing === "boolean" ? body.existing : undefined,
 			pull:
@@ -187,8 +188,9 @@ export async function chatRequest(
 			return new Response(null, { status: 204 });
 		});
 	}
-	// A project's chat settings on this machine: whether new chats get their own worktree, and
-	// whether idle Claude Code threads are compacted before their cache expires.
+	// A project's chat settings on this machine: whether new chats get their own worktree, whether
+	// idle Claude Code threads are compacted before their cache expires, and whether new threads'
+	// agents run in a sandbox.
 	const settings = url.pathname.match(/^\/chat\/projects\/([a-z0-9-]+)\/settings$/);
 	if (settings && request.method === "GET") {
 		return Response.json({ data: hub.projectSettings(workspace, settings[1]) });
@@ -197,15 +199,22 @@ export async function chatRequest(
 		const body = (await request.json().catch(() => ({}))) as {
 			worktrees?: unknown;
 			idleCompact?: unknown;
+			sandbox?: unknown;
 		};
-		const given = (["worktrees", "idleCompact"] as const).filter((key) => body[key] !== undefined);
+		const given = (["worktrees", "idleCompact", "sandbox"] as const).filter(
+			(key) => body[key] !== undefined,
+		);
 		if (!given.length || given.some((key) => typeof body[key] !== "boolean"))
-			return failure(400, "Say whether to use worktrees, or whether to compact idle threads");
+			return failure(
+				400,
+				"Say whether to use worktrees, to compact idle threads, or to run agents in a sandbox",
+			);
 		const current = hub.projectSettings(workspace, settings[1]);
 		hub.setProjectSettings(workspace, settings[1], {
 			...current,
 			...(typeof body.worktrees === "boolean" ? { worktrees: body.worktrees } : {}),
 			...(typeof body.idleCompact === "boolean" ? { idleCompact: body.idleCompact } : {}),
+			...(typeof body.sandbox === "boolean" ? { sandbox: body.sandbox } : {}),
 		});
 		return new Response(null, { status: 204 });
 	}

@@ -219,7 +219,13 @@ const TIMEOUT_MS = 30_000;
  * `initialize` control request answers with the list, so no conversation is started and nothing is
  * spent. A CLI that does not answer leaves the thread with Grid's commands only.
  */
-function listClaudeCommands(binary: string, spawn: Spawn, cwd: string): Promise<AgentCommand[]> {
+function listClaudeCommands(
+	binary: string,
+	spawn: Spawn,
+	cwd: string,
+	/** Asked in the thread's container, for a sandboxed thread: it reads the project's settings. */
+	sandbox?: AgentContext["sandbox"],
+): Promise<AgentCommand[]> {
 	return new Promise((resolve) => {
 		let proc: JsonProcess | null = null;
 		const done = (commands: AgentCommand[]) => {
@@ -235,6 +241,7 @@ function listClaudeCommands(binary: string, spawn: Spawn, cwd: string): Promise<
 		}, TIMEOUT_MS);
 		proc = spawn(claudeArgs(binary, {}), {
 			cwd,
+			...(sandbox ? { sandbox } : {}),
 			onMessage: (raw) => {
 				const message = raw as {
 					type?: string;
@@ -287,7 +294,7 @@ export function claudeProvider(options: {
 			const session = await startClaudeSession(options.binary, spawn, context);
 			// Asked for beside the session, not before it: the thread opens at once and gains its
 			// list when the CLI answers. A CLI that lists none gets Grid's commands only.
-			void listClaudeCommands(options.binary, spawn, context.cwd)
+			void listClaudeCommands(options.binary, spawn, context.cwd, context.sandbox)
 				.then((list) => context.emit({ type: "commands", commands: list }))
 				.catch((cause: unknown) => {
 					console.warn(
@@ -778,6 +785,7 @@ async function startClaudeSession(
 			{
 				cwd: context.cwd,
 				env: context.env,
+				sandbox: context.sandbox,
 				unset: INHERITED_SESSION,
 				onMessage: (message) => handle(message as Record<string, unknown>),
 				onStderr: (line) => {

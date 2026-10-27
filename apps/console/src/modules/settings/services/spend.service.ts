@@ -32,7 +32,14 @@ export type Spending = {
 	canManage: boolean;
 };
 
-export type AuditActorKind = "person" | "agent_key" | "guest" | "webhook" | "automation" | "grid";
+export type AuditActorKind =
+	| "person"
+	| "agent"
+	| "agent_key"
+	| "guest"
+	| "webhook"
+	| "automation"
+	| "grid";
 
 export type AuditEntry = {
 	id: string;

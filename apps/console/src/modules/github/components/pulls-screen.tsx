@@ -15,6 +15,7 @@ import {
 	PullRequestIcon,
 	RestoreIcon,
 	Segmented,
+	SparklesIcon,
 	Skeleton,
 	Stack,
 	Text,
@@ -34,6 +35,7 @@ import type { PullState, PullSummary } from "../types/github.types";
 
 import { PullChanges } from "./pull-changes";
 import { PullDocument } from "./pull-document";
+import { ReviewsDialog } from "./reviews-dialog";
 
 const NEEDS_GITHUB = /connect github/i;
 const NEEDS_FOLDER = /choose this project's folder/i;
@@ -67,6 +69,8 @@ export function PullsScreen(): JSX.Element {
 		return Number.isInteger(value) && value > 0 ? value : null;
 	};
 	const reviewing = () => match()?.params.view === "changes";
+	/** The project's review agent's settings and latest reviews are open. */
+	const [reviewAgent, setReviewAgent] = createSignal(false);
 	const state = (): PullState =>
 		STATES.some((option) => option.value === search.state) ? (search.state as PullState) : "open";
 	const scope = () => placementsStore.scopeOf(slug());
@@ -255,10 +259,14 @@ export function PullsScreen(): JSX.Element {
 	return (
 		<div class="flex min-h-0 flex-1 flex-col">
 			<ShellSlot name="panelActions">
+				<IconButton label="Review agent" size="sm" onClick={() => setReviewAgent(true)}>
+					<SparklesIcon size="sm" />
+				</IconButton>
 				<IconButton label="Refresh" size="sm" onClick={() => setRevision((n) => n + 1)}>
 					<RestoreIcon size="sm" />
 				</IconButton>
 			</ShellSlot>
+			<ReviewsDialog open={reviewAgent()} project={slug()} onClose={() => setReviewAgent(false)} />
 			{/* The panel: what waits on your review, then the rest open. */}
 			<ShellSlot name="panel">
 				<div class="px-2 pt-1 pb-2">

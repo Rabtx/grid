@@ -256,6 +256,8 @@ export type ChatSession = {
 	delegatedBy?: string | null;
 	/** Snoozed until then (ISO): its finished turns do not ask for attention before it. */
 	snoozedUntil?: string | null;
+	/** Its agent runs in a throwaway container from this image, not on the machine itself. */
+	sandbox?: { image: string } | null;
 	createdAt: string;
 	updatedAt: string;
 };
@@ -314,6 +316,8 @@ export type ProjectChatSettings = {
 	worktrees: boolean;
 	/** Idle Claude Code threads with a large conversation are compacted before their cache expires. */
 	idleCompact?: boolean;
+	/** New threads run their agent in a throwaway container (the runner's `sandbox/`). */
+	sandbox?: boolean;
 };
 
 /** An agent the runner can drive, and whether it is installed. */
