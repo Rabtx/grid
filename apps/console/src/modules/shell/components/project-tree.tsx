@@ -7,11 +7,13 @@ import {
 	BranchIcon,
 	CheckIcon,
 	ChevronDownIcon,
+	ClockIcon,
 	ConfirmDialog,
 	EditIcon,
 	FileIcon,
 	FolderIcon,
 	IconButton,
+	LinkIcon,
 	iconButton,
 	InlineInput,
 	Menu,
@@ -37,6 +39,13 @@ import {
 import { workspaceHref } from "@/lib/active-workspace";
 import { now } from "@/lib/clock";
 import { useAuth } from "@/modules/auth";
+import {
+	SNOOZE_CHOICES,
+	type SnoozeChoice,
+	snoozed,
+	snoozeLabel,
+	snoozeUntil,
+} from "@/modules/chat/lib/snooze";
 import { chatService } from "@/modules/chat/services/chat.service";
 import { threadsStore } from "@/modules/chat/stores/threads";
 import { inboxStore } from "@/modules/inbox";
@@ -46,6 +55,7 @@ import { type Project, ProjectIcon, useWorkspace } from "@/modules/projects";
 
 import { useShell } from "../context/shell-context";
 
+import { ShareDialog } from "./share-dialog";
 import { WorktreeDialog } from "./worktree-dialog";
 
 const OPEN_KEY = "grid.sidebar.open";
@@ -99,12 +109,22 @@ function threadMenu(session: ChatSession): MenuGroup[] {
 		{
 			items: [
 				{ id: "rename", label: "Rename", icon: <EditIcon /> },
+				{ id: "share", label: "Share with a guest…", icon: <LinkIcon /> },
 				...(session.worktree
 					? [{ id: "worktree", label: "Remove worktree…", icon: <BranchIcon /> }]
 					: []),
-				{ id: "delete", label: "Delete", icon: <TrashIcon />, danger: true },
 			],
 		},
+		{
+			items: snoozed(session)
+				? [{ id: "wake", label: "Wake", icon: <ClockIcon /> }]
+				: SNOOZE_CHOICES.map((choice) => ({
+						id: `snooze:${choice.id}`,
+						label: choice.label,
+						icon: <ClockIcon />,
+					})),
+		},
+		{ items: [{ id: "delete", label: "Delete", icon: <TrashIcon />, danger: true }] },
 	];
 }
 
@@ -142,6 +162,7 @@ export function ProjectTree(): JSX.Element {
 	const [open, setOpen] = createSignal<string[]>(rememberedOpen());
 	const [deleting, setDeleting] = createSignal<ChatSession | null>(null);
 	const [discarding, setDiscarding] = createSignal<ChatSession | null>(null);
+	const [sharing, setSharing] = createSignal<ChatSession | null>(null);
 	const [pending, setPending] = createSignal(false);
 	const [projectLimit, setProjectLimit] = createSignal(DEFAULT_PROJECT_LIMIT);
 
@@ -206,6 +227,7 @@ export function ProjectTree(): JSX.Element {
 								onToggle={(value) => setOpenFor(project.slug, value)}
 								onDelete={setDeleting}
 								onWorktree={setDiscarding}
+								onShare={setSharing}
 							/>
 						)}
 					</For>
@@ -235,6 +257,7 @@ export function ProjectTree(): JSX.Element {
 				</Stack>
 			</Show>
 			<WorktreeDialog session={discarding()} onClose={() => setDiscarding(null)} />
+			<ShareDialog session={sharing()} onClose={() => setSharing(null)} />
 			<ConfirmDialog
 				open={deleting() !== null}
 				onClose={() => setDeleting(null)}
@@ -263,6 +286,7 @@ function ProjectNode(props: {
 	project: Project;
 	open: boolean;
 	onWorktree: (session: ChatSession) => void;
+	onShare: (session: ChatSession) => void;
 	onToggle: (open: boolean) => void;
 	onDelete: (session: ChatSession) => void;
 }): JSX.Element {
@@ -441,6 +465,7 @@ function ProjectNode(props: {
 										session={session}
 										onDelete={props.onDelete}
 										onWorktree={props.onWorktree}
+										onShare={props.onShare}
 									/>
 								)}
 							</For>
@@ -489,6 +514,7 @@ function ThreadRow(props: {
 	session: ChatSession;
 	onDelete: (session: ChatSession) => void;
 	onWorktree: (session: ChatSession) => void;
+	onShare: (session: ChatSession) => void;
 }): JSX.Element {
 	const auth = useAuth();
 	const inThread = useMatch(() => "/chat/:project/:id");
@@ -505,6 +531,24 @@ function ThreadRow(props: {
 					item.readAt === null && item.url === `/chat/${props.session.project}/${props.session.id}`,
 			);
 	let menu: PopoverControl | undefined;
+
+	async function snooze(until: Date | null): Promise<void> {
+		const token = untrack(auth.token);
+		if (!token) return;
+		try {
+			await threadsStore.snooze(
+				token,
+				untrack(() => props.session),
+				until,
+			);
+			setError(null);
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "Could not snooze the thread",
+				tone: "danger",
+			});
+		}
+	}
 
 	async function save(title: string): Promise<void> {
 		const token = untrack(auth.token);
@@ -550,9 +594,21 @@ function ThreadRow(props: {
 					<Show
 						when={running()}
 						fallback={
-							<Text as="span" size="caption" tone="subtle" tabular>
-								{relative(props.session.updatedAt)}
-							</Text>
+							<Show
+								when={snoozed(props.session, now()) ? props.session.snoozedUntil : null}
+								fallback={
+									<Text as="span" size="caption" tone="subtle" tabular>
+										{relative(props.session.updatedAt)}
+									</Text>
+								}
+							>
+								{(until) => (
+									<span title={snoozeLabel(until())} class="inline-flex text-fg-subtle">
+										<ClockIcon size="xs" />
+										<span class="sr-only">{snoozeLabel(until())}</span>
+									</span>
+								)}
+							</Show>
 						}
 					>
 						<WorkingDots />
@@ -576,7 +632,11 @@ function ThreadRow(props: {
 						}}
 						onSelect={(id) => {
 							if (id === "rename") setRenaming(true);
+							else if (id === "wake") void snooze(null);
+							else if (id.startsWith("snooze:"))
+								void snooze(snoozeUntil(id.slice("snooze:".length) as SnoozeChoice));
 							// The confirmations are modals of their own, above the drawer.
+							else if (id === "share") props.onShare(props.session);
 							else if (id === "worktree") props.onWorktree(props.session);
 							else props.onDelete(props.session);
 						}}

@@ -8,6 +8,19 @@ vi.stubGlobal("DOMParser", happyWindow.DOMParser);
 const { renderMarkdown, splitLines } = await import("./markdown");
 
 describe("renderMarkdown", () => {
+	it("opens a thread an agent links to in the console, and nothing else under that name", () => {
+		const html = renderMarkdown("See [Changelog](grid-thread://abc-123).");
+		expect(html).toContain('href="/thread/abc-123"');
+		expect(html).toContain('data-thread="abc-123"');
+		expect(html).not.toContain("target");
+		expect(renderMarkdown("[x](grid-thread://../../etc)")).not.toContain("<a");
+		// In a document's own HTML, a thread link can only ever point at the thread.
+		const raw = renderMarkdown('<a href="https://evil.test" data-thread="abc">x</a>', {
+			allowHtml: true,
+		});
+		expect(raw).toContain('href="/thread/abc"');
+		expect(raw).not.toContain("evil");
+	});
 	it("renders the usual Markdown", () => {
 		const html = renderMarkdown("**bold** and `code`\n\n- one\n- two");
 		expect(html).toContain("<strong>bold</strong>");

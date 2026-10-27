@@ -59,6 +59,7 @@ import {
 	QuestionCard,
 	QueueList,
 	GoalBar,
+	GuestRequestCard,
 	type GoalState,
 	LimitWaitBar,
 	SubagentStrip,
@@ -334,6 +335,16 @@ export function Conversation(props: {
 				title: cause instanceof Error ? cause.message : "Could not change the goal",
 				tone: "danger",
 			});
+		}
+	}
+
+	async function resolveGuestRequest(requestId: string, action: "send" | "dismiss"): Promise<void> {
+		const token = auth.token();
+		if (!token) return;
+		try {
+			await chatService.resolveGuestRequest(token, props.id, requestId, action, props.scope);
+		} catch (cause) {
+			notify({ title: cause instanceof Error ? cause.message : "Not done", tone: "danger" });
 		}
 	}
 
@@ -1002,6 +1013,7 @@ export function Conversation(props: {
 							}
 							agentName={(id) => props.providers.find((item) => item.id === id)?.name ?? id}
 							onMergeBack={() => void mergeBack()}
+							onOpenThread={(id) => navigate(`/thread/${id}`)}
 							forkedHref={(id) => {
 								const project = session()?.project;
 								return project
@@ -1142,6 +1154,18 @@ export function Conversation(props: {
 								<QuestionCard
 									questions={question.questions}
 									onAnswer={(answers) => socket?.send({ t: "answer", id: question.id, answers })}
+								/>
+							</div>
+						)}
+					</For>
+					<For each={transcript().guestRequests}>
+						{(request) => (
+							<div class="mb-2">
+								<GuestRequestCard
+									name={request.name}
+									text={request.text}
+									onSend={() => void resolveGuestRequest(request.id, "send")}
+									onDismiss={() => void resolveGuestRequest(request.id, "dismiss")}
 								/>
 							</div>
 						)}

@@ -8,6 +8,7 @@ import { KeepAwake, type MachinePrefs, MachinePrefsStore } from "./machine/prefs
 import { GridUpdater } from "./machine/update";
 import { Automations } from "./automations/service";
 import { AutomationStore } from "./automations/store";
+import { WebhookSecrets } from "./automations/webhooks";
 import { withAgentBins } from "./agents/setup";
 import {
 	createTokenVerifier,
@@ -53,6 +54,8 @@ import { Accounts } from "./chat/accounts";
 import { browserTools } from "./chat/browser-tools";
 import { Crews, CrewStore } from "./chat/crews";
 import { ThreadTools } from "./chat/thread-tools";
+import { Guests } from "./chat/guests";
+import { AgentKeyStore, OutsideAgents } from "./chat/outside-agents";
 import { AutonomyStore } from "./chat/autonomy-store";
 import { Goals } from "./chat/goals";
 import { IdleCompaction } from "./chat/idle-compaction";
@@ -118,6 +121,7 @@ const inbox = new InboxStore(config.chatDb);
 const roles = new RoleStore(config.chatDb);
 const automations = new Automations(new AutomationStore(config.chatDb), chat, inbox, {
 	roleOf: (workspace, id) => roles.get(workspace, id),
+	hooks: new WebhookSecrets(config.chatDb),
 	// The pull request a run opened: the open one from the branch its worktree is on. Asked only
 	// once a run ends, long after `pulls` below exists.
 	pullOf: async (ownerId, project, workspace, branch) => {
@@ -158,6 +162,8 @@ chat.onAttention((session, event, watched) => {
 		inbox.settle(approvalItemId(session.id, event.id));
 		return;
 	}
+	// A snoozed thread's finished turns wait for it to wake (a request or failure wakes it first).
+	if (event.type === "turn_end" && chat.isSnoozed(session)) return;
 	// Someone looking at the thread sees the request there; a push is for whoever is away.
 	const message = watched ? null : attentionMessage(session, event);
 	if (message) {
@@ -277,13 +283,17 @@ chat.setGridTools(() => `http://127.0.0.1:${server.port}`);
 const crews = new Crews(new CrewStore(config.chatDb), chat);
 // Grid's thread tools: any thread's agent starts, messages, waits on and reads other threads,
 // acting as its person with the access they last signed in with.
-new ThreadTools(chat, {
-	whoFor: (session) =>
-		lastSeen.get(`${session.ownerId}:${session.workspaceId}`) ?? {
-			userId: session.ownerId,
-			workspace: session.workspaceId,
-		},
+const personOf = (ownerId: string, workspace: string): Who =>
+	lastSeen.get(`${ownerId}:${workspace}`) ?? { userId: ownerId, workspace };
+const threadTools = new ThreadTools(chat, {
+	whoFor: (session) => personOf(session.ownerId, session.workspaceId),
 });
+// Agents outside Grid use the same tools over MCP, with a key their person made.
+const outside = new OutsideAgents(chat, new AgentKeyStore(config.chatDb), threadTools, (key) =>
+	personOf(key.ownerId, key.workspaceId),
+);
+// People without an account following a thread through a link its person made.
+const guests = new Guests(config.chatDb, chat, chatStore);
 const accounts = new Accounts(config.chatDb, join(dirname(config.chatDb), "accounts"));
 chat.setAccounts(accounts);
 // What keeps threads going on their own: carrying on after a usage limit resets, pull requests
@@ -429,6 +439,8 @@ const server = startServer(config, store, verify, chat, {
 	roles: { store: roles, knownProvider: (id) => chat.knowsProvider(id) },
 	crews,
 	autonomy: { goals, limits },
+	outside,
+	guests,
 	accounts,
 	browsers,
 	machine: {

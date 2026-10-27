@@ -286,9 +286,20 @@ export async function automationRequest(
 			throw new AutomationError("Use GET or POST", 405);
 		}
 		const id = path[1];
-		if (!id || !/^[\w-]{1,120}$/.test(id) || path.length > 3)
+		if (!id || !/^[\w-]{1,120}$/.test(id) || path.length > 4)
 			throw new AutomationError("Not found", 404);
 		const item = service.store.get(who.workspace, id);
+		// Its webhook: where to send it and the secret that proves it (owner only), or a new secret.
+		if (path[2] === "webhook" && (path.length === 3 || path[3] === "rotate")) {
+			const own = owner(item, who);
+			const hooks = service.hooks;
+			if (!hooks) throw new AutomationError("Webhooks are not available on this runner", 404);
+			if (path.length === 3 && method !== "GET") throw new AutomationError("Use GET", 405);
+			if (path.length === 4 && method !== "POST") throw new AutomationError("Use POST", 405);
+			const secret = path.length === 4 ? hooks.rotate(own.id) : hooks.secret(own.id);
+			return Response.json({ data: { path: `/hooks/automations/${own.id}`, secret } });
+		}
+		if (path.length > 3) throw new AutomationError("Not found", 404);
 		if (path.length === 3 && path[2] === "runs") {
 			if (method !== "GET") throw new AutomationError("Use GET", 405);
 			if (!item) throw new AutomationError("Automation not found", 404);
@@ -324,6 +335,7 @@ export async function automationRequest(
 			if (service.store.active(previous.id))
 				throw new AutomationError("Wait for this run to finish before deleting", 409);
 			service.store.delete(previous);
+			service.hooks?.forget(previous.id);
 			service.changed();
 			return new Response(null, { status: 204 });
 		}

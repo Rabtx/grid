@@ -71,6 +71,9 @@ const OAuthCallback = lazy(() => import("@/modules/connectors/components/oauth-c
 const SkillsScreen = lazy(() => import("@/modules/skills/components/skills-screen"), {
 	export: "SkillsScreen",
 });
+const AgentKeysScreen = lazy(() => import("@/modules/settings/components/agent-keys-screen"), {
+	export: "AgentKeysScreen",
+});
 const AgentsScreen = lazy(() => import("@/modules/settings/components/agents-screen"), {
 	export: "AgentsScreen",
 });
@@ -121,6 +124,7 @@ const Router = createRouter({
 		{ path: "/magic-link", component: MagicLinkRoute },
 		// An invite link: join its workspace, signed in or with a new account.
 		{ path: "/invite/:token", component: InviteRoute },
+		{ path: "/guest/:token", component: GuestRoute },
 		// The first screen of the day: what needs you, the work in flight, and what runs next.
 		{ path: "/home", component: () => <Authed screen={HomeScreen} /> },
 		{ path: "/home/pulse", component: () => <Authed screen={PulseScreen} /> },
@@ -145,6 +149,7 @@ const Router = createRouter({
 		{ path: "/chat", component: ChatRoute },
 		{ path: "/chat/:project", component: ChatRoute },
 		{ path: "/chat/:project/:id", component: ChatRoute },
+		{ path: "/thread/:id", component: ThreadLinkRoute },
 		// Terminals on this machine; the id keeps a tab linkable and survives a reload.
 		{ path: "/terminal", component: TerminalRoute },
 		{ path: "/terminal/:id", component: TerminalRoute },
@@ -156,6 +161,7 @@ const Router = createRouter({
 		{ path: "/settings/keybindings", component: () => <Authed screen={KeybindingsScreen} /> },
 		{ path: "/settings/notifications", component: () => <Authed screen={NotificationsScreen} /> },
 		{ path: "/settings/agents", component: () => <Authed screen={AgentsScreen} /> },
+		{ path: "/settings/agent-keys", component: () => <Authed screen={AgentKeysScreen} /> },
 		{ path: "/settings/skills", component: () => <Authed screen={SkillsScreen} /> },
 		{ path: "/settings/roles", component: () => <Authed screen={RolesScreen} /> },
 		{ path: "/settings/machines", component: () => <Authed screen={MachinesScreen} /> },
@@ -223,6 +229,19 @@ function InviteRoute(): JSX.Element {
 	return (
 		<Loading fallback={null}>
 			<InviteScreen />
+		</Loading>
+	);
+}
+
+const GuestScreen = lazy(() => import("@/modules/chat/components/guest-screen"), {
+	export: "GuestScreen",
+});
+
+/** A thread shared with a guest: no sign-in, and none of the signed-in app around it. */
+function GuestRoute(): JSX.Element {
+	return (
+		<Loading fallback={null}>
+			<GuestScreen />
 		</Loading>
 	);
 }
@@ -354,6 +373,20 @@ function ChatRoute(): JSX.Element {
 		<RequireAuth>
 			<Loading fallback={<Opening>Opening chat…</Opening>}>
 				<ChatScreen />
+			</Loading>
+		</RequireAuth>
+	);
+}
+
+const ThreadLink = lazy(() => import("@/modules/chat/components/thread-link"), {
+	export: "ThreadLink",
+});
+
+function ThreadLinkRoute(): JSX.Element {
+	return (
+		<RequireAuth>
+			<Loading fallback={<Opening>Opening the thread…</Opening>}>
+				<ThreadLink />
 			</Loading>
 		</RequireAuth>
 	);

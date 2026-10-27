@@ -71,7 +71,7 @@ import { relativeTime } from "@/modules/projects/lib/relative-time";
 import { useTerminalAccess } from "@/modules/workspaces";
 
 import { diffRows } from "../lib/diff";
-import { copyCodeFrom, renderMarkdown } from "../lib/markdown";
+import { copyCodeFrom, renderMarkdown, threadLinkFrom } from "../lib/markdown";
 import {
 	type BackgroundItem,
 	type Block,
@@ -185,12 +185,21 @@ export function TranscriptView(props: {
 	agentName?: (id: string) => string;
 	/** Bring this fork's work back into the thread it came from; offered on the fork's divider. */
 	onMergeBack?: () => void;
+	/** Open a thread an agent linked to (`grid-thread://`); without it the link loads the page. */
+	onOpenThread?: (id: string) => void;
 }): JSX.Element {
 	const turns = createMemo(() => groupTurns(props.blocks));
 
 	return (
-		// oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- delegates clicks from the code cards' own buttons
-		<div class="flex flex-col gap-10" onClick={copyCodeFrom}>
+		// oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- delegates clicks from the code cards' own buttons and thread links
+		<div
+			class="flex flex-col gap-10"
+			onClick={(event) => {
+				copyCodeFrom(event);
+				const thread = threadLinkFrom(event);
+				if (thread) props.onOpenThread?.(thread);
+			}}
+		>
 			{/* keyed={false}: turns only ever append or update in place, so each keeps its DOM (and an open <details>). */}
 			<For each={turns()} keyed={false}>
 				{(turn, index) => (

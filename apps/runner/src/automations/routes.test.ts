@@ -5,6 +5,7 @@ import { InboxStore } from "../inbox/store";
 import { automationRequest, optionsOf } from "./routes";
 import { Automations } from "./service";
 import { AutomationStore, DEFAULT_OPTIONS, type AutomationInput } from "./store";
+import { WebhookSecrets } from "./webhooks";
 
 const body: AutomationInput = {
 	name: "Check",
@@ -33,7 +34,9 @@ function harness() {
 			},
 		],
 	} as unknown as ChatHub;
-	const service = new Automations(store, chat, new InboxStore(":memory:"));
+	const service = new Automations(store, chat, new InboxStore(":memory:"), {
+		hooks: new WebhookSecrets(":memory:"),
+	});
 	const call = (method: string, path: string, who = alice, data?: unknown, github = true) => {
 		const url = new URL(path, "http://localhost:4910");
 		return automationRequest(
@@ -49,6 +52,37 @@ function harness() {
 }
 
 describe("automation routes", () => {
+	test("a webhook's secret is its owner's to see and rotate, and goes with the automation", async () => {
+		const { service, call } = harness();
+		const created = await call("POST", "/automations", alice, {
+			...body,
+			triggers: [
+				{ kind: "webhook", filter: { path: "action", equals: "opened" }, template: "{{title}}" },
+			],
+		});
+		expect(created.status).toBe(201);
+		const item = ((await created.json()) as { data: { id: string } }).data;
+		const shown = await call("GET", `/automations/${item.id}/webhook`);
+		const hook = ((await shown.json()) as { data: { path: string; secret: string } }).data;
+		expect(hook.path).toBe(`/hooks/automations/${item.id}`);
+		expect(hook.secret).toStartWith("whsec_");
+		expect(
+			(await call("GET", `/automations/${item.id}/webhook`, { userId: "bob", workspace: "alpha" }))
+				.status,
+		).toBe(403);
+		const rotated = await call("POST", `/automations/${item.id}/webhook/rotate`);
+		expect(((await rotated.json()) as { data: { secret: string } }).data.secret).not.toBe(
+			hook.secret,
+		);
+		expect((await call("POST", `/automations/${item.id}/webhook/other`)).status).toBe(404);
+		expect((await call("DELETE", `/automations/${item.id}`)).status).toBeLessThan(300);
+		expect(service.hooks?.has(item.id)).toBe(false);
+		const bad = await call("POST", "/automations", alice, {
+			...body,
+			triggers: [{ kind: "webhook", filter: { path: "a b", equals: "x" } }],
+		});
+		expect(bad.status).toBe(400);
+	});
 	test("workspace isolation and owner-only edits", async () => {
 		const { service, call } = harness();
 		const created = await call("POST", "/automations", alice, body);

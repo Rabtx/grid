@@ -14,6 +14,8 @@ import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
 import { Marked, type Tokens } from "marked";
 
+import { workspaceHref } from "@/lib/active-workspace";
+
 // The languages agents write most; anything else is shown plain. Aliases (ts, sh, html…) come
 // with each language.
 for (const [name, language] of Object.entries({
@@ -55,6 +57,41 @@ function safeHref(href: string): string | null {
 	}
 }
 
+// A Grid thread an agent links to: `[Changelog](grid-thread://<id>)` (see the runner's thread tools).
+const THREAD_LINK = /^grid-thread:\/\/([\w-]{1,80})$/;
+
+/** A link to a thread in this workspace: opened in the console, wherever the thread's project is. */
+function threadAnchor(href: string, text: string): string | null {
+	const id = THREAD_LINK.exec(href.trim())?.[1];
+	if (!id) return null;
+	return `<a href="${escapeHtml(workspaceHref(`/thread/${encodeURIComponent(id)}`))}" data-thread="${escapeHtml(id)}">${text}</a>`;
+}
+
+/** A thread id as links carry it (`[\w-]`, up to 80), or null for anything else. */
+function threadIdOf(value: string | null | undefined): string | null {
+	return /^[\w-]{1,80}$/.exec(value ?? "")?.[0] ?? null;
+}
+
+/**
+ * A click on a thread link in rendered markdown: the thread's id (and the page does not load
+ * anew), or null for any other click.
+ */
+export function threadLinkFrom(event: MouseEvent): string | null {
+	if (
+		event.defaultPrevented ||
+		event.button !== 0 ||
+		event.metaKey ||
+		event.ctrlKey ||
+		event.shiftKey
+	)
+		return null;
+	const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[data-thread]");
+	const id = threadIdOf(anchor?.dataset.thread);
+	if (!id) return null;
+	event.preventDefault();
+	return id;
+}
+
 // Backticked text that is a file path, maybe with a line: `src/theme/derive.ts:112`, `README.md`.
 const FILE_PATH =
 	/^(?:\.{0,2}\/|~\/)?(?:[\w@.-]+\/)*[\w@-][\w.@-]*\.[a-z][a-z0-9]{0,7}(?::\d+(?::\d+)?)?$/i;
@@ -78,8 +115,10 @@ const markdown = new Marked({
 			return escapeHtml(token.text);
 		},
 		link(token: Tokens.Link) {
-			const href = safeHref(token.href);
 			const text = this.parser.parseInline(token.tokens);
+			const thread = threadAnchor(token.href, text);
+			if (thread) return thread;
+			const href = safeHref(token.href);
 			if (!href) return text;
 			return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${text}</a>`;
 		},
@@ -235,7 +274,7 @@ function keptClasses(value: string): string {
 }
 
 const TAG_ATTRS: Record<string, Set<string>> = {
-	a: new Set(["href", "rel", "target", "title"]),
+	a: new Set(["href", "rel", "target", "title", "data-thread"]),
 	details: new Set(["open"]),
 	img: new Set(["alt", "height", "loading", "src", "title", "width"]),
 	ol: new Set(["reversed", "start", "type"]),
@@ -286,9 +325,19 @@ function sanitizeNode(node: Node): void {
 			continue;
 		}
 
+		if (name === "data-thread") {
+			if (!threadIdOf(val)) element.removeAttribute(attr.name);
+			continue;
+		}
+
 		if (name === "href") {
 			if (tag !== "a" || !isSafeUrl(val)) {
 				element.removeAttribute(attr.name);
+			} else if (threadIdOf(element.getAttribute("data-thread"))) {
+				// A thread in this workspace opens in place, and only ever at the thread's own address.
+				const id = threadIdOf(element.getAttribute("data-thread")) ?? "";
+				element.setAttribute("href", workspaceHref(`/thread/${encodeURIComponent(id)}`));
+				element.removeAttribute("target");
 			} else {
 				element.setAttribute("target", "_blank");
 				element.setAttribute("rel", "noopener noreferrer");
@@ -344,8 +393,10 @@ const documentMarkdown = new Marked({
 			return token.text;
 		},
 		link(token: Tokens.Link) {
-			const href = safeHref(token.href);
 			const text = this.parser.parseInline(token.tokens);
+			const thread = threadAnchor(token.href, text);
+			if (thread) return thread;
+			const href = safeHref(token.href);
 			if (!href) return text;
 			return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${text}</a>`;
 		},

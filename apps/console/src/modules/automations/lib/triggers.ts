@@ -22,13 +22,14 @@ export type TriggerKind =
 	| "weekly"
 	| "pull_opened"
 	| "review_requested"
-	| "checks_failed";
+	| "checks_failed"
+	| "webhook";
 
 /** Every kind of trigger, in the two groups the picker shows them in. */
 export const TRIGGER_KINDS: readonly {
 	value: TriggerKind;
 	label: string;
-	group: "schedule" | "github";
+	group: "schedule" | "github" | "outside";
 	hint: string;
 }[] = [
 	{ value: "hourly", label: "Every hour", group: "schedule", hint: "At the same minute each hour" },
@@ -58,9 +59,16 @@ export const TRIGGER_KINDS: readonly {
 		group: "github",
 		hint: "Each time checks fail, again after every new push",
 	},
+	{
+		value: "webhook",
+		label: "Webhook",
+		group: "outside",
+		hint: "Each time a service (Sentry, Stripe, your app) posts to its URL",
+	},
 ];
 
 export function triggerKind(trigger: Trigger): TriggerKind {
+	if (trigger.kind === "webhook") return "webhook";
 	return trigger.kind === "event" ? trigger.event : trigger.cadence;
 }
 
@@ -68,6 +76,7 @@ export function triggerKind(trigger: Trigger): TriggerKind {
 export function newTrigger(kind: TriggerKind, from?: Trigger): Trigger {
 	if (kind === "pull_opened" || kind === "review_requested" || kind === "checks_failed")
 		return { kind: "event", event: kind };
+	if (kind === "webhook") return { kind: "webhook", filter: null, template: null };
 	const timezone = from?.kind === "schedule" ? from.timezone : LOCAL_ZONE;
 	if (kind === "hourly") return { kind: "schedule", cadence: "hourly", minute: 0, timezone };
 	const time = from?.kind === "schedule" && "time" in from ? from.time : "09:00";
@@ -84,6 +93,10 @@ export function newTrigger(kind: TriggerKind, from?: Trigger): Trigger {
 export function describeTrigger(trigger: Trigger): string {
 	if (trigger.kind === "event")
 		return TRIGGER_KINDS.find((kind) => kind.value === trigger.event)?.label ?? trigger.event;
+	if (trigger.kind === "webhook")
+		return trigger.filter
+			? `Webhook when ${trigger.filter.path} is ${trigger.filter.equals}`
+			: "Webhook";
 	const zone = trigger.timezone === LOCAL_ZONE ? "" : ` (${trigger.timezone})`;
 	if (trigger.cadence === "hourly")
 		return `Every hour at :${String(trigger.minute).padStart(2, "0")}${zone}`;
@@ -124,4 +137,10 @@ export const RUN_TRIGGER: Record<AutomationRun["trigger"], string> = {
 	schedule: "On schedule",
 	event: "From GitHub",
 	manual: "Run by hand",
+	webhook: "From a webhook",
 };
+
+/** The address a service sends an automation's webhook to: the runner, through this console. */
+export function webhookUrl(path: string, origin: string = window.location.origin): string {
+	return `${origin}/runner${path}`;
+}

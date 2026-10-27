@@ -74,6 +74,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (and how it checked) or blocked; the goal shows above the composer with Pause, Resume and Clear.
 - Projects can compact idle Claude Code threads with large conversations just before their prompt
   cache expires (project menu → Compact idle Claude Code threads).
+- Automations can run on a webhook: each gets an address and secret, deliveries are signed (or
+  carry the secret), run once, can be filtered on a field, and reach the agent as data.
+- Agent keys (Settings → Agent keys) let agents outside Grid, such as Claude Desktop or Cursor,
+  use Grid over MCP: list projects and threads, read them, and with a key that allows it start,
+  steer and answer threads, marked as theirs.
+- Share a thread with a guest for a day (thread menu → Share with a guest): they follow it without
+  signing in and can ask something, which waits for you to send on to the agent or dismiss.
+- Snooze a thread for an hour, until tomorrow or next week; it stays quiet until then unless it
+  needs you.
+- Thread links: agents name threads as links, and clicking one opens that thread.
+- Search finds words by their beginning and without accents, best match first.
+- Replay tests: real Claude Code sessions are recorded and played back to Grid's Claude Code
+  support in the runner's tests.
 
 ### Fixed
 

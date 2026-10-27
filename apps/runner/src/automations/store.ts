@@ -79,7 +79,7 @@ export type RunStep = { title: string; detail: string | null };
 export type AutomationRun = {
 	id: string;
 	automationId: string;
-	trigger: "schedule" | "event" | "manual";
+	trigger: "schedule" | "event" | "manual" | "webhook";
 	eventKey: string | null;
 	scheduledFor: string | null;
 	startedAt: string | null;

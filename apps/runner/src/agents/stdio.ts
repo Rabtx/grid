@@ -1,3 +1,6 @@
+import { appendFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+
 /** A child process that speaks newline-delimited JSON on stdin/stdout. */
 export type JsonProcess = {
 	send: (message: unknown) => void;
@@ -19,8 +22,16 @@ export type Spawn = (
 	},
 ) => JsonProcess;
 
-/** Real processes, via Bun. Tests pass a fake with the same shape. */
-export const spawnJsonProcess: Spawn = (command, { cwd, env, unset, onMessage, onStderr }) => {
+/**
+ * Real processes, via Bun. Tests pass a fake with the same shape. With `GRID_AGENT_RECORD_DIR`
+ * set, every process is also recorded there for replay tests (see `replay.ts`).
+ */
+export const spawnJsonProcess: Spawn = (command, options) => {
+	const folder = process.env.GRID_AGENT_RECORD_DIR;
+	return folder ? recordedSpawn(folder, spawnBun)(command, options) : spawnBun(command, options);
+};
+
+const spawnBun: Spawn = (command, { cwd, env, unset, onMessage, onStderr }) => {
 	const inherited = { ...process.env };
 	for (const name of unset ?? []) delete inherited[name];
 	const proc = Bun.spawn(command, {
@@ -61,6 +72,40 @@ export const spawnJsonProcess: Spawn = (command, { cwd, env, unset, onMessage, o
 		exited: proc.exited.then((code) => code ?? 0),
 	};
 };
+
+/**
+ * A spawn that writes what passes each way to a new NDJSON file in `folder`: a `start` line, then
+ * `in` (what Grid sent), `out` (what the agent printed) and a last `exit` line.
+ */
+export function recordedSpawn(folder: string, spawn: Spawn): Spawn {
+	return (command, options) => {
+		mkdirSync(folder, { recursive: true });
+		const file = join(
+			folder,
+			`${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomUUID().slice(0, 8)}.ndjson`,
+		);
+		const began = Date.now();
+		const write = (entry: Record<string, unknown>) =>
+			appendFileSync(file, `${JSON.stringify({ t: Date.now() - began, ...entry })}\n`);
+		write({ start: { command: command.slice(1), cwd: options.cwd } });
+		const child = spawn(command, {
+			...options,
+			onMessage: (message) => {
+				write({ out: message });
+				options.onMessage(message);
+			},
+		});
+		void child.exited.then((code) => write({ exit: code }));
+		return {
+			send: (message) => {
+				write({ in: message });
+				child.send(message);
+			},
+			kill: child.kill,
+			exited: child.exited,
+		};
+	};
+}
 
 async function readLines(stream: ReadableStream<Uint8Array>, onLine: (line: string) => void) {
 	const decoder = new TextDecoder();

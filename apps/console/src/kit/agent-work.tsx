@@ -3,7 +3,7 @@ import { createSignal, For, Show } from "solid-js";
 
 import { Button, IconButton } from "./button";
 import { Badge, type Tone } from "./badge";
-import { BranchIcon, CloseIcon, RestoreIcon, SendIcon, SpinnerIcon } from "./icons";
+import { BranchIcon, CloseIcon, RestoreIcon, SendIcon, SpinnerIcon, UserIcon } from "./icons";
 
 /**
  * The pieces an agent's work adds around a conversation: a question it asks, the messages that
@@ -204,6 +204,38 @@ export function LimitWaitBar(props: { resetsAt: string; onCancel: () => void }):
 			<Button variant="ghost" size="sm" onClick={() => props.onCancel()}>
 				Don't
 			</Button>
+		</div>
+	);
+}
+
+/**
+ * A question from a guest following the thread's link. It reaches the agent only when the person
+ * sends it on; until then it waits here.
+ */
+export function GuestRequestCard(props: {
+	name: string;
+	text: string;
+	busy?: boolean;
+	onSend: () => void;
+	onDismiss: () => void;
+}): JSX.Element {
+	return (
+		<div class="surface-card flex min-w-0 flex-col gap-2 p-3">
+			<div class="flex min-w-0 items-center gap-2 text-caption text-fg-subtle">
+				<UserIcon size="sm" class="shrink-0" />
+				<span class="min-w-0 truncate">{props.name}, a guest, asks</span>
+			</div>
+			<p class="max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-body text-fg">
+				{props.text}
+			</p>
+			<div class="flex flex-wrap justify-end gap-2">
+				<Button variant="ghost" size="sm" disabled={props.busy} onClick={() => props.onDismiss()}>
+					Dismiss
+				</Button>
+				<Button size="sm" disabled={props.busy} onClick={() => props.onSend()}>
+					<SendIcon size="sm" /> Send to the agent
+				</Button>
+			</div>
 		</div>
 	);
 }

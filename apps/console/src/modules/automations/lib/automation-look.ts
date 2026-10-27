@@ -121,7 +121,13 @@ export function whenWord(item: Automation, now: number = clockNow()): string {
 /** When it runs next, for the heading: "Next run tonight at 02:00", "Waiting for GitHub". */
 export function nextLine(item: Automation, now: number = clockNow()): string {
 	if (!item.enabled) return "Paused";
-	if (!item.nextRunAt) return "Runs when GitHub has something for it";
+	if (!item.nextRunAt) {
+		const github = item.triggers.some((trigger) => trigger.kind === "event");
+		const hook = item.triggers.some((trigger) => trigger.kind === "webhook");
+		if (hook && !github) return "Runs when its webhook is called";
+		if (hook) return "Runs when GitHub or its webhook has something for it";
+		return "Runs when GitHub has something for it";
+	}
 	const next = new Date(item.nextRunAt);
 	const word = whenWord(item, now);
 	const day =
@@ -145,6 +151,7 @@ const EVENT_LINE: Record<Extract<Trigger, { kind: "event" }>["event"], string> =
 export function triggerLine(trigger: Trigger | undefined): string {
 	if (!trigger) return "By hand";
 	if (trigger.kind === "event") return `When ${EVENT_LINE[trigger.event]}`;
+	if (trigger.kind === "webhook") return "When its webhook is called";
 	if (trigger.cadence === "hourly")
 		return `Every hour at :${String(trigger.minute).padStart(2, "0")}`;
 	if (trigger.cadence === "weekly") return `${DAYS[trigger.day ?? 1]}s at ${trigger.time}`;
@@ -156,6 +163,7 @@ export function triggerLine(trigger: Trigger | undefined): string {
 export function triggerRecipe(trigger: Trigger | undefined): { lead: string; token: string } {
 	if (!trigger) return { lead: "By", token: "hand" };
 	if (trigger.kind === "event") return { lead: "When", token: EVENT_LINE[trigger.event] };
+	if (trigger.kind === "webhook") return { lead: "When", token: "its webhook is called" };
 	if (trigger.cadence === "hourly")
 		return { lead: "Every", token: `hour at :${String(trigger.minute).padStart(2, "0")}` };
 	if (trigger.cadence === "weekly")

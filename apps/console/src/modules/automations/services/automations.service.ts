@@ -9,7 +9,17 @@ export type Trigger =
 			day?: number;
 			timezone: string;
 	  }
-	| { kind: "event"; event: "pull_opened" | "review_requested" | "checks_failed" };
+	| { kind: "event"; event: "pull_opened" | "review_requested" | "checks_failed" }
+	| {
+			kind: "webhook";
+			/** Run only for deliveries whose value at a dotted path equals this. */
+			filter?: { path: string; equals: string } | null;
+			/** What the agent is told of a delivery, `{{path}}` filled in; the payload when empty. */
+			template?: string | null;
+	  };
+
+/** Where a service sends an automation's webhook, and the secret it proves itself with. */
+export type Webhook = { path: string; secret: string };
 
 /** How it runs beyond its prompt: its role, branch, what it does after, and its guardrails. */
 export type AutomationOptions = {
@@ -52,7 +62,7 @@ export type RunStep = { title: string; detail: string | null };
 export type AutomationRun = {
 	id: string;
 	automationId: string;
-	trigger: "schedule" | "event" | "manual";
+	trigger: "schedule" | "event" | "manual" | "webhook";
 	status: "running" | "succeeded" | "failed" | "skipped";
 	error: string | null;
 	sessionId: string | null;
@@ -104,4 +114,7 @@ export const automationsService = {
 		runnerCall<Automation>(`${path}/${id}/toggle`, token, { method: "POST" }),
 	run: (token: string, id: string) =>
 		runnerCall<AutomationRun>(`${path}/${id}/run`, token, { method: "POST" }),
+	webhook: (token: string, id: string) => runnerCall<Webhook>(`${path}/${id}/webhook`, token),
+	rotateWebhook: (token: string, id: string) =>
+		runnerCall<Webhook>(`${path}/${id}/webhook/rotate`, token, { method: "POST" }),
 };

@@ -12,6 +12,7 @@ import {
 	Dialog,
 	Field,
 	FolderIcon,
+	GlobeIcon,
 	GlyphChoices,
 	IconButton,
 	Input,
@@ -46,6 +47,7 @@ const MAX_TRIGGERS = 5;
 const KIND_GROUPS = [
 	{ label: "On a schedule", group: "schedule", icon: () => <ClockIcon size="sm" /> },
 	{ label: "On GitHub", group: "github", icon: () => <PullRequestIcon size="sm" /> },
+	{ label: "From outside Grid", group: "outside", icon: () => <GlobeIcon size="sm" /> },
 ] as const;
 
 const WHERE = [
@@ -80,7 +82,7 @@ function ready(form: AutomationInput): boolean {
 		form.prompt.trim() &&
 		form.provider &&
 		form.project &&
-		form.triggers.every((trigger) => trigger.kind === "event" || trigger.timezone),
+		form.triggers.every((trigger) => trigger.kind !== "schedule" || trigger.timezone),
 	);
 }
 
@@ -209,7 +211,7 @@ export function AutomationEditor(props: {
 
 				<Section
 					title="When it runs"
-					description="Any of these starts a run. GitHub triggers need GitHub connected."
+					description="Any of these starts a run. GitHub triggers need GitHub connected; a webhook's address and secret show once it is saved."
 					action={
 						<Button
 							size="sm"
@@ -495,6 +497,9 @@ function TriggerRow(props: {
 					</IconButton>
 				</Show>
 			</Row>
+			<Show when={props.trigger.kind === "webhook" ? props.trigger : null}>
+				{(hook) => <WebhookFields trigger={hook()} onChange={props.onChange} />}
+			</Show>
 			<Show
 				when={props.trigger.kind === "schedule"}
 				fallback={
@@ -547,6 +552,60 @@ function TriggerRow(props: {
 					</Show>
 				</Row>
 			</Show>
+		</Stack>
+	);
+}
+
+type WebhookTrigger = Extract<Trigger, { kind: "webhook" }>;
+
+/**
+ * A webhook's optional filter (run only when a field of what was sent has a value) and template
+ * (what the agent is told of it, `{{field}}` filled in; all of what was sent when empty).
+ */
+function WebhookFields(props: {
+	trigger: WebhookTrigger;
+	onChange: (trigger: Trigger) => void;
+}): JSX.Element {
+	const filter = () => props.trigger.filter ?? { path: "", equals: "" };
+	const setFilter = (next: Partial<{ path: string; equals: string }>) => {
+		const merged = { ...filter(), ...next };
+		props.onChange({
+			...props.trigger,
+			filter: merged.path.trim() || merged.equals.trim() ? merged : null,
+		});
+	};
+	return (
+		<Stack gap={2}>
+			<Row gap={2} wrap>
+				<div class="min-w-0 flex-1">
+					<Input
+						aria-label="Only when this field"
+						placeholder="Only when field (data.level)"
+						maxlength={120}
+						value={filter().path}
+						onInput={(event) => setFilter({ path: event.currentTarget.value.trim() })}
+					/>
+				</div>
+				<div class="min-w-0 flex-1">
+					<Input
+						aria-label="Equals"
+						placeholder="equals (error)"
+						maxlength={200}
+						value={filter().equals}
+						onInput={(event) => setFilter({ equals: event.currentTarget.value })}
+					/>
+				</div>
+			</Row>
+			<Textarea
+				aria-label="What the agent is told"
+				rows={3}
+				maxlength={4000}
+				placeholder="What the agent is told, e.g. {{data.title}} at {{data.url}}. Empty: everything that was sent."
+				value={props.trigger.template ?? ""}
+				onInput={(event) =>
+					props.onChange({ ...props.trigger, template: event.currentTarget.value || null })
+				}
+			/>
 		</Stack>
 	);
 }
