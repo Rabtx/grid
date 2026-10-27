@@ -441,6 +441,11 @@ export class ChatHub {
 	private readonly stopListeners: ((session: ChatSessionRow) => void)[] = [];
 	/** Hearers of every event a thread logs (see `onEvent`). */
 	private readonly eventListeners: ((session: ChatSessionRow, event: ChatEvent) => void)[] = [];
+	private gate:
+		| ((
+				session: Pick<ChatSessionRow, "id" | "workspaceId" | "ownerId" | "project">,
+		  ) => string | null)
+		| null = null;
 	/** The runner is stopping: turns cut off now are left open, to carry on when it starts. */
 	private shuttingDown = false;
 	/** How long a stop may take before the agent's process is ended (see `STOP_GRACE_MS`). */
@@ -808,6 +813,25 @@ export class ChatHub {
 	 */
 	onAttention(listener: AttentionListener): void {
 		this.attention = listener;
+	}
+
+	/**
+	 * What may refuse new work in a thread (a spending limit used up): a reason, or null. Asked
+	 * before every turn starts, Grid's own included.
+	 */
+	setGate(
+		gate: (
+			session: Pick<ChatSessionRow, "id" | "workspaceId" | "ownerId" | "project">,
+		) => string | null,
+	): void {
+		this.gate = gate;
+	}
+
+	/** Why new work in a thread would be refused now, or null. */
+	refusal(
+		session: Pick<ChatSessionRow, "id" | "workspaceId" | "ownerId" | "project">,
+	): string | null {
+		return this.gate?.(session) ?? null;
 	}
 
 	/** Hear about every turn that ends, after it has: how it ended. */
@@ -1498,6 +1522,9 @@ export class ChatHub {
 			this.publishQueue(id, live);
 			return;
 		}
+		// A spending limit used up: messages may wait in the queue, but no turn starts.
+		const refused = this.refusal(session);
+		if (refused) throw new ChatError(refused, 402);
 		// Someone sending by hand is ready again: a queue held after a stop goes on after this.
 		if (live.paused) {
 			live.paused = false;

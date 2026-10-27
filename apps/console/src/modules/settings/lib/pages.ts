@@ -48,6 +48,16 @@ export const SETTINGS_SECTIONS = [
 				label: "Connectors",
 				description: "GitHub and other services",
 			},
+			{
+				href: "/settings/spending",
+				label: "Spending",
+				description: "What agents cost, and limits on it",
+			},
+			{
+				href: "/settings/audit",
+				label: "Audit log",
+				description: "What keys, guests, webhooks and automations did",
+			},
 		],
 	},
 	{

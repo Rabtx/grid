@@ -46,6 +46,10 @@ export class RunnerProcess {
 			mode: "default",
 			project: "demo",
 			provider: "claude",
+			expiresAt: null,
+			projects: [],
+			budgetUsd: null,
+			ownThreads: false,
 		}).token;
 		keys.close();
 	}

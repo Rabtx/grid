@@ -9,6 +9,7 @@ import {
 	IconButton,
 	KeyboardIcon,
 	KeyIcon,
+	ListIcon,
 	LaptopIcon,
 	NavLink,
 	NavSection,
@@ -18,6 +19,7 @@ import {
 	SettingsIcon,
 	SparklesIcon,
 	StatusDot,
+	TagIcon,
 	UserIcon,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
@@ -34,6 +36,8 @@ const ICONS: Record<SettingsHref, () => JSX.Element> = {
 	"/settings/general": () => <SettingsIcon />,
 	"/settings/members": () => <UserIcon />,
 	"/settings/connectors": () => <PlugIcon />,
+	"/settings/spending": () => <TagIcon />,
+	"/settings/audit": () => <ListIcon />,
 	"/settings/agents": () => <AsteriskIcon />,
 	"/settings/agent-keys": () => <KeyIcon />,
 	"/settings/skills": () => <SparklesIcon />,

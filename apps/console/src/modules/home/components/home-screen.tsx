@@ -403,6 +403,7 @@ const ACTION: Record<InboxItem["kind"], string> = {
 	pull_checks: "Open",
 	turn_done: "Open",
 	turn_error: "Open",
+	budget: "Open",
 };
 
 /** Which agent's logo a task owner's name is, as far as Grid knows its agents. */

@@ -26,6 +26,7 @@ import { offeredProviders, providersStore } from "@/modules/chat/stores/provider
 import { relativeTime } from "@/modules/projects/lib/relative-time";
 import { useWorkspace } from "@/modules/projects";
 
+import { keyLimits } from "../lib/key-limits";
 import { SettingsPage } from "./settings-page";
 
 /** A key an agent outside Grid signs in to Grid's MCP endpoint with; its token is never listed. */
@@ -39,9 +40,39 @@ export type AgentKey = {
 	provider: string | null;
 	createdAt: string;
 	lastUsedAt: string | null;
+	/** When it stops working (ISO); null for never. */
+	expiresAt: string | null;
+	/** The only projects it may work in; empty for any. */
+	projects: string[];
+	/** Most its threads may cost in 30 days; null for no cap. */
+	budgetUsd: number | null;
+	/** Sees only the threads it started. */
+	ownThreads: boolean;
+	/** What its threads cost in the last 30 days. */
+	spentUsd: number;
 };
 
-type NewKey = { name: string; write: boolean; mode: string; project: string; provider: string };
+type NewKey = {
+	name: string;
+	write: boolean;
+	mode: string;
+	project: string;
+	provider: string;
+	/** Days until it stops working; 0 for never. */
+	days: number;
+	projects: string[];
+	/** A 30-day budget in dollars, as typed; empty for none. */
+	budget: string;
+	ownThreads: boolean;
+};
+
+const LIFETIMES = [
+	{ value: "0", label: "Never expires" },
+	{ value: "7", label: "7 days" },
+	{ value: "30", label: "30 days" },
+	{ value: "90", label: "90 days" },
+	{ value: "365", label: "A year" },
+] as const;
 
 const MODES = [
 	{ value: "plan", label: "Plan only" },
@@ -50,7 +81,17 @@ const MODES = [
 	{ value: "bypassPermissions", label: "Full access" },
 ] as const;
 
-const BLANK: NewKey = { name: "", write: false, mode: "default", project: "", provider: "" };
+const BLANK: NewKey = {
+	name: "",
+	write: false,
+	mode: "default",
+	project: "",
+	provider: "",
+	days: 0,
+	projects: [],
+	budget: "",
+	ownThreads: false,
+};
 
 /** The address agents outside Grid reach it at: the runner, through this console. */
 export function mcpUrl(origin: string = window.location.origin): string {
@@ -104,6 +145,10 @@ export function AgentKeysScreen(): JSX.Element {
 					mode: input.mode,
 					project: input.project || null,
 					provider: input.provider || null,
+					...(input.days ? { expiresInDays: input.days } : {}),
+					projects: input.projects,
+					...(input.budget.trim() ? { budgetUsd: Number(input.budget) } : {}),
+					ownThreads: input.ownThreads,
 				}),
 			});
 			setMaking(null);
@@ -186,7 +231,12 @@ export function AgentKeysScreen(): JSX.Element {
 										label={key.name}
 										description={[
 											`${key.prefix}…`,
-											key.project ? projectName(key.project) : "Any project",
+											key.projects.length
+												? `only ${key.projects.map(projectName).join(", ")}`
+												: key.project
+													? projectName(key.project)
+													: "Any project",
+											...keyLimits(key),
 											key.lastUsedAt ? `used ${relativeTime(key.lastUsedAt)}` : "never used",
 										].join(" · ")}
 									>
@@ -303,6 +353,69 @@ export function AgentKeysScreen(): JSX.Element {
 									onChange={(write) => change({ write })}
 								/>
 							</SettingsRow>
+							<Field label="Expires">
+								{() => (
+									<Select
+										label="Expires"
+										look="field"
+										value={String(form().days)}
+										onChange={(days) => change({ days: Number(days) })}
+										groups={[{ options: [...LIFETIMES] }]}
+									/>
+								)}
+							</Field>
+							<Field
+								label="Budget for 30 days (USD)"
+								hint="It starts no more work once its threads have cost this. Empty: no cap of its own."
+							>
+								{(id) => (
+									<Input
+										id={id}
+										type="number"
+										min="0.01"
+										step="0.01"
+										inputmode="decimal"
+										placeholder="No cap"
+										value={form().budget}
+										onInput={(event) => change({ budget: event.currentTarget.value })}
+									/>
+								)}
+							</Field>
+							<SettingsRow
+								inline
+								label="Only threads it starts"
+								description="Off: it sees all your threads."
+							>
+								<Switch
+									label="Only threads it starts"
+									checked={form().ownThreads}
+									onChange={(ownThreads) => change({ ownThreads })}
+								/>
+							</SettingsRow>
+							<Show when={workspace.projects().length > 1}>
+								<Stack gap={1}>
+									<Text size="caption" tone="subtle">
+										Projects it may work in (none chosen: any)
+									</Text>
+									<For each={workspace.projects()}>
+										{(project) => (
+											<SettingsRow inline label={project.name}>
+												<Switch
+													label={`May work in ${project.name}`}
+													checked={form().projects.includes(project.slug)}
+													onChange={(on) =>
+														change({
+															projects: on
+																? [...form().projects, project.slug]
+																: form().projects.filter((slug) => slug !== project.slug),
+														})
+													}
+												/>
+											</SettingsRow>
+										)}
+									</For>
+								</Stack>
+							</Show>
 						</Stack>
 					)}
 				</Show>

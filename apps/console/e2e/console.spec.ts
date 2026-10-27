@@ -192,12 +192,19 @@ test("makes an agent key that an outside agent uses over MCP, and revokes it", a
 	await page.getByRole("button", { name: "New key" }).click();
 	await page.getByPlaceholder("Claude Desktop").fill("Cursor");
 	await page.getByRole("switch", { name: "Can start and steer threads" }).click();
+	await page.getByRole("button", { name: "Expires" }).click();
+	await page.getByRole("button", { name: "30 days", exact: true }).click();
+	await page.getByLabel("Budget for 30 days (USD)").fill("5");
+	await page.getByRole("switch", { name: "Only threads it starts" }).click();
 	await page.getByRole("button", { name: "Make key" }).click();
 	const field = page.getByLabel("agent key", { exact: true });
 	await expect(field).toHaveValue(/^grid_ak_/);
 	const key = await field.inputValue();
 	await page.getByRole("button", { name: "Done" }).click();
 	await expect(page.getByText("Can start threads")).toBeVisible();
+	await expect(
+		page.getByText("expires in 30 days · $0.00 of $5.00 in 30 days · only its own threads"),
+	).toBeVisible();
 
 	const mcp = (body: unknown) =>
 		page.request.post("/runner/mcp", {
@@ -279,4 +286,46 @@ test("runs an automation from a signed webhook, once per delivery", async () => 
 	expect((runs.body as { data: { trigger: string }[] }).data.map((run) => run.trigger)).toEqual([
 		"webhook",
 	]);
+});
+
+test("stops work when a spending limit is used up, and says so", async () => {
+	await page.goto("/acme/settings/spending");
+	await page.getByRole("button", { name: "New budget" }).click();
+	await page.getByRole("button", { name: "Every" }).click();
+	await page.getByRole("button", { name: "Day (UTC)", exact: true }).click();
+	await page.getByLabel("Limit (USD)").fill("1");
+	await page.getByRole("button", { name: "Save budget" }).click();
+	await expect(page.getByText("Daily budget for the workspace").first()).toBeVisible();
+	await expect(page.getByText("Within it")).toBeVisible();
+
+	await page.goto("/acme/chat/demo");
+	await send("COST:2 an expensive job");
+	await expect(page.getByText(/ok: COST:2 an expensive job/)).toBeVisible();
+	await send("one more thing");
+	await expect(page.getByText(/daily budget of \$1\.00 is used up/).first()).toBeVisible();
+
+	await page.goto("/acme/settings/spending");
+	await expect(page.getByText("Used up", { exact: true })).toBeVisible();
+	await expect(page.getByText("$2.00 of $1.00 this day")).toBeVisible();
+	await page.goto("/acme/inbox");
+	await expect(page.getByText("The workspace's daily budget is used up").first()).toBeVisible();
+
+	// Removed, work starts again.
+	await page.goto("/acme/settings/spending");
+	await page.getByRole("button", { name: "Remove" }).click();
+	await page.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
+	await expect(page.getByText("No budgets")).toBeVisible();
+});
+
+test("lists what keys, guests, webhooks, automations and limits did in the audit log", async () => {
+	await page.goto("/acme/settings/audit");
+	await expect(page.getByText("Made the agent key").first()).toBeVisible();
+	await expect(page.getByText("Revoked the agent key").first()).toBeVisible();
+	await expect(page.getByText("Asked in").first()).toBeVisible();
+	await expect(page.getByText("Ran").first()).toBeVisible();
+	await expect(page.getByText("Used up:").first()).toBeVisible();
+	await page.getByRole("button", { name: "Who" }).click();
+	await page.getByRole("button", { name: "Guest", exact: true }).click();
+	await expect(page.getByText("Made the agent key")).toHaveCount(0);
+	await expect(page.getByText("Asked in").first()).toBeVisible();
 });

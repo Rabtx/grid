@@ -2,9 +2,9 @@
  * A stand-in for the Claude Code CLI, speaking its stream-json protocol, for the chaos tests and
  * the console's end-to-end tests: the runner starts it as `claude` from PATH. What a turn does is
  * read from its message: `SLOW:<ms>` works that long (a turn to kill the runner in), `APPROVE`
- * asks to run a command and waits for the answer, `LINK:<id>` answers with a link to that thread;
- * anything else is answered at once. Grid's carry-on message is answered "carried on" (after
- * `FAKE_CLAUDE_CONTINUE_MS`, when set).
+ * asks to run a command and waits for the answer, `LINK:<id>` answers with a link to that thread,
+ * `COST:<usd>` adds that much to what it reports having cost; anything else is answered at once.
+ * Grid's carry-on message is answered "carried on" (after `FAKE_CLAUDE_CONTINUE_MS`, when set).
  */
 import { createInterface } from "node:readline";
 
@@ -12,6 +12,8 @@ const args = process.argv.slice(2);
 const resumeAt = args.indexOf("--resume");
 const session = resumeAt >= 0 ? (args[resumeAt + 1] ?? crypto.randomUUID()) : crypto.randomUUID();
 let interrupted = false;
+/** What this process has cost so far, as Claude Code reports it: a running total. */
+let costUsd = 0;
 /** The answer a `can_use_tool` request waits for. */
 const waiting: { answer: ((answer: Record<string, unknown>) => void) | null } = { answer: null };
 
@@ -30,12 +32,13 @@ const finish = (text: string) => {
 		is_error: false,
 		result: text,
 		usage: { input_tokens: 10, output_tokens: 5 },
-		total_cost_usd: 0,
+		total_cost_usd: costUsd,
 	});
 };
 
 async function turn(text: string): Promise<void> {
 	interrupted = false;
+	costUsd += Number(/COST:([\d.]+)/.exec(text)?.[1] ?? 0);
 	send({
 		type: "system",
 		subtype: "init",

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { ChatHub } from "../chat/hub";
+import { AuditLog } from "../audit/audit-log";
 import { InboxStore } from "../inbox/store";
 import { Automations } from "./service";
 import { AutomationStore, type AutomationInput } from "./store";
@@ -43,8 +44,9 @@ function setup() {
 		events: () => [],
 		cancel: () => {},
 	} as unknown as ChatHub;
-	const service = new Automations(store, chat, new InboxStore(":memory:"), { hooks });
-	return { store, hooks, service, prompts };
+	const audit = new AuditLog(":memory:");
+	const service = new Automations(store, chat, new InboxStore(":memory:"), { hooks, audit });
+	return { store, hooks, service, prompts, audit };
 }
 
 const deliver = (
@@ -124,7 +126,7 @@ describe("webhook proof", () => {
 
 describe("webhook deliveries", () => {
 	test("run the automation once, with what was sent", async () => {
-		const { store, hooks, service, prompts } = setup();
+		const { store, hooks, service, prompts, audit } = setup();
 		const item = store.create("alpha", "alice", input([{ kind: "webhook" }]));
 		const secret = hooks.secret(item.id);
 		const body = JSON.stringify({ alert: "disk full" });
@@ -135,13 +137,18 @@ describe("webhook deliveries", () => {
 		expect(prompts[0]).toContain("Triage this alert");
 		expect(prompts[0]).toContain("disk full");
 		expect(store.runs("alpha", item.id)[0]).toMatchObject({ trigger: "webhook" });
+		expect(audit.list("alpha")[0]).toMatchObject({
+			action: "automation.run",
+			actor: { kind: "webhook", id: item.id, name: "Triage" },
+			sessionId: "thread-1",
+		});
 		const again = await deliver(service, item.id, body, { "x-grid-signature": sign(secret, body) });
 		expect(again.status).toBe(200);
 		expect(prompts).toHaveLength(1);
 		service.stop();
 	});
 	test("refuse what is not proved, not a webhook, or filtered out", async () => {
-		const { store, hooks, service, prompts } = setup();
+		const { store, hooks, service, prompts, audit } = setup();
 		const plain = store.create("alpha", "alice", input([{ kind: "event", event: "pull_opened" }]));
 		hooks.secret(plain.id);
 		const hook = store.create(
@@ -155,6 +162,9 @@ describe("webhook deliveries", () => {
 		).toBe(401);
 		expect((await deliver(service, "missing", "{}", {}, "?token=x")).status).toBe(401);
 		expect((await deliver(service, hook.id, "{}", {}, "?token=wrong")).status).toBe(401);
+		expect((await deliver(service, hook.id, "{}", {}, "?token=wrong2")).status).toBe(401);
+		// Refusals are noted, one a minute.
+		expect(audit.list("alpha").map((entry) => entry.action)).toEqual(["webhook.refused"]);
 		const info = await deliver(service, hook.id, '{"level":"info"}', {}, `?token=${secret}`);
 		expect(info.status).toBe(202);
 		expect(((await info.json()) as { message: string }).message).toContain("Filtered");

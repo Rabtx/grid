@@ -9,7 +9,10 @@ import { GridUpdater } from "./machine/update";
 import { Automations } from "./automations/service";
 import { AutomationStore } from "./automations/store";
 import { WebhookSecrets } from "./automations/webhooks";
+import { AuditLog } from "./audit/audit-log";
 import { RateLog } from "./rate-log";
+import { budgetName, Budgets, covers } from "./spend/budgets";
+import { SpendLedger, type SpendTags } from "./spend/ledger";
 import { withAgentBins } from "./agents/setup";
 import {
 	createTokenVerifier,
@@ -20,7 +23,7 @@ import {
 } from "./auth";
 import { may } from "./permissions";
 import { ChatHub } from "./chat/hub";
-import { ChatStore } from "./chat/store";
+import { type ChatSessionRow, ChatStore } from "./chat/store";
 import { readConfig } from "./config";
 import { RunnerOwner } from "./owner";
 import { DiagnosticJournal } from "./diagnostics/journal";
@@ -122,9 +125,13 @@ const inbox = new InboxStore(config.chatDb);
 const roles = new RoleStore(config.chatDb);
 // Rate limits that must hold across restarts (webhooks, guests, outside agents' starts).
 const rates = new RateLog(config.chatDb);
+// What keys, guests, webhooks and automations did (Settings → Audit log), and what agents cost.
+const audit = new AuditLog(config.chatDb);
+const ledger = new SpendLedger(config.chatDb);
 const automations = new Automations(new AutomationStore(config.chatDb), chat, inbox, {
 	roleOf: (workspace, id) => roles.get(workspace, id),
 	hooks: new WebhookSecrets(config.chatDb),
+	audit,
 	rates,
 	// The pull request a run opened: the open one from the branch its worktree is on. Asked only
 	// once a run ends, long after `pulls` below exists.
@@ -294,11 +301,77 @@ const threadTools = new ThreadTools(chat, {
 	whoFor: (session) => personOf(session.ownerId, session.workspaceId),
 });
 // Agents outside Grid use the same tools over MCP, with a key their person made.
-const outside = new OutsideAgents(chat, new AgentKeyStore(config.chatDb), threadTools, (key) =>
-	personOf(key.ownerId, key.workspaceId),
+const agentKeys = new AgentKeyStore(config.chatDb);
+const outside = new OutsideAgents(
+	chat,
+	agentKeys,
+	threadTools,
+	(key) => personOf(key.ownerId, key.workspaceId),
+	{ ledger, audit },
 );
 // People without an account following a thread through a link its person made.
-const guests = new Guests(config.chatDb, chat, chatStore);
+const guests = new Guests(config.chatDb, chat, chatStore, undefined, audit);
+
+// What agents cost as they work, and the workspace's limits on it (Settings → Spending): each
+// rise in a thread's reported cost is kept against its person, project, automation and key; a
+// limit used up stops the turns it covers and refuses new ones.
+const tagsOf = (
+	session: Pick<ChatSessionRow, "id" | "workspaceId" | "ownerId" | "project">,
+): SpendTags => ({
+	workspaceId: session.workspaceId,
+	ownerId: session.ownerId,
+	project: session.project,
+	sessionId: session.id,
+	automationId: session.id ? automations.store.automationOfSession(session.id) : null,
+	keyId: session.id ? agentKeys.keyOfThread(session.id) : null,
+});
+const budgets = new Budgets(config.chatDb, {
+	ledger,
+	inbox,
+	notify: (userId, title, body) =>
+		void push
+			.notify(userId, { title, body, url: "/settings/spending", tag: "budget" }, "runs")
+			.catch(() => undefined),
+	stop: (budget) => {
+		let stopped = 0;
+		for (const running of chat.running(budget.workspaceId)) {
+			const session = chat.sessionRow(running.id);
+			if (!session || !covers(budget, tagsOf(session))) continue;
+			chat.cancel(session.workspaceId, session.id);
+			audit.record({
+				workspaceId: session.workspaceId,
+				actor: { kind: "grid", id: budget.id, name: "Spending limit" },
+				action: "thread.stop",
+				project: session.project,
+				sessionId: session.id,
+				target: session.title,
+				detail: "Stopped: a spending limit it counts against is used up",
+			});
+			stopped++;
+		}
+		return stopped;
+	},
+	names: (budget) =>
+		budget.scope === "automation" && budget.target
+			? (automations.store.listForRun(budget.target)?.name ?? null)
+			: null,
+	audit: (budget, action, detail) =>
+		audit.record({
+			workspaceId: budget.workspaceId,
+			actor: { kind: "grid", id: budget.id, name: "Spending limit" },
+			action,
+			project: budget.scope === "project" ? budget.target : null,
+			sessionId: null,
+			target: budgetName(budget),
+			detail,
+		}),
+});
+chat.setGate((session) => budgets.refusal(tagsOf(session)));
+chat.onEvent((session, event) => {
+	if (event.type !== "usage" || typeof event.costUsd !== "number") return;
+	const tags = tagsOf(session);
+	budgets.spent(tags, ledger.report(tags, event.costUsd));
+});
 const accounts = new Accounts(config.chatDb, join(dirname(config.chatDb), "accounts"));
 chat.setAccounts(accounts);
 // What keeps threads going on their own: carrying on after a usage limit resets, pull requests
@@ -447,6 +520,8 @@ const server = startServer(config, store, verify, chat, {
 	autonomy: { goals, limits },
 	outside,
 	guests,
+	spend: { ledger, budgets },
+	audit,
 	accounts,
 	browsers,
 	machine: {

@@ -71,6 +71,12 @@ const OAuthCallback = lazy(() => import("@/modules/connectors/components/oauth-c
 const SkillsScreen = lazy(() => import("@/modules/skills/components/skills-screen"), {
 	export: "SkillsScreen",
 });
+const SpendingScreen = lazy(() => import("@/modules/settings/components/spending-screen"), {
+	export: "SpendingScreen",
+});
+const AuditScreen = lazy(() => import("@/modules/settings/components/audit-screen"), {
+	export: "AuditScreen",
+});
 const AgentKeysScreen = lazy(() => import("@/modules/settings/components/agent-keys-screen"), {
 	export: "AgentKeysScreen",
 });
@@ -162,6 +168,8 @@ const Router = createRouter({
 		{ path: "/settings/notifications", component: () => <Authed screen={NotificationsScreen} /> },
 		{ path: "/settings/agents", component: () => <Authed screen={AgentsScreen} /> },
 		{ path: "/settings/agent-keys", component: () => <Authed screen={AgentKeysScreen} /> },
+		{ path: "/settings/spending", component: () => <Authed screen={SpendingScreen} /> },
+		{ path: "/settings/audit", component: () => <Authed screen={AuditScreen} /> },
 		{ path: "/settings/skills", component: () => <Authed screen={SkillsScreen} /> },
 		{ path: "/settings/roles", component: () => <Authed screen={RolesScreen} /> },
 		{ path: "/settings/machines", component: () => <Authed screen={MachinesScreen} /> },
