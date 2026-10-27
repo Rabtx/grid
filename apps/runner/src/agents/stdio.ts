@@ -1,6 +1,8 @@
 import { appendFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
+import { PASSED_ENV, removeSandbox, type Sandbox, sandboxCommand } from "../sandbox/sandbox";
+
 /** A child process that speaks newline-delimited JSON on stdin/stdout. */
 export type JsonProcess = {
 	send: (message: unknown) => void;
@@ -19,6 +21,8 @@ export type Spawn = (
 		unset?: readonly string[];
 		onMessage: (message: unknown) => void;
 		onStderr?: (text: string) => void;
+		/** Run it in a container instead (see `sandbox/sandbox.ts`). */
+		sandbox?: Sandbox;
 	},
 ) => JsonProcess;
 
@@ -31,10 +35,22 @@ export const spawnJsonProcess: Spawn = (command, options) => {
 	return folder ? recordedSpawn(folder, spawnBun)(command, options) : spawnBun(command, options);
 };
 
-const spawnBun: Spawn = (command, { cwd, env, unset, onMessage, onStderr }) => {
+const spawnBun: Spawn = (command, { cwd, env, unset, onMessage, onStderr, sandbox }) => {
 	const inherited = { ...process.env };
 	for (const name of unset ?? []) delete inherited[name];
-	const proc = Bun.spawn(command, {
+	const docker = process.env.GRID_DOCKER ?? "docker";
+	// A container of its own each time: an agent restarting its process may still be removing
+	// the last one.
+	const box = sandbox && { ...sandbox, name: `${sandbox.name}-${crypto.randomUUID().slice(0, 6)}` };
+	const inside = box
+		? sandboxCommand(
+				command,
+				{ cwd, env, inherited: PASSED_ENV.filter((name) => inherited[name] !== undefined) },
+				box,
+				docker,
+			)
+		: command;
+	const proc = Bun.spawn(inside, {
 		cwd,
 		stdin: "pipe",
 		stdout: "pipe",
@@ -68,7 +84,11 @@ const spawnBun: Spawn = (command, { cwd, env, unset, onMessage, onStderr }) => {
 			proc.stdin.write(`${JSON.stringify(message)}\n`);
 			proc.stdin.flush();
 		},
-		kill: () => proc.kill(),
+		kill: () => {
+			proc.kill();
+			// Killing the docker client need not stop its container.
+			if (box) removeSandbox(box, docker);
+		},
 		exited: proc.exited.then((code) => code ?? 0),
 	};
 };

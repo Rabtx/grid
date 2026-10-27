@@ -47,6 +47,7 @@ import { mayDo } from "@/modules/workspaces/lib/members";
 
 import { type Environment, environmentsService } from "../services/environments.service";
 import { machineService, type MachinePrefs, type MachineStatus } from "../services/machine.service";
+import { SandboxPanel } from "./sandbox-panel";
 import { environmentsStore } from "../stores/environments";
 import { GridVersion } from "./grid-version";
 
@@ -365,6 +366,10 @@ export function MachinesScreen(): JSX.Element {
 						</SettingsRow>
 					</SettingsGroup>
 				)}
+			</Show>
+
+			<Show when={status()}>
+				{(current) => <SandboxPanel admin={admin()} prefs={current().prefs} onChange={change} />}
 			</Show>
 
 			<GridVersion admin={admin()} />

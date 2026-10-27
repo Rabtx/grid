@@ -97,6 +97,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   changes to keys and guest links, with what each thread cost (owners and admins).
 - Agent keys can expire, be kept to some projects, see only the threads they start, and have a
   30-day budget of their own.
+- Project memory: agents keep decisions, conventions, the reasons behind fixes and facts as they
+  work (`memory_save`, `memory_search`), people add and correct them on a project's Memory page,
+  and each new thread starts with the entries its first message is about.
+- A review agent on every pull request: turned on from a project's Pull requests page, each pull
+  request opened or pushed to gets an agent's review posted on GitHub, once per commit, and one
+  can be asked for from a pull request's menu.
+- Sandboxed runs: a project's menu runs its new threads' agents in a throwaway Docker container
+  that sees only the thread's folder and the agent's sign-in; Settings → Machines shows Docker and
+  the image (Grid's own is built with `bun run sandbox:build`).
 - Settings → Spending: what agents cost today and this month, by project and by person, and daily
   or monthly limits for the workspace, a person, a project or an automation. Grid warns at 80% and
   at 100% stops the work a limit covers until it resets.

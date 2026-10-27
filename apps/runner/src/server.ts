@@ -1,5 +1,11 @@
 import type { AuditLog } from "./audit/audit-log";
 import { auditRequest } from "./audit/routes";
+import type { ProjectMemory } from "./memory/project-memory";
+import { memoryRequest } from "./memory/routes";
+import { reviewRequest } from "./github/review-routes";
+import type { PullReviews } from "./github/reviews";
+import { sandboxRequest } from "./sandbox/routes";
+import type { Sandboxes } from "./sandbox/sandbox";
 import type { Budgets } from "./spend/budgets";
 import type { SpendLedger } from "./spend/ledger";
 import { spendRequest } from "./spend/routes";
@@ -182,6 +188,12 @@ export function startServer(
 		spend?: { ledger: SpendLedger; budgets: Budgets };
 		/** What was done by keys, guests, webhooks and automations (Settings → Audit log). */
 		audit?: AuditLog;
+		/** Each project's memory: what agents and people keep for later threads. */
+		memory?: ProjectMemory;
+		/** A review agent on each project's pull requests, where a project has one. */
+		reviews?: PullReviews;
+		/** Docker on this machine, for threads whose agent runs in a container. */
+		sandboxes?: Sandboxes;
 		/** People's provider accounts and what each has used of its plan. */
 		accounts?: Accounts;
 		/** Each thread's browser page, shared by its agent and the browser pane. */
@@ -221,6 +233,9 @@ export function startServer(
 		guests,
 		spend,
 		audit,
+		memory,
+		reviews,
+		sandboxes,
 		accounts,
 		browsers,
 		mayApprove,
@@ -596,6 +611,37 @@ export function startServer(
 					const who = await whoFrom(request, "Sign in to see the audit log");
 					if (who instanceof Response) return who;
 					const handled = auditRequest(request, url, who, audit, spend.ledger);
+					if (handled) return handled;
+				}
+
+				if (memory && (url.pathname === "/memory" || url.pathname.startsWith("/memory/"))) {
+					const who = await whoFrom(request, "Sign in to see the project's memory");
+					if (who instanceof Response) return who;
+					const handled = await memoryRequest(request, url, who, memory, (person, action, entry) =>
+						audit?.record({
+							workspaceId: person.workspace,
+							actor: { kind: "person", id: person.userId, name: person.userId },
+							action,
+							project: entry.project,
+							sessionId: entry.sessionId,
+							target: entry.text,
+							detail: null,
+						}),
+					);
+					if (handled) return handled;
+				}
+
+				if (sandboxes && url.pathname === "/sandbox") {
+					const who = await whoFrom(request, "Sign in to see this machine's sandboxes");
+					if (who instanceof Response) return who;
+					const handled = sandboxRequest(request, url, sandboxes);
+					if (handled) return handled;
+				}
+
+				if (reviews && (url.pathname === "/reviews" || url.pathname.startsWith("/reviews/"))) {
+					const who = await whoFrom(request, "Sign in to see pull request reviews");
+					if (who instanceof Response) return who;
+					const handled = await reviewRequest(request, url, who, reviews);
 					if (handled) return handled;
 				}
 

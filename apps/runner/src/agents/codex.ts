@@ -358,6 +358,7 @@ async function startCodexSession(
 	const proc = spawn([binary, ...codexMcpArgs(context.mcpServers), "app-server"], {
 		cwd: context.cwd,
 		env: context.env,
+		sandbox: context.sandbox,
 		onMessage: (message) => rpc?.receive(message),
 		onStderr: (line) => {
 			stderr.push(line);

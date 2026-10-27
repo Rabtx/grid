@@ -9,7 +9,14 @@ import { openPrivateDatabase } from "../private-database";
  * Settings → Audit log. Kept 90 days.
  */
 
-export type AuditActorKind = "person" | "agent_key" | "guest" | "webhook" | "automation" | "grid";
+export type AuditActorKind =
+	| "person"
+	| "agent"
+	| "agent_key"
+	| "guest"
+	| "webhook"
+	| "automation"
+	| "grid";
 
 export type AuditEntry = {
 	id: string;

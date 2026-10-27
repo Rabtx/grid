@@ -54,6 +54,7 @@ import {
 } from "../lib/pull-look";
 import { mergeBlocker } from "../lib/pulls";
 import { pullsService } from "../services/pulls.service";
+import { reviewsService } from "../services/reviews.service";
 import type {
 	MergeMethod,
 	PullCommit,
@@ -223,6 +224,7 @@ export function PullDocument(props: {
 			{
 				items: [
 					{ id: "fix", label: "Fix with an agent" },
+					{ id: "review", label: "Review with the agent" },
 					current.draft
 						? { id: "ready", label: "Ready for review" }
 						: { id: "draft", label: "Back to draft" },
@@ -239,6 +241,11 @@ export function PullDocument(props: {
 	};
 	const onMenu = (id: string) => {
 		if (id === "fix") setFixing(true);
+		else if (id === "review")
+			void act(
+				(token) => reviewsService.run(token, props.project, props.number).then(() => undefined),
+				"Reviewing: the agent's review is posted here when it is done",
+			);
 		else if (id === "ready" || id === "draft" || id === "close")
 			void act(
 				(token) => pullsService.act(token, props.project, props.number, id),

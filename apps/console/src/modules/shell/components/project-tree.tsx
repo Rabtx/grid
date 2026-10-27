@@ -23,7 +23,9 @@ import {
 	NavGroup,
 	NavLink,
 	NavNote,
+	IdeaIcon,
 	NoteIcon,
+	ShieldIcon,
 	notify,
 	PullRequestIcon,
 	PlusIcon,
@@ -80,6 +82,7 @@ function projectMenu(settings: ProjectChatSettings | null): MenuGroup[] {
 				{ id: "files", label: "Open files", icon: <FileIcon /> },
 				{ id: "pulls", label: "Open pull requests", icon: <PullRequestIcon /> },
 				{ id: "notes", label: "Open notes", icon: <NoteIcon /> },
+				{ id: "memory", label: "Open memory", icon: <IdeaIcon /> },
 			],
 		},
 		{
@@ -96,6 +99,13 @@ function projectMenu(settings: ProjectChatSettings | null): MenuGroup[] {
 					label: "Compact idle Claude Code threads",
 					disabled: settings === null,
 					trailing: settings?.idleCompact ? <CheckIcon size="sm" /> : undefined,
+				},
+				{
+					id: "sandbox",
+					label: "Run agents in a sandbox",
+					icon: <ShieldIcon />,
+					disabled: settings === null,
+					trailing: settings?.sandbox ? <CheckIcon size="sm" /> : undefined,
 				},
 			],
 		},
@@ -341,7 +351,7 @@ function ProjectNode(props: {
 	);
 
 	/** Flip one of the project's chat settings, saying what it now does. */
-	async function toggleSetting(key: "worktrees" | "idleCompact"): Promise<void> {
+	async function toggleSetting(key: "worktrees" | "idleCompact" | "sandbox"): Promise<void> {
 		const token = auth.token();
 		const current = settings();
 		if (!token || !current) return;
@@ -360,9 +370,13 @@ function ProjectNode(props: {
 						? next
 							? "New threads get their own worktree"
 							: "New threads work in the project folder"
-						: next
-							? "Idle Claude Code threads are compacted before their cache expires"
-							: "Idle threads are left as they are",
+						: key === "sandbox"
+							? next
+								? "New threads run their agent in a throwaway container"
+								: "New threads run their agent on the machine"
+							: next
+								? "Idle Claude Code threads are compacted before their cache expires"
+								: "Idle threads are left as they are",
 			});
 		} catch (cause) {
 			setSettings(current);
@@ -371,7 +385,8 @@ function ProjectNode(props: {
 	}
 
 	function onMenu(id: string): void {
-		if (id === "worktrees" || id === "idleCompact") return void toggleSetting(id);
+		if (id === "worktrees" || id === "idleCompact" || id === "sandbox")
+			return void toggleSetting(id);
 		// The dialogs open over the page, so the phone drawer steps aside first.
 		if (id !== "new" && id !== "board") shell.setDrawerOpen(false);
 		if (id === "new") navigate(`/chat/${slug()}`);
@@ -381,6 +396,7 @@ function ProjectNode(props: {
 		else if (id === "board") navigate(`/board/${slug()}`);
 		else if (id === "files") navigate(`/files/${slug()}`);
 		else if (id === "notes") navigate(`/notes/${slug()}`);
+		else if (id === "memory") navigate(`/memory/${slug()}`);
 		else if (id === "pulls") navigate(`/pulls/${slug()}`);
 	}
 

@@ -854,8 +854,13 @@ export function Conversation(props: {
 			.filter(Boolean)
 			.join(" · ");
 	const modelName = () => currentModel()?.name ?? (model() || undefined);
-	const machine = () =>
-		environmentsStore.labelOf(placementsStore.environmentOf(session()?.project)) ?? "This machine";
+	const machine = () => {
+		const name =
+			environmentsStore.labelOf(placementsStore.environmentOf(session()?.project)) ??
+			"This machine";
+		// Its agent runs in a container there, seeing only the thread's folder.
+		return session()?.sandbox ? `${name}, in a sandbox` : name;
+	};
 	const status = () =>
 		facts().waiting ? (
 			<Badge tone="warning" dot>

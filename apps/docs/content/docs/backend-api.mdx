@@ -525,12 +525,46 @@ message already queued stays queued (held, with an `error` event saying why), an
 carried on after a restart is not.
 
 **Audit log.** Entries have an `actor.kind` (`person`, `agent_key`, `guest`, `webhook`,
-`automation`, `grid`) and an `action`: `thread.start`, `thread.send`, `thread.stop` and
+`automation`, `grid`, `agent`) and an `action`: `thread.start`, `thread.send`, `thread.stop` and
 `thread.answer` by agent keys; `key.create` and `key.revoke`; `guest_link.create`,
 `guest_link.stop`, `guest.ask`, `guest.send` and `guest.dismiss`; `automation.run`; and
 `webhook.refused` (at most one a minute per automation); `budget.warning`, `budget.reached`, and
-`thread.stop` by a reached budget. A person is named by their id; the console shows their name.
-Kept 90 days.
+`thread.stop` by a reached budget; `memory.save` by a thread's agent, `memory.edit` and
+`memory.remove` by a person; `review.posted` and `review.failed`. A person is named by their id;
+the console shows their name. Kept 90 days.
+
+### Runner project memory, pull request reviews and sandboxes
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/runner/memory?project=&q=` | member, viewer | A project's memory, newest first, or what is about `q`, best first: `{ id, project, kind, text, by: { kind, id, name }, sessionId, createdAt, updatedAt, used, usedAt }` |
+| `POST` | `/runner/memory` | member | Keep one, `{ project, kind, text }` (`201`; `200` with the one already there when the same text is) |
+| `PUT` | `/runner/memory/:id` | member | Change its `kind` or `text` |
+| `DELETE` | `/runner/memory/:id` | whoever kept it, owner, admin | Remove one (`204`) |
+| `GET` | `/runner/reviews?project=` | member, viewer | `{ settings, reviews, canManage }`: how the project's review agent is set (`enabled`, `provider`, `model`, `instructions`, `ownerId`, `since`) and its latest reviews (`repo`, `number`, `title`, `head`, `status`: `running`, `posted` or `failed`, `sessionId`, `commentUrl`, `error`, `manual`) |
+| `PUT` | `/runner/reviews/settings` | owner, admin | `{ project, enabled?, provider?, model?, instructions? }` |
+| `POST` | `/runner/reviews/run` | may start agents | Review a pull request now, `{ project, number }` (`202`, with the review as started) |
+| `GET` | `/runner/sandbox?fresh=1` | member | `{ available, reason, image, imageReady }`: whether Docker answers here, and the image sandboxed threads use |
+
+**Memory.** `kind` is `decision`, `convention`, `fix` or `fact`; `text` is at most 1,000
+characters, and a project keeps 500 at most. Threads' agents keep and find entries with Grid's
+`memory_save` and `memory_search` tools. A new thread's first message carries, in a note before
+it, the entries (up to eight, about 4,000 characters) that share the most words with that
+message; each one given counts in `used`.
+
+**Reviews.** With `enabled`, the runner lists the open pull requests of the project folder's
+GitHub repository every three minutes, and each that is not a draft and was updated since
+`since` gets a review of its head commit once: a thread (the review agent's `provider`, in its
+read-only mode where it has one, as `ownerId`) whose message carries the pull request and its
+diff, and whose reply is posted on the pull request as a comment. `POST /reviews/run` reviews one
+again, as whoever asks. A review is stopped after 20 minutes.
+
+**Sandboxes.** A thread created with `sandbox: true`, or in a project whose settings have
+`sandbox: true`, has `sandbox: { image }`, and its agent runs as `docker run --rm` in that image,
+seeing the thread's repository (and its worktree's git folder), the agent's own sign-in and
+settings, and Grid's tools: nothing else of the machine. Creating one where Docker does not
+answer is `409`; so is a turn in one when Docker has stopped since. The image is the machine's
+`sandboxImage` (`PATCH /runner/machine`), or Grid's own `grid-sandbox` (`docker/sandbox`).
 
 ### Runner file attribution
 
@@ -661,6 +695,7 @@ Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-10-27 | Runner: `/memory` routes and the `memory_save` and `memory_search` tools; `/reviews` routes; `sandbox` on threads, on thread creation and in project settings; `GET /sandbox`; `sandboxImage` machine setting; audit actor kind `agent` and actions `memory.*` and `review.*` | no |
 | 2026-10-27 | Runner: scoped agent keys (`expiresInDays`, `projects`, `budgetUsd`, `ownThreads`, `spentUsd`); `/spend` and budgets; `402` from a turn a budget refuses; Inbox kind `budget`; `GET /audit` | no |
 | 2026-10-27 | Runner: webhook triggers and their routes; run trigger `webhook`; agent keys and `POST /mcp`; guest links, guest routes and `guest_request` events; origins `outside` and `guest`; snooze and `snoozedUntil`; `GET /chat/sessions/:id`; thread tools answer with `grid-thread://` links; full-text search | no |
 | 2026-10-27 | Runner: `limit_wait` and `goal` events and `GridReason`s `limit`, `pull`, `goal`, `compact`; goal and limit-wait routes; `idleCompact` project setting; `watch_pull_request` and `unwatch_pull_request`; `contextUsed` on Claude Code usage | no |

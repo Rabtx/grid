@@ -10,6 +10,10 @@ import { Automations } from "./automations/service";
 import { AutomationStore } from "./automations/store";
 import { WebhookSecrets } from "./automations/webhooks";
 import { AuditLog } from "./audit/audit-log";
+import { memoryBrief, ProjectMemory } from "./memory/project-memory";
+import { memoryTools } from "./memory/tools";
+import { PullReviews } from "./github/reviews";
+import { runnerFiles, Sandboxes } from "./sandbox/sandbox";
 import { RateLog } from "./rate-log";
 import { budgetName, Budgets, covers } from "./spend/budgets";
 import { SpendLedger, type SpendTags } from "./spend/ledger";
@@ -372,6 +376,32 @@ chat.onEvent((session, event) => {
 	const tags = tagsOf(session);
 	budgets.spent(tags, ledger.report(tags, event.costUsd));
 });
+// Threads whose agent runs in a throwaway container, in the image this machine is set to.
+const sandboxes = new Sandboxes({
+	image: () => machinePrefs.get().sandboxImage ?? null,
+	runner: runnerFiles(),
+});
+chat.setSandboxes(sandboxes);
+// Each project's memory: what agents and people keep for later threads, and what a new thread
+// starts with (the entries its first message is about).
+const memory = new ProjectMemory(config.chatDb);
+chat.setMemoryBrief((session, message) =>
+	memoryBrief(memory.relevant(session.workspaceId, session.project, message)),
+);
+for (const tool of memoryTools(memory, {
+	agentName: (session) => chat.providerName(session.provider),
+	saved: (session, entry) =>
+		audit.record({
+			workspaceId: session.workspaceId,
+			actor: { kind: "agent", id: session.id, name: entry.by.name },
+			action: "memory.save",
+			project: session.project,
+			sessionId: session.id,
+			target: session.title,
+			detail: entry.text,
+		}),
+}))
+	chat.registerTool(tool);
 const accounts = new Accounts(config.chatDb, join(dirname(config.chatDb), "accounts"));
 chat.setAccounts(accounts);
 // What keeps threads going on their own: carrying on after a usage limit resets, pull requests
@@ -387,6 +417,9 @@ const compaction = new IdleCompaction(chat, {
 compaction.resume();
 if (process.env.GRID_LIMIT_RESUME !== "0") limits.watch();
 pullWatches.watch();
+// A review agent on the pull requests of each project that has one turned on.
+const reviews = new PullReviews(chat, gh, config.chatDb, { audit: (draft) => audit.record(draft) });
+reviews.watch();
 // Each thread's browser page: Chromium starts on the first one and stops when none are left.
 const browsers = new Browsers(join(dirname(config.chatDb), "browser"));
 for (const tool of browserTools(browsers, (session, page) =>
@@ -522,6 +555,9 @@ const server = startServer(config, store, verify, chat, {
 	guests,
 	spend: { ledger, budgets },
 	audit,
+	memory,
+	reviews,
+	sandboxes,
 	accounts,
 	browsers,
 	machine: {

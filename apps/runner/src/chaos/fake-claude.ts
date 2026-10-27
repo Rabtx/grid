@@ -3,7 +3,8 @@
  * the console's end-to-end tests: the runner starts it as `claude` from PATH. What a turn does is
  * read from its message: `SLOW:<ms>` works that long (a turn to kill the runner in), `APPROVE`
  * asks to run a command and waits for the answer, `LINK:<id>` answers with a link to that thread,
- * `COST:<usd>` adds that much to what it reports having cost; anything else is answered at once.
+ * `COST:<usd>` adds that much to what it reports having cost, `MEMORY?` says what of the project's
+ * memory the message came with; anything else is answered at once.
  * Grid's carry-on message is answered "carried on" (after `FAKE_CLAUDE_CONTINUE_MS`, when set).
  */
 import { createInterface } from "node:readline";
@@ -98,6 +99,14 @@ async function turn(text: string): Promise<void> {
 	const link = /LINK:([\w-]+)/.exec(text);
 	if (link) {
 		const reply = `See [the earlier thread](grid-thread://${link[1]}).`;
+		say(reply);
+		finish(reply);
+		return;
+	}
+	// Whether the message came with the project's memory, and the first thing it remembered.
+	if (text.includes("MEMORY?")) {
+		const kept = /^- \((?:decision|convention|fix|fact)\) (.*)$/m.exec(text)?.[1];
+		const reply = kept ? `remembered: ${kept.slice(0, 80)}` : "remembered nothing";
 		say(reply);
 		finish(reply);
 		return;

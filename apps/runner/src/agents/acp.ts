@@ -159,6 +159,7 @@ async function startAcpSession(
 	const proc = spawn(command, {
 		cwd: context.cwd,
 		env: context.env,
+		sandbox: context.sandbox,
 		onMessage: (message) => rpc?.receive(message),
 		onStderr: (line) => {
 			stderr.push(line);

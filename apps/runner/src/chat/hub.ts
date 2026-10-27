@@ -50,6 +50,7 @@ import { AGENT_SETUP } from "../agents/setup";
 import type { Who } from "../auth";
 import { isAdmin, may, NOT_ALLOWED } from "../permissions";
 import { insideProjectsDir } from "../folders/folders";
+import type { Sandboxes } from "../sandbox/sandbox";
 import {
 	isRetiredNotice,
 	type TurnErrorKind,
@@ -67,6 +68,7 @@ import type {
 	ProviderSettings,
 	SessionNotes,
 	SessionRole,
+	SessionSandbox,
 } from "./store";
 import { noteSuggestions, sharedNoteIds, SUGGEST_HOW } from "./note-suggestions";
 import {
@@ -446,6 +448,9 @@ export class ChatHub {
 				session: Pick<ChatSessionRow, "id" | "workspaceId" | "ownerId" | "project">,
 		  ) => string | null)
 		| null = null;
+	private memoryBrief: ((session: ChatSessionRow, message: string) => string | null) | null = null;
+	/** Docker on this machine, for threads whose agent runs in a sandbox. */
+	private sandboxes: Sandboxes | null = null;
 	/** The runner is stopping: turns cut off now are left open, to carry on when it starts. */
 	private shuttingDown = false;
 	/** How long a stop may take before the agent's process is ended (see `STOP_GRACE_MS`). */
@@ -827,6 +832,34 @@ export class ChatHub {
 		this.gate = gate;
 	}
 
+	/**
+	 * What a thread's agent is told of its project's memory when it starts: the note before its
+	 * first message (see `memory/project-memory.ts`), or null for nothing.
+	 */
+	setMemoryBrief(brief: (session: ChatSessionRow, message: string) => string | null): void {
+		this.memoryBrief = brief;
+	}
+
+	/** Docker on this machine, for threads whose agent runs in a container (see `sandbox/`). */
+	setSandboxes(sandboxes: Sandboxes): void {
+		this.sandboxes = sandboxes;
+	}
+
+	/**
+	 * What a new thread is sandboxed with: asked for, or what its project is set to. Asked for
+	 * where Docker does not answer, it is refused rather than run on the machine after all.
+	 */
+	private sandboxOf(workspace: string, project: string, asked?: boolean): SessionSandbox | null {
+		if (!(asked ?? this.store.projectSettings(workspace, project).sandbox === true)) return null;
+		const status = this.sandboxes?.status();
+		if (!this.sandboxes || !status?.available)
+			throw new ChatError(
+				`${status?.reason ?? "Sandboxes are not set up on this machine"}: start Docker, or start the thread without a sandbox.`,
+				409,
+			);
+		return { image: this.sandboxes.image() };
+	}
+
 	/** Why new work in a thread would be refused now, or null. */
 	refusal(
 		session: Pick<ChatSessionRow, "id" | "workspaceId" | "ownerId" | "project">,
@@ -991,6 +1024,16 @@ export class ChatHub {
 		return this.providers.has(id);
 	}
 
+	/** The modes an agent offers here (its permission modes: `plan`, `default`…), by id. */
+	modesOf(id: string): string[] {
+		return (
+			this.providers
+				.get(id)
+				?.info()
+				.modes.map((mode) => mode.id) ?? []
+		);
+	}
+
 	/** Every workspace with work kept here. */
 	/** Threads on one agent that changed since a time (ISO), in every workspace. */
 	recentThreads(provider: string, since: string): ChatSessionRow[] {
@@ -1021,6 +1064,8 @@ export class ChatHub {
 			effort?: string;
 			/** Its own git worktree; by default what the project is set to. */
 			worktree?: boolean;
+			/** Its agent runs in a container (see `sandbox/`); by default what the project is set to. */
+			sandbox?: boolean;
 			/** The new worktree's branch; `grid/chat-<id>` when not given. */
 			branch?: string;
 			/** Work on `branch` as it is instead of making a new one from what is checked out. */
@@ -1052,6 +1097,7 @@ export class ChatHub {
 		if (!existsSync(cwd) || !isDirectory(cwd))
 			throw new ChatError(`${cwd} is not a folder on this machine`, 400);
 		const boundedCwd = this.withinProjectsDir(cwd);
+		const sandbox = this.sandboxOf(who.workspace, input.project, input.sandbox);
 		const id = crypto.randomUUID();
 		const wanted =
 			input.worktree ?? this.store.projectSettings(who.workspace, input.project).worktrees;
@@ -1081,6 +1127,7 @@ export class ChatHub {
 			parentId: input.parentId ?? null,
 			account: account?.id ?? null,
 			delegatedBy: input.delegatedBy ?? null,
+			sandbox,
 		});
 	}
 
@@ -1112,6 +1159,7 @@ export class ChatHub {
 			: false;
 		if (!linked || !directory)
 			throw new ChatError("Choose this project's folder first: chats work inside it.", 409);
+		const sandbox = this.sandboxOf(who.workspace, input.project);
 		const root = await realpath(this.projectsDir);
 		const boundedCwd = await realpath(linked);
 		const inside = relative(root, boundedCwd);
@@ -1141,6 +1189,7 @@ export class ChatHub {
 			effort: input.effort ?? null,
 			worktree: own?.worktree ?? null,
 			role: input.role ?? null,
+			sandbox,
 		});
 	}
 
@@ -1621,7 +1670,11 @@ export class ChatHub {
 				const rules = this.workspacePolicy(session.workspaceId);
 				const note =
 					(firstTurn || fresh) && !command
-						? [this.personal(session.ownerId).note, branchNote(rules.policy, rules.defaultBranch)]
+						? [
+								this.personal(session.ownerId).note,
+								branchNote(rules.policy, rules.defaultBranch),
+								this.memoryBrief?.(session, typed),
+							]
 								.filter(Boolean)
 								.join("\n\n") || null
 						: null;
@@ -2127,8 +2180,8 @@ export class ChatHub {
 		return { ...row, title };
 	}
 
-	/** An agent's name as people know it. */
-	private providerName(id: string): string {
+	/** An agent's name as people know it ("Claude Code"). */
+	providerName(id: string): string {
 		return this.providers.get(id)?.info().name ?? id;
 	}
 
@@ -2735,18 +2788,27 @@ export class ChatHub {
 			const inside = relative(root, cwd);
 			if (inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside))
 				throw new ChatError("That folder is outside the projects directory", 403);
+			const env = {
+				...this.personal(fresh.ownerId).env,
+				...this.accounts?.env(fresh.ownerId, fresh.provider, fresh.account),
+			};
+			if (fresh.sandbox && !this.sandboxes?.status().available)
+				throw new ChatError(
+					`This thread runs in a sandbox, and ${this.sandboxes?.status().reason ?? "sandboxes are not set up on this machine"}. Start Docker and send again.`,
+					409,
+				);
 			return provider.start({
 				cwd,
+				...(fresh.sandbox && this.sandboxes
+					? { sandbox: this.sandboxes.plan(fresh.sandbox.image, cwd, env) }
+					: {}),
 				model: fresh.model ?? undefined,
 				mode: fresh.mode ?? undefined,
 				effort: fresh.effort ?? undefined,
 				// A fork whose agent branches its own conversation starts from the source's, once.
 				resume: fresh.resumeToken ?? fresh.forkToken ?? undefined,
 				...(!fresh.resumeToken && fresh.forkToken ? { fork: true } : {}),
-				env: {
-					...this.personal(fresh.ownerId).env,
-					...this.accounts?.env(fresh.ownerId, fresh.provider, fresh.account),
-				},
+				env,
 				onRateLimits: (limits) =>
 					this.accounts?.recordUsage(fresh.ownerId, fresh.provider, fresh.account ?? null, limits),
 				mcpServers: [

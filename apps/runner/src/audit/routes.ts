@@ -5,6 +5,7 @@ import type { AuditActorKind, AuditLog } from "./audit-log";
 
 const KINDS: readonly AuditActorKind[] = [
 	"person",
+	"agent",
 	"agent_key",
 	"guest",
 	"webhook",

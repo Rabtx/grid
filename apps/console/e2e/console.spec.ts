@@ -321,6 +321,28 @@ test("stops work when a spending limit is used up, and says so", async () => {
 	await expect(page.getByText("No budgets")).toBeVisible();
 });
 
+test("keeps what a project should remember, and starts the next thread about it with it", async () => {
+	await page.goto("/acme/memory/demo");
+	await expect(page.getByText("Nothing kept yet")).toBeVisible();
+	await page.getByRole("button", { name: "Add" }).first().click();
+	await page
+		.getByRole("dialog")
+		.getByPlaceholder(/Payments retry/)
+		.fill("Invoices are numbered per workspace, never globally.");
+	await page.getByRole("dialog").getByRole("button", { name: "Add" }).click();
+	await expect(
+		page.getByText("Invoices are numbered per workspace, never globally."),
+	).toBeVisible();
+
+	await page.goto("/acme/chat/demo");
+	await send("MEMORY? how are invoices numbered");
+	await expect(
+		page.getByText("remembered: Invoices are numbered per workspace, never globally."),
+	).toBeVisible();
+	await page.goto("/acme/memory/demo");
+	await expect(page.getByText(/started 1 thread/)).toBeVisible();
+});
+
 test("lists what keys, guests, webhooks, automations and limits did in the audit log", async () => {
 	await page.goto("/acme/settings/audit");
 	await expect(page.getByText("Made the agent key").first()).toBeVisible();

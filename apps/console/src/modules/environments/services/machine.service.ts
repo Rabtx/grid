@@ -14,7 +14,21 @@ export type MachineInfo = {
 };
 
 /** How this machine's runner behaves. */
-export type MachinePrefs = { keepAwake: boolean; concurrency: number; startAtLogin: boolean };
+export type MachinePrefs = {
+	keepAwake: boolean;
+	concurrency: number;
+	startAtLogin: boolean;
+	/** The image sandboxed threads run in; empty for Grid's own. */
+	sandboxImage?: string;
+};
+
+/** Whether threads can run in a sandbox here: Docker, and the image they would use. */
+export type SandboxStatus = {
+	available: boolean;
+	reason: string | null;
+	image: string;
+	imageReady: boolean | null;
+};
 
 export type MachineStatus = {
 	info: MachineInfo;
@@ -53,6 +67,8 @@ export type StoredMachine = {
 
 export const machineService = {
 	status: (token: string, scope = "") => runnerCall<MachineStatus>(`${scope}/machine`, token),
+	sandbox: (token: string, fresh = false) =>
+		runnerCall<SandboxStatus>(`/sandbox${fresh ? "?fresh=1" : ""}`, token),
 	update: (token: string, patch: Partial<MachinePrefs>) =>
 		runnerCall<MachinePrefs>("/machine", token, { method: "PATCH", body: JSON.stringify(patch) }),
 	addAgent: (token: string, input: { name: string; command: string }) =>
