@@ -35,14 +35,39 @@ export type AgentQuestion = {
 
 export type SubagentStatus = "running" | "completed" | "failed" | "cancelled";
 
+/**
+ * Who a message is from when the person did not type it: Grid (carrying a turn on after the
+ * runner restarted, or reporting on threads this one started), another thread's agent, or a
+ * fork's work brought back.
+ */
+export type MessageOrigin =
+	| { kind: "grid"; reason: "restart" | "report" }
+	| { kind: "agent"; thread: { id: string; title: string } }
+	| { kind: "merge"; thread: { id: string; title: string } };
+
 /** A message waiting for the agent to finish its turn. */
-export type QueuedMessage = { id: string; text: string; attachments?: ChatAttachment[] };
+export type QueuedMessage = {
+	id: string;
+	text: string;
+	attachments?: ChatAttachment[];
+	origin?: MessageOrigin;
+	/** Its turn was stopped for it (an agent that cannot take a message mid-turn). */
+	steered?: boolean;
+};
 
 /** A file a turn changed, as its checkpoint counts it. */
 export type CheckpointFile = { path: string; added: number; removed: number };
 
 export type ChatEvent =
-	| { type: "user"; id?: string; text: string; attachments?: ChatAttachment[] }
+	| {
+			type: "user";
+			id?: string;
+			text: string;
+			attachments?: ChatAttachment[];
+			origin?: MessageOrigin;
+			/** Sent while the agent worked; the turn it could not take it into was stopped for it. */
+			steered?: boolean;
+	  }
 	| { type: "message"; text: string }
 	| { type: "reasoning"; text: string }
 	| {
@@ -77,6 +102,10 @@ export type ChatEvent =
 			at?: string;
 			/** A failed turn that sending the message again can fix (a busy provider, a gone model). */
 			retryable?: boolean;
+			/** Stopped so a message sent meanwhile could go in; the next turn carries on with it. */
+			restarted?: boolean;
+			/** Cut off by the runner restarting, and carried on by Grid in the next turn. */
+			continued?: boolean;
 	  }
 	| {
 			type: "info";
@@ -88,7 +117,7 @@ export type ChatEvent =
 			effort?: string;
 	  }
 	| { type: "error"; message: string }
-	| { type: "steer"; text: string; attachments?: ChatAttachment[] }
+	| { type: "steer"; text: string; attachments?: ChatAttachment[]; origin?: MessageOrigin }
 	| { type: "question"; id: string; questions: AgentQuestion[] }
 	| { type: "question_answered"; id: string; answers: Record<string, string[]> | null }
 	| {
@@ -115,10 +144,14 @@ export type ChatEvent =
 	| { type: "checkpoint"; turn: number; files: CheckpointFile[]; at?: string }
 	| { type: "checkpoint_restored"; turn: number; files: CheckpointFile[]; at?: string }
 	| { type: "forked"; from: { id: string; title: string }; at?: string }
+	/** This fork's work was brought back into the thread it came from. */
+	| { type: "merged"; into: { id: string; title: string }; turns: number; at?: string }
 	| {
 			type: "handoff";
 			from: { provider: string; model?: string | null };
 			to: { provider: string; model?: string | null };
+			/** Back to an agent it was with: it continues its own conversation from this many turns. */
+			resumes?: { turns: number };
 			at?: string;
 	  }
 	/** What waits for the agent, and whether it is held. Like `commands`, never logged. */
@@ -190,6 +223,8 @@ export type ChatSession = {
 	parentId?: string | null;
 	/** The provider account it runs as; null is the machine's own sign-in. */
 	account?: string | null;
+	/** The thread whose agent started this one with Grid's thread tools, if one did. */
+	delegatedBy?: string | null;
 	createdAt: string;
 	updatedAt: string;
 };
@@ -251,6 +286,11 @@ export type ChatProvider = {
 	id: string;
 	name: string;
 	available: boolean;
+	/**
+	 * What it can do beyond the basics (apps/runner/src/agents/provider.ts): whether a message
+	 * sent while it works goes into the turn (`native`) or stops it and starts the next (`restart`).
+	 */
+	capabilities?: { steer?: "native" | "restart"; resume?: boolean; fork?: boolean };
 	models: Choice[];
 	modes: Choice[];
 	defaultMode?: string;

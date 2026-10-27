@@ -26,6 +26,20 @@ export function gridToolTitle(tool: string, input: Record<string, unknown> = {})
 			return "Checked the crew";
 		case "crew_stop_worker":
 			return "Stopped a crew member";
+		case "thread_start":
+			return title ? `Started a thread: ${title}` : "Started a thread";
+		case "thread_send":
+			return "Sent a message to a thread";
+		case "thread_wait":
+			return "Waited for a thread";
+		case "thread_read":
+			return "Read a thread";
+		case "thread_list":
+			return "Listed threads";
+		case "thread_stop":
+			return "Stopped a thread";
+		case "thread_answer":
+			return "Answered a thread's question";
 		case "browser_open": {
 			const url = typeof input.url === "string" ? input.url.replace(/^https?:\/\//, "") : null;
 			return url ? `Opened ${url.slice(0, 80)} in the browser` : "Opened a page in the browser";

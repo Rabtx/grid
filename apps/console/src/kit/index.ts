@@ -448,6 +448,7 @@ export {
 	HandoffDivider,
 	ChangedFilesRow,
 	ForkDivider,
+	MergedDivider,
 	QuestionCard,
 	type QuestionItem,
 	QueueList,

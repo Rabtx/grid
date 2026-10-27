@@ -33,6 +33,7 @@ import {
 	FileIcon,
 	ForkDivider,
 	HandoffDivider,
+	MergedDivider,
 	iconButton,
 	GlobeIcon,
 	IconButton,
@@ -77,6 +78,7 @@ import {
 	countWork,
 	formatDuration,
 	groupTurns,
+	messageSource,
 	type Row as TranscriptRow,
 	summariseTools,
 	toolFile,
@@ -181,6 +183,8 @@ export function TranscriptView(props: {
 	forkedHref?: (id: string) => string | undefined;
 	/** An agent's name as people know it, for a handoff's line. */
 	agentName?: (id: string) => string;
+	/** Bring this fork's work back into the thread it came from; offered on the fork's divider. */
+	onMergeBack?: () => void;
 }): JSX.Element {
 	const turns = createMemo(() => groupTurns(props.blocks));
 
@@ -215,6 +219,7 @@ type Extras = {
 	onChoose?: (message: string) => void;
 	forkedHref?: (id: string) => string | undefined;
 	agentName?: (id: string) => string;
+	onMergeBack?: () => void;
 };
 
 function TurnView(props: {
@@ -262,8 +267,11 @@ function TurnView(props: {
 					<UserMessageView
 						text={user().text}
 						meta={
-							props.people
-								? [props.people.you, user().startedAt ? relativeTime(user().startedAt ?? "") : null]
+							props.people || messageSource(user())
+								? [
+										messageSource(user()) ?? props.people?.you,
+										user().startedAt ? relativeTime(user().startedAt ?? "") : null,
+									]
 										.filter(Boolean)
 										.join(" · ")
 								: undefined
@@ -505,7 +513,11 @@ function BlockView(props: {
 						</span>
 					);
 					return (
-						<HandoffDivider from={agent(moved().from.provider)} to={agent(moved().to.provider)} />
+						<HandoffDivider
+							from={agent(moved().from.provider)}
+							to={agent(moved().to.provider)}
+							back={moved().resumes === true}
+						/>
 					);
 				}}
 			</Match>
@@ -516,6 +528,31 @@ function BlockView(props: {
 					<ForkDivider
 						from={forked().from.title}
 						href={props.extras.forkedHref?.(forked().from.id)}
+						action={
+							<Show when={props.extras.onMergeBack}>
+								{(merge) => (
+									<Button
+										variant="ghost"
+										size="sm"
+										icon={<BranchIcon size="sm" />}
+										onClick={() => merge()()}
+									>
+										Bring this fork's work back
+									</Button>
+								)}
+							</Show>
+						}
+					/>
+				)}
+			</Match>
+			<Match
+				when={props.block.kind === "merged" && (props.block as Extract<Block, { kind: "merged" }>)}
+			>
+				{(merged) => (
+					<MergedDivider
+						into={merged().into.title}
+						href={props.extras.forkedHref?.(merged().into.id)}
+						turns={merged().turns}
 					/>
 				)}
 			</Match>

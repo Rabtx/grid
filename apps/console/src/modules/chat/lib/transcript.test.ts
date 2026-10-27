@@ -7,6 +7,7 @@ import {
 	formatDuration,
 	groupRows,
 	groupTurns,
+	messageSource,
 	pendingApprovals,
 	pendingQuestions,
 	replay,
@@ -409,5 +410,80 @@ describe("handoffs", () => {
 		expect(t.model).toBeNull();
 		expect(t.models).toEqual([]);
 		expect(t.mode).toBeNull();
+	});
+});
+
+describe("messages the person did not type", () => {
+	it("keep who sent them, and say so under the bubble", () => {
+		const t = replay([
+			{ type: "user", id: "u1", text: "Continue", origin: { kind: "grid", reason: "restart" } },
+			{ type: "turn_start" },
+			{ type: "turn_end", reason: "done" },
+			{
+				type: "user",
+				text: "Check auth",
+				origin: { kind: "agent", thread: { id: "a", title: "Lead" } },
+			},
+			{
+				type: "user",
+				text: "Found it",
+				origin: { kind: "merge", thread: { id: "f", title: "Try SQLite" } },
+			},
+			{ type: "user", text: "Keep the API", steered: true },
+		]);
+		const users = t.blocks.filter(
+			(block): block is Extract<Block, { kind: "user" }> => block.kind === "user",
+		);
+		expect(users.map((block) => messageSource(block))).toEqual([
+			"Grid · carried on after the runner restarted",
+			'From the agent in "Lead"',
+			'Brought back from the fork "Try SQLite"',
+			"Sent while it worked",
+		]);
+		expect(messageSource({})).toBeNull();
+	});
+
+	it("tell a turn stopped to take a message from a plain stop", () => {
+		const t = replay([
+			{ type: "user", text: "Go" },
+			{ type: "turn_start" },
+			{ type: "turn_end", reason: "cancelled", restarted: true },
+			{ type: "user", text: "Again" },
+			{ type: "turn_start" },
+			{ type: "turn_end", reason: "cancelled" },
+		]);
+		const notices = t.blocks
+			.filter((block) => block.kind === "notice")
+			.map((block) => (block as { text: string }).text);
+		expect(notices).toEqual(["Stopped to take your message; it carries on below.", "Stopped."]);
+		const carried = replay([
+			{ type: "user", text: "Go" },
+			{ type: "turn_start" },
+			{
+				type: "turn_end",
+				reason: "cancelled",
+				continued: true,
+				error: "Interrupted: the runner restarted. Grid carries the turn on below.",
+			},
+		]);
+		expect(carried.blocks.at(-1)).toMatchObject({
+			kind: "notice",
+			tone: "muted",
+			text: "Interrupted: the runner restarted. Grid carries the turn on below.",
+		});
+	});
+
+	it("draw a fork's work brought back, and a thread handed back to an agent", () => {
+		const t = replay([
+			{ type: "merged", into: { id: "s", title: "Main" }, turns: 2 },
+			{
+				type: "handoff",
+				from: { provider: "codex" },
+				to: { provider: "claude" },
+				resumes: { turns: 3 },
+			},
+		]);
+		expect(t.blocks[0]).toMatchObject({ kind: "merged", into: { title: "Main" }, turns: 2 });
+		expect(t.blocks[1]).toMatchObject({ kind: "handoff", resumes: true });
 	});
 });

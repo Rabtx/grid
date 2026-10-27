@@ -251,6 +251,13 @@ describe("Claude adapter", () => {
 			"abc",
 		]);
 		expect(claudeArgs("claude", { model: "default" })).not.toContain("--model");
+		// A fork branches the stored session into a new one; without a session there is nothing to fork.
+		expect(claudeArgs("claude", { resume: "abc", fork: true }).slice(-3)).toEqual([
+			"--resume",
+			"abc",
+			"--fork-session",
+		]);
+		expect(claudeArgs("claude", { fork: true })).not.toContain("--fork-session");
 	});
 
 	it("reports the commands from the initialize response, with their argument hints", async () => {

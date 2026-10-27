@@ -10,8 +10,11 @@ import { ChatError, type ChatHub, type QueueAction } from "./hub";
  * A thread as devices are sent it: the notes it started with stay on this machine (they can be
  * long, and every thread list would carry them); only whether it has them is said.
  */
-function listed(session: ChatSessionRow): Omit<ChatSessionRow, "notes"> & { sharedNotes: boolean } {
-	const { notes, ...rest } = session;
+function listed(
+	session: ChatSessionRow,
+): Omit<ChatSessionRow, "notes" | "forkToken" | "agentTokens"> & { sharedNotes: boolean } {
+	// Agents' session ids beyond the current one are Grid's to use, not the console's.
+	const { notes, forkToken: _fork, agentTokens: _tokens, ...rest } = session;
 	return { ...rest, sharedNotes: Boolean(notes) };
 }
 
@@ -319,6 +322,15 @@ export async function chatRequest(
 			);
 		});
 	}
+	// Bring a fork's work back into the thread it was forked from, as that thread's next message.
+	const merge = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/merge$/);
+	if (merge && request.method === "POST") {
+		if (!may(who, "startAgents")) return failure(403, NOT_ALLOWED);
+		return run(() => {
+			const { into, turns } = hub.mergeBack(who, merge[1] ?? "");
+			return Response.json({ data: { into: listed(into), turns } });
+		});
+	}
 	// A thread's side chats: listing them, and opening one (`{ provider?, model? }`).
 	const sides = url.pathname.match(/^\/chat\/sessions\/([\w-]+)\/sides$/);
 	if (sides && request.method === "GET") {
@@ -376,7 +388,14 @@ export async function chatRequest(
 
 /** What the console sends on a chat socket after hello. */
 export type ChatCommand =
-	| { t: "prompt"; text: string; attachments?: string[]; delivery?: "send" | "steer" }
+	| {
+			t: "prompt";
+			text: string;
+			attachments?: string[];
+			delivery?: "send" | "steer";
+			/** Names the send: one arriving again with the same id (a retry) is not sent twice. */
+			requestId?: string;
+	  }
 	| { t: "answer"; id: string; answers: Record<string, string[]> | null }
 	| { t: "queue"; action: QueueAction; id?: string }
 	| { t: "cancel" }
@@ -413,6 +432,7 @@ export function chatCommand(
 					command.text,
 					command.attachments,
 					command.delivery === "steer" ? "steer" : "send",
+					typeof command.requestId === "string" ? { requestId: command.requestId } : {},
 				)
 				.catch(fail);
 		} else if (command.t === "answer" && typeof command.id === "string") {

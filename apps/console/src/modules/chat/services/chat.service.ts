@@ -236,6 +236,14 @@ export const chatService = {
 			{ method: "POST", body: JSON.stringify(input) },
 			scope,
 		),
+	/** Bring a fork's work back into the thread it was forked from, as that thread's next message. */
+	mergeBack: (token: string, id: string, scope = "") =>
+		call<{ into: ChatSession; turns: number }>(
+			`/chat/sessions/${id}/merge`,
+			token,
+			{ method: "POST" },
+			scope,
+		),
 	/** Hand the thread to another agent, here or (with `newThread`) in a copy. */
 	handoff: (
 		token: string,

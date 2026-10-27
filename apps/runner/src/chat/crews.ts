@@ -3,6 +3,7 @@ import type { Database } from "bun:sqlite";
 import type { Who } from "../auth";
 import { openPrivateDatabase } from "../private-database";
 import { ChatError, type ChatHub, type GridTool } from "./hub";
+import type { ChatEvent } from "../agents/events";
 import type { ChatSessionRow, SessionRole } from "./store";
 
 /**
@@ -17,7 +18,8 @@ import type { ChatSessionRow, SessionRole } from "./store";
  *
  * A member waiting on a person (an approval, a question) is never nudged: that wait is theirs.
  * Members' approvals are the person's to answer, here or in the member's thread; no agent has a
- * tool for them.
+ * tool for them. Their questions also go to the coordinator, which can answer with Grid's
+ * `thread_answer` or ask the person.
  */
 
 export type WorkerState = "queued" | "working" | "done" | "failed" | "stopped" | "needs_you";
@@ -343,7 +345,7 @@ export function coordinatorBrief(
 		"Do small things yourself. For real work, split the person's request into independent tasks and give each to a crew member with crew_start_worker: a stable key per task, a short title, and a self-contained brief (the goal, what they need to know, constraints, and what to report back). Members do not see this conversation; the brief is all they get.",
 		`Up to ${crew.parallel} members work at once; the rest wait their turn. Follow up on a member with crew_message_worker rather than starting a duplicate, check on them with crew_list_workers, and stop one with crew_stop_worker.`,
 		'Grid sends you "[Crew report]" messages when members finish, fail or get stuck. Read them, tell the person where things stand in plain words, and decide what happens next.',
-		"Members ask the person, not you, for approvals; you cannot approve for them.",
+		"Members ask the person, not you, for approvals; you cannot approve for them. Their questions come to you in [Crew report]s too: answer with thread_answer when the answer is clear from the task, and ask the person when it is theirs to decide.",
 		crew.instructions.trim() ? `The crew's shared instructions:\n${crew.instructions.trim()}` : "",
 	]
 		.filter(Boolean)
@@ -404,13 +406,45 @@ export class Crews {
 		this.now = options.now ?? Date.now;
 		this.reportDelayMs = options.reportDelayMs ?? REPORT_DELAY_MS;
 		hub.onTurnEnded((session, reason) => this.turnEnded(session, reason));
+		hub.onEvent((session, event) => {
+			if (event.type === "question") this.questionAsked(session, event);
+		});
 		for (const tool of this.tools()) hub.registerTool(tool);
-		// A runner that restarted cut its members' turns off: they wait for the person to Retry,
-		// rather than holding the crew's places as "working" with nothing behind them.
-		for (const crew of store.all())
-			for (const worker of store.workers(crew.id))
-				if (worker.state === "working" && !(worker.sessionId && hub.isRunning(worker.sessionId)))
-					store.setWorker(worker.id, { state: "needs_you", nudgedAt: null });
+	}
+
+	/**
+	 * After the runner starts (and `ChatHub.recover` has carried on what it could): members whose
+	 * turn was cut off and not carried on wait for the person to Retry, rather than holding the
+	 * crew's places as "working" with nothing behind them.
+	 */
+	recover(): void {
+		for (const crew of this.store.all())
+			for (const worker of this.store.workers(crew.id))
+				if (
+					worker.state === "working" &&
+					!(worker.sessionId && this.hub.isRunning(worker.sessionId))
+				)
+					this.store.setWorker(worker.id, { state: "needs_you", nudgedAt: null });
+	}
+
+	/** A member's question goes to the coordinator too: members' threads are rarely watched. */
+	private questionAsked(
+		session: ChatSessionRow,
+		event: Extract<ChatEvent, { type: "question" }>,
+	): void {
+		const worker = this.store.workerBySession(session.id);
+		const crew = worker ? this.store.get(worker.crewId) : null;
+		if (!worker || !crew) return;
+		const asked = event.questions
+			.map(
+				(question) =>
+					`  - [${question.id}] ${question.question}${question.options.length ? ` Options: ${question.options.map((option) => JSON.stringify(option.label)).join(", ")}` : ""}`,
+			)
+			.join("\n");
+		this.report(
+			crew,
+			`${worker.title} (${worker.key}) is waiting on an answer (thread ${session.id}, question "${event.id}"):\n${asked}\nAnswer it with thread_answer if you can; if it is the person's to decide, ask them.`,
+		);
 	}
 
 	/** Check running members every so often (see the class comment). */

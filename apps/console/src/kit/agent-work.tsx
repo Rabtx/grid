@@ -142,6 +142,8 @@ export function QueueList(props: {
 	paused: boolean;
 	/** The agent is working: "Send now" steers rather than starts a turn. */
 	running: boolean;
+	/** Steering stops the turn and starts the next (an agent that cannot take it mid-turn). */
+	steerRestarts?: boolean;
 	onRemove: (id: string) => void;
 	onSendNow: (id: string) => void;
 	onResume: () => void;
@@ -182,7 +184,13 @@ export function QueueList(props: {
 							<IconButton
 								size="xs"
 								label={props.running ? "Send into this turn now" : "Send now"}
-								tooltip={props.running ? "Steer: send into this turn now" : "Send now"}
+								tooltip={
+									!props.running
+										? "Send now"
+										: props.steerRestarts
+											? "Steer: stop this turn and carry on with this"
+											: "Steer: send into this turn now"
+								}
 								onClick={() => props.onSendNow(item.id)}
 							>
 								<SendIcon size="sm" />
@@ -265,23 +273,53 @@ export function ChangedFilesRow(props: {
 	);
 }
 
-/** Where a forked thread's own work begins: everything above came from another thread. */
-export function ForkDivider(props: { from: string; href?: string }): JSX.Element {
+/** A thread named in a divider: a link to it when it can be opened. */
+function ThreadName(props: { title: string; href?: string }): JSX.Element {
+	return (
+		<Show when={props.href} fallback={props.title}>
+			<a class="focus-ring text-fg-muted underline-offset-2 hover:underline" href={props.href}>
+				{props.title}
+			</a>
+		</Show>
+	);
+}
+
+/**
+ * Where a forked thread's own work begins: everything above came from another thread.
+ * `action` offers what can be done with the fork from here (bring its work back).
+ */
+export function ForkDivider(props: {
+	from: string;
+	href?: string;
+	action?: JSX.Element;
+}): JSX.Element {
+	return (
+		<div class="flex flex-col items-center gap-1.5">
+			<div class="flex w-full items-center gap-3 text-caption text-fg-subtle">
+				<span class="h-px flex-1 bg-line" />
+				<span class="inline-flex min-w-0 items-center gap-1.5">
+					<BranchIcon size="sm" />
+					<span class="truncate">
+						Forked from <ThreadName title={props.from} href={props.href} />
+					</span>
+				</span>
+				<span class="h-px flex-1 bg-line" />
+			</div>
+			{props.action}
+		</div>
+	);
+}
+
+/** Where a fork's work was brought back into the thread it came from. */
+export function MergedDivider(props: { into: string; href?: string; turns: number }): JSX.Element {
 	return (
 		<div class="flex items-center gap-3 text-caption text-fg-subtle">
 			<span class="h-px flex-1 bg-line" />
 			<span class="inline-flex min-w-0 items-center gap-1.5">
 				<BranchIcon size="sm" />
 				<span class="truncate">
-					Forked from{" "}
-					<Show when={props.href} fallback={props.from}>
-						<a
-							class="focus-ring text-fg-muted underline-offset-2 hover:underline"
-							href={props.href}
-						>
-							{props.from}
-						</a>
-					</Show>
+					{props.turns === 1 ? "1 turn" : `${props.turns} turns`} brought back into{" "}
+					<ThreadName title={props.into} href={props.href} />
 				</span>
 			</span>
 			<span class="h-px flex-1 bg-line" />
@@ -289,13 +327,20 @@ export function ForkDivider(props: { from: string; href?: string }): JSX.Element
 	);
 }
 
-/** Where a thread moved from one agent to another. */
-export function HandoffDivider(props: { from: JSX.Element; to: JSX.Element }): JSX.Element {
+/**
+ * Where a thread moved from one agent to another; `back` when it went back to one it was with,
+ * which carries on its own conversation.
+ */
+export function HandoffDivider(props: {
+	from: JSX.Element;
+	to: JSX.Element;
+	back?: boolean;
+}): JSX.Element {
 	return (
 		<div class="flex items-center gap-3 text-caption text-fg-subtle">
 			<span class="h-px flex-1 bg-line" />
 			<span class="inline-flex min-w-0 items-center gap-1.5">
-				<span class="truncate">Handed off from</span>
+				<span class="truncate">{props.back ? "Handed back from" : "Handed off from"}</span>
 				{props.from}
 				<span>to</span>
 				{props.to}

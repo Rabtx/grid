@@ -257,6 +257,52 @@ describe("Codex session", () => {
 		expect(resumed.sent.some((message) => message.method === "thread/start")).toBe(false);
 	});
 
+	it("forks a stored thread into a new one, and says when it had to start afresh", async () => {
+		const forked = fakeServer((message) => {
+			if (message.method === "initialize") return {};
+			if (message.method === "thread/fork") return { thread: { id: "t-fork" }, model: "gpt-5.5" };
+			return undefined;
+		});
+		const tokens: string[] = [];
+		const session = await codexProvider({
+			binary: "codex",
+			available: () => true,
+			spawn: forked.spawn,
+		}).start({
+			cwd: "/home/me/Projects/shop",
+			resume: "t1",
+			fork: true,
+			emit: () => undefined,
+			onResumeToken: (token) => tokens.push(token),
+		});
+		expect(forked.sent.find((message) => message.method === "thread/fork")?.params).toMatchObject({
+			threadId: "t1",
+		});
+		expect(forked.sent.some((message) => message.method === "thread/resume")).toBe(false);
+		expect(tokens).toEqual(["t-fork"]);
+		expect(session.resumed).toBe(true);
+
+		// Codex no longer has the thread: a new one starts, and the session says so.
+		const gone = fakeServer((message, push) => {
+			if (message.method === "initialize") return {};
+			if (message.method === "thread/resume")
+				push({ id: message.id, error: { code: -32600, message: "thread not found: t1" } });
+			if (message.method === "thread/start") return { thread: { id: "t-new" } };
+			return undefined;
+		});
+		const fresh = await codexProvider({
+			binary: "codex",
+			available: () => true,
+			spawn: gone.spawn,
+		}).start({
+			cwd: "/home/me/Projects/shop",
+			resume: "t1",
+			emit: () => undefined,
+			onResumeToken: () => undefined,
+		});
+		expect(fresh.resumed).toBe(false);
+	});
+
 	it("reports a failed turn with Codex's own message, ignoring retries", async () => {
 		const events: ChatEvent[] = [];
 		const server = fakeServer((message, push) => {
