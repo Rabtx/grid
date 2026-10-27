@@ -9,6 +9,7 @@ import { GridUpdater } from "./machine/update";
 import { Automations } from "./automations/service";
 import { AutomationStore } from "./automations/store";
 import { WebhookSecrets } from "./automations/webhooks";
+import { RateLog } from "./rate-log";
 import { withAgentBins } from "./agents/setup";
 import {
 	createTokenVerifier,
@@ -119,9 +120,12 @@ chat.onBusy((running) => keepAwake.update(running));
 // Everything waiting on the people in a workspace, kept in the same database as their chats.
 const inbox = new InboxStore(config.chatDb);
 const roles = new RoleStore(config.chatDb);
+// Rate limits that must hold across restarts (webhooks, guests, outside agents' starts).
+const rates = new RateLog(config.chatDb);
 const automations = new Automations(new AutomationStore(config.chatDb), chat, inbox, {
 	roleOf: (workspace, id) => roles.get(workspace, id),
 	hooks: new WebhookSecrets(config.chatDb),
+	rates,
 	// The pull request a run opened: the open one from the branch its worktree is on. Asked only
 	// once a run ends, long after `pulls` below exists.
 	pullOf: async (ownerId, project, workspace, branch) => {
@@ -286,6 +290,7 @@ const crews = new Crews(new CrewStore(config.chatDb), chat);
 const personOf = (ownerId: string, workspace: string): Who =>
 	lastSeen.get(`${ownerId}:${workspace}`) ?? { userId: ownerId, workspace };
 const threadTools = new ThreadTools(chat, {
+	rates,
 	whoFor: (session) => personOf(session.ownerId, session.workspaceId),
 });
 // Agents outside Grid use the same tools over MCP, with a key their person made.
@@ -302,10 +307,11 @@ const autonomyStore = new AutonomyStore(config.chatDb);
 const limits = new LimitResumes(chat, autonomyStore, { accounts });
 const goals = new Goals(chat, autonomyStore);
 const pullWatches = new PullWatches(chat, autonomyStore, gh);
-new IdleCompaction(chat, {
+const compaction = new IdleCompaction(chat, {
 	enabled: (session) =>
 		chat.projectSettings(session.workspaceId, session.project).idleCompact === true,
 });
+compaction.resume();
 if (process.env.GRID_LIMIT_RESUME !== "0") limits.watch();
 pullWatches.watch();
 // Each thread's browser page: Chromium starts on the first one and stops when none are left.
@@ -481,6 +487,8 @@ if (recovered.carried.length || recovered.held.length)
 	console.log(
 		`[runner] after the restart: carried on ${recovered.carried.length} cut-off turns, left ${recovered.held.length} for their person`,
 	);
+// Automation runs follow their threads: those carried on keep running, the rest have failed.
+automations.recover(recovered.carried);
 crews.recover();
 if (pairing && pairing.peers().length === 0) {
 	console.log(

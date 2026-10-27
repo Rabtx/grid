@@ -1,0 +1,56 @@
+---
+title: Reliability Tests
+description: How Grid is tested against crashes, agent CLI changes and the real stack.
+---
+
+Grid drives agent CLIs that change every week and runs work that must survive a crash. Four kinds
+of tests guard that, beyond each app's unit tests.
+
+## Chaos: the runner killed mid-work
+
+`apps/runner/src/chaos/chaos.test.ts` runs the real runner (`src/main.ts`) as a child process with
+its own database, and drives it over MCP with an agent key, no API needed. The agent is a
+stand-in for Claude Code (`fake-claude.ts`) first on its `PATH`, speaking Claude Code's protocol.
+Each test kills the runner with `SIGKILL` at a bad moment and starts it again on the same
+database, then checks the result in SQLite:
+
+- a turn it was killed in is carried on once, and not again after another restart;
+- a turn that waited on an approval goes back to the person, and nothing is carried on;
+- a message queued during the turn is sent once after the turn carried on;
+- a runner that keeps crashing stops carrying the turn on after three tries;
+- a webhook delivery runs once across the crash, and its automation run follows the thread
+  carried on rather than failing;
+- rate limits hold across the restart;
+- after every crash, `PRAGMA integrity_check` is `ok`.
+
+They run with `bun test` in `apps/runner` and take a few seconds.
+
+## Replays of real agent sessions
+
+`bun --cwd=apps/runner run record:agents <agent>` runs the standard scenarios (a plain reply, an
+approval, a question, a resumed session, a stop) through the agent's real CLI and keeps every
+process it started in `src/agents/replay-fixtures/<agent>/<scenario>/`. Each scenario also has an
+`expect.json`: how the turn ended, the events Grid saw in order, what was said, and the
+approvals and questions. The recordings are scrubbed (this machine's paths, emails, credentials,
+Claude Code's list of tools and plugins); read them before committing.
+
+`recorded.test.ts` plays every recording back to that agent's provider code, without the CLI or
+the network: Grid must send what it sent when recorded and make the same of the output. To add
+an agent, record it where it is installed and signed in; no code is needed.
+
+## Nightly, with real agents
+
+`.github/workflows/agents-nightly.yml` installs each agent whose key is a repository secret
+(`ANTHROPIC_API_KEY` for Claude Code, `OPENAI_API_KEY` for Codex), runs
+`bun --cwd=apps/runner run smoke` (a thread creates a file, the hub restarts, the resumed thread
+changes it), records the scenarios again and compares them with the committed ones
+(`scripts/agent-drift.ts`: how turns end and which events they have, not the wording). A failure
+is reported on one open issue labelled `agent-nightly`.
+
+## The console end to end
+
+`bun run test:e2e:console` starts the real API (embedded PGlite in `.e2e-stack/`), the runner
+with the stand-in agent, and the console, then drives it in Chromium: first-run setup, a thread
+the agent answers, a thread link, snooze, sharing with a guest on a phone-sized page, an agent key
+used over MCP and revoked, and a signed webhook that runs an automation once. Any error the page
+throws fails the test. CI runs it as `e2e-console`.

@@ -96,7 +96,15 @@ async function request<T>(path: string, options: ApiRequestOptions = {}, retry =
 	});
 	if (response.status === 204) return undefined as T;
 
-	const payload: unknown = await response.json().catch(() => ({}));
+	const read: { payload: unknown } | null = await response.json().then(
+		(payload: unknown) => ({ payload }),
+		() => null,
+	);
+	// An answer that is not JSON (a proxy's error page, a dev server's HTML) is no data: handed on
+	// as `{}`, it failed far from here as "x.filter is not a function".
+	if (!read && response.ok)
+		throw new ApiError("Grid's API sent an answer the console could not read", response.status);
+	const payload = read?.payload ?? {};
 	if (!response.ok) {
 		const failure = payload as ApiFailure;
 		const error = new ApiError(

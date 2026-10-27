@@ -58,3 +58,17 @@ describe("authenticated request renewal", () => {
 		expect(fetch).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe("answers the console cannot read", () => {
+	it("are an error where they arrive, not an empty object handed on", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi
+				.fn()
+				.mockResolvedValue(new Response("<!doctype html><title>Grid</title>", { status: 200 })),
+		);
+		await expect(apiClient.get("/workspaces/acme/projects", { accessToken: "t" })).rejects.toThrow(
+			"could not read",
+		);
+	});
+});

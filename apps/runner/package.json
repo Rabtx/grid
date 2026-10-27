@@ -10,6 +10,7 @@
 		"typecheck": "tsc --noEmit",
 		"test": "bun test",
 		"smoke": "bun run scripts/smoke.ts",
+		"record:agents": "bun run scripts/record-agents.ts",
 		"pair": "bun run src/pair.ts",
 		"restore": "bun run src/restore.ts"
 	},

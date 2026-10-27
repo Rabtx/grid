@@ -67,7 +67,8 @@ async function smoke(agent: string): Promise<Outcome> {
 	const outcome: Outcome = { agent, created: "✗", resumed: "✗", notes };
 	try {
 		let store = new ChatStore(database);
-		let hub = new ChatHub(store, providerRegistry());
+		// The folder is its own projects directory, as a runner's `RUNNER_PROJECTS_DIR` would be.
+		let hub = new ChatHub(store, providerRegistry(), folder);
 		store.setProjectFolder(OWNER, "smoke", folder);
 		const session = hub.create(
 			{ userId: OWNER, workspace: OWNER },
@@ -96,7 +97,7 @@ async function smoke(agent: string): Promise<Outcome> {
 		hub.closeAll();
 		store.close();
 		store = new ChatStore(database);
-		hub = new ChatHub(store, providerRegistry());
+		hub = new ChatHub(store, providerRegistry(), folder);
 		detach = watch(hub, session.id, notes);
 		await withTimeout(
 			hub.prompt(

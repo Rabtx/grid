@@ -506,4 +506,22 @@ describe("idle compaction (L)", () => {
 		await turn("Another");
 		expect(idle.waiting(thread.id)).toBe(false);
 	});
+
+	it("sets waiting compactions again after a restart, from when each thread's turn ended", async () => {
+		const fake = agent("claude");
+		const { hub, thread, store } = setup(fake);
+		void hub.prompt("me", thread.id, "Read the codebase");
+		await until(() => hub.isRunning(thread.id));
+		store.append(thread.id, [{ type: "usage", contextUsed: 150_000 }]);
+		await until(() => !hub.isRunning(thread.id));
+		// As after a restart: a compaction that knows nothing yet.
+		const idle = new IdleCompaction(hub, { enabled: () => true, apiKey: () => false });
+		cleanup.push(() => idle.stop());
+		expect(idle.waiting(thread.id)).toBe(false);
+		expect(idle.resume()).toBe(1);
+		expect(idle.waiting(thread.id)).toBe(true);
+		idle.stop();
+		// Long after the turn ended, the cache has expired: nothing to gain.
+		expect(idle.resume(Date.now() + 59 * 60_000)).toBe(0);
+	});
 });

@@ -87,9 +87,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Search finds words by their beginning and without accents, best match first.
 - Replay tests: real Claude Code sessions are recorded and played back to Grid's Claude Code
   support in the runner's tests.
+- Chaos tests kill the real runner mid-turn, mid-approval, with a queued message, in a crash loop
+  and right after a webhook, and check that work is carried on or handed back once, with the
+  database intact.
+- `bun run record:agents <agent>` records real sessions of any agent for replay tests, and a
+  nightly workflow checks the agents with keys for real and reports drift on one issue.
+- End-to-end tests of the console against the real API and runner (`bun run test:e2e:console`).
 
 ### Fixed
 
+- Stopping a Claude Code turn no longer records it as failed (`error_during_execution`).
+- An automation run whose thread is carried on after a restart follows it to the end instead of
+  being marked failed.
+- Rate limits on webhooks, guest questions and outside agents' threads hold across restarts, and
+  idle compaction is scheduled again after one.
+- The real-agent smoke check (`bun run smoke`) works again with the projects-directory guard.
+- An API answer the console cannot read is an error where it arrives.
 - Agents saw none of Grid's own tools (visuals, board, crews): the runner asked for a sign-in on
   the tool list.
 - An agent that no longer had a session it was asked to resume (Codex, ACP agents) started afresh

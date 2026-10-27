@@ -1,0 +1,18 @@
+{
+	"agent": "claude",
+	"scenario": "resume",
+	"model": "haiku",
+	"resume": "c8e5a127-ea99-4934-8c1e-2ed59537c48e",
+	"expect": {
+		"result": {
+			"reason": "done"
+		},
+		"kinds": [
+			"message"
+		],
+		"text": "hello",
+		"tools": [],
+		"approvals": 0,
+		"questions": 0
+	}
+}

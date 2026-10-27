@@ -1,6 +1,7 @@
 import type { AgentQuestion, ChatEvent, MessageOrigin } from "../agents/events";
 import type { Who } from "../auth";
 import { may } from "../permissions";
+import { RateLog } from "../rate-log";
 import { turnsOf, type TurnRecord } from "./history-brief";
 import { ChatError, type ChatHub, type GridTool, type ToolAnswer } from "./hub";
 import type { ChatSessionRow } from "./store";
@@ -163,12 +164,19 @@ export class ThreadTools {
 	private readonly started = new Map<string, number>();
 	private readonly reportDelayMs: number;
 	private readonly whoFor: (session: ChatSessionRow) => Who;
+	private readonly rates: RateLog;
 
 	constructor(
 		private readonly hub: ChatHub,
-		options: { reportDelayMs?: number; whoFor?: (session: ChatSessionRow) => Who } = {},
+		options: {
+			reportDelayMs?: number;
+			whoFor?: (session: ChatSessionRow) => Who;
+			/** Outside agents' starts, kept across restarts; in memory without it. */
+			rates?: RateLog;
+		} = {},
 	) {
 		this.reportDelayMs = options.reportDelayMs ?? REPORT_DELAY_MS;
+		this.rates = options.rates ?? new RateLog(":memory:");
 		this.whoFor =
 			options.whoFor ??
 			((session) => ({ userId: session.ownerId, workspace: session.workspaceId }));
@@ -676,18 +684,15 @@ export class ThreadTools {
 				`Threads started from threads go ${MAX_DEPTH} deep at most; do this one yourself`,
 				409,
 			);
-		// A thread's starts count per turn; an outside agent's per minute.
-		const turnKey = parent
-			? `${parent.id}:${this.hub.turnCount(parent.id)}`
-			: `${caller.who.userId}:outside:${Math.floor(Date.now() / 60_000)}`;
-		const count = this.started.get(turnKey) ?? 0;
-		if (count >= STARTS_PER_TURN)
-			throw new ChatError(
-				`At most ${STARTS_PER_TURN} threads can be started ${parent ? "in one turn" : "a minute"}`,
-				429,
-			);
+		// A thread's starts count per turn; an outside agent's per minute, kept across restarts.
+		const turnKey = parent ? `${parent.id}:${this.hub.turnCount(parent.id)}` : null;
+		const count = turnKey ? (this.started.get(turnKey) ?? 0) : 0;
+		if (turnKey && count >= STARTS_PER_TURN)
+			throw new ChatError(`At most ${STARTS_PER_TURN} threads can be started in one turn`, 429);
 		if (!may(caller.who, "startAgents"))
 			throw new ChatError("Your person may not start agents here", 403);
+		if (!turnKey && !this.rates.take("outside-start", caller.who.userId, STARTS_PER_TURN, 60_000))
+			throw new ChatError(`At most ${STARTS_PER_TURN} threads can be started a minute`, 429);
 		const provider = str(args, "provider", 64, false) || caller.provider || "";
 		if (!provider) throw new ChatError("Say which agent (provider) to start it with", 400);
 		const sameAgent = parent && provider === parent.provider;
@@ -704,7 +709,7 @@ export class ThreadTools {
 			...(parent ? { delegatedBy: parent.id } : {}),
 			...(sameAgent && parent.account ? { account: parent.account } : {}),
 		});
-		this.started.set(turnKey, count + 1);
+		if (turnKey) this.started.set(turnKey, count + 1);
 		const title = str(args, "title", 120, false);
 		if (title) this.hub.rename(caller.who.workspace, child.id, title);
 		void this.hub

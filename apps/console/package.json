@@ -16,6 +16,7 @@
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run",
 		"test:watch": "vitest",
+		"test:e2e": "playwright test",
 		"test:coverage": "vitest run --coverage"
 	},
 	"dependencies": {
@@ -49,6 +50,7 @@
 	},
 	"devDependencies": {
 		"@grid/typescript-config": "workspace:*",
+		"@playwright/test": "1.63.0",
 		"@solidjs/vite-plugin": "3.0.0-next.44",
 		"@tailwindcss/vite": "^4.3.3",
 		"@vitest/coverage-v8": "^5.0.1",

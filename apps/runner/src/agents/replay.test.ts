@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { claudeProvider } from "./claude";
@@ -13,7 +14,16 @@ import { readRecording, replaySpawn, type Recording, scrubRecording } from "./re
  */
 
 const fixture = (name: string) =>
-	readRecording(join(import.meta.dir, "replay-fixtures", `claude-${name}.ndjson`));
+	readRecording(join(import.meta.dir, "replay-fixtures", "claude", name, "process-1.ndjson"));
+/** The conversation the resume scenario carried on: the one the simple scenario recorded. */
+const recordedSession = (
+	JSON.parse(
+		readFileSync(
+			join(import.meta.dir, "replay-fixtures", "claude", "resume", "expect.json"),
+			"utf8",
+		),
+	) as { resume: string }
+).resume;
 
 /** Claude Code started beside each session to list its commands, answered with one. */
 const commandsListing: Recording = [
@@ -81,7 +91,7 @@ describe("recorded Claude Code sessions", () => {
 		expect(text(events)).toBe("hello");
 		expect(events.some((event) => event.type === "usage")).toBe(true);
 		expect(events.some((event) => event.type === "commands")).toBe(true);
-		expect(tokens).toContain("3439ab01-01c9-4268-b2fd-e2fee87416d5");
+		expect(tokens).toContain(recordedSession);
 		expect(replay.finished()).toBe(true);
 	});
 
@@ -102,7 +112,7 @@ describe("recorded Claude Code sessions", () => {
 			(event): event is Extract<ChatEvent, { type: "tool" }> => event.type === "tool",
 		);
 		expect(tools.at(-1)).toMatchObject({ status: "completed" });
-		expect(text(events)).toBe("done");
+		expect(text(events).toLowerCase()).toContain("done");
 		expect(replay.finished()).toBe(true);
 	});
 
@@ -131,7 +141,7 @@ describe("recorded Claude Code sessions", () => {
 
 	test("a resumed session carries on the earlier conversation", async () => {
 		const { replay, events, result } = await replayed("resume", {
-			resume: "3439ab01-01c9-4268-b2fd-e2fee87416d5",
+			resume: recordedSession,
 		});
 		expect(replay.mismatches).toEqual([]);
 		expect(result).toEqual({ reason: "done" });

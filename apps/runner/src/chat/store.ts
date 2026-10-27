@@ -1008,6 +1008,14 @@ export class ChatStore {
 			});
 	}
 
+	/** Threads on one agent that changed since a time (ISO), in every workspace. */
+	recentOn(provider: string, since: string): ChatSessionRow[] {
+		return this.db
+			.query<Row, [string, string]>("SELECT * FROM sessions WHERE provider = ? AND updated_at >= ?")
+			.all(provider, since)
+			.map(toSession);
+	}
+
 	/** The threads another thread's agent started (see `ChatSessionRow.delegatedBy`), newest first. */
 	delegated(sessionId: string): ChatSessionRow[] {
 		return this.db

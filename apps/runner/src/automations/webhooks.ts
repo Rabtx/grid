@@ -2,6 +2,7 @@ import type { Database } from "bun:sqlite";
 import { timingSafeEqual } from "node:crypto";
 
 import { openPrivateDatabase } from "../private-database";
+import { RateLog } from "../rate-log";
 import type { WebhookTrigger } from "./schedule";
 import type { Automation } from "./store";
 
@@ -153,18 +154,12 @@ export function deliveryBrief(trigger: WebhookTrigger, payload: unknown, raw: st
 	return `${intro}\n\n\`\`\`${payload === undefined ? "" : "json"}\n${cut}\n\`\`\``;
 }
 
-/** Deliveries each automation took in the last minute, for `PER_MINUTE`. */
+/** Deliveries each automation took in the last minute, for `PER_MINUTE`; kept across restarts. */
 export class DeliveryLimit {
-	private readonly seen = new Map<string, number[]>();
+	constructor(private readonly rates: RateLog = new RateLog(":memory:")) {}
 
 	take(automationId: string, now = Date.now()): boolean {
-		const recent = (this.seen.get(automationId) ?? []).filter((at) => now - at < 60_000);
-		if (recent.length >= PER_MINUTE) {
-			this.seen.set(automationId, recent);
-			return false;
-		}
-		this.seen.set(automationId, [...recent, now]);
-		return true;
+		return this.rates.take("webhook", automationId, PER_MINUTE, 60_000, now);
 	}
 }
 

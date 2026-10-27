@@ -415,6 +415,17 @@ export class AutomationStore {
 				.get()?.n ?? 0
 		);
 	}
+	close(): void {
+		this.db.close();
+	}
+
+	/** Runs not yet finished. */
+	running(): AutomationRun[] {
+		return this.db
+			.query<RunRow, []>("SELECT * FROM automation_runs WHERE status='running'")
+			.all()
+			.map(run);
+	}
 	recover(): AutomationRun[] {
 		const rows = this.db
 			.query<RunRow, []>("SELECT * FROM automation_runs WHERE status='running'")

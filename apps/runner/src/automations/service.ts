@@ -2,6 +2,7 @@ import type { Who } from "../auth";
 import type { ChatHub } from "../chat/hub";
 import type { InboxStore } from "../inbox/store";
 import { automationPrompt, costSoFar, runOutcome, touchedOffLimits } from "./outcome";
+import type { RateLog } from "../rate-log";
 import { nextScheduled, type EventTrigger } from "./schedule";
 import {
 	DeliveryLimit,
@@ -22,6 +23,8 @@ export type AutomationDeps = {
 		workspace: string,
 		id: string,
 	) => { id: string; name: string; icon: string; brief: string } | null;
+	/** Rate limits kept across restarts (webhook deliveries); in memory without it. */
+	rates?: RateLog;
 	/** Each automation's webhook secret (see `webhooks.ts`); webhooks are refused without it. */
 	hooks?: WebhookSecrets;
 	/** The open pull request from a branch, to say a run opened one. */
@@ -51,11 +54,52 @@ export class Automations {
 		private readonly inbox: InboxStore,
 		private readonly deps: AutomationDeps = {},
 	) {
-		for (const run of store.recover()) {
-			const item = store.listForRun(run.automationId);
-			if (item) this.failed(item, run.id, "Runner stopped before this run finished", run.sessionId);
-		}
+		this.deliveries = new DeliveryLimit(deps.rates);
 		this.wake();
+	}
+
+	/** Runs whose thread Grid carried on after a restart, by thread: each ends with its turn. */
+	private readonly following = new Map<string, { item: Automation; run: AutomationRun }>();
+
+	/**
+	 * After a restart, once the chat hub has recovered: the runs going on when the runner stopped.
+	 * One whose thread the hub carried on (`carried`) keeps running and ends as that thread's next
+	 * turn does (its time and budget limits are not watched again); the rest have failed.
+	 */
+	recover(carried: readonly string[] = []): void {
+		const going = new Set(carried);
+		for (const run of this.store.running()) {
+			const item = this.store.listForRun(run.automationId);
+			if (item && run.sessionId && going.has(run.sessionId)) {
+				this.following.set(run.sessionId, { item, run });
+				continue;
+			}
+			const message = "Runner stopped before this run finished";
+			if (item) this.failed(item, run.id, message, run.sessionId);
+			else this.store.finish(run.id, "failed", message, run.sessionId);
+		}
+		if (this.following.size)
+			this.chat.onTurnEnded((session, reason) => {
+				const followed = this.following.get(session.id);
+				if (!followed) return;
+				this.following.delete(session.id);
+				const { item, run } = followed;
+				const events = this.chat.events(item.workspace, session.id);
+				const outcome = runOutcome(events);
+				if (reason === "done")
+					this.store.finish(run.id, "succeeded", null, session.id, {
+						...outcome,
+						pullNumber: null,
+					});
+				else
+					this.failed(
+						item,
+						run.id,
+						`Agent turn ${reason} after the runner restarted`,
+						session.id,
+						outcome,
+					);
+			});
 	}
 	/** Webhook secrets, when this runner takes webhooks. */
 	get hooks(): WebhookSecrets | undefined {
@@ -118,7 +162,8 @@ export class Automations {
 		this.arm();
 	}
 
-	private readonly deliveries = new DeliveryLimit();
+	/** Webhook deliveries each automation took lately (see `webhooks.ts`). */
+	private readonly deliveries: DeliveryLimit;
 
 	/**
 	 * A webhook delivery (`POST /hooks/automations/<id>`, with no sign-in): proved with the
