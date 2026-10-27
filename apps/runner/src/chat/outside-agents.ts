@@ -3,7 +3,10 @@ import type { Database } from "bun:sqlite";
 import type { Who } from "../auth";
 import { may, NOT_ALLOWED } from "../permissions";
 import { openPrivateDatabase } from "../private-database";
+import type { AuditLog } from "../audit/audit-log";
+import type { SpendLedger } from "../spend/ledger";
 import { ChatError, type ChatHub } from "./hub";
+import type { ChatSessionRow } from "./store";
 import { type Caller, rankOf, type ThreadOperation, type ThreadTools } from "./thread-tools";
 
 /**
@@ -32,7 +35,21 @@ export type AgentKey = {
 	provider: string | null;
 	createdAt: string;
 	lastUsedAt: string | null;
+	/** When it stops working (ISO); null for never. */
+	expiresAt: string | null;
+	/** The only projects it may work in; empty for any of its person's. */
+	projects: string[];
+	/** Most its threads may cost in 30 days (USD); null for no cap of its own. */
+	budgetUsd: number | null;
+	/** Sees and acts on only the threads it started, not all of its person's. */
+	ownThreads: boolean;
 };
+
+/** What a key may be made with beyond its name (see `AgentKeyStore.create`). */
+export type KeyLimits = Pick<
+	AgentKey,
+	"write" | "mode" | "project" | "provider" | "expiresAt" | "projects" | "budgetUsd" | "ownThreads"
+>;
 
 type KeyRow = {
 	id: string;
@@ -47,7 +64,24 @@ type KeyRow = {
 	provider: string | null;
 	created_at: string;
 	last_used_at: string | null;
+	expires_at: string | null;
+	projects: string | null;
+	budget_usd: number | null;
+	own_threads: number | null;
 };
+
+function projectsOf(value: string | null): string[] {
+	if (!value) return [];
+	try {
+		const parsed: unknown = JSON.parse(value);
+		return Array.isArray(parsed)
+			? parsed.filter((item): item is string => typeof item === "string")
+			: [];
+	} catch (cause) {
+		console.warn("[keys] a key's projects could not be read:", cause);
+		return [];
+	}
+}
 
 const keyOf = (row: KeyRow): AgentKey => ({
 	id: row.id,
@@ -61,7 +95,14 @@ const keyOf = (row: KeyRow): AgentKey => ({
 	provider: row.provider,
 	createdAt: row.created_at,
 	lastUsedAt: row.last_used_at,
+	expiresAt: row.expires_at,
+	projects: projectsOf(row.projects),
+	budgetUsd: row.budget_usd,
+	ownThreads: row.own_threads === 1,
 });
+
+/** Days a key may be made to last, at most. */
+export const KEY_MAX_DAYS = 365;
 
 const TOKEN_PREFIX = "grid_ak_";
 const KEYS_PER_PERSON = 20;
@@ -106,7 +147,56 @@ export class AgentKeyStore {
 				PRIMARY KEY (key_id, request)
 			);
 		`);
+		// What keys may be limited to came after the first keys: older databases gain the columns.
+		const columns = new Set(
+			this.db
+				.query<{ name: string }, []>("PRAGMA table_info(agent_keys)")
+				.all()
+				.map((column) => column.name),
+		);
+		for (const [name, type] of [
+			["expires_at", "TEXT"],
+			["projects", "TEXT"],
+			["budget_usd", "REAL"],
+			["own_threads", "INTEGER"],
+		] as const)
+			if (!columns.has(name)) this.db.exec(`ALTER TABLE agent_keys ADD COLUMN ${name} ${type}`);
+		this.db.exec(`
+			CREATE TABLE IF NOT EXISTS agent_key_threads (
+				key_id TEXT NOT NULL REFERENCES agent_keys (id) ON DELETE CASCADE,
+				session_id TEXT NOT NULL,
+				PRIMARY KEY (key_id, session_id)
+			);
+			CREATE INDEX IF NOT EXISTS agent_key_threads_by_session ON agent_key_threads (session_id);
+		`);
 		this.db.exec("PRAGMA foreign_keys = ON");
+	}
+
+	/** A thread a key started: its own, for a key limited to those, and for what it spends. */
+	noteThread(keyId: string, sessionId: string): void {
+		this.db
+			.query("INSERT OR IGNORE INTO agent_key_threads (key_id, session_id) VALUES (?, ?)")
+			.run(keyId, sessionId);
+	}
+
+	/** Whether a key started a thread. */
+	started(keyId: string, sessionId: string): boolean {
+		return (
+			this.db
+				.query("SELECT 1 FROM agent_key_threads WHERE key_id = ? AND session_id = ?")
+				.get(keyId, sessionId) !== null
+		);
+	}
+
+	/** The key that started a thread, if one did. */
+	keyOfThread(sessionId: string): string | null {
+		return (
+			this.db
+				.query<{ key_id: string }, [string]>(
+					"SELECT key_id FROM agent_key_threads WHERE session_id = ? LIMIT 1",
+				)
+				.get(sessionId)?.key_id ?? null
+		);
 	}
 
 	close(): void {
@@ -114,16 +204,7 @@ export class AgentKeyStore {
 	}
 
 	/** Make a key; the token is returned here and never again. */
-	create(
-		who: Who,
-		input: {
-			name: string;
-			write: boolean;
-			mode: string;
-			project: string | null;
-			provider: string | null;
-		},
-	): { key: AgentKey; token: string } {
+	create(who: Who, input: { name: string } & KeyLimits): { key: AgentKey; token: string } {
 		const count = this.db
 			.query<{ n: number }, [string, string]>(
 				"SELECT COUNT(*) AS n FROM agent_keys WHERE owner_id = ? AND workspace_id = ?",
@@ -144,11 +225,15 @@ export class AgentKeyStore {
 			provider: input.provider,
 			createdAt: new Date().toISOString(),
 			lastUsedAt: null,
+			expiresAt: input.expiresAt,
+			projects: input.projects,
+			budgetUsd: input.budgetUsd,
+			ownThreads: input.ownThreads,
 		};
 		this.db
 			.query(
-				`INSERT INTO agent_keys (id, workspace_id, owner_id, name, prefix, hash, write, mode, project, provider, created_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				`INSERT INTO agent_keys (id, workspace_id, owner_id, name, prefix, hash, write, mode, project, provider, created_at, expires_at, projects, budget_usd, own_threads)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			)
 			.run(
 				key.id,
@@ -162,6 +247,10 @@ export class AgentKeyStore {
 				key.project,
 				key.provider,
 				key.createdAt,
+				key.expiresAt,
+				key.projects.length ? JSON.stringify(key.projects) : null,
+				key.budgetUsd,
+				key.ownThreads ? 1 : 0,
 			);
 		return { key, token };
 	}
@@ -183,13 +272,17 @@ export class AgentKeyStore {
 		);
 	}
 
-	/** The key a token is, noting that it was used; null for one that is not (or was revoked). */
+	/**
+	 * The key a token is, noting that it was used; null for one that is not, was revoked, or has
+	 * expired.
+	 */
 	byToken(token: string, now = new Date()): AgentKey | null {
 		if (!token.startsWith(TOKEN_PREFIX)) return null;
 		const row = this.db
 			.query<KeyRow, [string]>("SELECT * FROM agent_keys WHERE hash = ?")
 			.get(hashOf(token));
 		if (!row) return null;
+		if (row.expires_at && row.expires_at <= now.toISOString()) return null;
 		this.db
 			.query("UPDATE agent_keys SET last_used_at = ? WHERE id = ?")
 			.run(now.toISOString(), row.id);
@@ -242,6 +335,8 @@ export class OutsideAgents {
 			userId: key.ownerId,
 			workspace: key.workspaceId,
 		}),
+		/** What keys' threads cost (their caps) and where what they do is noted. */
+		private readonly records: { ledger?: SpendLedger; audit?: AuditLog } = {},
 	) {
 		this.operations = [
 			{
@@ -278,7 +373,50 @@ export class OutsideAgents {
 				keep: (request, result) => this.keys.keepReceipt(key.id, request, result),
 			},
 			provider: key.provider,
+			projects: key.projects,
+			...(key.ownThreads
+				? { sees: (session: ChatSessionRow) => this.keys.started(key.id, session.id) }
+				: {}),
+			mayWork: () => {
+				const spent = this.spent(key);
+				if (key.budgetUsd !== null && spent >= key.budgetUsd)
+					throw new ChatError(
+						`This key's budget of $${key.budgetUsd.toFixed(2)} for 30 days is used up ($${spent.toFixed(2)}); its person can raise it with a new key.`,
+						402,
+					);
+			},
+			started: (session) => this.keys.noteThread(key.id, session.id),
+			did: (action, session, detail) =>
+				this.records.audit?.record({
+					workspaceId: session.workspaceId,
+					actor: { kind: "agent_key", id: key.id, name: key.name },
+					action,
+					project: session.project,
+					sessionId: session.id,
+					target: session.title,
+					detail: detail ?? null,
+				}),
 		};
+	}
+
+	/** What the threads a key started cost in the last 30 days. */
+	private spent(key: AgentKey, now = Date.now()): number {
+		return (
+			this.records.ledger?.total(key.workspaceId, { keyId: key.id }, now - 30 * 86_400_000) ?? 0
+		);
+	}
+
+	/** Something a person did to their keys, for the audit log. */
+	private noted(who: Who, action: string, key: AgentKey, detail: string | null = null): void {
+		this.records.audit?.record({
+			workspaceId: who.workspace,
+			actor: { kind: "person", id: who.userId, name: who.userId },
+			action,
+			project: null,
+			sessionId: null,
+			target: key.name,
+			detail,
+		});
 	}
 
 	/** A person's keys over HTTP (`/chat/agent-keys`); null for paths it does not own. */
@@ -287,7 +425,9 @@ export class OutsideAgents {
 			return null;
 		const failure = (status: number, message: string) => Response.json({ message }, { status });
 		if (url.pathname === "/chat/agent-keys" && request.method === "GET")
-			return Response.json({ data: this.keys.list(who) });
+			return Response.json({
+				data: this.keys.list(who).map((key) => ({ ...key, spentUsd: this.spent(key) })),
+			});
 		if (url.pathname === "/chat/agent-keys" && request.method === "POST") {
 			if (!may(who, "startAgents")) return failure(403, NOT_ALLOWED);
 			const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
@@ -302,6 +442,10 @@ export class OutsideAgents {
 			const provider = typeof body.provider === "string" && body.provider ? body.provider : null;
 			if (provider && !this.hub.knowsProvider(provider))
 				return failure(400, `No agent called ${provider}`);
+			const limits = keyLimits(body, Object.keys(this.hub.projectFolders(who.workspace)));
+			if (typeof limits === "string") return failure(400, limits);
+			if (project && limits.projects.length && !limits.projects.includes(project))
+				return failure(400, "Its project must be one of the projects it may work in");
 			try {
 				const made = this.keys.create(who, {
 					name,
@@ -309,7 +453,9 @@ export class OutsideAgents {
 					mode,
 					project,
 					provider,
+					...limits,
 				});
+				this.noted(who, "key.create", made.key, describeKey(made.key));
 				return Response.json({ data: made }, { status: 201 });
 			} catch (cause) {
 				if (cause instanceof ChatError) return failure(cause.status, cause.message);
@@ -318,7 +464,9 @@ export class OutsideAgents {
 		}
 		const one = url.pathname.match(/^\/chat\/agent-keys\/([\w-]+)$/);
 		if (one && request.method === "DELETE") {
-			if (!this.keys.revoke(who, one[1] ?? "")) return failure(404, "No such key");
+			const key = this.keys.list(who).find((item) => item.id === one[1]);
+			if (!key || !this.keys.revoke(who, key.id)) return failure(404, "No such key");
+			this.noted(who, "key.revoke", key);
 			return new Response(null, { status: 204 });
 		}
 		return failure(405, "Method not allowed");
@@ -409,6 +557,57 @@ export class OutsideAgents {
 				return error(-32601, `Grid's MCP endpoint does not do ${message.method ?? "that"}`);
 		}
 	}
+}
+
+/**
+ * A new key's limits from what was asked: how long it lasts (`expiresInDays`), the projects it
+ * may work in, a 30-day budget, and whether it sees only the threads it starts. A sentence for
+ * what is wrong.
+ */
+export function keyLimits(
+	body: Record<string, unknown>,
+	known: readonly string[],
+	now = Date.now(),
+): Pick<KeyLimits, "expiresAt" | "projects" | "budgetUsd" | "ownThreads"> | string {
+	let expiresAt: string | null = null;
+	if (body.expiresInDays !== undefined && body.expiresInDays !== null) {
+		const days = Number(body.expiresInDays);
+		if (!Number.isInteger(days) || days < 1 || days > KEY_MAX_DAYS)
+			return `expiresInDays is a whole number from 1 to ${KEY_MAX_DAYS}`;
+		expiresAt = new Date(now + days * 86_400_000).toISOString();
+	}
+	const projects = body.projects ?? [];
+	if (!Array.isArray(projects) || projects.some((item) => typeof item !== "string"))
+		return "projects is a list of project names";
+	const unknown = (projects as string[]).find((item) => !known.includes(item));
+	if (unknown) return `${unknown} has no folder on this machine`;
+	let budgetUsd: number | null = null;
+	if (body.budgetUsd !== undefined && body.budgetUsd !== null && body.budgetUsd !== "") {
+		budgetUsd = Number(body.budgetUsd);
+		if (!Number.isFinite(budgetUsd) || budgetUsd < 0.01 || budgetUsd > 100_000)
+			return "budgetUsd is between 0.01 and 100,000";
+		budgetUsd = Math.round(budgetUsd * 100) / 100;
+	}
+	return {
+		expiresAt,
+		projects: [...new Set(projects as string[])].slice(0, 50),
+		budgetUsd,
+		ownThreads: body.ownThreads === true,
+	};
+}
+
+/** A key's limits in words, for the audit log. */
+function describeKey(key: AgentKey): string {
+	return [
+		key.write ? "may change threads" : "read only",
+		`mode ${key.mode}`,
+		key.projects.length ? `projects ${key.projects.join(", ")}` : "any project",
+		key.ownThreads ? "only its own threads" : null,
+		key.budgetUsd !== null ? `$${key.budgetUsd.toFixed(2)} per 30 days` : null,
+		key.expiresAt ? `expires ${key.expiresAt.slice(0, 10)}` : null,
+	]
+		.filter(Boolean)
+		.join(" · ");
 }
 
 /** The tools that change threads: left out of the list for a key that may only read. */

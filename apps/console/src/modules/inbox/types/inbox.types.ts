@@ -6,7 +6,9 @@ export type InboxKind =
 	| "pull_review"
 	| "pull_checks"
 	| "incident_open"
-	| "incident_resolved";
+	| "incident_resolved"
+	/** A spending limit nearly or fully used (Settings → Spending). */
+	| "budget";
 
 /** One thing waiting on a person, across every project. */
 export type InboxItem = {

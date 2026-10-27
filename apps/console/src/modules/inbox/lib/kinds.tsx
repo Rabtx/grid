@@ -51,4 +51,10 @@ export const KINDS: Record<
 		state: "Checks are failing",
 		open: "Open pull request",
 	},
+	budget: {
+		tone: "warning",
+		icon: () => <AlertIcon />,
+		state: "Spending limit",
+		open: "Open Spending",
+	},
 };

@@ -6,7 +6,7 @@ import { openPrivateDatabase } from "../private-database";
 /**
  * What kind of thing is waiting, which decides how a row reads and which icon it gets. The three
  * agent kinds are the ones push notifications already speak for; the two GitHub kinds arrive from
- * a refresh instead (see `github.ts`).
+ * a refresh instead (see `github.ts`); `budget` is a spending limit nearly or fully used.
  */
 const INBOX_KINDS = [
 	"approval",
@@ -16,6 +16,7 @@ const INBOX_KINDS = [
 	"pull_checks",
 	"incident_open",
 	"incident_resolved",
+	"budget",
 ] as const;
 
 export type InboxKind = (typeof INBOX_KINDS)[number];

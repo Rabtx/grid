@@ -419,6 +419,17 @@ export class AutomationStore {
 		this.db.close();
 	}
 
+	/** The automation whose run a thread is, if it is one. */
+	automationOfSession(sessionId: string): string | null {
+		return (
+			this.db
+				.query<{ automation_id: string }, [string]>(
+					"SELECT automation_id FROM automation_runs WHERE session_id = ? LIMIT 1",
+				)
+				.get(sessionId)?.automation_id ?? null
+		);
+	}
+
 	/** Runs not yet finished. */
 	running(): AutomationRun[] {
 		return this.db

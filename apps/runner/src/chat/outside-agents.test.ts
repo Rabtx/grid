@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { tmpdir } from "node:os";
 
 import type { ChatEvent } from "../agents/events";
+import { AuditLog } from "../audit/audit-log";
+import { SpendLedger } from "../spend/ledger";
 import { Guests } from "./guests";
 import { ChatHub } from "./hub";
 import { AgentKeyStore, OutsideAgents } from "./outside-agents";
@@ -23,8 +25,10 @@ function setup() {
 	store.setProjectFolder("me", "alpha", tmpdir());
 	const threads = new ThreadTools(hub, { reportDelayMs: 10 });
 	const keys = new AgentKeyStore(":memory:");
-	const outside = new OutsideAgents(hub, keys, threads);
-	return { agent, store, hub, keys, outside };
+	const ledger = new SpendLedger(":memory:");
+	const audit = new AuditLog(":memory:");
+	const outside = new OutsideAgents(hub, keys, threads, undefined, { ledger, audit });
+	return { agent, store, hub, keys, outside, ledger, audit };
 }
 
 async function requireAnswer(answer: Promise<Response | null>): Promise<Response> {
@@ -172,7 +176,7 @@ describe("guest links (N)", () => {
 	function linked() {
 		const context = setup();
 		let now = new Date();
-		const guests = new Guests(":memory:", context.hub, context.store, () => now);
+		const guests = new Guests(":memory:", context.hub, context.store, () => now, context.audit);
 		const thread = context.hub.create(who, { project: "alpha", provider: "hand", cwd: tmpdir() });
 		context.hub.rename("me", thread.id, "Launch");
 		return {
@@ -239,11 +243,160 @@ describe("guest links (N)", () => {
 		await agent.finishAll();
 	});
 
+	it("note links, what guests ask and what was done with it in the audit log", async () => {
+		const { guests, thread, audit, agent } = linked();
+		const { token } = guests.create(who, thread.id);
+		const asked = guests.ask(token, { name: "Dana", text: "Ready?" });
+		await guests.resolve(who, thread.id, asked.id, "send");
+		guests.stop(who, thread.id);
+		expect(audit.list("me").map((entry) => `${entry.actor.kind}:${entry.action}`)).toEqual([
+			"person:guest_link.stop",
+			"person:guest.send",
+			"guest:guest.ask",
+			"person:guest_link.create",
+		]);
+		await until(() => agent.prompts().length === 1);
+		await agent.finishAll();
+	});
+
 	it("limit how much a guest can send", () => {
 		const { guests, thread } = linked();
 		const { token } = guests.create(who, thread.id);
 		for (let i = 0; i < 5; i++) guests.ask(token, { text: `q${i}` });
 		expect(() => guests.ask(token, { text: "one more" })).toThrow();
 		expect(() => guests.ask(token, { text: "x".repeat(5000) })).toThrow();
+	});
+});
+
+describe("scoped agent keys (F2)", () => {
+	const start = (outside: OutsideAgents, token: string, args: Record<string, unknown>, id = 9) =>
+		mcp(outside, token, "tools/call", { name: "thread_start", arguments: args }, id);
+	const text = (answer: { body: McpAnswer }) => answer.body.result?.content?.[0]?.text ?? "";
+
+	it("refuse limits that make no sense, and stop working when they expire", async () => {
+		const { outside, keys } = setup();
+		for (const bad of [
+			{ expiresInDays: 0 },
+			{ expiresInDays: 400 },
+			{ projects: ["nowhere"] },
+			{ budgetUsd: -1 },
+		])
+			expect(
+				(await keysCall(outside, "POST", "/chat/agent-keys", { name: "x", ...bad })).status,
+			).toBe(400);
+		const made = await key(outside, { name: "Short", expiresInDays: 1 });
+		expect(keys.byToken(made.token)?.expiresAt).toBeString();
+		expect(keys.byToken(made.token, new Date(Date.now() + 2 * 86_400_000))).toBeNull();
+		expect((await mcp(outside, made.token, "ping")).status).toBe(200);
+	});
+
+	it("keep a key to its projects and, when asked, to the threads it started", async () => {
+		const { outside, hub, store, agent } = setup();
+		store.setProjectFolder("me", "beta", tmpdir());
+		const other = hub.create(who, { project: "alpha", provider: "hand", cwd: tmpdir() });
+		hub.rename("me", other.id, "Someone's work");
+		const scoped = await key(outside, {
+			name: "Scoped",
+			write: true,
+			provider: "hand",
+			projects: ["alpha"],
+			ownThreads: true,
+		});
+		expect(text(await start(outside, scoped.token, { prompt: "Go", project: "beta" }))).toContain(
+			"works only in alpha",
+		);
+		const mine = await start(outside, scoped.token, {
+			prompt: "Mine",
+			project: "alpha",
+			title: "Mine",
+		});
+		expect(text(mine)).toContain("[Mine](grid-thread://");
+		await until(() => agent.prompts().length === 1);
+		const listed = text(
+			await mcp(
+				outside,
+				scoped.token,
+				"tools/call",
+				{ name: "thread_list", arguments: { project: "alpha" } },
+				10,
+			),
+		);
+		expect(listed).toContain("Mine");
+		expect(listed).not.toContain("Someone's work");
+		const read = await mcp(
+			outside,
+			scoped.token,
+			"tools/call",
+			{ name: "thread_read", arguments: { thread: other.id } },
+			11,
+		);
+		expect(read.body.result?.isError).toBe(true);
+		expect(text(read)).toContain("does not exist");
+		await agent.finishAll();
+	});
+
+	it("stop a key from starting work once its 30-day budget is spent, and note what it did", async () => {
+		const { outside, ledger, audit, agent, hub } = setup();
+		const capped = await key(outside, {
+			name: "Capped",
+			write: true,
+			provider: "hand",
+			project: "alpha",
+			budgetUsd: 1,
+		});
+		const first = text(await start(outside, capped.token, { prompt: "Work", title: "Paid work" }));
+		const thread = /grid-thread:\/\/([\w-]+)/.exec(first)?.[1] ?? "";
+		await until(() => agent.prompts().length === 1);
+		const session = hub.thread("me", thread);
+		ledger.report(
+			{
+				workspaceId: "me",
+				ownerId: "me",
+				project: "alpha",
+				sessionId: thread,
+				keyId: capped.key.id,
+			},
+			1.5,
+		);
+		expect(text(await start(outside, capped.token, { prompt: "More" }, 10))).toContain(
+			"budget of $1.00",
+		);
+		const listed = (await (await keysCall(outside, "GET", "/chat/agent-keys")).json()) as {
+			data: { name: string; spentUsd: number }[];
+		};
+		expect(listed.data.find((item) => item.name === "Capped")?.spentUsd).toBe(1.5);
+		expect(audit.list("me").map((entry) => [entry.action, entry.actor.kind, entry.target])).toEqual(
+			[
+				["thread.start", "agent_key", session.title],
+				["key.create", "person", "Capped"],
+			],
+		);
+		await agent.finishAll();
+	});
+});
+
+describe("spending limits on turns (F3)", () => {
+	it("refuse a turn the gate refuses, and let a message wait while one is going on", async () => {
+		const { hub, agent } = setup();
+		const thread = hub.create(who, { project: "alpha", provider: "hand", cwd: tmpdir() });
+		let limit: string | null = null;
+		hub.setGate(() => limit);
+		void hub.prompt("me", thread.id, "First");
+		await until(() => agent.prompts().length === 1);
+		limit = "The workspace's daily budget is used up";
+		// While the turn goes on, a message only waits.
+		await hub.prompt("me", thread.id, "Queued");
+		await agent.finishAll();
+		await until(() =>
+			hub
+				.events("me", thread.id)
+				.some((event) => event.type === "error" && event.message.includes("used up")),
+		);
+		expect(agent.prompts()).toEqual(["First"]);
+		await expect(hub.prompt("me", thread.id, "Again")).rejects.toThrow("used up");
+		limit = null;
+		void hub.prompt("me", thread.id, "Later");
+		await until(() => agent.prompts().length === 2);
+		await agent.finishAll();
 	});
 });

@@ -1,3 +1,8 @@
+import type { AuditLog } from "./audit/audit-log";
+import { auditRequest } from "./audit/routes";
+import type { Budgets } from "./spend/budgets";
+import type { SpendLedger } from "./spend/ledger";
+import { spendRequest } from "./spend/routes";
 import type { Server, ServerWebSocket } from "bun";
 
 import { setupCommand } from "./agents/setup";
@@ -173,6 +178,10 @@ export function startServer(
 		outside?: OutsideAgents;
 		/** People following a thread through a guest link. */
 		guests?: Guests;
+		/** What agents cost, and the workspace's spending limits (Settings → Spending). */
+		spend?: { ledger: SpendLedger; budgets: Budgets };
+		/** What was done by keys, guests, webhooks and automations (Settings → Audit log). */
+		audit?: AuditLog;
 		/** People's provider accounts and what each has used of its plan. */
 		accounts?: Accounts;
 		/** Each thread's browser page, shared by its agent and the browser pane. */
@@ -210,6 +219,8 @@ export function startServer(
 		autonomy,
 		outside,
 		guests,
+		spend,
+		audit,
 		accounts,
 		browsers,
 		mayApprove,
@@ -571,6 +582,20 @@ export function startServer(
 					const who = await whoFrom(request, "Sign in to get notifications");
 					if (who instanceof Response) return who;
 					const handled = await pushRequest(request, url, who.userId, push);
+					if (handled) return handled;
+				}
+
+				if (spend && (url.pathname === "/spend" || url.pathname.startsWith("/spend/"))) {
+					const who = await whoFrom(request, "Sign in to see spending");
+					if (who instanceof Response) return who;
+					const handled = await spendRequest(request, url, who, spend.budgets, spend.ledger);
+					if (handled) return handled;
+				}
+
+				if (audit && spend && url.pathname === "/audit") {
+					const who = await whoFrom(request, "Sign in to see the audit log");
+					if (who instanceof Response) return who;
+					const handled = auditRequest(request, url, who, audit, spend.ledger);
 					if (handled) return handled;
 				}
 

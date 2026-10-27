@@ -2,6 +2,7 @@ import type { Who } from "../auth";
 import type { ChatHub } from "../chat/hub";
 import type { InboxStore } from "../inbox/store";
 import { automationPrompt, costSoFar, runOutcome, touchedOffLimits } from "./outcome";
+import type { AuditLog } from "../audit/audit-log";
 import type { RateLog } from "../rate-log";
 import { nextScheduled, type EventTrigger } from "./schedule";
 import {
@@ -18,6 +19,8 @@ import type { AutomationStore, Automation, AutomationRun, RunOutcome } from "./s
 
 /** What a run needs from the rest of the runner beyond chats and the inbox. */
 export type AutomationDeps = {
+	/** Where runs starting and webhooks refused are noted (Settings → Audit log). */
+	audit?: AuditLog;
 	/** A role of the workspace, to run as. */
 	roleOf?: (
 		workspace: string,
@@ -184,10 +187,15 @@ export class Automations {
 		if (body.length > MAX_BODY_BYTES) return answer(413, "Webhook bodies are 256 KB at most");
 		if (
 			!deliveryProved(hooks.secret(item.id), body, request.headers, url.searchParams.get("token"))
-		)
+		) {
+			this.refused(item, "a delivery that did not prove itself with the secret");
 			return answer(401, "Not a webhook Grid knows");
+		}
 		if (!item.enabled) return answer(409, "This automation is turned off");
-		if (!this.deliveries.take(item.id)) return answer(429, "Too many deliveries; slow down");
+		if (!this.deliveries.take(item.id)) {
+			this.refused(item, "deliveries past 30 a minute");
+			return answer(429, "Too many deliveries; slow down");
+		}
 		let payload: unknown;
 		try {
 			payload = body.trim() ? JSON.parse(body) : undefined;
@@ -212,6 +220,23 @@ export class Automations {
 				return answer(200, "This delivery already ran");
 			throw cause;
 		}
+	}
+
+	/** When each automation's last refused delivery was noted: at most one a minute is. */
+	private readonly refusedAt = new Map<string, number>();
+
+	private refused(item: Automation, why: string, now = Date.now()): void {
+		if (now - (this.refusedAt.get(item.id) ?? 0) < 60_000) return;
+		this.refusedAt.set(item.id, now);
+		this.deps.audit?.record({
+			workspaceId: item.workspace,
+			actor: { kind: "webhook", id: item.id, name: item.name },
+			action: "webhook.refused",
+			project: item.project,
+			sessionId: null,
+			target: item.name,
+			detail: `Refused ${why} (more like it in the next minute are not noted)`,
+		});
 	}
 
 	runNow(who: Who, id: string): AutomationRun {
@@ -339,6 +364,19 @@ export class Automations {
 			const id = session.id;
 			sessionId = id;
 			this.store.setSession(run.id, id);
+			this.deps.audit?.record({
+				workspaceId: item.workspace,
+				actor: {
+					kind: run.trigger === "webhook" ? "webhook" : "automation",
+					id: item.id,
+					name: item.name,
+				},
+				action: "automation.run",
+				project: item.project,
+				sessionId: id,
+				target: item.name,
+				detail: `Started ${run.trigger === "manual" ? "by hand" : `by its ${run.trigger}`}`,
+			});
 			this.chat.rename(item.workspace, id, item.name);
 			// Its limits: stopped at its time, or once it has cost more than it may.
 			let stopped: string | null = null;

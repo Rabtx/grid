@@ -451,8 +451,8 @@ events now carry `contextUsed`, the input its latest request read.
 
 | Method | Path | Permission | Purpose |
 | --- | --- | --- | --- |
-| `GET` | `/runner/chat/agent-keys` | member | Your agent keys (never their tokens) |
-| `POST` | `/runner/chat/agent-keys` | `startAgents` | Make one, `{ name, write?, mode?, project?, provider? }` (`201`, `{ key, token }`; the token is shown only now; 20 a person) |
+| `GET` | `/runner/chat/agent-keys` | member | Your agent keys (never their tokens), each with `spentUsd`: what its threads cost in 30 days |
+| `POST` | `/runner/chat/agent-keys` | `startAgents` | Make one, `{ name, write?, mode?, project?, provider?, expiresInDays?, projects?, budgetUsd?, ownThreads? }` (`201`, `{ key, token }`; the token is shown only now; 20 a person) |
 | `DELETE` | `/runner/chat/agent-keys/:id` | member | Revoke one of yours (`204`) |
 | `POST` | `/runner/mcp` | agent key | Grid's MCP endpoint (below) |
 | `GET` | `/runner/chat/sessions/:id/guest-links` | member | The thread's live guest links |
@@ -495,6 +495,42 @@ such a link wherever they take a thread id; the console opens it at `/thread/<id
 
 **Replay tests.** With `GRID_AGENT_RECORD_DIR` set, the runner records every agent process it
 starts (what it sent and what came back, as NDJSON) for `replaySpawn` in `agents/replay.ts`.
+
+**Scoped keys.** A key may expire (`expiresInDays`, 1–365; an expired key answers `401` like a
+revoked one), work only in some projects (`projects`; its other threads are not found, and
+starting work elsewhere is `403`), see and act on only the threads it started (`ownThreads`), and
+have a budget of its own (`budgetUsd` per 30 days; once its threads have cost that, starting or
+sending work is refused with an error that says so). Keys carry `expiresAt`, `projects`,
+`budgetUsd` and `ownThreads`.
+
+### Runner spending, budgets and the audit log
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/runner/spend` | member | `{ today, month, byProject, byPerson, budgets, canManage }`: spent today and this month (UTC), this month by project and by person, and each budget with `spentUsd`, `since` and `state` (`ok`, `warning`, `reached`) |
+| `POST` | `/runner/spend/budgets` | owner, admin | A budget, `{ scope, target?, period, limitUsd }` (`201`); `scope` is `workspace`, `person`, `project` or `automation` (with its id or name as `target`); `period` is `day` or `month` |
+| `PUT` | `/runner/spend/budgets/:id` | owner, admin | Change one (its notices may come again) |
+| `DELETE` | `/runner/spend/budgets/:id` | owner, admin | Remove one (`204`) |
+| `GET` | `/runner/audit?before=&kind=&actor=` | owner, admin | The audit log, newest first, 100 at a time: `{ id, at, actor: { kind, id, name }, action, project, sessionId, target, detail, costUsd }` |
+
+**Spending** is what agents report as they work: each rise in a thread's `usage.costUsd` (a
+running total per agent process, starting again with a new one) is kept against its workspace,
+person, project, automation run and the key that started it. Days and months are UTC.
+
+**Budgets.** The first time in a period a budget passes 80%, and when it is reached, Grid adds an
+Inbox item of kind `budget` and notifies whoever set it (and the person, for a person's budget).
+When one is reached, the turns going on that it covers are stopped, and any turn it covers is
+refused until the period starts again or it is raised: sending answers `402` with the reason, a
+message already queued stays queued (held, with an `error` event saying why), and a thread
+carried on after a restart is not.
+
+**Audit log.** Entries have an `actor.kind` (`person`, `agent_key`, `guest`, `webhook`,
+`automation`, `grid`) and an `action`: `thread.start`, `thread.send`, `thread.stop` and
+`thread.answer` by agent keys; `key.create` and `key.revoke`; `guest_link.create`,
+`guest_link.stop`, `guest.ask`, `guest.send` and `guest.dismiss`; `automation.run`; and
+`webhook.refused` (at most one a minute per automation); `budget.warning`, `budget.reached`, and
+`thread.stop` by a reached budget. A person is named by their id; the console shows their name.
+Kept 90 days.
 
 ### Runner file attribution
 
@@ -625,6 +661,7 @@ Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-10-27 | Runner: scoped agent keys (`expiresInDays`, `projects`, `budgetUsd`, `ownThreads`, `spentUsd`); `/spend` and budgets; `402` from a turn a budget refuses; Inbox kind `budget`; `GET /audit` | no |
 | 2026-10-27 | Runner: webhook triggers and their routes; run trigger `webhook`; agent keys and `POST /mcp`; guest links, guest routes and `guest_request` events; origins `outside` and `guest`; snooze and `snoozedUntil`; `GET /chat/sessions/:id`; thread tools answer with `grid-thread://` links; full-text search | no |
 | 2026-10-27 | Runner: `limit_wait` and `goal` events and `GridReason`s `limit`, `pull`, `goal`, `compact`; goal and limit-wait routes; `idleCompact` project setting; `watch_pull_request` and `unwatch_pull_request`; `contextUsed` on Claude Code usage | no |
 | 2026-10-27 | Runner: agent `capabilities`; steering by restart (`steered`, `restarted`); `requestId` on `prompt`; turns carried on after a restart (`continued`, `origin`); native forks and handing a thread back; `POST /chat/sessions/:id/merge` and `merged`; Grid's thread tools and `delegatedBy` | no |

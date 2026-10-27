@@ -18,6 +18,7 @@ export const ARRIVAL_TITLE: Record<Exclude<InboxKind, "approval">, string> = {
 	turn_error: "Run failed",
 	pull_review: "Pull request ready",
 	pull_checks: "Checks are failing",
+	budget: "Spending limit",
 };
 
 /** "now" for the first minute, then minutes, then hours. */

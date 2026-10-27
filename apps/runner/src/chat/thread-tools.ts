@@ -145,6 +145,16 @@ export type Caller = {
 	};
 	/** The agent the threads it starts use by default. */
 	provider: string | null;
+	/** Projects it may work in; any of its person's when left out (a key's own list). */
+	projects?: readonly string[] | null;
+	/** Which of its person's threads it may see and act on; all when left out. */
+	sees?: (session: ChatSessionRow) => boolean;
+	/** Before it starts or sends work: throws when it may not (a key past its budget). */
+	mayWork?: () => void;
+	/** A thread it started, for `sees` and the audit log. */
+	started?: (session: ChatSessionRow) => void;
+	/** Something it changed (a thread started, sent to, stopped, answered), for the audit log. */
+	did?: (action: string, session: ChatSessionRow, detail?: string) => void;
 };
 
 /** A thread as agents are told it: a link they can follow and give the person. */
@@ -314,11 +324,32 @@ export class ThreadTools {
 		});
 	}
 
-	/** A thread an agent names, in its workspace; one elsewhere is one that does not exist. */
+	/**
+	 * A thread an agent names, in its workspace; one elsewhere, or one the caller may not see (a
+	 * key's other projects, or threads it did not start), is one that does not exist.
+	 */
 	private target(caller: Caller, args: Record<string, unknown>): ChatSessionRow {
 		const id = threadId(str(args, "thread", 120));
 		if (id === caller.thread?.id) throw new ChatError("That is your own thread", 400);
-		return this.hub.thread(caller.who.workspace, id);
+		const session = this.hub.thread(caller.who.workspace, id);
+		if (!this.visible(caller, session)) throw new ChatError("That chat does not exist", 404);
+		return session;
+	}
+
+	/** Whether a caller may see a thread: in its projects, and among those it may see. */
+	private visible(caller: Caller, session: ChatSessionRow): boolean {
+		if (caller.projects?.length && !caller.projects.includes(session.project)) return false;
+		return caller.sees?.(session) ?? true;
+	}
+
+	/** Work may start in this thread for this caller: its own limits, and the budgets on it. */
+	private mayWork(
+		caller: Caller,
+		session: Pick<ChatSessionRow, "id" | "workspaceId" | "ownerId" | "project"> | null,
+	): void {
+		caller.mayWork?.();
+		const refused = session ? this.hub.refusal(session) : null;
+		if (refused) throw new ChatError(refused, 402);
 	}
 
 	/** A thread the caller may change: its person's, and in no broader a mode than the caller's. */
@@ -444,6 +475,8 @@ export class ThreadTools {
 		const projectOf = (caller: Caller, args: Record<string, unknown>) => {
 			const project = str(args, "project", 120, false) || caller.project;
 			if (!project) throw new ChatError("Say which project (list_projects names them)", 400);
+			if (caller.projects?.length && !caller.projects.includes(project))
+				throw new ChatError(`This key works only in ${caller.projects.join(", ")}`, 403);
 			return project;
 		};
 		const LINKS =
@@ -469,7 +502,7 @@ export class ThreadTools {
 					const self = caller.thread?.id;
 					const rows = this.hub
 						.list(caller.who.workspace, project)
-						.filter((row) => row.id !== self)
+						.filter((row) => row.id !== self && this.visible(caller, row))
 						.filter((row) => args.mine !== true || (self !== undefined && row.delegatedBy === self))
 						.filter((row) => !query || row.title.toLowerCase().includes(query))
 						.slice(0, limit);
@@ -497,6 +530,7 @@ export class ThreadTools {
 				run: (caller, args) => {
 					const id = threadId(str(args, "thread", 120));
 					const target = this.hub.thread(caller.who.workspace, id);
+					if (!this.visible(caller, target)) throw new ChatError("That chat does not exist", 404);
 					const events = this.hub.events(target.workspaceId, target.id);
 					const turns = turnsOf(events);
 					const limit = Math.min(READ_MAX_TURNS, Math.max(1, Number(args.limit) || READ_TURNS));
@@ -577,8 +611,10 @@ export class ThreadTools {
 					if (!["auto", "queue", "steer"].includes(delivery))
 						throw new ChatError("delivery is auto, queue or steer", 400);
 					const requestId = requestIdOf(args);
+					this.mayWork(caller, target);
 					const running = this.hub.isRunning(target.id);
 					const steer = delivery === "steer" || (delivery === "auto" && running);
+					caller.did?.("thread.send", target, cut(message, 200));
 					if (delivery === "steer" && !running)
 						throw new ChatError("That thread is not working; send it with auto or queue", 409);
 					const scope = caller.thread?.id ?? caller.who.userId;
@@ -629,6 +665,7 @@ export class ThreadTools {
 						throw new ChatError("That thread is someone else's; you cannot stop it", 403);
 					if (!this.hub.isRunning(target.id)) return `${this.link(target)} is not working.`;
 					this.hub.cancel(target.workspaceId, target.id);
+					caller.did?.("thread.stop", target);
 					return `Stopping ${this.link(target)}.`;
 				},
 			},
@@ -665,6 +702,7 @@ export class ThreadTools {
 							400,
 						);
 					await this.hub.answerQuestion(target.workspaceId, target.id, question, answers);
+					caller.did?.("thread.answer", target);
 					return `Answered ${this.link(target)}; it carries on.`;
 				},
 			},
@@ -691,6 +729,12 @@ export class ThreadTools {
 			throw new ChatError(`At most ${STARTS_PER_TURN} threads can be started in one turn`, 429);
 		if (!may(caller.who, "startAgents"))
 			throw new ChatError("Your person may not start agents here", 403);
+		this.mayWork(caller, {
+			id: "",
+			workspaceId: caller.who.workspace,
+			ownerId: caller.who.userId,
+			project,
+		});
 		if (!turnKey && !this.rates.take("outside-start", caller.who.userId, STARTS_PER_TURN, 60_000))
 			throw new ChatError(`At most ${STARTS_PER_TURN} threads can be started a minute`, 429);
 		const provider = str(args, "provider", 64, false) || caller.provider || "";
@@ -712,6 +756,9 @@ export class ThreadTools {
 		if (turnKey) this.started.set(turnKey, count + 1);
 		const title = str(args, "title", 120, false);
 		if (title) this.hub.rename(caller.who.workspace, child.id, title);
+		const named = { ...child, title: title || child.title };
+		caller.started?.(named);
+		caller.did?.("thread.start", named, cut(prompt, 200));
 		void this.hub
 			.prompt(child.workspaceId, child.id, prompt, [], "send", { origin: caller.origin })
 			.catch((cause: unknown) => {

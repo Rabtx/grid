@@ -31,10 +31,12 @@ export default defineConfig({
 			timeout: 60_000,
 		},
 		{
-			command: `bunx vite --port ${PORTS.console} --strictPort`,
+			// The built console, not the dev server: on a cold cache the dev server finds new
+			// dependencies mid-test and reloads, and pages caught in that reload stop updating.
+			command: `bunx vite build && bunx vite preview --port ${PORTS.console} --strictPort`,
 			url: `http://localhost:${PORTS.console}`,
 			reuseExistingServer: false,
-			timeout: 120_000,
+			timeout: 240_000,
 			env: {
 				GRID_API_PROXY: `http://localhost:${PORTS.api}`,
 				GRID_RUNNER_PROXY: `http://localhost:${PORTS.runner}`,

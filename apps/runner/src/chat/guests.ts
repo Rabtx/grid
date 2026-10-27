@@ -1,12 +1,13 @@
 import type { Database } from "bun:sqlite";
 
 import type { ChatEvent, MessageOrigin } from "../agents/events";
+import type { AuditEntry, AuditLog } from "../audit/audit-log";
 import type { Who } from "../auth";
 import { may, NOT_ALLOWED } from "../permissions";
 import { openPrivateDatabase } from "../private-database";
 import { RateLog } from "../rate-log";
 import { ChatError, type ChatHub } from "./hub";
-import type { ChatStore } from "./store";
+import type { ChatSessionRow, ChatStore } from "./store";
 
 /**
  * Guest links: a link a person sends someone without a Grid account, who can then follow one
@@ -119,6 +120,8 @@ export class Guests {
 		private readonly hub: ChatHub,
 		private readonly chats: ChatStore,
 		private readonly now: () => Date = () => new Date(),
+		/** Where links made and stopped, and what guests ask, are noted. */
+		private readonly audit?: AuditLog,
 	) {
 		this.db = openPrivateDatabase(path);
 		this.rates = new RateLog(path);
@@ -176,6 +179,12 @@ export class Guests {
 				link.createdAt,
 				link.expiresAt,
 			);
+		this.note(
+			session,
+			{ kind: "person", id: who.userId, name: who.userId },
+			"guest_link.create",
+			`Until ${link.expiresAt.slice(0, 16).replace("T", " ")} UTC`,
+		);
 		return { link, token };
 	}
 
@@ -192,11 +201,37 @@ export class Guests {
 
 	/** Stop a link, or every link of a thread (`id` left out). */
 	stop(who: Who, sessionId: string, id?: string): number {
-		this.hub.thread(who.workspace, sessionId);
-		return id
+		const session = this.hub.thread(who.workspace, sessionId);
+		const stopped = id
 			? this.db.query("DELETE FROM guest_links WHERE id = ? AND session_id = ?").run(id, sessionId)
 					.changes
 			: this.db.query("DELETE FROM guest_links WHERE session_id = ?").run(sessionId).changes;
+		if (stopped)
+			this.note(
+				session,
+				{ kind: "person", id: who.userId, name: who.userId },
+				"guest_link.stop",
+				`${stopped} link${stopped === 1 ? "" : "s"}`,
+			);
+		return stopped;
+	}
+
+	/** Something done with a thread's guests, for the audit log. */
+	private note(
+		session: ChatSessionRow,
+		actor: AuditEntry["actor"],
+		action: string,
+		detail: string | null,
+	): void {
+		this.audit?.record({
+			workspaceId: session.workspaceId,
+			actor,
+			action,
+			project: session.project,
+			sessionId: session.id,
+			target: session.title,
+			detail,
+		});
 	}
 
 	private byToken(token: string): GuestLink {
@@ -264,6 +299,9 @@ export class Guests {
 			text,
 			at: new Date(now).toISOString(),
 		});
+		const session = this.hub.sessionRow(link.sessionId);
+		if (session)
+			this.note(session, { kind: "guest", id: link.id, name }, "guest.ask", text.slice(0, 200));
 		return { id };
 	}
 
@@ -294,6 +332,12 @@ export class Guests {
 			id: request.id,
 			action: action === "send" ? "sent" : "dismissed",
 		});
+		this.note(
+			session,
+			{ kind: "person", id: who.userId, name: who.userId },
+			action === "send" ? "guest.send" : "guest.dismiss",
+			`${request.name}: ${request.text.slice(0, 200)}`,
+		);
 		if (action === "send")
 			void this.hub
 				.prompt(session.workspaceId, session.id, request.text, [], "send", {
