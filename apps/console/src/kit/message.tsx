@@ -94,7 +94,7 @@ export function AgentMessage(props: {
 	const ref = useTouchMenu(() => props.onMenuAt);
 	return (
 		<div ref={ref} class="group/message flex min-w-0 flex-col items-start">
-			<div class="min-w-0 max-w-full text-body-lg text-fg">{props.children}</div>
+			<div class="w-full min-w-0 text-body-lg text-fg">{props.children}</div>
 			<Show when={props.actions}>
 				<ActionBar align="start">{props.actions}</ActionBar>
 			</Show>

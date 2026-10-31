@@ -578,3 +578,91 @@ describe("TranscriptView - approvals and stopped turns", () => {
 		expect(root.querySelector(".animate-spin")).toBeNull();
 	});
 });
+
+describe("TranscriptView - rich replies", () => {
+	const fence = (json: string) => `\`\`\`grid-visual\n${json}\n\`\`\``;
+
+	it("draws a reply's grid-visual fence where it stands, between its prose", () => {
+		const text = [
+			"Coverage is up.",
+			"",
+			fence(
+				'{"title":"Coverage","blocks":[{"type":"progress","items":[{"label":"api","value":82}]},{"type":"facts","items":[{"label":"Runner","value":"91%"}]}]}',
+			),
+			"",
+			"Next: the console.",
+		].join("\n");
+		const root = mount(() => (
+			<TranscriptView
+				blocks={[{ kind: "assistant", key: "b1", text }]}
+				running={false}
+				onApprove={() => {}}
+			/>
+		));
+		flush();
+		expect(root.querySelector('figure[aria-label="Coverage"]')).not.toBeNull();
+		expect(root.querySelector('meter[aria-label="api"]')?.getAttribute("value")).toBe("82");
+		expect(root.querySelector("dl")?.textContent).toContain("91%");
+		expect(root.textContent).toContain("Coverage is up.");
+		expect(root.textContent).toContain("Next: the console.");
+		// The JSON itself is not shown.
+		expect(root.textContent).not.toContain('"blocks"');
+	});
+
+	it("shows a placeholder while a fence streams in, and a bad one as code with why", () => {
+		const root = mount(() => (
+			<TranscriptView
+				blocks={[
+					{ kind: "assistant", key: "b1", text: 'One moment\n```grid-visual\n{"title":' },
+					{ kind: "assistant", key: "b2", text: fence('{"title":"x","blocks":[{"type":"pie"}]}') },
+				]}
+				running={false}
+				onApprove={() => {}}
+			/>
+		));
+		flush();
+		expect(root.querySelector('[aria-label="Drawing a visual"]')).not.toBeNull();
+		expect(root.textContent).toContain("Could not draw this visual");
+		expect(root.querySelector("pre")?.textContent).toContain('"pie"');
+	});
+
+	it("sends a fenced choice as the next message", () => {
+		const onChoose = vi.fn();
+		const root = mount(() => (
+			<TranscriptView
+				blocks={[
+					{
+						kind: "assistant",
+						key: "b1",
+						text: fence(
+							'{"title":"Next","blocks":[{"type":"choices","options":[{"label":"Ship it","message":"Ship to production"}]}]}',
+						),
+					},
+				]}
+				running={false}
+				onApprove={() => {}}
+				onChoose={onChoose}
+			/>
+		));
+		flush();
+		[...root.querySelectorAll("button")].find((b) => b.textContent?.includes("Ship it"))?.click();
+		expect(onChoose).toHaveBeenCalledWith("Ship to production");
+	});
+
+	it("marks each turn for the message rail with its prompt", () => {
+		const root = mount(() => (
+			<TranscriptView
+				blocks={[
+					{ kind: "user", key: "u1", text: "Chart the build times" },
+					{ kind: "assistant", key: "b1", text: "Done" },
+				]}
+				running={false}
+				onApprove={() => {}}
+			/>
+		));
+		flush();
+		const mark = root.querySelector("[data-rail-mark]");
+		expect(mark?.getAttribute("data-rail-mark")).toBe("user");
+		expect(mark?.getAttribute("data-rail-label")).toBe("Chart the build times");
+	});
+});

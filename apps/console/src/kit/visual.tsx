@@ -100,6 +100,28 @@ type Choices = {
 	options: { label: string; description?: string; message?: string }[];
 };
 type Markdown = { type: "markdown"; text: string };
+type Progress = {
+	type: "progress";
+	title?: string;
+	items: { label: string; value: number; max?: number; unit?: string; tone?: VisualTone }[];
+};
+type Timeline = {
+	type: "timeline";
+	title?: string;
+	items: { time?: string; title: string; detail?: string; tone?: VisualTone }[];
+};
+type Donut = {
+	type: "donut";
+	title?: string;
+	unit?: string;
+	total?: string;
+	items: { label: string; value: number }[];
+};
+type Facts = {
+	type: "facts";
+	title?: string;
+	items: { label: string; value: string; tone?: VisualTone }[];
+};
 
 export type VisualLeaf =
 	| Markdown
@@ -111,7 +133,11 @@ export type VisualLeaf =
 	| Callout
 	| Compare
 	| Calculator
-	| Choices;
+	| Choices
+	| Progress
+	| Timeline
+	| Donut
+	| Facts;
 export type VisualBlock =
 	| VisualLeaf
 	| { type: "tabs"; tabs: { label: string; blocks: VisualLeaf[] }[] };
@@ -132,6 +158,14 @@ const SERIES = [
 	"stroke-danger",
 	"stroke-fg-subtle",
 ];
+const TONE_FILL: Record<VisualTone, string> = {
+	neutral: "bg-fg",
+	accent: "bg-accent",
+	success: "bg-success",
+	warning: "bg-warning",
+	danger: "bg-danger",
+};
+
 const SERIES_DOT = [
 	"bg-accent",
 	"bg-violet",
@@ -630,6 +664,177 @@ function ChoicesView(props: { block: Choices; onChoose?: (message: string) => vo
 	);
 }
 
+/** Bars toward a target: coverage, a budget spent, how far along. */
+function ProgressView(props: { block: Progress }): JSX.Element {
+	return (
+		<div class="flex flex-col gap-2.5">
+			<Show when={props.block.title}>
+				<Caption>{props.block.title}</Caption>
+			</Show>
+			<For each={props.block.items}>
+				{(item) => {
+					const max = () => item.max ?? 100;
+					const share = () => Math.min(1, Math.max(0, item.value / max()));
+					return (
+						<div class="flex flex-col gap-1">
+							<div class="flex items-baseline justify-between gap-3 text-body">
+								<span class="min-w-0 truncate text-fg">{item.label}</span>
+								<span class="shrink-0 text-fg-muted tabular-nums">
+									{figure(item.value, item.unit)}
+									<Show when={item.max !== undefined}>
+										<span class="text-fg-subtle"> / {figure(max(), item.unit)}</span>
+									</Show>
+								</span>
+							</div>
+							<meter
+								class="sr-only"
+								aria-label={item.label}
+								min={0}
+								max={max()}
+								value={item.value}
+							/>
+							<div aria-hidden="true" class="h-1.5 overflow-hidden rounded-full bg-fill-strong">
+								<div
+									class={`h-full rounded-full transition-[width] duration-slow ease-out-grid ${TONE_FILL[item.tone ?? "accent"]}`}
+									style={{ width: `${share() * 100}%` }}
+								/>
+							</div>
+						</div>
+					);
+				}}
+			</For>
+		</div>
+	);
+}
+
+/** Events or milestones in order, down a hairline with a dot for each. */
+function TimelineView(props: { block: Timeline }): JSX.Element {
+	return (
+		<div class="flex flex-col gap-2">
+			<Show when={props.block.title}>
+				<Caption>{props.block.title}</Caption>
+			</Show>
+			<ol class="flex flex-col">
+				<For each={props.block.items}>
+					{(item, index) => (
+						<li class="relative flex gap-3 pb-3 last:pb-0">
+							<Show when={index() < props.block.items.length - 1}>
+								<span aria-hidden="true" class="absolute top-4 bottom-0 left-[3px] w-px bg-line" />
+							</Show>
+							<span
+								aria-hidden="true"
+								class={`mt-1.5 size-2 shrink-0 rounded-full ${TONE_FILL[item.tone ?? "neutral"]} ${item.tone ? "" : "opacity-40"}`}
+							/>
+							<span class="flex min-w-0 flex-col gap-0.5">
+								<Show when={item.time}>
+									<span class="text-caption text-fg-subtle tabular-nums">{item.time}</span>
+								</Show>
+								<span class="text-body text-fg">{item.title}</span>
+								<Show when={item.detail}>
+									<span class="text-caption text-fg-muted">{item.detail}</span>
+								</Show>
+							</span>
+						</li>
+					)}
+				</For>
+			</ol>
+		</div>
+	);
+}
+
+/** Parts of a whole: a ring with its legend beside it. */
+function DonutView(props: { block: Donut }): JSX.Element {
+	const RADIUS = 15.915; // a circumference of 100, so each part's share is its dash
+	const total = () => props.block.items.reduce((sum, item) => sum + item.value, 0) || 1;
+	const arcs = createMemo(() => {
+		let start = 0;
+		return props.block.items.map((item, index) => {
+			const share = (item.value / total()) * 100;
+			const arc = { share, offset: 25 - start, index };
+			start += share;
+			return arc;
+		});
+	});
+	return (
+		<div class="flex flex-col gap-2">
+			<Show when={props.block.title}>
+				<Caption>{props.block.title}</Caption>
+			</Show>
+			<div class="flex flex-wrap items-center gap-5">
+				<div class="relative size-28 shrink-0">
+					<svg viewBox="0 0 42 42" class="size-full" aria-hidden="true">
+						<circle
+							cx="21"
+							cy="21"
+							r={RADIUS}
+							fill="none"
+							stroke-width="5"
+							class="stroke-fill-strong"
+						/>
+						<For each={arcs()}>
+							{(arc) => (
+								<circle
+									cx="21"
+									cy="21"
+									r={RADIUS}
+									fill="none"
+									stroke-width="5"
+									stroke-dasharray={`${Math.max(0, arc.share - 0.6)} ${100 - Math.max(0, arc.share - 0.6)}`}
+									stroke-dashoffset={String(arc.offset)}
+									class={SERIES[arc.index % SERIES.length]}
+								/>
+							)}
+						</For>
+					</svg>
+					<span class="absolute inset-0 grid place-items-center text-center font-medium text-body-lg text-fg tabular-nums">
+						{props.block.total ?? figure(total(), props.block.unit)}
+					</span>
+				</div>
+				<ul class="flex min-w-0 flex-1 flex-col gap-1.5">
+					<For each={props.block.items}>
+						{(item, index) => (
+							<li class="flex items-center gap-2 text-body">
+								<span
+									aria-hidden="true"
+									class={`size-2 shrink-0 rounded-full ${SERIES_DOT[index() % SERIES_DOT.length]}`}
+								/>
+								<span class="min-w-0 flex-1 truncate text-fg">{item.label}</span>
+								<span class="shrink-0 text-fg-muted tabular-nums">
+									{figure(item.value, props.block.unit)}
+									<span class="text-fg-subtle"> · {Math.round((item.value / total()) * 100)}%</span>
+								</span>
+							</li>
+						)}
+					</For>
+				</ul>
+			</div>
+		</div>
+	);
+}
+
+/** Key-value pairs: a quiet card of settings, versions, owners. */
+function FactsView(props: { block: Facts }): JSX.Element {
+	return (
+		<div class="flex flex-col gap-2">
+			<Show when={props.block.title}>
+				<Caption>{props.block.title}</Caption>
+			</Show>
+			<dl class="surface-card flex flex-col divide-y divide-line px-3">
+				<For each={props.block.items}>
+					{(item) => (
+						<div class="flex items-baseline justify-between gap-4 py-2 text-body">
+							<dt class="shrink-0 text-fg-subtle">{item.label}</dt>
+							<dd class={`min-w-0 text-right break-words ${TONE_TEXT[item.tone ?? "neutral"]}`}>
+								{item.value}
+							</dd>
+						</div>
+					)}
+				</For>
+			</dl>
+		</div>
+	);
+}
+
 function Leaf(props: {
 	block: VisualLeaf;
 	onChoose?: (message: string) => void;
@@ -666,6 +871,18 @@ function Leaf(props: {
 			</Match>
 			<Match when={props.block.type === "choices" && (props.block as Choices)}>
 				{(block) => <ChoicesView block={block()} onChoose={props.onChoose} />}
+			</Match>
+			<Match when={props.block.type === "progress" && (props.block as Progress)}>
+				{(block) => <ProgressView block={block()} />}
+			</Match>
+			<Match when={props.block.type === "timeline" && (props.block as Timeline)}>
+				{(block) => <TimelineView block={block()} />}
+			</Match>
+			<Match when={props.block.type === "donut" && (props.block as Donut)}>
+				{(block) => <DonutView block={block()} />}
+			</Match>
+			<Match when={props.block.type === "facts" && (props.block as Facts)}>
+				{(block) => <FactsView block={block()} />}
 			</Match>
 		</Switch>
 	);

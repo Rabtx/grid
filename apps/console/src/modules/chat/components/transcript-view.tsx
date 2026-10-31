@@ -51,6 +51,7 @@ import {
 	RestoreIcon,
 	RunFailedCard,
 	SearchIcon,
+	Skeleton,
 	SpinnerIcon,
 	Stack,
 	StepGlyph,
@@ -65,6 +66,7 @@ import {
 	WorkCard,
 	WorkStep,
 } from "@/kit";
+import { splitReply, type Visual } from "@grid/visuals";
 
 import { workspaceHref } from "@/lib/active-workspace";
 import { relativeTime } from "@/modules/projects/lib/relative-time";
@@ -270,7 +272,11 @@ function TurnView(props: {
 	};
 
 	return (
-		<section class="flex flex-col gap-3">
+		<section
+			class="flex flex-col gap-3"
+			data-rail-mark={props.turn.user ? "user" : "agent"}
+			data-rail-label={props.turn.user?.text || "The agent's turn"}
+		>
 			<Show when={props.turn.user}>
 				{(user) => (
 					<UserMessageView
@@ -410,6 +416,7 @@ function BlockView(props: {
 						text={(block() as Extract<Block, { kind: "assistant" }>).text}
 						running={props.running}
 						onNote={props.onNote}
+						onChoose={props.extras.onChoose}
 						canRegenerate={Boolean(userPrompt())}
 						onRegenerate={() => {
 							const prompt = userPrompt();
@@ -786,6 +793,8 @@ function AssistantMessage(props: {
 	canRegenerate?: boolean;
 	onRegenerate?: () => void;
 	onNote?: (text: string) => void;
+	/** Send a visual's choice as the next message. */
+	onChoose?: (message: string) => void;
 }): JSX.Element {
 	let menu: PopoverControl | undefined;
 	return (
@@ -828,9 +837,81 @@ function AssistantMessage(props: {
 					</>
 				}
 			>
-				<Prose html={renderMarkdown(props.text)} />
+				<ReplyBody text={props.text} onChoose={props.onChoose} />
 			</AgentMessage>
 		</>
+	);
+}
+
+/**
+ * A reply's text with its ```grid-visual fences drawn as visuals, where they stand in the text:
+ * the way any agent, with Grid's tools or without, answers with charts, tables and cards. A fence
+ * still streaming in shows a placeholder; one that does not check out shows as code, with why.
+ */
+/** A visual's page when it is one self-contained HTML document, or null. */
+function pageOf(visual: Visual): Extract<Visual, { format: "html" }> | null {
+	return visual.format === "html" ? visual : null;
+}
+
+/** A visual's blocks when it is drawn from components. */
+function blocksOf(visual: Visual): VisualBlock[] {
+	return visual.format === "components" ? (visual.blocks as VisualBlock[]) : [];
+}
+
+function ReplyBody(props: { text: string; onChoose?: (message: string) => void }): JSX.Element {
+	const parts = createMemo(() => splitReply(props.text));
+	return (
+		<Show
+			when={parts().length > 1 || parts()[0]?.kind !== "text"}
+			fallback={<Prose html={renderMarkdown(props.text)} />}
+		>
+			<div class="flex flex-col gap-4">
+				<For each={parts()}>
+					{(part) => (
+						<Switch>
+							<Match when={part.kind === "text" && part}>
+								{(text) => <Prose html={renderMarkdown(text().text)} />}
+							</Match>
+							<Match when={part.kind === "visual" && part.visual}>
+								{(visual) => (
+									<Show
+										when={pageOf(visual())}
+										fallback={
+											<InlineVisual
+												title={visual().title}
+												blocks={blocksOf(visual())}
+												onChoose={props.onChoose}
+												markdown={(text) => <Prose html={renderMarkdown(text)} />}
+											/>
+										}
+									>
+										{(page) => (
+											<VisualFrame title={page().title} html={page().html} height={page().height} />
+										)}
+									</Show>
+								)}
+							</Match>
+							<Match when={part.kind === "pending"}>
+								<div class="flex flex-col gap-2" aria-label="Drawing a visual">
+									<Skeleton class="h-4 w-1/3" />
+									<Skeleton class="h-24 w-full" />
+								</div>
+							</Match>
+							<Match when={part.kind === "invalid" && part}>
+								{(invalid) => (
+									<div class="flex flex-col gap-1.5">
+										<p class="text-caption text-fg-subtle">
+											Could not draw this visual: {invalid().error}
+										</p>
+										<Prose html={renderMarkdown(`\`\`\`json\n${invalid().source}\n\`\`\``)} />
+									</div>
+								)}
+							</Match>
+						</Switch>
+					)}
+				</For>
+			</div>
+		</Show>
 	);
 }
 

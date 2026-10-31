@@ -4,7 +4,8 @@
  * read from its message: `SLOW:<ms>` works that long (a turn to kill the runner in), `APPROVE`
  * asks to run a command and waits for the answer, `LINK:<id>` answers with a link to that thread,
  * `COST:<usd>` adds that much to what it reports having cost, `MEMORY?` says what of the project's
- * memory the message came with; anything else is answered at once.
+ * memory the message came with, `VISUAL?` answers with a ```grid-visual fence (and says whether
+ * the message came with Grid's note on rich replies); anything else is answered at once.
  * Grid's carry-on message is answered "carried on" (after `FAKE_CLAUDE_CONTINUE_MS`, when set).
  */
 import { createInterface } from "node:readline";
@@ -107,6 +108,68 @@ async function turn(text: string): Promise<void> {
 	if (text.includes("MEMORY?")) {
 		const kept = /^- \((?:decision|convention|fix|fact)\) (.*)$/m.exec(text)?.[1];
 		const reply = kept ? `remembered: ${kept.slice(0, 80)}` : "remembered nothing";
+		say(reply);
+		finish(reply);
+		return;
+	}
+	// A rich reply, as any agent writes one: prose around a fenced visual.
+	if (text.includes("VISUAL?")) {
+		const taught = text.includes("Rich replies:") ? "taught" : "untaught";
+		const reply = [
+			`Build health this week (${taught}).`,
+			"",
+			"```grid-visual",
+			JSON.stringify({
+				title: "Build health",
+				blocks: [
+					{
+						type: "stats",
+						items: [
+							{ label: "Builds", value: "128", detail: "+12 this week", trend: "up" },
+							{ label: "Pass rate", value: "96%", tone: "success" },
+							{ label: "Median", value: "4m 12s", detail: "-38s", trend: "down" },
+						],
+					},
+					{
+						type: "progress",
+						title: "Coverage",
+						items: [
+							{ label: "api", value: 82, tone: "success" },
+							{ label: "console", value: 64, tone: "warning" },
+						],
+					},
+					{
+						type: "donut",
+						title: "Failures by cause",
+						items: [
+							{ label: "Flaky tests", value: 3 },
+							{ label: "Lint", value: 1 },
+							{ label: "Timeouts", value: 1 },
+						],
+					},
+					{
+						type: "timeline",
+						title: "Releases",
+						items: [
+							{ time: "Mon", title: "v2.3 shipped", tone: "success" },
+							{ time: "Wed", title: "Hotfix for the login loop", tone: "warning" },
+							{ time: "Fri", title: "v2.4 release candidate" },
+						],
+					},
+					{
+						type: "facts",
+						title: "Pipeline",
+						items: [
+							{ label: "Runner", value: "this machine" },
+							{ label: "Node", value: "22.4" },
+						],
+					},
+				],
+			}),
+			"```",
+			"",
+			"Coverage in the console is the gap to close next.",
+		].join("\n");
 		say(reply);
 		finish(reply);
 		return;

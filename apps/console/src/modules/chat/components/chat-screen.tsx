@@ -798,6 +798,7 @@ function NewChat(props: {
 				? (title) => void addBoardTask({ token: auth.token(), project: slug, title, workspace })
 				: undefined,
 			addNote: slug ? (text) => void addNote(text) : undefined,
+			ask: (text) => void (asCrew() ? startCrew(text, []) : start(text, [])),
 		});
 	}
 
