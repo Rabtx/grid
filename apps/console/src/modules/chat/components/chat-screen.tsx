@@ -222,6 +222,28 @@ export function ChatScreen(): JSX.Element {
 			setTabState(tabsNow);
 		},
 	);
+	// A tab from an earlier visit may be older than the pages read so far: ask for each once.
+	const ensuredTabs = new Set<string>();
+	createEffect(
+		() =>
+			[
+				project(),
+				auth.token(),
+				sessions(),
+				tabState().ids,
+				threadsStore.hasMore(project() ?? ""),
+			] as const,
+		([slug, token, list, ids, more]) => {
+			if (!slug || !token) return;
+			const known = new Set(list.map((session) => session.id));
+			for (const id of ids) {
+				const key = `${slug}:${id}`;
+				if (known.has(id) || ensuredTabs.has(key)) continue;
+				ensuredTabs.add(key);
+				if (more) void threadsStore.ensure(token, slug, id);
+			}
+		},
+	);
 	// A chat that no longer exists (removed on the runner) falls back to a new one. Only a read
 	// that actually succeeded can tell the two apart: a failed one leaves the list empty, and
 	// acting on that would bounce someone out of the thread they were in and forget it, exactly
@@ -238,6 +260,16 @@ export function ChatScreen(): JSX.Element {
 		([slug, id, list, loaded, failed]) => {
 			if (!slug || !id || !loaded || failed) return;
 			if (list.some((session) => session.id === id)) return;
+			// It may be on a page of threads not read yet: ask for it before deciding it is gone.
+			const token = auth.token();
+			if (token && threadsStore.hasMore(slug)) {
+				void threadsStore.ensure(token, slug, id).then((found) => {
+					if (found) return;
+					workspace.rememberChat(slug, null);
+					navigate(`/chat/${slug}`, { replace: true });
+				});
+				return;
+			}
 			workspace.rememberChat(slug, null);
 			navigate(`/chat/${slug}`, { replace: true });
 		},
@@ -824,8 +856,8 @@ function NewChat(props: {
 							<div class="flex min-w-0 flex-col">
 								<Text size="caption" tone="subtle" truncate>
 									{[
-										threadsStore.threads(current().slug).length
-											? `${threadsStore.threads(current().slug).length} threads`
+										threadsStore.total(current().slug)
+											? `${threadsStore.total(current().slug)} threads`
 											: "No threads yet",
 										props.folder ? props.folder.replace(/^\/home\/[^/]+/, "~") : null,
 									]

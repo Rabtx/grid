@@ -125,7 +125,17 @@ export async function chatRequest(
 	if (url.pathname === "/chat/sessions" && request.method === "GET") {
 		const project = url.searchParams.get("project");
 		if (!project) return failure(400, "Say which project");
-		return Response.json({ data: hub.list(workspace, project).map(listed) });
+		// `limit` asks for one page (the console's list); without it, every thread is sent as before.
+		const asked = url.searchParams.get("limit");
+		if (asked === null) return Response.json({ data: hub.list(workspace, project).map(listed) });
+		const limit = Number(asked);
+		if (!Number.isSafeInteger(limit) || limit < 1) return failure(400, "Say how many threads");
+		const page = hub.listPage(workspace, project, limit, url.searchParams.get("cursor"));
+		return Response.json({
+			data: page.rows.map(listed),
+			nextCursor: page.nextCursor,
+			total: page.total,
+		});
 	}
 	if (url.pathname === "/chat/sessions" && request.method === "POST") {
 		const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
