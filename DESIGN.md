@@ -109,7 +109,9 @@ backdrop 2.5% below it (#0e0e0e), ink 92% (#ebebeb). Signals: accent #2d7cf6; su
 Board stages are signals too: waiting stages in low ink, in progress `warning`, review
 `accent`, blocked `danger`, done `success` — always drawn as a shape (`StatusIcon`) as well.
 
-The primary button is an ink inversion (white on dark, ink on light), never a brand colour.
+The primary button is an ink inversion (white on dark, ink on light) by default. Settings →
+Appearance → Accent is the one colour choice: picking a colour there sets the signals (selection,
+links, focus) and the primary button's fill together; Automatic keeps blue signals and ink buttons.
 The legacy shadcn names (`bg-card`, `text-muted-foreground`, `border-border`…) are mapped onto
 this model for older markup; new console code uses the ink utilities.
 
@@ -136,15 +138,20 @@ captions. Mono for ids, branches, paths and shortcuts.
 ### Size, density, radius
 
 `h-row` and `h-control` are 28px on desktop (40px on narrow screens), `h-field` 36px (44px);
-on any coarse pointer all three stay ≥ 44px. `data-density="compact | comfortable | spacious"`
-on `<html>` scales them. Radius by nesting: chips `rounded-sm` (4px), controls `rounded-md`
+on any coarse pointer all three stay ≥ 44px. Settings → Appearance → Density
+(`data-density="compact | comfortable | spacious"` on `<html>`) scales them through
+`--kit-density` (0.88 · 1 · 1.12). Radius by nesting: chips `rounded-sm` (4px), controls `rounded-md`
 (6px, the default), cards `rounded-lg` (8px), floating surfaces `rounded-xl` (12px).
 
-**Every corner follows the roundness slider** (Settings → Appearance → Corner roundness,
-`--kit-radius-scale`). Corners come only from the kit scale — `rounded-kit-2xs` (2px), `-xs` (4),
-`-sm` (6), `rounded-kit` (8), `-md` (10), `-lg` (12), `-xl` (14), `-2xl` (16) — or, in CSS,
-`var(--radius-kit*)`; the older `--radius-*` names scale too. No fixed pixel corners: circles and
-pills (`rounded-full`) are shapes and stay round, and 0 is no corner. `kit-guard.test.ts` fails the
+**Every corner follows the corner style** (Settings → Appearance → Corners, `data-corners` on
+`<html>`): **round** is the design, **soft** shrinks every corner a quarter and turns pills into
+6px rounded rectangles, **square** draws no corners at all, like a terminal. Cards never grow
+rounder than the design in any style. Corners come only from the kit scale — `rounded-kit-2xs`
+(2px), `-xs` (4), `-sm` (6), `rounded-kit` (8), `-md` (10), `-lg` (12), `-xl` (14), `-2xl` (16) —
+or, in CSS, `var(--radius-kit*)`; the older `--radius-*` names scale too. Buttons, chips, pill
+fields, switches and round icon buttons use `rounded-pill` (`--kit-radius-pill`), which follows
+the style. `rounded-full` is only for circles that are shapes — avatars, status dots, radio marks,
+swatches, progress and slider tracks — and stays round. No fixed pixel corners; 0 is no corner. `kit-guard.test.ts` fails the
 build on a fixed corner in the kit or the stylesheets.
 
 ### Surfaces
@@ -195,8 +202,10 @@ all three. Nothing moves on hover except colour; no bounces, no staggered entran
 ### Interaction
 
 **Standalone icons sit on a tile.** Every icon-only button (`IconButton`, `iconButton()`, the
-composer's add, tools and mic, a menu's icon trigger, a dialog's close) has a soft square behind
-it (`icon-tile`) that deepens on hover and while open. Icons beside a label (the sidebar's New chat,
+composer's add, tools and mic, a menu's icon trigger, a dialog's close) has a soft filled square
+behind it (`icon-tile`) that deepens on hover and while open. A standalone icon is never drawn as
+an empty outline or ring: it gets a fill (`variant="secondary"` is a solid `fill-strong` button for
+header actions), and the selected rail item is a fill, not a ring. Icons beside a label (the sidebar's New chat,
 Inbox, Board…) are part of that row and have no tile. `variant="bare"` drops the tile only for an icon inside
 something that is already a control (a chip). **The button sets its icon's size**, whatever the
 icon asks for: 16px in `sm`/`md` buttons, 14px in `xs`, one step larger on touch (`ICON_SIZE`).
@@ -271,10 +280,10 @@ are gone.
 
 Every visual decision lives in one place, so a tweak is made once:
 
-1. **Tokens** (`kit.css`) hold the values. Four knobs move the whole system live — roundness
-   (`--kit-radius-scale`), spacing (`--kit-density`), line strength (`--kit-line-scale`) and the
-   hue/saturation/lightness inputs — stored per device with the rest of Appearance and exposed on
-   `/design` under Tweak.
+1. **Tokens** (`kit.css`) hold the values. Four knobs move the whole system live — the corner
+   style (`data-corners`, setting `--kit-radius-scale` and `--kit-radius-pill`), density
+   (`--kit-density`), line strength (`--kit-line-scale`) and the hue/saturation/lightness inputs —
+   stored per device with the rest of Appearance and exposed on `/design` under Tweak.
 2. **Kit components** turn tokens into recipes, each defined with the `variants()` helper
    (`base` + axes like `size`, `tone`, `variant` + defaults). A new size or tone is one entry.
    Repeated recipes are named utilities: `surface-card`, `surface-well`, `surface-field`,

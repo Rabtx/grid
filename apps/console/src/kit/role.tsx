@@ -139,18 +139,14 @@ export function TeamRow(props: {
  * (Figma 11 · Agent roles, Composer). Both are triggers the caller supplies.
  */
 export function RoleChipGroup(props: { children: JSX.Element }): JSX.Element {
-	return (
-		<span class="surface-outline flex h-7 shrink-0 items-center rounded-full pointer-coarse:h-10">
-			{props.children}
-		</span>
-	);
+	return <span class="flex h-7 shrink-0 items-center pointer-coarse:h-9">{props.children}</span>;
 }
 
 /** A half of the role chip group: the role (with its name), or its settings (an icon). */
 export const ROLE_CHIP =
-	"focus-ring flex h-full min-w-0 max-w-48 items-center gap-1.5 rounded-l-full pr-1.5 pl-1 text-body text-fg transition-colors duration-fast hover:bg-fill aria-expanded:bg-fill-strong pointer-coarse:pl-1.5";
+	"focus-ring flex h-full min-w-0 max-w-48 items-center gap-1.5 rounded-kit pr-1.5 pl-1 text-body text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg pointer-coarse:pl-1.5";
 export const ROLE_CHIP_ICON =
-	"focus-ring grid h-full shrink-0 place-items-center rounded-r-full border-line border-l px-2 text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:px-3 [&_svg]:size-3.5";
+	"focus-ring grid h-full shrink-0 place-items-center rounded-kit px-2 text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:px-3 [&_svg]:size-3.5";
 
 /** Where the role's tile would be when there is none: a quiet person glyph. */
 export function NoRoleMark(props: { size?: "sm" | "md" }): JSX.Element {

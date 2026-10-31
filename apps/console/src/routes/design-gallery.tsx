@@ -1,7 +1,14 @@
 import type { JSX } from "@solidjs/web";
 import { createSignal, For } from "solid-js";
 
-import { APPEARANCE_LIMITS, appearance, type Theme, updateAppearance } from "@/lib/appearance";
+import {
+	APPEARANCE_LIMITS,
+	appearance,
+	type Corners,
+	type Density,
+	type Theme,
+	updateAppearance,
+} from "@/lib/appearance";
 
 import { AppPrototype } from "./design/app-prototype";
 import {
@@ -182,11 +189,11 @@ function Toolbar(): JSX.Element {
 	);
 }
 
-/** Every knob of the system on one panel: roundness, spacing, lines, text size and the tint. */
+/** Every knob of the system on one panel: corners, density, lines, text size and the tint. */
 function TweakPanel(): JSX.Element {
 	const knob = (
 		label: string,
-		key: "radius" | "spacing" | "lines" | "uiScale" | "hue" | "saturation" | "darkLightness",
+		key: "lines" | "uiScale" | "hue" | "saturation" | "darkLightness",
 		format: (value: number) => string = (value) => String(value),
 	) => (
 		<Slider
@@ -218,8 +225,30 @@ function TweakPanel(): JSX.Element {
 					<Text size="caption" tone="subtle">
 						These move the whole system at once and are kept on this device.
 					</Text>
-					{knob("Roundness", "radius", times)}
-					{knob("Spacing", "spacing", times)}
+					<Segmented<Corners>
+						label="Corners"
+						block
+						size="sm"
+						options={[
+							{ value: "round", label: "Round" },
+							{ value: "soft", label: "Soft" },
+							{ value: "square", label: "Square" },
+						]}
+						value={appearance().corners}
+						onChange={(corners) => updateAppearance({ corners })}
+					/>
+					<Segmented<Density>
+						label="Density"
+						block
+						size="sm"
+						options={[
+							{ value: "compact", label: "Compact" },
+							{ value: "comfortable", label: "Comfortable" },
+							{ value: "spacious", label: "Spacious" },
+						]}
+						value={appearance().density}
+						onChange={(density) => updateAppearance({ density })}
+					/>
 					{knob("Lines", "lines", times)}
 					{knob("Text size", "uiScale", (value) => `${Math.round(value * 100)}%`)}
 					{knob("Hue", "hue")}
@@ -230,8 +259,8 @@ function TweakPanel(): JSX.Element {
 						variant="ghost"
 						onClick={() =>
 							updateAppearance({
-								radius: 1,
-								spacing: 1,
+								corners: "round",
+								density: "comfortable",
 								lines: 1,
 								uiScale: 1,
 								hue: 240,

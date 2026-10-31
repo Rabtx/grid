@@ -217,7 +217,7 @@ export function PillInput(
 ): JSX.Element {
 	const rest = omit(props, "icon");
 	return (
-		<label class="flex h-kit-control w-full min-w-0 items-center gap-2 rounded-full bg-fill px-3.5 text-fg-subtle focus-within:ring-2 focus-within:ring-accent/40 md:w-75 [&_svg]:size-3.5 [&_svg]:shrink-0">
+		<label class="flex h-kit-control w-full min-w-0 items-center gap-2 rounded-pill bg-fill px-3.5 text-fg-subtle focus-within:ring-2 focus-within:ring-accent/40 md:w-75 [&_svg]:size-3.5 [&_svg]:shrink-0">
 			{props.icon}
 			<input
 				{...rest}
@@ -522,36 +522,5 @@ export function PropertyRow(props: { label: string; children: JSX.Element }): JS
 			<span class="w-24 shrink-0 text-body text-fg-subtle">{props.label}</span>
 			<div class="flex min-w-0 flex-1 items-center gap-2">{props.children}</div>
 		</div>
-	);
-}
-
-/** A row of colours to pick one from (Figma Accent color): plain circles, the chosen one ringed. */
-export function SwatchRow(props: {
-	label: string;
-	options: readonly { id: string; swatch: string }[];
-	value: string;
-	onChange: (id: string) => void;
-	/** Spread across the row (a phone's card of swatches). */
-	spread?: boolean;
-}): JSX.Element {
-	return (
-		<fieldset
-			class={`flex items-center gap-2 border-0 p-0 ${props.spread ? "w-full justify-between px-2 py-1" : ""}`}
-		>
-			<legend class="sr-only">{props.label}</legend>
-			<For each={props.options}>
-				{(option) => (
-					<button
-						type="button"
-						aria-label={option.id}
-						title={option.id}
-						aria-pressed={props.value === option.id ? "true" : "false"}
-						onClick={() => props.onChange(option.id)}
-						class="focus-ring size-6 rounded-full ring-offset-2 ring-offset-surface aria-pressed:ring-2 aria-pressed:ring-accent pointer-coarse:size-8"
-						style={{ background: option.swatch }}
-					/>
-				)}
-			</For>
-		</fieldset>
 	);
 }

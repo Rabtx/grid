@@ -333,7 +333,7 @@ export function SubagentStrip(props: {
 							type="button"
 							onClick={() => props.onOpen(agent.id)}
 							title={agent.activity ?? agent.title}
-							class="focus-ring inline-flex h-8 max-w-64 items-center gap-1.5 rounded-full bg-surface px-2.5 text-caption text-fg-muted ring-line-strong transition-colors duration-fast hover:text-fg pointer-coarse:h-10"
+							class="focus-ring inline-flex h-8 max-w-64 items-center gap-1.5 rounded-pill bg-surface px-2.5 text-caption text-fg-muted ring-line-strong transition-colors duration-fast hover:text-fg pointer-coarse:h-10"
 						>
 							<SpinnerIcon class="size-3 shrink-0 animate-spin" />
 							<span class="truncate">{agent.title}</span>

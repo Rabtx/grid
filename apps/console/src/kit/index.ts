@@ -15,6 +15,7 @@ export {
 } from "./avatar";
 export { Badge, Count, Kbd, type Tone } from "./badge";
 export { KeyRecorder } from "./key-recorder";
+export { shortcutKeys } from "./keys";
 export { BrandLogo, BrandMark, BrandWordmark, Splash } from "./brand";
 export {
 	Button,
@@ -140,6 +141,7 @@ export { type AutocompleteItem, AutocompleteList, Palette, type PaletteItem } fr
 export { type Placement, Popover, type PopoverControl } from "./popover";
 export {
 	MIC_BUTTON,
+	DOCK_CHIP,
 	PROMPT_ADD,
 	PROMPT_CHIP,
 	PROMPT_FIELD,
@@ -206,7 +208,6 @@ export {
 	SettingsLinkRow,
 	SettingsProfileLink,
 	SettingsRow,
-	SwatchRow,
 	ThemeCards,
 } from "./settings";
 export { Pagination, Stepper } from "./steps";

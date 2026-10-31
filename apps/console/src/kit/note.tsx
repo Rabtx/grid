@@ -281,7 +281,7 @@ export function NoteSearchField(props: {
 				}}
 				onInput={(event) => props.onInput(event.currentTarget.value)}
 				onKeyDown={(event) => props.onKeyDown?.(event)}
-				class={`w-full min-w-0 rounded-full bg-fill text-fg outline-none ring-line transition-shadow duration-fast placeholder:text-fg-subtle focus:ring-line-strong [&::-webkit-search-cancel-button]:hidden ${props.compact ? "h-8 pr-2 pl-8 text-body" : "h-10 pr-3 pl-10 text-field md:text-body-lg"}`}
+				class={`w-full min-w-0 rounded-pill bg-fill text-fg outline-none ring-line transition-shadow duration-fast placeholder:text-fg-subtle focus:ring-line-strong [&::-webkit-search-cancel-button]:hidden ${props.compact ? "h-8 pr-2 pl-8 text-body" : "h-10 pr-3 pl-10 text-field md:text-body-lg"}`}
 			/>
 		</div>
 	);
@@ -306,7 +306,7 @@ export function NoteAskDock(props: {
 				if (props.value.trim()) props.onSubmit();
 			}}
 		>
-			<div class="surface-outline flex h-13 items-center gap-1 rounded-full p-1.5 pl-4">
+			<div class="surface-outline flex h-13 items-center gap-1 rounded-pill p-1.5 pl-4">
 				<AgentLogo id="claude" name="Claude Code" class="size-4" />
 				<input
 					aria-label={props.label}
@@ -320,7 +320,7 @@ export function NoteAskDock(props: {
 					type="submit"
 					aria-label="Ask"
 					disabled={!props.value.trim()}
-					class="focus-ring grid size-10 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg surface-primary transition-[background-color,color] duration-fast disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none [&_svg]:size-4"
+					class="focus-ring grid size-10 shrink-0 place-items-center rounded-pill bg-inverse text-inverse-fg surface-primary transition-[background-color,color] duration-fast disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none [&_svg]:size-4"
 				>
 					<SendIcon />
 				</button>
@@ -395,7 +395,7 @@ export function FormatBar(props: { label: string; children: JSX.Element }): JSX.
 		<div
 			role="toolbar"
 			aria-label={props.label}
-			class="surface-outline flex w-fit max-w-full items-center gap-0.5 overflow-x-auto rounded-full px-1.5 py-1 [scrollbar-width:none]"
+			class="surface-outline flex w-fit max-w-full items-center gap-0.5 overflow-x-auto rounded-pill px-1.5 py-1 [scrollbar-width:none]"
 		>
 			{props.children}
 		</div>
@@ -417,11 +417,11 @@ export function FormatFootBar(props: { label: string; children: JSX.Element }): 
 
 /** One button on a format bar: 28px on desktop, 36px on the phone's bar. */
 export const FORMAT_BUTTON =
-	"focus-ring grid size-7 shrink-0 place-items-center rounded-full font-medium text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-pressed:bg-fill-strong aria-pressed:text-fg disabled:opacity-40 pointer-coarse:size-9 [&_svg]:size-4";
+	"focus-ring grid size-7 shrink-0 place-items-center rounded-pill font-medium text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-pressed:bg-fill-strong aria-pressed:text-fg disabled:opacity-40 pointer-coarse:size-9 [&_svg]:size-4";
 
 /** The text style picker at the start of the bar: "Text ▾". */
 export const FORMAT_STYLE =
-	"focus-ring inline-flex h-6 shrink-0 items-center gap-0.5 rounded-full px-2 font-medium text-caption text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-expanded:bg-fill-strong";
+	"focus-ring inline-flex h-6 shrink-0 items-center gap-0.5 rounded-pill px-2 font-medium text-caption text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-expanded:bg-fill-strong";
 
 /** A hairline between groups on the format bar. */
 export function FormatSeparator(): JSX.Element {
@@ -439,7 +439,7 @@ export function FormatAsk(props: {
 			type="button"
 			aria-label={props.label}
 			onClick={() => props.onClick()}
-			class={`focus-ring inline-flex shrink-0 items-center gap-1.5 rounded-full font-medium transition-colors duration-fast ${props.filled ? "ml-auto h-9 bg-inverse px-3 text-body text-inverse-fg surface-primary" : "h-6 py-1 pr-3 pl-2 text-caption text-fg hover:bg-fill"}`}
+			class={`focus-ring inline-flex shrink-0 items-center gap-1.5 rounded-pill font-medium transition-colors duration-fast ${props.filled ? "ml-auto h-9 bg-inverse px-3 text-body text-inverse-fg surface-primary" : "h-6 py-1 pr-3 pl-2 text-caption text-fg hover:bg-fill"}`}
 		>
 			<AgentLogo id="claude" name="Claude Code" class={props.filled ? "size-3.5" : "size-3.5"} />
 			Ask
@@ -463,7 +463,7 @@ function AgentLogos(props: { agents: readonly NoteAgent[]; size: string }): JSX.
 
 /** The top bar's chip (Figma Context chip) as a menu's trigger: who gets the note, and how. */
 export const SHARED_CHIP =
-	"focus-ring inline-flex h-kit-control-sm shrink-0 items-center gap-1.5 rounded-full bg-fill pr-3 pl-2 font-medium text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong";
+	"focus-ring inline-flex h-kit-control-sm shrink-0 items-center gap-1.5 rounded-pill bg-fill pr-3 pl-2 font-medium text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong";
 
 /**
  * What the chip says: the logos of the agents the note goes to and "Shared with agents", or
@@ -512,7 +512,7 @@ export function NoteSuggestionCard(props: {
 						type="button"
 						disabled={props.busy}
 						onClick={() => props.onDismiss()}
-						class="focus-ring inline-flex h-kit-control-sm items-center rounded-full px-3 text-caption text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg disabled:opacity-40"
+						class="focus-ring inline-flex h-kit-control-sm items-center rounded-pill px-3 text-caption text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg disabled:opacity-40"
 					>
 						Dismiss
 					</button>
@@ -523,7 +523,7 @@ export function NoteSuggestionCard(props: {
 							tap();
 							props.onAdd();
 						}}
-						class="focus-ring inline-flex h-kit-control-sm items-center gap-1.5 rounded-full bg-inverse px-3 font-medium text-caption text-inverse-fg transition-opacity duration-fast hover:opacity-90 disabled:opacity-40 [&_svg]:size-3.5"
+						class="focus-ring inline-flex h-kit-control-sm items-center gap-1.5 rounded-pill bg-inverse px-3 font-medium text-caption text-inverse-fg transition-opacity duration-fast hover:opacity-90 disabled:opacity-40 [&_svg]:size-3.5"
 					>
 						<CheckIcon />
 						Add to note
@@ -549,7 +549,7 @@ export function ThreadChip(props: {
 	return (
 		<a
 			href={props.href}
-			class="focus-ring inline-flex h-8.5 min-w-0 max-w-full items-center gap-2 rounded-full bg-surface py-1.5 pr-3 pl-2 ring-line transition-colors duration-fast hover:bg-fill max-md:h-7.5 max-md:gap-1.5 max-md:bg-fill"
+			class="focus-ring inline-flex h-8.5 min-w-0 max-w-full items-center gap-2 rounded-pill bg-surface py-1.5 pr-3 pl-2 ring-line transition-colors duration-fast hover:bg-fill max-md:h-7.5 max-md:gap-1.5 max-md:bg-fill"
 		>
 			<span
 				aria-hidden="true"
@@ -961,7 +961,7 @@ export function EditTextButton(props: { onClick: () => void }): JSX.Element {
 		<button
 			type="button"
 			onClick={() => props.onClick()}
-			class="focus-ring sr-only w-fit rounded-full bg-fill px-3 py-1 text-caption text-fg-muted ring-line focus:not-sr-only"
+			class="focus-ring sr-only w-fit rounded-pill bg-fill px-3 py-1 text-caption text-fg-muted ring-line focus:not-sr-only"
 		>
 			Edit the text
 		</button>

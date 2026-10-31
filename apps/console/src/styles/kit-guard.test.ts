@@ -72,10 +72,10 @@ describe("kit guard", () => {
 			expect.fail(`${violations.length} kit guard violation(s):\n\n${violations.join("\n")}`);
 	});
 
-	it("keeps every corner on the roundness slider", () => {
-		// The kit and the stylesheets set corners only from the kit's radius scale, which follows
-		// Settings → Appearance → Corner roundness. Circles and pills (full, 999px) are shapes, and 0 is
-		// no corner, so both are allowed.
+	it("keeps every corner on the corner style", () => {
+		// The kit and the stylesheets set corners only from the kit's radius scale and the pill
+		// radius, which follow Settings → Appearance → Corners. Circles (full, 999px) are shapes, and
+		// 0 is no corner, so both are allowed.
 		const src = join(__dirname, "..");
 		const kit = readdirSync(join(src, "kit"))
 			.filter((entry) => entry.endsWith(".tsx") && !entry.endsWith(".test.tsx"))
@@ -101,6 +101,6 @@ describe("kit guard", () => {
 				});
 		}
 		if (violations.length > 0)
-			expect.fail(`Corners off the roundness slider:\n\n${violations.join("\n")}`);
+			expect.fail(`Corners off the corner style:\n\n${violations.join("\n")}`);
 	});
 });

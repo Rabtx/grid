@@ -10,8 +10,9 @@
  *
  * Every role is ink mixed over transparent, so a tint or the dark theme follows for free.
  *
- * Tweaks: four knobs move the whole system at once, live, from /design (and later Settings):
- *   --kit-radius-scale   corner roundness (1 = the reference)
+ * Tweaks: four knobs move the whole system at once, live, from Settings → Appearance:
+ *   data-corners         round (the reference) · soft (no pills) · square (no corners); it sets
+ *                        --kit-radius-scale for the kit radii and --kit-radius-pill for pills
  *   --kit-density        control and row heights (1 = the reference; touch never drops below 44px)
  *   --kit-line-scale     how strong hairlines are
  *   the hue, saturation and dark lightness inputs from product.css
@@ -35,6 +36,8 @@
 	--kit-fg-subtle: color-mix(in srgb, var(--ink) var(--kit-fg-subtle-strength), transparent);
 	--kit-fg-faint: color-mix(in srgb, var(--ink) var(--kit-fg-faint-strength), transparent);
 	--kit-radius-scale: 1;
+	/* Buttons, chips and pill fields: round ends in the reference design. */
+	--kit-radius-pill: 9999px;
 	--kit-density: 1;
 	--kit-line-scale: 1;
 
@@ -191,6 +194,20 @@
 	--kit-hairline-end: transparent;
 }
 
+/*
+ * Settings → Appearance → Corners. Round is the design. Soft keeps every corner a little smaller
+ * and turns pills into rounded rectangles; square draws no corners, like a terminal. Cards never
+ * grow rounder than the design, and circles that are shapes (avatars, dots) stay round.
+ */
+:root[data-corners="soft"] {
+	--kit-radius-scale: 0.75;
+	--kit-radius-pill: 6px;
+}
+:root[data-corners="square"] {
+	--kit-radius-scale: 0;
+	--kit-radius-pill: 0px;
+}
+
 /* Styles that only apply with depth on, for what a variable cannot switch (a lifted selection). */
 @custom-variant depth (&:where([data-depth="on"] *));
 /* Settings → Appearance → Rail labels: names under the rail's icons. */
@@ -247,6 +264,8 @@
 	--radius-kit-lg: calc(12px * var(--kit-radius-scale));
 	--radius-kit-xl: calc(14px * var(--kit-radius-scale));
 	--radius-kit-2xl: calc(16px * var(--kit-radius-scale));
+	/* `rounded-pill`: buttons, chips and pill fields; a rounded rectangle when corners are soft. */
+	--radius-pill: var(--kit-radius-pill);
 
 	--color-terminal: var(--kit-terminal-bg);
 	--color-terminal-fg: var(--kit-terminal-fg);
@@ -392,7 +411,7 @@
 	box-shadow:
 		inset 0 0 0 1px var(--kit-line-strong),
 		inset 0 1px 2px rgb(var(--kit-shadow-color) / calc(var(--kit-shadow-strength) * 0.6));
-	border-radius: 999px;
+	border-radius: var(--kit-radius-pill);
 	transition: box-shadow var(--duration-fast) var(--ease-out-grid);
 	&:hover {
 		box-shadow:
@@ -411,8 +430,9 @@
 }
 
 /*
- * A standalone icon: a soft square behind it, so an icon button reads as a button and not as a
- * stray glyph. Every icon-only button in the kit sits on one; hover and open deepen the fill.
+ * A standalone icon: a soft filled square behind it, so an icon button reads as a button and not
+ * as a stray glyph or an empty outline. Every icon-only button in the kit sits on one; hover and
+ * open deepen the fill. There is no ring: a fill alone reads as a control without the box look.
  * The tile is a layer behind the icon, centred and at most 32px: a 44px touch target keeps its
  * full tap area while the tile stays light and clear of the screen edge.
  * `--tile-hover` sets the hover fill (the danger button tints red).
@@ -428,15 +448,13 @@
 		inset: max(0px, calc(50% - 16px));
 		z-index: -1;
 		border-radius: inherit;
-		background-color: var(--kit-fill);
-		box-shadow:
-			inset 0 1px 0 var(--kit-highlight),
-			inset 0 0 0 1px var(--kit-line);
+		background-color: var(--kit-fill-strong);
+		box-shadow: inset 0 1px 0 var(--kit-highlight);
 		transition: background-color var(--duration-fast) var(--ease-out-grid);
 	}
 	&:hover::before,
 	&[aria-expanded="true"]::before {
-		background-color: var(--tile-hover, var(--kit-fill-strong));
+		background-color: var(--tile-hover, color-mix(in srgb, var(--ink) 10%, transparent));
 	}
 }
 
