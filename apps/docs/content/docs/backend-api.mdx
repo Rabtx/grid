@@ -253,6 +253,15 @@ thread. It calls `POST /chat/tools/visual` on the runner with the key the runner
 the runner checks the spec (16 blocks, 64 KB of blocks or 256 KB of HTML, six per turn) and
 records it only while that thread's turn is running.
 
+Any agent can also answer with a visual without the tool: a fenced block tagged `grid-visual`
+in its reply, holding the same JSON (`{ title, blocks }` or `{ title, html }`, or a bare list of
+blocks). The console draws it where it stands in the reply, a placeholder while the fence is
+still streaming, and the source with the reason when it does not check out. Both routes share one
+validator, `@grid/visuals`, which also holds `RICH_REPLIES_NOTE`: what every thread's agent is
+told about rich replies with its first message (or the first after it lost its conversation).
+Blocks: `markdown`, `stats`, `bar-chart`, `line-chart`, `table`, `list`, `callout`, `compare`,
+`calculator`, `choices`, `progress`, `timeline`, `donut`, `facts` and `tabs` of those.
+
 ### Runner handoffs, side chats and crews
 
 | Method | Path | Permission | Purpose |
@@ -445,7 +454,11 @@ conversation is 60,000 tokens or more and goes quiet is sent `/compact`
 (`origin: { kind: "grid", reason: "compact" }`) 90 seconds before Claude's prompt cache for it
 expires: an hour after its last turn on a plan, five minutes with `ANTHROPIC_API_KEY`. Anything
 happening in the thread first cancels it; timers do not survive a restart. Claude Code `usage`
-events now carry `contextUsed`, the input its latest request read.
+events now carry `contextUsed`, the input its latest request read, and `contextWindow` from the
+result's `modelUsage`. Model choices carry `contextWindow` too where the agent's catalog says
+(Claude Code: 200k, or a million for a 1M row), so the composer's usage panel can show a model's
+window before its first answer. That panel's Compact button sends the agent's own `/compact`
+command as a visible turn, as idle compaction does.
 
 ### Runner outside agents, guests, search and snooze
 

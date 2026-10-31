@@ -15,6 +15,8 @@ export {
 } from "./avatar";
 export { Badge, Count, Kbd, type Tone } from "./badge";
 export { KeyRecorder } from "./key-recorder";
+export { shortcutKeys } from "./keys";
+export { type ContextLimit, ContextMeter, formatTokens } from "./context-panel";
 export { BrandLogo, BrandMark, BrandWordmark, Splash } from "./brand";
 export {
 	Button,
@@ -140,6 +142,7 @@ export { type AutocompleteItem, AutocompleteList, Palette, type PaletteItem } fr
 export { type Placement, Popover, type PopoverControl } from "./popover";
 export {
 	MIC_BUTTON,
+	DOCK_CHIP,
 	PROMPT_ADD,
 	PROMPT_CHIP,
 	PROMPT_FIELD,
@@ -149,7 +152,6 @@ export {
 	STEER_BUTTON,
 	STOP_BUTTON,
 	Suggestions,
-	ContextMeter,
 	VoiceBar,
 	WorkingRing,
 } from "./prompt-box";
@@ -206,7 +208,6 @@ export {
 	SettingsLinkRow,
 	SettingsProfileLink,
 	SettingsRow,
-	SwatchRow,
 	ThemeCards,
 } from "./settings";
 export { Pagination, Stepper } from "./steps";
@@ -441,7 +442,7 @@ export {
 	ReconnectingNotice,
 	WaitingLine,
 } from "./notification";
-export { ScrollRail, type ScrollRailProps } from "./scroll-rail";
+export { MessageRail, type MessageRailProps, RAIL_LABEL, RAIL_MARK } from "./message-rail";
 export {
 	type CrewMember,
 	CrewPanel,

@@ -190,7 +190,7 @@ export function FloatingNotice(props: {
 			aria-live="polite"
 			class={
 				props.position === "top"
-					? "fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.5rem)] z-50 mx-auto block w-fit rounded-full bg-inverse px-3 py-1 text-caption text-inverse-fg shadow-float"
+					? "fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.5rem)] z-50 mx-auto block w-fit rounded-pill bg-inverse px-3 py-1 text-caption text-inverse-fg shadow-float"
 					: "fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center gap-3 rounded-kit-xl bg-surface-raised px-4 py-3 shadow-float"
 			}
 		>

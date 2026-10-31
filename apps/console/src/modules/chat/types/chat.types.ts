@@ -11,6 +11,8 @@ export type Choice = {
 	/** A model's reasoning-effort levels, when it has them. */
 	efforts?: Choice[];
 	defaultEffort?: string;
+	/** A model's context window in tokens, when the agent's catalog says. */
+	contextWindow?: number;
 };
 
 export type ToolKind = "read" | "edit" | "execute" | "search" | "fetch" | "think" | "other";

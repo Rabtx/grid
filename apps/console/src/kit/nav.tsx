@@ -250,7 +250,7 @@ export function NavSection(props: {
 }
 
 export const railItem = variants({
-	base: "focus-ring relative grid shrink-0 place-items-center rounded-kit text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:surface-outline aria-[current=page]:bg-surface aria-[current=page]:text-fg [&_svg]:size-4",
+	base: "focus-ring relative grid shrink-0 place-items-center rounded-kit text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg [&_svg]:size-4",
 	variants: {
 		size: {
 			/** The rail's 32px tile, with room for its name when rail labels are on. */
@@ -398,10 +398,10 @@ export function PanelHeader(props: { title: JSX.Element; actions?: JSX.Element }
 	);
 }
 
-/** The mark on a 28px outlined tile, as the rail's head and the drawer show it. */
+/** The mark on a 28px filled tile, as the rail's head and the drawer show it. */
 export function BrandTile(): JSX.Element {
 	return (
-		<span class="surface-outline grid size-7 place-items-center rounded-kit">
+		<span class="grid size-7 place-items-center rounded-kit bg-fill-strong">
 			<BrandMark class="size-4" />
 		</span>
 	);

@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from
 
 import { onRunnerRecovered, runnerUp } from "@/lib/runner-health";
 import { accountStorage } from "@/lib/account-storage";
+import { now } from "@/lib/clock";
 import { shortcutHint, useCommand } from "@/lib/keybindings";
 
 import { useAuth } from "@/modules/auth";
@@ -17,12 +18,13 @@ import {
 	BranchIcon,
 	Button,
 	CheckIcon,
+	ContextMeter,
+	DOCK_CHIP,
 	IdeaIcon,
 	Menu,
 	type MenuGroup,
 	notify,
 	type PopoverControl,
-	PROMPT_CHIP,
 	ProjectTile,
 	RoleChipGroup,
 	Row,
@@ -62,6 +64,7 @@ import { Composer, type ComposerControl } from "./composer";
 import { Conversation, queueFirstMessage } from "./conversation";
 import { ModelPicker, ModePicker } from "./pickers";
 import { RoleDialog, RoleMenu, RoleSettings } from "./roles";
+import { planLimits } from "./usage-rings";
 import { SessionTabs } from "./session-list";
 
 const AGENT_KEY = "grid.chat.agent";
@@ -830,6 +833,7 @@ function NewChat(props: {
 				? (title) => void addBoardTask({ token: auth.token(), project: slug, title, workspace })
 				: undefined,
 			addNote: slug ? (text) => void addNote(text) : undefined,
+			ask: (text) => void (asCrew() ? startCrew(text, []) : start(text, [])),
 		});
 	}
 
@@ -906,6 +910,7 @@ function NewChat(props: {
 						}
 					>
 						<Composer
+							roomy
 							project={props.project}
 							initial={initial}
 							commands={commands()}
@@ -982,7 +987,7 @@ function NewChat(props: {
 													aria-pressed={asCrew() ? "true" : "false"}
 													title="Start a crew: this agent coordinates, and hands the work to member threads of its own"
 													onClick={() => setAsCrew((on) => !on)}
-													class={`${PROMPT_CHIP} aria-pressed:bg-accent/15 aria-pressed:text-accent`}
+													class={`${DOCK_CHIP} aria-pressed:bg-accent/15 aria-pressed:text-accent`}
 												>
 													Crew
 												</button>
@@ -1013,7 +1018,7 @@ function NewChat(props: {
 																</span>
 															</>
 														}
-														triggerClass={PROMPT_CHIP}
+														triggerClass={DOCK_CHIP}
 														groups={[
 															{
 																label: "Run as",
@@ -1042,6 +1047,18 @@ function NewChat(props: {
 										)}
 									</Show>
 								</Row>
+							}
+							usage={
+								<Show when={chosen()}>
+									{(provider) => (
+										<ContextMeter
+											total={currentModel()?.contextWindow}
+											model={currentModel()?.name}
+											limits={planLimits(provider().id, accountScope(), account(), now())}
+											account={accountsStore.label(accountScope(), account()) ?? "Your sign-in"}
+										/>
+									)}
+								</Show>
 							}
 							controls={
 								<Show when={chosen()}>

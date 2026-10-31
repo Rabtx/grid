@@ -90,7 +90,7 @@ export function JumpToLatest(props: { onClick: () => void }): JSX.Element {
 			type="button"
 			aria-label="Jump to latest output"
 			onClick={() => props.onClick()}
-			class="focus-ring absolute right-6 bottom-4 z-20 flex items-center gap-1.5 rounded-full bg-inverse px-3 py-1.5 font-kit text-caption text-inverse-fg shadow-float transition-transform duration-fast ease-out-grid active:scale-95"
+			class="focus-ring absolute right-6 bottom-4 z-20 flex items-center gap-1.5 rounded-pill bg-inverse px-3 py-1.5 font-kit text-caption text-inverse-fg shadow-float transition-transform duration-fast ease-out-grid active:scale-95"
 		>
 			<ChevronDownIcon size="xs" />
 			<span>Latest output</span>

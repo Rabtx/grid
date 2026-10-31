@@ -67,7 +67,8 @@ async function threadMenu(id: string): Promise<void> {
 }
 
 async function send(text: string): Promise<void> {
-	const box = page.getByPlaceholder(/Ask, build/);
+	// The composer by its name: its placeholder differs on a new chat and in a thread.
+	const box = page.getByRole("textbox", { name: "Message" });
 	await box.fill(text);
 	await box.press("Enter");
 }
@@ -130,6 +131,44 @@ test("links a project folder and starts a thread the agent answers", async () =>
 	await expect(page.getByText(/ok: .*hello there/)).toBeVisible();
 	await expect(page).toHaveURL(/\/acme\/chat\/demo\/[\w-]+$/);
 	threads.first = page.url().split("/").pop() ?? "";
+});
+
+test("draws the visual an agent writes into its reply, with the rail beside the thread", async () => {
+	await page.goto(`/acme/chat/demo/${threads.first}`);
+	await dismissTour(page);
+	// The thread's page settles before typing: the composer is drawn anew as it loads.
+	await expect(page.getByText(/ok: .*hello there/)).toBeVisible();
+	await send("VISUAL? how are the builds doing");
+	const visual = page.locator('figure[aria-label="Build health"]');
+	await expect(visual).toBeVisible();
+	await expect(visual.locator('meter[aria-label="api"]')).toHaveAttribute("value", "82");
+	await expect(visual.getByText("Failures by cause")).toBeVisible();
+	// The fence's JSON is drawn, not shown.
+	await expect(page.getByText('"blocks"')).toHaveCount(0);
+	// One segment per turn on the message rail, named by its prompt.
+	await expect(
+		page.locator(
+			'nav[aria-label="Messages"] button[data-tooltip="VISUAL? how are the builds doing"]',
+		),
+	).toHaveCount(1);
+});
+
+test("shows a thread's context and plan usage in the composer, and compacts it", async () => {
+	await page.goto(`/acme/chat/demo/${threads.first}`);
+	await dismissTour(page);
+	// The thread's page settles before typing: the composer is drawn anew as it loads.
+	await expect(page.getByText(/ok: .*hello there/)).toBeVisible();
+	await send("USAGE? how much room is left");
+	await expect(page.getByText("usage reported").first()).toBeVisible();
+	const meter = page.getByRole("button", { name: /^Context 76%/ });
+	await expect(meter).toBeVisible();
+	await meter.click();
+	const panel = page.locator("[popover]:popover-open");
+	await expect(panel.getByText("152k / 200k")).toBeVisible();
+	await expect(panel.getByText("42% used")).toBeVisible();
+	await expect(panel.getByText(/^Resets in /).first()).toBeVisible();
+	await panel.getByRole("button", { name: "Compact" }).click();
+	await expect(page.getByText("ok: /compact")).toBeVisible();
 });
 
 test("opens a thread an agent links to", async () => {

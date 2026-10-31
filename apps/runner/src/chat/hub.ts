@@ -8,6 +8,14 @@ import {
 	MAX_SESSION_ATTACHMENTS,
 	MAX_SESSION_BYTES,
 } from "./attachments";
+import {
+	readVisual,
+	SHOW_VISUAL_DESCRIPTION,
+	SHOW_VISUAL_SCHEMA,
+	VisualError,
+	VISUALS_PER_TURN,
+} from "@grid/visuals";
+
 import type { Accounts } from "./accounts";
 import { historyBrief, turnsOf } from "./history-brief";
 import { existsSync, realpathSync, statSync } from "node:fs";
@@ -31,13 +39,6 @@ import {
 	restore,
 	snapshot,
 } from "./checkpoints";
-import {
-	readVisual,
-	SHOW_VISUAL_DESCRIPTION,
-	SHOW_VISUAL_SCHEMA,
-	VisualError,
-	VISUALS_PER_TURN,
-} from "./visuals";
 import { type AgentPolicy, answerFor, branchNote, DEFAULT_POLICY } from "../agents/policy";
 import {
 	type AgentSession,
@@ -449,6 +450,7 @@ export class ChatHub {
 		  ) => string | null)
 		| null = null;
 	private memoryBrief: ((session: ChatSessionRow, message: string) => string | null) | null = null;
+	private richReplies: string | null = null;
 	/** Docker on this machine, for threads whose agent runs in a sandbox. */
 	private sandboxes: Sandboxes | null = null;
 	/** The runner is stopping: turns cut off now are left open, to carry on when it starts. */
@@ -838,6 +840,14 @@ export class ChatHub {
 	 */
 	setMemoryBrief(brief: (session: ChatSessionRow, message: string) => string | null): void {
 		this.memoryBrief = brief;
+	}
+
+	/**
+	 * What every thread's agent is told about answering with visuals (`RICH_REPLIES_NOTE`), with
+	 * its first message; null tells it nothing.
+	 */
+	setRichReplies(note: string | null): void {
+		this.richReplies = note;
 	}
 
 	/** Docker on this machine, for threads whose agent runs in a container (see `sandbox/`). */
@@ -1684,6 +1694,8 @@ export class ChatHub {
 								this.personal(session.ownerId).note,
 								branchNote(rules.policy, rules.defaultBranch),
 								this.memoryBrief?.(session, typed),
+								// Every agent learns it can answer with visuals, tools or not.
+								this.richReplies,
 							]
 								.filter(Boolean)
 								.join("\n\n") || null

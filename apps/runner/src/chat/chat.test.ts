@@ -669,6 +669,25 @@ describe("ChatHub", () => {
 		expect(plain.notes).toBeNull();
 	});
 
+	it("tells every agent how to answer with visuals, with its first message only", async () => {
+		const { provider, sent } = commandsProvider(null);
+		const chat = new ChatHub(new ChatStore(":memory:"), new Map([["echo", provider]]), tmpdir());
+		chat.setRichReplies("Rich replies: use grid-visual fences.");
+		const session = chat.create(
+			{ userId: "me", workspace: "me" },
+			{ project: "alpha", provider: "echo", cwd: "/tmp" },
+		);
+		await chat.prompt("me", session.id, "/compact");
+		await chat.prompt("me", session.id, "Chart the build times");
+		await chat.prompt("me", session.id, "Thanks");
+		expect(sent).toEqual([
+			// A command goes as typed; the note waits for the first real message.
+			"/compact",
+			"Rich replies: use grid-visual fences.\n\n---\n\nChart the build times",
+			"Thanks",
+		]);
+	});
+
 	const COMMANDS: AgentCommand[] = [
 		{ name: "compact", description: "Summarise the conversation" },
 		{ name: "clear", description: "Clear the screen" },

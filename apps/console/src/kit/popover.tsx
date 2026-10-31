@@ -197,7 +197,7 @@ export function Popover(props: {
 							type="button"
 							aria-label="Close"
 							onClick={() => panel?.hidePopover?.()}
-							class="surface-outline focus-ring grid size-10 shrink-0 place-items-center rounded-full text-fg-muted transition-colors duration-fast hover:text-fg"
+							class="focus-ring grid size-10 shrink-0 place-items-center rounded-pill bg-fill-strong text-fg-muted transition-colors duration-fast hover:bg-selection hover:text-fg"
 						>
 							<CloseIcon size="sm" />
 						</button>

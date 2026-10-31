@@ -20,10 +20,10 @@ export function Switch(props: {
 				tap();
 				props.onChange(!props.checked);
 			}}
-			class="focus-ring relative inline-flex h-5 w-8.5 shrink-0 items-center rounded-full bg-fill-strong transition-colors duration-fast ease-out-grid aria-checked:bg-accent disabled:opacity-40 pointer-coarse:h-6 pointer-coarse:w-10"
+			class="focus-ring relative inline-flex h-5 w-8.5 shrink-0 items-center rounded-pill bg-fill-strong transition-colors duration-fast ease-out-grid aria-checked:bg-accent disabled:opacity-40 pointer-coarse:h-6 pointer-coarse:w-10"
 		>
 			<span
-				class={`size-4 rounded-full bg-white shadow-knob transition-transform duration-fast ease-out-grid pointer-coarse:size-5 ${props.checked ? "translate-x-4 pointer-coarse:translate-x-4.5" : "translate-x-0.5"}`}
+				class={`size-4 rounded-pill bg-white shadow-knob transition-transform duration-fast ease-out-grid pointer-coarse:size-5 ${props.checked ? "translate-x-4 pointer-coarse:translate-x-4.5" : "translate-x-0.5"}`}
 			/>
 		</button>
 	);

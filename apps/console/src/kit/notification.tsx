@@ -70,7 +70,7 @@ export function ReconnectingNotice(props: { title: string; detail: string }): JS
 	return (
 		<output
 			aria-live="polite"
-			class="surface-card fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-50 mx-auto flex w-fit max-w-[calc(100%-1.5rem)] items-center gap-2.5 rounded-full px-4 py-2"
+			class="surface-card fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-50 mx-auto flex w-fit max-w-[calc(100%-1.5rem)] items-center gap-2.5 rounded-pill px-4 py-2"
 		>
 			<WorkingDots label={props.title} />
 			<span class="truncate font-medium text-body text-fg">{props.title}</span>

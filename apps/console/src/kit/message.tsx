@@ -94,7 +94,7 @@ export function AgentMessage(props: {
 	const ref = useTouchMenu(() => props.onMenuAt);
 	return (
 		<div ref={ref} class="group/message flex min-w-0 flex-col items-start">
-			<div class="min-w-0 max-w-full text-body-lg text-fg">{props.children}</div>
+			<div class="w-full min-w-0 text-body-lg text-fg">{props.children}</div>
 			<Show when={props.actions}>
 				<ActionBar align="start">{props.actions}</ActionBar>
 			</Show>
@@ -246,7 +246,7 @@ export function Attachment(props: {
 					aria-label={`Remove ${props.name}`}
 					disabled={props.disabled}
 					onClick={() => props.onRemove?.()}
-					class="focus-ring grid size-7 shrink-0 place-items-center rounded-full text-fg-subtle hover:bg-fill-strong hover:text-fg disabled:opacity-40 pointer-coarse:size-10"
+					class="focus-ring grid size-7 shrink-0 place-items-center rounded-pill text-fg-subtle hover:bg-fill-strong hover:text-fg disabled:opacity-40 pointer-coarse:size-10"
 				>
 					<CloseIcon size="sm" />
 				</button>
@@ -410,7 +410,7 @@ export function AgentHeader(props: {
 }): JSX.Element {
 	return (
 		<div class="flex min-w-0 items-center gap-2.5">
-			<span class="grid size-7 shrink-0 place-items-center rounded-kit bg-surface ring-line-strong [&>*]:size-4">
+			<span class="grid size-7 shrink-0 place-items-center rounded-kit bg-fill-strong [&>*]:size-4">
 				{props.logo}
 			</span>
 			<span class="min-w-0 truncate font-medium text-body text-fg">{props.name}</span>

@@ -14,6 +14,7 @@ import {
 import { onAppResume } from "@/lib/app-resume";
 import { useCommand } from "@/lib/keybindings";
 import { localStore, saveSoon } from "@/lib/local-store";
+import { now } from "@/lib/clock";
 import { linkFor } from "@/lib/runner-link";
 import { quietReconnects } from "@/lib/quiet-reconnects";
 import { runnerStartedAt } from "@/lib/runner-health";
@@ -52,7 +53,7 @@ import {
 	IconButton,
 	LaptopIcon,
 	RoleMark,
-	ScrollRail,
+	MessageRail,
 	ThreadHeader,
 	notify,
 	type PopoverControl,
@@ -63,6 +64,7 @@ import {
 	type GoalState,
 	LimitWaitBar,
 	Row,
+	shortcutKeys,
 	SubagentStrip,
 	Text,
 } from "@/kit";
@@ -85,6 +87,7 @@ import {
 	type Transcript,
 } from "../lib/transcript";
 import { chatService, chatSocketUrl } from "../services/chat.service";
+import { accountsStore } from "../stores/accounts";
 import { threadsStore } from "../stores/threads";
 import type {
 	ChatEvent,
@@ -103,6 +106,7 @@ import { Composer } from "./composer";
 import { CrewSettingsDialog } from "./crew-settings";
 import { GitControl } from "./git-control";
 import { ModelPicker, ModePicker } from "./pickers";
+import { planLimits, resetsText } from "./usage-rings";
 import {
 	ApprovalCard,
 	type ThreadPeople,
@@ -159,6 +163,20 @@ export function Conversation(props: {
 			if (project) threadsStore.markRunning(props.id, project, value);
 		},
 	);
+	// A turn that ends has used some of the plan: the composer's usage panel shows it at once,
+	// not at the sidebar's next poll.
+	let wasRunning = false;
+	createEffect(running, (value) => {
+		const token = auth.token();
+		if (wasRunning && !value && token)
+			void accountsStore
+				.load(
+					token,
+					untrack(() => props.scope),
+				)
+				.catch(() => undefined);
+		wasRunning = value;
+	});
 	const [connection, setConnection] = createSignal<ChatConnection>("connecting");
 	const [error, setError] = createSignal<string | null>(null);
 	const [restartNotice, setRestartNotice] = createSignal<string | null>(null);
@@ -306,6 +324,10 @@ export function Conversation(props: {
 				return true;
 			},
 			goal: (input) => void changeGoal(input),
+			ask: (text) =>
+				void send(text, [], running()).catch((cause) =>
+					setError(cause instanceof Error ? cause.message : "Could not send message"),
+				),
 		});
 	}
 
@@ -855,6 +877,17 @@ export function Conversation(props: {
 			.filter(Boolean)
 			.join(" · ");
 	const modelName = () => currentModel()?.name ?? (model() || undefined);
+	// The agent's own compact command, when it has one (Claude Code's /compact): the composer's
+	// usage panel offers it, sent as a visible turn as idle compaction sends it.
+	const compactCommand = () =>
+		commands().find((command) => command.kind === "agent" && command.id.endsWith(":compact"));
+	function compactNow(): void {
+		const command = compactCommand();
+		if (!command) return;
+		void send(`/${command.name}`).catch((cause) =>
+			setError(cause instanceof Error ? cause.message : "Could not compact"),
+		);
+	}
 	const machine = () => {
 		const name =
 			environmentsStore.labelOf(placementsStore.environmentOf(session()?.project)) ??
@@ -1029,7 +1062,7 @@ export function Conversation(props: {
 						/>
 					</div>
 				</div>
-				<ScrollRail scroller={() => scroller} />
+				<MessageRail scroller={() => scroller} />
 				<Show when={!isPinned()}>
 					<Button
 						variant="secondary"
@@ -1202,6 +1235,11 @@ export function Conversation(props: {
 					</Show>
 					<Composer
 						project={session()?.project}
+						placeholder={
+							running()
+								? `Queue a follow-up · ${shortcutKeys("Mod Enter").join(" ")} steers`
+								: "Send a follow-up…"
+						}
 						running={running()}
 						steerRestarts={provider()?.capabilities?.steer !== "native"}
 						commands={commands()}
@@ -1209,6 +1247,36 @@ export function Conversation(props: {
 						disabled={connection() === "gone" || connection() === "signed-out"}
 						onSend={send}
 						onStop={() => socket?.send({ t: "cancel" })}
+						usage={
+							<ContextMeter
+								used={transcript().usage?.contextUsed}
+								total={transcript().usage?.contextWindow ?? currentModel()?.contextWindow}
+								model={modelName()}
+								limits={planLimits(
+									session()?.provider ?? "",
+									props.scope,
+									session()?.account ?? null,
+									now(),
+								)}
+								account={
+									accountsStore.label(props.scope, session()?.account ?? null) ?? "Your sign-in"
+								}
+								carryOn={
+									transcript().limitWait
+										? `Grid carries this thread on when the limit resets, ${resetsText(transcript().limitWait ?? "", now())}.`
+										: null
+								}
+								thread={{
+									input: transcript().usage?.inputTokens,
+									output: transcript().usage?.outputTokens,
+									cost: transcript().usage?.costUsd,
+								}}
+								onCompact={compactCommand() ? compactNow : undefined}
+								compactBlocked={
+									running() ? "Compacting waits until the agent finishes this turn." : null
+								}
+							/>
+						}
 						dock={
 							<>
 								<Row wrap gap={1.5} class="min-w-0">
@@ -1233,11 +1301,6 @@ export function Conversation(props: {
 												modePicker = control;
 											}}
 										/>
-									</Show>
-									<Show when={transcript().usage?.contextWindow}>
-										{(total) => (
-											<ContextMeter used={transcript().usage?.contextUsed ?? 0} total={total()} />
-										)}
 									</Show>
 								</Row>
 								<Show when={transcript().queue.items.length > 0}>

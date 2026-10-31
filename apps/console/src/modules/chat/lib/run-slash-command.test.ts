@@ -42,6 +42,19 @@ beforeEach(() => {
 });
 
 describe("runSlashCommand", () => {
+	it("sends /visual's request with the ask for a rich visual, and needs something to show", () => {
+		const ask = vi.fn();
+		expect(runSlashCommand(command("visual"), "build times this week", actions({ ask }))).toBe(
+			true,
+		);
+		expect(ask).toHaveBeenCalledWith(
+			expect.stringMatching(/^build times this week\n\n[\s\S]*grid-visual/),
+		);
+		expect(runSlashCommand(command("visual"), "  ", actions({ ask }))).toBe(false);
+		expect(lastToast()).toBe("Say what to show, e.g. /visual build times this week");
+		expect(runSlashCommand(command("visual"), "x", actions())).toBe(false);
+	});
+
 	it("sets an effort named by id or name", () => {
 		const setEffort = vi.fn();
 		expect(runSlashCommand(command("effort"), "HIGH", actions({ setEffort }))).toBe(true);

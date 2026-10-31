@@ -86,15 +86,20 @@ describe("AppearanceScreen", () => {
 		localStorage.clear();
 	});
 
-	it("renders its groups, the shape controls and the device note", async () => {
+	it("renders its groups, its controls and the device note, with no preview", async () => {
 		await settle();
 
 		const text = container.textContent ?? "";
 		expect(text).toContain("Appearance");
-		for (const group of ["Theme", "Accent", "Text & layout", "Motion & sound", "Colour", "Shape"])
+		for (const group of ["Theme", "Accent", "Text & layout", "Colour & surfaces", "Motion & sound"])
 			expect(text).toContain(group);
-		for (const name of ["Hue", "Saturation", "Corner roundness", "Spacing", "Line strength"])
+		for (const row of ["Text size", "Density", "Corners", "Code font"]) expect(text).toContain(row);
+		for (const name of ["Hue", "Saturation", "Dark-mode lightness", "Line strength"])
 			expect(container.querySelector(`input[aria-label="${name}"]`), name).not.toBeNull();
+		// One accent, one density, one zoom: the old duplicates are gone.
+		for (const gone of ["Button colour", "Spacing", "Interface scale", "Corner roundness"])
+			expect(text).not.toContain(gone);
+		expect(container.querySelector('[aria-label="Preview field"]')).toBeNull();
 		expect(text).toContain("Make Grid feel like yours. Changes apply on this device.");
 	});
 
@@ -112,35 +117,21 @@ describe("AppearanceScreen", () => {
 		expect(document.documentElement.style.getPropertyValue("--hue")).toBe("120");
 	});
 
-	it("reshapes the whole kit from the corner roundness slider", async () => {
+	it("sets one accent for buttons and signals from its swatches, and back to automatic", async () => {
 		await settle();
 
-		const radius = container.querySelector<HTMLInputElement>(
-			'input[aria-label="Corner roundness"]',
-		);
-		expect(radius).not.toBeNull();
-		if (radius) {
-			radius.value = "0";
-			radius.dispatchEvent(new Event("input", { bubbles: true }));
-		}
-		await settle();
-
-		expect(document.documentElement.style.getPropertyValue("--kit-radius-scale")).toBe("0");
-	});
-
-	it("sets the accent and the button colour from their swatches", async () => {
-		await settle();
-
+		const root = document.documentElement;
 		const violet = container.querySelector<HTMLButtonElement>('button[aria-label="Violet"]');
 		violet?.click();
 		await settle();
-		expect(document.documentElement.style.getPropertyValue("--signal-accent")).toBe("#8e5cf0");
+		expect(root.style.getPropertyValue("--signal-accent")).toBe("#8e5cf0");
+		expect(root.style.getPropertyValue("--user-accent")).toBe("#8e5cf0");
 		expect(violet?.getAttribute("aria-pressed")).toBe("true");
 
-		const pink = container.querySelector<HTMLButtonElement>('button[aria-label="Pink"]');
-		pink?.click();
+		container.querySelector<HTMLButtonElement>('button[title="Automatic"]')?.click();
 		await settle();
-		expect(document.documentElement.style.getPropertyValue("--user-accent")).toBe("#ec4899");
+		expect(root.style.getPropertyValue("--signal-accent")).toBe("");
+		expect(root.style.getPropertyValue("--user-accent")).toBe("");
 	});
 
 	it("labels the rail and slows motion when asked", async () => {

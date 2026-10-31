@@ -333,7 +333,7 @@ export function PullHistoryGraph(props: {
 						<Show when={row.ref}>
 							{(ref) => (
 								<span
-									class={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-caption ${ref().tone === "branch" ? "tint-violet" : "bg-fill-strong text-fg-muted"}`}
+									class={`flex shrink-0 items-center gap-1 rounded-pill px-2 py-0.5 text-caption ${ref().tone === "branch" ? "tint-violet" : "bg-fill-strong text-fg-muted"}`}
 								>
 									<span aria-hidden="true" class="size-1.5 rounded-full bg-current" />
 									{ref().name}
@@ -688,7 +688,7 @@ export function ReviewComment(props: {
 				</span>
 				<span class="flex-1" />
 				<Show when={props.resolved}>
-					<span class="flex shrink-0 items-center gap-1 rounded-full tint-success px-2 py-0.5 text-caption">
+					<span class="flex shrink-0 items-center gap-1 rounded-pill tint-success px-2 py-0.5 text-caption">
 						<span aria-hidden="true" class="size-1.5 rounded-full bg-current" />
 						Resolved
 					</span>
@@ -758,7 +758,7 @@ export function ReviewCommentBox(props: {
 				<button
 					type="button"
 					onClick={() => props.onCancel()}
-					class="focus-ring inline-flex h-kit-control-sm items-center rounded-full px-3 text-caption text-fg-muted hover:bg-fill hover:text-fg"
+					class="focus-ring inline-flex h-kit-control-sm items-center rounded-pill px-3 text-caption text-fg-muted hover:bg-fill hover:text-fg"
 				>
 					Cancel
 				</button>
@@ -766,7 +766,7 @@ export function ReviewCommentBox(props: {
 					type="button"
 					disabled={!props.value.trim()}
 					onClick={() => props.onSave()}
-					class="focus-ring inline-flex h-kit-control-sm items-center rounded-full bg-inverse px-3 font-medium text-caption text-inverse-fg disabled:opacity-40"
+					class="focus-ring inline-flex h-kit-control-sm items-center rounded-pill bg-inverse px-3 font-medium text-caption text-inverse-fg disabled:opacity-40"
 				>
 					{props.saveLabel ?? "Comment"}
 				</button>

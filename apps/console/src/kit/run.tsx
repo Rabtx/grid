@@ -525,10 +525,10 @@ export function CodeChip(props: { children: JSX.Element }): JSX.Element {
 	);
 }
 
-/** A project's mark on a 44px outlined tile, at the head of a new thread. */
+/** A project's mark on a 44px filled tile, at the head of a new thread. */
 export function ProjectTile(props: { children: JSX.Element }): JSX.Element {
 	return (
-		<span class="surface-outline grid size-11 shrink-0 place-items-center rounded-kit-lg">
+		<span class="grid size-11 shrink-0 place-items-center rounded-kit-lg bg-fill-strong">
 			{props.children}
 		</span>
 	);

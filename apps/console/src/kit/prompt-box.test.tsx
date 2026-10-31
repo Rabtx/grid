@@ -1,7 +1,7 @@
 import { render } from "@solidjs/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ContextMeter, VoiceBar } from "./prompt-box";
+import { VoiceBar } from "./prompt-box";
 
 describe("VoiceBar", () => {
 	let dispose: (() => void) | undefined;
@@ -50,16 +50,5 @@ describe("VoiceBar", () => {
 		const done = host.querySelector<HTMLButtonElement>('[aria-label="Done, insert the words"]');
 		expect(done?.disabled).toBe(true);
 		expect(host.textContent).toContain("Transcribing");
-	});
-});
-
-describe("ContextMeter", () => {
-	it("says how many tokens of how many", () => {
-		const host = document.createElement("div");
-		document.body.append(host);
-		const dispose = render(() => <ContextMeter used={76_000} total={200_000} />, host);
-		expect(host.textContent).toContain("Context 38% · 76k of 200k tokens");
-		dispose();
-		host.remove();
 	});
 });

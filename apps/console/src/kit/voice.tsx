@@ -52,4 +52,4 @@ export function VoiceError(props: { message: string; onDismiss: () => void }): J
 
 /** The round mic that floats over a screen with no mic of its own; red while it listens. */
 export const FLOATING_MIC =
-	"focus-ring pointer-events-auto grid size-12 place-items-center rounded-full bg-inverse text-inverse-fg shadow-float transition-[transform,background-color] duration-fast ease-out-grid active:scale-95 disabled:opacity-60 aria-pressed:bg-danger aria-pressed:text-white";
+	"focus-ring pointer-events-auto grid size-12 place-items-center rounded-pill bg-inverse text-inverse-fg shadow-float transition-[transform,background-color] duration-fast ease-out-grid active:scale-95 disabled:opacity-60 aria-pressed:bg-danger aria-pressed:text-white";
