@@ -18,7 +18,6 @@ import { dictation, insertIntoField, MicButton, registerDictationTarget } from "
 import {
 	AttachIcon,
 	Attachment,
-	BranchIcon,
 	CameraIcon,
 	EditIcon,
 	FolderIcon,
@@ -31,7 +30,6 @@ import {
 	PROMPT_FIELD,
 	PROMPT_ADD,
 	PromptBox,
-	PromptHints,
 	Row,
 	SEND_BUTTON,
 	SendIcon,
@@ -95,12 +93,10 @@ export function Composer(props: {
 	/** The agent cannot take a message mid-turn: steering stops its turn and starts the next. */
 	steerRestarts?: boolean;
 	onStop?: () => void;
-	/** The toolbar's pickers: model and mode. */
+	/** The toolbar's pickers: the model. */
 	controls?: JSX.Element;
-	/** The context row: e.g. the folder the agent works in. */
-	header?: JSX.Element;
-	/** The branch that folder is on, when it is known. */
-	branch?: string;
+	/** Behind the card: the branch, the role, the queue — what used to crowd the toolbar. */
+	dock?: JSX.Element;
 	/** Text to start with, e.g. a task a thread is started from. */
 	initial?: string;
 	/** The project slug, for file mentions autocomplete. */
@@ -829,29 +825,8 @@ export function Composer(props: {
 							</button>
 						</Show>
 					}
-					tray={
-						props.header || props.branch ? (
-							<>
-								<Show when={props.header}>
-									<Row gap={1.5} class="min-w-0">
-										{props.header}
-									</Row>
-								</Show>
-								<Show when={props.branch}>
-									{(branch) => (
-										<Row gap={1.5}>
-											<BranchIcon size="sm" />
-											<Text as="span" size="caption" tone="subtle" mono truncate>
-												{branch()}
-											</Text>
-										</Row>
-									)}
-								</Show>
-							</>
-						) : undefined
-					}
+					dock={props.dock}
 				/>
-				<PromptHints />
 				<Show when={isDraggingOver()}>
 					<div class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-surface/90 ring-2 ring-accent">
 						<Row gap={2} class="font-medium text-accent">

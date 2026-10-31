@@ -14,9 +14,8 @@ export type AgentChoice = {
 };
 
 /**
- * Which agent a thread is for (Figma 10 · Composer, Model picker): rows with the agent's logo in
- * a tile and a line about it, the chosen one lit and checked, from md; a row of pills across the
- * sheet on phones.
+ * Which agent a thread is for (Figma 10 · Composer, Model picker): a rail of logo tiles from md,
+ * the chosen one lit; a row of pills across the sheet on phones.
  */
 export function AgentChoices(props: {
 	label: string;
@@ -49,7 +48,7 @@ export function AgentChoices(props: {
 					row?.querySelector<HTMLElement>(`[data-agent="${next.id}"]`)?.focus(),
 				);
 			}}
-			class="edge-fade flex gap-2 overflow-x-auto [scrollbar-width:none] md:flex-col md:gap-0.5 md:overflow-visible"
+			class="edge-fade flex gap-2 overflow-x-auto [scrollbar-width:none] md:flex-col md:gap-1 md:overflow-x-visible"
 		>
 			<For each={props.items}>
 				{(item) => (
@@ -59,25 +58,21 @@ export function AgentChoices(props: {
 						role="radio"
 						data-agent={item.id}
 						tabindex={props.value === item.id ? 0 : -1}
+						aria-label={item.name}
+						title={item.name}
 						aria-checked={props.value === item.id ? "true" : "false"}
 						onClick={() => props.onChange(item.id)}
-						class="surface-outline focus-ring flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-body-lg text-fg transition-colors duration-fast hover:bg-fill aria-checked:bg-fill-strong aria-checked:shadow-none md:h-auto md:min-h-12 md:gap-3 md:rounded-kit-lg md:px-2 md:py-1.5 md:bg-transparent md:text-body md:shadow-none md:hover:bg-fill md:aria-checked:bg-fill"
+						class="surface-outline focus-ring flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-body-lg text-fg transition-colors duration-fast hover:bg-fill aria-checked:bg-fill-strong aria-checked:shadow-none md:size-11 md:justify-center md:gap-0 md:rounded-kit-lg md:bg-transparent md:px-0 md:text-body md:shadow-none md:hover:bg-fill md:aria-checked:bg-fill-strong"
 					>
 						<span class="grid shrink-0 place-items-center md:size-8 md:rounded-kit-md md:icon-tile">
 							{item.logo}
 						</span>
-						<span class="flex min-w-0 flex-col text-left md:flex-1">
+						<span class="flex min-w-0 flex-col text-left md:sr-only">
 							<span class="truncate">{item.name}</span>
 							<Show when={item.detail}>
-								<span class="hidden truncate text-caption text-fg-subtle md:block">
-									{item.detail}
-								</span>
+								<span class="hidden truncate text-caption text-fg-subtle">{item.detail}</span>
 							</Show>
 						</span>
-						<CheckIcon
-							size="sm"
-							class={`hidden shrink-0 text-fg ${props.value === item.id ? "md:block" : ""}`}
-						/>
 					</button>
 				)}
 			</For>

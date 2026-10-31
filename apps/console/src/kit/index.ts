@@ -145,7 +145,6 @@ export {
 	PROMPT_FIELD,
 	PROMPT_ICON,
 	PromptBox,
-	PromptHints,
 	SEND_BUTTON,
 	STEER_BUTTON,
 	STOP_BUTTON,

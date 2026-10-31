@@ -1,7 +1,6 @@
 import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, For, onSettled, Show } from "solid-js";
 
-import { Kbd } from "./badge";
 import { ICON_SIZE } from "./button";
 import { attachEdgeFade } from "./edge-fade";
 import { CheckIcon, CloseIcon, SpinnerIcon } from "./icons";
@@ -10,9 +9,9 @@ import { Tooltip } from "./surface";
 
 /**
  * Where you write to an agent: one raised, lit card with the text on top and a toolbar under it —
- * tools on the left, the model, the mic and send on the right — and, along its bottom edge, a
- * strip for context (the folder it works in, the branch). It glows in the accent while you type.
- * Chat owns the text and sending; this is its shape.
+ * tools on the left, the model, the mic and send on the right. A second card tucks behind it with
+ * the context that would crowd the toolbar (the branch, the role, the queue). It glows in the
+ * accent while you type. Chat owns the text and sending; this is its shape.
  */
 export function PromptBox(props: {
 	field: JSX.Element;
@@ -26,6 +25,11 @@ export function PromptBox(props: {
 	send: JSX.Element;
 	/** In the toolbar after the tools: where the agent works, the branch. */
 	tray?: JSX.Element;
+	/**
+	 * Behind the card and peeking out below it: the composer's shelf for what does not belong in
+	 * the toolbar — the branch, the role, the queue.
+	 */
+	dock?: JSX.Element;
 	/** Floats inside the card over the text: the @-mention list. */
 	overlay?: JSX.Element;
 	/** The card is a form: Enter-to-send and the send button submit it. */
@@ -45,6 +49,7 @@ export function PromptBox(props: {
 	// Each read of a JSX prop builds it anew: read these once.
 	const voice = createMemo(() => props.voice);
 	const attachments = createMemo(() => props.attachments);
+	const dock = createMemo(() => props.dock);
 	return (
 		<PopoverAnchor value={() => card}>
 			<div class={`relative flex flex-col ${props.class ?? ""}`}>
@@ -88,9 +93,12 @@ export function PromptBox(props: {
 							{props.send}
 						</div>
 					</div>
-					{/* Where the agent works (the branch) sits in the toolbar as chips, as the Figma composer
-				    draws it, so the card has no strip of its own under it. */}
 				</form>
+				<Show when={dock()}>
+					<div class="relative z-0 -mt-4 mx-3 flex flex-col gap-2 rounded-b-kit-xl bg-surface-sunken px-2 pt-7 pb-2 ring-line md:mx-5 md:px-2.5">
+						{dock()}
+					</div>
+				</Show>
 			</div>
 		</PopoverAnchor>
 	);
@@ -330,29 +338,5 @@ export function VoiceBar(props: {
 				<CheckIcon />
 			</button>
 		</div>
-	);
-}
-
-/** Under the composer on a physical keyboard: the keys that matter (Figma 10 · Composer). */
-export function PromptHints(): JSX.Element {
-	const hints: readonly { keys: string[]; label: string }[] = [
-		{ keys: ["↵"], label: "Send" },
-		{ keys: ["⇧", "↵"], label: "New line" },
-		{ keys: ["/"], label: "Commands" },
-		{ keys: ["@"], label: "Files" },
-	];
-	return (
-		<p class="hidden items-center gap-4 px-2 pt-2 text-caption text-fg-subtle md:flex pointer-coarse:hidden">
-			<For each={hints}>
-				{(hint) => (
-					<span class="flex items-center gap-1.5">
-						<span class="flex items-center gap-0.5">
-							<For each={hint.keys}>{(key) => <Kbd>{key}</Kbd>}</For>
-						</span>
-						{hint.label}
-					</span>
-				)}
-			</For>
-		</p>
 	);
 }

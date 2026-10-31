@@ -25,6 +25,7 @@ import {
 	PROMPT_CHIP,
 	ProjectTile,
 	RoleChipGroup,
+	Row,
 	Stack,
 	Suggestions,
 	Text,
@@ -886,8 +887,8 @@ function NewChat(props: {
 							}
 							disabled={!chosen() || !props.project || !props.folder}
 							onSend={(text, files) => (asCrew() ? startCrew(text, files) : start(text, files))}
-							header={
-								<>
+							dock={
+								<Row wrap gap={1.5} class="min-w-0">
 									<Show when={props.folder && props.project}>
 										<GitControl
 											folder={props.folder ?? ""}
@@ -896,135 +897,137 @@ function NewChat(props: {
 											onPlace={setPlace}
 										/>
 									</Show>
-								</>
+									<Show when={chosen()}>
+										{(provider) => (
+											<>
+												<Show when={rolesStore.loaded(roleScope())}>
+													<RoleChipGroup>
+														<RoleMenu
+															roles={roles()}
+															usable={offered}
+															providers={props.providers}
+															value={role()?.id ?? null}
+															onPick={pickRole}
+															onNew={() => setEditing({ role: null })}
+															onEdit={(target) => setEditing({ role: target })}
+														/>
+														<Show when={role()}>
+															{(current) => (
+																<RoleSettings
+																	role={current()}
+																	agents={available()}
+																	agent={provider().id}
+																	onAgent={chooseAgent}
+																	models={models()}
+																	model={model()}
+																	onModel={chooseModel}
+																	efforts={efforts()}
+																	effort={effort()}
+																	onEffort={setPickedEffort}
+																	changed={roleChanged()}
+																	onSave={async () => {
+																		const token = auth.token();
+																		if (!token) throw new Error("Sign in again to save the role");
+																		const saved = await rolesStore.update(
+																			token,
+																			current().id,
+																			roleChanges(),
+																			roleScope(),
+																		);
+																		applyRole(saved);
+																	}}
+																	control={(control) => {
+																		roleSettings = control;
+																	}}
+																	onEdit={() => setEditing({ role: current() })}
+																/>
+															)}
+														</Show>
+													</RoleChipGroup>
+												</Show>
+												<button
+													type="button"
+													aria-pressed={asCrew() ? "true" : "false"}
+													title="Start a crew: this agent coordinates, and hands the work to member threads of its own"
+													onClick={() => setAsCrew((on) => !on)}
+													class={`${PROMPT_CHIP} aria-pressed:bg-accent/15 aria-pressed:text-accent`}
+												>
+													Crew
+												</button>
+												<Show when={provider().modes.length > 0}>
+													<ModePicker
+														modes={provider().modes}
+														mode={
+															mode() ??
+															provider().settings?.mode ??
+															provider().defaultMode ??
+															provider().modes[0].id
+														}
+														onMode={setMode}
+														control={(control) => {
+															modePicker = control;
+														}}
+													/>
+												</Show>
+												<Show when={accountsStore.accounts(provider().id, accountScope()).length}>
+													<Menu
+														label="Account"
+														title="Run as"
+														trigger={
+															<>
+																<UserIcon size="sm" />
+																<span class="max-w-32 truncate">
+																	{accountsStore.label(accountScope(), account()) ?? "Your sign-in"}
+																</span>
+															</>
+														}
+														triggerClass={PROMPT_CHIP}
+														groups={[
+															{
+																label: "Run as",
+																items: [
+																	{
+																		id: "",
+																		label: "Your sign-in",
+																		description: "The machine's own sign-in",
+																		trailing: account() ? undefined : <CheckIcon size="sm" />,
+																	},
+																	...accountsStore
+																		.accounts(provider().id, accountScope())
+																		.map((item) => ({
+																			id: item.id,
+																			label: item.label,
+																			trailing:
+																				account() === item.id ? <CheckIcon size="sm" /> : undefined,
+																		})),
+																],
+															},
+														]}
+														onSelect={(id) => chooseAccount(provider().id, id || null)}
+													/>
+												</Show>
+											</>
+										)}
+									</Show>
+								</Row>
 							}
 							controls={
 								<Show when={chosen()}>
 									{(provider) => (
-										<>
-											<button
-												type="button"
-												aria-pressed={asCrew() ? "true" : "false"}
-												title="Start a crew: this agent coordinates, and hands the work to member threads of its own"
-												onClick={() => setAsCrew((on) => !on)}
-												class={`${PROMPT_CHIP} aria-pressed:bg-accent/15 aria-pressed:text-accent`}
-											>
-												Crew
-											</button>
-											<Show when={rolesStore.loaded(roleScope())}>
-												<RoleChipGroup>
-													<RoleMenu
-														roles={roles()}
-														usable={offered}
-														providers={props.providers}
-														value={role()?.id ?? null}
-														onPick={pickRole}
-														onNew={() => setEditing({ role: null })}
-														onEdit={(target) => setEditing({ role: target })}
-													/>
-													<Show when={role()}>
-														{(current) => (
-															<RoleSettings
-																role={current()}
-																agents={available()}
-																agent={provider().id}
-																onAgent={chooseAgent}
-																models={models()}
-																model={model()}
-																onModel={chooseModel}
-																efforts={efforts()}
-																effort={effort()}
-																onEffort={setPickedEffort}
-																changed={roleChanged()}
-																onSave={async () => {
-																	const token = auth.token();
-																	if (!token) throw new Error("Sign in again to save the role");
-																	const saved = await rolesStore.update(
-																		token,
-																		current().id,
-																		roleChanges(),
-																		roleScope(),
-																	);
-																	applyRole(saved);
-																}}
-																control={(control) => {
-																	roleSettings = control;
-																}}
-																onEdit={() => setEditing({ role: current() })}
-															/>
-														)}
-													</Show>
-												</RoleChipGroup>
-											</Show>
-											<Show when={!role()}>
-												<ModelPicker
-													agents={available()}
-													agent={provider().id}
-													onAgent={chooseAgent}
-													models={models()}
-													model={model() ?? ""}
-													onModel={chooseModel}
-													efforts={efforts()}
-													effort={effort()}
-													onEffort={setPickedEffort}
-													control={(control) => {
-														modelPicker = control;
-													}}
-												/>
-											</Show>
-											<Show when={accountsStore.accounts(provider().id, accountScope()).length}>
-												<Menu
-													label="Account"
-													title="Run as"
-													trigger={
-														<>
-															<UserIcon size="sm" />
-															<span class="max-w-32 truncate">
-																{accountsStore.label(accountScope(), account()) ?? "Your sign-in"}
-															</span>
-														</>
-													}
-													triggerClass={PROMPT_CHIP}
-													groups={[
-														{
-															label: "Run as",
-															items: [
-																{
-																	id: "",
-																	label: "Your sign-in",
-																	description: "The machine's own sign-in",
-																	trailing: account() ? undefined : <CheckIcon size="sm" />,
-																},
-																...accountsStore
-																	.accounts(provider().id, accountScope())
-																	.map((item) => ({
-																		id: item.id,
-																		label: item.label,
-																		trailing:
-																			account() === item.id ? <CheckIcon size="sm" /> : undefined,
-																	})),
-															],
-														},
-													]}
-													onSelect={(id) => chooseAccount(provider().id, id || null)}
-												/>
-											</Show>
-											<Show when={provider().modes.length > 0}>
-												<ModePicker
-													modes={provider().modes}
-													mode={
-														mode() ??
-														provider().settings?.mode ??
-														provider().defaultMode ??
-														provider().modes[0].id
-													}
-													onMode={setMode}
-													control={(control) => {
-														modePicker = control;
-													}}
-												/>
-											</Show>
-										</>
+										<ModelPicker
+											agents={available()}
+											agent={provider().id}
+											onAgent={chooseAgent}
+											models={models()}
+											model={model() ?? ""}
+											onModel={chooseModel}
+											efforts={efforts()}
+											effort={effort()}
+											onEffort={setPickedEffort}
+											control={(control) => {
+												modelPicker = control;
+											}}
+										/>
 									)}
 								</Show>
 							}

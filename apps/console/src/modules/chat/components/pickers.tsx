@@ -4,7 +4,7 @@ import LockKeyholeIcon from "@hugeicons/core-free-icons/LockKeyholeIcon";
 import LockKeyholeOpenIcon from "@hugeicons/core-free-icons/LockKeyholeOpenIcon";
 import PencilEdit01Icon from "@hugeicons/core-free-icons/PencilEdit01Icon";
 import type { JSX } from "@solidjs/web";
-import { createMemo, createSignal, createUniqueId, For, Show, untrack } from "solid-js";
+import { createMemo, createSignal, createUniqueId, For, Show } from "solid-js";
 
 import {
 	type AgentChoice,
@@ -94,7 +94,7 @@ export function ModelPicker(props: ModelPickerProps): JSX.Element {
 			label="Agent and model"
 			title={props.agents && props.agents.length > 1 ? "Agent & model" : "Model"}
 			placement="top-start"
-			width="md:w-96"
+			width="md:w-md"
 			disabled={props.disabled}
 			control={props.control}
 			triggerClass={`${PROMPT_CHIP} min-w-0 max-w-72`}
@@ -132,7 +132,7 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 
 	const shown = createMemo<Choice[]>(() => {
 		const all = folded().choices;
-		const matches = new Set(long() ? filterChoices(all, query()) : all);
+		const matches = new Set(filterChoices(all, query()));
 		const kept = all.filter((choice) => matches.has(choice));
 		// Favourites first, the rest in the agent's order.
 		const favourite = (choice: Choice) => favoritesStore.has(agent(), choice.id);
@@ -148,6 +148,8 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 		}
 		return [...byGroup.entries()].map(([group, choices]) => ({ group, choices }));
 	});
+	// With one agent in the rail the lab heading is the rail itself.
+	const showGroups = () => groups().length > 1;
 
 	const chosen = (choice: Choice) =>
 		choice.id === props.model || folded().aliases.get(choice.id) === props.model;
@@ -177,32 +179,39 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 			logo: <AgentLogo id={item.id} name={item.name} />,
 		}));
 
+	const agentRail = () => (props.agents?.length ?? 0) > 1;
+
 	return (
 		<div class="flex min-h-0 flex-col pb-2 md:py-1.5">
-			<Show when={props.agents && props.agents.length > 1}>
-				<section aria-labelledby={agentId} class="flex flex-col gap-1.5 px-3 pb-2 md:px-1.5">
-					<h3 id={agentId} class="px-1 pt-1 text-caption text-fg-subtle md:px-1.5">
-						Agent
-					</h3>
-					<AgentChoices
-						label="Agent"
-						items={agentChoices()}
-						value={agent()}
-						onChange={(id) => {
-							if (id !== agent()) props.onAgent?.(id);
-						}}
-					/>
-				</section>
-				<div class="mx-3 h-px bg-line md:mx-0" />
-			</Show>
-			<section aria-labelledby={modelId} class="flex min-h-0 flex-col pt-1.5">
-				<h3
-					id={modelId}
-					class={`px-4 pb-1 text-caption text-fg-subtle md:px-3 ${props.agents && props.agents.length > 1 ? "" : "sr-only"}`}
+			<div class={`flex min-h-0 flex-col ${agentRail() ? "md:flex-row" : ""}`}>
+				<Show when={agentRail()}>
+					<section
+						aria-labelledby={agentId}
+						class="flex flex-col gap-1.5 px-3 pb-2 md:w-14 md:shrink-0 md:items-center md:gap-0 md:border-line md:border-r md:px-1 md:py-1"
+					>
+						<h3 id={agentId} class="px-1 pt-1 text-caption text-fg-subtle md:sr-only">
+							Agent
+						</h3>
+						<AgentChoices
+							label="Agent"
+							items={agentChoices()}
+							value={agent()}
+							onChange={(id) => {
+								if (id !== agent()) props.onAgent?.(id);
+							}}
+						/>
+					</section>
+				</Show>
+				<section
+					aria-labelledby={modelId}
+					class="flex min-h-0 flex-col pt-1.5 md:min-w-0 md:flex-1 md:pt-1"
 				>
-					Model
-				</h3>
-				<Show when={long()}>
+					<div class="flex items-baseline justify-between gap-2 px-4 pb-1 md:px-3">
+						<h3 id={modelId} class="text-caption text-fg-subtle">
+							Model
+						</h3>
+						<span class="text-caption text-fg-faint tabular-nums">{folded().choices.length}</span>
+					</div>
 					<div class="px-3 pb-1.5 md:px-1.5">
 						<SearchInput
 							icon={<SearchIcon />}
@@ -216,7 +225,12 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 							ref={(el: HTMLInputElement) => {
 								// A physical keyboard types into the search at once; on phones it would pop
 								// the keyboard over the list, so wait for a tap.
-								if (matchMedia("(pointer: fine)").matches) requestAnimationFrame(() => el.focus());
+								if (matchMedia("(pointer: fine)").matches) {
+									requestAnimationFrame(() => {
+										el.focus();
+										setActive(Math.max(0, shown().findIndex(chosen)));
+									});
+								}
 							}}
 							onInput={(event) => {
 								setQuery(event.currentTarget.value);
@@ -237,81 +251,76 @@ function ModelPanel(props: ModelPickerProps & { close: () => void }): JSX.Elemen
 							}}
 						/>
 					</div>
-				</Show>
-				{/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- arrow keys between the row buttons inside it */}
-				<div
-					ref={(el) => {
-						list = el;
-						// A short list has no search to type into: a physical keyboard starts on the chosen
-						// model, and the arrows move between the rows.
-						if (!untrack(long) && matchMedia("(pointer: fine)").matches) {
-							requestAnimationFrame(() =>
-								el.querySelector<HTMLElement>('button[aria-pressed="true"]')?.focus(),
-							);
-						}
-					}}
-					onKeyDown={(event) => {
-						if (long() || (event.key !== "ArrowDown" && event.key !== "ArrowUp")) return;
-						const rows = [
-							...(list?.querySelectorAll<HTMLElement>(
-								"button[aria-pressed]:not([aria-label*='favourites'])",
-							) ?? []),
-						];
-						const at = rows.indexOf(document.activeElement as HTMLElement);
-						if (at === -1) return;
-						event.preventDefault();
-						rows[(at + (event.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length]?.focus();
-					}}
-					data-model-list
-					class={`min-h-0 overflow-y-auto overscroll-contain px-3 md:px-1.5 ${long() ? "max-h-80 md:max-h-72" : ""}`}
-				>
-					<Show
-						when={shown().length > 0}
-						fallback={
-							<Text tone="subtle" class="px-3 py-8 text-center">
-								{query() ? `No model matches “${query()}”.` : "No models here yet."}
-							</Text>
-						}
+					{/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- arrow keys between the row buttons inside it */}
+					<div
+						ref={(el) => {
+							list = el;
+						}}
+						onKeyDown={(event) => {
+							if (long() || (event.key !== "ArrowDown" && event.key !== "ArrowUp")) return;
+							const rows = [
+								...(list?.querySelectorAll<HTMLElement>(
+									"button[aria-pressed]:not([aria-label*='favourites'])",
+								) ?? []),
+							];
+							const at = rows.indexOf(document.activeElement as HTMLElement);
+							if (at === -1) return;
+							event.preventDefault();
+							rows[
+								(at + (event.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length
+							]?.focus();
+						}}
+						data-model-list
+						class={`min-h-0 overflow-y-auto overscroll-contain px-3 md:px-1.5 ${long() ? "max-h-80 md:max-h-56" : ""}`}
 					>
-						<For each={groups()}>
-							{(group) => (
-								<section aria-label={group.group || "Models"}>
-									<Show when={group.group}>
-										<p class="sticky top-0 z-10 bg-surface-raised px-2 pt-2 pb-1 text-caption text-fg-subtle">
-											{group.group}
-										</p>
-									</Show>
-									<For each={group.choices}>
-										{(choice) => {
-											const index = () => shown().indexOf(choice);
-											return (
-												<ModelRow
-													index={index()}
-													icon={<Icon icon={Layers01Icon} size="sm" />}
-													name={choice.name}
-													description={modelBlurb(choice)}
-													title={folded().aliases.get(choice.id) ?? choice.id}
-													badge={
-														<Show when={folded().defaults.has(choice.id)}>
-															<Badge>Default</Badge>
-														</Show>
-													}
-													selected={chosen(choice)}
-													active={index() === active()}
-													favorite={favoritesStore.has(agent(), choice.id)}
-													onFavorite={() => favoritesStore.toggle(agent(), choice.id)}
-													onHover={() => setActive(index())}
-													onPick={() => pick(choice)}
-												/>
-											);
-										}}
-									</For>
-								</section>
-							)}
-						</For>
-					</Show>
-				</div>
-			</section>
+						<Show
+							when={shown().length > 0}
+							fallback={
+								<Text tone="subtle" class="px-3 py-8 text-center">
+									{query() ? `No model matches “${query()}”.` : "No models here yet."}
+								</Text>
+							}
+						>
+							<For each={groups()}>
+								{(group) => (
+									<section aria-label={group.group || "Models"}>
+										<Show when={group.group && showGroups()}>
+											<p class="sticky top-0 z-10 bg-surface-raised px-2 pt-2 pb-1 text-caption text-fg-subtle">
+												{group.group}
+											</p>
+										</Show>
+										<For each={group.choices}>
+											{(choice) => {
+												const index = () => shown().indexOf(choice);
+												return (
+													<ModelRow
+														index={index()}
+														icon={<Icon icon={Layers01Icon} size="sm" />}
+														name={choice.name}
+														description={modelBlurb(choice)}
+														title={folded().aliases.get(choice.id) ?? choice.id}
+														badge={
+															<Show when={folded().defaults.has(choice.id)}>
+																<Badge>Default</Badge>
+															</Show>
+														}
+														selected={chosen(choice)}
+														active={index() === active()}
+														favorite={favoritesStore.has(agent(), choice.id)}
+														onFavorite={() => favoritesStore.toggle(agent(), choice.id)}
+														onHover={() => setActive(index())}
+														onPick={() => pick(choice)}
+													/>
+												);
+											}}
+										</For>
+									</section>
+								)}
+							</For>
+						</Show>
+					</div>
+				</section>
+			</div>
 			<Show when={props.efforts.length > 0}>
 				<div class="mx-3 mt-1.5 h-px bg-line md:mx-0" />
 				<div class="px-4 pt-3 pb-2 md:px-3">

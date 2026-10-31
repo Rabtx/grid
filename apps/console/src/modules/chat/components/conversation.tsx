@@ -62,6 +62,7 @@ import {
 	GuestRequestCard,
 	type GoalState,
 	LimitWaitBar,
+	Row,
 	SubagentStrip,
 	Text,
 } from "@/kit";
@@ -1199,24 +1200,6 @@ export function Conversation(props: {
 							</div>
 						)}
 					</Show>
-					<Show when={transcript().queue.items.length > 0}>
-						<div class="mb-2">
-							<QueueList
-								items={transcript().queue.items.map((item) => ({
-									id: item.id,
-									text: item.text,
-									files: item.attachments?.length ?? 0,
-								}))}
-								paused={transcript().queue.paused}
-								running={running()}
-								steerRestarts={provider()?.capabilities?.steer !== "native"}
-								onRemove={(id) => socket?.send({ t: "queue", action: "remove", id })}
-								onSendNow={(id) => socket?.send({ t: "queue", action: "steer", id })}
-								onResume={() => socket?.send({ t: "queue", action: "resume" })}
-								onClear={() => socket?.send({ t: "queue", action: "clear" })}
-							/>
-						</div>
-					</Show>
 					<Composer
 						project={session()?.project}
 						running={running()}
@@ -1226,57 +1209,73 @@ export function Conversation(props: {
 						disabled={connection() === "gone" || connection() === "signed-out"}
 						onSend={send}
 						onStop={() => socket?.send({ t: "cancel" })}
-						header={
-							<Show when={place()}>
-								{(current) => (
-									<>
-										<GitControl
-											folder={current().cwd}
-											scope={placementsStore.scopeOf(current().project)}
-											inWorktree={Boolean(current().worktree)}
-										/>
-									</>
-								)}
-							</Show>
-						}
-						controls={
+						dock={
 							<>
-								<Show when={!embedded && !shell.desktop()}>
-									<WorkspaceToggle thread={props.id} />
-								</Show>
-								<Show when={models().length > 0}>
-									<ModelPicker
-										agent={session()?.provider}
-										agentName={provider()?.name}
-										agents={agents()}
-										onAgent={(id) => void handoff(id)}
-										models={models()}
-										model={model()}
-										onModel={chooseModel}
-										efforts={efforts()}
-										effort={effort()}
-										onEffort={(next) => socket?.send({ t: "configure", effort: next })}
-										control={(control) => {
-											modelPicker = control;
-										}}
+								<Row wrap gap={1.5} class="min-w-0">
+									<Show when={!embedded && !shell.desktop()}>
+										<WorkspaceToggle thread={props.id} />
+									</Show>
+									<Show when={place()}>
+										{(current) => (
+											<GitControl
+												folder={current().cwd}
+												scope={placementsStore.scopeOf(current().project)}
+												inWorktree={Boolean(current().worktree)}
+											/>
+										)}
+									</Show>
+									<Show when={modes().length > 0}>
+										<ModePicker
+											modes={modes()}
+											mode={mode()}
+											onMode={(next) => socket?.send({ t: "configure", mode: next })}
+											control={(control) => {
+												modePicker = control;
+											}}
+										/>
+									</Show>
+									<Show when={transcript().usage?.contextWindow}>
+										{(total) => (
+											<ContextMeter used={transcript().usage?.contextUsed ?? 0} total={total()} />
+										)}
+									</Show>
+								</Row>
+								<Show when={transcript().queue.items.length > 0}>
+									<QueueList
+										items={transcript().queue.items.map((item) => ({
+											id: item.id,
+											text: item.text,
+											files: item.attachments?.length ?? 0,
+										}))}
+										paused={transcript().queue.paused}
+										running={running()}
+										steerRestarts={provider()?.capabilities?.steer !== "native"}
+										onRemove={(id) => socket?.send({ t: "queue", action: "remove", id })}
+										onSendNow={(id) => socket?.send({ t: "queue", action: "steer", id })}
+										onResume={() => socket?.send({ t: "queue", action: "resume" })}
+										onClear={() => socket?.send({ t: "queue", action: "clear" })}
 									/>
-								</Show>
-								<Show when={modes().length > 0}>
-									<ModePicker
-										modes={modes()}
-										mode={mode()}
-										onMode={(next) => socket?.send({ t: "configure", mode: next })}
-										control={(control) => {
-											modePicker = control;
-										}}
-									/>
-								</Show>
-								<Show when={transcript().usage?.contextWindow}>
-									{(total) => (
-										<ContextMeter used={transcript().usage?.contextUsed ?? 0} total={total()} />
-									)}
 								</Show>
 							</>
+						}
+						controls={
+							<Show when={models().length > 0}>
+								<ModelPicker
+									agent={session()?.provider}
+									agentName={provider()?.name}
+									agents={agents()}
+									onAgent={(id) => void handoff(id)}
+									models={models()}
+									model={model()}
+									onModel={chooseModel}
+									efforts={efforts()}
+									effort={effort()}
+									onEffort={(next) => socket?.send({ t: "configure", effort: next })}
+									control={(control) => {
+										modelPicker = control;
+									}}
+								/>
+							</Show>
 						}
 					/>
 				</div>
