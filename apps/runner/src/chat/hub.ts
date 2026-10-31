@@ -1006,6 +1006,16 @@ export class ChatHub {
 		return this.store.list(workspace, project);
 	}
 
+	/** A page of a project's threads, and where the next page starts (see `ChatStore.listPage`). */
+	listPage(
+		workspace: string,
+		project: string,
+		limit: number,
+		cursor?: string | null,
+	): { rows: ChatSessionRow[]; nextCursor: string | null; total: number } {
+		return this.store.listPage(workspace, project, limit, cursor);
+	}
+
 	/** See `ChatStore.adopt`. */
 	adopt(who: Who): void {
 		this.store.adopt(who.userId, who.workspace);

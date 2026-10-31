@@ -32,12 +32,15 @@ export function chatSocketUrl(scope = ""): string {
 	return runnerUrl("/chat", scope).replace(/^http/, "ws");
 }
 
-async function call<T>(
+/** A runner answer: the payload, and whatever else the route sent beside it (a page's cursor). */
+type Envelope<T> = { data: T; nextCursor?: string | null; total?: number; message?: string };
+
+async function callBody<T>(
 	path: string,
 	token: string,
 	init: RequestInit = {},
 	scope = "",
-): Promise<T> {
+): Promise<Envelope<T> | null> {
 	let response: Response;
 	try {
 		response = await fetch(runnerUrl(path, scope), {
@@ -52,14 +55,24 @@ async function call<T>(
 	} catch {
 		throw new Error("The runner is not reachable. Start it with: bun --cwd=apps/runner run dev");
 	}
-	if (response.status === 204) return undefined as T;
-	const body = (await response.json().catch(() => null)) as { data?: T; message?: string } | null;
+	if (response.status === 204) return null;
+	const body = (await response.json().catch(() => null)) as Envelope<T> | null;
 	if (!response.ok) {
 		throw new Error(
 			body?.message ??
 				(response.status >= 500 ? "The runner is not running." : response.statusText),
 		);
 	}
+	return body;
+}
+
+async function call<T>(
+	path: string,
+	token: string,
+	init: RequestInit = {},
+	scope = "",
+): Promise<T> {
+	const body = await callBody<T>(path, token, init, scope);
 	return body?.data as T;
 }
 
@@ -472,8 +485,31 @@ export const chatService = {
 		),
 	/** Threads with an agent working right now, across projects. */
 	running: (token: string, scope = "") => call<RunningThread[]>("/chat/running", token, {}, scope),
-	sessions: (token: string, project: string, scope = "") =>
-		call<ChatSession[]>(`/chat/sessions?project=${encodeURIComponent(project)}`, token, {}, scope),
+	/**
+	 * A page of a project's threads, newest first, and where the next page starts. Cursors are
+	 * opaque: pass `nextCursor` back to read the threads after this page.
+	 */
+	sessionsPage: async (
+		token: string,
+		project: string,
+		scope = "",
+		limit = 20,
+		cursor?: string | null,
+	): Promise<{ sessions: ChatSession[]; nextCursor: string | null; total: number }> => {
+		const params = new URLSearchParams({ project, limit: String(limit) });
+		if (cursor) params.set("cursor", cursor);
+		const body = await callBody<ChatSession[]>(
+			`/chat/sessions?${params.toString()}`,
+			token,
+			{},
+			scope,
+		);
+		return {
+			sessions: body?.data ?? [],
+			nextCursor: body?.nextCursor ?? null,
+			total: body?.total ?? 0,
+		};
+	},
 	create: (
 		token: string,
 		input: {

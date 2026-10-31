@@ -106,3 +106,22 @@ describe("snooze (P)", () => {
 		await agent.finishAll();
 	});
 });
+
+describe("thread pages", () => {
+	it("reads a project's threads a page at a time, without dropping or repeating one", () => {
+		const { store, thread } = setup();
+		const made = Array.from({ length: 5 }, (_, index) => thread(`Thread ${index}`));
+		const seen: string[] = [];
+		let cursor: string | null = null;
+		for (let page = 0; page < 5; page += 1) {
+			const result = store.listPage("me", "alpha", 2, cursor);
+			expect(result.total).toBe(5);
+			seen.push(...result.rows.map((row) => row.id));
+			cursor = result.nextCursor;
+			if (!cursor) break;
+		}
+		expect(seen).toHaveLength(5);
+		expect(new Set(seen).size).toBe(5);
+		expect(seen.sort()).toEqual(made.map((row) => row.id).sort());
+	});
+});

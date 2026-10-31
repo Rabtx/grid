@@ -25,7 +25,7 @@ vi.mock("@/modules/chat/services/chat.service", () => ({
 	chatService: {
 		roles: () => calls.roles(),
 		providers: () => calls.providers(),
-		sessions: () => calls.sessions(),
+		sessionsPage: () => calls.sessions(),
 	},
 }));
 vi.mock("@/modules/projects/services/projects.service", () => ({
@@ -62,9 +62,11 @@ describe("account-scoped shared stores", () => {
 		]);
 		calls.roles.mockResolvedValue([{ id: "private-role", brief: "Private project instructions" }]);
 		calls.providers.mockResolvedValue([{ id: "codex" }]);
-		calls.sessions.mockResolvedValue([
-			{ id: "private-thread", project: "alpha", updatedAt: "now" },
-		]);
+		calls.sessions.mockResolvedValue({
+			sessions: [{ id: "private-thread", project: "alpha", updatedAt: "now" }],
+			nextCursor: null,
+			total: 1,
+		});
 		calls.notes.mockResolvedValue([
 			{ id: "private-note", body: "Private note", shared: true, updatedAt: "now" },
 		]);
