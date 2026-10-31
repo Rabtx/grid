@@ -1,7 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { createMemo, For, onSettled, Show } from "solid-js";
 
-import { AgentLogo, UsageRing, UsageStrip } from "@/kit";
+import { AgentLogo, type ContextLimit, UsageRing, UsageStrip } from "@/kit";
 import { useAuth } from "@/modules/auth";
 
 import { accountsStore } from "../stores/accounts";
@@ -34,6 +34,40 @@ export function limitDetail(limit: UsageLimit, now = Date.now()): string {
 			? "Allowed"
 			: `${Math.round(limit.usedPercent)}% used`;
 	return limit.resetsAt ? `${used} · resets ${until(limit.resetsAt, now)}` : used;
+}
+
+/** When a window resets, in words: "in 2h 10m · Sat 14:00". */
+export function resetsText(iso: string, now = Date.now()): string {
+	const at = new Date(iso).toLocaleString(undefined, {
+		weekday: "short",
+		hour: "numeric",
+		minute: "2-digit",
+	});
+	return `${until(iso, now)} · ${at}`;
+}
+
+/**
+ * What a thread's agent account has used of its plan, as the composer's usage panel shows it:
+ * the account's windows (5h, Weekly…), each with when it resets. Empty until the agent reports.
+ */
+export function planLimits(
+	provider: string,
+	scope: string,
+	account: string | null,
+	now = Date.now(),
+): ContextLimit[] {
+	const entry = accountsStore
+		.usage()
+		.find(
+			(item) =>
+				item.provider === provider && item.scope === scope && (item.account ?? null) === account,
+		);
+	return (entry?.limits ?? []).map((limit) => ({
+		window: limit.window,
+		used: limit.usedPercent,
+		limited: limit.limited,
+		...(limit.resetsAt ? { resets: resetsText(limit.resetsAt, now) } : {}),
+	}));
 }
 
 /**

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { agyArgs, agyModelId, antigravityProvider, parseAgyModels } from "./antigravity";
-import { claudeModelChoice, claudeModels } from "./claude";
+import { claudeModelChoice, claudeModels, modelContextWindow } from "./claude";
 import { effortChoices } from "./catalog";
 import type { ChatEvent, Choice } from "./events";
 import { parseOpencodeModels } from "./opencode";
@@ -21,6 +21,7 @@ describe("Claude Code's model list", () => {
 			id: "opus[1m]",
 			name: "Opus 5.5 (1M context)",
 			description: "claude-opus-5-5 · Best for everyday, complex tasks",
+			contextWindow: 1_000_000,
 			efforts: [
 				{ id: "low", name: "Low" },
 				{ id: "medium", name: "Medium" },
@@ -40,7 +41,12 @@ describe("Claude Code's model list", () => {
 			id: "haiku",
 			name: "Haiku 4.5",
 			description: "claude-haiku-4-5-20251001 · Fastest for quick answers",
+			contextWindow: 200_000,
 		});
+		expect(modelContextWindow({ "claude-opus-5-5": { contextWindow: 200_000 }, x: {} })).toBe(
+			200_000,
+		);
+		expect(modelContextWindow(undefined)).toBeNull();
 		expect(
 			claudeModelChoice({ value: "default", description: "Opus 5.5 with 1M context · Best" })?.name,
 		).toBe("Default · Opus 5.5 (1M context)");

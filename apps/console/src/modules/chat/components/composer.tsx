@@ -98,6 +98,8 @@ export function Composer(props: {
 	onStop?: () => void;
 	/** The toolbar's pickers: the model. */
 	controls?: JSX.Element;
+	/** Beside the mic: the context and usage meter, which opens its panel. */
+	usage?: JSX.Element;
 	/** Behind the card: the branch, the role, the queue — what used to crowd the toolbar. */
 	dock?: JSX.Element;
 	/** Text to start with, e.g. a task a thread is started from. */
@@ -779,7 +781,12 @@ export function Composer(props: {
 							{props.controls}
 						</>
 					}
-					options={<MicButton target={() => (textarea ? voiceTarget : null)} class={MIC_BUTTON} />}
+					options={
+						<>
+							{props.usage}
+							<MicButton target={() => (textarea ? voiceTarget : null)} class={MIC_BUTTON} />
+						</>
+					}
 					send={
 						<Show
 							when={props.running}

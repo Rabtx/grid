@@ -136,6 +136,8 @@ test("links a project folder and starts a thread the agent answers", async () =>
 test("draws the visual an agent writes into its reply, with the rail beside the thread", async () => {
 	await page.goto(`/acme/chat/demo/${threads.first}`);
 	await dismissTour(page);
+	// The thread's page settles before typing: the composer is drawn anew as it loads.
+	await expect(page.getByText(/ok: .*hello there/)).toBeVisible();
 	await send("VISUAL? how are the builds doing");
 	const visual = page.locator('figure[aria-label="Build health"]');
 	await expect(visual).toBeVisible();
@@ -149,6 +151,24 @@ test("draws the visual an agent writes into its reply, with the rail beside the 
 			'nav[aria-label="Messages"] button[data-tooltip="VISUAL? how are the builds doing"]',
 		),
 	).toHaveCount(1);
+});
+
+test("shows a thread's context and plan usage in the composer, and compacts it", async () => {
+	await page.goto(`/acme/chat/demo/${threads.first}`);
+	await dismissTour(page);
+	// The thread's page settles before typing: the composer is drawn anew as it loads.
+	await expect(page.getByText(/ok: .*hello there/)).toBeVisible();
+	await send("USAGE? how much room is left");
+	await expect(page.getByText("usage reported").first()).toBeVisible();
+	const meter = page.getByRole("button", { name: /^Context 76%/ });
+	await expect(meter).toBeVisible();
+	await meter.click();
+	const panel = page.locator("[popover]:popover-open");
+	await expect(panel.getByText("152k / 200k")).toBeVisible();
+	await expect(panel.getByText("42% used")).toBeVisible();
+	await expect(panel.getByText(/^Resets in /).first()).toBeVisible();
+	await panel.getByRole("button", { name: "Compact" }).click();
+	await expect(page.getByText("ok: /compact")).toBeVisible();
 });
 
 test("opens a thread an agent links to", async () => {
