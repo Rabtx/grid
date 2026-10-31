@@ -8,9 +8,10 @@ import { PopoverAnchor } from "./popover";
 
 /**
  * Where you write to an agent: one raised, lit card with the text on top and a toolbar under it —
- * tools on the left, the model, the mic and send on the right. A second card tucks behind it with
- * the context that would crowd the toolbar (the branch, the role, the queue). It glows in the
- * accent while you type. Chat owns the text and sending; this is its shape.
+ * tools on the left, the model, the mic and send on the right, every control one size. Under the
+ * card, a quiet shelf of what would crowd the toolbar (the branch, the role, the mode, the context
+ * and usage, the queue). It glows in the accent while you type. Chat owns the text and sending;
+ * this is its shape.
  */
 export function PromptBox(props: {
 	field: JSX.Element;
@@ -25,8 +26,8 @@ export function PromptBox(props: {
 	/** In the toolbar after the tools: where the agent works, the branch. */
 	tray?: JSX.Element;
 	/**
-	 * Behind the card and peeking out below it: the composer's shelf for what does not belong in
-	 * the toolbar — the branch, the role, the queue.
+	 * Under the card: the composer's shelf for what does not belong in the toolbar — the branch,
+	 * the role, the mode, the context and usage, the queue.
 	 */
 	dock?: JSX.Element;
 	/** Floats inside the card over the text: the @-mention list. */
@@ -74,7 +75,7 @@ export function PromptBox(props: {
 							<div class="flex flex-wrap gap-2 px-3 pt-3">{attachments()}</div>
 						</Show>
 						{props.field}
-						<div class="flex items-center gap-1.5 px-3 pb-3">
+						<div class="flex items-center gap-1.5 px-2.5 pb-2.5">
 							<div
 								ref={(el) => {
 									tools = el;
@@ -94,9 +95,7 @@ export function PromptBox(props: {
 					</div>
 				</form>
 				<Show when={dock()}>
-					<div class="relative z-0 -mt-4 mx-3 flex flex-col gap-2 rounded-b-kit-xl bg-surface-sunken px-2 pt-7 pb-2 ring-line md:mx-5 md:px-2.5">
-						{dock()}
-					</div>
+					<div class="flex flex-col gap-1.5 px-1 pt-1.5">{dock()}</div>
 				</Show>
 			</div>
 		</PopoverAnchor>
@@ -110,37 +109,37 @@ export function PromptBox(props: {
 export const PROMPT_FIELD =
 	"block max-h-40 w-full resize-none overflow-y-hidden bg-transparent px-4 pt-3.5 pb-2 text-fg text-field outline-none [scrollbar-width:thin] placeholder:text-fg-subtle";
 
-/** A tool chip on the composer's toolbar: plus, a mode, a project. */
-export const PROMPT_CHIP =
-	"focus-ring inline-flex h-7 shrink-0 items-center gap-1.5 rounded-kit bg-fill-strong px-2 text-body text-fg transition-colors duration-fast hover:bg-selection aria-expanded:bg-selection pointer-coarse:h-9";
+/**
+ * Every control on the composer's toolbar is one size and one corner: 32px on desktop (40px on
+ * touch), the kit's control corner. Tools are filled tiles; send is the one filled in ink.
+ */
+const TOOL = "h-8 shrink-0 rounded-kit pointer-coarse:h-10";
+const SQUARE = "size-8 shrink-0 rounded-kit pointer-coarse:size-10";
+
+/** A tool chip on the composer's toolbar: the model, a mode, a project. */
+export const PROMPT_CHIP = `focus-ring inline-flex ${TOOL} items-center gap-1.5 bg-fill-strong px-2.5 text-body text-fg transition-colors duration-fast hover:bg-selection aria-expanded:bg-selection`;
 
 /**
- * A quiet chip on the composer's shelf (the role, crew, the mode): text until hovered or open, so
- * the shelf stays calmer than the toolbar above it.
+ * A quiet chip on the shelf under the composer (the branch, the role, crew, the mode, the
+ * context): text until hovered or open, so the shelf stays calmer than the toolbar above it.
  */
 export const DOCK_CHIP =
-	"focus-ring inline-flex h-7 shrink-0 items-center gap-1.5 rounded-kit px-2 text-body text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg pointer-coarse:h-9";
+	"focus-ring inline-flex h-7 min-w-0 shrink-0 items-center gap-1.5 rounded-kit px-2 text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg pointer-coarse:h-9 [&_svg]:size-3.5";
 
-/** The filled square at the start of the toolbar: add files, context, tools. */
-export const PROMPT_ADD = `focus-ring grid size-7 shrink-0 place-items-center rounded-kit icon-tile text-fg-muted transition-colors duration-fast hover:text-fg pointer-coarse:size-10 ${ICON_SIZE.md}`;
-
-/**
- * On touch screens send and stop are drawn 32px, the size of the tiles beside them (the mic, the
- * add), and an invisible margin keeps their tap area 40px.
- */
-const TOUCH_32 = "pointer-coarse:size-8 after:absolute after:-inset-1";
+/** The tile at the start of the toolbar: add files, context, tools. */
+export const PROMPT_ADD = `focus-ring grid ${SQUARE} place-items-center icon-tile text-fg-muted transition-colors duration-fast hover:text-fg ${ICON_SIZE.md}`;
 
 /**
- * The send button: the same shape as the tiles beside it, quiet until there is something to send,
- * then it fills with ink.
+ * The send button: the same tile as the tools beside it, quiet until there is something to send,
+ * then filled with ink.
  */
-export const SEND_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-pill bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${TOUCH_32} ${ICON_SIZE.md}`;
+export const SEND_BUTTON = `focus-ring relative grid ${SQUARE} place-items-center bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${ICON_SIZE.md}`;
+
+/** Beside stop while the agent works: send the message into the turn going on. */
+export const STEER_BUTTON = `focus-ring relative inline-flex ${TOOL} items-center bg-fill-strong px-2.5 font-medium text-caption text-fg transition-colors duration-fast hover:bg-selection disabled:text-fg-faint`;
 
 /** Stop, in place of send while the agent works: a ring turns inside it until it is done. */
-/** Beside stop while the agent works: send the message into the turn going on. */
-export const STEER_BUTTON = `focus-ring relative inline-flex h-7 shrink-0 items-center rounded-pill px-2.5 font-medium text-caption text-fg ring-line-strong transition-colors duration-fast hover:bg-fill disabled:text-fg-faint pointer-coarse:h-10`;
-
-export const STOP_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-pill bg-fill-strong text-fg transition-transform duration-fast active:scale-95 ${TOUCH_32} ${ICON_SIZE.md}`;
+export const STOP_BUTTON = `focus-ring relative grid ${SQUARE} place-items-center bg-fill-strong text-fg transition-transform duration-fast active:scale-95 ${ICON_SIZE.md}`;
 
 /** The ring turning inside the stop button while the agent works. */
 export function WorkingRing(): JSX.Element {
@@ -153,10 +152,10 @@ export function WorkingRing(): JSX.Element {
 }
 
 /** The composer's mic: red while it listens. */
-export const MIC_BUTTON = `focus-ring grid size-7 shrink-0 place-items-center rounded-pill text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-pressed:bg-danger aria-pressed:text-white pointer-coarse:size-10 ${ICON_SIZE.md}`;
+export const MIC_BUTTON = `focus-ring grid ${SQUARE} place-items-center icon-tile text-fg-muted transition-colors duration-fast hover:text-fg aria-pressed:bg-danger aria-pressed:text-white ${ICON_SIZE.md}`;
 
 /** A round-cornered square icon button on the composer's toolbar: the mic, a tool. */
-export const PROMPT_ICON = `focus-ring grid size-7 shrink-0 place-items-center rounded-kit icon-tile text-fg-muted transition-colors duration-fast hover:text-fg pointer-coarse:size-10 ${ICON_SIZE.md}`;
+export const PROMPT_ICON = `focus-ring grid ${SQUARE} place-items-center icon-tile text-fg-muted transition-colors duration-fast hover:text-fg ${ICON_SIZE.md}`;
 
 /**
  * Ways into a first message: chips that scroll sideways on phones (in thumb reach, above the

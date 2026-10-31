@@ -6,8 +6,8 @@ import {
 	BranchIcon,
 	CheckIcon,
 	ChevronDownIcon,
+	DOCK_CHIP,
 	Input,
-	linkButton,
 	MENU_ITEM,
 	PlusIcon,
 	Popover,
@@ -110,11 +110,8 @@ export function GitControl(props: {
 				label="Branch and worktree"
 				placement="top-start"
 				width="md:w-80"
-				triggerClass={linkButton({
-					tone: worktree() ? "accent" : "subtle",
-					// The branch keeps its room; the folder path beside it is what truncates.
-					class: "max-w-48 shrink-0",
-				})}
+				// The branch keeps its room; the folder path beside it is what truncates.
+				triggerClass={`${DOCK_CHIP} max-w-56 ${worktree() ? "text-accent hover:text-accent" : ""}`}
 				trigger={
 					<>
 						<BranchIcon size="sm" />

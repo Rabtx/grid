@@ -1,8 +1,9 @@
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
-import { Button, ICON_SIZE } from "./button";
+import { Button } from "./button";
 import { Popover } from "./popover";
+import { DOCK_CHIP } from "./prompt-box";
 
 /** Tokens as people say them: 76k, 1.2M. */
 export function formatTokens(count: number): string {
@@ -72,9 +73,9 @@ function Section(props: {
 }
 
 /**
- * The composer's context and usage: a small ring (how full the agent's context is) that opens a
- * panel with everything about room to work — the selected model's context window and how much
- * of it the thread uses, a button to compact it, the plan's limits (5-hour, weekly…) with when
+ * The composer's context and usage, on its shelf: a small ring (how full the agent's context
+ * is) and its percent, opening a panel with everything about room to work — the selected model's
+ * context window and how much of it the thread uses, a button to compact it, the plan's limits (5-hour, weekly…) with when
  * each resets, and what this thread has used. The ring is accent until it fills, amber from 80%
  * and red from 95%, and red when a plan limit is used up. What is not known yet says so.
  */
@@ -118,7 +119,7 @@ export function ContextMeter(props: {
 			title="Context and usage"
 			placement="top-end"
 			width="md:w-80"
-			triggerClass={`focus-ring flex h-7 shrink-0 items-center gap-1.5 rounded-kit px-1.5 text-caption text-fg-subtle tabular-nums transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:h-10 ${ICON_SIZE.md}`}
+			triggerClass={`${DOCK_CHIP} tabular-nums`}
 			trigger={
 				<>
 					<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" class="-rotate-90">
@@ -143,11 +144,9 @@ export function ContextMeter(props: {
 							class="transition-[stroke-dashoffset] duration-slow ease-out-grid"
 						/>
 					</svg>
-					<Show when={known()}>
-						<span aria-hidden="true" class="hidden md:inline">
-							{percent()}%
-						</span>
-					</Show>
+					<span aria-hidden="true">
+						{known() ? `${percent()}%` : props.total ? formatTokens(props.total) : "Context"}
+					</span>
 				</>
 			}
 		>

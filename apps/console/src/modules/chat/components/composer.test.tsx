@@ -2,11 +2,13 @@ import { createRouter, memoryHistory } from "@solidjs/router";
 import { render } from "@solidjs/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { localStore } from "@/lib/local-store";
 import { AuthProvider } from "@/modules/auth";
 import { WorkspaceProvider } from "@/modules/projects";
 
 import { GRID_COMMANDS, type SlashCommand } from "../lib/slash-commands";
 import { chatService } from "../services/chat.service";
+import { composerDrafts } from "../stores/composer-drafts";
 
 import { Composer, type ComposerControl } from "./composer";
 
@@ -110,6 +112,7 @@ describe("Composer", () => {
 			running?: boolean;
 		},
 		sessionId?: string,
+		draftKey?: string,
 	): void {
 		const Router = createRouter({
 			routes: [
@@ -118,6 +121,7 @@ describe("Composer", () => {
 					component: () => (
 						<Composer
 							project="alpha"
+							draftKey={draftKey}
 							sessionId={sessionId}
 							running={slash?.running ?? false}
 							onSend={onSend}
@@ -142,6 +146,31 @@ describe("Composer", () => {
 			container,
 		);
 	}
+
+	it("keeps unsent text on this device, brings it back, and forgets it once sent", async () => {
+		localStore.setUser("u1");
+		try {
+			mount(undefined, undefined, undefined, undefined, "thread:t1");
+			await settle();
+			const field = () => container.querySelector<HTMLTextAreaElement>("textarea");
+			typeInto(field() as HTMLTextAreaElement, "half a thought");
+			// Leaving (another chat, closing the app) writes it at once.
+			dispose();
+			container.remove();
+			expect(composerDrafts.read("thread:t1")).toBe("half a thought");
+
+			mount(undefined, undefined, undefined, undefined, "thread:t1");
+			await settle();
+			expect(field()?.value).toBe("half a thought");
+			pressKey(field() as HTMLTextAreaElement, "Enter");
+			await settle();
+			expect(sentText).toBe("half a thought");
+			expect(composerDrafts.read("thread:t1")).toBe("");
+		} finally {
+			localStore.setUser(null);
+			localStorage.clear();
+		}
+	});
 
 	it("takes text from outside, ready to edit and send", async () => {
 		let composer: ComposerControl | undefined;

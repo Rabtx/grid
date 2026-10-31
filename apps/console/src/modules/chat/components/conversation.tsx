@@ -642,6 +642,17 @@ export function Conversation(props: {
 		for (const sent of recentSends) socket?.send(sent.command);
 	}
 
+	/** Whether the thread is connected, waiting up to `ms` while it is still connecting. */
+	async function connected(ms = 5_000): Promise<boolean> {
+		const until = Date.now() + ms;
+		for (;;) {
+			const state = untrack(connection);
+			if (state === "open" && auth.token()) return true;
+			if (state === "gone" || state === "signed-out" || Date.now() >= until) return false;
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		}
+	}
+
 	/**
 	 * Sends a message with new files and, for Regenerate, files the thread already holds. While
 	 * the agent works it waits in the queue, or with `steer` goes into the turn going on.
@@ -652,11 +663,14 @@ export function Conversation(props: {
 		steer = false,
 		existing: string[] = [],
 	): Promise<boolean> {
-		const token = auth.token();
-		if (!token || connection() !== "open") {
+		// A message sent the moment the thread opens waits for its connection rather than being
+		// refused: the link to the runner is usually a few milliseconds away.
+		if (!(await connected())) {
 			setError("Not connected to the runner right now — your message is still in the box.");
 			return false;
 		}
+		const token = auth.token();
+		if (!token) return false;
 		const attachments = await chatService.upload(token, props.id, files, props.scope);
 		setError(null);
 		setRestartNotice(null);
@@ -1234,6 +1248,7 @@ export function Conversation(props: {
 						)}
 					</Show>
 					<Composer
+						draftKey={`thread:${props.id}`}
 						project={session()?.project}
 						placeholder={
 							running()
@@ -1247,39 +1262,9 @@ export function Conversation(props: {
 						disabled={connection() === "gone" || connection() === "signed-out"}
 						onSend={send}
 						onStop={() => socket?.send({ t: "cancel" })}
-						usage={
-							<ContextMeter
-								used={transcript().usage?.contextUsed}
-								total={transcript().usage?.contextWindow ?? currentModel()?.contextWindow}
-								model={modelName()}
-								limits={planLimits(
-									session()?.provider ?? "",
-									props.scope,
-									session()?.account ?? null,
-									now(),
-								)}
-								account={
-									accountsStore.label(props.scope, session()?.account ?? null) ?? "Your sign-in"
-								}
-								carryOn={
-									transcript().limitWait
-										? `Grid carries this thread on when the limit resets, ${resetsText(transcript().limitWait ?? "", now())}.`
-										: null
-								}
-								thread={{
-									input: transcript().usage?.inputTokens,
-									output: transcript().usage?.outputTokens,
-									cost: transcript().usage?.costUsd,
-								}}
-								onCompact={compactCommand() ? compactNow : undefined}
-								compactBlocked={
-									running() ? "Compacting waits until the agent finishes this turn." : null
-								}
-							/>
-						}
 						dock={
 							<>
-								<Row wrap gap={1.5} class="min-w-0">
+								<Row wrap gap={1.5} class="w-full min-w-0">
 									<Show when={!embedded && !shell.desktop()}>
 										<WorkspaceToggle thread={props.id} />
 									</Show>
@@ -1302,6 +1287,37 @@ export function Conversation(props: {
 											}}
 										/>
 									</Show>
+									<span class="ml-auto">
+										<ContextMeter
+											used={transcript().usage?.contextUsed}
+											total={transcript().usage?.contextWindow ?? currentModel()?.contextWindow}
+											model={modelName()}
+											limits={planLimits(
+												session()?.provider ?? "",
+												props.scope,
+												session()?.account ?? null,
+												now(),
+											)}
+											account={
+												accountsStore.label(props.scope, session()?.account ?? null) ??
+												"Your sign-in"
+											}
+											carryOn={
+												transcript().limitWait
+													? `Grid carries this thread on when the limit resets, ${resetsText(transcript().limitWait ?? "", now())}.`
+													: null
+											}
+											thread={{
+												input: transcript().usage?.inputTokens,
+												output: transcript().usage?.outputTokens,
+												cost: transcript().usage?.costUsd,
+											}}
+											onCompact={compactCommand() ? compactNow : undefined}
+											compactBlocked={
+												running() ? "Compacting waits until the agent finishes this turn." : null
+											}
+										/>
+									</span>
 								</Row>
 								<Show when={transcript().queue.items.length > 0}>
 									<QueueList
@@ -1345,6 +1361,7 @@ export function Conversation(props: {
 			</div>
 		</div>
 	);
+	const column = threadColumn();
 
 	// A side chat inside another thread's workspace: the conversation, and Undo's question.
 	if (embedded)
@@ -1364,7 +1381,7 @@ export function Conversation(props: {
 					pending={undoing()}
 					stayOpen
 				/>
-				{threadColumn()}
+				{column}
 			</div>
 		);
 
@@ -1413,10 +1430,12 @@ export function Conversation(props: {
 					<SplitSwitch thread={props.id} />
 				</ShellSlot>
 			</Show>
-			<Show when={workspaceProps()} fallback={threadColumn()}>
+			{/* The column is built once and moved into the workspace frame when the thread's folder
+			    is known: building it again there would drop what is being typed into the composer. */}
+			<Show when={workspaceProps()} fallback={column}>
 				{(workspaceOf) => (
 					<SplitFrame {...workspaceOf()} wide={shell.desktop()}>
-						{threadColumn()}
+						{column}
 					</SplitFrame>
 				)}
 			</Show>

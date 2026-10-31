@@ -188,10 +188,9 @@ depth detailing goes behind the same switch.
   (`bg-surface` and its hairline), not only a fill.
 - **Fading hairlines.** A horizontal `Divider` fades out at its ends (`hairline-fade`).
 
-Keep it small: one highlight, no shadows, no coloured glows beyond the composer's
-halo and the effort knob at its top level. Those two are part of the composer and picker design
-and show whatever the depth setting: the composer glows in the accent while focused
-(`shadow-focus`); every other control keeps the keyboard-only `focus-ring`.
+Keep it small: one highlight, no shadows, no coloured glows beyond the composer's halo. That is
+part of the composer's design and shows whatever the depth setting: the composer glows in the
+accent while focused (`shadow-focus`); every other control keeps the keyboard-only `focus-ring`.
 
 ### Motion
 
@@ -209,9 +208,12 @@ header actions), and the selected rail item is a fill, not a ring. Icons beside 
 Inbox, Board…) are part of that row and have no tile. `variant="bare"` drops the tile only for an icon inside
 something that is already a control (a chip). **The button sets its icon's size**, whatever the
 icon asks for: 16px in `sm`/`md` buttons, 14px in `xs`, one step larger on touch (`ICON_SIZE`).
-Tiles share one corner (`rounded-kit`, 8px) and, beside chips or other controls, their height
-(28px on desktop: the composer's add, tools and mic match its model and mode chips). Send and
-stop share that corner and size too. A tile is never more than 32px: it is drawn centred in its button, so
+Tiles share one corner (`rounded-kit`, 8px) and, beside chips or other controls, their height.
+The composer's toolbar is one size: its add, tools, model chip, mic, send and stop are all 32px
+on desktop (40px on touch) with that corner; the tools are filled tiles and send is the one
+filled in ink. Under the card, a quiet shelf (`DOCK_CHIP`: text until hovered) holds the branch,
+role, mode and the context and usage meter, so the toolbar stays short. A tile is never more than
+32px: it is drawn centred in its button, so
 a 44px touch target keeps its full tap area while the tile stays light and clear of the screen
 edge. Empty states use the small button (`size="sm"`); the screen's header keeps the
 primary action.

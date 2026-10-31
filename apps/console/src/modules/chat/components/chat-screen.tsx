@@ -911,6 +911,7 @@ function NewChat(props: {
 					>
 						<Composer
 							roomy
+							draftKey={props.project ? `new:${props.project}` : undefined}
 							project={props.project}
 							initial={initial}
 							commands={commands()}
@@ -925,7 +926,7 @@ function NewChat(props: {
 							disabled={!chosen() || !props.project || !props.folder}
 							onSend={(text, files) => (asCrew() ? startCrew(text, files) : start(text, files))}
 							dock={
-								<Row wrap gap={1.5} class="min-w-0">
+								<Row wrap gap={1.5} class="w-full min-w-0">
 									<Show when={props.folder && props.project}>
 										<GitControl
 											folder={props.folder ?? ""}
@@ -1046,19 +1047,19 @@ function NewChat(props: {
 											</>
 										)}
 									</Show>
+									<Show when={chosen()}>
+										{(provider) => (
+											<span class="ml-auto">
+												<ContextMeter
+													total={currentModel()?.contextWindow}
+													model={currentModel()?.name}
+													limits={planLimits(provider().id, accountScope(), account(), now())}
+													account={accountsStore.label(accountScope(), account()) ?? "Your sign-in"}
+												/>
+											</span>
+										)}
+									</Show>
 								</Row>
-							}
-							usage={
-								<Show when={chosen()}>
-									{(provider) => (
-										<ContextMeter
-											total={currentModel()?.contextWindow}
-											model={currentModel()?.name}
-											limits={planLimits(provider().id, accountScope(), account(), now())}
-											account={accountsStore.label(accountScope(), account()) ?? "Your sign-in"}
-										/>
-									)}
-								</Show>
 							}
 							controls={
 								<Show when={chosen()}>
