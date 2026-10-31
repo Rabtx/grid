@@ -5,6 +5,7 @@ import { CheckIcon, ChevronDownIcon, ChevronRightIcon } from "./icons";
 
 import { MENU_ITEM } from "./menu";
 import { type Placement, Popover, type PopoverControl } from "./popover";
+import { DOCK_CHIP } from "./prompt-box";
 
 export type SelectOption<T extends string> = {
 	value: T;
@@ -30,11 +31,12 @@ export function Select<T extends string>(props: {
 	placement?: Placement;
 	width?: string;
 	/**
-	 * `field` looks like an input (forms); `chip` is a quiet toolbar pill (the composer); `pill` is
-	 * a filled pill sized to its choice (a settings row's value); `value` is the choice in quiet
-	 * text with a chevron (a phone's settings row).
+	 * `field` looks like an input (forms); `chip` is a quiet toolbar chip (a board's filters); `dock`
+	 * sits on the shelf under the composer with the branch and the role; `pill` is a filled pill
+	 * sized to its choice (a settings row's value); `value` is the choice in quiet text with a
+	 * chevron (a phone's settings row).
 	 */
-	look?: "field" | "chip" | "pill" | "value";
+	look?: "field" | "chip" | "dock" | "pill" | "value";
 	disabled?: boolean;
 	/** Hands over a way to open it from code, e.g. the composer's `/mode` command. */
 	control?: (control: PopoverControl) => void;
@@ -42,13 +44,15 @@ export function Select<T extends string>(props: {
 	const current = () =>
 		props.groups.flatMap((group) => group.options).find((option) => option.value === props.value);
 	const trigger = () =>
-		props.look === "chip"
-			? "focus-ring inline-flex h-kit-control-sm max-w-60 shrink-0 items-center gap-1.5 rounded-kit px-2 text-body text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg"
-			: props.look === "value"
-				? "focus-ring -mr-1 inline-flex max-w-48 shrink-0 items-center gap-1 rounded-kit px-1 py-1.5 text-body text-fg-subtle"
-				: props.look === "pill"
-					? "focus-ring inline-flex h-kit-control max-w-72 shrink-0 items-center gap-1.5 rounded-pill bg-fill pr-3 pl-3.5 text-body text-fg transition-colors duration-fast hover:bg-fill-strong aria-expanded:bg-fill-strong disabled:opacity-50"
-					: "surface-field focus-ring flex h-kit-control w-full items-center gap-2 px-3 text-left text-field text-fg disabled:opacity-50";
+		props.look === "dock"
+			? `${DOCK_CHIP} max-w-48`
+			: props.look === "chip"
+				? "focus-ring inline-flex h-kit-control-sm max-w-60 shrink-0 items-center gap-1.5 rounded-kit px-2 text-body text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg"
+				: props.look === "value"
+					? "focus-ring -mr-1 inline-flex max-w-48 shrink-0 items-center gap-1 rounded-kit px-1 py-1.5 text-body text-fg-subtle"
+					: props.look === "pill"
+						? "focus-ring inline-flex h-kit-control max-w-72 shrink-0 items-center gap-1.5 rounded-pill bg-fill pr-3 pl-3.5 text-body text-fg transition-colors duration-fast hover:bg-fill-strong aria-expanded:bg-fill-strong disabled:opacity-50"
+						: "surface-field focus-ring flex h-kit-control w-full items-center gap-2 px-3 text-left text-field text-fg disabled:opacity-50";
 
 	return (
 		<Popover

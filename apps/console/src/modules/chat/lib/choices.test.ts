@@ -115,6 +115,8 @@ describe("shortModelName", () => {
 		expect(shortModelName("Default · Opus 5.5 (1M context)")).toBe("Opus 5.5");
 		expect(shortModelName("MiMo-V2.6-Flash Free")).toBe("MiMo-V2.6-Flash Free");
 		expect(shortModelName("(beta)")).toBe("(beta)");
+		expect(shortModelName("openrouter/deepseek/deepseek-v3")).toBe("deepseek-v3");
+		expect(shortModelName("Codex · gpt-6 (high)")).toBe("gpt-6");
 	});
 });
 

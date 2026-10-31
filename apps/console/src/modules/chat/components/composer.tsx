@@ -53,6 +53,7 @@ import {
 import { type SlashCommand, useSlashCommands } from "../lib/slash-commands";
 import { useFileMentions } from "../lib/use-file-mentions";
 import { chatService } from "../services/chat.service";
+import { composerDrafts } from "../stores/composer-drafts";
 import { AttachmentPreviewDialog } from "./attachment-preview-dialog";
 import { AttachmentProjectPicker } from "./attachment-project-picker";
 import { FileMentionPopup } from "./file-mention-popup";
@@ -98,8 +99,6 @@ export function Composer(props: {
 	onStop?: () => void;
 	/** The toolbar's pickers: the model. */
 	controls?: JSX.Element;
-	/** Beside the mic: the context and usage meter, which opens its panel. */
-	usage?: JSX.Element;
 	/** Behind the card: the branch, the role, the queue — what used to crowd the toolbar. */
 	dock?: JSX.Element;
 	/** Text to start with, e.g. a task a thread is started from. */
@@ -113,6 +112,11 @@ export function Composer(props: {
 	/** Hands over a way to fill the field from outside. */
 	control?: (control: ComposerControl) => void;
 	/**
+	 * Where unsent text is kept on this device (`thread:<id>`, `new:<project>`), so closing the
+	 * app or opening another chat does not lose it. Without it nothing is kept.
+	 */
+	draftKey?: string;
+	/**
 	 * Starts two lines tall, for a first message. Otherwise one line, as a reply in a thread:
 	 * either way it grows with the text and goes back once the message is sent.
 	 */
@@ -122,7 +126,51 @@ export function Composer(props: {
 	const workspace = useWorkspace();
 	const params = useParams<{ id?: string; project?: string }>();
 
-	const [draft, setDraft] = createSignal(untrack(() => props.initial) ?? "");
+	const [draft, setDraft] = createSignal(
+		untrack(() => props.initial || (props.draftKey ? composerDrafts.read(props.draftKey) : "")),
+	);
+	// Unsent text is written to this device a moment after typing stops, and at once when the
+	// composer goes (another chat) or the page does (closing the app).
+	let keptFor = untrack(() => props.draftKey);
+	let keepTimer: ReturnType<typeof setTimeout> | undefined;
+	function keepNow(): void {
+		if (keepTimer) clearTimeout(keepTimer);
+		keepTimer = undefined;
+		// The field itself: a signal written a moment ago still reads its old value (Solid 2 applies
+		// writes on the next microtask), and closing can come right after a keystroke.
+		if (keptFor) composerDrafts.save(keptFor, textarea?.value ?? untrack(draft));
+	}
+	function keepSoon(): void {
+		if (!keptFor) return;
+		if (keepTimer) clearTimeout(keepTimer);
+		keepTimer = setTimeout(keepNow, 300);
+	}
+	onSettled(() => {
+		const away = () => keepNow();
+		window.addEventListener("pagehide", away);
+		document.addEventListener("visibilitychange", away);
+		return () => {
+			keepNow();
+			window.removeEventListener("pagehide", away);
+			document.removeEventListener("visibilitychange", away);
+		};
+	});
+	// The same composer for another place (the new-thread one, moving to another project): keep
+	// what was typed for the old place and bring up the new place's draft.
+	createEffect(
+		() => props.draftKey,
+		(key) => {
+			if (key === keptFor) return;
+			keepNow();
+			keptFor = key;
+			const text = key ? composerDrafts.read(key) : "";
+			setDraft(text);
+			if (textarea) {
+				textarea.value = text;
+				grow();
+			}
+		},
+	);
 	const [sending, setSending] = createSignal(false);
 	const [files, setFiles] = createSignal<AttachedFile[]>([]);
 	const [projectFiles, setProjectFiles] = createSignal<string[]>([]);
@@ -301,6 +349,7 @@ export function Composer(props: {
 	function accept(next: string): void {
 		setDraft(next);
 		grow();
+		keepSoon();
 	}
 
 	const mentions = useFileMentions({
@@ -316,6 +365,9 @@ export function Composer(props: {
 		setDraft("");
 		if (textarea) textarea.value = "";
 		grow();
+		if (keepTimer) clearTimeout(keepTimer);
+		keepTimer = undefined;
+		if (keptFor) composerDrafts.clear(keptFor);
 	}
 
 	const slash = useSlashCommands({
@@ -380,6 +432,7 @@ export function Composer(props: {
 	props.control?.({
 		fill: (text) => {
 			setDraft(text);
+			keepSoon();
 			if (textarea) {
 				textarea.value = text;
 				grow();
@@ -680,6 +733,7 @@ export function Composer(props: {
 							onInput={(event) => {
 								setDraft(event.currentTarget.value);
 								grow();
+								keepSoon();
 								mentions.handleInput();
 								slash.handleInput();
 							}}
@@ -781,12 +835,7 @@ export function Composer(props: {
 							{props.controls}
 						</>
 					}
-					options={
-						<>
-							{props.usage}
-							<MicButton target={() => (textarea ? voiceTarget : null)} class={MIC_BUTTON} />
-						</>
-					}
+					options={<MicButton target={() => (textarea ? voiceTarget : null)} class={MIC_BUTTON} />}
 					send={
 						<Show
 							when={props.running}

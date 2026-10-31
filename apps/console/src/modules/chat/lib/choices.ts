@@ -96,6 +96,8 @@ export function shortModelName(name: string): string {
 	const short = name
 		.replace(/^[^·]*·\s*/, "")
 		.replace(/\s*\([^)]*\)\s*$/, "")
+		// A model named by its route ("openrouter/deepseek/deepseek-v3") reads as its last part.
+		.replace(/^(?:[\w.~-]+\/)+(?=[^/\s])/, "")
 		.trim();
 	return short || name;
 }

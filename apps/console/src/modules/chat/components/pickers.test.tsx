@@ -77,9 +77,11 @@ describe("ModelPicker", () => {
 			.filter((label) => !label.includes("favourites"));
 	}
 
-	it("names the agent and the model on its chip", () => {
+	it("shows the agent's logo and the model on its chip, without the agent's name", () => {
 		const chip = document.querySelector('button[aria-label="Agent and model"]');
-		expect(chip?.textContent).toContain("Claude Code · Sonnet 5");
+		expect(chip?.textContent).toContain("Sonnet 5");
+		expect(chip?.textContent).not.toContain("Claude Code");
+		expect(chip?.querySelector("svg")).not.toBeNull();
 	});
 
 	it("lists the agents, then the current agent's models", async () => {

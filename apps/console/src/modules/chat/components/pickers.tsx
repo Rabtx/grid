@@ -88,6 +88,8 @@ export function ModelPicker(props: ModelPickerProps): JSX.Element {
 	const name = () => shortModelName(model()?.name || props.model || "Model");
 	const agentName = () =>
 		props.agents?.find((agent) => agent.id === props.agent)?.name ?? props.agentName ?? null;
+	// The effort rides along in the chip, quietly, so it can be seen without opening the panel.
+	const effortName = () => props.efforts.find((level) => level.id === props.effort)?.name ?? null;
 
 	return (
 		<Popover
@@ -97,20 +99,23 @@ export function ModelPicker(props: ModelPickerProps): JSX.Element {
 			width="md:w-md"
 			disabled={props.disabled}
 			control={props.control}
-			triggerClass={`${PROMPT_CHIP} min-w-0 max-w-72`}
+			triggerClass={`${PROMPT_CHIP} min-w-0 max-w-64`}
 			trigger={
 				<>
+					{/* Once chosen, the chip is the agent's logo and the model: the agent's name is
+					    the logo, and the panel says the rest. */}
 					<Show
-						when={props.agent && agentName()}
-						fallback={
-							<AgentMark name={findChoice(props.models, props.model)?.group || "model"} size="md" />
-						}
+						when={props.agent}
+						fallback={<AgentMark name={model()?.group || agentName() || "model"} size="md" />}
 					>
-						<AgentLogo id={props.agent ?? ""} name={agentName() ?? ""} />
+						<AgentLogo id={props.agent ?? ""} name={agentName() ?? props.agent ?? ""} />
 					</Show>
 					<Text as="span" size="inherit" tone="strong" truncate>
-						{agentName() ? `${agentName()} · ${name()}` : name()}
+						{name()}
 					</Text>
+					<Show when={effortName()}>
+						<span class="shrink-0 text-fg-subtle">{effortName()}</span>
+					</Show>
 					<ChevronDownIcon size="xs" class="text-fg-faint" />
 				</>
 			}
@@ -348,7 +353,7 @@ export function ModePicker(props: {
 	return (
 		<Select
 			label="Mode"
-			look="chip"
+			look="dock"
 			placement="top-start"
 			width="md:w-72"
 			disabled={props.disabled}

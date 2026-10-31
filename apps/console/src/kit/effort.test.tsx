@@ -38,14 +38,11 @@ describe("EffortSlider", () => {
 		return { value, input };
 	}
 
-	/** Moves the slider as a drag or key would, then lets Solid apply the change. */
-	async function slide(input: HTMLInputElement, to: number): Promise<void> {
-		input.value = String(to);
-		input.dispatchEvent(new Event("input", { bubbles: true }));
-		await new Promise((resolve) => setTimeout(resolve, 0));
-	}
+	const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+	const pressed = () =>
+		[...document.querySelectorAll("button[aria-pressed='true']")].map((b) => b.textContent);
 
-	it("is a stepped range named by its level", () => {
+	it("is a stepped range named by its level, for keys and screen readers", () => {
 		const { input } = mount("high");
 		expect(input.max).toBe("3");
 		expect(input.value).toBe("2");
@@ -53,31 +50,24 @@ describe("EffortSlider", () => {
 		expect(document.querySelector("label")?.textContent).toBe("Reasoning effort");
 	});
 
-	it("rolls the level and its meaning in from the side it moved, sweeping the fill", async () => {
+	it("raises the chosen segment and says what the level means", async () => {
 		const { value, input } = mount("low");
+		expect(pressed()).toEqual(["Low"]);
 		expect(document.body.textContent).toContain("Quick, light thinking");
-		await slide(input, 2);
+		input.value = "2";
+		input.dispatchEvent(new Event("input", { bubbles: true }));
+		await settle();
 		expect(value()).toBe("high");
+		expect(pressed()).toEqual(["High"]);
 		expect(document.body.textContent).toContain("Thinks it through");
-		expect(document.querySelector(".kit-effort-roll-up")).not.toBeNull();
-		expect(document.querySelector(".kit-effort-sweep")).not.toBeNull();
-		await slide(input, 1);
-		expect(document.querySelector(".kit-effort-roll-down")).not.toBeNull();
 	});
 
-	it("glows only at the top level", async () => {
-		const { input } = mount("high");
-		expect(document.querySelector(".kit-effort-glow")).toBeNull();
-		await slide(input, 3);
-		expect(document.querySelector(".kit-effort-glow")).not.toBeNull();
-	});
-
-	it("picks a level from its name under the track", async () => {
+	it("picks a level from its segment", async () => {
 		const { value } = mount("low");
 		[...document.querySelectorAll("button")]
-			.find((button) => button.textContent === "High")
+			.find((button) => button.textContent === "Max")
 			?.click();
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		expect(value()).toBe("high");
+		await settle();
+		expect(value()).toBe("max");
 	});
 });

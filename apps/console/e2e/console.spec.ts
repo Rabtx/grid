@@ -136,7 +136,9 @@ test("links a project folder and starts a thread the agent answers", async () =>
 test("draws the visual an agent writes into its reply, with the rail beside the thread", async () => {
 	await page.goto(`/acme/chat/demo/${threads.first}`);
 	await dismissTour(page);
-	// The thread's page settles before typing: the composer is drawn anew as it loads.
+	// The thread's transcript is in before typing. A message sent within a few hundred
+	// milliseconds of opening a thread is sometimes dropped on its way to the runner (open
+	// question); people do not type that fast, the test does.
 	await expect(page.getByText(/ok: .*hello there/)).toBeVisible();
 	await send("VISUAL? how are the builds doing");
 	const visual = page.locator('figure[aria-label="Build health"]');
@@ -156,7 +158,9 @@ test("draws the visual an agent writes into its reply, with the rail beside the 
 test("shows a thread's context and plan usage in the composer, and compacts it", async () => {
 	await page.goto(`/acme/chat/demo/${threads.first}`);
 	await dismissTour(page);
-	// The thread's page settles before typing: the composer is drawn anew as it loads.
+	// The thread's transcript is in before typing. A message sent within a few hundred
+	// milliseconds of opening a thread is sometimes dropped on its way to the runner (open
+	// question); people do not type that fast, the test does.
 	await expect(page.getByText(/ok: .*hello there/)).toBeVisible();
 	await send("USAGE? how much room is left");
 	await expect(page.getByText("usage reported").first()).toBeVisible();

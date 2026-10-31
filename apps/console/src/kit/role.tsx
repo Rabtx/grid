@@ -144,7 +144,7 @@ export function RoleChipGroup(props: { children: JSX.Element }): JSX.Element {
 
 /** A half of the role chip group: the role (with its name), or its settings (an icon). */
 export const ROLE_CHIP =
-	"focus-ring flex h-full min-w-0 max-w-48 items-center gap-1.5 rounded-kit pr-1.5 pl-1 text-body text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg pointer-coarse:pl-1.5";
+	"focus-ring flex h-full min-w-0 max-w-48 items-center gap-1.5 rounded-kit pr-2 pl-1.5 text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg pointer-coarse:pl-1.5";
 export const ROLE_CHIP_ICON =
 	"focus-ring grid h-full shrink-0 place-items-center rounded-kit px-2 text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:px-3 [&_svg]:size-3.5";
 
