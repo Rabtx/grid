@@ -311,10 +311,24 @@ function ProjectNode(props: {
 
 	const [threadLimit, setThreadLimit] = createSignal(DEFAULT_THREAD_LIMIT);
 	const allThreads = () => threadsStore.threads(slug());
-	const totalThreads = () => allThreads().length;
+	const totalThreads = () => threadsStore.total(slug());
 	const visibleThreads = () => allThreads().slice(0, threadLimit());
-	const hasMoreThreads = () => totalThreads() > threadLimit();
-	const remainingThreads = () => totalThreads() - threadLimit();
+	const hasMoreThreads = () =>
+		visibleThreads().length < totalThreads() || threadsStore.hasMore(slug());
+	const remainingThreads = () => Math.max(totalThreads() - visibleThreads().length, 0);
+
+	/** Reveal more of what is here; when all of it shows, read the next page from the runner. */
+	function loadMoreThreads(): void {
+		if (allThreads().length > threadLimit()) {
+			setThreadLimit((prev) => prev + DEFAULT_THREAD_LIMIT);
+			return;
+		}
+		const token = auth.token();
+		if (!token || threadsStore.loadingMore(slug()) || !threadsStore.hasMore(slug())) return;
+		void threadsStore
+			.loadMore(token, slug())
+			.then(() => setThreadLimit((prev) => prev + DEFAULT_THREAD_LIMIT));
+	}
 
 	// QoL: Ensure the active thread in this project is visible even if deep in history
 	const inThread = useMatch(() => "/chat/:project/:id");
@@ -490,13 +504,17 @@ function ProjectNode(props: {
 									level={1}
 									tone="default"
 									icon={<ChevronDownIcon size="xs" />}
-									label={`Load ${Math.min(DEFAULT_THREAD_LIMIT, remainingThreads())} more`}
+									label={
+										threadsStore.loadingMore(slug())
+											? "Loading threads…"
+											: `Load ${Math.min(DEFAULT_THREAD_LIMIT, remainingThreads()) || DEFAULT_THREAD_LIMIT} more`
+									}
 									trailing={
 										<span class="text-caption text-fg-subtle tabular-nums">
 											{remainingThreads()} left
 										</span>
 									}
-									onClick={() => setThreadLimit((prev) => prev + DEFAULT_THREAD_LIMIT)}
+									onClick={loadMoreThreads}
 								/>
 							</Show>
 							<Show when={!hasMoreThreads() && totalThreads() > DEFAULT_THREAD_LIMIT}>

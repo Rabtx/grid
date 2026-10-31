@@ -45,6 +45,10 @@ vi.mock("@/modules/projects", () => ({
 vi.mock("@/modules/chat/stores/threads", () => ({
 	threadsStore: {
 		threads: (slug: string) => mockThreadsByProject[0]()[slug] ?? [],
+		total: (slug: string) => (mockThreadsByProject[0]()[slug] ?? []).length,
+		hasMore: () => false,
+		loadingMore: () => false,
+		loadMore: () => Promise.resolve(),
 		loaded: (slug: string) => mockLoaded[0]()[slug] ?? true,
 		runningIn: () => 0,
 		isRunning: () => false,

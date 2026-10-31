@@ -195,6 +195,18 @@ function readJson<T>(raw: string | null): T | null {
 	}
 }
 
+/** Where a page of threads ended: the last thread's `updated_at` and id, joined by a newline. */
+function encodeThreadCursor(session: ChatSessionRow): string {
+	return `${session.updatedAt}\n${session.id}`;
+}
+
+function decodeThreadCursor(cursor?: string | null): { updatedAt: string; id: string } | null {
+	if (!cursor) return null;
+	const split = cursor.indexOf("\n");
+	if (split < 1) return null;
+	return { updatedAt: cursor.slice(0, split), id: cursor.slice(split + 1) };
+}
+
 function toSession(row: Row): ChatSessionRow {
 	return {
 		id: row.id,
@@ -678,6 +690,48 @@ export class ChatStore {
 			)
 			.all(workspace, project)
 			.map(toSession);
+	}
+
+	/**
+	 * One page of a project's threads, newest first, and where the next page starts. The cursor is
+	 * the last thread of the page (`updated_at` and id, so threads updated in the same moment keep
+	 * a stable order): pass it back to read the ones after it.
+	 */
+	listPage(
+		workspace: string,
+		project: string,
+		limit: number,
+		cursor?: string | null,
+	): { rows: ChatSessionRow[]; nextCursor: string | null; total: number } {
+		const size = Math.min(Math.max(Math.floor(limit), 1), 100);
+		const after = decodeThreadCursor(cursor);
+		const rows = after
+			? this.db
+					.query<Row, [string, string, string, string, string, number]>(
+						`SELECT * FROM sessions WHERE workspace_id = ? AND project = ? AND parent_id IS NULL
+						 AND (updated_at < ? OR (updated_at = ? AND id < ?))
+						 ORDER BY updated_at DESC, id DESC LIMIT ?`,
+					)
+					.all(workspace, project, after.updatedAt, after.updatedAt, after.id, size + 1)
+			: this.db
+					.query<Row, [string, string, number]>(
+						`SELECT * FROM sessions WHERE workspace_id = ? AND project = ? AND parent_id IS NULL
+						 ORDER BY updated_at DESC, id DESC LIMIT ?`,
+					)
+					.all(workspace, project, size + 1);
+		const page = rows.slice(0, size).map(toSession);
+		const last = page.at(-1);
+		const total =
+			this.db
+				.query<{ n: number }, [string, string]>(
+					"SELECT COUNT(*) AS n FROM sessions WHERE workspace_id = ? AND project = ? AND parent_id IS NULL",
+				)
+				.get(workspace, project)?.n ?? 0;
+		return {
+			rows: page,
+			nextCursor: rows.length > size && last ? encodeThreadCursor(last) : null,
+			total,
+		};
 	}
 
 	/** The side chats opened beside a thread, newest first. */
