@@ -1,11 +1,14 @@
 /**
- * Inline visuals: what an agent shows inside its reply through Grid's `show_visual` tool. Usually
- * a list of typed blocks (stats, charts, tables, lists, comparisons, calculators, choices, tabs)
- * the console draws with its own components; for what blocks cannot draw, one self-contained
- * HTML page, which the console runs in a sandboxed frame with no network and no way out.
+ * Inline visuals: what an agent shows inside its reply. Usually a list of typed blocks (stats,
+ * charts, tables, lists, comparisons, timelines, progress, calculators, choices, tabs) the console
+ * draws with its own components; for what blocks cannot draw, one self-contained HTML page, which
+ * the console runs in a sandboxed frame with no network and no way out.
  *
- * Everything an agent sends is checked here before it reaches the log: a visual that passes is
- * one the console can draw as the agent meant, and an error names the block that was wrong.
+ * Two ways in, so every agent can use them whatever it supports: Grid's `show_visual` tool, for
+ * agents that call Grid's tools, and a ```grid-visual fence of JSON in the reply itself, which any
+ * model that writes markdown can produce. Both are checked here — by the runner for the tool, by
+ * the console for a fence — so a visual that passes is one the console can draw as the agent
+ * meant, and an error names the block that was wrong.
  */
 
 export const MAX_BLOCKS = 16;
@@ -303,6 +306,71 @@ function leaf(raw: unknown, at: string): Fields {
 					});
 				}),
 			});
+		case "progress":
+			return compact({
+				type: "progress",
+				title: maybeText(block, "title", at, 120),
+				items: list(block, "items", at, 1, 12).map((item, i) => {
+					const where = `${at}.items[${i}]`;
+					const fields = object(item, where);
+					const max = maybeNumber(fields, "max", where);
+					if (max !== undefined && max <= 0) throw new VisualError(`${where}.max must be above 0`);
+					return compact({
+						label: text(fields, "label", where, 60),
+						value: number(fields, "value", where),
+						max,
+						unit: maybeText(fields, "unit", where, 12),
+						tone: oneOf(fields, "tone", where, TONES),
+					});
+				}),
+			});
+		case "timeline":
+			return compact({
+				type: "timeline",
+				title: maybeText(block, "title", at, 120),
+				items: list(block, "items", at, 1, 24).map((item, i) => {
+					const where = `${at}.items[${i}]`;
+					const fields = object(item, where);
+					return compact({
+						time: maybeText(fields, "time", where, 40),
+						title: text(fields, "title", where, 160),
+						detail: maybeText(fields, "detail", where, 400),
+						tone: oneOf(fields, "tone", where, TONES),
+					});
+				}),
+			});
+		case "donut": {
+			const items = list(block, "items", at, 1, 8).map((item, i) => {
+				const where = `${at}.items[${i}]`;
+				const fields = object(item, where);
+				const value = number(fields, "value", where);
+				if (value < 0) throw new VisualError(`${where}.value must not be negative`);
+				return { label: text(fields, "label", where, 60), value };
+			});
+			if (!items.some((item) => item.value > 0))
+				throw new VisualError(`${at}.items need at least one value above 0`);
+			return compact({
+				type: "donut",
+				title: maybeText(block, "title", at, 120),
+				unit: maybeText(block, "unit", at, 12),
+				total: maybeText(block, "total", at, 40),
+				items,
+			});
+		}
+		case "facts":
+			return compact({
+				type: "facts",
+				title: maybeText(block, "title", at, 120),
+				items: list(block, "items", at, 1, 24).map((item, i) => {
+					const where = `${at}.items[${i}]`;
+					const fields = object(item, where);
+					return compact({
+						label: text(fields, "label", where, 60),
+						value: text(fields, "value", where, 200),
+						tone: oneOf(fields, "tone", where, TONES),
+					});
+				}),
+			});
 		default:
 			throw new VisualError(`${at}.type ${JSON.stringify(block.type)} is not a block Grid draws`);
 	}
@@ -392,6 +460,10 @@ export const SHOW_VISUAL_DESCRIPTION = [
 	"callout {tone?: info|success|warning|danger, title?, text}.",
 	"compare {options:[{title, subtitle?, highlight?, points:[{label, value}]}]} 2-4 options; highlight the recommended one.",
 	"calculator {title?, inputs:[{id, label, value, min?, max?, step?, unit?}], outputs:[{id?, label, formula, prefix?, unit?, decimals?, emphasis?}]}; formulas use input ids and earlier output ids with + - * / % ^, parentheses, min max round floor ceil abs sqrt.",
+	"progress {title?, items:[{label, value, max? (default 100), unit?, tone?}]} 1-12 bars toward a target: coverage, budgets, completion.",
+	"timeline {title?, items:[{time?, title, detail?, tone?}]} 1-24 events or milestones in order.",
+	"donut {title?, unit?, total? (centre text), items:[{label, value}]} 1-8 parts of a whole.",
+	"facts {title?, items:[{label, value, tone?}]} 1-24 key-value pairs: a summary card of settings, versions, owners.",
 	"choices {prompt?, options:[{label, description?, message?}]} 1-6 next steps; a click sends message (default label) as the reader's next message.",
 	"tabs {tabs:[{label, blocks:[...]}]} 2-6 views; tabs hold any block except tabs.",
 	"tone is neutral, accent, success, warning or danger; accent marks the one thing that matters.",
@@ -414,3 +486,89 @@ export const SHOW_VISUAL_SCHEMA: Record<string, unknown> = {
 	},
 	required: ["title"],
 };
+
+/** The language tag of a fenced visual in a reply: ```grid-visual, then the JSON, then ```. */
+export const VISUAL_FENCE = "grid-visual";
+
+/** A piece of a reply: markdown to draw as it is, or a visual fence (checked, or why it failed). */
+export type ReplyPart =
+	| { kind: "text"; text: string }
+	| { kind: "visual"; visual: Visual }
+	| { kind: "pending" }
+	| { kind: "invalid"; source: string; error: string };
+
+const FENCE_OPEN = new RegExp(`^(\\s{0,3})(\`{3,}|~{3,})\\s*${VISUAL_FENCE}\\s*$`);
+
+/**
+ * A reply split around its ```grid-visual fences, in order. Each fence's JSON is checked as the
+ * tool's arguments are (`{title, blocks}` or `{title, html}`; a bare list of blocks is taken as
+ * the blocks). A fence still being written (no closing fence yet) is `pending`, so a streaming
+ * reply shows a placeholder rather than half a spec; one that does not check out is `invalid`,
+ * with the reason, so it can be shown as code.
+ */
+export function splitReply(reply: string): ReplyPart[] {
+	if (!reply.includes(VISUAL_FENCE)) return [{ kind: "text", text: reply }];
+	const parts: ReplyPart[] = [];
+	const lines = reply.split("\n");
+	let text: string[] = [];
+	const flush = () => {
+		if (text.join("\n").trim()) parts.push({ kind: "text", text: text.join("\n") });
+		text = [];
+	};
+	for (let i = 0; i < lines.length; i++) {
+		const open = FENCE_OPEN.exec(lines[i] ?? "");
+		if (!open) {
+			text.push(lines[i] ?? "");
+			continue;
+		}
+		// The fence closes on a line of the same character, at least as long, and nothing else.
+		const marker = open[2] ?? "```";
+		const close = lines.findIndex((line, j) => {
+			if (j <= i) return false;
+			const run = /^\s{0,3}(`{3,}|~{3,})\s*$/.exec(line)?.[1];
+			return Boolean(run && run[0] === marker[0] && run.length >= marker.length);
+		});
+		flush();
+		if (close === -1) {
+			parts.push({ kind: "pending" });
+			return parts;
+		}
+		const source = lines.slice(i + 1, close).join("\n");
+		parts.push(readFence(source));
+		i = close;
+	}
+	flush();
+	return parts;
+}
+
+function readFence(source: string): ReplyPart {
+	try {
+		const parsed: unknown = JSON.parse(source);
+		const args = Array.isArray(parsed)
+			? { title: "Visual", blocks: parsed }
+			: object(parsed, "visual");
+		return { kind: "visual", visual: readVisual({ title: "Visual", ...args }) };
+	} catch (cause) {
+		const error =
+			cause instanceof VisualError
+				? cause.message
+				: cause instanceof SyntaxError
+					? `Not valid JSON: ${cause.message}`
+					: "Could not read this visual";
+		return { kind: "invalid", source, error };
+	}
+}
+
+/**
+ * What every agent is told about rich replies, whatever it is and whatever tools it has: when a
+ * visual helps, and how to write one as a fence. Agents with Grid's tools also see `show_visual`.
+ */
+export const RICH_REPLIES_NOTE = [
+	"Rich replies: Grid draws visuals inside your reply with its own components, in the reader's theme.",
+	"Use one when it reads faster than prose — numbers to compare, a trend, options side by side, a plan with steps, a status overview, a timeline, a breakdown — and always when the person asks for a visual, chart, table, dashboard, rich UI or similar.",
+	`To add one, put a fenced block with the language ${VISUAL_FENCE} in your reply, holding JSON: {"title": "...", "blocks": [...]}.`,
+	"Keep the prose around it short: state the finding, do not describe the visual. Prefer blocks; use one block type per idea.",
+	`Example:\n\`\`\`${VISUAL_FENCE}\n{"title":"Bundle size","blocks":[{"type":"stats","items":[{"label":"Total","value":"412 KB","detail":"-18% vs last week","trend":"down","tone":"success"}]},{"type":"bar-chart","unit":"KB","better":"lower","items":[{"label":"vendor","value":240,"baseline":300},{"label":"app","value":172,"baseline":200}]}]}\n\`\`\``,
+	"If you have Grid's show_visual tool you may use it instead with the same JSON. Blocks:",
+	SHOW_VISUAL_DESCRIPTION.slice(SHOW_VISUAL_DESCRIPTION.indexOf("markdown {text}")),
+].join("\n");

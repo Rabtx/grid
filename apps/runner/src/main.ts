@@ -1,5 +1,7 @@
 import { dirname, join } from "node:path";
 
+import { RICH_REPLIES_NOTE } from "@grid/visuals";
+
 import { AcpAgentStore } from "./agents/acp-agents";
 import { policyOf } from "./agents/policy";
 import { addAcpAgent, agentBinary, providerRegistry } from "./agents/registry";
@@ -388,6 +390,8 @@ const memory = new ProjectMemory(config.chatDb);
 chat.setMemoryBrief((session, message) =>
 	memoryBrief(memory.relevant(session.workspaceId, session.project, message)),
 );
+// Every agent, whatever it is and whatever tools it has, learns it can answer with visuals.
+chat.setRichReplies(RICH_REPLIES_NOTE);
 for (const tool of memoryTools(memory, {
 	agentName: (session) => chat.providerName(session.provider),
 	saved: (session, entry) =>

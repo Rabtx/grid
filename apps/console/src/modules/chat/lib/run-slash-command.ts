@@ -30,7 +30,17 @@ export type SlashCommandActions = {
 	handoff?: (agent: string, newThread: boolean) => boolean;
 	/** Set the thread's goal, or pause, resume or clear it; left out where there is no thread. */
 	goal?: (input: { objective: string } | { action: "pause" | "resume" | "clear" | "show" }) => void;
+	/** Send a message as if typed, e.g. `/visual`'s request; left out where none can be sent. */
+	ask?: (text: string) => void;
 };
+
+/**
+ * `/visual`'s message: the request, then the ask to answer it as a rich visual — the fence every
+ * agent is taught to draw with (see `@grid/visuals`), whatever tools it has.
+ */
+export function visualRequest(request: string): string {
+	return `${request.trim()}\n\nShow the answer as a rich visual: a \`\`\`grid-visual block (stats, charts, tables, timelines, comparisons, whichever fits), with a short note around it.`;
+}
 
 function refuse(title: string): false {
 	notify({ title, tone: "danger" });
@@ -130,6 +140,11 @@ export function runSlashCommand(
 			if (!actions.addNote) return refuse("Open a project to add notes");
 			if (!argument) return refuse("Add the note's text: /note <text>");
 			actions.addNote(argument);
+			return true;
+		case "visual":
+			if (!actions.ask) return refuse("Open a thread to ask for a visual");
+			if (!argument.trim()) return refuse("Say what to show, e.g. /visual build times this week");
+			actions.ask(visualRequest(argument));
 			return true;
 		default:
 			return false;

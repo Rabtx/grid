@@ -442,7 +442,7 @@ export {
 	ReconnectingNotice,
 	WaitingLine,
 } from "./notification";
-export { ScrollRail, type ScrollRailProps } from "./scroll-rail";
+export { MessageRail, type MessageRailProps, RAIL_LABEL, RAIL_MARK } from "./message-rail";
 export {
 	type CrewMember,
 	CrewPanel,

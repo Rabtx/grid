@@ -81,6 +81,12 @@ export const GRID_COMMANDS: readonly SlashCommand[] = [
 		description: "Add a note to this project",
 		argument: "<text>",
 	}),
+	grid({
+		id: "visual",
+		name: "visual",
+		description: "Ask for the answer as a rich visual: charts, tables, cards",
+		argument: "<what to show>",
+	}),
 	grid({ id: "clear", name: "clear", description: "Clear the composer" }),
 ];
 
@@ -131,6 +137,8 @@ const APPLIES: Record<string, (context: SlashCommandContext) => boolean> = {
 	goal: (context) => Boolean(context.split),
 	task: (context) => context.project,
 	note: (context) => context.project,
+	// A message goes to an agent, which works in a project.
+	visual: (context) => context.project,
 	clear: () => true,
 };
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 
-import { readVisual } from "./visuals";
+import { readVisual } from "@grid/visuals";
 
 describe("inline visuals", () => {
 	it("keeps blocks trimmed and without unset keys", () => {

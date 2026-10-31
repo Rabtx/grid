@@ -52,7 +52,7 @@ import {
 	IconButton,
 	LaptopIcon,
 	RoleMark,
-	ScrollRail,
+	MessageRail,
 	ThreadHeader,
 	notify,
 	type PopoverControl,
@@ -307,6 +307,10 @@ export function Conversation(props: {
 				return true;
 			},
 			goal: (input) => void changeGoal(input),
+			ask: (text) =>
+				void send(text, [], running()).catch((cause) =>
+					setError(cause instanceof Error ? cause.message : "Could not send message"),
+				),
 		});
 	}
 
@@ -1030,7 +1034,7 @@ export function Conversation(props: {
 						/>
 					</div>
 				</div>
-				<ScrollRail scroller={() => scroller} />
+				<MessageRail scroller={() => scroller} />
 				<Show when={!isPinned()}>
 					<Button
 						variant="secondary"
