@@ -454,7 +454,11 @@ conversation is 60,000 tokens or more and goes quiet is sent `/compact`
 (`origin: { kind: "grid", reason: "compact" }`) 90 seconds before Claude's prompt cache for it
 expires: an hour after its last turn on a plan, five minutes with `ANTHROPIC_API_KEY`. Anything
 happening in the thread first cancels it; timers do not survive a restart. Claude Code `usage`
-events now carry `contextUsed`, the input its latest request read.
+events now carry `contextUsed`, the input its latest request read, and `contextWindow` from the
+result's `modelUsage`. Model choices carry `contextWindow` too where the agent's catalog says
+(Claude Code: 200k, or a million for a 1M row), so the composer's usage panel can show a model's
+window before its first answer. That panel's Compact button sends the agent's own `/compact`
+command as a visible turn, as idle compaction does.
 
 ### Runner outside agents, guests, search and snooze
 

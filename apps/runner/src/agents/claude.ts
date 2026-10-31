@@ -43,6 +43,19 @@ type ListedModel = {
 };
 
 /**
+ * The context window Claude Code's result reports for the turn's models (`modelUsage`, keyed by
+ * model): the largest, which is the main model's (subagents run on the same or smaller ones).
+ */
+export function modelContextWindow(modelUsage: unknown): number | null {
+	if (!modelUsage || typeof modelUsage !== "object") return null;
+	const windows = Object.values(modelUsage as Record<string, unknown>).flatMap((entry) => {
+		const value = (entry as { contextWindow?: unknown } | null)?.contextWindow;
+		return typeof value === "number" && Number.isFinite(value) && value > 0 ? [value] : [];
+	});
+	return windows.length ? Math.max(...windows) : null;
+}
+
+/**
  * Claude Code's own `list_models` row as a picker entry, named by exact model ("Opus 5.5 (1M
  * context)" rather than "Opus"), with the resolved model id and its effort levels.
  */
@@ -59,6 +72,8 @@ export function claudeModelChoice(row: ListedModel): Choice | null {
 		id: row.value,
 		name,
 		description: [resolved, ...rest].filter(Boolean).join(" · ") || undefined,
+		// Claude Code's models read 200k tokens, or a million where the row says 1M.
+		contextWindow: /1M/.test(exact) ? 1_000_000 : 200_000,
 		...(levels.length
 			? {
 					efforts: effortChoices(levels),
@@ -744,8 +759,10 @@ async function startClaudeSession(
 				  }
 				| undefined;
 			if (usage) {
+				const window = modelContextWindow(message.modelUsage);
 				context.emit({
 					type: "usage",
+					...(window ? { contextWindow: window } : {}),
 					inputTokens:
 						(usage.input_tokens ?? 0) +
 						(usage.cache_read_input_tokens ?? 0) +

@@ -16,6 +16,7 @@ export {
 export { Badge, Count, Kbd, type Tone } from "./badge";
 export { KeyRecorder } from "./key-recorder";
 export { shortcutKeys } from "./keys";
+export { type ContextLimit, ContextMeter, formatTokens } from "./context-panel";
 export { BrandLogo, BrandMark, BrandWordmark, Splash } from "./brand";
 export {
 	Button,
@@ -151,7 +152,6 @@ export {
 	STEER_BUTTON,
 	STOP_BUTTON,
 	Suggestions,
-	ContextMeter,
 	VoiceBar,
 	WorkingRing,
 } from "./prompt-box";

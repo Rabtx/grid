@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from
 
 import { onRunnerRecovered, runnerUp } from "@/lib/runner-health";
 import { accountStorage } from "@/lib/account-storage";
+import { now } from "@/lib/clock";
 import { shortcutHint, useCommand } from "@/lib/keybindings";
 
 import { useAuth } from "@/modules/auth";
@@ -17,6 +18,7 @@ import {
 	BranchIcon,
 	Button,
 	CheckIcon,
+	ContextMeter,
 	DOCK_CHIP,
 	IdeaIcon,
 	Menu,
@@ -62,6 +64,7 @@ import { Composer, type ComposerControl } from "./composer";
 import { Conversation, queueFirstMessage } from "./conversation";
 import { ModelPicker, ModePicker } from "./pickers";
 import { RoleDialog, RoleMenu, RoleSettings } from "./roles";
+import { planLimits } from "./usage-rings";
 import { SessionTabs } from "./session-list";
 
 const AGENT_KEY = "grid.chat.agent";
@@ -1012,6 +1015,18 @@ function NewChat(props: {
 										)}
 									</Show>
 								</Row>
+							}
+							usage={
+								<Show when={chosen()}>
+									{(provider) => (
+										<ContextMeter
+											total={currentModel()?.contextWindow}
+											model={currentModel()?.name}
+											limits={planLimits(provider().id, accountScope(), account(), now())}
+											account={accountsStore.label(accountScope(), account()) ?? "Your sign-in"}
+										/>
+									)}
+								</Show>
 							}
 							controls={
 								<Show when={chosen()}>

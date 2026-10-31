@@ -5,7 +5,8 @@
  * asks to run a command and waits for the answer, `LINK:<id>` answers with a link to that thread,
  * `COST:<usd>` adds that much to what it reports having cost, `MEMORY?` says what of the project's
  * memory the message came with, `VISUAL?` answers with a ```grid-visual fence (and says whether
- * the message came with Grid's note on rich replies); anything else is answered at once.
+ * the message came with Grid's note on rich replies), `USAGE?` reports a large context and its
+ * plan's limits as Claude Code does; anything else is answered at once. It offers `/compact`.
  * Grid's carry-on message is answered "carried on" (after `FAKE_CLAUDE_CONTINUE_MS`, when set).
  */
 import { createInterface } from "node:readline";
@@ -26,14 +27,20 @@ const say = (text: string) =>
 		type: "stream_event",
 		event: { type: "content_block_delta", index: 0, delta: { type: "text_delta", text } },
 	});
+/** What a turn read, as Claude Code reports it; `USAGE?` makes it a large conversation. */
+let read = { input_tokens: 10, output_tokens: 5 };
 const finish = (text: string) => {
-	send({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text }] } });
+	send({
+		type: "assistant",
+		message: { role: "assistant", content: [{ type: "text", text }], usage: read },
+	});
 	send({
 		type: "result",
 		subtype: "success",
 		is_error: false,
 		result: text,
-		usage: { input_tokens: 10, output_tokens: 5 },
+		usage: read,
+		modelUsage: { "claude-fake": { contextWindow: 200_000 } },
 		total_cost_usd: costUsd,
 	});
 };
@@ -110,6 +117,22 @@ async function turn(text: string): Promise<void> {
 		const reply = kept ? `remembered: ${kept.slice(0, 80)}` : "remembered nothing";
 		say(reply);
 		finish(reply);
+		return;
+	}
+	// A long conversation on a plan part used: Claude Code's usage and rate limit reports.
+	if (text.includes("USAGE?")) {
+		read = { input_tokens: 152_000, output_tokens: 3_400 };
+		const inHours = (hours: number) => Math.floor(Date.now() / 1000) + hours * 3600;
+		send({
+			type: "rate_limit_event",
+			rate_limit_info: { rateLimitType: "five_hour", utilization: 0.42, resetsAt: inHours(2) },
+		});
+		send({
+			type: "rate_limit_event",
+			rate_limit_info: { rateLimitType: "seven_day", utilization: 0.81, resetsAt: inHours(70) },
+		});
+		say("usage reported");
+		finish("usage reported");
 		return;
 	}
 	// A rich reply, as any agent writes one: prose around a fenced visual.
@@ -192,7 +215,13 @@ for await (const line of createInterface({ input: process.stdin })) {
 			response: {
 				subtype: "success",
 				request_id: message.request_id,
-				response: request.subtype === "initialize" ? { commands: [], models: [] } : {},
+				response:
+					request.subtype === "initialize"
+						? {
+								commands: [{ name: "compact", description: "Summarise the conversation" }],
+								models: [],
+							}
+						: {},
 			},
 		});
 		continue;

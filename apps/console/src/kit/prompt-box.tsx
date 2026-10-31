@@ -5,7 +5,6 @@ import { ICON_SIZE } from "./button";
 import { attachEdgeFade } from "./edge-fade";
 import { CheckIcon, CloseIcon, SpinnerIcon } from "./icons";
 import { PopoverAnchor } from "./popover";
-import { Tooltip } from "./surface";
 
 /**
  * Where you write to an agent: one raised, lit card with the text on top and a toolbar under it —
@@ -150,64 +149,6 @@ export function WorkingRing(): JSX.Element {
 			aria-hidden="true"
 			class="pointer-events-none absolute inset-1 animate-spin rounded-full border-2 border-transparent border-t-accent [animation-duration:1.1s] motion-reduce:animate-none"
 		/>
-	);
-}
-
-/** Tokens as people say them: 76k, 1.2M. */
-function tokens(count: number): string {
-	if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(count >= 10_000_000 ? 0 : 1)}M`;
-	if (count >= 1000) return `${Math.round(count / 1000)}k`;
-	return String(count);
-}
-
-/**
- * How full the agent's context is, as a small ring and its percent beside the mic: accent until
- * it fills, amber from 80%, red from 95%. The tooltip says how many tokens of how many.
- */
-export function ContextMeter(props: { used: number; total: number }): JSX.Element {
-	const ratio = () => Math.min(1, Math.max(0, props.used / Math.max(1, props.total)));
-	const percent = () => Math.round(ratio() * 100);
-	const tone = () =>
-		ratio() >= 0.95
-			? "var(--signal-danger)"
-			: ratio() >= 0.8
-				? "var(--signal-warning)"
-				: "var(--signal-accent)";
-	const radius = 6;
-	const around = 2 * Math.PI * radius;
-	const label = () =>
-		`Context ${percent()}% · ${tokens(props.used)} of ${tokens(props.total)} tokens`;
-	return (
-		<Tooltip label={label()}>
-			<span class="flex h-7 shrink-0 items-center gap-1.5 px-1 text-caption text-fg-subtle tabular-nums pointer-coarse:h-10">
-				<span class="sr-only">{label()}</span>
-				<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" class="-rotate-90">
-					<circle
-						cx="8"
-						cy="8"
-						r={radius}
-						fill="none"
-						stroke="var(--kit-fill-strong)"
-						stroke-width="2"
-					/>
-					<circle
-						cx="8"
-						cy="8"
-						r={radius}
-						fill="none"
-						stroke={tone()}
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-dasharray={String(around)}
-						stroke-dashoffset={String(around * (1 - ratio()))}
-						class="transition-[stroke-dashoffset] duration-slow ease-out-grid"
-					/>
-				</svg>
-				<span aria-hidden="true" class="hidden md:inline">
-					{percent()}%
-				</span>
-			</span>
-		</Tooltip>
 	);
 }
 
