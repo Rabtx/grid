@@ -8,7 +8,7 @@ import { variants } from "./variants";
  * that must look like buttons share it.
  */
 export const button = variants({
-	base: "focus-ring inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-medium transition-[background-color,color,box-shadow,transform] duration-fast ease-out-grid active:scale-[0.98] disabled:pointer-events-none",
+	base: "focus-ring inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-pill font-medium transition-[background-color,color,box-shadow,transform] duration-fast ease-out-grid active:scale-[0.98] disabled:pointer-events-none",
 	variants: {
 		variant: {
 			primary:
@@ -47,7 +47,9 @@ export const iconButton = variants({
 		variant: {
 			ghost: "icon-tile text-fg-muted hover:text-fg aria-expanded:text-fg",
 			bare: "text-fg-subtle hover:bg-fill hover:text-fg",
-			secondary: "surface-outline text-fg-muted hover:bg-fill hover:text-fg",
+			/** A solid fill, for header actions that stand alone (back, new, the menu). */
+			secondary:
+				"bg-fill-strong text-fg-muted hover:bg-selection hover:text-fg aria-expanded:bg-selection aria-expanded:text-fg",
 			danger:
 				"icon-tile text-fg-subtle [--tile-hover:color-mix(in_srgb,var(--signal-danger)_12%,transparent)] hover:text-danger",
 		},
@@ -58,10 +60,11 @@ export const iconButton = variants({
 			/** 44px: the Figma mobile header's round buttons. */
 			lg: "size-11 [&_svg]:size-5",
 		},
-		// The Figma Icon Button's Shape: Square (8px corners) or Round (mobile headers).
+		// The Figma Icon Button's Shape: Square (8px corners) or Round (mobile headers), which
+		// follows Appearance → Corners like every pill.
 		shape: {
 			square: "rounded-kit",
-			round: "rounded-full",
+			round: "rounded-pill",
 		},
 	},
 	defaults: { variant: "ghost", size: "md", shape: "square" },

@@ -62,7 +62,7 @@ export function AgentChoices(props: {
 						title={item.name}
 						aria-checked={props.value === item.id ? "true" : "false"}
 						onClick={() => props.onChange(item.id)}
-						class="surface-outline focus-ring flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-body-lg text-fg transition-colors duration-fast hover:bg-fill aria-checked:bg-fill-strong aria-checked:shadow-none md:size-11 md:justify-center md:gap-0 md:rounded-kit-lg md:bg-transparent md:px-0 md:text-body md:shadow-none md:hover:bg-fill md:aria-checked:bg-fill-strong"
+						class="surface-outline focus-ring flex h-11 shrink-0 items-center gap-2 rounded-pill px-4 text-body-lg text-fg transition-colors duration-fast hover:bg-fill aria-checked:bg-fill-strong aria-checked:shadow-none md:size-11 md:justify-center md:gap-0 md:rounded-kit-lg md:bg-transparent md:px-0 md:text-body md:shadow-none md:hover:bg-fill md:aria-checked:bg-fill-strong"
 					>
 						<span class="grid shrink-0 place-items-center md:size-8 md:rounded-kit-md md:icon-tile">
 							{item.logo}

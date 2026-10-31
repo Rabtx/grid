@@ -104,15 +104,25 @@ export function PromptBox(props: {
 	);
 }
 
-/** The composer's text field: grows with its text, no chrome of its own. */
+/**
+ * The composer's text field: no chrome of its own. Its `rows` set the height it starts at; the
+ * composer grows it with the text to five lines, then it scrolls (the cap here is a backstop).
+ */
 export const PROMPT_FIELD =
-	"block max-h-52 min-h-14 w-full resize-none bg-transparent px-4 pt-3.5 pb-2 text-fg text-field outline-none placeholder:text-fg-subtle";
+	"block max-h-40 w-full resize-none overflow-y-hidden bg-transparent px-4 pt-3.5 pb-2 text-fg text-field outline-none [scrollbar-width:thin] placeholder:text-fg-subtle";
 
 /** A tool chip on the composer's toolbar: plus, a mode, a project. */
 export const PROMPT_CHIP =
 	"focus-ring inline-flex h-7 shrink-0 items-center gap-1.5 rounded-kit bg-fill-strong px-2 text-body text-fg transition-colors duration-fast hover:bg-selection aria-expanded:bg-selection pointer-coarse:h-9";
 
-/** The bordered square at the start of the toolbar: add files, context, tools. */
+/**
+ * A quiet chip on the composer's shelf (the role, crew, the mode): text until hovered or open, so
+ * the shelf stays calmer than the toolbar above it.
+ */
+export const DOCK_CHIP =
+	"focus-ring inline-flex h-7 shrink-0 items-center gap-1.5 rounded-kit px-2 text-body text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg pointer-coarse:h-9";
+
+/** The filled square at the start of the toolbar: add files, context, tools. */
 export const PROMPT_ADD = `focus-ring grid size-7 shrink-0 place-items-center rounded-kit icon-tile text-fg-muted transition-colors duration-fast hover:text-fg pointer-coarse:size-10 ${ICON_SIZE.md}`;
 
 /**
@@ -125,13 +135,13 @@ const TOUCH_32 = "pointer-coarse:size-8 after:absolute after:-inset-1";
  * The send button: the same shape as the tiles beside it, quiet until there is something to send,
  * then it fills with ink.
  */
-export const SEND_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${TOUCH_32} ${ICON_SIZE.md}`;
+export const SEND_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-pill bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${TOUCH_32} ${ICON_SIZE.md}`;
 
 /** Stop, in place of send while the agent works: a ring turns inside it until it is done. */
 /** Beside stop while the agent works: send the message into the turn going on. */
-export const STEER_BUTTON = `focus-ring relative inline-flex h-7 shrink-0 items-center rounded-full px-2.5 font-medium text-caption text-fg ring-line-strong transition-colors duration-fast hover:bg-fill disabled:text-fg-faint pointer-coarse:h-10`;
+export const STEER_BUTTON = `focus-ring relative inline-flex h-7 shrink-0 items-center rounded-pill px-2.5 font-medium text-caption text-fg ring-line-strong transition-colors duration-fast hover:bg-fill disabled:text-fg-faint pointer-coarse:h-10`;
 
-export const STOP_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-full bg-fill-strong text-fg transition-transform duration-fast active:scale-95 ${TOUCH_32} ${ICON_SIZE.md}`;
+export const STOP_BUTTON = `focus-ring relative grid size-7 shrink-0 place-items-center rounded-pill bg-fill-strong text-fg transition-transform duration-fast active:scale-95 ${TOUCH_32} ${ICON_SIZE.md}`;
 
 /** The ring turning inside the stop button while the agent works. */
 export function WorkingRing(): JSX.Element {
@@ -202,7 +212,7 @@ export function ContextMeter(props: { used: number; total: number }): JSX.Elemen
 }
 
 /** The composer's mic: red while it listens. */
-export const MIC_BUTTON = `focus-ring grid size-7 shrink-0 place-items-center rounded-full text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-pressed:bg-danger aria-pressed:text-white pointer-coarse:size-10 ${ICON_SIZE.md}`;
+export const MIC_BUTTON = `focus-ring grid size-7 shrink-0 place-items-center rounded-pill text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-pressed:bg-danger aria-pressed:text-white pointer-coarse:size-10 ${ICON_SIZE.md}`;
 
 /** A round-cornered square icon button on the composer's toolbar: the mic, a tool. */
 export const PROMPT_ICON = `focus-ring grid size-7 shrink-0 place-items-center rounded-kit icon-tile text-fg-muted transition-colors duration-fast hover:text-fg pointer-coarse:size-10 ${ICON_SIZE.md}`;
@@ -232,7 +242,7 @@ export function Suggestions(props: {
 						<button
 							type="button"
 							onClick={() => props.onPick(item.label)}
-							class="surface-outline focus-ring flex h-8 items-center gap-2 whitespace-nowrap rounded-full px-3 text-body text-fg transition-colors duration-fast hover:bg-fill pointer-coarse:h-9"
+							class="surface-outline focus-ring flex h-8 items-center gap-2 whitespace-nowrap rounded-pill px-3 text-body text-fg transition-colors duration-fast hover:bg-fill pointer-coarse:h-9"
 						>
 							<span class="text-fg-muted [&_svg]:size-3.5">{item.icon}</span>
 							{item.label}
@@ -281,7 +291,7 @@ export function VoiceBar(props: {
 				type="button"
 				aria-label="Cancel voice input"
 				onClick={() => props.onCancel()}
-				class="focus-ring grid size-8 shrink-0 place-items-center rounded-full text-fg-subtle transition-colors duration-fast hover:bg-fill hover:text-fg pointer-coarse:size-10"
+				class="focus-ring grid size-8 shrink-0 place-items-center rounded-pill text-fg-subtle transition-colors duration-fast hover:bg-fill hover:text-fg pointer-coarse:size-10"
 			>
 				<CloseIcon size="sm" />
 			</button>
@@ -333,7 +343,7 @@ export function VoiceBar(props: {
 				aria-label="Done, insert the words"
 				disabled={props.transcribing}
 				onClick={() => props.onDone()}
-				class={`focus-ring grid size-9 shrink-0 place-items-center rounded-full bg-inverse text-inverse-fg surface-primary transition-transform duration-fast active:scale-95 disabled:opacity-60 ${ICON_SIZE.md}`}
+				class={`focus-ring grid size-9 shrink-0 place-items-center rounded-pill bg-inverse text-inverse-fg surface-primary transition-transform duration-fast active:scale-95 disabled:opacity-60 ${ICON_SIZE.md}`}
 			>
 				<CheckIcon />
 			</button>

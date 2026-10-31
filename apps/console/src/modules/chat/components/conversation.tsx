@@ -63,6 +63,7 @@ import {
 	type GoalState,
 	LimitWaitBar,
 	Row,
+	shortcutKeys,
 	SubagentStrip,
 	Text,
 } from "@/kit";
@@ -1202,6 +1203,11 @@ export function Conversation(props: {
 					</Show>
 					<Composer
 						project={session()?.project}
+						placeholder={
+							running()
+								? `Queue a follow-up · ${shortcutKeys("Mod Enter").join(" ")} steers`
+								: "Send a follow-up…"
+						}
 						running={running()}
 						steerRestarts={provider()?.capabilities?.steer !== "native"}
 						commands={commands()}

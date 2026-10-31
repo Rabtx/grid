@@ -17,12 +17,12 @@ import {
 	BranchIcon,
 	Button,
 	CheckIcon,
+	DOCK_CHIP,
 	IdeaIcon,
 	Menu,
 	type MenuGroup,
 	notify,
 	type PopoverControl,
-	PROMPT_CHIP,
 	ProjectTile,
 	RoleChipGroup,
 	Row,
@@ -874,6 +874,7 @@ function NewChat(props: {
 						}
 					>
 						<Composer
+							roomy
 							project={props.project}
 							initial={initial}
 							commands={commands()}
@@ -950,7 +951,7 @@ function NewChat(props: {
 													aria-pressed={asCrew() ? "true" : "false"}
 													title="Start a crew: this agent coordinates, and hands the work to member threads of its own"
 													onClick={() => setAsCrew((on) => !on)}
-													class={`${PROMPT_CHIP} aria-pressed:bg-accent/15 aria-pressed:text-accent`}
+													class={`${DOCK_CHIP} aria-pressed:bg-accent/15 aria-pressed:text-accent`}
 												>
 													Crew
 												</button>
@@ -981,7 +982,7 @@ function NewChat(props: {
 																</span>
 															</>
 														}
-														triggerClass={PROMPT_CHIP}
+														triggerClass={DOCK_CHIP}
 														groups={[
 															{
 																label: "Run as",

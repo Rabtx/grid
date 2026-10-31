@@ -64,6 +64,9 @@ export type ComposerControl = { fill: (text: string) => void };
 /** What the field asks for until the caller says otherwise. */
 const PLACEHOLDER = "Ask, build, / for commands, @ for references…";
 
+/** How many lines the field grows to before it scrolls. */
+const MAX_LINES = 5;
+
 const isTouchDevice = () => {
 	if (typeof window === "undefined") return false;
 	if (typeof navigator !== "undefined" && (navigator.maxTouchPoints ?? 0) > 0) return true;
@@ -107,6 +110,11 @@ export function Composer(props: {
 	onCommand?: (command: SlashCommand, argument: string) => boolean;
 	/** Hands over a way to fill the field from outside. */
 	control?: (control: ComposerControl) => void;
+	/**
+	 * Starts two lines tall, for a first message. Otherwise one line, as a reply in a thread:
+	 * either way it grows with the text and goes back once the message is sent.
+	 */
+	roomy?: boolean;
 }): JSX.Element {
 	const auth = useAuth();
 	const workspace = useWorkspace();
@@ -364,6 +372,9 @@ export function Composer(props: {
 		return registerDictationTarget(form, voiceTarget);
 	});
 
+	// A draft it starts with (a task the thread is started from) gets its height at once.
+	onSettled(() => grow());
+
 	props.control?.({
 		fill: (text) => {
 			setDraft(text);
@@ -376,10 +387,17 @@ export function Composer(props: {
 		},
 	});
 
+	/** Fit the field to its text, up to `MAX_LINES`; past that it scrolls. */
 	function grow(): void {
 		if (!textarea) return;
+		const style = getComputedStyle(textarea);
+		const line = Number.parseFloat(style.lineHeight) || 20;
+		const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
+		const limit = line * MAX_LINES + (Number.isFinite(padding) ? padding : 0);
 		textarea.style.height = "auto";
-		textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+		const height = Math.min(textarea.scrollHeight, limit);
+		textarea.style.height = `${height}px`;
+		textarea.style.overflowY = textarea.scrollHeight > limit ? "auto" : "hidden";
 	}
 
 	function triggerMention(): void {
@@ -646,7 +664,7 @@ export function Composer(props: {
 							ref={(el) => {
 								textarea = el;
 							}}
-							rows={2}
+							rows={props.roomy ? 2 : 1}
 							value={draft()}
 							placeholder={props.placeholder ?? PLACEHOLDER}
 							aria-label="Message"

@@ -40,7 +40,7 @@ export function SearchField(props: {
 				class="min-w-0 flex-1 bg-transparent text-body-lg text-fg outline-none placeholder:text-fg-faint"
 			/>
 			<Show when={props.asking} fallback={<Kbd>esc</Kbd>}>
-				<span class="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-caption text-accent">
+				<span class="shrink-0 rounded-pill bg-accent/10 px-2 py-0.5 text-caption text-accent">
 					Ask
 				</span>
 			</Show>
@@ -195,7 +195,7 @@ export function FollowUps(props: {
 					<button
 						type="button"
 						onClick={() => props.onPick(item)}
-						class="surface-outline focus-ring rounded-full px-3 py-1.5 text-caption text-fg-muted transition-colors duration-fast hover:text-fg"
+						class="surface-outline focus-ring rounded-pill px-3 py-1.5 text-caption text-fg-muted transition-colors duration-fast hover:text-fg"
 					>
 						{item}
 					</button>

@@ -171,7 +171,7 @@ export function PasswordInput(
 				aria-label={shown() ? "Hide password" : "Show password"}
 				aria-pressed={shown() ? "true" : "false"}
 				onClick={() => setShown(!shown())}
-				class={`focus-ring absolute inset-y-0 right-0 grid place-items-center text-fg-subtle hover:text-fg ${props.shape === "pill" ? "w-12 rounded-r-full" : "w-10 rounded-r-kit pointer-coarse:w-11"}`}
+				class={`focus-ring absolute inset-y-0 right-0 grid place-items-center text-fg-subtle hover:text-fg ${props.shape === "pill" ? "w-12 rounded-r-pill" : "w-10 rounded-r-kit pointer-coarse:w-11"}`}
 			>
 				<Show when={shown()} fallback={<EyeIcon size="sm" />}>
 					<EyeOffIcon size="sm" />

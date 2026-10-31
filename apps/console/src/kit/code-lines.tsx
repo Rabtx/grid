@@ -148,7 +148,7 @@ export function CodeLines(props: {
 /** The floating bar under selected lines: a primary ask and quieter actions beside it. */
 export function CodeAskBar(props: { children: JSX.Element }): JSX.Element {
 	return (
-		<div class="surface-card flex items-center gap-1 rounded-full p-1 font-kit text-body">
+		<div class="surface-card flex items-center gap-1 rounded-pill p-1 font-kit text-body">
 			{props.children}
 		</div>
 	);
@@ -167,7 +167,7 @@ export function CodeAskAction(props: {
 			// Keep the selection: the press must not move focus out of the code first.
 			onMouseDown={(event) => event.preventDefault()}
 			onClick={() => props.onClick()}
-			class={`focus-ring flex h-8 items-center gap-1.5 rounded-full px-3 transition-colors duration-fast ${props.primary ? "bg-inverse text-inverse-fg" : "text-fg-muted hover:bg-fill hover:text-fg"} pointer-coarse:h-10 [&_svg]:size-3.5`}
+			class={`focus-ring flex h-8 items-center gap-1.5 rounded-pill px-3 transition-colors duration-fast ${props.primary ? "bg-inverse text-inverse-fg" : "text-fg-muted hover:bg-fill hover:text-fg"} pointer-coarse:h-10 [&_svg]:size-3.5`}
 		>
 			{props.icon}
 			{props.children}

@@ -9,12 +9,21 @@ import { registerCommand } from "./keybindings";
  */
 export type Theme = "system" | "light" | "dark";
 export type Density = "compact" | "comfortable" | "spacious";
+/**
+ * How corners are drawn. Round is the design: pill buttons and chips, softly rounded cards.
+ * Soft keeps cards and controls gently rounded with no pills; square has no corners at all.
+ * Circles that are shapes (avatars, status dots) stay round in every style.
+ */
+export type Corners = "round" | "soft" | "square";
 /** How navigation sits on desktop: a rail and panel down the side, or a card over the canvas. */
 export type SidebarStyle = "full" | "floating";
 
 export type Appearance = {
 	theme: Theme;
-	/** A `#rrggbb` colour for primary actions, or null for the default ink inversion. */
+	/**
+	 * The accent, a `#rrggbb` colour: selection, links, focus, the agent cursor and primary
+	 * buttons. Null is the design: blue signals and ink buttons.
+	 */
 	accent: string | null;
 	/** Tint hue in degrees, 0–360. */
 	hue: number;
@@ -24,22 +33,15 @@ export type Appearance = {
 	darkLightness: number;
 	/** Interface scale, 0.5–2 in steps of 0.1. */
 	uiScale: number;
+	/** Heights of rows and controls; touch sizes never drop below 44px. */
 	density: Density;
-	/** Kit corner roundness, 0–2; 1 is the reference design. */
-	radius: number;
-	/** Kit control and row heights, 0.85–1.2; touch sizes never drop below 44px. */
-	spacing: number;
+	corners: Corners;
 	/** Kit hairline strength, 0.5–2. */
 	lines: number;
 	/** Play the grid ignition when a flagship model is picked (desktop, motion allowed). */
 	celebrations: boolean;
 	/** Lit edges, softer layered shadows and a lifted selection; off keeps the flat look. */
 	depth: boolean;
-	/**
-	 * The accent for selection, links, focus and the agent cursor: a `#rrggbb` colour, `ink`, or
-	 * null for the design's blue.
-	 */
-	signal: string | null;
 	/** The face terminals, diffs and code use. */
 	codeFont: CodeFont;
 	/** Names under the rail's icons. */
@@ -71,14 +73,12 @@ export const CODE_FONTS = {
 } as const;
 export type CodeFont = keyof typeof CODE_FONTS;
 
-/** The accents offered for selection and links (null is the design's blue). */
-export const SIGNAL_PRESETS = [
-	{ id: "Blue", value: null, swatch: "#2d7cf6" },
-	{ id: "Violet", value: "#8e5cf0", swatch: "#8e5cf0" },
-	{ id: "Green", value: "#30a46c", swatch: "#30a46c" },
-	{ id: "Orange", value: "#f0803c", swatch: "#f0803c" },
-	{ id: "Ink", value: "ink", swatch: "#262626" },
-] as const;
+/** How much each density scales the kit's row and control heights. */
+export const DENSITY_SCALE: Record<Density, number> = {
+	compact: 0.88,
+	comfortable: 1,
+	spacious: 1.12,
+};
 
 export const APPEARANCE_DEFAULTS: Appearance = {
 	theme: "system",
@@ -88,12 +88,10 @@ export const APPEARANCE_DEFAULTS: Appearance = {
 	darkLightness: 8,
 	uiScale: 1,
 	density: "comfortable",
-	radius: 1,
-	spacing: 1,
+	corners: "round",
 	lines: 1,
 	celebrations: true,
 	depth: false,
-	signal: null,
 	codeFont: "system",
 	railLabels: false,
 	sidebar: "full",
@@ -110,22 +108,19 @@ export const APPEARANCE_LIMITS = {
 	saturation: { min: 0, max: 100, step: 1 },
 	darkLightness: { min: 0, max: 30, step: 1 },
 	uiScale: { min: 0.5, max: 2, step: 0.1 },
-	radius: { min: 0, max: 2, step: 0.05 },
-	spacing: { min: 0.85, max: 1.2, step: 0.01 },
 	lines: { min: 0.5, max: 2, step: 0.05 },
 	backdropOpacity: { min: 30, max: 100, step: 1 },
 	backdropBlur: { min: 0, max: 40, step: 1 },
 } as const;
 
-/** Accent presets offered next to the custom colour picker (null is the default). */
-export const ACCENT_PRESETS: readonly (string | null)[] = [
-	null,
-	"#4da3f5",
-	"#8b5cf6",
-	"#ec4899",
-	"#ef4444",
-	"#f59e0b",
-	"#10b981",
+/** Accents offered beside the default and the custom colour picker. */
+export const ACCENT_PRESETS: readonly { id: string; value: string }[] = [
+	{ id: "Blue", value: "#2d7cf6" },
+	{ id: "Violet", value: "#8e5cf0" },
+	{ id: "Pink", value: "#e5487f" },
+	{ id: "Red", value: "#e5484d" },
+	{ id: "Orange", value: "#f0803c" },
+	{ id: "Green", value: "#30a46c" },
 ];
 
 const STORAGE_KEY = "grid.appearance";
@@ -161,17 +156,10 @@ export function normalizeAppearance(input: unknown): Appearance {
 		),
 		uiScale: Math.round(clamp(raw.uiScale, l.uiScale.min, l.uiScale.max, d.uiScale) * 10) / 10,
 		density: oneOf(raw.density, ["compact", "comfortable", "spacious"], d.density),
-		radius: Math.round(clamp(raw.radius, l.radius.min, l.radius.max, d.radius) * 100) / 100,
-		spacing: Math.round(clamp(raw.spacing, l.spacing.min, l.spacing.max, d.spacing) * 100) / 100,
+		corners: oneOf(raw.corners, ["round", "soft", "square"], d.corners),
 		lines: Math.round(clamp(raw.lines, l.lines.min, l.lines.max, d.lines) * 100) / 100,
 		celebrations: typeof raw.celebrations === "boolean" ? raw.celebrations : d.celebrations,
 		depth: typeof raw.depth === "boolean" ? raw.depth : d.depth,
-		signal:
-			raw.signal === "ink"
-				? "ink"
-				: typeof raw.signal === "string" && HEX_COLOR.test(raw.signal.toLowerCase())
-					? raw.signal.toLowerCase()
-					: null,
 		codeFont: oneOf(raw.codeFont, Object.keys(CODE_FONTS) as CodeFont[], d.codeFont),
 		railLabels: typeof raw.railLabels === "boolean" ? raw.railLabels : d.railLabels,
 		sidebar: oneOf(raw.sidebar, ["full", "floating"], d.sidebar),
@@ -231,23 +219,17 @@ export function applyAppearance(
 	style.setProperty("--saturation", `${value.saturation}%`);
 	style.setProperty("--dark-lightness", `${value.darkLightness}%`);
 	style.setProperty("--ui-scale", String(value.uiScale));
-	style.setProperty("--kit-radius-scale", String(value.radius));
-	style.setProperty("--kit-density", String(value.spacing));
+	style.setProperty("--kit-density", String(DENSITY_SCALE[value.density]));
 	style.setProperty("--kit-line-scale", String(value.lines));
+	// One accent for everything: signals, links and focus, and the primary button's fill.
 	if (value.accent) {
 		style.setProperty("--user-accent", value.accent);
 		style.setProperty("--user-accent-ink", readableInk(value.accent));
+		style.setProperty("--signal-accent", value.accent);
+		style.setProperty("--signal-link", value.accent);
 	} else {
-		style.removeProperty("--user-accent");
-		style.removeProperty("--user-accent-ink");
-	}
-	if (value.signal) {
-		const signal = value.signal === "ink" ? "var(--ink)" : value.signal;
-		style.setProperty("--signal-accent", signal);
-		style.setProperty("--signal-link", signal);
-	} else {
-		style.removeProperty("--signal-accent");
-		style.removeProperty("--signal-link");
+		for (const name of ["--user-accent", "--user-accent-ink", "--signal-accent", "--signal-link"])
+			style.removeProperty(name);
 	}
 	const mono = CODE_FONTS[value.codeFont].stack;
 	if (mono) style.setProperty("--font-mono", mono);
@@ -257,6 +239,7 @@ export function applyAppearance(
 	root.classList.toggle("dark", value.theme === "dark");
 	root.classList.toggle("light", value.theme === "light");
 	root.setAttribute("data-density", value.density);
+	root.setAttribute("data-corners", value.corners);
 	root.setAttribute("data-depth", value.depth ? "on" : "off");
 	// The background image's place and look; the image itself is `lib/backdrop.ts`'s.
 	root.setAttribute("data-backdrop", value.backdrop);
@@ -295,23 +278,35 @@ function readStored(): { value: Appearance; migrated: boolean } {
  * deeper dark canvas (8%, was 9%); settings saved before it move to the new default. Generation 3
  * puts depth back to off by default: generation 2 had switched it on for everyone and saved that,
  * so a stored `true` from before 3 is not a choice anyone made, and it goes back to off once.
+ * Generation 4 folds the old sliders into choices: the separate selection colour into the one
+ * accent, the spacing slider into density and the roundness slider into a corner style.
  * Anything else the person chose stays.
  */
-const DESIGN_GENERATION = 3;
+const DESIGN_GENERATION = 4;
 
 function migrateStored(input: unknown): unknown {
 	if (typeof input !== "object" || input === null) return input;
 	const raw = input as Record<string, unknown>;
 	if (raw.design === DESIGN_GENERATION) return raw;
-	const beforeFigma = raw.design !== 2;
-	return {
-		...raw,
-		darkLightness:
-			beforeFigma && raw.darkLightness === 9
-				? APPEARANCE_DEFAULTS.darkLightness
-				: raw.darkLightness,
-		depth: APPEARANCE_DEFAULTS.depth,
-	};
+	const design = typeof raw.design === "number" ? raw.design : 1;
+	const next: Record<string, unknown> = { ...raw };
+	if (design < 2 && raw.darkLightness === 9) next.darkLightness = APPEARANCE_DEFAULTS.darkLightness;
+	if (design < 3) next.depth = APPEARANCE_DEFAULTS.depth;
+	if (design < 4) Object.assign(next, foldSliders(raw));
+	return next;
+}
+
+/** Generation 4: the old radius, spacing and selection-colour settings as their new choices. */
+function foldSliders(raw: Record<string, unknown>): Partial<Appearance> {
+	const folded: Partial<Appearance> = {};
+	if (typeof raw.radius === "number")
+		folded.corners = raw.radius < 0.3 ? "square" : raw.radius < 0.8 ? "soft" : "round";
+	// The spacing slider was what moved heights (density did not), so a moved slider wins.
+	if (typeof raw.spacing === "number" && (raw.spacing < 0.94 || raw.spacing > 1.06))
+		folded.density = raw.spacing < 1 ? "compact" : "spacious";
+	if (typeof raw.accent !== "string" && typeof raw.signal === "string" && raw.signal !== "ink")
+		folded.accent = raw.signal;
+	return folded;
 }
 
 function writeStored(value: Appearance): void {

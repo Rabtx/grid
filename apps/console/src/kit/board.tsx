@@ -101,7 +101,7 @@ export function TaskCard(props: {
 			<Show when={props.labels?.length || props.agent || props.tag}>
 				<div class="flex flex-wrap gap-1.5">
 					<Show when={props.agent}>
-						<span class="surface-outline inline-flex h-6 items-center gap-1.5 rounded-full px-2 text-caption text-accent">
+						<span class="surface-outline inline-flex h-6 items-center gap-1.5 rounded-pill px-2 text-caption text-accent">
 							<span class="size-1.5 animate-pulse rounded-full bg-accent motion-reduce:animate-none" />
 							Agent working
 						</span>
@@ -109,7 +109,7 @@ export function TaskCard(props: {
 					{props.tag}
 					<For each={props.labels}>
 						{(label) => (
-							<span class="surface-outline inline-flex h-6 items-center gap-1.5 rounded-full px-2 text-caption text-fg-muted">
+							<span class="surface-outline inline-flex h-6 items-center gap-1.5 rounded-pill px-2 text-caption text-fg-muted">
 								<span class="size-1.5 rounded-full bg-fg-faint" />
 								{label}
 							</span>
@@ -300,7 +300,7 @@ export function CardChip(props: {
 }): JSX.Element {
 	return (
 		<span
-			class={`surface-outline inline-flex h-6 items-center gap-1.5 rounded-full px-2 text-caption ${props.tone === "danger" ? "text-danger" : props.tone === "accent" ? "text-accent" : "text-fg-muted"}`}
+			class={`surface-outline inline-flex h-6 items-center gap-1.5 rounded-pill px-2 text-caption ${props.tone === "danger" ? "text-danger" : props.tone === "accent" ? "text-accent" : "text-fg-muted"}`}
 		>
 			<span
 				class={`size-1.5 rounded-full ${props.tone === "danger" ? "bg-danger" : props.tone === "accent" ? "bg-accent" : "bg-fg-faint"}`}

@@ -114,6 +114,25 @@ describe("applyAppearance", () => {
 	});
 });
 
+describe("corners, density and the accent", () => {
+	it("writes the corner style, the density's heights and one accent for everything", () => {
+		const root = document.createElement("div");
+		applyAppearance(
+			{ ...APPEARANCE_DEFAULTS, corners: "square", density: "spacious", accent: "#e5484d" },
+			root,
+		);
+		expect(root.getAttribute("data-corners")).toBe("square");
+		expect(root.getAttribute("data-density")).toBe("spacious");
+		expect(root.style.getPropertyValue("--kit-density")).toBe("1.12");
+		expect(root.style.getPropertyValue("--signal-accent")).toBe("#e5484d");
+		expect(root.style.getPropertyValue("--user-accent")).toBe("#e5484d");
+		applyAppearance(APPEARANCE_DEFAULTS, root);
+		expect(root.getAttribute("data-corners")).toBe("round");
+		expect(root.style.getPropertyValue("--kit-density")).toBe("1");
+		expect(root.style.getPropertyValue("--signal-accent")).toBe("");
+	});
+});
+
 describe("persistence", () => {
 	it("saves updates and restores them", () => {
 		updateAppearance({ hue: 120, accent: "#10b981" });
@@ -138,7 +157,7 @@ describe("persistence", () => {
 		expect(JSON.parse(localStorage.getItem("grid.appearance") ?? "{}")).toMatchObject({
 			darkLightness: 8,
 			depth: false,
-			design: 3,
+			design: 4,
 		});
 	});
 
@@ -153,7 +172,31 @@ describe("persistence", () => {
 		expect(appearance()).toMatchObject({ darkLightness: 9, depth: false });
 		expect(JSON.parse(localStorage.getItem("grid.appearance") ?? "{}")).toMatchObject({
 			depth: false,
-			design: 3,
+			design: 4,
+		});
+	});
+
+	it("folds the old roundness, spacing and selection colour into their choices", () => {
+		localStorage.setItem(
+			"grid.appearance",
+			JSON.stringify({
+				...APPEARANCE_DEFAULTS,
+				design: 3,
+				depth: true,
+				radius: 0,
+				spacing: 0.88,
+				accent: null,
+				signal: "#8e5cf0",
+			}),
+		);
+		restoreAppearance();
+		flush();
+		// Generation 3's depth was a real choice, so it stays.
+		expect(appearance()).toMatchObject({
+			depth: true,
+			corners: "square",
+			density: "compact",
+			accent: "#8e5cf0",
 		});
 	});
 
