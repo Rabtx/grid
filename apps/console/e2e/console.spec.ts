@@ -175,6 +175,29 @@ test("shows a thread's context and plan usage in the composer, and compacts it",
 	await expect(page.getByText("ok: /compact")).toBeVisible();
 });
 
+for (const agent of [
+	{ id: "opencode", model: "DeepSeek V3.2", answers: "DeepSeek V3.2 (opencode) here" },
+	{ id: "Gemini", model: "Gemini 3 Flash", answers: "Gemini 3 Flash (gemini) here" },
+]) {
+	test(`runs a thread on ${agent.id}, with a model from its own list`, async () => {
+		await page.goto("/acme/chat/demo");
+		await dismissTour(page);
+		await page.getByRole("button", { name: "Agent and model" }).click();
+		await page.locator('[role="radio"]').filter({ hasText: agent.id }).first().click();
+		await page.getByRole("button", { name: agent.model, exact: true }).click();
+		// The chip is the agent's logo and the model, without the agent's name.
+		await expect(page.getByRole("button", { name: "Agent and model" })).toContainText(agent.model);
+		await send(`which model is this on ${agent.id}`);
+		await expect(page.getByText(agent.answers)).toBeVisible({ timeout: 15_000 });
+		// The new-thread picker keeps the agent last chosen: back to Claude Code for what follows.
+		await page.goto("/acme/chat/demo");
+		await page.getByRole("button", { name: "Agent and model" }).click();
+		await page.locator('[role="radio"]').filter({ hasText: "Claude Code" }).first().click();
+		await page.getByRole("button", { name: "Default", exact: true }).click();
+		await expect(page.getByRole("button", { name: "Agent and model" })).toContainText("Default");
+	});
+}
+
 test("opens a thread an agent links to", async () => {
 	await page.goto("/acme/chat/demo");
 	await send(`LINK:${threads.first}`);

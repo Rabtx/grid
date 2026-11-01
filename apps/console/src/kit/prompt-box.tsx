@@ -32,6 +32,11 @@ export function PromptBox(props: {
 	dock?: JSX.Element;
 	/** Floats inside the card over the text: the @-mention list. */
 	overlay?: JSX.Element;
+	/**
+	 * The agent is at work: the card lights up, an iridescent band travelling around its edge with
+	 * a soft bloom inside it, fading in and out with the work.
+	 */
+	working?: boolean;
 	/** The card is a form: Enter-to-send and the send button submit it. */
 	onSubmit?: (event: SubmitEvent) => void;
 	/** The form element, for voice dictation to find its field. */
@@ -65,7 +70,8 @@ export function PromptBox(props: {
 						event.preventDefault();
 						props.onSubmit?.(event);
 					}}
-					class="surface-card relative z-10 flex flex-col rounded-kit-2xl transition-shadow duration-base ease-out-grid focus-within:shadow-focus"
+					data-lit={props.working ? "" : undefined}
+					class="kit-lightable surface-card relative z-10 flex flex-col rounded-kit-2xl transition-shadow duration-base ease-out-grid focus-within:shadow-focus"
 				>
 					<Show when={voice()}>{voice()}</Show>
 					<div class={voice() ? "hidden" : "contents"}>
@@ -111,7 +117,8 @@ export const PROMPT_FIELD =
 
 /**
  * Every control on the composer's toolbar is one size and one corner: 32px on desktop (40px on
- * touch), the kit's control corner. Tools are filled tiles; send is the one filled in ink.
+ * touch), the kit's control corner, and each is filled edge to edge, so what is drawn is the whole
+ * button and no two look a different size. Tools are quiet fills; send is the one in the accent.
  */
 const TOOL = "h-8 shrink-0 rounded-kit pointer-coarse:h-10";
 const SQUARE = "size-8 shrink-0 rounded-kit pointer-coarse:size-10";
@@ -126,14 +133,18 @@ export const PROMPT_CHIP = `focus-ring inline-flex ${TOOL} items-center gap-1.5 
 export const DOCK_CHIP =
 	"focus-ring inline-flex h-7 min-w-0 shrink-0 items-center gap-1.5 rounded-kit px-2 text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg pointer-coarse:h-9 [&_svg]:size-3.5";
 
-/** The tile at the start of the toolbar: add files, context, tools. */
-export const PROMPT_ADD = `focus-ring grid ${SQUARE} place-items-center icon-tile text-fg-muted transition-colors duration-fast hover:text-fg ${ICON_SIZE.md}`;
+/** A quiet filled square on the toolbar, the size of everything beside it. */
+const TOOL_FILL =
+	"bg-fill-strong text-fg-muted transition-colors duration-fast hover:bg-selection hover:text-fg aria-expanded:bg-selection aria-expanded:text-fg";
+
+/** The square at the start of the toolbar: add files, context, tools. */
+export const PROMPT_ADD = `focus-ring grid ${SQUARE} place-items-center ${TOOL_FILL} ${ICON_SIZE.md}`;
 
 /**
- * The send button: the same tile as the tools beside it, quiet until there is something to send,
- * then filled with ink.
+ * The send button: the same square as the tools beside it, quiet until there is something to
+ * send, then filled with the accent (Settings → Appearance → Accent).
  */
-export const SEND_BUTTON = `focus-ring relative grid ${SQUARE} place-items-center bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${ICON_SIZE.md}`;
+export const SEND_BUTTON = `focus-ring relative grid ${SQUARE} place-items-center bg-accent text-white surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid hover:bg-accent/90 active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${ICON_SIZE.md}`;
 
 /** Beside stop while the agent works: send the message into the turn going on. */
 export const STEER_BUTTON = `focus-ring relative inline-flex ${TOOL} items-center bg-fill-strong px-2.5 font-medium text-caption text-fg transition-colors duration-fast hover:bg-selection disabled:text-fg-faint`;
@@ -152,10 +163,10 @@ export function WorkingRing(): JSX.Element {
 }
 
 /** The composer's mic: red while it listens. */
-export const MIC_BUTTON = `focus-ring grid ${SQUARE} place-items-center icon-tile text-fg-muted transition-colors duration-fast hover:text-fg aria-pressed:bg-danger aria-pressed:text-white ${ICON_SIZE.md}`;
+export const MIC_BUTTON = `focus-ring grid ${SQUARE} place-items-center ${TOOL_FILL} aria-pressed:bg-danger aria-pressed:text-white ${ICON_SIZE.md}`;
 
 /** A round-cornered square icon button on the composer's toolbar: the mic, a tool. */
-export const PROMPT_ICON = `focus-ring grid ${SQUARE} place-items-center icon-tile text-fg-muted transition-colors duration-fast hover:text-fg ${ICON_SIZE.md}`;
+export const PROMPT_ICON = `focus-ring grid ${SQUARE} place-items-center ${TOOL_FILL} ${ICON_SIZE.md}`;
 
 /**
  * Ways into a first message: chips that scroll sideways on phones (in thumb reach, above the

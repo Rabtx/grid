@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+
 import {
 	type ApprovalOption,
 	type Choice,
@@ -6,6 +8,7 @@ import {
 	type ToolKind,
 	type ToolStatus,
 } from "./events";
+import { cached } from "./catalog";
 import { diffTexts, type FileDiff } from "./diff";
 import { agentCommands } from "./commands";
 import type { AgentContext, AgentSession, Provider, ProviderInfo } from "./provider";
@@ -36,9 +39,34 @@ export function acpProvider(options: {
 	});
 	return {
 		info,
-		catalog: options.catalog,
+		// An agent with no model list of its own (Gemini, any added ACP agent) is asked by opening a
+		// session and reading what it offers, so its models are in the picker before a thread.
+		catalog: options.catalog ?? cached(10 * 60 * 1000, () => probeCatalog(options.command, spawn)),
 		start: (context) => startAcpSession(options.command, spawn, context),
 	};
+}
+
+/**
+ * An ACP agent's models and modes, read off a session opened for the purpose in a scratch folder
+ * and closed straight after; nothing is sent to the agent. Its effort levels come per model, once
+ * a thread picks one.
+ */
+export async function probeCatalog(
+	command: string[],
+	spawn: Spawn,
+): Promise<{ models: Choice[]; modes?: Choice[] }> {
+	const found: { models: Choice[]; modes?: Choice[] } = { models: [] };
+	const session = await startAcpSession(command, spawn, {
+		cwd: tmpdir(),
+		emit: (event) => {
+			if (event.type !== "info") return;
+			if (event.models?.length) found.models = event.models;
+			if (event.modes?.length) found.modes = event.modes;
+		},
+		onResumeToken: () => {},
+	});
+	session.close();
+	return found;
 }
 
 type ConfigOption = {

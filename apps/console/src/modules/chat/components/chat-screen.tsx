@@ -627,6 +627,8 @@ function NewChat(props: {
 
 	function chooseAgent(id: string): void {
 		setAgent(id);
+		// The pick is the agent next time too, sent from or not.
+		remember(AGENT_KEY, id);
 		setPickedModel(null);
 		setPickedEffort(null);
 		setMode(null);

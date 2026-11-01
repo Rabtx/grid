@@ -180,8 +180,9 @@ const AGENT_LOGOS: Record<string, string> = {
 };
 
 /**
- * An agent by its own logo where Grid has it (Claude Code, Codex, opencode, Antigravity), and by
- * its initial otherwise. Claude Code and opencode are drawn inline so they follow the theme.
+ * An agent by its own logo where Grid has it (Claude Code, Codex, opencode, Gemini,
+ * Antigravity), and by its initial otherwise. Claude Code, opencode and Gemini are drawn inline
+ * so they follow the theme.
  */
 export function AgentLogo(props: { id: string; name: string; class?: string }): JSX.Element {
 	const size = () => props.class ?? "size-4";
@@ -203,6 +204,15 @@ export function AgentLogo(props: { id: string; name: string; class?: string }): 
 						fill-rule="evenodd"
 						d="M20.998 10.949H24V14.051H21V17.079H19.513V20H18V17.079H16.513V20H15V17.079H9V20H7.488V17.079H6V20H4.487V17.079H3V14.05H0V10.95H3V5H20.998V10.949ZM6 10.949H7.488V8.102H6V10.949ZM16.51 10.949H18V8.102H16.51V10.949Z"
 						class="fill-provider-anthropic"
+					/>
+				</svg>
+			</Match>
+			<Match when={props.id === "gemini"}>
+				{/* Gemini's four-pointed spark, in Google's blue. */}
+				<svg viewBox="0 0 24 24" aria-hidden="true" class={`shrink-0 ${size()}`}>
+					<path
+						d="M12 2c.6 5.2 4.8 9.4 10 10-5.2.6-9.4 4.8-10 10-.6-5.2-4.8-9.4-10-10 5.2-.6 9.4-4.8 10-10Z"
+						class="fill-provider-google"
 					/>
 				</svg>
 			</Match>

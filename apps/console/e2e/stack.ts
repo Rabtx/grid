@@ -1,8 +1,8 @@
 /**
  * The real Grid stack for the console's end-to-end tests, one service per call (Playwright's
  * `webServer` starts each): `api` on embedded PGlite in a fresh folder, and `runner` with the
- * stand-in Claude Code (`apps/runner/src/chaos/fake-claude.ts`) first on its PATH, so agents
- * answer the same way every run. Everything lives in `.e2e-stack/`, made fresh each run, with the
+ * stand-in Claude Code (`apps/runner/src/chaos/fake-claude.ts`) and stand-in opencode and Gemini
+ * (`fake-acp.ts`) first on its PATH, so agents answer the same way every run. Everything lives in `.e2e-stack/`, made fresh each run, with the
  * fresh Grid's one-time setup link in `.e2e-stack/setup-link.txt`.
  *
  *   bun e2e/stack.ts api | runner
@@ -57,6 +57,15 @@ if (service === "api") {
 	const fake = join(ROOT, "apps", "runner", "src", "chaos", "fake-claude.ts");
 	writeFileSync(join(bin, "claude"), `#!/bin/sh\nexec ${process.execPath} ${fake} "$@"\n`);
 	chmodSync(join(bin, "claude"), 0o755);
+	// Stand-ins for agents that speak ACP, so the console is tried against more than Claude Code.
+	const acp = join(ROOT, "apps", "runner", "src", "chaos", "fake-acp.ts");
+	for (const agent of ["opencode", "gemini"]) {
+		writeFileSync(
+			join(bin, agent),
+			`#!/bin/sh\nFAKE_ACP_AS=${agent} exec ${process.execPath} ${acp} "$@"\n`,
+		);
+		chmodSync(join(bin, agent), 0o755);
+	}
 	const child = Bun.spawn([process.execPath, "src/main.ts"], {
 		cwd: join(ROOT, "apps", "runner"),
 		env: {
@@ -68,6 +77,9 @@ if (service === "api") {
 			GRID_API_URL: `http://localhost:${PORTS.api}`,
 			GRID_RUNNER_KEY: RUNNER_KEY,
 			XDG_DATA_HOME: join(dir, "data"),
+			RUNNER_ACP_AGENTS: JSON.stringify([
+				{ id: "gemini", name: "Gemini", command: ["gemini", "--experimental-acp"] },
+			]),
 		},
 		stdout: "inherit",
 		stderr: "inherit",

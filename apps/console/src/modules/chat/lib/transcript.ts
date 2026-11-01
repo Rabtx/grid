@@ -703,6 +703,23 @@ export function turnTiming(user: UserBlock | null, live: boolean, now: number): 
 }
 
 /**
+ * What a turn's agent is doing right now, for its live header: the step it is on ("Reading
+ * src/app.ts"), "Writing" once its answer is coming in, otherwise "Thinking".
+ */
+export function turnPhase(rows: readonly Row[]): string {
+	const last = rows.at(-1);
+	if (!last) return "Thinking";
+	if (last.kind === "work") {
+		const tool = last.tools.at(-1);
+		return tool && (tool.status === "running" || tool.status === "pending")
+			? tool.title || "Working"
+			: "Thinking";
+	}
+	if (last.kind === "block" && last.block.kind === "assistant") return "Writing";
+	return "Thinking";
+}
+
+/**
  * The conversation as turns: each message you sent, then everything the agent did in answer to
  * it, grouped into rows. Anything before the first message (a resumed log) is a turn of its own.
  */
