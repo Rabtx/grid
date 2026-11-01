@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { render } from "@solidjs/web";
-import { flush } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { Block } from "../lib/transcript";
@@ -306,14 +306,28 @@ describe("TranscriptView - Turns", () => {
 		expect(root.textContent).not.toContain("Done");
 	});
 
-	it("shows the agent working, and no Done, while the turn runs", () => {
-		const blocks: Block[] = [{ kind: "user", key: "b0", text: "Fix the build" }];
+	it("shows the agent thinking, then its step, then writing, and no Done, while the turn runs", () => {
+		const [blocks, setBlocks] = createSignal<Block[]>([
+			{ kind: "user", key: "b0", text: "Fix the build" },
+		]);
 		const root = mount(() => (
-			<TranscriptView blocks={blocks} running={true} onApprove={() => {}} />
+			<TranscriptView blocks={blocks()} running={true} onApprove={() => {}} />
 		));
 		flush();
-		expect(root.textContent).toContain("Working…");
+		const phase = () => root.querySelector(".kit-think-text")?.textContent;
+		expect(phase()).toBe("Thinking");
 		expect(root.textContent).not.toContain("Done");
+		setBlocks((now) => [...now, { ...tool(1), status: "running", title: "Read src/app.ts" }]);
+		flush();
+		expect(phase()).toBe("Read src/app.ts");
+		setBlocks((now) => [
+			...now.map((block) =>
+				block.kind === "tool" ? { ...block, status: "completed" as const } : block,
+			),
+			{ kind: "assistant", key: "a1", text: "The build" },
+		]);
+		flush();
+		expect(phase()).toBe("Writing");
 	});
 
 	it("lists a few steps in an open card, one row each with what it touched", () => {

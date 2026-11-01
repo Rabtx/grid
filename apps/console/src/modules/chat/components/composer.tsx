@@ -613,6 +613,7 @@ export function Composer(props: {
 		<>
 			<div class="relative">
 				<PromptBox
+					working={props.running}
 					onDragOver={(event) => {
 						if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
 					}}

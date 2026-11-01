@@ -1,7 +1,6 @@
 import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, For, Show } from "solid-js";
 
-import { Shimmer } from "./feedback";
 import { AlertIcon, CheckIcon, ChevronDownIcon, CloseIcon, SpinnerIcon } from "./icons";
 
 export type StepStatus = "running" | "done" | "error" | "waiting";
@@ -205,12 +204,11 @@ export function Disclosure(props: {
 }
 
 /**
- * The line that opens an agent's turn: how long it has been working (shimmering while it goes)
- * or how long it took, over a hairline.
+ * The line that opens an agent's turn, over a hairline: while it goes, what the agent is doing
+ * (the caller's `ThinkingLoader`); after, how long it took and what it did.
  */
 export function TurnHeader(props: {
 	children: JSX.Element;
-	live?: boolean;
 	/** What the turn did, after its time: "8 steps · 3 files changed". */
 	summary?: string;
 	/** The turn was stopped or failed partway: its time reads in that tone. */
@@ -223,7 +221,7 @@ export function TurnHeader(props: {
 					props.ended === "failed" ? "text-danger" : props.ended === "stopped" ? "text-warning" : ""
 				}
 			>
-				<Shimmer active={Boolean(props.live)}>{props.children}</Shimmer>
+				{props.children}
 			</span>
 			<Show when={props.summary}>
 				<span class="min-w-0 truncate text-body text-fg-faint">{props.summary}</span>

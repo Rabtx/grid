@@ -46,6 +46,7 @@ export function parseOpencodeModels(text: string): Choice[] {
 			description: [id, free ? "free" : null, contextSize(model.limit?.context)]
 				.filter(Boolean)
 				.join(" · "),
+			...(model.limit?.context ? { contextWindow: model.limit.context } : {}),
 			...(levels.length
 				? {
 						efforts: effortChoices(levels),

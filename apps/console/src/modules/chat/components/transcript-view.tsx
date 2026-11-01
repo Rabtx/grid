@@ -58,6 +58,7 @@ import {
 	type StepTone,
 	StopSquareIcon,
 	TerminalIcon,
+	ThinkingLoader,
 	ToolIcon,
 	TurnHeader,
 	UserMessage,
@@ -85,6 +86,7 @@ import {
 	summariseTools,
 	toolFile,
 	type Turn,
+	turnPhase,
 	turnSummary,
 	turnTiming,
 } from "../lib/transcript";
@@ -253,6 +255,11 @@ function TurnView(props: {
 		return user?.id && user.outcome && props.extras.onFork ? user.id : null;
 	};
 	const timing = () => turnTiming(props.turn.user, props.live, now());
+	// How long a live turn has been going, beside what it is doing.
+	const elapsed = () => {
+		const started = props.turn.user?.startedAt ? Date.parse(props.turn.user.startedAt) : null;
+		return started ? formatDuration(now() - started) : null;
+	};
 	const summary = () => turnSummary(props.turn);
 	const ended = () =>
 		props.live
@@ -307,8 +314,10 @@ function TurnView(props: {
 			</Show>
 			<Show when={header()}>
 				{(line) => (
-					<TurnHeader live={props.live} summary={line().summary} ended={ended()}>
-						{line().time}
+					<TurnHeader summary={line().summary} ended={ended()}>
+						<Show when={props.live} fallback={line().time}>
+							<ThinkingLoader phase={turnPhase(props.turn.rows)} elapsed={elapsed() ?? undefined} />
+						</Show>
 					</TurnHeader>
 				)}
 			</Show>

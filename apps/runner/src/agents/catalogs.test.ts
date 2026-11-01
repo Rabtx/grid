@@ -151,12 +151,14 @@ describe("opencode's model list", () => {
 				name: "Big Pickle",
 				group: "opencode",
 				description: "opencode/big-pickle · free · 200K context",
+				contextWindow: 200_000,
 			},
 			{
 				id: "openai/gpt-6",
 				name: "GPT-6",
 				group: "openai",
 				description: "openai/gpt-6 · 1.1M context",
+				contextWindow: 1_050_000,
 				efforts: [
 					{ id: "minimal", name: "Minimal" },
 					{ id: "low", name: "Low" },

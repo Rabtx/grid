@@ -1,7 +1,8 @@
 import { render } from "@solidjs/web";
+import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { VoiceBar } from "./prompt-box";
+import { PromptBox, VoiceBar } from "./prompt-box";
 
 describe("VoiceBar", () => {
 	let dispose: (() => void) | undefined;
@@ -50,5 +51,31 @@ describe("VoiceBar", () => {
 		const done = host.querySelector<HTMLButtonElement>('[aria-label="Done, insert the words"]');
 		expect(done?.disabled).toBe(true);
 		expect(host.textContent).toContain("Transcribing");
+	});
+});
+
+describe("PromptBox", () => {
+	it("lights up while its agent works, and goes back when it stops", async () => {
+		const host = document.createElement("div");
+		document.body.append(host);
+		const [working, setWorking] = createSignal(true);
+		const dispose = render(
+			() => (
+				<PromptBox
+					field={<textarea />}
+					send={<button type="submit">Send</button>}
+					working={working()}
+				/>
+			),
+			host,
+		);
+		const card = () => host.querySelector("form");
+		expect(card()?.classList.contains("kit-lightable")).toBe(true);
+		expect(card()?.hasAttribute("data-lit")).toBe(true);
+		setWorking(false);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(card()?.hasAttribute("data-lit")).toBe(false);
+		dispose();
+		host.remove();
 	});
 });
