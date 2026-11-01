@@ -57,7 +57,7 @@ export function NotificationCard(props: {
 				type="button"
 				aria-label="Hide"
 				onClick={() => props.onDismiss()}
-				class="focus-ring -mt-1 -mr-1 grid size-6 shrink-0 place-items-center rounded-kit text-fg-faint transition-colors duration-fast hover:bg-fill hover:text-fg pointer-coarse:size-11 [&_svg]:size-3.5"
+				class="focus-ring -mt-1 -mr-1 grid size-6 shrink-0 place-items-center rounded-tile text-fg-faint transition-colors duration-fast hover:bg-fill hover:text-fg pointer-coarse:size-11 [&_svg]:size-3.5"
 			>
 				<CloseIcon />
 			</button>

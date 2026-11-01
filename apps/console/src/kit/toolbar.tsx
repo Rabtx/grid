@@ -27,7 +27,7 @@ export function ToolbarButton(props: {
 			type="button"
 			aria-pressed={props.active ? "true" : undefined}
 			onClick={() => props.onClick?.()}
-			class="focus-ring inline-flex h-kit-control-sm items-center gap-1.5 rounded-kit px-2.5 text-body text-fg-muted hover:bg-fill hover:text-fg aria-pressed:bg-fill-strong aria-pressed:text-fg"
+			class="focus-ring inline-flex h-kit-control-sm items-center gap-1.5 rounded-tile px-2.5 text-body text-fg-muted hover:bg-fill hover:text-fg aria-pressed:bg-fill-strong aria-pressed:text-fg"
 		>
 			<span class="text-fg-subtle">{props.icon}</span>
 			{props.children}
@@ -42,14 +42,14 @@ export function FilterChip(props: {
 	onRemove: () => void;
 }): JSX.Element {
 	return (
-		<span class="inline-flex h-kit-control-sm items-center gap-1 rounded-kit bg-surface pl-2.5 text-body ring-line-strong">
+		<span class="inline-flex h-kit-control-sm items-center gap-1 rounded-tile bg-surface pl-2.5 text-body ring-line-strong">
 			<span class="text-fg-subtle">{props.label}</span>
 			<span class="text-fg">{props.value}</span>
 			<button
 				type="button"
 				aria-label={`Remove ${props.label} filter`}
 				onClick={() => props.onRemove()}
-				class="focus-ring ml-0.5 grid size-6 place-items-center rounded-kit-sm text-fg-faint hover:text-fg"
+				class="focus-ring ml-0.5 grid size-6 place-items-center rounded-tile text-fg-faint hover:text-fg"
 			>
 				<CloseIcon class="size-3" />
 			</button>

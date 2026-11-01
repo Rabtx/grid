@@ -344,7 +344,7 @@ export function PermissionCell(props: {
 					aria-label={props.label}
 					data-tooltip={props.label}
 					onClick={() => props.onToggle?.()}
-					class="focus-ring grid size-7 place-items-center rounded-kit transition-colors duration-fast hover:bg-fill-strong"
+					class="focus-ring grid size-7 place-items-center rounded-tile transition-colors duration-fast hover:bg-fill-strong"
 				>
 					{mark()}
 				</button>
@@ -505,7 +505,7 @@ export function CopyField(props: {
 					setCopied(true);
 					setTimeout(() => setCopied(false), 1400);
 				}}
-				class="focus-ring grid size-kit-control-sm shrink-0 place-items-center rounded-kit-sm text-fg-subtle hover:bg-fill-strong hover:text-fg"
+				class="focus-ring grid size-kit-control-sm shrink-0 place-items-center rounded-tile text-fg-subtle hover:bg-fill-strong hover:text-fg"
 			>
 				<Show when={copied()} fallback={<CopyIcon class="size-4" />}>
 					<CheckIcon class="size-4 text-success" />

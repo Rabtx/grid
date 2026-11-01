@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, For, onSettled, Show } from "solid-js";
 
 import { ICON_SIZE } from "./button";
+import { ComposerLoader } from "./composer-loader";
 import { attachEdgeFade } from "./edge-fade";
 import { CheckIcon, CloseIcon, SpinnerIcon } from "./icons";
 import { PopoverAnchor } from "./popover";
@@ -33,8 +34,8 @@ export function PromptBox(props: {
 	/** Floats inside the card over the text: the @-mention list. */
 	overlay?: JSX.Element;
 	/**
-	 * The agent is at work: the card lights up, an iridescent band travelling around its edge with
-	 * a soft bloom inside it, fading in and out with the work.
+	 * The agent is at work: the card lights up (`ComposerLoader`), an iridescent band travelling
+	 * around its edge with a soft bloom inside it, fading in and out with the work.
 	 */
 	working?: boolean;
 	/** The card is a form: Enter-to-send and the send button submit it. */
@@ -70,9 +71,10 @@ export function PromptBox(props: {
 						event.preventDefault();
 						props.onSubmit?.(event);
 					}}
-					data-lit={props.working ? "" : undefined}
-					class="kit-lightable surface-card relative z-10 flex flex-col rounded-kit-2xl transition-shadow duration-base ease-out-grid focus-within:shadow-focus"
+					data-working={props.working ? "" : undefined}
+					class="surface-card relative z-10 flex flex-col rounded-kit-2xl transition-shadow duration-base ease-out-grid focus-within:shadow-focus"
 				>
+					<ComposerLoader active={props.working} />
 					<Show when={voice()}>{voice()}</Show>
 					<div class={voice() ? "hidden" : "contents"}>
 						{props.overlay}
@@ -117,11 +119,12 @@ export const PROMPT_FIELD =
 
 /**
  * Every control on the composer's toolbar is one size and one corner: 32px on desktop (40px on
- * touch), the kit's control corner, and each is filled edge to edge, so what is drawn is the whole
- * button and no two look a different size. Tools are quiet fills; send is the one in the accent.
+ * touch), the kit's tile corner (8px, circles and capsules when Appearance → Corners is pill), and
+ * each is filled edge to edge, so what is drawn is the whole button and no two look a different
+ * size. Tools are quiet fills; send is the one in the accent.
  */
-const TOOL = "h-8 shrink-0 rounded-kit pointer-coarse:h-10";
-const SQUARE = "size-8 shrink-0 rounded-kit pointer-coarse:size-10";
+const TOOL = "h-8 shrink-0 rounded-tile pointer-coarse:h-10";
+const SQUARE = "size-8 shrink-0 rounded-tile pointer-coarse:size-10";
 
 /** A tool chip on the composer's toolbar: the model, a mode, a project. */
 export const PROMPT_CHIP = `focus-ring inline-flex ${TOOL} items-center gap-1.5 bg-fill-strong px-2.5 text-body text-fg transition-colors duration-fast hover:bg-selection aria-expanded:bg-selection`;
@@ -131,7 +134,7 @@ export const PROMPT_CHIP = `focus-ring inline-flex ${TOOL} items-center gap-1.5 
  * context): text until hovered or open, so the shelf stays calmer than the toolbar above it.
  */
 export const DOCK_CHIP =
-	"focus-ring inline-flex h-7 min-w-0 shrink-0 items-center gap-1.5 rounded-kit px-2 text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg pointer-coarse:h-9 [&_svg]:size-3.5";
+	"focus-ring inline-flex h-7 min-w-0 shrink-0 items-center gap-1.5 rounded-tile px-2 text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg pointer-coarse:h-9 [&_svg]:size-3.5";
 
 /** A quiet filled square on the toolbar, the size of everything beside it. */
 const TOOL_FILL =

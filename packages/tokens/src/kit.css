@@ -11,8 +11,10 @@
  * Every role is ink mixed over transparent, so a tint or the dark theme follows for free.
  *
  * Tweaks: four knobs move the whole system at once, live, from Settings → Appearance:
- *   data-corners         round (the reference) · soft (no pills) · square (no corners); it sets
- *                        --kit-radius-scale for the kit radii and --kit-radius-pill for pills
+ *   data-corners         pill (everything round) · round (the reference) · soft (no pills) ·
+ *                        square (no corners); it sets --kit-radius-scale for the kit radii,
+ *                        --kit-radius-pill for buttons and chips and --kit-radius-tile for icon
+ *                        tiles and the composer's controls
  *   --kit-density        control and row heights (1 = the reference; touch never drops below 44px)
  *   --kit-line-scale     how strong hairlines are
  *   the hue, saturation and dark lightness inputs from product.css
@@ -38,6 +40,8 @@
 	--kit-radius-scale: 1;
 	/* Buttons, chips and pill fields: round ends in the reference design. */
 	--kit-radius-pill: 9999px;
+	/* Icon tiles and the composer's controls: the 8px control corner in the reference design. */
+	--kit-radius-tile: 8px;
 	--kit-density: 1;
 	--kit-line-scale: 1;
 
@@ -195,17 +199,26 @@
 }
 
 /*
- * Settings → Appearance → Corners. Round is the design. Soft keeps every corner a little smaller
- * and turns pills into rounded rectangles; square draws no corners, like a terminal. Cards never
- * grow rounder than the design, and circles that are shapes (avatars, dots) stay round.
+ * Settings → Appearance → Corners, roundest first. Pill rounds every control: icon tiles, the
+ * composer's add, tools, model, mic and send become circles and capsules too, and cards and
+ * floating surfaces round a quarter more. Round is the design: pill buttons and chips, 8px tiles.
+ * Soft keeps every corner a little smaller and turns pills into rounded rectangles; square draws
+ * no corners, like a terminal. Circles that are shapes (avatars, dots, tracks) stay round.
  */
+:root[data-corners="pill"] {
+	--kit-radius-scale: 1.25;
+	--kit-radius-pill: 9999px;
+	--kit-radius-tile: 9999px;
+}
 :root[data-corners="soft"] {
 	--kit-radius-scale: 0.75;
 	--kit-radius-pill: 6px;
+	--kit-radius-tile: 6px;
 }
 :root[data-corners="square"] {
 	--kit-radius-scale: 0;
 	--kit-radius-pill: 0px;
+	--kit-radius-tile: 0px;
 }
 
 /* Styles that only apply with depth on, for what a variable cannot switch (a lifted selection). */
@@ -266,6 +279,8 @@
 	--radius-kit-2xl: calc(16px * var(--kit-radius-scale));
 	/* `rounded-pill`: buttons, chips and pill fields; a rounded rectangle when corners are soft. */
 	--radius-pill: var(--kit-radius-pill);
+	/* `rounded-tile`: icon buttons and the composer's controls; 8px, or a circle when corners are pill. */
+	--radius-tile: var(--kit-radius-tile);
 
 	--color-terminal: var(--kit-terminal-bg);
 	--color-terminal-fg: var(--kit-terminal-fg);
@@ -605,21 +620,20 @@
 }
 
 /*
- * An agent at work. The composer lights up while its agent works: an iridescent band (cyan into
- * blue into violet) travels around its edge, led by a crisp refraction line, with a soft bloom
- * bleeding inward behind it. It fades in when the agent starts and out when it stops, so the
- * composer reads as lighting up rather than switching. The turn's header is a 3×3 grid of dots
- * rippling diagonally beside its phase in a moving gradient. Reduced motion keeps the light still.
+ * An agent at work. The composer lights up while its agent works (kit/composer-loader.tsx): an
+ * iridescent band travels its rim at constant speed, led by a crisp refraction line, with a soft
+ * bloom bleeding inward behind it. It fades in when the agent starts and out when it stops, so the
+ * composer reads as lighting up rather than switching; the band pauses where it is as it fades.
+ * The turn's header is a 3×3 grid of dots rippling diagonally beside its phase in a moving
+ * gradient. Reduced motion keeps the light still.
  */
-@property --kit-sweep {
-	syntax: "<angle>";
-	inherits: false;
-	initial-value: 0deg;
-}
 @layer components {
-	@keyframes kit-sweep-turn {
+	@keyframes kit-composer-loader-dash {
+		from {
+			stroke-dashoffset: 0;
+		}
 		to {
-			--kit-sweep: 360deg;
+			stroke-dashoffset: -100;
 		}
 	}
 	@keyframes kit-think-dot {
@@ -638,68 +652,21 @@
 			background-position: -200% 0;
 		}
 	}
-	/*
-	 * The band: from nothing, through cyan and blue, to violet at its head, which ends sharply in
-	 * near-white: the refraction line. The line is drawn on the edge; the bloom is the same band,
-	 * blurred and kept to a soft margin inside the card.
-	 */
-	.kit-lightable {
-		position: relative;
-		isolation: isolate;
-	}
-	.kit-lightable::before,
-	.kit-lightable::after {
-		content: "";
-		position: absolute;
-		pointer-events: none;
+	/* The band takes the card's corner, so it follows Settings → Appearance → Corners. */
+	.kit-composer-loader {
 		border-radius: inherit;
-		/* Drawn here, not taken from the card: the angle is this layer's own, animated here. */
-		background: conic-gradient(
-			from var(--kit-sweep),
-			transparent 0deg,
-			transparent 275deg,
-			color-mix(in oklab, #22d3ee 40%, transparent) 300deg,
-			#22d3ee 320deg,
-			color-mix(in oklab, var(--color-accent) 85%, #22d3ee) 338deg,
-			#8b5cf6 352deg,
-			#f5f3ff 359deg,
-			transparent 360deg
-		);
 		opacity: 0;
-		transition: opacity 600ms var(--ease-out-grid);
-		/* Paused, not removed, when the work ends: the light fades where it is. */
-		animation: kit-sweep-turn 3s linear infinite paused;
+		transition: opacity 450ms ease;
 	}
-	/* The refraction line along the edge. */
-	.kit-lightable::after {
-		inset: -1px;
-		z-index: 2;
-		padding: 1.5px;
-		mask:
-			linear-gradient(#000 0 0) content-box exclude,
-			linear-gradient(#000 0 0);
-	}
-	/* The bloom, bleeding inward from the edge behind the line, under the card's content. */
-	.kit-lightable::before {
-		inset: 0;
-		z-index: -1;
-		filter: blur(10px);
-		clip-path: inset(0 round var(--radius-kit-2xl));
-		mask:
-			linear-gradient(to bottom, #000, transparent 26px) add,
-			linear-gradient(to top, #000, transparent 26px) add,
-			linear-gradient(to right, #000, transparent 56px) add,
-			linear-gradient(to left, #000, transparent 56px);
-	}
-	.kit-lightable[data-lit]::before,
-	.kit-lightable[data-lit]::after {
-		animation-play-state: running;
-	}
-	.kit-lightable[data-lit]::after {
+	.kit-composer-loader[data-active] {
 		opacity: 1;
 	}
-	.kit-lightable[data-lit]::before {
-		opacity: 0.45;
+	/* Duration, delay and direction are each stroke's own, set inline. */
+	.kit-composer-loader-band {
+		animation: kit-composer-loader-dash 4.5s linear infinite paused;
+	}
+	.kit-composer-loader[data-active] .kit-composer-loader-band {
+		animation-play-state: running;
 	}
 	.kit-think-dot {
 		animation: kit-think-dot 1.2s ease-in-out infinite;
@@ -721,8 +688,7 @@
 		animation: kit-think-text 2s linear infinite;
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.kit-lightable::before,
-		.kit-lightable::after,
+		.kit-composer-loader-band,
 		.kit-think-dot,
 		.kit-think-text {
 			animation: none;

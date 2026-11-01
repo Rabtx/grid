@@ -131,6 +131,11 @@ describe("corners, density and the accent", () => {
 		expect(root.style.getPropertyValue("--kit-density")).toBe("1");
 		expect(root.style.getPropertyValue("--signal-accent")).toBe("");
 	});
+
+	it("keeps pill as a corner style and drops one it does not know", () => {
+		expect(normalizeAppearance({ corners: "pill" }).corners).toBe("pill");
+		expect(normalizeAppearance({ corners: "blob" }).corners).toBe(APPEARANCE_DEFAULTS.corners);
+	});
 });
 
 describe("persistence", () => {

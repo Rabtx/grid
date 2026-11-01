@@ -250,7 +250,7 @@ export function NavSection(props: {
 }
 
 export const railItem = variants({
-	base: "focus-ring relative grid shrink-0 place-items-center rounded-kit text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg [&_svg]:size-4",
+	base: "focus-ring relative grid shrink-0 place-items-center rounded-tile text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg [&_svg]:size-4",
 	variants: {
 		size: {
 			/** The rail's 32px tile, with room for its name when rail labels are on. */
