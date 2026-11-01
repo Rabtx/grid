@@ -10,11 +10,14 @@ import { registerCommand } from "./keybindings";
 export type Theme = "system" | "light" | "dark";
 export type Density = "compact" | "comfortable" | "spacious";
 /**
- * How corners are drawn. Round is the design: pill buttons and chips, softly rounded cards.
- * Soft keeps cards and controls gently rounded with no pills; square has no corners at all.
- * Circles that are shapes (avatars, status dots) stay round in every style.
+ * How corners are drawn, roundest first. Pill rounds every control, the composer's included:
+ * icon tiles and toolbar buttons become circles and capsules, and cards round a little more.
+ * Round is the design: pill buttons and chips, 8px icon tiles, softly rounded cards. Soft keeps
+ * cards and controls gently rounded with no pills; square has no corners at all. Circles that
+ * are shapes (avatars, status dots) stay round in every style.
  */
-export type Corners = "round" | "soft" | "square";
+export type Corners = "pill" | "round" | "soft" | "square";
+export const CORNER_STYLES: readonly Corners[] = ["pill", "round", "soft", "square"];
 /** How navigation sits on desktop: a rail and panel down the side, or a card over the canvas. */
 export type SidebarStyle = "full" | "floating";
 
@@ -156,7 +159,7 @@ export function normalizeAppearance(input: unknown): Appearance {
 		),
 		uiScale: Math.round(clamp(raw.uiScale, l.uiScale.min, l.uiScale.max, d.uiScale) * 10) / 10,
 		density: oneOf(raw.density, ["compact", "comfortable", "spacious"], d.density),
-		corners: oneOf(raw.corners, ["round", "soft", "square"], d.corners),
+		corners: oneOf(raw.corners, CORNER_STYLES, d.corners),
 		lines: Math.round(clamp(raw.lines, l.lines.min, l.lines.max, d.lines) * 100) / 100,
 		celebrations: typeof raw.celebrations === "boolean" ? raw.celebrations : d.celebrations,
 		depth: typeof raw.depth === "boolean" ? raw.depth : d.depth,

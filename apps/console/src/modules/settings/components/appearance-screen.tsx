@@ -76,8 +76,12 @@ const DENSITIES: readonly { value: Density; label: string }[] = [
 	{ value: "spacious", label: "Spacious" },
 ];
 
-/** Round is the design; soft has no pills; square has no corners, like a terminal. */
+/**
+ * Pill rounds every control, the composer's too; round is the design; soft has no pills; square
+ * has no corners, like a terminal.
+ */
 const CORNERS: readonly { value: Corners; label: string }[] = [
+	{ value: "pill", label: "Pill" },
 	{ value: "round", label: "Round" },
 	{ value: "soft", label: "Soft" },
 	{ value: "square", label: "Square" },

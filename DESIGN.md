@@ -144,13 +144,17 @@ on any coarse pointer all three stay ≥ 44px. Settings → Appearance → Densi
 (6px, the default), cards `rounded-lg` (8px), floating surfaces `rounded-xl` (12px).
 
 **Every corner follows the corner style** (Settings → Appearance → Corners, `data-corners` on
-`<html>`): **round** is the design, **soft** shrinks every corner a quarter and turns pills into
-6px rounded rectangles, **square** draws no corners at all, like a terminal. Cards never grow
-rounder than the design in any style. Corners come only from the kit scale — `rounded-kit-2xs`
+`<html>`), roundest first: **pill** rounds every control — icon tiles and the composer's add,
+tools, model chip, mic and send become circles and capsules — and stretches every corner a
+quarter; **round** is the design (pill buttons and chips, 8px tiles); **soft** shrinks every corner
+a quarter and turns pills and tiles into 6px rounded rectangles; **square** draws no corners at all,
+like a terminal. Corners come only from the kit scale — `rounded-kit-2xs`
 (2px), `-xs` (4), `-sm` (6), `rounded-kit` (8), `-md` (10), `-lg` (12), `-xl` (14), `-2xl` (16) —
 or, in CSS, `var(--radius-kit*)`; the older `--radius-*` names scale too. Buttons, chips, pill
-fields, switches and round icon buttons use `rounded-pill` (`--kit-radius-pill`), which follows
-the style. `rounded-full` is only for circles that are shapes — avatars, status dots, radio marks,
+fields, switches, dialog actions and round icon buttons use `rounded-pill` (`--kit-radius-pill`);
+icon tiles, the composer's toolbar and dock chips, toolbar and filter chips and select triggers use
+`rounded-tile` (`--kit-radius-tile`, 8px in round). Both follow the style; a control never uses
+the card scale (`rounded-kit*`) for its own corner, or it would not. `rounded-full` is only for circles that are shapes — avatars, status dots, radio marks,
 swatches, progress and slider tracks — and stays round. No fixed pixel corners; 0 is no corner. `kit-guard.test.ts` fails the
 build on a fixed corner in the kit or the stylesheets.
 
@@ -190,9 +194,10 @@ depth detailing goes behind the same switch.
 
 Keep it small: one highlight, no shadows, no coloured glows beyond the composer's. Those are part
 of the composer's design and show whatever the depth setting: it glows in the accent while
-focused (`shadow-focus`), and while its agent works it lights up (`kit-lightable` with
-`data-lit`): an iridescent band travels around its edge, led by a crisp line with a soft bloom
-inside, fading in and out with the work. A working turn's header is the `ThinkingLoader` (a 3×3
+focused (`shadow-focus`), and while its agent works it lights up (`ComposerLoader`, ported from
+BoardUI's Composer Loader): an iridescent band travels its rim at constant speed, led by a crisp
+line with a soft bloom inside, fading in and out with the work. It takes the card's corner, so it
+follows the corner style. A working turn's header is the `ThinkingLoader` (a 3×3
 dot ripple and what the agent is doing now, in a moving gradient). Every other control keeps the
 keyboard-only `focus-ring`.
 
@@ -212,7 +217,7 @@ header actions), and the selected rail item is a fill, not a ring. Icons beside 
 Inbox, Board…) are part of that row and have no tile. `variant="bare"` drops the tile only for an icon inside
 something that is already a control (a chip). **The button sets its icon's size**, whatever the
 icon asks for: 16px in `sm`/`md` buttons, 14px in `xs`, one step larger on touch (`ICON_SIZE`).
-Tiles share one corner (`rounded-kit`, 8px) and, beside chips or other controls, their height.
+Tiles share one corner (`rounded-tile`, 8px in round, a circle in pill) and, beside chips or other controls, their height.
 The composer's toolbar is one size: its add, tools, model chip, mic, send and stop are all 32px
 on desktop (40px on touch) with that corner, each filled edge to edge so what is drawn is the
 whole button; the tools are quiet fills and send is the one in the accent. Under the card, a quiet shelf (`DOCK_CHIP`: text until hovered) holds the branch,
@@ -269,7 +274,7 @@ are gone.
   #fafafa / #1b1b1b, `fill-strong` #f5f5f5, `selection` #ebebeb / #292929, raised surface
   #ffffff / #212121 — each still ink over transparent, so tint and dark lightness follow.
 - **Buttons** are pills (the Figma Button, Shape: Pill); primary is ink, accent is blue. Icon
-  buttons keep the 8px tile corner.
+  buttons keep the 8px tile corner (`rounded-tile`), which turns round when corners are pill.
 - **Text:** `text-fg` strong, `text-fg-muted` default, `text-fg-subtle` metadata and section
   labels, `text-fg-faint` placeholders only.
 - **Surfaces:** `bg-surface` content, `bg-surface-sunken` the frame and sidebar,
@@ -287,7 +292,8 @@ are gone.
 Every visual decision lives in one place, so a tweak is made once:
 
 1. **Tokens** (`kit.css`) hold the values. Four knobs move the whole system live — the corner
-   style (`data-corners`, setting `--kit-radius-scale` and `--kit-radius-pill`), density
+   style (`data-corners`, setting `--kit-radius-scale`, `--kit-radius-pill` and
+   `--kit-radius-tile`), density
    (`--kit-density`), line strength (`--kit-line-scale`) and the hue/saturation/lightness inputs —
    stored per device with the rest of Appearance and exposed on `/design` under Tweak.
 2. **Kit components** turn tokens into recipes, each defined with the `variants()` helper

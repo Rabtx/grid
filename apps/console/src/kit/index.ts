@@ -17,6 +17,7 @@ export { Badge, Count, Kbd, type Tone } from "./badge";
 export { KeyRecorder } from "./key-recorder";
 export { shortcutKeys } from "./keys";
 export { ThinkingLoader } from "./thinking";
+export { ComposerLoader } from "./composer-loader";
 export { type ContextLimit, ContextMeter, formatTokens } from "./context-panel";
 export { BrandLogo, BrandMark, BrandWordmark, Splash } from "./brand";
 export {

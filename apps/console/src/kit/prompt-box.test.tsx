@@ -70,11 +70,15 @@ describe("PromptBox", () => {
 			host,
 		);
 		const card = () => host.querySelector("form");
-		expect(card()?.classList.contains("kit-lightable")).toBe(true);
-		expect(card()?.hasAttribute("data-lit")).toBe(true);
+		const light = () => card()?.querySelector(".kit-composer-loader");
+		expect(card()?.hasAttribute("data-working")).toBe(true);
+		expect(light()?.hasAttribute("data-active")).toBe(true);
+		// The band: a bloom, a tight glow and a crisp line, each a dash on the card's outline.
+		expect(light()?.querySelectorAll("rect.kit-composer-loader-band")).toHaveLength(3);
 		setWorking(false);
 		await new Promise((resolve) => setTimeout(resolve, 0));
-		expect(card()?.hasAttribute("data-lit")).toBe(false);
+		expect(card()?.hasAttribute("data-working")).toBe(false);
+		expect(light()?.hasAttribute("data-active")).toBe(false);
 		dispose();
 		host.remove();
 	});

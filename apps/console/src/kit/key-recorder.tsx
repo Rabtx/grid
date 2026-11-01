@@ -39,7 +39,7 @@ export function KeyRecorder(props: {
 			}
 			aria-pressed={props.recording ? "true" : "false"}
 			onClick={() => props.onRecord()}
-			class={`focus-ring inline-flex min-h-kit-control-sm min-w-28 items-center justify-end gap-2 rounded-kit px-2 transition-colors duration-fast ${props.recording ? "bg-accent/10 ring-1 ring-accent" : "hover:bg-fill"}`}
+			class={`focus-ring inline-flex min-h-kit-control-sm min-w-28 items-center justify-end gap-2 rounded-tile px-2 transition-colors duration-fast ${props.recording ? "bg-accent/10 ring-1 ring-accent" : "hover:bg-fill"}`}
 		>
 			<Show
 				when={props.recording}

@@ -49,9 +49,11 @@ const RADII = [
 	{ class: "rounded-kit-lg", label: "lg · cards" },
 	{ class: "rounded-kit-xl", label: "xl · floating" },
 	{ class: "rounded-kit-2xl", label: "2xl · composer" },
+	{ class: "rounded-tile", label: "tile · icon buttons" },
+	{ class: "rounded-pill", label: "pill · buttons" },
 ];
 
-/** The corner scale, which the roundness knob stretches. */
+/** The corner scale, which Appearance → Corners stretches, and the tile and pill corners it sets. */
 export function RadiusScale(): JSX.Element {
 	return (
 		<div class="flex flex-wrap items-end gap-3">

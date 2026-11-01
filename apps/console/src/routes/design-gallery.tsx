@@ -230,6 +230,7 @@ function TweakPanel(): JSX.Element {
 						block
 						size="sm"
 						options={[
+							{ value: "pill", label: "Pill" },
 							{ value: "round", label: "Round" },
 							{ value: "soft", label: "Soft" },
 							{ value: "square", label: "Square" },

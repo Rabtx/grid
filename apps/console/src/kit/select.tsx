@@ -47,7 +47,7 @@ export function Select<T extends string>(props: {
 		props.look === "dock"
 			? `${DOCK_CHIP} max-w-48`
 			: props.look === "chip"
-				? "focus-ring inline-flex h-kit-control-sm max-w-60 shrink-0 items-center gap-1.5 rounded-kit px-2 text-body text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg"
+				? "focus-ring inline-flex h-kit-control-sm max-w-60 shrink-0 items-center gap-1.5 rounded-tile px-2 text-body text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg"
 				: props.look === "value"
 					? "focus-ring -mr-1 inline-flex max-w-48 shrink-0 items-center gap-1 rounded-kit px-1 py-1.5 text-body text-fg-subtle"
 					: props.look === "pill"

@@ -187,7 +187,7 @@ export function ConfirmDialog(props: {
 					<button
 						type="button"
 						onClick={() => props.onClose()}
-						class="focus-ring h-kit-control rounded-kit px-3 font-medium text-body text-fg-muted hover:bg-fill hover:text-fg"
+						class="focus-ring h-kit-control rounded-pill px-3.5 font-medium text-body text-fg-muted hover:bg-fill hover:text-fg"
 					>
 						Cancel
 					</button>
@@ -198,7 +198,7 @@ export function ConfirmDialog(props: {
 							props.onConfirm();
 							if (!props.stayOpen) props.onClose();
 						}}
-						class={`focus-ring h-kit-control rounded-kit px-3 font-medium text-body disabled:opacity-50 ${props.danger ? "bg-danger text-white hover:bg-danger/90" : "bg-inverse text-inverse-fg hover:bg-inverse/88"}`}
+						class={`focus-ring h-kit-control rounded-pill px-3.5 font-medium text-body disabled:opacity-50 ${props.danger ? "bg-danger text-white hover:bg-danger/90" : "bg-inverse text-inverse-fg hover:bg-inverse/88"}`}
 					>
 						{props.pending ? "Working…" : props.confirm}
 					</button>

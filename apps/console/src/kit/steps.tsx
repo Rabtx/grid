@@ -88,7 +88,7 @@ export function Pagination(props: {
 						type="button"
 						aria-current={page === props.page ? "page" : undefined}
 						onClick={() => props.onPage(page)}
-						class="focus-ring grid size-7 place-items-center rounded-kit tabular-nums hover:bg-fill aria-[current=page]:bg-inverse aria-[current=page]:text-inverse-fg pointer-coarse:size-10"
+						class="focus-ring grid size-7 place-items-center rounded-tile tabular-nums hover:bg-fill aria-[current=page]:bg-inverse aria-[current=page]:text-inverse-fg pointer-coarse:size-10"
 					>
 						{page}
 					</button>
