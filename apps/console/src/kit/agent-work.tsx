@@ -3,7 +3,18 @@ import { createSignal, For, Show } from "solid-js";
 
 import { Button, IconButton } from "./button";
 import { Badge, type Tone } from "./badge";
-import { BranchIcon, CloseIcon, RestoreIcon, SendIcon, SpinnerIcon, UserIcon } from "./icons";
+import { ComposerBannerRow } from "./composer-banner";
+import {
+	BotIcon,
+	BranchIcon,
+	CloseIcon,
+	FlagIcon,
+	ListIcon,
+	RestoreIcon,
+	SendIcon,
+	SpinnerIcon,
+	UserIcon,
+} from "./icons";
 
 /**
  * The pieces an agent's work adds around a conversation: a question it asks, the messages that
@@ -27,6 +38,8 @@ export function QuestionCard(props: {
 	questions: QuestionItem[];
 	/** undefined while waiting; the answers given, or null when dismissed. */
 	answers?: Record<string, string[]> | null;
+	/** Drawn inside the composer's banners: no card of its own. */
+	embedded?: boolean;
 	onAnswer?: (answers: Record<string, string[]> | null) => void;
 }): JSX.Element {
 	const [picked, setPicked] = createSignal<Record<string, string[]>>({});
@@ -51,7 +64,7 @@ export function QuestionCard(props: {
 		});
 	const waiting = () => props.answers === undefined;
 	return (
-		<div class="surface-card flex flex-col gap-4 p-3">
+		<div class={`flex flex-col gap-4 ${props.embedded ? "" : "surface-card p-3"}`}>
 			<For each={props.questions}>
 				{(question) => (
 					<fieldset class="flex min-w-0 flex-col gap-2 border-0 p-0">
@@ -147,8 +160,9 @@ const GOAL_TONE: Record<GoalState["status"], { tone: Tone; label: string }> = {
 };
 
 /**
- * The thread's goal over the composer: what done means, how many turns it has taken, and the
- * controls that fit where it stands (pause a running goal, resume a stopped one, clear it).
+ * The thread's goal, as a row of the composer's banners: what done means, how many turns it has
+ * taken, and the controls that fit where it stands (pause a running goal, resume a stopped one,
+ * clear it).
  */
 export function GoalBar(props: {
 	goal: GoalState;
@@ -158,36 +172,62 @@ export function GoalBar(props: {
 }): JSX.Element {
 	const look = () => GOAL_TONE[props.goal.status];
 	return (
-		<div class="flex min-w-0 items-center gap-2 rounded-kit-lg border border-line bg-surface px-3 py-2">
-			<Badge tone={look().tone}>{look().label}</Badge>
-			<span class="min-w-0 flex-1 truncate text-body text-fg" title={props.goal.objective}>
-				{props.goal.objective}
-			</span>
-			<span class="shrink-0 text-caption text-fg-subtle tabular-nums">
-				{props.goal.turns}/{props.goal.maxTurns}
-			</span>
-			<Show
-				when={props.goal.status === "active"}
-				fallback={
-					<Show when={props.goal.status !== "met"}>
-						<Button variant="ghost" size="sm" onClick={() => props.onResume()}>
-							Resume
+		<ComposerBannerRow
+			label="Goal"
+			icon={<FlagIcon />}
+			tone={props.goal.status === "blocked" ? "warning" : "default"}
+			actions={
+				<>
+					<span class="me-1 shrink-0 text-fg-subtle tabular-nums">
+						{props.goal.turns}/{props.goal.maxTurns}
+					</span>
+					<Show
+						when={props.goal.status === "active"}
+						fallback={
+							<Show when={props.goal.status !== "met"}>
+								<Button variant="ghost" size="sm" onClick={() => props.onResume()}>
+									Resume
+								</Button>
+							</Show>
+						}
+					>
+						<Button variant="ghost" size="sm" onClick={() => props.onPause()}>
+							Pause
 						</Button>
 					</Show>
-				}
-			>
-				<Button variant="ghost" size="sm" onClick={() => props.onPause()}>
-					Pause
-				</Button>
-			</Show>
-			<IconButton size="xs" label="Clear the goal" onClick={() => props.onClear()}>
-				<CloseIcon size="sm" />
-			</IconButton>
-		</div>
+					<IconButton
+						size="xs"
+						variant="bare"
+						label="Clear the goal"
+						onClick={() => props.onClear()}
+					>
+						<CloseIcon size="sm" />
+					</IconButton>
+				</>
+			}
+		>
+			<span class="flex min-w-0 items-baseline gap-1.5">
+				<span class={`shrink-0 font-medium ${TONE_INK[look().tone]}`}>{look().label}</span>
+				<span class="min-w-0 truncate text-fg" title={props.goal.objective}>
+					{props.goal.objective}
+				</span>
+			</span>
+		</ComposerBannerRow>
 	);
 }
 
-/** The thread waits for its usage limit to reset, then carries on: when, and a way to say no. */
+const TONE_INK: Record<Tone, string> = {
+	accent: "text-accent",
+	neutral: "text-fg-subtle",
+	success: "text-success",
+	warning: "text-warning",
+	danger: "text-danger",
+};
+
+/**
+ * The thread waits for its usage limit to reset, then carries on: when, and a way to say no. A
+ * warning row of the composer's banners.
+ */
 export function LimitWaitBar(props: { resetsAt: string; onCancel: () => void }): JSX.Element {
 	const when = () =>
 		new Date(props.resetsAt).toLocaleString(undefined, {
@@ -196,15 +236,18 @@ export function LimitWaitBar(props: { resetsAt: string; onCancel: () => void }):
 			minute: "2-digit",
 		});
 	return (
-		<div class="flex min-w-0 items-center gap-2 rounded-kit-lg border border-line bg-surface px-3 py-2">
-			<RestoreIcon size="sm" class="shrink-0 text-fg-subtle" />
-			<span class="min-w-0 flex-1 text-body text-fg-muted">
-				Usage limit reached. Carries on by itself {when()}.
-			</span>
-			<Button variant="ghost" size="sm" onClick={() => props.onCancel()}>
-				Don't
-			</Button>
-		</div>
+		<ComposerBannerRow
+			label="Usage limit"
+			tone="warning"
+			icon={<RestoreIcon />}
+			actions={
+				<Button variant="ghost" size="sm" onClick={() => props.onCancel()}>
+					Don't
+				</Button>
+			}
+		>
+			<span class="block truncate">Usage limit reached. Carries on by itself {when()}.</span>
+		</ComposerBannerRow>
 	);
 }
 
@@ -216,11 +259,13 @@ export function GuestRequestCard(props: {
 	name: string;
 	text: string;
 	busy?: boolean;
+	/** Drawn inside the composer's banners: no card of its own. */
+	embedded?: boolean;
 	onSend: () => void;
 	onDismiss: () => void;
 }): JSX.Element {
 	return (
-		<div class="surface-card flex min-w-0 flex-col gap-2 p-3">
+		<div class={`flex min-w-0 flex-col gap-2 ${props.embedded ? "" : "surface-card p-3"}`}>
 			<div class="flex min-w-0 items-center gap-2 text-caption text-fg-subtle">
 				<UserIcon size="sm" class="shrink-0" />
 				<span class="min-w-0 truncate">{props.name}, a guest, asks</span>
@@ -243,8 +288,9 @@ export function GuestRequestCard(props: {
 export type QueuedItem = { id: string; text: string; files: number };
 
 /**
- * Messages that wait for the agent to finish, in the order they go. Held after a stop or a
- * failure, until the person goes on. Each can be dropped, or sent into the turn now (steer).
+ * Messages that wait for the agent to finish, in the order they go, as rows of the composer's
+ * banners: a count with Resume and Clear, then each message. Held after a stop or a failure,
+ * until the person goes on. Each can be dropped, or sent into the turn now (steer).
  */
 export function QueueList(props: {
 	items: QueuedItem[];
@@ -259,89 +305,110 @@ export function QueueList(props: {
 	onClear: () => void;
 }): JSX.Element {
 	return (
-		<div class="surface-card flex flex-col p-1">
-			<div class="flex items-center gap-2 px-2 py-1.5">
-				<span class="min-w-0 flex-1 truncate text-caption text-fg-subtle">
+		<>
+			<ComposerBannerRow
+				label="Queue"
+				tone={props.paused ? "warning" : "default"}
+				icon={<ListIcon />}
+				actions={
+					<>
+						<Show when={props.paused}>
+							<Button variant="primary" size="sm" onClick={() => props.onResume()}>
+								Resume
+							</Button>
+						</Show>
+						<Button variant="ghost" size="sm" onClick={() => props.onClear()}>
+							Clear
+						</Button>
+					</>
+				}
+			>
+				<span class="block truncate">
 					{props.paused
 						? `${props.items.length} waiting · held after the last turn stopped`
 						: `${props.items.length} waiting for the agent`}
 				</span>
-				<Show when={props.paused}>
-					<Button variant="primary" size="sm" onClick={() => props.onResume()}>
-						Resume
-					</Button>
-				</Show>
-				<Button variant="ghost" size="sm" onClick={() => props.onClear()}>
-					Clear
-				</Button>
-			</div>
-			<ol class="flex flex-col">
-				<For each={props.items}>
-					{(item, index) => (
-						<li class="flex min-h-11 items-center gap-2 border-line border-t px-2 md:min-h-9">
-							<span class="w-4 shrink-0 text-caption text-fg-subtle tabular-nums">
-								{index() + 1}
-							</span>
-							<span class="min-w-0 flex-1 truncate text-body text-fg" title={item.text}>
-								{item.text || "(files only)"}
-							</span>
-							<Show when={item.files > 0}>
-								<span class="shrink-0 text-caption text-fg-subtle">
-									{item.files} file{item.files === 1 ? "" : "s"}
-								</span>
-							</Show>
-							<IconButton
-								size="xs"
-								label={props.running ? "Send into this turn now" : "Send now"}
-								tooltip={
-									!props.running
-										? "Send now"
-										: props.steerRestarts
-											? "Steer: stop this turn and carry on with this"
-											: "Steer: send into this turn now"
-								}
-								onClick={() => props.onSendNow(item.id)}
-							>
-								<SendIcon size="sm" />
-							</IconButton>
-							<IconButton
-								size="xs"
-								label="Remove from queue"
-								onClick={() => props.onRemove(item.id)}
-							>
-								<CloseIcon size="sm" />
-							</IconButton>
-						</li>
-					)}
-				</For>
-			</ol>
-		</div>
+			</ComposerBannerRow>
+			<For each={props.items}>
+				{(item, index) => (
+					<ComposerBannerRow
+						icon={<span class="text-caption tabular-nums">{index() + 1}</span>}
+						actions={
+							<>
+								<Show when={item.files > 0}>
+									<span class="me-1 shrink-0 text-fg-subtle">
+										{item.files} file{item.files === 1 ? "" : "s"}
+									</span>
+								</Show>
+								<IconButton
+									size="xs"
+									variant="bare"
+									label={props.running ? "Send into this turn now" : "Send now"}
+									tooltip={
+										!props.running
+											? "Send now"
+											: props.steerRestarts
+												? "Steer: stop this turn and carry on with this"
+												: "Steer: send into this turn now"
+									}
+									onClick={() => props.onSendNow(item.id)}
+								>
+									<SendIcon size="sm" />
+								</IconButton>
+								<IconButton
+									size="xs"
+									variant="bare"
+									label="Remove from queue"
+									onClick={() => props.onRemove(item.id)}
+								>
+									<CloseIcon size="sm" />
+								</IconButton>
+							</>
+						}
+					>
+						<span class="block truncate text-body text-fg" title={item.text}>
+							{item.text || "(files only)"}
+						</span>
+					</ComposerBannerRow>
+				)}
+			</For>
+		</>
 	);
 }
 
-/** The subagents at work now, each a chip that takes the reader to its card. */
+/**
+ * The subagents at work now, as a row of the composer's banners: how many, then each as a chip
+ * that takes the reader to its line in the thread.
+ */
 export function SubagentStrip(props: {
 	agents: { id: string; title: string; activity?: string }[];
 	onOpen: (id: string) => void;
 }): JSX.Element {
 	return (
-		<ul class="flex gap-1.5 overflow-x-auto pb-0.5" aria-label="Subagents working">
-			<For each={props.agents}>
-				{(agent) => (
-					<li class="shrink-0">
-						<button
-							type="button"
-							onClick={() => props.onOpen(agent.id)}
-							title={agent.activity ?? agent.title}
-							class="focus-ring inline-flex h-8 max-w-64 items-center gap-1.5 rounded-pill bg-surface px-2.5 text-caption text-fg-muted ring-line-strong transition-colors duration-fast hover:text-fg pointer-coarse:h-10"
-						>
-							<SpinnerIcon class="size-3 shrink-0 animate-spin" />
-							<span class="truncate">{agent.title}</span>
-						</button>
-					</li>
-				)}
-			</For>
-		</ul>
+		<ComposerBannerRow label="Subagents working" icon={<SpinnerIcon class="animate-spin" />}>
+			<div class="flex min-w-0 items-center gap-2">
+				<span class="shrink-0">
+					{props.agents.length} subagent{props.agents.length === 1 ? "" : "s"} working
+				</span>
+				<ul class="flex min-w-0 gap-1 overflow-x-auto [scrollbar-width:none]">
+					<For each={props.agents}>
+						{(agent) => (
+							<li class="shrink-0">
+								<button
+									type="button"
+									onClick={() => props.onOpen(agent.id)}
+									data-tooltip={agent.activity ?? agent.title}
+									class="focus-ring inline-flex h-6 max-w-48 items-center gap-1 rounded-tile px-1.5 text-fg-subtle transition-colors duration-fast hover:bg-fill-strong hover:text-fg pointer-coarse:h-9 [&_svg]:size-3"
+								>
+									<BotIcon />
+									<span class="truncate">{agent.title}</span>
+								</button>
+							</li>
+						)}
+					</For>
+				</ul>
+			</div>
+		</ComposerBannerRow>
 	);
 }
 

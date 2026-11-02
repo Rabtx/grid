@@ -23,6 +23,7 @@ import {
 	UserIcon,
 	ChangedFilesRow,
 	ChatIcon,
+	ComposerBanners,
 	CrewPanel,
 	HandoffDivider,
 	PaletteIcon,
@@ -416,18 +417,20 @@ export const TOUR_SLIDES: TourSlide[] = [
 			"Queued messages survive a runner restart, held until you say go.",
 		],
 		preview: () => (
-			<QueueList
-				items={[
-					{ id: "1", text: "Then add a test for the empty state", files: 0 },
-					{ id: "2", text: "And update the changelog", files: 1 },
-				]}
-				paused={false}
-				running
-				onRemove={noop}
-				onSendNow={noop}
-				onResume={noop}
-				onClear={noop}
-			/>
+			<ComposerBanners detached>
+				<QueueList
+					items={[
+						{ id: "1", text: "Then add a test for the empty state", files: 0 },
+						{ id: "2", text: "And update the changelog", files: 1 },
+					]}
+					paused={false}
+					running
+					onRemove={noop}
+					onSendNow={noop}
+					onResume={noop}
+					onClear={noop}
+				/>
+			</ComposerBanners>
 		),
 	},
 	{
@@ -443,13 +446,15 @@ export const TOUR_SLIDES: TourSlide[] = [
 			"Stopped or failed work is never labelled done.",
 		],
 		preview: () => (
-			<SubagentStrip
-				agents={[
-					{ id: "a", title: "Map the API routes" },
-					{ id: "b", title: "Find flaky tests" },
-				]}
-				onOpen={noop}
-			/>
+			<ComposerBanners detached>
+				<SubagentStrip
+					agents={[
+						{ id: "a", title: "Map the API routes" },
+						{ id: "b", title: "Find flaky tests" },
+					]}
+					onOpen={noop}
+				/>
+			</ComposerBanners>
 		),
 	},
 	{

@@ -229,9 +229,14 @@ Inbox, Board…) are part of that row and have no tile. `variant="bare"` drops t
 something that is already a control (a chip). **The button sets its icon's size**, whatever the
 icon asks for: 16px in `sm`/`md` buttons, 14px in `xs`, one step larger on touch (`ICON_SIZE`).
 Tiles share one corner (`rounded-tile`, 8px in round, a circle in pill) and, beside chips or other controls, their height.
-The composer's toolbar is one size: its add, tools, model chip, mic, send and stop are all 32px
-on desktop (40px on touch) with that corner, each filled edge to edge so what is drawn is the
-whole button; the tools are quiet fills and send is the one in the accent. Under the card, a quiet shelf (`DOCK_CHIP`: text until hovered) holds the branch,
+The composer's toolbar is one size (after T3 Code's composer): its add, tools, model chip, mic,
+send and stop are all 32px on desktop (40px on touch). Add sits on the left; the model and the mic
+sit on the right beside send. The tools are quiet — muted words and icons, filled only while
+hovered or open — so the one solid thing is send, a round ink button (`rounded-pill`, the accent
+when one is chosen) that lifts a little under the pointer. What waits on the composer is attached
+to it (`ComposerBanners`): a strip inset from its sides whose bottom tucks under the card, holding
+the agent's approvals, questions and guests' requests (as drawers), a limit wait (a warning
+row), the goal, the subagents at work and the queue, one row each. Under the card, a quiet shelf (`DOCK_CHIP`: text until hovered) holds the branch,
 role, mode and the context and usage meter, so the toolbar stays short. A tile is never more than
 32px: it is drawn centred in its button, so
 a 44px touch target keeps its full tap area while the tile stays light and clear of the screen

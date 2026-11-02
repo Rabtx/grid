@@ -1,7 +1,8 @@
 import { render } from "@solidjs/web";
-import { createSignal } from "solid-js";
+import { createSignal, flush, Show } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { ComposerBannerRow } from "./composer-banner";
 import { PromptBox, VoiceBar } from "./prompt-box";
 
 describe("VoiceBar", () => {
@@ -79,6 +80,39 @@ describe("PromptBox", () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(card()?.hasAttribute("data-working")).toBe(false);
 		expect(light()?.hasAttribute("data-active")).toBe(false);
+		dispose();
+		host.remove();
+	});
+
+	it("attaches its banners above the card, and draws no strip without rows", () => {
+		const host = document.createElement("div");
+		document.body.append(host);
+		const [goal, setGoal] = createSignal(true);
+		const dispose = render(
+			() => (
+				<PromptBox
+					field={<textarea />}
+					send={<button type="submit">Send</button>}
+					banners={
+						<Show when={goal()}>
+							<ComposerBannerRow label="Goal">Ship the release</ComposerBannerRow>
+						</Show>
+					}
+				/>
+			),
+			host,
+		);
+		flush();
+		const strip = host.querySelector("[data-composer-banners]");
+		expect(strip?.getAttribute("data-composer-banners")).toBe("attached");
+		// The strip comes before the card, so the card tucks over its bottom.
+		expect(strip?.nextElementSibling?.tagName).toBe("FORM");
+		expect(strip?.querySelector('section[aria-label="Goal"]')?.textContent).toBe(
+			"Ship the release",
+		);
+		setGoal(false);
+		flush();
+		expect(host.querySelector("[data-composer-banners] section")).toBeNull();
 		dispose();
 		host.remove();
 	});

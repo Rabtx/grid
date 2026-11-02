@@ -1085,6 +1085,8 @@ function ThoughtRow(props: { text: string; live: boolean }): JSX.Element {
 /** The agent is waiting: what it wants to do, and the choices it offered. */
 export function ApprovalCard(props: {
 	approval: Extract<Block, { kind: "approval" }>;
+	/** Drawn inside the composer's banners: no card of its own. */
+	embedded?: boolean;
 	onApprove: (id: string, optionId: string | null) => void;
 }): JSX.Element {
 	const resolved = () => {
@@ -1095,6 +1097,7 @@ export function ApprovalCard(props: {
 	};
 	return (
 		<DecisionCard
+			embedded={props.embedded}
 			title={props.approval.title}
 			detail={
 				<Show when={props.approval.detail}>
