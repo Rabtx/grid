@@ -432,7 +432,8 @@ export function AgentHeader(props: {
 export function ThreadHeader(props: {
 	title: string;
 	status?: JSX.Element;
-	facts: readonly { icon: JSX.Element; label: string }[];
+	/** A line of facts under the title; the thread's details card holds them in the chat. */
+	facts?: readonly { icon: JSX.Element; label: string }[];
 }): JSX.Element {
 	return (
 		<header class="flex flex-col gap-2 pb-2">
@@ -442,42 +443,18 @@ export function ThreadHeader(props: {
 					<span class="mt-1.5 shrink-0">{props.status}</span>
 				</Show>
 			</div>
-			<ul class="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-fg-muted">
-				<For each={props.facts}>
-					{(fact) => (
-						<li class="flex min-w-0 items-center gap-1.5 [&_svg]:size-3.5 [&_svg]:text-fg-subtle">
-							{fact.icon}
-							<span class="truncate">{fact.label}</span>
-						</li>
-					)}
-				</For>
-			</ul>
-		</header>
-	);
-}
-
-/** A side panel's group (the Figma Run panel): a quiet label, then label–value rows. */
-export function FactGroup(props: {
-	label: string;
-	rows?: readonly { label: string; value: JSX.Element }[];
-	children?: JSX.Element;
-}): JSX.Element {
-	return (
-		<section class="flex flex-col gap-2 border-line border-b px-4 py-4 last:border-b-0">
-			<h3 class="text-caption text-fg-subtle">{props.label}</h3>
-			<Show when={props.rows?.length}>
-				<dl class="flex flex-col gap-2">
-					<For each={props.rows}>
-						{(row) => (
-							<div class="flex items-center justify-between gap-3 text-caption">
-								<dt class="text-fg-subtle">{row.label}</dt>
-								<dd class="min-w-0 truncate text-fg">{row.value}</dd>
-							</div>
+			<Show when={props.facts?.length}>
+				<ul class="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-fg-muted">
+					<For each={props.facts}>
+						{(fact) => (
+							<li class="flex min-w-0 items-center gap-1.5 [&_svg]:size-3.5 [&_svg]:text-fg-subtle">
+								{fact.icon}
+								<span class="truncate">{fact.label}</span>
+							</li>
 						)}
 					</For>
-				</dl>
+				</ul>
 			</Show>
-			{props.children}
-		</section>
+		</header>
 	);
 }

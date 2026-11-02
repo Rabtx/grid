@@ -35,25 +35,17 @@ import {
 	WorkspaceToggle,
 } from "@/modules/split";
 import {
-	AgentLogo,
 	Alert,
 	Badge,
 	Banner,
-	BranchIcon,
 	Button,
 	ChatIcon,
 	ChevronDownIcon,
-	ClockIcon,
 	ConfirmDialog,
 	ComposerBannerRow,
 	CrewPanel,
 	ContextMeter,
-	DetailAside,
-	DiffStat,
-	FactGroup,
 	IconButton,
-	LaptopIcon,
-	RoleMark,
 	TimelineMinimap,
 	ThreadHeader,
 	notify,
@@ -67,7 +59,6 @@ import {
 	Row,
 	shortcutKeys,
 	SubagentStrip,
-	Text,
 } from "@/kit";
 
 import {
@@ -80,7 +71,6 @@ import { threadFacts } from "../lib/thread-facts";
 import {
 	applyEvent,
 	emptyTranscript,
-	formatDuration,
 	pendingApprovals,
 	pendingQuestions,
 	replay,
@@ -107,6 +97,7 @@ import { Composer } from "./composer";
 import { CrewSettingsDialog } from "./crew-settings";
 import { GitControl } from "./git-control";
 import { ModelPicker, ModePicker } from "./pickers";
+import { ThreadDetails, ThreadDetailsButton, type ThreadDetailsData } from "./thread-details";
 import { planLimits, resetsText } from "./usage-rings";
 import {
 	ApprovalCard,
@@ -967,6 +958,39 @@ export function Conversation(props: {
 	};
 	const split = () => layoutsStore.of(props.id).mode !== "focus";
 
+	/** What the thread's details card says; null until the thread is known. */
+	const details = (): ThreadDetailsData | null => {
+		const current = session();
+		if (!current) return null;
+		const forked = transcript().blocks.find((block) => block.kind === "forked");
+		return {
+			agent: {
+				id: current.provider,
+				name: people()?.agentName ?? current.provider,
+				model: modelName() || undefined,
+			},
+			role: current.role ? { name: current.role.name, icon: current.role.icon ?? "code" } : null,
+			started: current.delegatedBy
+				? `Started by another thread's agent ${relativeTime(current.createdAt)}`
+				: `Started ${relativeTime(current.createdAt)}`,
+			machine: machine(),
+			folder: place()?.cwd,
+			branch: place()?.worktree?.branch,
+			workedMs: facts().workedMs,
+			files: facts().files,
+			added: facts().added,
+			removed: facts().removed,
+			usage: transcript().usage ?? undefined,
+			forkedFrom:
+				forked?.kind === "forked"
+					? {
+							title: forked.from.title,
+							href: `/chat/${encodeURIComponent(current.project)}/${encodeURIComponent(forked.from.id)}`,
+						}
+					: null,
+		};
+	};
+
 	const threadColumn = (): JSX.Element => (
 		<div class="flex min-h-0 min-w-0 flex-1 flex-col">
 			<Show when={!embedded && subtitle()}>
@@ -1000,39 +1024,17 @@ export function Conversation(props: {
 					class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 md:px-6"
 				>
 					<div class="mx-auto flex w-full max-w-160 flex-col gap-6">
+						<Show when={!embedded && !shell.desktop() ? details() : null}>
+							{(data) => (
+								<div class="-mb-4 flex justify-end">
+									<ThreadDetailsButton data={data()} />
+								</div>
+							)}
+						</Show>
 						<Show when={embedded ? null : session()}>
 							{(current) => (
 								<div class="hidden md:block">
-									<ThreadHeader
-										title={current().title}
-										status={status()}
-										facts={[
-											...(current().role
-												? [
-														{
-															icon: <RoleMark icon={current().role?.icon ?? "code"} size="sm" />,
-															label: current().role?.name ?? "",
-														},
-													]
-												: []),
-											...(place()?.worktree
-												? [{ icon: <BranchIcon />, label: place()?.worktree?.branch ?? "" }]
-												: []),
-											{ icon: <LaptopIcon />, label: machine() },
-											{
-												icon: (
-													<AgentLogo id={current().provider} name={people()?.agentName ?? ""} />
-												),
-												label: [people()?.agentName, modelName()].filter(Boolean).join(" · "),
-											},
-											{
-												icon: <ClockIcon />,
-												label: current().delegatedBy
-													? `Started by another thread's agent ${relativeTime(current().createdAt)}`
-													: `Started ${relativeTime(current().createdAt)}`,
-											},
-										]}
-									/>
+									<ThreadHeader title={current().title} status={status()} />
 								</div>
 							)}
 						</Show>
@@ -1423,17 +1425,24 @@ export function Conversation(props: {
 					/>
 				)}
 			</Show>
-			<Show when={shell.desktop() && workspaceProps()}>
+			<Show when={shell.desktop() && !embedded}>
 				<ShellSlot name="actions">
-					<IconButton
-						size="sm"
-						label="Open a side chat"
-						tooltip="Side chat: ask a narrow question beside this thread"
-						onClick={() => void openSide()}
-					>
-						<ChatIcon size="sm" />
-					</IconButton>
-					<SplitSwitch thread={props.id} />
+					<Show when={details()}>
+						{(data) => (
+							<ThreadDetailsButton data={data()} class={split() ? undefined : "xl:hidden"} />
+						)}
+					</Show>
+					<Show when={workspaceProps()}>
+						<IconButton
+							size="sm"
+							label="Open a side chat"
+							tooltip="Side chat: ask a narrow question beside this thread"
+							onClick={() => void openSide()}
+						>
+							<ChatIcon size="sm" />
+						</IconButton>
+						<SplitSwitch thread={props.id} />
+					</Show>
 				</ShellSlot>
 			</Show>
 			{/* The column is built once and moved into the workspace frame when the thread's folder
@@ -1445,55 +1454,13 @@ export function Conversation(props: {
 					</SplitFrame>
 				)}
 			</Show>
-			{/* Split takes the place of the run details: the workspace is the thread's side now. */}
-			<Show when={shell.desktop() && split() ? null : session()}>
-				{(current) => (
-					<DetailAside label="Run" floating={shell.floating()}>
-						<FactGroup
-							label="Run"
-							rows={[
-								{ label: "Agent", value: people()?.agentName ?? current().provider },
-								...(modelName() ? [{ label: "Model", value: modelName() }] : []),
-								...(place()?.worktree
-									? [{ label: "Branch", value: place()?.worktree?.branch ?? "" }]
-									: []),
-								{ label: "Machine", value: machine() },
-								...(facts().workedMs > 0
-									? [{ label: "Time", value: formatDuration(facts().workedMs) }]
-									: []),
-							]}
-						/>
-						<FactGroup label="Changes">
-							<Show
-								when={facts().files.length > 0}
-								fallback={
-									<Text size="caption" tone="subtle">
-										No files changed yet.
-									</Text>
-								}
-							>
-								<p class="flex items-center gap-2 text-body text-fg">
-									{facts().files.length} file{facts().files.length === 1 ? "" : "s"} changed
-									<DiffStat added={facts().added} removed={facts().removed} />
-								</p>
-								<ul class="flex flex-col gap-1">
-									<For each={facts().files}>
-										{(file) => (
-											<li class="flex items-center gap-2 text-caption">
-												<span
-													class="min-w-0 flex-1 truncate font-mono text-fg-muted"
-													title={file.path}
-												>
-													{file.path.split("/").slice(-2).join("/")}
-												</span>
-												<DiffStat added={file.added} removed={file.removed} />
-											</li>
-										)}
-									</For>
-								</ul>
-							</Show>
-						</FactGroup>
-					</DetailAside>
+			{/* The thread's details beside it where there is room (after T3 Code's details card);
+			    split gives that side to the workspace, and the header's button opens them instead. */}
+			<Show when={shell.desktop() && !split() && details()}>
+				{(data) => (
+					<div class="hidden w-76 shrink-0 flex-col px-3 pt-3 pb-14 xl:flex">
+						<ThreadDetails data={data()} />
+					</div>
 				)}
 			</Show>
 		</div>

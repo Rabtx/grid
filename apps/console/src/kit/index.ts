@@ -121,7 +121,6 @@ export {
 	DiffCard,
 	type DiffLine,
 	DiffStat,
-	FactGroup,
 	formatFileSize,
 	Prose,
 	ThreadHeader,
@@ -181,7 +180,7 @@ export {
 } from "./run";
 export { type EffortLevel, EffortSlider } from "./effort";
 export { type ArrivalOptions, playArrival } from "./arrival";
-export { DetailAside, ListDetail, ListRow, PaneHeader } from "./pane";
+export { ListDetail, ListRow, PaneHeader } from "./pane";
 export { type AgentChoice, AgentChoices, FlagshipMark, ModelRow } from "./picker";
 export { PixelMark, ProjectMark, type ProjectMarkShape } from "./project-mark";
 export { FLOATING_MIC, VoiceDock, VoiceError, VoiceStatus } from "./voice";
@@ -471,3 +470,4 @@ export {
 	type QueuedItem,
 	SubagentStrip,
 } from "./agent-work";
+export { ThreadDetailsCard, ThreadDetailsRow, ThreadDetailsSection } from "./thread-details";
