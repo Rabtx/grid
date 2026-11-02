@@ -97,9 +97,14 @@ export function Composer(props: {
 	/** The agent cannot take a message mid-turn: steering stops its turn and starts the next. */
 	steerRestarts?: boolean;
 	onStop?: () => void;
-	/** The toolbar's pickers: the model. */
+	/** The toolbar's pickers: the model, on the right beside the mic. */
 	controls?: JSX.Element;
-	/** Behind the card: the branch, the role, the queue — what used to crowd the toolbar. */
+	/**
+	 * Attached above the card: the goal, a limit wait, the subagents, the queue and what the agent
+	 * asks, as rows of the kit's composer banners.
+	 */
+	banners?: JSX.Element;
+	/** Under the card: the branch, the mode, the context — what would crowd the toolbar. */
 	dock?: JSX.Element;
 	/** Text to start with, e.g. a task a thread is started from. */
 	initial?: string;
@@ -833,10 +838,14 @@ export function Composer(props: {
 								groups={plusMenuGroups()}
 								onSelect={handleMenuSelect}
 							/>
-							{props.controls}
 						</>
 					}
-					options={<MicButton target={() => (textarea ? voiceTarget : null)} class={MIC_BUTTON} />}
+					options={
+						<>
+							{props.controls}
+							<MicButton target={() => (textarea ? voiceTarget : null)} class={MIC_BUTTON} />
+						</>
+					}
 					send={
 						<Show
 							when={props.running}
@@ -900,6 +909,7 @@ export function Composer(props: {
 							</button>
 						</Show>
 					}
+					banners={props.banners}
 					dock={props.dock}
 				/>
 				<Show when={isDraggingOver()}>

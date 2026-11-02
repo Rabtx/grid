@@ -45,6 +45,7 @@ import {
 	ChevronDownIcon,
 	ClockIcon,
 	ConfirmDialog,
+	ComposerBannerRow,
 	CrewPanel,
 	ContextMeter,
 	DetailAside,
@@ -1179,74 +1180,6 @@ export function Conversation(props: {
 							</div>
 						)}
 					</Show>
-					<Show when={subagents().length > 0}>
-						<div class="mb-2">
-							<SubagentStrip
-								agents={subagents().map((agent) => ({
-									id: agent.id,
-									title: agent.title,
-									activity: agent.activity,
-								}))}
-								onOpen={openSubagent}
-							/>
-						</div>
-					</Show>
-					<For each={waitingOn()}>
-						{(approval) => (
-							<div class="mb-2">
-								<ApprovalCard
-									approval={approval}
-									onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
-								/>
-							</div>
-						)}
-					</For>
-					<For each={asking()}>
-						{(question) => (
-							<div class="mb-2">
-								<QuestionCard
-									questions={question.questions}
-									onAnswer={(answers) => socket?.send({ t: "answer", id: question.id, answers })}
-								/>
-							</div>
-						)}
-					</For>
-					<For each={transcript().guestRequests}>
-						{(request) => (
-							<div class="mb-2">
-								<GuestRequestCard
-									name={request.name}
-									text={request.text}
-									onSend={() => void resolveGuestRequest(request.id, "send")}
-									onDismiss={() => void resolveGuestRequest(request.id, "dismiss")}
-								/>
-							</div>
-						)}
-					</For>
-					<Show when={transcript().limitWait}>
-						{(resetsAt) => (
-							<div class="mb-2">
-								<LimitWaitBar resetsAt={resetsAt()} onCancel={() => void cancelLimitWait()} />
-							</div>
-						)}
-					</Show>
-					<Show
-						when={(() => {
-							const goal = transcript().goal;
-							return goal && goal.status !== "cleared" ? { ...goal, status: goal.status } : null;
-						})()}
-					>
-						{(goal) => (
-							<div class="mb-2">
-								<GoalBar
-									goal={goal() as GoalState}
-									onPause={() => void changeGoal({ action: "pause" })}
-									onResume={() => void changeGoal({ action: "resume" })}
-									onClear={() => void changeGoal({ action: "clear" })}
-								/>
-							</div>
-						)}
-					</Show>
 					<Composer
 						draftKey={`thread:${props.id}`}
 						project={session()?.project}
@@ -1262,6 +1195,95 @@ export function Conversation(props: {
 						disabled={connection() === "gone" || connection() === "signed-out"}
 						onSend={send}
 						onStop={() => socket?.send({ t: "cancel" })}
+						banners={
+							<>
+								<For each={waitingOn()}>
+									{(approval) => (
+										<ComposerBannerRow drawer label="The agent asks to go ahead">
+											<ApprovalCard
+												embedded
+												approval={approval}
+												onApprove={(id, optionId) => socket?.send({ t: "approve", id, optionId })}
+											/>
+										</ComposerBannerRow>
+									)}
+								</For>
+								<For each={asking()}>
+									{(question) => (
+										<ComposerBannerRow drawer label="The agent asks">
+											<QuestionCard
+												embedded
+												questions={question.questions}
+												onAnswer={(answers) =>
+													socket?.send({ t: "answer", id: question.id, answers })
+												}
+											/>
+										</ComposerBannerRow>
+									)}
+								</For>
+								<For each={transcript().guestRequests}>
+									{(request) => (
+										<ComposerBannerRow drawer label="A guest asks">
+											<GuestRequestCard
+												embedded
+												name={request.name}
+												text={request.text}
+												onSend={() => void resolveGuestRequest(request.id, "send")}
+												onDismiss={() => void resolveGuestRequest(request.id, "dismiss")}
+											/>
+										</ComposerBannerRow>
+									)}
+								</For>
+								<Show when={transcript().limitWait}>
+									{(resetsAt) => (
+										<LimitWaitBar resetsAt={resetsAt()} onCancel={() => void cancelLimitWait()} />
+									)}
+								</Show>
+								<Show
+									when={(() => {
+										const goal = transcript().goal;
+										return goal && goal.status !== "cleared"
+											? { ...goal, status: goal.status }
+											: null;
+									})()}
+								>
+									{(goal) => (
+										<GoalBar
+											goal={goal() as GoalState}
+											onPause={() => void changeGoal({ action: "pause" })}
+											onResume={() => void changeGoal({ action: "resume" })}
+											onClear={() => void changeGoal({ action: "clear" })}
+										/>
+									)}
+								</Show>
+								<Show when={subagents().length > 0}>
+									<SubagentStrip
+										agents={subagents().map((agent) => ({
+											id: agent.id,
+											title: agent.title,
+											activity: agent.activity,
+										}))}
+										onOpen={openSubagent}
+									/>
+								</Show>
+								<Show when={transcript().queue.items.length > 0}>
+									<QueueList
+										items={transcript().queue.items.map((item) => ({
+											id: item.id,
+											text: item.text,
+											files: item.attachments?.length ?? 0,
+										}))}
+										paused={transcript().queue.paused}
+										running={running()}
+										steerRestarts={provider()?.capabilities?.steer !== "native"}
+										onRemove={(id) => socket?.send({ t: "queue", action: "remove", id })}
+										onSendNow={(id) => socket?.send({ t: "queue", action: "steer", id })}
+										onResume={() => socket?.send({ t: "queue", action: "resume" })}
+										onClear={() => socket?.send({ t: "queue", action: "clear" })}
+									/>
+								</Show>
+							</>
+						}
 						dock={
 							<>
 								<Row wrap gap={1.5} class="w-full min-w-0">
@@ -1319,22 +1341,6 @@ export function Conversation(props: {
 										/>
 									</span>
 								</Row>
-								<Show when={transcript().queue.items.length > 0}>
-									<QueueList
-										items={transcript().queue.items.map((item) => ({
-											id: item.id,
-											text: item.text,
-											files: item.attachments?.length ?? 0,
-										}))}
-										paused={transcript().queue.paused}
-										running={running()}
-										steerRestarts={provider()?.capabilities?.steer !== "native"}
-										onRemove={(id) => socket?.send({ t: "queue", action: "remove", id })}
-										onSendNow={(id) => socket?.send({ t: "queue", action: "steer", id })}
-										onResume={() => socket?.send({ t: "queue", action: "resume" })}
-										onClear={() => socket?.send({ t: "queue", action: "clear" })}
-									/>
-								</Show>
 							</>
 						}
 						controls={

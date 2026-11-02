@@ -440,6 +440,7 @@ export {
 	ReconnectingNotice,
 	WaitingLine,
 } from "./notification";
+export { ComposerBannerRow, type ComposerBannerTone, ComposerBanners } from "./composer-banner";
 export {
 	LiveActivityRow,
 	WorkGroupHeader,

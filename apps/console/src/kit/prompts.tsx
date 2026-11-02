@@ -183,6 +183,8 @@ export function DecisionCard(props: {
 	}[];
 	/** What was chosen (its label), "Dismissed", or undefined while it waits. */
 	resolved?: string;
+	/** Drawn inside the composer's banners: no card of its own. */
+	embedded?: boolean;
 	onChoose: (id: string) => void;
 }): JSX.Element {
 	const variant = (option: (typeof props.options)[number]) =>
@@ -194,7 +196,9 @@ export function DecisionCard(props: {
 					? "primary"
 					: "secondary";
 	return (
-		<div class="surface-card flex flex-col gap-3 p-3 md:flex-row md:items-center md:gap-4">
+		<div
+			class={`flex flex-col gap-3 md:flex-row md:items-center md:gap-4 ${props.embedded ? "" : "surface-card p-3"}`}
+		>
 			<div class="flex min-w-0 flex-1 items-start gap-3">
 				<span
 					aria-hidden="true"

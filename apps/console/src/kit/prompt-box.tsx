@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, For, onSettled, Show } from "solid-js";
 
 import { ICON_SIZE } from "./button";
+import { ComposerBanners } from "./composer-banner";
 import { ComposerLoader } from "./composer-loader";
 import { attachEdgeFade } from "./edge-fade";
 import { CheckIcon, CloseIcon, SpinnerIcon } from "./icons";
@@ -31,6 +32,11 @@ export function PromptBox(props: {
 	 * the role, the mode, the context and usage, the queue.
 	 */
 	dock?: JSX.Element;
+	/**
+	 * Attached above the card, tucked under it (after T3 Code): the goal, a limit wait, the
+	 * subagents at work, the queue, and what the agent asks — rows of `ComposerBanners`.
+	 */
+	banners?: JSX.Element;
 	/** Floats inside the card over the text: the @-mention list. */
 	overlay?: JSX.Element;
 	/**
@@ -56,9 +62,13 @@ export function PromptBox(props: {
 	const voice = createMemo(() => props.voice);
 	const attachments = createMemo(() => props.attachments);
 	const dock = createMemo(() => props.dock);
+	const banners = createMemo(() => props.banners);
 	return (
 		<PopoverAnchor value={() => card}>
 			<div class={`relative flex flex-col ${props.class ?? ""}`}>
+				<Show when={banners()}>
+					<ComposerBanners>{banners()}</ComposerBanners>
+				</Show>
 				{/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- file drop supplements the keyboard-accessible picker */}
 				<form
 					ref={(el) => {
@@ -119,15 +129,15 @@ export const PROMPT_FIELD =
 
 /**
  * Every control on the composer's toolbar is one size and one corner: 32px on desktop (40px on
- * touch), the kit's tile corner (8px, circles and capsules when Appearance → Corners is pill), and
- * each is filled edge to edge, so what is drawn is the whole button and no two look a different
- * size. Tools are quiet fills; send is the one in the accent.
+ * touch) and the kit's tile corner (8px, circles and capsules when Appearance → Corners is pill).
+ * As in T3 Code's composer, the tools are quiet: muted words and icons with no fill until hovered
+ * or open, so the only solid thing on the toolbar is send, a round ink button.
  */
 const TOOL = "h-8 shrink-0 rounded-tile pointer-coarse:h-10";
 const SQUARE = "size-8 shrink-0 rounded-tile pointer-coarse:size-10";
 
 /** A tool chip on the composer's toolbar: the model, a mode, a project. */
-export const PROMPT_CHIP = `focus-ring inline-flex ${TOOL} items-center gap-1.5 bg-fill-strong px-2.5 text-body text-fg transition-colors duration-fast hover:bg-selection aria-expanded:bg-selection`;
+export const PROMPT_CHIP = `focus-ring inline-flex ${TOOL} items-center gap-1.5 px-2 text-body text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg`;
 
 /**
  * A quiet chip on the shelf under the composer (the branch, the role, crew, the mode, the
@@ -136,24 +146,25 @@ export const PROMPT_CHIP = `focus-ring inline-flex ${TOOL} items-center gap-1.5 
 export const DOCK_CHIP =
 	"focus-ring inline-flex h-7 min-w-0 shrink-0 items-center gap-1.5 rounded-tile px-2 text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg pointer-coarse:h-9 [&_svg]:size-3.5";
 
-/** A quiet filled square on the toolbar, the size of everything beside it. */
+/** A quiet square on the toolbar, the size of everything beside it: filled only when hovered or open. */
 const TOOL_FILL =
-	"bg-fill-strong text-fg-muted transition-colors duration-fast hover:bg-selection hover:text-fg aria-expanded:bg-selection aria-expanded:text-fg";
+	"text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg";
 
 /** The square at the start of the toolbar: add files, context, tools. */
 export const PROMPT_ADD = `focus-ring grid ${SQUARE} place-items-center ${TOOL_FILL} ${ICON_SIZE.md}`;
 
 /**
- * The send button: the same square as the tools beside it, quiet until there is something to
- * send, then filled with the accent (Settings → Appearance → Accent).
+ * The send button, after T3 Code's: round (a pill, so it follows Appearance → Corners), in ink
+ * like every primary button (or the accent, when one is chosen), lifting a little under the
+ * pointer, and greyed until there is something to send.
  */
-export const SEND_BUTTON = `focus-ring relative grid ${SQUARE} place-items-center bg-accent text-white surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid hover:bg-accent/90 active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none ${ICON_SIZE.md}`;
+export const SEND_BUTTON = `focus-ring relative grid size-8 shrink-0 place-items-center rounded-pill bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid enabled:hover:scale-105 hover:bg-inverse/90 active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none pointer-coarse:size-10 ${ICON_SIZE.md}`;
 
 /** Beside stop while the agent works: send the message into the turn going on. */
-export const STEER_BUTTON = `focus-ring relative inline-flex ${TOOL} items-center bg-fill-strong px-2.5 font-medium text-caption text-fg transition-colors duration-fast hover:bg-selection disabled:text-fg-faint`;
+export const STEER_BUTTON = `focus-ring relative inline-flex ${TOOL} items-center px-2.5 font-medium text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg disabled:text-fg-faint`;
 
 /** Stop, in place of send while the agent works: a ring turns inside it until it is done. */
-export const STOP_BUTTON = `focus-ring relative grid ${SQUARE} place-items-center bg-fill-strong text-fg transition-transform duration-fast active:scale-95 ${ICON_SIZE.md}`;
+export const STOP_BUTTON = `focus-ring relative grid size-8 shrink-0 place-items-center rounded-pill bg-fill-strong text-fg transition-transform duration-fast active:scale-95 pointer-coarse:size-10 ${ICON_SIZE.md}`;
 
 /** The ring turning inside the stop button while the agent works. */
 export function WorkingRing(): JSX.Element {
