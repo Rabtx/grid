@@ -1,6 +1,9 @@
 import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, For, Match, onSettled, Show, Switch, untrack } from "solid-js";
 
+import { IconButton } from "./button";
+import { Dialog } from "./dialog";
+import { UnfoldIcon } from "./icons";
 import { evaluate } from "./visual-formula";
 
 /**
@@ -977,10 +980,50 @@ export function framedDocument(html: string, theme: string): string {
 }
 
 /**
- * An agent's own HTML page, in a sandboxed frame: scripts run, but on an opaque origin with no
- * network, no storage of Grid's, no popups and no way to navigate the console. It grows to fit.
+ * An agent's own HTML page, after T3 Code's HTML render row: drawn bare at its own height, with
+ * "Open full screen" in its corner under the pointer (always there on touch), which opens the same
+ * page in a full-size dialog.
  */
 export function VisualFrame(props: { title: string; html: string; height: number }): JSX.Element {
+	const [full, setFull] = createSignal(false);
+	return (
+		<div class="group/visual-frame relative">
+			<SandboxedPage title={props.title} html={props.html} height={props.height} />
+			<div class="absolute end-2 top-2 flex gap-1 opacity-0 transition-opacity duration-fast focus-within:opacity-100 group-hover/visual-frame:opacity-100 pointer-coarse:opacity-100">
+				<IconButton
+					size="sm"
+					variant="secondary"
+					label="Open full screen"
+					onClick={() => setFull(true)}
+				>
+					<UnfoldIcon />
+				</IconButton>
+			</div>
+			<Dialog
+				open={full()}
+				onClose={() => setFull(false)}
+				title={props.title}
+				width="min(72rem, 94vw)"
+			>
+				<Show when={full()}>
+					<SandboxedPage title={props.title} html={props.html} height={props.height} fill />
+				</Show>
+			</Dialog>
+		</div>
+	);
+}
+
+/**
+ * The page itself, in a sandboxed frame: scripts run, but on an opaque origin with no network, no
+ * storage of Grid's, no popups and no way to navigate the console. It grows to fit, or with `fill`
+ * takes the dialog's height.
+ */
+function SandboxedPage(props: {
+	title: string;
+	html: string;
+	height: number;
+	fill?: boolean;
+}): JSX.Element {
 	let frame: HTMLIFrameElement | undefined;
 	const [height, setHeight] = createSignal(props.height);
 	onSettled(() => {
@@ -1003,7 +1046,7 @@ export function VisualFrame(props: { title: string; html: string; height: number
 			referrerpolicy="no-referrer"
 			srcdoc={framedDocument(props.html, themeCss())}
 			class="w-full border-0"
-			style={{ height: `${height()}px` }}
+			style={{ height: props.fill ? "min(80dvh, 60rem)" : `${height()}px` }}
 		/>
 	);
 }

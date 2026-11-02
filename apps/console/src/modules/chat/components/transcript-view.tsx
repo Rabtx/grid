@@ -42,6 +42,7 @@ import {
 	TerminalIcon,
 	ThinkingLoader,
 	ToolIcon,
+	TurnFold,
 	TurnHeader,
 	UserMessage,
 	type VisualBlock,
@@ -252,6 +253,23 @@ function TurnView(props: {
 				: props.turn.user?.outcome === "error"
 					? ("failed" as const)
 					: undefined;
+	// A finished turn folds its work away under one line, as T3 Code's timeline does: what stays
+	// open is the reply and what the person must see (visuals, plans, changes, notices, steers,
+	// dividers). The work opens again from the fold.
+	const [unfolded, setUnfolded] = createSignal(false);
+	const reply = createMemo(() => {
+		for (let index = props.turn.rows.length - 1; index >= 0; index -= 1) {
+			const row = props.turn.rows[index];
+			if (row?.kind === "block" && row.block.kind === "assistant") return index;
+		}
+		return -1;
+	});
+	const keeps = (row: TranscriptRow) => row.kind === "block" && STAYS_OPEN.has(row.block.kind);
+	const foldable = createMemo(
+		() => !props.live && props.turn.rows.some((row, index) => index !== reply() && !keeps(row)),
+	);
+	const shown = (row: TranscriptRow, index: number) =>
+		!foldable() || unfolded() || index === reply() || keeps(row);
 	// Every turn the agent answered gets a header: its time (or how it ended) and what it did.
 	const header = () => {
 		if (!props.live && !props.turn.rows.length) return null;
@@ -298,11 +316,28 @@ function TurnView(props: {
 			</Show>
 			<Show when={header()}>
 				{(line) => (
-					<TurnHeader summary={line().summary} ended={ended()}>
-						<Show when={props.live} fallback={line().time}>
-							<ThinkingLoader phase={turnPhase(props.turn.rows)} elapsed={elapsed() ?? undefined} />
-						</Show>
-					</TurnHeader>
+					<Show
+						when={foldable()}
+						fallback={
+							<TurnHeader summary={line().summary} ended={ended()}>
+								<Show when={props.live} fallback={line().time}>
+									<ThinkingLoader
+										phase={turnPhase(props.turn.rows)}
+										elapsed={elapsed() ?? undefined}
+									/>
+								</Show>
+							</TurnHeader>
+						}
+					>
+						<TurnFold
+							label={line().time}
+							summary={line().summary}
+							ended={ended()}
+							time={props.turn.user?.endedAt ? relativeTime(props.turn.user.endedAt) : undefined}
+							expanded={unfolded()}
+							onToggle={() => setUnfolded((now) => !now)}
+						/>
+					</Show>
 				)}
 			</Show>
 			<Show when={props.people && props.turn.rows.length > 0 ? props.people : null}>
@@ -324,41 +359,44 @@ function TurnView(props: {
 				)}
 			</Show>
 			<For each={props.turn.rows} keyed={false}>
-				{(row) => (
-					<Switch>
-						<Match
-							when={row().kind === "work" && (row() as Extract<TranscriptRow, { kind: "work" }>)}
-						>
-							{(work) => <WorkGroup tools={work().tools} live={props.live} />}
-						</Match>
-						<Match
-							when={
-								row().kind === "background" &&
-								(row() as Extract<TranscriptRow, { kind: "background" }>)
-							}
-						>
-							{(background) => <BackgroundWork items={background().items} live={props.live} />}
-						</Match>
-						<Match
-							when={
-								row().kind === "block" && (row() as Extract<TranscriptRow, { kind: "block" }>).block
-							}
-						>
-							{(block) => (
-								<BlockView
-									block={block()}
-									people={props.people}
-									blocks={props.blocks}
-									running={props.running}
-									live={props.live}
-									onApprove={props.onApprove}
-									onRegenerate={props.onRegenerate}
-									onNote={props.onNote}
-									extras={props.extras}
-								/>
-							)}
-						</Match>
-					</Switch>
+				{(row, index) => (
+					<Show when={shown(row(), index)}>
+						<Switch>
+							<Match
+								when={row().kind === "work" && (row() as Extract<TranscriptRow, { kind: "work" }>)}
+							>
+								{(work) => <WorkGroup tools={work().tools} live={props.live} />}
+							</Match>
+							<Match
+								when={
+									row().kind === "background" &&
+									(row() as Extract<TranscriptRow, { kind: "background" }>)
+								}
+							>
+								{(background) => <BackgroundWork items={background().items} live={props.live} />}
+							</Match>
+							<Match
+								when={
+									row().kind === "block" &&
+									(row() as Extract<TranscriptRow, { kind: "block" }>).block
+								}
+							>
+								{(block) => (
+									<BlockView
+										block={block()}
+										people={props.people}
+										blocks={props.blocks}
+										running={props.running}
+										live={props.live}
+										onApprove={props.onApprove}
+										onRegenerate={props.onRegenerate}
+										onNote={props.onNote}
+										extras={props.extras}
+									/>
+								)}
+							</Match>
+						</Switch>
+					</Show>
 				)}
 			</For>
 		</section>
@@ -920,6 +958,23 @@ export function FileChange(props: { diff: FileDiff }): JSX.Element {
 		/>
 	);
 }
+
+/**
+ * What a folded turn keeps open beside its reply: what the person must see without asking, and
+ * the decisions they made (answered approvals and questions).
+ */
+const STAYS_OPEN: ReadonlySet<Block["kind"]> = new Set([
+	"approval",
+	"question",
+	"visual",
+	"plan",
+	"checkpoint",
+	"notice",
+	"steer",
+	"forked",
+	"merged",
+	"handoff",
+]);
 
 const running = (tool: ToolBlock) => tool.status === "running" || tool.status === "pending";
 

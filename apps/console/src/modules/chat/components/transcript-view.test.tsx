@@ -45,6 +45,12 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
+/** Open a finished turn's fold, which keeps its work out of sight. */
+function unfold(root: HTMLElement): void {
+	root.querySelector<HTMLButtonElement>("button[data-turn-fold]")?.click();
+	flush();
+}
+
 describe("TranscriptView - edit diffs", () => {
 	it("shows an edit's changed lines in colour with its counts", () => {
 		const blocks: Block[] = [
@@ -70,6 +76,7 @@ describe("TranscriptView - edit diffs", () => {
 			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
 		));
 		flush();
+		unfold(root);
 		// The call is one line with what it changed; opening it shows the diff.
 		const line = root.querySelector<HTMLElement>('[role="button"][aria-expanded]');
 		expect(line?.textContent).toContain("Edited app.ts");
@@ -346,6 +353,7 @@ describe("TranscriptView - Turns", () => {
 			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
 		));
 		flush();
+		unfold(root);
 		const activity = root.querySelector('section[aria-label="Activity"]');
 		const summary = activity?.querySelector<HTMLElement>('[role="button"]');
 		expect(summary?.textContent).toContain("Read 1 file and ran 1 command");
@@ -358,6 +366,37 @@ describe("TranscriptView - Turns", () => {
 		);
 		expect(lines.some((line) => line.includes("Read file-1.ts"))).toBe(true);
 		expect(lines.some((line) => line.includes("Ran bun test"))).toBe(true);
+	});
+
+	it("folds a finished turn's work under one line, leaving its reply open", () => {
+		const blocks: Block[] = [
+			{
+				kind: "user",
+				key: "b0",
+				text: "Look around",
+				startedAt: "2026-11-02T10:00:00.000Z",
+				endedAt: "2026-11-02T10:01:12.000Z",
+				outcome: "done",
+			},
+			{ kind: "reasoning", key: "r", text: "**Reading the layout**" },
+			tool(1),
+			tool(2, "execute"),
+			{ kind: "assistant", key: "a", text: "All good." },
+		];
+		const root = mount(() => (
+			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
+		));
+		flush();
+		const fold = root.querySelector<HTMLButtonElement>("button[data-turn-fold]");
+		expect(fold?.textContent).toContain("Worked for 1m 12s");
+		expect(fold?.getAttribute("aria-expanded")).toBe("false");
+		expect(root.textContent).toContain("All good.");
+		expect(root.querySelector('section[aria-label="Activity"]')).toBeNull();
+		expect(root.textContent).not.toContain("Reading the layout");
+		fold?.click();
+		flush();
+		expect(root.querySelector('section[aria-label="Activity"]')).not.toBeNull();
+		expect(root.textContent).toContain("Reading the layout");
 	});
 
 	it("shines the call under way in place of the summary while the turn works", () => {
@@ -385,6 +424,7 @@ describe("TranscriptView - Turns", () => {
 			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
 		));
 		flush();
+		unfold(root);
 		const first =
 			root.querySelector('section[aria-label="Activity"] [role="button"]')?.textContent ?? "";
 		expect(first).toContain("Changed 5 files and ran 2 commands");
@@ -654,7 +694,7 @@ describe("TranscriptView - rich replies", () => {
 					{ kind: "assistant", key: "b1", text: 'One moment\n```grid-visual\n{"title":' },
 					{ kind: "assistant", key: "b2", text: fence('{"title":"x","blocks":[{"type":"pie"}]}') },
 				]}
-				running={false}
+				running={true}
 				onApprove={() => {}}
 			/>
 		));

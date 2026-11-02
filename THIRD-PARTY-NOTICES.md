@@ -8,8 +8,10 @@ The transcript's minimap (`apps/console/src/kit/timeline-minimap.tsx`), work log
 (`apps/console/src/kit/work-log.tsx`) and its wording (`apps/console/src/modules/chat/lib/work-log.ts`)
 are ported from [T3 Code](https://github.com/pingdotgg/t3code), as are the composer's attached
 banners (`apps/console/src/kit/composer-banner.tsx`), the composer's toolbar styling
-(`apps/console/src/kit/prompt-box.tsx`) and the thread details card
-(`apps/console/src/kit/thread-details.tsx`).
+(`apps/console/src/kit/prompt-box.tsx`), the thread details card
+(`apps/console/src/kit/thread-details.tsx`), the turn fold (`TurnFold` in
+`apps/console/src/kit/run.tsx`) and the HTML page's full-screen action (`VisualFrame` in
+`apps/console/src/kit/visual.tsx`).
 
 ```
 MIT License
