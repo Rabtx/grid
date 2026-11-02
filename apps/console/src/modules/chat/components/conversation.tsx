@@ -1080,20 +1080,23 @@ export function Conversation(props: {
 					</div>
 				</div>
 				<TimelineMinimap scroller={() => scroller} />
+				{/* T3 Code's "Scroll to end": a pill centred over the end of the thread. */}
 				<Show when={!isPinned()}>
-					<Button
-						variant="secondary"
-						size="sm"
-						icon={<ChevronDownIcon size="sm" />}
-						onClick={() => {
-							setPinned(true);
-							scroller?.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
-						}}
-						class="absolute bottom-3 right-4 z-20 md:right-8"
-						aria-label="Scroll to latest messages"
-					>
-						Latest
-					</Button>
+					<div class="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center">
+						<Button
+							variant="secondary"
+							size="sm"
+							icon={<ChevronDownIcon size="sm" />}
+							onClick={() => {
+								setPinned(true);
+								scroller?.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+							}}
+							class="pointer-events-auto"
+							aria-label="Scroll to latest messages"
+						>
+							Scroll to end
+						</Button>
+					</div>
 				</Show>
 			</div>
 			<div class="shrink-0 px-3 pt-1 pb-safe md:px-6 md:pb-4">

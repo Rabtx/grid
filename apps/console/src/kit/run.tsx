@@ -1,7 +1,14 @@
 import type { JSX } from "@solidjs/web";
 import { createMemo, createSignal, For, Show } from "solid-js";
 
-import { AlertIcon, CheckIcon, ChevronDownIcon, CloseIcon, SpinnerIcon } from "./icons";
+import {
+	AlertIcon,
+	CheckIcon,
+	ChevronDownIcon,
+	ChevronRightIcon,
+	CloseIcon,
+	SpinnerIcon,
+} from "./icons";
 
 export type StepStatus = "running" | "done" | "error" | "waiting";
 
@@ -227,6 +234,59 @@ export function TurnHeader(props: {
 				<span class="min-w-0 truncate text-body text-fg-faint">{props.summary}</span>
 			</Show>
 		</p>
+	);
+}
+
+/**
+ * A finished turn's work folded away, after T3 Code's turn fold (MIT, © T3 Tools Inc.): one quiet
+ * line — "Worked for 1m 12s", what it did, a chevron — over a hairline, that opens to the calls,
+ * thoughts and subagents behind the reply. The reply itself stays open below it.
+ */
+export function TurnFold(props: {
+	/** "Worked for 1m 12s", "Stopped after 48s". */
+	label: string;
+	/** What the turn did, after its time: "8 steps · 3 files changed". */
+	summary?: string;
+	ended?: "stopped" | "failed";
+	/** When it ended, at the far right. */
+	time?: string;
+	expanded: boolean;
+	onToggle: () => void;
+}): JSX.Element {
+	return (
+		<div class="border-line border-b pt-1 pb-2">
+			<div class="flex min-w-0 items-center gap-1">
+				<button
+					type="button"
+					data-turn-fold
+					aria-expanded={props.expanded ? "true" : "false"}
+					onClick={() => props.onToggle()}
+					class="flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-kit px-1 text-body text-fg-subtle tabular-nums transition-colors duration-fast hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-inset pointer-coarse:min-h-10"
+				>
+					<span
+						class={
+							props.ended === "failed"
+								? "text-danger"
+								: props.ended === "stopped"
+									? "text-warning"
+									: undefined
+						}
+					>
+						{props.label}
+					</span>
+					<Show when={props.summary}>
+						<span class="min-w-0 truncate text-fg-faint">{props.summary}</span>
+					</Show>
+					<ChevronRightIcon
+						size="sm"
+						class={`shrink-0 transition-transform duration-base ${props.expanded ? "rotate-90" : ""}`}
+					/>
+				</button>
+				<Show when={props.time}>
+					<span class="ms-auto shrink-0 text-caption text-fg-faint tabular-nums">{props.time}</span>
+				</Show>
+			</div>
+		</div>
 	);
 }
 

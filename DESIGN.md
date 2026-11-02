@@ -219,6 +219,14 @@ pointer. It sits beside the thread from `xl` when the thread is not split; other
 details button opens it as a popover, a bottom sheet on phones. Sections with nothing to say are
 left out.
 
+**A finished turn folds its work away** (after T3 Code's turn fold, `TurnFold`): one quiet line
+over a hairline — "Worked for 1m 12s", what it did, a chevron, when it ended — opens to the calls,
+thoughts and subagents behind the reply. What stays open is the reply and what the person must
+see: visuals, plans, changed files, notices, steers, dividers, and the approvals and questions they
+answered. A live turn stays open. An agent's own HTML page is drawn bare at its height with "Open
+full screen" in its corner under the pointer; when the thread is scrolled up, a "Scroll to end"
+pill is centred over its end.
+
 ### Motion
 
 `duration-fast` 120ms (feedback), `duration-base` 160ms (disclosure, reorder), `duration-slow`
