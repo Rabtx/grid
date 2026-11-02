@@ -212,6 +212,13 @@ strips in the left gutter, one per message you sent, inked while on screen: poin
 the strip under the pointer with a fisheye and previews the message and its reply; clicking
 jumps there. It stays shown where the gutter is 48px or wider, and hides on touch.
 
+**A thread's details are one card** (after T3 Code's thread details card, `ThreadDetailsCard`):
+small labelled sections — Agent, Workspace, Changes, Usage, Related — divided by hairlines, each a
+few quiet 32px rows (an icon, what it is, its value on the right) that fill only under the
+pointer. It sits beside the thread from `xl` when the thread is not split; otherwise the header's
+details button opens it as a popover, a bottom sheet on phones. Sections with nothing to say are
+left out.
+
 ### Motion
 
 `duration-fast` 120ms (feedback), `duration-base` 160ms (disclosure, reorder), `duration-slow`
