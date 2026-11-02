@@ -668,6 +668,34 @@
 	.kit-composer-loader[data-active] .kit-composer-loader-band {
 		animation-play-state: running;
 	}
+	/*
+	 * The work log's line under way (ported from T3 Code's live-tool-shine): a band of ink sweeping
+	 * across words drawn in secondary ink, in steps so it costs little.
+	 */
+	@keyframes kit-live-shine {
+		from {
+			background-position:
+				-4.5rem 0,
+				0 0;
+		}
+		to {
+			background-position:
+				calc(100% + 4.5rem) 0,
+				0 0;
+		}
+	}
+	.kit-live-shine {
+		color: transparent;
+		background-image:
+			linear-gradient(to right, transparent, var(--kit-fg), transparent),
+			linear-gradient(var(--kit-fg-subtle), var(--kit-fg-subtle));
+		background-size:
+			4.5rem 100%,
+			100% 100%;
+		background-repeat: no-repeat;
+		background-clip: text;
+		animation: kit-live-shine 2.2s steps(30) infinite;
+	}
 	.kit-think-dot {
 		animation: kit-think-dot 1.2s ease-in-out infinite;
 		animation-delay: calc(var(--kit-dot, 0) * 110ms);
@@ -692,6 +720,11 @@
 		.kit-think-dot,
 		.kit-think-text {
 			animation: none;
+		}
+		.kit-live-shine {
+			animation: none;
+			background: none;
+			color: inherit;
 		}
 	}
 }

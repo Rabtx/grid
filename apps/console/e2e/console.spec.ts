@@ -133,7 +133,7 @@ test("links a project folder and starts a thread the agent answers", async () =>
 	threads.first = page.url().split("/").pop() ?? "";
 });
 
-test("draws the visual an agent writes into its reply, with the rail beside the thread", async () => {
+test("draws the visual an agent writes into its reply, with the minimap beside the thread", async () => {
 	await page.goto(`/acme/chat/demo/${threads.first}`);
 	await dismissTour(page);
 	// The thread's transcript is in before typing. A message sent within a few hundred
@@ -147,12 +147,11 @@ test("draws the visual an agent writes into its reply, with the rail beside the 
 	await expect(visual.getByText("Failures by cause")).toBeVisible();
 	// The fence's JSON is drawn, not shown.
 	await expect(page.getByText('"blocks"')).toHaveCount(0);
-	// One segment per turn on the message rail, named by its prompt.
+	// Each message is marked for the minimap with its prompt, and with two the ladder is drawn.
 	await expect(
-		page.locator(
-			'nav[aria-label="Messages"] button[data-tooltip="VISUAL? how are the builds doing"]',
-		),
+		page.locator('[data-minimap-mark][data-minimap-prompt="VISUAL? how are the builds doing"]'),
 	).toHaveCount(1);
+	await expect(page.getByRole("button", { name: /^Jump to message/ })).toHaveCount(1);
 });
 
 test("shows a thread's context and plan usage in the composer, and compacts it", async () => {

@@ -53,7 +53,7 @@ import {
 	IconButton,
 	LaptopIcon,
 	RoleMark,
-	MessageRail,
+	TimelineMinimap,
 	ThreadHeader,
 	notify,
 	type PopoverControl,
@@ -1076,7 +1076,7 @@ export function Conversation(props: {
 						/>
 					</div>
 				</div>
-				<MessageRail scroller={() => scroller} />
+				<TimelineMinimap scroller={() => scroller} />
 				<Show when={!isPinned()}>
 					<Button
 						variant="secondary"

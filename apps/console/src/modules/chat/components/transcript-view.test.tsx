@@ -70,6 +70,12 @@ describe("TranscriptView - edit diffs", () => {
 			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
 		));
 		flush();
+		// The call is one line with what it changed; opening it shows the diff.
+		const line = root.querySelector<HTMLElement>('[role="button"][aria-expanded]');
+		expect(line?.textContent).toContain("Edited app.ts");
+		expect(line?.textContent).toContain("+1");
+		line?.click();
+		flush();
 		expect(root.querySelector('tr[data-kind="add"]')?.textContent).toContain("const b = 3;");
 		expect(root.querySelector('tr[data-kind="del"]')?.textContent).toContain("const b = 2;");
 		expect(root.querySelector("figcaption")?.textContent).toContain("src/app.ts");
@@ -330,7 +336,7 @@ describe("TranscriptView - Turns", () => {
 		expect(phase()).toBe("Writing");
 	});
 
-	it("lists a few steps in an open card, one row each with what it touched", () => {
+	it("folds a run of calls into one summary line that opens to a line per call", () => {
 		const blocks: Block[] = [
 			{ kind: "user", key: "b0", text: "Look around" },
 			tool(1),
@@ -340,18 +346,35 @@ describe("TranscriptView - Turns", () => {
 			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
 		));
 		flush();
-		// The card's own line, then one per step.
-		const card = root.querySelector("details");
-		expect(card?.open).toBe(true);
-		const lines = [...root.querySelectorAll("details details summary")].map(
+		const activity = root.querySelector('section[aria-label="Activity"]');
+		const summary = activity?.querySelector<HTMLElement>('[role="button"]');
+		expect(summary?.textContent).toContain("Read 1 file and ran 1 command");
+		expect(summary?.getAttribute("aria-expanded")).toBe("false");
+		summary?.click();
+		flush();
+		expect(summary?.getAttribute("aria-expanded")).toBe("true");
+		const lines = [...(activity?.querySelectorAll(".flex.min-w-0.flex-col > div") ?? [])].map(
 			(line) => line.textContent ?? "",
 		);
-		expect(lines).toHaveLength(2);
-		expect(lines[0]).toContain("file-1.ts");
-		expect(lines[1]).toContain("Ran");
+		expect(lines.some((line) => line.includes("Read file-1.ts"))).toBe(true);
+		expect(lines.some((line) => line.includes("Ran bun test"))).toBe(true);
 	});
 
-	it("folds a long run into one counted line", () => {
+	it("shines the call under way in place of the summary while the turn works", () => {
+		const blocks: Block[] = [
+			{ kind: "user", key: "b0", text: "Test it" },
+			tool(1),
+			{ ...tool(2, "execute"), status: "running" } as Block,
+		];
+		const root = mount(() => (
+			<TranscriptView blocks={blocks} running={true} onApprove={() => {}} />
+		));
+		flush();
+		const live = root.querySelector('section[aria-label="Activity"] .kit-live-shine');
+		expect(live?.textContent).toBe("Running bun test");
+	});
+
+	it("sums up a long run by its two most telling kinds of work", () => {
 		const blocks: Block[] = [
 			{ kind: "user", key: "b0", text: "Refactor" },
 			...[1, 2, 3, 4, 5].map((n) => tool(n, "edit")),
@@ -362,8 +385,9 @@ describe("TranscriptView - Turns", () => {
 			<TranscriptView blocks={blocks} running={false} onApprove={() => {}} />
 		));
 		flush();
-		const first = root.querySelector("summary")?.textContent ?? "";
-		expect(first).toContain("7 steps, edited 5 files, ran 2 commands");
+		const first =
+			root.querySelector('section[aria-label="Activity"] [role="button"]')?.textContent ?? "";
+		expect(first).toContain("Changed 5 files and ran 2 commands");
 	});
 
 	it("names a failure as the agent stopping, in a card", () => {
@@ -663,7 +687,7 @@ describe("TranscriptView - rich replies", () => {
 		expect(onChoose).toHaveBeenCalledWith("Ship to production");
 	});
 
-	it("marks each turn for the message rail with its prompt", () => {
+	it("marks each message for the minimap with its prompt and the turn's final reply", () => {
 		const root = mount(() => (
 			<TranscriptView
 				blocks={[
@@ -675,8 +699,8 @@ describe("TranscriptView - rich replies", () => {
 			/>
 		));
 		flush();
-		const mark = root.querySelector("[data-rail-mark]");
-		expect(mark?.getAttribute("data-rail-mark")).toBe("user");
-		expect(mark?.getAttribute("data-rail-label")).toBe("Chart the build times");
+		const mark = root.querySelector("[data-minimap-mark]");
+		expect(mark?.getAttribute("data-minimap-prompt")).toBe("Chart the build times");
+		expect(mark?.getAttribute("data-minimap-reply")).toBe("Done");
 	});
 });

@@ -2,9 +2,11 @@ import type { JSX } from "@solidjs/web";
 
 import {
 	AgentLogo,
-	BackgroundList,
-	BackgroundRow,
-	Badge,
+	BotIcon,
+	WorkLogChevron,
+	WorkLogIcon,
+	WorkLogList,
+	WorkLogRow,
 	BoardIcon,
 	BranchIcon,
 	BrowserIcon,
@@ -15,13 +17,10 @@ import {
 	KeyboardIcon,
 	KeyRecorder,
 	ListIcon,
-	StepGlyph,
 	TurnHeader,
 	UsageRing,
 	UsageStrip,
 	UserIcon,
-	WorkCard,
-	WorkStep,
 	ChangedFilesRow,
 	ChatIcon,
 	CrewPanel,
@@ -75,53 +74,52 @@ export const TOUR_SLIDES: TourSlide[] = [
 			"Each thread has its own page and cookies, on the machine the thread runs on.",
 		],
 		preview: () => (
-			<WorkCard
-				open
-				glyphs={
-					<StepGlyph tone="accent">
-						<BrowserIcon />
-					</StepGlyph>
-				}
-				title="Checked the sign-in flow"
-				detail="4 steps"
-			>
-				<WorkStep
-					glyph={
-						<StepGlyph tone="accent">
-							<GlobeIcon />
-						</StepGlyph>
+			<div class="flex flex-col">
+				<WorkLogRow
+					expanded
+					icon={
+						<WorkLogIcon>
+							<BrowserIcon />
+						</WorkLogIcon>
 					}
-					verb="Opened"
-					target="localhost:3000/login"
+					label="Used browser 4 times"
+					trailing={<WorkLogChevron expanded />}
 				/>
-				<WorkStep
-					glyph={
-						<StepGlyph tone="neutral">
-							<EditIcon />
-						</StepGlyph>
-					}
-					verb="Typed into"
-					target="Email"
-				/>
-				<WorkStep
-					glyph={
-						<StepGlyph tone="neutral">
-							<ToolIcon />
-						</StepGlyph>
-					}
-					verb="Clicked"
-					target="Continue"
-				/>
-				<WorkStep
-					glyph={
-						<StepGlyph tone="neutral">
-							<ImageIcon />
-						</StepGlyph>
-					}
-					verb="Took"
-					target="a screenshot"
-				/>
-			</WorkCard>
+				<WorkLogList>
+					<WorkLogRow
+						icon={
+							<WorkLogIcon>
+								<GlobeIcon />
+							</WorkLogIcon>
+						}
+						label="Opened localhost:3000/login"
+					/>
+					<WorkLogRow
+						icon={
+							<WorkLogIcon>
+								<EditIcon />
+							</WorkLogIcon>
+						}
+						label="Typed into Email"
+					/>
+					<WorkLogRow
+						icon={
+							<WorkLogIcon>
+								<ToolIcon />
+							</WorkLogIcon>
+						}
+						label="Clicked Continue"
+					/>
+					<WorkLogRow
+						icon={
+							<WorkLogIcon>
+								<ImageIcon />
+							</WorkLogIcon>
+						}
+						label="Took a screenshot"
+					/>
+				</WorkLogList>
+			</div>
 		),
 	},
 	{
@@ -236,18 +234,25 @@ export const TOUR_SLIDES: TourSlide[] = [
 				<TurnHeader summary="6 steps · 2 files changed · 1 in the background" ended="stopped">
 					Stopped after 48s
 				</TurnHeader>
-				<BackgroundList label="1 in the background">
-					<BackgroundRow
-						glyph={
-							<StepGlyph tone="violet">
-								<ToolIcon />
-							</StepGlyph>
-						}
-						label="Explore the auth module"
-						detail="Explore · 9 steps · 31s"
-						status={<Badge tone="success">Done</Badge>}
-					/>
-				</BackgroundList>
+				<WorkLogRow
+					icon={
+						<WorkLogIcon>
+							<BotIcon />
+						</WorkLogIcon>
+					}
+					label={
+						<span class="flex min-w-0 items-baseline gap-1.5">
+							<span class="min-w-0 truncate">Explore the auth module</span>
+							<span class="shrink-0 text-fg-faint">Explore</span>
+						</span>
+					}
+					trailing={
+						<>
+							<span class="shrink-0 text-caption text-fg-faint tabular-nums">Done · 31s</span>
+							<WorkLogChevron expanded={false} />
+						</>
+					}
+				/>
 			</div>
 		),
 	},
