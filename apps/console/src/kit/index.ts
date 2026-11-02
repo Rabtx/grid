@@ -177,11 +177,7 @@ export {
 	StepGlyph,
 	type StepStatus,
 	type StepTone,
-	BackgroundList,
-	BackgroundRow,
 	TurnHeader,
-	WorkCard,
-	WorkStep,
 } from "./run";
 export { type EffortLevel, EffortSlider } from "./effort";
 export { type ArrivalOptions, playArrival } from "./arrival";
@@ -444,7 +440,19 @@ export {
 	ReconnectingNotice,
 	WaitingLine,
 } from "./notification";
-export { MessageRail, type MessageRailProps, RAIL_LABEL, RAIL_MARK } from "./message-rail";
+export {
+	LiveActivityRow,
+	WorkGroupHeader,
+	WorkLogChevron,
+	WorkLogDetails,
+	WorkLogFailedMark,
+	WorkLogIcon,
+	WorkLogList,
+	WorkLogOutput,
+	WorkLogRow,
+	type WorkLogTone,
+} from "./work-log";
+export { MINIMAP_MARK, MINIMAP_PROMPT, MINIMAP_REPLY, TimelineMinimap } from "./timeline-minimap";
 export {
 	type CrewMember,
 	CrewPanel,

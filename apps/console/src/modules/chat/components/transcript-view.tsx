@@ -1,62 +1,44 @@
 import type { JSX } from "@solidjs/web";
-import {
-	createEffect,
-	createMemo,
-	createSignal,
-	For,
-	Match,
-	Show,
-	Switch,
-	untrack,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, For, Match, Show, Switch } from "solid-js";
 
 import {
 	AgentHeader,
 	AgentLogo,
 	AgentMessage,
-	BackgroundList,
-	BackgroundRow,
-	Badge,
+	BotIcon,
+	BrainIcon,
 	BranchIcon,
 	Button,
 	ButtonLink,
 	ChangedFilesRow,
 	CheckIcon,
-	CloseIcon,
 	CodeChip,
 	CopyIcon,
 	DecisionCard,
 	DiffCard,
 	DiffStat,
-	Disclosure,
 	EditIcon,
-	FileIcon,
+	EyeIcon,
 	ForkDivider,
-	HandoffDivider,
-	MergedDivider,
-	iconButton,
 	GlobeIcon,
+	HandoffDivider,
 	IconButton,
-	IdeaIcon,
+	iconButton,
 	InlineNotice,
 	InlineVisual,
 	LinkButton,
+	LiveActivityRow,
 	Menu,
+	MergedDivider,
 	NoteAddIcon,
 	PlanList,
 	type PopoverControl,
-	Pre,
 	Prose,
 	QuestionCard,
 	RestoreIcon,
 	RunFailedCard,
 	SearchIcon,
 	Skeleton,
-	SpinnerIcon,
-	Stack,
-	StepGlyph,
-	type StepTone,
-	StopSquareIcon,
 	TerminalIcon,
 	ThinkingLoader,
 	ToolIcon,
@@ -64,8 +46,14 @@ import {
 	UserMessage,
 	type VisualBlock,
 	VisualFrame,
-	WorkCard,
-	WorkStep,
+	WorkGroupHeader,
+	WorkLogChevron,
+	WorkLogDetails,
+	WorkLogFailedMark,
+	WorkLogIcon,
+	WorkLogList,
+	WorkLogOutput,
+	WorkLogRow,
 } from "@/kit";
 import { splitReply, type Visual } from "@grid/visuals";
 
@@ -78,50 +66,48 @@ import { copyCodeFrom, renderMarkdown, threadLinkFrom } from "../lib/markdown";
 import {
 	type BackgroundItem,
 	type Block,
-	countWork,
 	formatDuration,
 	groupTurns,
 	messageSource,
 	type Row as TranscriptRow,
-	summariseTools,
-	toolFile,
 	type Turn,
 	turnPhase,
 	turnSummary,
 	turnTiming,
 } from "../lib/transcript";
-import type { ChatAttachment, FileDiff, ToolKind } from "../types/chat.types";
+import type { ChatAttachment, FileDiff } from "../types/chat.types";
+import {
+	liveWorkLabel,
+	summarizeWork,
+	thoughtLine,
+	type WorkAction,
+	workAction,
+	workKind,
+	workLabel,
+} from "../lib/work-log";
 import { MessageAttachments, type LoadAttachment } from "./message-attachments";
 
 type ToolBlock = Extract<Block, { kind: "tool" }>;
 
-const TOOL_ICONS: Record<ToolKind, () => JSX.Element> = {
-	read: () => <FileIcon size="sm" />,
-	edit: () => <EditIcon size="sm" />,
-	execute: () => <TerminalIcon size="sm" />,
-	search: () => <SearchIcon size="sm" />,
-	fetch: () => <GlobeIcon size="sm" />,
-	think: () => <IdeaIcon size="sm" />,
-	other: () => <ToolIcon size="sm" />,
+/** Each kind of work by its icon, as T3 Code's work log draws it. */
+const WORK_ICONS: Record<WorkAction | "mixed", () => JSX.Element> = {
+	read: () => <EyeIcon />,
+	edit: () => <EditIcon />,
+	command: () => <TerminalIcon />,
+	"code-search": () => <SearchIcon />,
+	web: () => <GlobeIcon />,
+	thought: () => <BrainIcon />,
+	other: () => <ToolIcon />,
+	mixed: () => <ToolIcon />,
 };
 
-/** How a call reads in the expanded list: a quiet verb, then what it acted on. */
-function toolParts(tool: ToolBlock): [verb: string, target: string] {
-	const file = toolFile(tool);
-	switch (tool.tool) {
-		case "read":
-			return ["Read", file ?? tool.title];
-		case "edit":
-			return ["Edited", file ?? tool.title];
-		case "execute":
-			return ["Ran", tool.title];
-		case "search":
-			return ["Find", tool.title];
-		case "fetch":
-			return ["Fetch", tool.title];
-		default:
-			return [tool.title, ""];
+/** The turn's last reply, which the minimap previews under the message. */
+function finalReply(turn: Turn): string | undefined {
+	for (let index = turn.rows.length - 1; index >= 0; index -= 1) {
+		const row = turn.rows[index];
+		if (row?.kind === "block" && row.block.kind === "assistant") return row.block.text;
 	}
+	return undefined;
 }
 
 /** What Regenerate sends again: the message's text and the ids of the files it came with. */
@@ -140,9 +126,6 @@ function findPrecedingUserPrompt(blocks: Block[], target: Block): UserPrompt | n
 	}
 	return null;
 }
-
-// A run of more tool calls than this folds into one counted line; fewer show one per line.
-const OPEN_STEPS = 3;
 
 /** Now, ticking each second while `active`: for a turn's running clock. */
 function useNow(active: () => boolean): () => number {
@@ -281,8 +264,9 @@ function TurnView(props: {
 	return (
 		<section
 			class="flex flex-col gap-3"
-			data-rail-mark={props.turn.user ? "user" : "agent"}
-			data-rail-label={props.turn.user?.text || "The agent's turn"}
+			data-minimap-mark={props.turn.user ? "" : undefined}
+			data-minimap-prompt={props.turn.user?.text}
+			data-minimap-reply={finalReply(props.turn)}
 		>
 			<Show when={props.turn.user}>
 				{(user) => (
@@ -436,11 +420,10 @@ function BlockView(props: {
 			</Match>
 			<Match when={props.block.kind === "reasoning" && props.block}>
 				{(block) => (
-					<Disclosure icon={<IdeaIcon size="sm" />} summary="Thinking" chevron>
-						<p class="mt-1.5 ml-2 whitespace-pre-wrap border-line border-l-2 pl-3 text-body text-fg-subtle">
-							{(block() as Extract<Block, { kind: "reasoning" }>).text}
-						</p>
-					</Disclosure>
+					<ThoughtRow
+						text={(block() as Extract<Block, { kind: "reasoning" }>).text}
+						live={props.live && props.blocks.at(-1)?.key === block().key}
+					/>
 				)}
 			</Match>
 			<Match
@@ -938,169 +921,164 @@ export function FileChange(props: { diff: FileDiff }): JSX.Element {
 	);
 }
 
-/** How each kind of step is drawn: its glyph and tint. */
-function stepLook(tool: ToolBlock): { tone: StepTone; glyph: () => JSX.Element; verb: string } {
-	const created =
-		tool.tool === "edit" &&
-		(tool.diffs ?? []).length > 0 &&
-		(tool.diffs ?? []).every((diff) => diff.removed === 0) &&
-		/^(write|create)/i.test(tool.title);
-	if (tool.status === "failed")
-		return { tone: "danger", glyph: () => <CloseIcon />, verb: toolParts(tool)[0] };
-	if (tool.interrupted)
-		return { tone: "neutral", glyph: () => <StopSquareIcon />, verb: toolParts(tool)[0] };
-	if (created) return { tone: "success", glyph: () => <NoteAddIcon />, verb: "Created" };
-	switch (tool.tool) {
-		case "edit":
-			return { tone: "accent", glyph: () => <EditIcon />, verb: "Edited" };
-		case "execute":
-			return { tone: "violet", glyph: () => <TerminalIcon />, verb: "Ran" };
-		case "fetch":
-			return { tone: "accent", glyph: () => <GlobeIcon />, verb: toolParts(tool)[0] };
-		default:
-			return { tone: "neutral", glyph: TOOL_ICONS[tool.tool], verb: toolParts(tool)[0] };
-	}
-}
-
-/** What a step reports on the right: lines changed, or a command's last line. */
-function stepFigure(tool: ToolBlock): JSX.Element | undefined {
-	const diffs = tool.diffs;
-	if (diffs?.length) {
-		const added = diffs.reduce((sum, diff) => sum + diff.added, 0);
-		const removed = diffs.reduce((sum, diff) => sum + diff.removed, 0);
-		return <DiffStat added={added} removed={removed} />;
-	}
-	if (tool.tool === "execute" && tool.output) {
-		const last = tool.output.trim().split("\n").at(-1) ?? "";
-		return last.length > 40 ? `${last.slice(0, 40)}…` : last;
-	}
-	return undefined;
-}
+const running = (tool: ToolBlock) => tool.status === "running" || tool.status === "pending";
 
 /**
- * A run of tool calls as one card (Figma "Worked for 1m 12s · 3 steps"): the kinds of step as small
- * tiles, the turn's time or a summary, and each step as a row that opens to its detail. A short run
- * is open; a long one is closed to its count. After it, the biggest change it made, as a diff.
+ * A run of tool calls as the work log draws it (after T3 Code): one summary line ("Read 3 files
+ * and ran 2 commands") that opens to a line per call. While the turn works, the call under way
+ * takes the summary's place, shining ("Running bun test"). A lone call is just its own line.
  */
 function WorkGroup(props: { tools: ToolBlock[]; live: boolean }): JSX.Element {
-	// A stopped or failed turn leaves its last tools "running" in the log: only a live turn spins.
-	const busy = () =>
-		props.live &&
-		props.tools.some((tool) => tool.status === "running" || tool.status === "pending");
-	const failed = () => props.tools.some((tool) => tool.status === "failed");
-	const interrupted = () => !props.live && props.tools.some((tool) => tool.interrupted);
-	// One glyph per kind of step, in the order they first happen, at most three.
-	const glyphs = () => {
-		const seen = new Map<StepTone, ToolBlock>();
-		for (const tool of props.tools) {
-			const look = stepLook(tool);
-			if (!seen.has(look.tone)) seen.set(look.tone, tool);
-		}
-		return [...seen.values()].slice(0, 3);
-	};
-	// The change worth seeing without opening anything: the edit that changed the most lines.
-	const highlight = () => {
-		if (busy()) return null;
-		// An edit to existing code says more than a new file, so it wins over a bigger new one.
-		const size = (diff: FileDiff) => diff.added + diff.removed + (diff.removed > 0 ? 10_000 : 0);
-		let best: FileDiff | null = null;
-		for (const tool of props.tools) {
-			for (const diff of tool.diffs ?? []) {
-				if (!best || size(diff) > size(best)) best = diff;
-			}
-		}
-		return best;
-	};
-	const steps = () => `${props.tools.length} step${props.tools.length === 1 ? "" : "s"}`;
+	const [open, setOpen] = createSignal(false);
+	// A stopped or failed turn leaves its last tools "running" in the log: only a live turn shines.
+	const current = () => (props.live ? props.tools.findLast(running) : undefined);
+	const summary = () => summarizeWork(props.tools);
 	return (
-		<>
-			<WorkCard
-				open={untrack(() => props.tools.length <= OPEN_STEPS)}
-				glyphs={
-					<Show
-						when={!busy()}
-						fallback={
-							<StepGlyph tone="neutral">
-								<SpinnerIcon class="animate-spin" />
-							</StepGlyph>
-						}
-					>
-						<For each={glyphs()}>
-							{(tool) => {
-								const look = stepLook(tool);
-								return <StepGlyph tone={look.tone}>{look.glyph()}</StepGlyph>;
-							}}
+		<Show
+			when={props.tools.length > 1}
+			fallback={
+				<Show when={props.tools[0]}>
+					{(tool) => (
+						<WorkLogList>
+							<WorkEntry tool={tool()} live={props.live} />
+						</WorkLogList>
+					)}
+				</Show>
+			}
+		>
+			<section aria-label="Activity" class="flex min-w-0 flex-col">
+				<Show
+					when={!open() && current()}
+					fallback={
+						<WorkGroupHeader
+							icon={WORK_ICONS[workKind(props.tools)]()}
+							label={summary().summary}
+							failed={summary().failed}
+							expanded={open()}
+							onToggle={() => setOpen((now) => !now)}
+						/>
+					}
+				>
+					{(tool) => (
+						<LiveActivityRow
+							icon={WORK_ICONS[workAction(tool())]()}
+							label={liveWorkLabel(tool())}
+							expanded={false}
+							onToggle={() => setOpen(true)}
+						/>
+					)}
+				</Show>
+				<Show when={open()}>
+					<WorkLogList>
+						<For each={props.tools} keyed={false}>
+							{(tool) => <WorkEntry tool={tool()} live={props.live} />}
 						</For>
-					</Show>
-				}
-				title={
-					busy()
-						? (props.tools.at(-1)?.title ?? "Working…")
-						: props.tools.some((tool) => tool.tool === "edit" || tool.tool === "execute")
-							? countWork(props.tools)
-							: summariseTools(props.tools)
-				}
-				detail={busy() ? steps() : undefined}
-				trailing={
-					<Show
-						when={failed()}
-						fallback={
-							<Show when={interrupted()}>
-								<Badge tone="warning">Interrupted</Badge>
-							</Show>
-						}
-					>
-						<Badge tone="danger">Failed</Badge>
-					</Show>
-				}
-			>
-				<For each={props.tools} keyed={false}>
-					{(tool) => <StepView tool={tool()} live={props.live} hide={highlight()} />}
-				</For>
-			</WorkCard>
-			<Show when={highlight()}>{(diff) => <FileChange diff={diff()} />}</Show>
-		</>
+					</WorkLogList>
+				</Show>
+			</section>
+		</Show>
 	);
 }
 
-function StepView(props: { tool: ToolBlock; live: boolean; hide: FileDiff | null }): JSX.Element {
-	const look = () => stepLook(props.tool);
-	// The change already shown under the card is not drawn again inside its step.
-	const diffs = () => (props.tool.diffs ?? []).filter((diff) => diff !== props.hide);
-	const hasDetail = () => Boolean(props.tool.input || props.tool.output || diffs().length);
+/** Lines a call added and removed, across the files it changed. */
+function changedLines(tool: ToolBlock): { added: number; removed: number } | null {
+	const diffs = tool.diffs;
+	if (!diffs?.length) return null;
+	return {
+		added: diffs.reduce((sum, diff) => sum + diff.added, 0),
+		removed: diffs.reduce((sum, diff) => sum + diff.removed, 0),
+	};
+}
+
+/**
+ * One call as a line: its icon, what it did ("Edited app.ts"), the lines it changed, and a
+ * chevron that opens it to its diff, input and output. A failed call fades its icon to red and
+ * ends with a cross; one its turn stopped says so.
+ */
+function WorkEntry(props: { tool: ToolBlock; live: boolean }): JSX.Element {
+	const [open, setOpen] = createSignal(false);
+	const live = () => props.live && running(props.tool);
+	const failed = () => props.tool.status === "failed";
+	const stopped = () => Boolean(props.tool.interrupted) && !props.live;
+	const hasDetail = () =>
+		Boolean(props.tool.input || props.tool.output || props.tool.diffs?.length);
+	const label = () => (live() ? liveWorkLabel(props.tool) : workLabel(props.tool));
 	return (
-		<WorkStep
-			glyph={
-				<Show
-					when={props.live && (props.tool.status === "running" || props.tool.status === "pending")}
-					fallback={<StepGlyph tone={look().tone}>{look().glyph()}</StepGlyph>}
+		<WorkLogRow
+			expanded={open()}
+			onToggle={hasDetail() ? () => setOpen((now) => !now) : undefined}
+			ariaLabel={failed() ? `${label()}, tool call failed` : undefined}
+			icon={
+				<WorkLogIcon
+					tone={failed() ? "failed" : "muted"}
+					label={failed() ? "Tool call failed" : undefined}
 				>
-					<StepGlyph tone="neutral">
-						<SpinnerIcon class="animate-spin" />
-					</StepGlyph>
-				</Show>
+					{WORK_ICONS[workAction(props.tool)]()}
+				</WorkLogIcon>
 			}
-			verb={look().verb}
-			failed={props.tool.status === "failed"}
-			target={toolParts(props.tool)[1]}
-			trailing={props.tool.interrupted && !props.live ? "Interrupted" : stepFigure(props.tool)}
+			label={<span class={live() ? "kit-live-shine" : undefined}>{label()}</span>}
+			trailing={
+				<>
+					<Show when={changedLines(props.tool)}>
+						{(lines) => <DiffStat added={lines().added} removed={lines().removed} />}
+					</Show>
+					<Show when={stopped()}>
+						<span class="shrink-0 text-caption text-fg-faint">Stopped</span>
+					</Show>
+					<Show when={failed()}>
+						<WorkLogFailedMark />
+					</Show>
+					<WorkLogChevron expanded={open()} hidden={!hasDetail()} />
+				</>
+			}
 		>
-			<Show when={hasDetail()}>
-				<Stack gap={1.5}>
+			<Show when={open()}>
+				<WorkLogDetails kind="panel">
 					<Show
-						when={!props.tool.diffs?.length}
-						fallback={<For each={diffs()}>{(diff) => <FileChange diff={diff} />}</For>}
+						when={props.tool.diffs?.length}
+						fallback={
+							<Show when={props.tool.input}>
+								<WorkLogOutput>{props.tool.input}</WorkLogOutput>
+							</Show>
+						}
 					>
-						<Show when={props.tool.input}>
-							<Pre tone="input">{props.tool.input}</Pre>
-						</Show>
+						<For each={props.tool.diffs}>{(diff) => <FileChange diff={diff} />}</For>
 					</Show>
 					<Show when={props.tool.output}>
-						<Pre tone="output">{props.tool.output}</Pre>
+						<WorkLogOutput>{props.tool.output}</WorkLogOutput>
 					</Show>
-				</Stack>
+				</WorkLogDetails>
 			</Show>
-		</WorkStep>
+		</WorkLogRow>
+	);
+}
+
+/**
+ * The agent's reasoning as a line: the thought's heading or first sentence, which opens to all
+ * of it. While it is still thinking, the line shines and the open text follows the newest words.
+ */
+function ThoughtRow(props: { text: string; live: boolean }): JSX.Element {
+	const [open, setOpen] = createSignal(false);
+	const line = () =>
+		open() ? (props.live ? "Thinking" : "Thought") : thoughtLine(props.text) || "Thought";
+	return (
+		<WorkLogRow
+			expanded={open()}
+			onToggle={() => setOpen((now) => !now)}
+			icon={
+				<WorkLogIcon>
+					<BrainIcon />
+				</WorkLogIcon>
+			}
+			label={<span class={props.live ? "kit-live-shine" : undefined}>{line()}</span>}
+			trailing={<WorkLogChevron expanded={open()} />}
+		>
+			<Show when={open()}>
+				<WorkLogDetails kind="text" followLive={props.live}>
+					<p class="whitespace-pre-wrap text-body text-fg-muted">{props.text}</p>
+				</WorkLogDetails>
+			</Show>
+		</WorkLogRow>
 	);
 }
 
@@ -1135,126 +1113,145 @@ export function ApprovalCard(props: {
 	);
 }
 
-const SUBAGENT_STATUS: Record<
-	Extract<Block, { kind: "subagent" }>["status"],
-	{ tone: "accent" | "success" | "danger" | "neutral"; label: string }
-> = {
-	running: { tone: "accent", label: "Running" },
-	completed: { tone: "success", label: "Done" },
-	failed: { tone: "danger", label: "Failed" },
-	cancelled: { tone: "neutral", label: "Stopped" },
-};
-
 type SubagentBlock = Extract<Block, { kind: "subagent" }>;
 
+const SUBAGENT_STATUS: Record<SubagentBlock["status"], { label: string; ink: string }> = {
+	running: { label: "Running", ink: "text-fg-subtle" },
+	completed: { label: "Done", ink: "text-fg-faint" },
+	failed: { label: "Failed", ink: "text-danger" },
+	cancelled: { label: "Stopped", ink: "text-fg-faint" },
+};
+
 /**
- * Work set going beside the agent's own, as compact rows under one caption: each subagent (what it
- * was asked, its steps, its report, once opened) and each command left running in the background.
+ * Work set going beside the agent's own, as lines of the work log: each subagent (what it was
+ * asked, its steps, its report, once opened) and each command left running in the background.
  */
 function BackgroundWork(props: { items: BackgroundItem[]; live: boolean }): JSX.Element {
-	const label = () => {
-		const running = props.items.filter((item) =>
-			item.kind === "subagent"
-				? item.status === "running"
-				: !item.interrupted && (item.status === "running" || item.status === "pending"),
-		).length;
-		const n = props.items.length;
-		const what = `${n} in the background`;
-		return props.live && running ? `${what} · ${running} running` : what;
-	};
 	return (
-		<BackgroundList label={label()}>
-			<For each={props.items} keyed={false}>
-				{(item) => (
-					<Show
-						when={item().kind === "subagent" && (item() as SubagentBlock)}
-						fallback={<BackgroundCommand tool={item() as ToolBlock} live={props.live} />}
-					>
-						{(agent) => <SubagentRow agent={agent()} live={props.live} />}
-					</Show>
-				)}
-			</For>
-		</BackgroundList>
+		<section aria-label="Background work" class="flex min-w-0 flex-col">
+			<WorkLogList>
+				<For each={props.items} keyed={false}>
+					{(item) => (
+						<Show
+							when={item().kind === "subagent" && (item() as SubagentBlock)}
+							fallback={<BackgroundCommand tool={item() as ToolBlock} live={props.live} />}
+						>
+							{(agent) => <SubagentRow agent={agent()} live={props.live} />}
+						</Show>
+					)}
+				</For>
+			</WorkLogList>
+		</section>
 	);
 }
 
-/** A subagent as one line, opening to its brief, its own steps and what it reported back. */
+/**
+ * A subagent as one line of the log: a bot, what it was sent to do, which agent runs it, and how
+ * it stands ("Running · Reading app.ts", "Done · 1m 12s"). It opens to its brief, its own steps
+ * and what it reported back.
+ */
 function SubagentRow(props: { agent: SubagentBlock; live: boolean }): JSX.Element {
+	const [open, setOpen] = createSignal(false);
 	const status = () => SUBAGENT_STATUS[props.agent.status];
 	const took = () => {
 		const start = props.agent.at ? Date.parse(props.agent.at) : null;
 		const end = props.agent.endedAt ? Date.parse(props.agent.endedAt) : null;
 		return start && end ? formatDuration(end - start) : null;
 	};
-	const steps = () =>
-		`${props.agent.tools.length} step${props.agent.tools.length === 1 ? "" : "s"}`;
-	const spinning = () => props.agent.status === "running" && props.live;
+	const working = () => props.agent.status === "running" && props.live;
+	const state = () =>
+		[status().label, working() ? props.agent.activity : took()].filter(Boolean).join(" · ");
+	const hasDetail = () =>
+		Boolean(props.agent.prompt || props.agent.tools.length || props.agent.result);
 	return (
 		<div data-subagent={props.agent.id}>
-			<BackgroundRow
-				glyph={
-					<StepGlyph tone="violet">
-						<Show when={spinning()} fallback={<ToolIcon />}>
-							<SpinnerIcon class="animate-spin" />
-						</Show>
-					</StepGlyph>
+			<WorkLogRow
+				expanded={open()}
+				onToggle={hasDetail() ? () => setOpen((now) => !now) : undefined}
+				ariaLabel={`Subagent: ${props.agent.title}, ${state()}`}
+				icon={
+					<WorkLogIcon tone={props.agent.status === "failed" ? "failed" : "muted"}>
+						<BotIcon />
+					</WorkLogIcon>
 				}
-				label={props.agent.title}
-				detail={[
-					props.agent.agent,
-					spinning() && props.agent.activity ? props.agent.activity : steps(),
-					took(),
-				]
-					.filter(Boolean)
-					.join(" · ")}
-				status={<Badge tone={status().tone}>{status().label}</Badge>}
+				label={
+					<span class="flex min-w-0 items-baseline gap-1.5">
+						<span class={`min-w-0 truncate ${working() ? "kit-live-shine" : ""}`}>
+							{props.agent.title}
+						</span>
+						<Show when={props.agent.agent}>
+							<span class="shrink-0 text-fg-faint">{props.agent.agent}</span>
+						</Show>
+					</span>
+				}
+				trailing={
+					<>
+						<span
+							class={`min-w-0 max-w-48 shrink truncate text-caption tabular-nums ${status().ink}`}
+						>
+							{state()}
+						</span>
+						<WorkLogChevron expanded={open()} hidden={!hasDetail()} />
+					</>
+				}
 			>
-				<Stack gap={2} class="py-2">
-					<Show when={props.agent.prompt}>
-						<Disclosure summary="Brief" chevron>
-							<p class="mt-1 whitespace-pre-wrap text-body text-fg-muted">{props.agent.prompt}</p>
-						</Disclosure>
-					</Show>
-					<Show when={props.agent.tools.length}>
-						<div class="flex flex-col">
-							<For each={props.agent.tools} keyed={false}>
-								{(tool) => <StepView tool={tool()} live={props.live} hide={null} />}
-							</For>
-						</div>
-					</Show>
-					<Show when={props.agent.result}>
-						<Prose html={renderMarkdown(props.agent.result ?? "")} />
-					</Show>
-				</Stack>
-			</BackgroundRow>
+				<Show when={open()}>
+					<WorkLogDetails kind="panel">
+						<Show when={props.agent.prompt}>
+							<p class="whitespace-pre-wrap text-body text-fg-muted">{props.agent.prompt}</p>
+						</Show>
+						<Show when={props.agent.tools.length}>
+							<WorkLogList>
+								<For each={props.agent.tools} keyed={false}>
+									{(tool) => <WorkEntry tool={tool()} live={props.live} />}
+								</For>
+							</WorkLogList>
+						</Show>
+						<Show when={props.agent.result}>
+							<Prose html={renderMarkdown(props.agent.result ?? "")} />
+						</Show>
+					</WorkLogDetails>
+				</Show>
+			</WorkLogRow>
 		</div>
 	);
 }
 
 /** A command the agent left running on its own, as one line opening to its output. */
 function BackgroundCommand(props: { tool: ToolBlock; live: boolean }): JSX.Element {
-	const state = (): { tone: "accent" | "success" | "danger" | "neutral"; label: string } => {
-		if (props.tool.status === "failed") return { tone: "danger", label: "Failed" };
-		if (props.tool.interrupted) return { tone: "neutral", label: "Stopped" };
-		if (props.tool.status === "completed") return { tone: "success", label: "Started" };
-		return { tone: "accent", label: props.live ? "Running" : "Started" };
+	const [open, setOpen] = createSignal(false);
+	const state = (): { label: string; ink: string } => {
+		if (props.tool.status === "failed") return { label: "Failed", ink: "text-danger" };
+		if (props.tool.interrupted) return { label: "Stopped", ink: "text-fg-faint" };
+		if (props.tool.status === "completed" || !props.live)
+			return { label: "Started in the background", ink: "text-fg-faint" };
+		return { label: "Running in the background", ink: "text-fg-subtle" };
 	};
+	const detail = () => props.tool.output ?? props.tool.input;
 	return (
-		<BackgroundRow
-			glyph={
-				<StepGlyph tone="violet">
+		<WorkLogRow
+			expanded={open()}
+			onToggle={detail() ? () => setOpen((now) => !now) : undefined}
+			icon={
+				<WorkLogIcon tone={props.tool.status === "failed" ? "failed" : "muted"}>
 					<TerminalIcon />
-				</StepGlyph>
+				</WorkLogIcon>
 			}
-			label={props.tool.title}
-			detail="Command"
-			status={<Badge tone={state().tone}>{state().label}</Badge>}
+			label={workLabel(props.tool)}
+			trailing={
+				<>
+					<span class={`shrink-0 text-caption ${state().ink}`}>{state().label}</span>
+					<WorkLogChevron expanded={open()} hidden={!detail()} />
+				</>
+			}
 		>
-			<Show when={props.tool.output || props.tool.input}>
-				<div class="py-2">
-					<Pre tone="output">{props.tool.output ?? props.tool.input}</Pre>
-				</div>
+			<Show when={open() && detail()}>
+				{(text) => (
+					<WorkLogDetails kind="panel">
+						<WorkLogOutput>{text()}</WorkLogOutput>
+					</WorkLogDetails>
+				)}
 			</Show>
-		</BackgroundRow>
+		</WorkLogRow>
 	);
 }

@@ -80,3 +80,6 @@ export { ChecklistIcon } from "./glyphs/checklist-icon";
 export { AtIcon } from "./glyphs/at-icon";
 export { KeyboardIcon } from "./glyphs/keyboard-icon";
 export { BrowserIcon } from "./glyphs/browser-icon";
+export { ChevronUpIcon } from "./glyphs/chevron-up-icon";
+export { BotIcon } from "./glyphs/bot-icon";
+export { BrainIcon } from "./glyphs/brain-icon";

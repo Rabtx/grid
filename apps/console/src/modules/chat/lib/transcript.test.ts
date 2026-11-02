@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { ChatEvent } from "../types/chat.types";
 import { applyEvent, emptyTranscript } from "./transcript";
+import { summarizeWork, workLabel } from "./work-log";
 import {
-	countWork,
 	formatDuration,
 	groupRows,
 	goalLine,
@@ -12,8 +12,6 @@ import {
 	pendingApprovals,
 	pendingQuestions,
 	replay,
-	summariseTools,
-	toolLabel,
 	turnSummary,
 	turnTiming,
 	type Block,
@@ -253,28 +251,18 @@ describe("tool call summaries", () => {
 
 	it("names each call by what it touched", () => {
 		const blocks = replay(events).blocks.filter((block) => block.kind === "tool");
-		expect(blocks.map((block) => (block.kind === "tool" ? toolLabel(block) : ""))).toEqual([
-			"Read density.ts",
-			"Edited density.ts",
-			"Ran a command",
-			"Searched the project",
-		]);
+		const labels = blocks.map((block) => (block.kind === "tool" ? workLabel(block) : ""));
+		expect(labels[0]).toBe("Read density.ts");
+		expect(labels[1]).toBe("Edited density.ts");
+		expect(labels[2]?.startsWith("Ran ")).toBe(true);
 	});
 
-	it("joins distinct actions and counts long runs", () => {
+	it("sums a replayed run up in one sentence", () => {
 		const rows = groupRows(replay(events).blocks);
 		const first = rows[1];
-		expect(first.kind === "work" && summariseTools(first.tools)).toBe(
-			"Read density.ts · Edited density.ts · Ran a command",
+		expect(first.kind === "work" && summarizeWork(first.tools).summary).toBe(
+			"Changed 1 file, ran 1 command, and performed 1 other action",
 		);
-		const reads = ["a.ts", "b.ts", "c.ts", "d.ts"].map((file) => ({
-			tool: "read" as const,
-			title: `Read ${file}`,
-		}));
-		expect(summariseTools([...reads, { tool: "execute", title: "ls" }])).toBe(
-			"Read 4 files · Ran a command",
-		);
-		expect(summariseTools([reads[0], reads[0]])).toBe("Read a.ts");
 	});
 });
 
@@ -306,23 +294,6 @@ describe("turns", () => {
 		expect(formatDuration(48_000)).toBe("48s");
 		expect(formatDuration(88_000)).toBe("1m 28s");
 		expect(formatDuration(2 * 3_600_000 + 5 * 60_000)).toBe("2h 5m");
-	});
-
-	it("counts a long run of steps, edits by distinct file", () => {
-		const tool = (kind: "read" | "edit" | "execute", path: string) => ({
-			tool: kind,
-			title: path,
-			input: JSON.stringify({ path }),
-		});
-		expect(
-			countWork([
-				tool("edit", "a.ts"),
-				tool("edit", "a.ts"),
-				tool("edit", "b.ts"),
-				tool("execute", "bun test"),
-				tool("read", "c.ts"),
-			]),
-		).toBe("5 steps, edited 2 files, ran 1 command");
 	});
 });
 

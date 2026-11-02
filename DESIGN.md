@@ -201,6 +201,17 @@ follows the corner style. A working turn's header is the `ThinkingLoader` (a 3×
 dot ripple and what the agent is doing now, in a moving gradient). Every other control keeps the
 keyboard-only `focus-ring`.
 
+**An agent's work is a quiet log, not cards** (after T3 Code's work log). Each call is a 24px
+line — a muted 16px icon, what it did in secondary ink ("Edited app.ts", "Ran bun test"), its
+changed lines, a chevron when it opens — and a run of calls folds into one sentence ("Read 3
+files and ran 2 commands") that opens to its lines. The call under way shines
+(`kit-live-shine`); a failed one fades its icon to red and ends with a cross. Thoughts,
+subagents (a bot, the task, "Done · 31s") and background commands are lines of the same log
+(`kit/work-log.tsx`). Beside the thread, the **minimap** (`TimelineMinimap`) is a ladder of 24px
+strips in the left gutter, one per message you sent, inked while on screen: pointing at it lifts
+the strip under the pointer with a fisheye and previews the message and its reply; clicking
+jumps there. It stays shown where the gutter is 48px or wider, and hides on touch.
+
 ### Motion
 
 `duration-fast` 120ms (feedback), `duration-base` 160ms (disclosure, reorder), `duration-slow`
