@@ -23,8 +23,7 @@ const BINARIES = new Map<string, string>([
 	["opencode", "opencode"],
 	["antigravity", "agy"],
 	["codex", "codex"],
-	["cursor", "agent"],
-	["gemini", "gemini"],
+	["cursor", "cursor-agent"],
 ]);
 
 export function agentBinary(id: string): string | null {
@@ -83,24 +82,15 @@ export function providerRegistry(
 	);
 	providers.set("antigravity", antigravityProvider({ binary: "agy", available: installed("agy") }));
 	providers.set("codex", codexProvider({ binary: "codex", available: installed("codex") }));
-	// Cursor's CLI (`agent`, signed in with `agent login`) serves ACP itself (cursor.com/docs/cli/acp).
+	// Cursor's CLI serves ACP itself (cursor.com/docs/cli/acp). Its installer links it as both
+	// `agent` and `cursor-agent`; the second is the one no other tool claims.
 	providers.set(
 		"cursor",
 		acpProvider({
 			id: "cursor",
 			name: "Cursor",
-			command: ["agent", "acp"],
-			available: installed("agent"),
-		}),
-	);
-	// Gemini CLI, signed in with a Google account (`gemini`), over its ACP mode.
-	providers.set(
-		"gemini",
-		acpProvider({
-			id: "gemini",
-			name: "Gemini CLI",
-			command: ["gemini", "--acp"],
-			available: installed("gemini"),
+			command: ["cursor-agent", "acp"],
+			available: installed("cursor-agent"),
 		}),
 	);
 	for (const agent of extraAgents(env.RUNNER_ACP_AGENTS)) addAcpAgent(providers, agent);

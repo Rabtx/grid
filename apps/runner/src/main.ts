@@ -112,8 +112,8 @@ const threadSync = runnerKey
 threadSync?.start();
 const skills = new SkillStore(join(dirname(config.chatDb), "skills"));
 chat.setSkills((workspace, project) => skills.instructions(workspace, project));
-chat.setDescribe(async (id, installed) => ({
-	version: installed ? await agentVersion(agentBinary(id)) : null,
+chat.setDescribe(async (id, installed, fresh) => ({
+	version: installed ? await agentVersion(agentBinary(id), fresh) : null,
 	custom: acpAgents.list().some((agent) => agent.id === id),
 }));
 // This machine's runner settings: how many agents work at once, and staying awake while they do.

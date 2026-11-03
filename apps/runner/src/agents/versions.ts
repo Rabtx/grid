@@ -12,10 +12,10 @@ export function parseVersion(output: string): string | null {
 }
 
 /** An installed agent's version (`<binary> --version`), kept a while; null when it will not say. */
-export async function agentVersion(binary: string | null): Promise<string | null> {
+export async function agentVersion(binary: string | null, fresh = false): Promise<string | null> {
 	if (!binary) return null;
 	const kept = known.get(binary);
-	if (kept && kept.until > Date.now()) return kept.version;
+	if (!fresh && kept && kept.until > Date.now()) return kept.version;
 	let version: string | null = null;
 	try {
 		version = parseVersion(await runCli([binary, "--version"], 5_000));

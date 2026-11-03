@@ -152,6 +152,7 @@ export function AgentsScreen(): JSX.Element {
 		);
 		const parts = [
 			shell.desktop() ? provider.version : null,
+			provider.setup?.account ?? null,
 			model ? (shell.desktop() ? `default model ${model.name}` : model.name) : null,
 			provider.settings?.enabled === false ? "hidden from new threads" : null,
 		].filter(Boolean);
@@ -409,16 +410,12 @@ function AgentSheet(props: {
 				),
 			"Could not save",
 		);
-	async function signIn(): Promise<void> {
+	/** Sign in or update: the agent's own command, in a terminal on the machine. */
+	async function openSetup(step: "sign-in" | "update"): Promise<void> {
 		const token = auth.token();
 		if (!token) return;
 		try {
-			const terminal = await chatService.setupProvider(
-				token,
-				props.provider.id,
-				"sign-in",
-				props.scope,
-			);
+			const terminal = await chatService.setupProvider(token, props.provider.id, step, props.scope);
 			navigate(`/terminal/${terminal.id}`);
 		} catch (cause) {
 			setError(reason(cause, "Could not open a terminal for that"));
@@ -498,15 +495,37 @@ function AgentSheet(props: {
 					<Show when={props.provider.setup?.canSignIn}>
 						<SettingsRow
 							inline
-							label={props.provider.setup?.signedIn ? "Signed in" : "Not signed in"}
-							description="Uses your own account with the agent's vendor"
+							label={
+								props.provider.setup?.signedIn
+									? "Signed in"
+									: props.provider.setup?.signedIn === false
+										? "Not signed in"
+										: "Account"
+							}
+							description={
+								props.provider.setup?.account
+									? `As ${props.provider.setup.account}`
+									: "Uses your own account with the agent's vendor"
+							}
 						>
 							{/* Signing in runs the agent's own login in a terminal on the machine. */}
 							<Show when={terminals()}>
-								<Button size="sm" onClick={() => void signIn()}>
+								<Button size="sm" onClick={() => void openSetup("sign-in")}>
 									{props.provider.setup?.signedIn ? "Sign in again" : "Sign in"}
 								</Button>
 							</Show>
+						</SettingsRow>
+					</Show>
+					<Show when={props.provider.setup?.canUpdate && terminals()}>
+						<SettingsRow
+							inline
+							label="Version"
+							description={`${props.provider.version ?? "Unknown version"} · refresh after updating`}
+						>
+							{/* The agent's own updater, in a terminal on the machine. */}
+							<Button size="sm" onClick={() => void openSetup("update")}>
+								Update
+							</Button>
 						</SettingsRow>
 					</Show>
 					<AccountRows provider={props.provider} scope={props.scope} />

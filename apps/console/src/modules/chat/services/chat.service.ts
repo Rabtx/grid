@@ -476,7 +476,7 @@ export const chatService = {
 	/** A terminal running the agent's own sign-in for that account. */
 	signInAccount: (token: string, id: string, scope = "") =>
 		call<TerminalInfo>(`/chat/accounts/${id}/sign-in`, token, { method: "POST" }, scope),
-	setupProvider: (token: string, id: string, step: "install" | "sign-in", scope = "") =>
+	setupProvider: (token: string, id: string, step: "install" | "sign-in" | "update", scope = "") =>
 		call<TerminalInfo>(
 			`/chat/providers/${id}/setup`,
 			token,

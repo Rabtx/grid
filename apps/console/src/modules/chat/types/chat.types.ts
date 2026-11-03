@@ -338,12 +338,16 @@ export type ChatProvider = {
 	/** When the model list was last asked of the agent; null when it never answered. */
 	refreshedAt?: string | null;
 	settings?: ProviderSettings;
-	/** Whether Grid can install or sign it in on its machine, and whether it is signed in. */
+	/** Whether Grid can install, sign in or update it on its machine, and who is signed in. */
 	setup?: {
 		canInstall: boolean;
 		canSignIn: boolean;
+		/** Older runners leave it out. */
+		canUpdate?: boolean;
 		signInOptional: boolean;
 		signedIn: boolean | null;
+		/** Who it is signed in as (an email, a plan, its providers), when the agent says. */
+		account?: string | null;
 		docs: string | null;
 	};
 	/** Its version, when it says (`v2.1.4`). */

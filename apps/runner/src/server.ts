@@ -689,19 +689,23 @@ export function startServer(
 					});
 				}
 
-				// Install or sign in an agent: a terminal here, running the agent's own command.
+				// Install, sign in or update an agent: a terminal here, running the agent's own command.
 				const setup = url.pathname.match(/^\/chat\/providers\/([\w-]+)\/setup$/);
 				if (setup && request.method === "POST") {
 					const who = await whoFrom(request, "Sign in to set up agents");
 					if (who instanceof Response) return who;
 					if (!mayUseTerminals(who)) return error(403, NOT_ALLOWED);
 					const body = (await request.json().catch(() => ({}))) as { step?: unknown };
-					const step = body.step === "install" || body.step === "sign-in" ? body.step : null;
+					const step =
+						body.step === "install" || body.step === "sign-in" || body.step === "update"
+							? body.step
+							: null;
 					const command = step ? setupCommand(setup[1], step) : null;
 					if (!step || !command) return error(404, "Grid cannot do that for this agent");
+					const verb = { install: "Install", "sign-in": "Sign in", update: "Update" }[step];
 					const info = store.open(who.userId, { cols: 100, rows: 30 }, undefined, {
 						command,
-						title: `${step === "install" ? "Install" : "Sign in"} ${setup[1]}`,
+						title: `${verb} ${setup[1]}`,
 					});
 					if (!info) return error(429, "Close a terminal before opening another");
 					return Response.json({ data: info }, { status: 201 });

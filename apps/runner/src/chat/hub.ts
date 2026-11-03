@@ -47,7 +47,7 @@ import {
 	type Provider,
 	type ProviderInfo,
 } from "../agents/provider";
-import { AGENT_SETUP } from "../agents/setup";
+import { AGENT_SETUP, agentStatus } from "../agents/setup";
 import type { Who } from "../auth";
 import { isAdmin, may, NOT_ALLOWED } from "../permissions";
 import { insideProjectsDir } from "../folders/folders";
@@ -250,13 +250,16 @@ export type ToolAnswer = string | { text: string; image?: { data: string; mimeTy
 /** How a message is sent: as usual, or while the agent works, delivered into its turn. */
 export type Delivery = "send" | "steer";
 
-/** Whether Grid can install and sign in an agent here, and whether it is signed in. */
+/** Whether Grid can install, sign in and update an agent here, and who is signed in. */
 export type ProviderSetup = {
 	canInstall: boolean;
 	canSignIn: boolean;
+	canUpdate: boolean;
 	signInOptional: boolean;
 	/** Null when not installed, or when the agent gives no way to tell. */
 	signedIn: boolean | null;
+	/** Who it is signed in as (an email, a plan, its providers), when the agent says. */
+	account: string | null;
 	docs: string | null;
 };
 
@@ -275,6 +278,8 @@ export type ProviderListing = ProviderInfo & {
 export type DescribeAgent = (
 	id: string,
 	installed: boolean,
+	/** Ask again rather than trust what was kept (after an update, say). */
+	fresh?: boolean,
 ) => Promise<{ version: string | null; custom: boolean }>;
 
 function merge(
@@ -320,13 +325,16 @@ export class ChatError extends Error {
 	}
 }
 
-async function setupOf(id: string, available: boolean): Promise<ProviderSetup> {
+async function setupOf(id: string, available: boolean, fresh = false): Promise<ProviderSetup> {
 	const setup = AGENT_SETUP[id];
+	const status = available ? await agentStatus(id, fresh) : { signedIn: null };
 	return {
 		canInstall: !available && Boolean(setup?.install),
 		canSignIn: available && Boolean(setup?.signIn),
+		canUpdate: available && Boolean(setup?.update),
 		signInOptional: setup?.signInOptional === true,
-		signedIn: available && setup?.signedIn ? await setup.signedIn().catch(() => null) : null,
+		signedIn: status.signedIn,
+		account: status.account ?? null,
 		docs: setup?.docs ?? null,
 	};
 }
@@ -779,8 +787,9 @@ export class ChatHub {
 		const info = await this.providerInfo(id, true);
 		return {
 			...info,
+			...(await this.describe(id, info.available, true)),
 			settings: this.store.providerSettings(ownerId)[id] ?? {},
-			setup: await setupOf(id, info.available),
+			setup: await setupOf(id, info.available, true),
 		};
 	}
 
