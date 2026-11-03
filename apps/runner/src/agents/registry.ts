@@ -3,6 +3,7 @@ import { antigravityProvider } from "./antigravity";
 import { claudeProvider } from "./claude";
 import { codexProvider } from "./codex";
 import { opencodeCatalogFrom } from "./opencode";
+import { opencodeServiceProvider } from "./opencode-service";
 import type { Provider } from "./provider";
 import { spawnJsonProcess } from "./stdio";
 
@@ -22,6 +23,8 @@ const BINARIES = new Map<string, string>([
 	["opencode", "opencode"],
 	["antigravity", "agy"],
 	["codex", "codex"],
+	["cursor", "agent"],
+	["gemini", "gemini"],
 ]);
 
 export function agentBinary(id: string): string | null {
@@ -64,18 +67,42 @@ export function providerRegistry(
 ): Map<string, Provider> {
 	const providers = new Map<string, Provider>();
 	providers.set("claude", claudeProvider({ binary: "claude", available: installed("claude") }));
+	// opencode 2 runs through its own background service; opencode 1 (and a sandbox) over ACP.
 	providers.set(
 		"opencode",
-		acpProvider({
-			id: "opencode",
-			name: "opencode",
-			command: ["opencode", "acp"],
+		opencodeServiceProvider({
 			available: installed("opencode"),
-			catalog: opencodeCatalogFrom(() => probeCatalog(["opencode", "acp"], spawnJsonProcess)),
+			fallback: acpProvider({
+				id: "opencode",
+				name: "opencode",
+				command: ["opencode", "acp"],
+				available: installed("opencode"),
+				catalog: opencodeCatalogFrom(() => probeCatalog(["opencode", "acp"], spawnJsonProcess)),
+			}),
 		}),
 	);
 	providers.set("antigravity", antigravityProvider({ binary: "agy", available: installed("agy") }));
 	providers.set("codex", codexProvider({ binary: "codex", available: installed("codex") }));
+	// Cursor's CLI (`agent`, signed in with `agent login`) serves ACP itself (cursor.com/docs/cli/acp).
+	providers.set(
+		"cursor",
+		acpProvider({
+			id: "cursor",
+			name: "Cursor",
+			command: ["agent", "acp"],
+			available: installed("agent"),
+		}),
+	);
+	// Gemini CLI, signed in with a Google account (`gemini`), over its ACP mode.
+	providers.set(
+		"gemini",
+		acpProvider({
+			id: "gemini",
+			name: "Gemini CLI",
+			command: ["gemini", "--acp"],
+			available: installed("gemini"),
+		}),
+	);
 	for (const agent of extraAgents(env.RUNNER_ACP_AGENTS)) addAcpAgent(providers, agent);
 	return providers;
 }
