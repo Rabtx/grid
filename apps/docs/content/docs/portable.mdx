@@ -112,6 +112,24 @@ In a Codespace, projects live under `/workspaces`, next to the checked-out repos
 the agent CLIs you want Grid to drive (Claude Code, Codex, opencode…) in the Codespace's terminal
 and sign them in there; the runner finds them on `PATH`.
 
+## The agents Grid drives
+
+The runner finds each agent on `PATH`, so installing one needs no restart. Sign it in once in a
+Grid terminal.
+
+| Agent | Command on `PATH` | How Grid drives it |
+|---|---|---|
+| Claude Code | `claude` | Its own protocol |
+| Codex | `codex` | `codex app-server` |
+| opencode 2 | `opencode` | opencode's background service (`opencode serve --service`), shared by every thread, through `@opencode/client` |
+| opencode 1 | `opencode` | `opencode acp` (also used for sandboxed threads, or if the service cannot start) |
+| Antigravity | `agy` | Its own CLI |
+| Cursor | `agent` (`agent login`) | `agent acp` |
+| Gemini CLI | `gemini` | `gemini --acp` |
+
+Any other ACP agent can be added in **Settings → Agents → Add ACP agent**, or with
+`RUNNER_ACP_AGENTS`. Move opencode 1 to 2 with `opencode upgrade --major`.
+
 ## Environments: one Grid driving another
 
 Any Grid can pair with another machine running Grid (a Codespace, a VPS, a second laptop) and

@@ -5,7 +5,7 @@ type: feature
 from: human
 to: backend
 priority: high
-status: doing
+status: done
 assignee: backend
 reviewer: none
 parent: none
@@ -69,4 +69,18 @@ the Grid VPS, tests cover event mapping, fallback and model parsing; runner chec
 
 ## Resolution
 
-<Filled when moved to done/.>
+Landed on `ccr-78b19f86-o8youq`, merged to `main` at the human's request:
+
+- `fix(runner)` (2a8660b, b957501): opencode 2's model list (plain list, then ACP probe with names).
+- `feat(runner)` (8a9ef8f): `apps/runner/src/agents/opencode-service.ts` drives opencode 2 through
+  its background service with `@opencode/client` 2.2.5; ACP stays for opencode 1, sandboxes and an
+  unreachable service. Cursor (`agent acp`) and Gemini CLI (`gemini --acp`, 0.66 flag) built in.
+- Docs: `/docs/portable#the-agents-grid-drives`.
+
+Validation: `bun test` in apps/runner (opencode-service 15 tests, catalogs), runner typecheck and
+oxlint green via pre-commit. Live on the Grid VPS (opencode v2.2.5): catalog 40 models + build/plan
+modes from the service; a turn returned `done` with text and usage; a bash tool call streamed
+pending → running → completed; one shared `opencode serve --service` (~326 MB).
+
+Not live-tested: Cursor and Gemini CLI (need the person's sign-in); approvals and forms are covered
+by unit tests only.
