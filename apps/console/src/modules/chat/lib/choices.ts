@@ -114,6 +114,56 @@ export function modelBlurb(choice: Choice): string | undefined {
 	return rest || undefined;
 }
 
+/** How people know a model provider, from the id an agent groups it by ("github-copilot"). */
+const PROVIDER_NAMES: Record<string, string> = {
+	opencode: "OpenCode Zen",
+	"github-copilot": "GitHub Copilot",
+	openrouter: "OpenRouter",
+	openai: "OpenAI",
+	anthropic: "Anthropic",
+	google: "Google",
+	xai: "xAI",
+	deepseek: "DeepSeek",
+	mistral: "Mistral",
+	groq: "Groq",
+	ollama: "Ollama",
+	"amazon-bedrock": "Amazon Bedrock",
+	azure: "Azure",
+	vertex: "Vertex AI",
+};
+
+/** A model group's heading: a known provider's name, else the id in words ("my-lab" → "My lab"). */
+export function providerLabel(group: string): string {
+	if (!group) return group;
+	const known = PROVIDER_NAMES[group.toLowerCase()];
+	if (known) return known;
+	if (/[A-Z ]/.test(group)) return group;
+	const words = group.replace(/[-_]+/g, " ").trim();
+	return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * What a picker row shows beside a model's name, from its blurb ("free · 200K context · Fast"):
+ * whether it is free, its context size ("200K"), and whatever else it says.
+ */
+export function modelFacts(choice: Choice): {
+	free: boolean;
+	context: string | null;
+	note: string | null;
+} {
+	let free = false;
+	let context: string | null = null;
+	const rest: string[] = [];
+	for (const part of (modelBlurb(choice) ?? "").split("·").map((item) => item.trim())) {
+		if (!part) continue;
+		const size = /^(\d+(?:\.\d+)?\s*[KM])\s+context$/i.exec(part);
+		if (/^free$/i.test(part)) free = true;
+		else if (size) context = size[1].replace(/\s+/g, "");
+		else rest.push(part);
+	}
+	return { free, context, note: rest.join(" · ") || null };
+}
+
 /**
  * An agent's "Default" model and the model it currently resolves to are one choice: the list
  * keeps the default (under the model's own name, marked as the default) and drops the duplicate.

@@ -212,6 +212,16 @@ strips in the left gutter, one per message you sent, inked while on screen: poin
 the strip under the pointer with a fisheye and previews the message and its reply; clicking
 jumps there. It stays shown where the gutter is 48px or wider, and hides on touch.
 
+**The model picker is a list, not cards** (`ModelPicker`, shown on `/design`). The agent, while it
+can still change, is a row of named chips across the top (logo and name; a warning dot when it
+needs signing in). Under it the search is a line of its own over a hairline, not a box. Each model
+is one `h-row` line: a star slot at the start (a favourite's star stays, others show on hover), the
+name in full ink, any note in secondary ink, and on the right what tells models apart — a success
+`Badge` when it is free, its context size in faint tabular figures — and the accent check on the
+chosen one, which is also filled with `bg-selection`. A long list groups models under their
+providers' names ("GitHub Copilot", never the id) with a count, pinned while it scrolls. The
+reasoning effort sits along the bottom over a hairline.
+
 **A thread's details are one card** (after T3 Code's thread details card, `ThreadDetailsCard`):
 small labelled sections — Agent, Workspace, Changes, Usage, Related — divided by hairlines, each a
 few quiet 32px rows (an icon, what it is, its value on the right) that fill only under the

@@ -181,7 +181,7 @@ const AGENT_LOGOS: Record<string, string> = {
 
 /**
  * An agent by its own logo where Grid has it (Claude Code, Codex, opencode, Gemini,
- * Antigravity), and by its initial otherwise. Claude Code, opencode and Gemini are drawn inline
+ * Antigravity, and simple marks for Cursor and Grok), and by its initial otherwise. Claude Code, opencode and Gemini are drawn inline
  * so they follow the theme.
  */
 export function AgentLogo(props: { id: string; name: string; class?: string }): JSX.Element {
@@ -219,6 +219,24 @@ export function AgentLogo(props: { id: string; name: string; class?: string }): 
 			<Match when={props.id === "opencode"}>
 				<svg viewBox="0 0 24 24" aria-hidden="true" class={`shrink-0 ${size()}`}>
 					<path fill-rule="evenodd" d="M16 6H8V18H16V6ZM20 22H4V2H20V22Z" class="fill-fg" />
+				</svg>
+			</Match>
+			<Match when={props.id === "cursor"}>
+				{/* Cursor's cube, drawn in ink. */}
+				<svg viewBox="0 0 24 24" aria-hidden="true" class={`shrink-0 ${size()}`}>
+					<path
+						d="M12 2 21 7v10l-9 5-9-5V7l9-5Zm0 2.3L5.1 8.1 12 12l6.9-3.9L12 4.3ZM5 9.8v6.1l6 3.4v-6.1L5 9.8Z"
+						class="fill-fg"
+					/>
+				</svg>
+			</Match>
+			<Match when={props.id === "grok"}>
+				{/* Grok's slashed ring, drawn in ink. */}
+				<svg viewBox="0 0 24 24" aria-hidden="true" class={`shrink-0 ${size()}`}>
+					<path
+						d="M12 3a9 9 0 0 1 6.9 14.8l-1.5-1.3A7 7 0 0 0 7.1 6.9L5.6 5.5A9 9 0 0 1 12 3ZM4.4 7.2l1.5 1.3a7 7 0 0 0 10 9.4l1.4 1.5A9 9 0 0 1 4.4 7.2ZM19.3 3.3l1.4 1.4L4.7 20.7l-1.4-1.4L19.3 3.3Z"
+						class="fill-fg"
+					/>
 				</svg>
 			</Match>
 			<Match when={file()}>

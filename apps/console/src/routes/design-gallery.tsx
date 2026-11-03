@@ -15,6 +15,7 @@ import {
 	AgentTurnsSection,
 	FeedbackSection,
 	FormsSection,
+	ModelPickerSection,
 	WorkSection,
 } from "./design/more-sections";
 import {
@@ -151,6 +152,9 @@ export function DesignGallery(): JSX.Element {
 				</Section>
 				<Section title="Feedback">
 					<FeedbackSection />
+				</Section>
+				<Section title="Model picker">
+					<ModelPickerSection />
 				</Section>
 				<Section title="Forms and settings">
 					<FormsSection />

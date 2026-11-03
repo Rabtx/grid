@@ -67,6 +67,7 @@ import {
 	EffortSlider,
 	playArrival,
 } from "@/kit";
+import { type ChatProvider, type Choice, ModelPicker } from "@/modules/chat";
 import { TOUR_SLIDES } from "@/modules/tour/content";
 
 function Specimen(props: { label: string; children: JSX.Element; class?: string }): JSX.Element {
@@ -651,6 +652,91 @@ export function WorkSection(): JSX.Element {
 						time="1d"
 					/>
 				</ListCard>
+			</Specimen>
+		</div>
+	);
+}
+
+/* ── Model picker ─────────────────────────────────────────────────────────────────────────── */
+
+const EFFORTS: Choice[] = [
+	{ id: "low", name: "Low" },
+	{ id: "medium", name: "Medium" },
+	{ id: "high", name: "High" },
+];
+
+const DEMO_MODELS: Record<string, Choice[]> = {
+	claude: [
+		{ id: "default", name: "Default (recommended)", description: "Opus 5.5 for most work" },
+		{ id: "opus", name: "Opus 5.5", description: "Most capable", efforts: EFFORTS },
+		{ id: "sonnet", name: "Sonnet 5.5", description: "Fast and capable", efforts: EFFORTS },
+		{ id: "haiku", name: "Haiku 5.5", description: "Fastest" },
+	],
+	opencode: [
+		["opencode", "big-pickle", "Big Pickle", "free · 200K context"],
+		["opencode", "glm-5.3-flash-free", "GLM 5.3 Flash Free", "free · 200K context"],
+		["opencode", "deepseek-v4.1-flash-free", "DeepSeek V4.1 Flash Free", "free · 1M context"],
+		["opencode", "claude-sonnet-5-5", "Claude Sonnet 5.5", "1M context"],
+		["opencode", "gpt-6", "GPT-6", "1.1M context"],
+		["github-copilot", "gpt-6", "GPT-6", "1.1M context"],
+		["github-copilot", "claude-sonnet-5-5", "Claude Sonnet 5.5", "200K context"],
+		["github-copilot", "gemini-3.8-pro", "Gemini 3.8 Pro", "1M context"],
+		["openrouter", "qwen/qwen3-coder", "Qwen3 Coder", "262K context"],
+		["openrouter", "moonshotai/kimi-k3", "Kimi K3", "256K context"],
+	].map(([group, id, name, description]) => ({
+		id: `${group}/${id}`,
+		name,
+		group,
+		description: `${group}/${id} · ${description}`,
+		efforts: EFFORTS,
+	})),
+};
+
+const DEMO_AGENTS = [
+	{ id: "claude", name: "Claude Code" },
+	{ id: "codex", name: "Codex" },
+	{ id: "opencode", name: "opencode" },
+	{ id: "cursor", name: "Cursor", setup: { signedIn: false } },
+	{ id: "grok", name: "Grok" },
+] as unknown as ChatProvider[];
+
+export function ModelPickerSection(): JSX.Element {
+	const [agent, setAgent] = createSignal("opencode");
+	const models = () => DEMO_MODELS[agent()] ?? DEMO_MODELS.claude;
+	const [model, setModel] = createSignal("opencode/big-pickle");
+	const [effort, setEffort] = createSignal("medium");
+	const efforts = () => models().find((choice) => choice.id === model())?.efforts ?? [];
+	return (
+		<div class="grid gap-4 md:grid-cols-2">
+			<Specimen label="A new thread: the agent can still change">
+				<div data-specimen="model-picker">
+					<ModelPicker
+						agents={DEMO_AGENTS}
+						agent={agent()}
+						onAgent={(id) => {
+							setAgent(id);
+							setModel((DEMO_MODELS[id] ?? DEMO_MODELS.claude)[0].id);
+						}}
+						models={models()}
+						model={model()}
+						onModel={setModel}
+						efforts={efforts()}
+						effort={effort()}
+						onEffort={setEffort}
+					/>
+				</div>
+			</Specimen>
+			<Specimen label="A thread: its agent is fixed">
+				<ModelPicker
+					agentName="Claude Code"
+					agent="claude"
+					models={DEMO_MODELS.claude}
+					model="opus"
+					onModel={() => undefined}
+					efforts={EFFORTS}
+					effort="high"
+					onEffort={() => undefined}
+				/>
 			</Specimen>
 		</div>
 	);

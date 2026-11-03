@@ -4,11 +4,13 @@ import {
 	filterChoices,
 	foldDefault,
 	modelBlurb,
+	modelFacts,
 	findChoice,
 	groupChoices,
 	mergeModels,
 	modeDescription,
 	modeGlyph,
+	providerLabel,
 	shortModelName,
 } from "./choices";
 
@@ -149,5 +151,28 @@ describe("foldDefault", () => {
 		]);
 		expect(folded.defaults.has("default")).toBe(true);
 		expect(folded.aliases.get("default")).toBe("opus");
+	});
+});
+
+describe("model picker rows", () => {
+	it("names providers as people know them", () => {
+		expect(providerLabel("github-copilot")).toBe("GitHub Copilot");
+		expect(providerLabel("opencode")).toBe("OpenCode Zen");
+		expect(providerLabel("my-lab")).toBe("My lab");
+		expect(providerLabel("Anthropic")).toBe("Anthropic");
+	});
+
+	it("reads free, context size and the rest from a model's blurb", () => {
+		expect(
+			modelFacts({
+				id: "o/big-pickle",
+				name: "Big Pickle",
+				description: "o/big-pickle · free · 200K context",
+			}),
+		).toEqual({ free: true, context: "200K", note: null });
+		expect(
+			modelFacts({ id: "opus", name: "Opus 5.5", description: "Most capable · 1.1M context" }),
+		).toEqual({ free: false, context: "1.1M", note: "Most capable" });
+		expect(modelFacts({ id: "x", name: "X" })).toEqual({ free: false, context: null, note: null });
 	});
 });
