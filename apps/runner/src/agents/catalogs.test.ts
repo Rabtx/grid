@@ -4,7 +4,7 @@ import { agyArgs, agyModelId, antigravityProvider, parseAgyModels } from "./anti
 import { claudeModelChoice, claudeModels, modelContextWindow } from "./claude";
 import { effortChoices } from "./catalog";
 import type { ChatEvent, Choice } from "./events";
-import { parseOpencodeModelIds, parseOpencodeModels } from "./opencode";
+import { groupAcpModels, parseOpencodeModelIds, parseOpencodeModels } from "./opencode";
 import type { JsonProcess, Spawn } from "./stdio";
 
 describe("Claude Code's model list", () => {
@@ -191,6 +191,37 @@ describe("opencode's model list", () => {
 				description: "opencode/deepseek-v4.1-flash-free · free",
 			},
 			{ id: "openai/gpt-6", name: "gpt-6", group: "openai", description: "openai/gpt-6" },
+		]);
+	});
+
+	it("groups an ACP session's models by provider under their display names", () => {
+		expect(
+			groupAcpModels([
+				{ id: "opencode/big-pickle", name: "opencode/Big Pickle" },
+				{ id: "opencode/glm-5.3-flash-free", name: "opencode/GLM 5.3 Flash Free" },
+				{ id: "github-copilot/gpt-6", name: "GPT-6" },
+				{ id: "default", name: "Default" },
+			]),
+		).toEqual([
+			{
+				id: "opencode/big-pickle",
+				name: "Big Pickle",
+				group: "opencode",
+				description: "opencode/big-pickle",
+			},
+			{
+				id: "opencode/glm-5.3-flash-free",
+				name: "GLM 5.3 Flash Free",
+				group: "opencode",
+				description: "opencode/glm-5.3-flash-free · free",
+			},
+			{
+				id: "github-copilot/gpt-6",
+				name: "GPT-6",
+				group: "github-copilot",
+				description: "github-copilot/gpt-6",
+			},
+			{ id: "default", name: "Default" },
 		]);
 	});
 

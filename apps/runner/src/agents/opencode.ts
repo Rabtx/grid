@@ -80,15 +80,52 @@ export function parseOpencodeModelIds(text: string): Choice[] {
 	return models;
 }
 
-/** The detailed list where this opencode still offers it, else the plain one. */
-async function loadOpencodeModels(): Promise<Choice[]> {
-	try {
-		return parseOpencodeModels(await runCli(["opencode", "models", "--verbose"], 60_000));
-	} catch {
-		return parseOpencodeModelIds(await runCli(["opencode", "models"], 60_000));
-	}
+/**
+ * Models as an ACP session lists them (`provider/model` ids named "provider/Display Name"),
+ * grouped by provider under their display name.
+ */
+export function groupAcpModels(models: Choice[]): Choice[] {
+	return models.map((model) => {
+		const slash = model.id.indexOf("/");
+		if (slash <= 0) return model;
+		const provider = model.id.slice(0, slash);
+		const name = model.name.startsWith(`${provider}/`)
+			? model.name.slice(provider.length + 1)
+			: model.name;
+		const free = /(^|-)free$/.test(model.id.slice(slash + 1));
+		return {
+			...model,
+			name,
+			group: provider,
+			description: [model.id, free ? "free" : null].filter(Boolean).join(" · "),
+		};
+	});
 }
 
-const opencodeModels = cached(10 * 60 * 1000, async () => ({ models: await loadOpencodeModels() }));
+type Catalog = { models: Choice[]; modes?: Choice[] };
 
-export const opencodeCatalog = (fresh?: boolean) => opencodeModels(fresh);
+/**
+ * opencode's models, best source first: `opencode models --verbose` (opencode 1: names, cost,
+ * context and effort levels); else an ACP session's list (opencode 2 dropped `--verbose`: names
+ * and modes); else the plain `opencode models` id list.
+ */
+export function opencodeCatalogFrom(
+	probe: () => Promise<Catalog>,
+): (fresh?: boolean) => Promise<Catalog> {
+	return cached(10 * 60 * 1000, async () => {
+		try {
+			return {
+				models: parseOpencodeModels(await runCli(["opencode", "models", "--verbose"], 60_000)),
+			};
+		} catch {
+			// opencode 2: no --verbose.
+		}
+		try {
+			const found = await probe();
+			if (found.models.length) return { ...found, models: groupAcpModels(found.models) };
+		} catch (error) {
+			console.error(`[runner] opencode did not list its models over ACP: ${String(error)}`);
+		}
+		return { models: parseOpencodeModelIds(await runCli(["opencode", "models"], 60_000)) };
+	});
+}

@@ -1,9 +1,10 @@
-import { acpProvider } from "./acp";
+import { acpProvider, probeCatalog } from "./acp";
 import { antigravityProvider } from "./antigravity";
 import { claudeProvider } from "./claude";
 import { codexProvider } from "./codex";
-import { opencodeCatalog } from "./opencode";
+import { opencodeCatalogFrom } from "./opencode";
 import type { Provider } from "./provider";
+import { spawnJsonProcess } from "./stdio";
 
 /**
  * Found on PATH now; checked each time so installing an agent needs no runner restart. PATH is
@@ -70,7 +71,7 @@ export function providerRegistry(
 			name: "opencode",
 			command: ["opencode", "acp"],
 			available: installed("opencode"),
-			catalog: opencodeCatalog,
+			catalog: opencodeCatalogFrom(() => probeCatalog(["opencode", "acp"], spawnJsonProcess)),
 		}),
 	);
 	providers.set("antigravity", antigravityProvider({ binary: "agy", available: installed("agy") }));
