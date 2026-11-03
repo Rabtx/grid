@@ -75,7 +75,7 @@ export function NoteGlyph(props: { icon: string; size?: "sm" | "md" }): JSX.Elem
 	return (
 		<span
 			aria-hidden="true"
-			class={`grid shrink-0 place-items-center ${glyph(props.icon).tint} ${props.size === "md" ? "size-7 rounded-kit-md [&_svg]:size-4" : "size-5 rounded-kit-sm [&_svg]:size-3"}`}
+			class={`grid shrink-0 place-items-center ${glyph(props.icon).tint} ${props.size === "md" ? "size-7 rounded-control-md [&_svg]:size-4" : "size-5 rounded-control-sm [&_svg]:size-3"}`}
 		>
 			{glyph(props.icon).draw()}
 		</span>
@@ -501,7 +501,7 @@ export function NoteSuggestionCard(props: {
 			aria-label={`${props.agent.name} suggests an addition`}
 			class="flex gap-3 rounded-kit-xl bg-accent/10 p-4"
 		>
-			<span class="grid size-7 shrink-0 place-items-center rounded-kit-md bg-surface">
+			<span class="grid size-7 shrink-0 place-items-center rounded-control-md bg-surface">
 				<AgentLogo id={props.agent.id} name={props.agent.name} class="size-4" />
 			</span>
 			<div class="flex min-w-0 flex-1 flex-col gap-2">
@@ -614,7 +614,7 @@ export function FileMention(props: { href: string; path: string }): JSX.Element 
 		<a
 			href={props.href}
 			title={props.path}
-			class="focus-ring inline-flex h-6.5 max-w-full items-center gap-1 whitespace-nowrap rounded-kit-sm bg-fill py-0.5 pr-1.5 pl-1 align-middle font-medium text-body text-fg ring-line transition-colors duration-fast hover:bg-fill-strong [&_img]:size-3.5 [&_svg]:size-3.5"
+			class="focus-ring inline-flex h-6.5 max-w-full items-center gap-1 whitespace-nowrap rounded-control-sm bg-fill py-0.5 pr-1.5 pl-1 align-middle font-medium text-body text-fg ring-line transition-colors duration-fast hover:bg-fill-strong [&_img]:size-3.5 [&_svg]:size-3.5"
 		>
 			<EntryIcon name={name()} folder={false} />
 			<span class="truncate">{name()}</span>

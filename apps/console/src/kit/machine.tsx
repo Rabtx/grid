@@ -39,7 +39,7 @@ export function MachineCard(props: {
 			class="flex min-w-0 flex-col overflow-hidden rounded-kit-lg bg-surface ring-line"
 		>
 			<div class="flex min-w-0 items-center gap-3 p-4">
-				<span class="grid size-10 shrink-0 place-items-center rounded-kit-lg tint-success [&_svg]:size-5">
+				<span class="grid size-10 shrink-0 place-items-center rounded-control-lg tint-success [&_svg]:size-5">
 					{props.icon}
 				</span>
 				<div class="min-w-0 flex-1">

@@ -321,7 +321,7 @@ export function DoneRow(props: {
 		<a
 			href={props.href}
 			aria-label={props.label ?? props.title}
-			class="surface-card focus-ring flex h-11 min-w-0 items-center gap-2.5 rounded-kit-xl px-3 text-body text-fg transition-shadow duration-fast hover:shadow-lift-hover"
+			class="surface-card focus-ring flex h-11 min-w-0 items-center gap-2.5 rounded-control-xl px-3 text-body text-fg transition-shadow duration-fast hover:shadow-lift-hover"
 		>
 			<span class="shrink-0 text-success [&_svg]:size-3.5">
 				<svg

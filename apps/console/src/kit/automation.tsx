@@ -99,7 +99,7 @@ export function AutomationPanelRow(props: {
 		<a
 			href={props.href}
 			aria-current={props.current ? "page" : undefined}
-			class="focus-ring flex min-w-0 items-center gap-2.5 rounded-kit-md p-2 transition-colors duration-fast hover:bg-fill aria-[current=page]:bg-fill-strong"
+			class="focus-ring flex min-w-0 items-center gap-2.5 rounded-control-md p-2 transition-colors duration-fast hover:bg-fill aria-[current=page]:bg-fill-strong"
 		>
 			<AutomationGlyph icon={props.glyph} paused={props.paused} />
 			<span class="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -215,7 +215,7 @@ export function RecipeToken(props: {
 				: "[&_svg]:text-fg-subtle";
 	return (
 		<span
-			class={`inline-flex h-kit-control min-w-0 max-w-full items-center gap-1.5 rounded-kit bg-fill px-2.5 text-body text-fg [&_img]:size-3.5 [&_svg]:size-3.5 ${tint()}`}
+			class={`inline-flex h-kit-control min-w-0 max-w-full items-center gap-1.5 rounded-control bg-fill px-2.5 text-body text-fg [&_img]:size-3.5 [&_svg]:size-3.5 ${tint()}`}
 		>
 			{props.icon}
 			<span class="truncate">{props.children}</span>
@@ -277,7 +277,7 @@ export function RunMarkGlyph(props: { mark: RunMark }): JSX.Element {
 	return (
 		<span
 			aria-hidden="true"
-			class={`grid size-5 shrink-0 place-items-center rounded-kit-sm [&_svg]:size-3 ${MARK_TINT[props.mark]}`}
+			class={`grid size-5 shrink-0 place-items-center rounded-control-sm [&_svg]:size-3 ${MARK_TINT[props.mark]}`}
 		>
 			{props.mark === "passed" ? (
 				<CheckIcon />
@@ -407,7 +407,7 @@ export function RunStepRow(props: {
 			/>
 			<span
 				aria-hidden="true"
-				class={`relative grid size-5 shrink-0 place-items-center rounded-kit-sm [&_svg]:size-3 ${tint()}`}
+				class={`relative grid size-5 shrink-0 place-items-center rounded-control-sm [&_svg]:size-3 ${tint()}`}
 			>
 				{STEP_ICON[props.kind]()}
 			</span>

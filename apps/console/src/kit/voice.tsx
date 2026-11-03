@@ -42,7 +42,7 @@ export function VoiceError(props: { message: string; onDismiss: () => void }): J
 			<button
 				type="button"
 				onClick={() => props.onDismiss()}
-				class="focus-ring h-7 shrink-0 rounded-kit-sm px-2 font-medium text-caption hover:bg-white/15"
+				class="focus-ring h-7 shrink-0 rounded-control-sm px-2 font-medium text-caption hover:bg-white/15"
 			>
 				OK
 			</button>

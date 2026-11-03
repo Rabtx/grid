@@ -73,7 +73,7 @@ export function UserMessage(props: {
 						<button
 							type="button"
 							onClick={() => setOpen(!open())}
-							class="focus-ring h-6 rounded-kit-sm px-1.5 text-caption text-fg-subtle hover:bg-fill hover:text-fg"
+							class="focus-ring h-6 rounded-control-sm px-1.5 text-caption text-fg-subtle hover:bg-fill hover:text-fg"
 						>
 							{open() ? "Show less" : "Show more"}
 						</button>
@@ -167,7 +167,7 @@ export function Attachment(props: {
 			<Show
 				when={props.preview && !props.reference}
 				fallback={
-					<span class="grid size-9 shrink-0 place-items-center rounded-kit-md tint-accent">
+					<span class="grid size-9 shrink-0 place-items-center rounded-control-md tint-accent">
 						<EntryIcon name={shownName()} folder={false} />
 					</span>
 				}
@@ -175,7 +175,7 @@ export function Attachment(props: {
 				<img
 					src={props.preview}
 					alt={props.name}
-					class="size-9 shrink-0 rounded-kit-md object-cover object-top"
+					class="size-9 shrink-0 rounded-control-md object-cover object-top"
 				/>
 			</Show>
 			<span class="flex min-w-0 flex-col">
@@ -198,7 +198,7 @@ export function Attachment(props: {
 
 	return (
 		<span
-			class={`relative inline-flex min-h-12 max-w-full items-center gap-1 overflow-hidden rounded-kit-lg py-1.5 pr-1 pl-1.5 text-body md:max-w-80 ${
+			class={`relative inline-flex min-h-12 max-w-full items-center gap-1 overflow-hidden rounded-control-lg py-1.5 pr-1 pl-1.5 text-body md:max-w-80 ${
 				props.error ? "bg-danger/8 ring-1 ring-danger/30" : "bg-fill"
 			}`}
 		>
@@ -213,7 +213,7 @@ export function Attachment(props: {
 							type="button"
 							onClick={() => props.onOpen?.()}
 							disabled={props.disabled}
-							class="focus-ring flex min-w-0 items-center gap-2.5 rounded-kit-md pr-1 text-left"
+							class="focus-ring flex min-w-0 items-center gap-2.5 rounded-control-md pr-1 text-left"
 						>
 							{content()}
 						</button>
@@ -224,7 +224,7 @@ export function Attachment(props: {
 					href={props.href}
 					target="_blank"
 					rel="noopener noreferrer"
-					class="focus-ring flex min-w-0 items-center gap-2.5 rounded-kit-md pr-1 text-left"
+					class="focus-ring flex min-w-0 items-center gap-2.5 rounded-control-md pr-1 text-left"
 				>
 					{content()}
 				</a>
@@ -234,7 +234,7 @@ export function Attachment(props: {
 					type="button"
 					aria-label={`Retry ${props.name}`}
 					onClick={() => props.onRetry?.()}
-					class="focus-ring flex items-center gap-1 rounded-kit px-1.5 py-1 text-caption text-accent hover:bg-fill pointer-coarse:min-h-11"
+					class="focus-ring flex items-center gap-1 rounded-control px-1.5 py-1 text-caption text-accent hover:bg-fill pointer-coarse:min-h-11"
 				>
 					<RestoreIcon size="xs" />
 					<span>Retry</span>
@@ -410,7 +410,7 @@ export function AgentHeader(props: {
 }): JSX.Element {
 	return (
 		<div class="flex min-w-0 items-center gap-2.5">
-			<span class="grid size-7 shrink-0 place-items-center rounded-kit bg-fill-strong [&>*]:size-4">
+			<span class="grid size-7 shrink-0 place-items-center rounded-control bg-fill-strong [&>*]:size-4">
 				{props.logo}
 			</span>
 			<span class="min-w-0 truncate font-medium text-body text-fg">{props.name}</span>

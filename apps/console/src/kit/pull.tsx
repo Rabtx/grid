@@ -418,7 +418,7 @@ export function ReviewFileRow(props: {
 			type="button"
 			aria-current={props.current ? "true" : undefined}
 			onClick={() => props.onClick()}
-			class={`focus-ring flex h-kit-row w-full min-w-0 items-center gap-2 rounded-kit-md pr-2 text-left text-nav text-fg transition-colors duration-fast hover:bg-fill aria-[current=true]:bg-fill-strong ${props.depth ? "pl-8" : "pl-2"}`}
+			class={`focus-ring flex h-kit-row w-full min-w-0 items-center gap-2 rounded-control-md pr-2 text-left text-nav text-fg transition-colors duration-fast hover:bg-fill aria-[current=true]:bg-fill-strong ${props.depth ? "pl-8" : "pl-2"}`}
 		>
 			<span class="grid size-4 shrink-0 place-items-center [&_img]:size-4">{props.icon}</span>
 			<span class="min-w-0 flex-1 truncate">{props.name}</span>
@@ -539,7 +539,7 @@ export function ReviewDiffFile(props: {
 					aria-expanded={props.open ? "true" : "false"}
 					aria-label={props.open ? `Fold ${props.path}` : `Unfold ${props.path}`}
 					onClick={() => props.onToggle()}
-					class="focus-ring grid size-6 shrink-0 place-items-center rounded-kit-sm text-fg-subtle hover:bg-fill [&_svg]:size-3.5"
+					class="focus-ring grid size-6 shrink-0 place-items-center rounded-control-sm text-fg-subtle hover:bg-fill [&_svg]:size-3.5"
 				>
 					<ChevronDownIcon class={props.open ? "" : "-rotate-90"} />
 				</button>

@@ -69,7 +69,7 @@ export function SettingsRow(props: {
 					</span>
 				</Show>
 				<Show when={props.leading}>
-					<span class="grid size-8 shrink-0 place-items-center rounded-kit bg-fill text-fg-muted [&_svg]:size-4">
+					<span class="grid size-8 shrink-0 place-items-center rounded-control bg-fill text-fg-muted [&_svg]:size-4">
 						{props.leading}
 					</span>
 				</Show>
@@ -118,7 +118,7 @@ export function SettingsLinkRow(props: {
 			class="focus-ring flex min-h-12 w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left active:bg-fill"
 		>
 			<Show when={props.leading}>
-				<span class="grid size-8 shrink-0 place-items-center rounded-kit bg-fill text-fg-muted [&_svg]:size-4">
+				<span class="grid size-8 shrink-0 place-items-center rounded-control bg-fill text-fg-muted [&_svg]:size-4">
 					{props.leading}
 				</span>
 			</Show>
@@ -261,7 +261,7 @@ export function ChannelRow(props: {
 }): JSX.Element {
 	return (
 		<div class="flex min-h-16 items-center gap-3 px-4 py-3">
-			<span class="grid size-8 shrink-0 place-items-center rounded-kit bg-fill text-fg-muted [&_svg]:size-4">
+			<span class="grid size-8 shrink-0 place-items-center rounded-control bg-fill text-fg-muted [&_svg]:size-4">
 				{props.icon}
 			</span>
 			<div class="min-w-0 flex-1">
@@ -486,7 +486,7 @@ export function CopyField(props: {
 }): JSX.Element {
 	const [copied, setCopied] = createSignal(false);
 	return (
-		<div class="flex h-kit-control min-w-0 items-center gap-2 rounded-kit bg-fill pr-1 pl-3 ring-line">
+		<div class="flex h-kit-control min-w-0 items-center gap-2 rounded-control bg-fill pr-1 pl-3 ring-line">
 			<Show when={props.icon}>
 				<span class="shrink-0 text-fg-subtle">{props.icon}</span>
 			</Show>

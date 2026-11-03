@@ -73,7 +73,7 @@ export function EffortSlider(props: {
 							tabindex={-1}
 							aria-pressed={place() === index() ? "true" : "false"}
 							onClick={() => set(place())}
-							class="group/level flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-kit-sm px-1.5 text-caption text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid hover:text-fg aria-pressed:bg-surface aria-pressed:font-medium aria-pressed:text-fg aria-pressed:shadow-knob pointer-coarse:h-10"
+							class="group/level flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-control-sm px-1.5 text-caption text-fg-subtle transition-[background-color,color,box-shadow] duration-fast ease-out-grid hover:text-fg aria-pressed:bg-surface aria-pressed:font-medium aria-pressed:text-fg aria-pressed:shadow-knob pointer-coarse:h-10"
 						>
 							<Bars lit={place() + 1} of={props.levels.length} on={place() <= index()} />
 							<span class="min-w-0 truncate">{level.name}</span>

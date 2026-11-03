@@ -113,7 +113,7 @@ export function QuestionCard(props: {
 									const value = event.currentTarget.value;
 									setTyped((current) => ({ ...current, [question.id]: value }));
 								}}
-								class="surface-field h-kit-control rounded-kit px-2.5 text-body text-fg placeholder:text-fg-faint"
+								class="surface-field h-kit-control rounded-control px-2.5 text-body text-fg placeholder:text-fg-faint"
 							/>
 						</Show>
 					</fieldset>

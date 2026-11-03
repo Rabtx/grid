@@ -47,7 +47,7 @@ function TreeRow(props: {
 				aria-current={props.selected === props.path ? "true" : undefined}
 				onClick={() => (folder() ? setOpen(!open()) : props.onSelect?.(props.path))}
 				style={{ "padding-left": `${props.depth * 14 + 6}px` }}
-				class="focus-ring flex h-7 w-full items-center gap-1.5 rounded-kit pr-2 text-left text-body text-fg-muted hover:bg-fill hover:text-fg aria-[current=true]:bg-fill-strong aria-[current=true]:text-fg pointer-coarse:h-10"
+				class="focus-ring flex h-7 w-full items-center gap-1.5 rounded-control pr-2 text-left text-body text-fg-muted hover:bg-fill hover:text-fg aria-[current=true]:bg-fill-strong aria-[current=true]:text-fg pointer-coarse:h-10"
 			>
 				<span class="grid size-3.5 shrink-0 place-items-center text-fg-faint">
 					<Show when={folder()}>
@@ -245,7 +245,7 @@ function FolderRow(props: {
 				aria-current={props.tree.selected === props.entry.path ? "true" : undefined}
 				onClick={() => (folder() ? props.onToggle() : props.tree.onSelect(props.entry))}
 				style={{ "padding-left": `${props.depth * 14 + 6}px` }}
-				class="focus-ring flex h-7 w-full min-w-0 items-center gap-1.5 rounded-kit pr-8 text-left text-body text-fg-muted hover:bg-fill hover:text-fg aria-[current=true]:bg-fill-strong aria-[current=true]:text-fg pointer-coarse:h-10 pointer-coarse:pr-2"
+				class="focus-ring flex h-7 w-full min-w-0 items-center gap-1.5 rounded-control pr-8 text-left text-body text-fg-muted hover:bg-fill hover:text-fg aria-[current=true]:bg-fill-strong aria-[current=true]:text-fg pointer-coarse:h-10 pointer-coarse:pr-2"
 			>
 				<span class="grid size-3.5 shrink-0 place-items-center text-fg-faint">
 					<Show when={folder()}>

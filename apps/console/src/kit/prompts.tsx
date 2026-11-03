@@ -59,9 +59,9 @@ export function ChoicePrompt(props: {
 						onFocus={() => setActive(index())}
 						onMouseEnter={() => setActive(index())}
 						onClick={() => props.onSubmit(index())}
-						class="flex h-10 items-center gap-3 rounded-kit-lg px-2 text-left text-body-lg text-fg-muted outline-none aria-[current=true]:bg-fill-strong aria-[current=true]:text-fg pointer-coarse:h-12"
+						class="flex h-10 items-center gap-3 rounded-control-lg px-2 text-left text-body-lg text-fg-muted outline-none aria-[current=true]:bg-fill-strong aria-[current=true]:text-fg pointer-coarse:h-12"
 					>
-						<span class="grid size-6 shrink-0 place-items-center rounded-kit-sm text-caption text-fg-subtle ring-line-strong">
+						<span class="grid size-6 shrink-0 place-items-center rounded-control-sm text-caption text-fg-subtle ring-line-strong">
 							{index() + 1}
 						</span>
 						{option}
@@ -142,7 +142,7 @@ export function Checklist(props: {
 					<button
 						type="button"
 						onClick={() => item.onClick?.()}
-						class="focus-ring flex h-8 items-center gap-2.5 rounded-kit px-1.5 text-left text-body text-fg-muted hover:bg-fill hover:text-fg pointer-coarse:h-11"
+						class="focus-ring flex h-8 items-center gap-2.5 rounded-control px-1.5 text-left text-body text-fg-muted hover:bg-fill hover:text-fg pointer-coarse:h-11"
 					>
 						<span
 							class={`grid size-4 shrink-0 place-items-center rounded-full ${item.done ? "bg-success text-white" : "ring-line-strong"}`}
@@ -202,7 +202,7 @@ export function DecisionCard(props: {
 			<div class="flex min-w-0 flex-1 items-start gap-3">
 				<span
 					aria-hidden="true"
-					class={`grid size-7 shrink-0 place-items-center rounded-kit [&_svg]:size-3.5 ${props.resolved === undefined ? "tint-warning" : "bg-fill-strong text-fg-subtle"}`}
+					class={`grid size-7 shrink-0 place-items-center rounded-control [&_svg]:size-3.5 ${props.resolved === undefined ? "tint-warning" : "bg-fill-strong text-fg-subtle"}`}
 				>
 					<ShieldIcon />
 				</span>

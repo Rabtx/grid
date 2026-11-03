@@ -59,7 +59,7 @@ export function ConnectorCard(props: {
 				{props.health}
 			</div>
 			<p class="truncate text-body text-fg">{props.blurb}</p>
-			<div class="flex min-h-8 items-center gap-2 rounded-kit bg-fill px-2.5 py-1.5 text-caption text-fg-muted">
+			<div class="flex min-h-8 items-center gap-2 rounded-control bg-fill px-2.5 py-1.5 text-caption text-fg-muted">
 				<span class="min-w-0 flex-1 truncate">Agents: {props.summary}</span>
 				<Show when={props.action}>
 					<span class="relative z-10 shrink-0">{props.action}</span>

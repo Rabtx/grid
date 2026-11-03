@@ -72,6 +72,35 @@ describe("kit guard", () => {
 			expect.fail(`${violations.length} kit guard violation(s):\n\n${violations.join("\n")}`);
 	});
 
+	it("rounds one-line controls with the control corners, so pill corners reach them", () => {
+		// Under pill corners a control is a capsule: rows, fields, segments, tabs, menu items and small
+		// buttons take `rounded-control-*`, which is the kit size otherwise. A card corner
+		// (`rounded-kit-*`) on something one line tall would stay a box.
+		const src = join(__dirname, "..");
+		const kit = readdirSync(join(src, "kit"))
+			.filter((entry) => entry.endsWith(".tsx") && !entry.endsWith(".test.tsx"))
+			.map((entry) => join(src, "kit", entry));
+		const oneLine =
+			/(?<![\w:-])(?:h-kit-row|h-row|h-kit-control(?:-sm|-lg)?|h-control|h-field|h-(?:6|6\.5|7|8|9|10|11))(?![\w.-])/;
+		const card = /(?<![\w-])rounded-kit(?:-(?:2xs|xs|sm|md|lg|xl|2xl))?(?![\w-])/;
+		const violations: string[] = [];
+		for (const file of kit) {
+			readFileSync(file, "utf8")
+				.split("\n")
+				.forEach((line, index) => {
+					for (const match of line.matchAll(/["'`]([^"'`]*)["'`]/g)) {
+						const classes = match[1];
+						if (oneLine.test(classes) && card.test(classes))
+							violations.push(
+								`${relative(process.cwd(), file)}:${index + 1}: ${classes.match(card)?.[0]}`,
+							);
+					}
+				});
+		}
+		if (violations.length > 0)
+			expect.fail(`One-line controls with a card corner:\n\n${violations.join("\n")}`);
+	});
+
 	it("keeps every corner on the corner style", () => {
 		// The kit and the stylesheets set corners only from the kit's radius scale and the pill
 		// radius, which follow Settings → Appearance → Corners. Circles (full, 999px) are shapes, and

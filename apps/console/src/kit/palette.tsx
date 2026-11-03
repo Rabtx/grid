@@ -89,7 +89,7 @@ export function Palette<T extends string>(props: {
 								aria-current={props.active === item.id ? "true" : undefined}
 								onMouseEnter={() => props.onActive(item.id)}
 								onClick={() => props.onPick(item.id)}
-								class="flex h-kit-row w-full items-center gap-2.5 rounded-kit px-2 text-left text-body text-fg aria-[current=true]:bg-fill-strong pointer-coarse:h-12"
+								class="flex h-kit-row w-full items-center gap-2.5 rounded-control px-2 text-left text-body text-fg aria-[current=true]:bg-fill-strong pointer-coarse:h-12"
 							>
 								<Show when={item.icon}>
 									<span class="grid size-4 shrink-0 place-items-center text-fg-subtle">
@@ -217,7 +217,7 @@ export function AutocompleteList(props: {
 										event.preventDefault();
 										props.onPick(item.id);
 									}}
-									class="group/option flex min-h-kit-row w-full cursor-pointer items-center gap-2.5 rounded-kit-lg px-2 py-1.5 text-left text-body text-fg transition-colors duration-fast hover:bg-fill aria-selected:bg-fill pointer-coarse:min-h-12"
+									class="group/option flex min-h-kit-row w-full cursor-pointer items-center gap-2.5 rounded-control-lg px-2 py-1.5 text-left text-body text-fg transition-colors duration-fast hover:bg-fill aria-selected:bg-fill pointer-coarse:min-h-12"
 								>
 									<Show when={item.icon}>
 										<span class="grid size-5 shrink-0 place-items-center text-fg-subtle">

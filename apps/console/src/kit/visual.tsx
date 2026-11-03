@@ -598,7 +598,7 @@ function CalculatorView(props: { block: Calculator }): JSX.Element {
 							</span>
 							<input
 								type="number"
-								class="surface-field h-kit-control rounded-kit px-2.5 text-body text-fg tabular-nums"
+								class="surface-field h-kit-control rounded-control px-2.5 text-body text-fg tabular-nums"
 								value={values()[input.id]}
 								min={input.min}
 								max={input.max}

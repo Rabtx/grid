@@ -8,7 +8,7 @@ import { variants } from "./variants";
 
 const row = variants({
 	// The Figma panel row: 13px medium in the muted ink, a flat grey selection (bg/selected).
-	base: "focus-ring group/nav flex w-full min-w-0 gap-2 rounded-kit text-left font-medium text-fg-muted transition-[background-color,color] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg",
+	base: "focus-ring group/nav flex w-full min-w-0 gap-2 rounded-control text-left font-medium text-fg-muted transition-[background-color,color] duration-fast ease-out-grid select-none [-webkit-touch-callout:none] hover:bg-fill-strong hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg",
 	variants: {
 		// Top-level destinations and projects; threads and a project's pages one step down.
 		// Level 0 grows to a finger's height on touch: a project's chevron is a 44px button there,
@@ -401,7 +401,7 @@ export function PanelHeader(props: { title: JSX.Element; actions?: JSX.Element }
 /** The mark on a 28px filled tile, as the rail's head and the drawer show it. */
 export function BrandTile(): JSX.Element {
 	return (
-		<span class="grid size-7 place-items-center rounded-kit bg-fill-strong">
+		<span class="grid size-7 place-items-center rounded-control bg-fill-strong">
 			<BrandMark class="size-4" />
 		</span>
 	);

@@ -40,7 +40,7 @@ export function RunSteps(props: {
 				type="button"
 				aria-expanded={open() ? "true" : "false"}
 				onClick={() => setOpen(!open())}
-				class="focus-ring group/sum flex h-8 items-center gap-2 rounded-kit text-body text-fg-muted hover:text-fg"
+				class="focus-ring group/sum flex h-8 items-center gap-2 rounded-control text-body text-fg-muted hover:text-fg"
 			>
 				<span class="min-w-0 truncate">{props.summary}</span>
 				<ChevronDownIcon
@@ -86,7 +86,7 @@ function StepRow(props: { step: RunStep; last: boolean }): JSX.Element {
 				disabled={!props.step.detail}
 				aria-expanded={props.step.detail ? (open() ? "true" : "false") : undefined}
 				onClick={() => setOpen(!open())}
-				class="focus-ring flex min-h-7 w-full items-center gap-2 rounded-kit text-left text-body text-fg-muted enabled:hover:text-fg"
+				class="focus-ring flex min-h-7 w-full items-center gap-2 rounded-control text-left text-body text-fg-muted enabled:hover:text-fg"
 			>
 				<span
 					class={`min-w-0 flex-1 truncate ${props.step.status === "error" ? "text-danger" : ""}`}
@@ -136,7 +136,7 @@ export function CodeBlock(props: { label: string; code: string }): JSX.Element {
 						setCopied(true);
 						setTimeout(() => setCopied(false), 1200);
 					}}
-					class="focus-ring h-6 rounded-kit-sm px-2 text-caption text-fg-subtle hover:bg-fill-strong hover:text-fg"
+					class="focus-ring h-6 rounded-control-sm px-2 text-caption text-fg-subtle hover:bg-fill-strong hover:text-fg"
 				>
 					{copied() ? "Copied" : "Copy"}
 				</button>
@@ -261,7 +261,7 @@ export function TurnFold(props: {
 					data-turn-fold
 					aria-expanded={props.expanded ? "true" : "false"}
 					onClick={() => props.onToggle()}
-					class="flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-kit px-1 text-body text-fg-subtle tabular-nums transition-colors duration-fast hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-inset pointer-coarse:min-h-10"
+					class="flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-control px-1 text-body text-fg-subtle tabular-nums transition-colors duration-fast hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-inset pointer-coarse:min-h-10"
 				>
 					<span
 						class={
@@ -429,7 +429,7 @@ export function StepGlyph(props: { tone: StepTone; children: JSX.Element }): JSX
 	return (
 		<span
 			aria-hidden="true"
-			class={`grid size-5 shrink-0 place-items-center rounded-kit-sm [&_svg]:size-3 ${STEP_TINT[props.tone]}`}
+			class={`grid size-5 shrink-0 place-items-center rounded-control-sm [&_svg]:size-3 ${STEP_TINT[props.tone]}`}
 		>
 			{props.children}
 		</span>

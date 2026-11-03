@@ -43,10 +43,10 @@ const glyph = (icon: string) => GLYPH[icon as RoleIcon] ?? GLYPH.code;
 export function RoleMark(props: { icon: string; size?: "sm" | "md" | "lg" }): JSX.Element {
 	const size = () =>
 		props.size === "sm"
-			? "size-5 rounded-kit-sm [&_svg]:size-3.5"
+			? "size-5 rounded-control-sm [&_svg]:size-3.5"
 			: props.size === "lg"
-				? "size-11 rounded-kit-lg [&_svg]:size-5"
-				: "size-8 rounded-kit-md [&_svg]:size-4";
+				? "size-11 rounded-control-lg [&_svg]:size-5"
+				: "size-8 rounded-control-md [&_svg]:size-4";
 	return (
 		<span
 			aria-hidden="true"
@@ -144,9 +144,9 @@ export function RoleChipGroup(props: { children: JSX.Element }): JSX.Element {
 
 /** A half of the role chip group: the role (with its name), or its settings (an icon). */
 export const ROLE_CHIP =
-	"focus-ring flex h-full min-w-0 max-w-48 items-center gap-1.5 rounded-kit pr-2 pl-1.5 text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg pointer-coarse:pl-1.5";
+	"focus-ring flex h-full min-w-0 max-w-48 items-center gap-1.5 rounded-control pr-2 pl-1.5 text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg pointer-coarse:pl-1.5";
 export const ROLE_CHIP_ICON =
-	"focus-ring grid h-full shrink-0 place-items-center rounded-kit px-2 text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:px-3 [&_svg]:size-3.5";
+	"focus-ring grid h-full shrink-0 place-items-center rounded-control px-2 text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong pointer-coarse:px-3 [&_svg]:size-3.5";
 
 /** Where the role's tile would be when there is none: a quiet person glyph. */
 export function NoRoleMark(props: { size?: "sm" | "md" }): JSX.Element {
@@ -166,7 +166,7 @@ export function NoRoleRow(props: { label: string; onPick: () => void }): JSX.Ele
 		<button
 			type="button"
 			onClick={() => props.onPick()}
-			class="focus-ring flex h-10 items-center gap-3 rounded-kit-lg px-2 text-left text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg pointer-coarse:h-12"
+			class="focus-ring flex h-10 items-center gap-3 rounded-control-lg px-2 text-left text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg pointer-coarse:h-12"
 		>
 			<NoRoleMark />
 			{props.label}

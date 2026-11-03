@@ -48,7 +48,7 @@ export function SelectionBar(props: {
 					<button
 						type="button"
 						onClick={() => action.run()}
-						class="focus-ring flex h-8 items-center gap-1 rounded-kit-sm px-2 text-caption text-fg hover:bg-fill active:bg-fill-strong"
+						class="focus-ring flex h-8 items-center gap-1 rounded-control-sm px-2 text-caption text-fg hover:bg-fill active:bg-fill-strong"
 					>
 						{action.icon}
 						<span>{action.label}</span>
@@ -127,7 +127,7 @@ export function TouchScrollbar(props: {
  * a modifier, while armed (`aria-pressed`). `page` is the quieter key that flips the bar's page.
  */
 export const terminalKey = variants({
-	base: "grid min-h-11 min-w-11 shrink-0 select-none place-items-center rounded-kit-md px-2.5 font-mono text-body text-fg-muted transition-colors duration-fast ease-out-grid active:bg-fill-strong aria-pressed:bg-inverse aria-pressed:text-inverse-fg",
+	base: "grid min-h-11 min-w-11 shrink-0 select-none place-items-center rounded-control-md px-2.5 font-mono text-body text-fg-muted transition-colors duration-fast ease-out-grid active:bg-fill-strong aria-pressed:bg-inverse aria-pressed:text-inverse-fg",
 	variants: {
 		kind: {
 			key: "",
@@ -280,11 +280,11 @@ export function TerminalTabs(props: {
 						return (
 							<div
 								aria-current={props.current === tab().id ? "page" : undefined}
-								class="group/tab flex shrink-0 items-center rounded-kit-sm text-terminal-dim transition-colors duration-fast hover:text-terminal-fg aria-[current=page]:text-terminal-fg"
+								class="group/tab flex shrink-0 items-center rounded-control-sm text-terminal-dim transition-colors duration-fast hover:text-terminal-fg aria-[current=page]:text-terminal-fg"
 							>
 								<a
 									href={tab().href}
-									class="focus-ring flex items-center gap-1.5 rounded-kit-sm py-1 pl-1.5"
+									class="focus-ring flex items-center gap-1.5 rounded-control-sm py-1 pl-1.5"
 								>
 									<span
 										aria-hidden="true"
@@ -298,7 +298,7 @@ export function TerminalTabs(props: {
 											type="button"
 											aria-label={`Close ${tab().label}`}
 											onClick={() => close()(tab().id)}
-											class="focus-ring ml-0.5 grid size-5 place-items-center rounded-kit-sm opacity-0 transition-opacity duration-fast hover:bg-terminal-dim/20 focus-visible:opacity-100 group-hover/tab:opacity-100 pointer-coarse:opacity-100 [&_svg]:size-3"
+											class="focus-ring ml-0.5 grid size-5 place-items-center rounded-control-sm opacity-0 transition-opacity duration-fast hover:bg-terminal-dim/20 focus-visible:opacity-100 group-hover/tab:opacity-100 pointer-coarse:opacity-100 [&_svg]:size-3"
 										>
 											<CloseIcon />
 										</button>

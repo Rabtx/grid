@@ -38,6 +38,8 @@
 	--kit-fg-subtle: color-mix(in srgb, var(--ink) var(--kit-fg-subtle-strength), transparent);
 	--kit-fg-faint: color-mix(in srgb, var(--ink) var(--kit-fg-faint-strength), transparent);
 	--kit-radius-scale: 1;
+	/* 0, except under pill corners, where it rounds every control into a capsule (rounded-control-*). */
+	--kit-control-pill: 0px;
 	/* Buttons, chips and pill fields: round ends in the reference design. */
 	--kit-radius-pill: 9999px;
 	/* Icon tiles and the composer's controls: the 8px control corner in the reference design. */
@@ -207,6 +209,7 @@
  */
 :root[data-corners="pill"] {
 	--kit-radius-scale: 1.25;
+	--kit-control-pill: 9999px;
 	--kit-radius-pill: 9999px;
 	--kit-radius-tile: 9999px;
 }
@@ -281,6 +284,17 @@
 	--radius-pill: var(--kit-radius-pill);
 	/* `rounded-tile`: icon buttons and the composer's controls; 8px, or a circle when corners are pill. */
 	--radius-tile: var(--kit-radius-tile);
+	/*
+	 * `rounded-control-*`: one-line controls and rows — fields, segments, tabs, menu items, nav and
+	 * list rows, small buttons. The kit size in round, soft and square corners; a capsule in pill.
+	 * Cards, panels and anything taller than a line keep `rounded-kit-*`.
+	 */
+	--radius-control-xs: max(var(--radius-kit-xs), var(--kit-control-pill));
+	--radius-control-sm: max(var(--radius-kit-sm), var(--kit-control-pill));
+	--radius-control: max(var(--radius-kit), var(--kit-control-pill));
+	--radius-control-md: max(var(--radius-kit-md), var(--kit-control-pill));
+	--radius-control-lg: max(var(--radius-kit-lg), var(--kit-control-pill));
+	--radius-control-xl: max(var(--radius-kit-xl), var(--kit-control-pill));
 
 	--color-terminal: var(--kit-terminal-bg);
 	--color-terminal-fg: var(--kit-terminal-fg);
@@ -384,7 +398,11 @@
 @utility surface-field {
 	background: var(--kit-surface);
 	box-shadow: inset 0 0 0 1px var(--kit-line-strong);
-	border-radius: var(--radius-kit);
+	/* A one-line field is a control (a capsule under pill corners); a text area stays a box. */
+	border-radius: var(--radius-control);
+	&:where(textarea) {
+		border-radius: var(--radius-kit);
+	}
 	transition: box-shadow var(--duration-fast) var(--ease-out-grid);
 	&:hover {
 		box-shadow: inset 0 0 0 1px var(--kit-line-hover);

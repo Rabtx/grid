@@ -40,14 +40,14 @@ const TINT: Record<NonNullable<MenuItem["tone"]>, string> = {
 
 /** A tile on phones, a row from md. */
 const MENU_TILE =
-	"focus-ring flex min-w-0 flex-col items-center justify-center gap-2 rounded-kit-xl bg-fill py-3 text-caption text-fg transition-colors duration-fast hover:bg-fill-strong disabled:pointer-events-none disabled:opacity-40 md:h-kit-row md:flex-row md:justify-start md:gap-2.5 md:rounded-kit-md md:bg-transparent md:px-2 md:py-0 md:text-left md:text-nav md:hover:bg-fill";
+	"focus-ring flex min-w-0 flex-col items-center justify-center gap-2 rounded-kit-xl bg-fill py-3 text-caption text-fg transition-colors duration-fast hover:bg-fill-strong disabled:pointer-events-none disabled:opacity-40 md:h-kit-row md:flex-row md:justify-start md:gap-2.5 md:rounded-control-md md:bg-transparent md:px-2 md:py-0 md:text-left md:text-nav md:hover:bg-fill";
 
 const TILE_ICON =
-	"grid size-10 shrink-0 place-items-center rounded-kit-lg [&_svg]:size-5 md:size-4 md:rounded-none md:bg-transparent md:text-fg-subtle md:shadow-none md:[&_svg]:size-4";
+	"grid size-10 shrink-0 place-items-center rounded-control-lg [&_svg]:size-5 md:size-4 md:rounded-none md:bg-transparent md:text-fg-subtle md:shadow-none md:[&_svg]:size-4";
 
 /** What opens a menu from the navigation: the workspace switcher, your account, a picker. */
 export const menuTrigger = variants({
-	base: "focus-ring flex min-w-0 items-center gap-2 rounded-kit px-1.5 text-left transition-colors duration-fast hover:bg-fill aria-expanded:bg-fill-strong",
+	base: "focus-ring flex min-w-0 items-center gap-2 rounded-control px-1.5 text-left transition-colors duration-fast hover:bg-fill aria-expanded:bg-fill-strong",
 	variants: {
 		size: { sm: "h-kit-control", md: "h-kit-control-lg text-body-lg" },
 		width: { auto: "", fill: "flex-1", full: "w-full" },
@@ -60,7 +60,7 @@ export const menuTrigger = variants({
 });
 
 export const MENU_ITEM =
-	"focus-ring flex h-kit-row w-full min-w-0 items-center gap-2.5 rounded-kit-md px-2 text-left text-nav transition-colors duration-fast ease-out-grid disabled:pointer-events-none disabled:opacity-40 pointer-coarse:h-12";
+	"focus-ring flex h-kit-row w-full min-w-0 items-center gap-2.5 rounded-control-md px-2 text-left text-nav transition-colors duration-fast ease-out-grid disabled:pointer-events-none disabled:opacity-40 pointer-coarse:h-12";
 
 /** The inside of a menu, reusable wherever a list of actions floats (menus, the account panel). */
 export function MenuList(props: {

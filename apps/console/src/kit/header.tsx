@@ -30,7 +30,7 @@ export function Breadcrumbs(props: {
 						>
 							<a
 								href={item.href}
-								class="focus-ring flex shrink-0 items-center gap-1.5 rounded-kit-sm text-fg-subtle hover:text-fg"
+								class="focus-ring flex shrink-0 items-center gap-1.5 rounded-control-sm text-fg-subtle hover:text-fg"
 							>
 								{item.icon}
 								{item.label}
@@ -122,7 +122,7 @@ export function HeaderTabs(props: {
 							setDragging(null);
 							setOver(null);
 						}}
-						class={`group/tab relative flex h-kit-control-sm min-w-0 shrink items-center rounded-kit text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg pointer-coarse:h-10 ${tab.pinned ? "shrink-0" : "max-w-60"} ${dragging() === tab.id ? "opacity-50" : ""}`}
+						class={`group/tab relative flex h-kit-control-sm min-w-0 shrink items-center rounded-control text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-[current=page]:bg-selection aria-[current=page]:text-fg pointer-coarse:h-10 ${tab.pinned ? "shrink-0" : "max-w-60"} ${dragging() === tab.id ? "opacity-50" : ""}`}
 					>
 						<Show when={over()?.id === tab.id}>
 							<span
@@ -139,7 +139,7 @@ export function HeaderTabs(props: {
 									: undefined
 							}
 							title={tab.pinned ? tab.label : undefined}
-							class={`focus-ring flex min-w-0 flex-1 items-center gap-2 rounded-kit py-1 ${tab.pinned ? "px-2" : "pr-2.5 pl-2.5"}`}
+							class={`focus-ring flex min-w-0 flex-1 items-center gap-2 rounded-control py-1 ${tab.pinned ? "px-2" : "pr-2.5 pl-2.5"}`}
 						>
 							<Show when={tab.icon}>
 								<span class="relative grid size-4 shrink-0 place-items-center text-fg-muted [&_svg]:size-3.5">
@@ -168,7 +168,7 @@ export function HeaderTabs(props: {
 								type="button"
 								aria-label={`Close ${tab.label}`}
 								onClick={() => props.onClose?.(tab.id)}
-								class="focus-ring -ml-1.5 mr-1 grid size-4.5 shrink-0 place-items-center rounded-kit-xs text-fg-faint opacity-0 hover:bg-fill-strong hover:text-fg focus-visible:opacity-100 group-hover/tab:opacity-100 group-focus-within/tab:opacity-100 group-aria-[current=page]/tab:opacity-100 pointer-coarse:opacity-100"
+								class="focus-ring -ml-1.5 mr-1 grid size-4.5 shrink-0 place-items-center rounded-control-xs text-fg-faint opacity-0 hover:bg-fill-strong hover:text-fg focus-visible:opacity-100 group-hover/tab:opacity-100 group-focus-within/tab:opacity-100 group-aria-[current=page]/tab:opacity-100 pointer-coarse:opacity-100"
 							>
 								<CloseIcon class="size-3" />
 							</button>

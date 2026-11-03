@@ -74,9 +74,9 @@ export function ResultRow(props: {
 			aria-current={props.active ? "true" : undefined}
 			onMouseMove={() => props.onHover()}
 			onClick={() => props.onPick()}
-			class="flex min-h-11 w-full min-w-0 items-center gap-3 rounded-kit-md px-2.5 text-left transition-colors duration-fast aria-[current=true]:bg-accent/8 pointer-coarse:min-h-12"
+			class="flex min-h-11 w-full min-w-0 items-center gap-3 rounded-control-md px-2.5 text-left transition-colors duration-fast aria-[current=true]:bg-accent/8 pointer-coarse:min-h-12"
 		>
-			<span class="grid size-7 shrink-0 place-items-center rounded-kit text-fg-muted [&_svg]:size-4">
+			<span class="grid size-7 shrink-0 place-items-center rounded-control text-fg-muted [&_svg]:size-4">
 				{props.icon}
 			</span>
 			<span class="min-w-0 truncate text-body text-fg">{props.label}</span>

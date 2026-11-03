@@ -146,7 +146,7 @@ export function IconButton(props: IconButtonProps): JSX.Element {
 }
 
 export const linkButton = variants({
-	base: "focus-ring inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-kit-sm text-caption transition-colors duration-fast",
+	base: "focus-ring inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-control-sm text-caption transition-colors duration-fast",
 	variants: {
 		tone: {
 			subtle: "text-fg-subtle hover:text-fg-muted",

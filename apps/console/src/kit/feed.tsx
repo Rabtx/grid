@@ -18,7 +18,7 @@ const tile = variants({
 			danger: "tint-danger",
 		},
 		size: {
-			md: "size-7 rounded-kit [&_svg]:size-3.5",
+			md: "size-7 rounded-control [&_svg]:size-3.5",
 			lg: "size-9 rounded-kit-lg [&_svg]:size-4",
 		},
 	},
@@ -171,7 +171,7 @@ export function CardRow(props: {
 				<Show
 					when={props.tone}
 					fallback={
-						<span class="grid size-8 shrink-0 place-items-center rounded-kit bg-fill text-fg-muted [&_svg]:size-4">
+						<span class="grid size-8 shrink-0 place-items-center rounded-control bg-fill text-fg-muted [&_svg]:size-4">
 							{props.icon}
 						</span>
 					}
@@ -243,7 +243,7 @@ export function DotLine(props: {
 				<button
 					type="button"
 					onClick={() => click()()}
-					class="focus-ring flex w-full min-w-0 items-center gap-2.5 rounded-kit px-4.5 py-2.5 text-left text-body text-fg transition-colors duration-fast hover:bg-fill"
+					class="focus-ring flex w-full min-w-0 items-center gap-2.5 rounded-control px-4.5 py-2.5 text-left text-body text-fg transition-colors duration-fast hover:bg-fill"
 				>
 					{line}
 				</button>

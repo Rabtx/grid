@@ -69,7 +69,7 @@ export function SplitTabs(props: {
 								if (props.active !== tab.id) tap();
 								props.onSelect(tab.id);
 							}}
-							class={`focus-ring flex h-[calc(var(--kit-h-control-sm)-0.25rem)] max-w-48 items-center gap-1.5 whitespace-nowrap rounded-kit-sm pl-2.5 text-body text-fg-subtle transition-colors duration-fast hover:text-fg aria-selected:font-medium aria-selected:text-fg [&_svg]:size-3.5 ${tab.closable && props.onClose ? "pr-1" : "pr-2.5"}`}
+							class={`focus-ring flex h-[calc(var(--kit-h-control-sm)-0.25rem)] max-w-48 items-center gap-1.5 whitespace-nowrap rounded-control-sm pl-2.5 text-body text-fg-subtle transition-colors duration-fast hover:text-fg aria-selected:font-medium aria-selected:text-fg [&_svg]:size-3.5 ${tab.closable && props.onClose ? "pr-1" : "pr-2.5"}`}
 						>
 							{tab.icon}
 							<span class="min-w-0 truncate">{tab.label}</span>
@@ -79,7 +79,7 @@ export function SplitTabs(props: {
 								type="button"
 								aria-label={`Close ${tab.label}`}
 								onClick={() => props.onClose?.(tab.id)}
-								class="focus-ring mr-1 grid size-5 place-items-center rounded-kit-sm text-fg-faint hover:bg-fill hover:text-fg [&_svg]:size-3"
+								class="focus-ring mr-1 grid size-5 place-items-center rounded-control-sm text-fg-faint hover:bg-fill hover:text-fg [&_svg]:size-3"
 							>
 								<CloseIcon />
 							</button>

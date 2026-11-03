@@ -121,7 +121,7 @@ export function ModelRow(props: {
 				aria-pressed={props.selected ? "true" : "false"}
 				onMouseEnter={() => props.onHover?.()}
 				onClick={(event) => props.onPick(event)}
-				class="focus-ring flex h-row min-w-0 flex-1 items-center gap-2 rounded-kit-md pr-2 pl-8 text-left"
+				class="focus-ring flex h-row min-w-0 flex-1 items-center gap-2 rounded-control-md pr-2 pl-8 text-left"
 			>
 				<Show when={props.icon}>
 					<span class="grid shrink-0 place-items-center text-fg-subtle">{props.icon}</span>
@@ -159,7 +159,7 @@ export function ModelRow(props: {
 				}
 				aria-pressed={props.favorite ? "true" : "false"}
 				onClick={() => props.onFavorite()}
-				class={`focus-ring absolute left-1 grid size-6 place-items-center rounded-kit-sm transition-opacity duration-fast hover:bg-fill-strong aria-pressed:text-warning ${props.favorite ? "" : "text-fg-faint opacity-0 group-hover/model:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-50"}`}
+				class={`focus-ring absolute left-1 grid size-6 place-items-center rounded-control-sm transition-opacity duration-fast hover:bg-fill-strong aria-pressed:text-warning ${props.favorite ? "" : "text-fg-faint opacity-0 group-hover/model:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-50"}`}
 			>
 				<StarIcon size="sm" />
 			</button>

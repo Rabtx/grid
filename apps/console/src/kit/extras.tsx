@@ -61,7 +61,7 @@ export function ActivityItem(props: {
 }): JSX.Element {
 	return (
 		<div class="flex gap-3 px-4 py-3.5">
-			<span class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-kit-md bg-fill-strong text-fg-subtle">
+			<span class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-control-md bg-fill-strong text-fg-subtle">
 				{props.icon}
 			</span>
 			<div class="flex min-w-0 flex-1 flex-col gap-1">
@@ -183,7 +183,7 @@ export function InlineAdd(props: {
 					<button
 						type="button"
 						onClick={() => setOpen(true)}
-						class="focus-ring flex h-8 w-full items-center gap-1.5 rounded-kit px-2 text-left text-body text-fg-subtle transition-colors duration-fast hover:bg-fill hover:text-fg-muted pointer-coarse:h-11"
+						class="focus-ring flex h-8 w-full items-center gap-1.5 rounded-control px-2 text-left text-body text-fg-subtle transition-colors duration-fast hover:bg-fill hover:text-fg-muted pointer-coarse:h-11"
 					>
 						{props.icon}
 						{props.label}

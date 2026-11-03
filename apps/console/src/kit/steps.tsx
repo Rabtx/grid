@@ -23,7 +23,7 @@ export function Stepper(props: {
 								disabled={!props.onStep || index() > props.current}
 								onClick={() => props.onStep?.(index())}
 								aria-current={state() === "current" ? "step" : undefined}
-								class="focus-ring flex h-8 w-full items-center gap-2.5 rounded-kit-md px-2 text-left text-body text-fg-subtle aria-[current=step]:bg-fill-strong aria-[current=step]:text-fg enabled:hover:text-fg"
+								class="focus-ring flex h-8 w-full items-center gap-2.5 rounded-control-md px-2 text-left text-body text-fg-subtle aria-[current=step]:bg-fill-strong aria-[current=step]:text-fg enabled:hover:text-fg"
 							>
 								<span
 									class={`grid size-4 shrink-0 place-items-center rounded-full ${

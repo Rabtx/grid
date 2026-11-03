@@ -113,7 +113,7 @@ function Toast(props: { toast: ToastItem }): JSX.Element {
 							action().run();
 							dismiss(toast().id);
 						}}
-						class="focus-ring shrink-0 rounded-kit-sm px-1.5 font-medium text-body underline-offset-2 hover:underline"
+						class="focus-ring shrink-0 rounded-control-sm px-1.5 font-medium text-body underline-offset-2 hover:underline"
 					>
 						{action().label}
 					</button>
@@ -123,7 +123,7 @@ function Toast(props: { toast: ToastItem }): JSX.Element {
 				type="button"
 				aria-label="Dismiss"
 				onClick={() => dismiss(toast().id)}
-				class="focus-ring grid size-5 shrink-0 place-items-center rounded-kit-sm opacity-60 hover:opacity-100"
+				class="focus-ring grid size-5 shrink-0 place-items-center rounded-control-sm opacity-60 hover:opacity-100"
 			>
 				<CloseIcon class="size-3.5" />
 			</button>

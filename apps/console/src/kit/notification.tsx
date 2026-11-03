@@ -39,7 +39,7 @@ export function NotificationCard(props: {
 		<article class="surface-card pointer-events-auto flex min-w-0 gap-3 p-4 starting:translate-y-2 starting:opacity-0 transition-[translate,opacity] duration-base ease-out-grid">
 			<span
 				aria-hidden="true"
-				class="grid size-8 shrink-0 place-items-center rounded-kit bg-fill text-fg-muted [&_img]:size-4 [&_svg]:size-4"
+				class="grid size-8 shrink-0 place-items-center rounded-control bg-fill text-fg-muted [&_img]:size-4 [&_svg]:size-4"
 			>
 				{props.icon}
 			</span>

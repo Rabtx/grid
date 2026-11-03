@@ -154,7 +154,12 @@ or, in CSS, `var(--radius-kit*)`; the older `--radius-*` names scale too. Button
 fields, switches, dialog actions and round icon buttons use `rounded-pill` (`--kit-radius-pill`);
 icon tiles, the composer's toolbar and dock chips, toolbar and filter chips and select triggers use
 `rounded-tile` (`--kit-radius-tile`, 8px in round). Both follow the style; a control never uses
-the card scale (`rounded-kit*`) for its own corner, or it would not. `rounded-full` is only for circles that are shapes — avatars, status dots, radio marks,
+the card scale (`rounded-kit*`) for its own corner, or it would not. Every other one-line control — fields and search
+boxes, segmented switches, tabs, menu items, nav, list and tree rows, attachment chips, small
+buttons and the icon squares beside rows — uses `rounded-control-*`: the kit size in round, soft
+and square, a capsule (or circle) in pill. Cards, panels, lanes and anything taller than a line keep
+`rounded-kit-*`; a text area stays a box. `kit-guard.test.ts` fails the build on a one-line
+control with a card corner. `rounded-full` is only for circles that are shapes — avatars, status dots, radio marks,
 swatches, progress and slider tracks — and stays round. No fixed pixel corners; 0 is no corner. `kit-guard.test.ts` fails the
 build on a fixed corner in the kit or the stylesheets.
 

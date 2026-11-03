@@ -51,7 +51,7 @@ export function ThreadDetailsSection(props: {
 }
 
 const ROW =
-	"flex h-8 w-full min-w-0 items-center gap-2.5 rounded-kit px-2.5 text-left text-body text-fg-muted pointer-coarse:h-10";
+	"flex h-8 w-full min-w-0 items-center gap-2.5 rounded-control px-2.5 text-left text-body text-fg-muted pointer-coarse:h-10";
 
 /**
  * A row: its icon, its label, and its value (a branch, a count, a diff) on the right. With `href`

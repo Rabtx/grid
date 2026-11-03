@@ -202,7 +202,7 @@ export function ShipTile(props: { children: JSX.Element }): JSX.Element {
 	return (
 		<span
 			aria-hidden="true"
-			class="grid size-8 shrink-0 place-items-center rounded-kit tint-accent [&_img]:size-4 [&_svg]:size-4"
+			class="grid size-8 shrink-0 place-items-center rounded-control tint-accent [&_img]:size-4 [&_svg]:size-4"
 		>
 			{props.children}
 		</span>
