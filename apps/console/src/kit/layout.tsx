@@ -198,6 +198,31 @@ export function Section(props: {
 }
 
 /**
+ * A record's page (an open task): its heading across the top, then the main column (what it is
+ * about and the work on it) beside an aside of its properties. On phones they stack heading,
+ * properties, then the main column, so what it is and who has it come first; from `lg` the aside
+ * is a 18rem column that stays in view while the main column scrolls.
+ */
+export function DetailColumns(props: {
+	head: JSX.Element;
+	main: JSX.Element;
+	aside: JSX.Element;
+}): JSX.Element {
+	return (
+		<div class="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-x-8">
+			<div class="min-w-0 lg:col-span-2">{props.head}</div>
+			<aside
+				aria-label="Properties"
+				class="flex min-w-0 flex-col gap-3 lg:sticky lg:top-0 lg:col-start-2 lg:row-start-2 lg:self-start"
+			>
+				{props.aside}
+			</aside>
+			<div class="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-start-2">{props.main}</div>
+		</div>
+	);
+}
+
+/**
  * A main column beside a 340px aside (the Figma Home and Pulse pages); stacked on phones, the
  * aside after the main column.
  */

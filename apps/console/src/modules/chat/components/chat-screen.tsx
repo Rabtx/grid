@@ -51,6 +51,7 @@ import { addBoardTask, runSlashCommand } from "../lib/run-slash-command";
 import { availableCommands, type SlashCommand } from "../lib/slash-commands";
 import { chatService } from "../services/chat.service";
 import { draftsStore } from "../stores/drafts";
+import { AGENT_KEY } from "../lib/agent-choice";
 import { offeredProviders, providersStore } from "../stores/providers";
 import { rolesStore } from "../stores/roles";
 import { accountsStore } from "../stores/accounts";
@@ -67,7 +68,6 @@ import { RoleDialog, RoleMenu, RoleSettings } from "./roles";
 import { planLimits } from "./usage-rings";
 import { SessionTabs } from "./session-list";
 
-const AGENT_KEY = "grid.chat.agent";
 // The role the last thread started as, so the next one does too.
 const ROLE_KEY = "grid.chat.role";
 

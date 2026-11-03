@@ -1,15 +1,18 @@
 import type { JSX } from "@solidjs/web";
 import { useNavigate } from "@solidjs/router";
-import { createEffect, createSignal, Loading, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Loading, Show, untrack } from "solid-js";
 
 import {
+	AgentLogo,
 	Alert,
 	BranchIcon,
 	Button,
 	ChatIcon,
 	CheckIcon,
+	ClockIcon,
 	CloseIcon,
 	ConfirmDialog,
+	DetailColumns,
 	Dialog,
 	EmptyState,
 	IconButton,
@@ -23,20 +26,39 @@ import {
 	PanelFooter,
 	PropertyRow,
 	QuietInput,
+	RoleMark,
 	Select,
+	type SelectGroup,
 	SEND_BUTTON,
 	SendIcon,
 	Skeleton,
 	Stack,
 	Text,
+	ThreadDetailsCard,
+	ThreadDetailsRow,
+	ThreadDetailsSection,
 	TitleInput,
 	TrashIcon,
+	UserIcon,
 } from "@/kit";
+import { workspaceHref } from "@/lib/active-workspace";
 import { useAuth } from "@/modules/auth";
+import { rememberAgent } from "@/modules/chat/lib/agent-choice";
 import { draftsStore, taskDraft } from "@/modules/chat/stores/drafts";
+import { providersStore } from "@/modules/chat/stores/providers";
+import { rolesStore } from "@/modules/chat/stores/roles";
+import { threadsStore } from "@/modules/chat/stores/threads";
+import { placementsStore, scopeFor } from "@/modules/environments";
 
 import { useWorkspace } from "../context/workspace-context";
 import { relativeTime } from "../lib/relative-time";
+import {
+	assigneeValue,
+	ownerFor,
+	statusOnStart,
+	threadsForTask,
+	withoutKey,
+} from "../lib/task-work";
 import { projectsService } from "../services/projects.service";
 
 import {
@@ -61,19 +83,12 @@ const STATUS_GROUPS = [
 	},
 ];
 
-const OWNER_OPTIONS = [
-	{ value: "none", label: "Nobody" },
-	{ value: "me", label: "Me" },
-	{ value: "human", label: "A person" },
-	{ value: "agent", label: "An agent" },
-] as const;
-
-type OwnerChoice = (typeof OWNER_OPTIONS)[number]["value"];
-
 /**
- * The open task, over the board. It is mounted once per board route and driven entirely by the
- * URL — `/board/:slug/tasks/:number` opens it, the plain board URL closes it — so the panel,
- * a shared link and a reload all agree on which task is showing.
+ * The open task, as a wide panel over the board: what it is and the agent work on it beside its
+ * properties (who has it, where it stands, its branch), and a box to start an agent on it. It is
+ * mounted once per board route and driven entirely by the URL — `/board/:slug/tasks/:number`
+ * opens it, the plain board URL closes it — so the panel, a shared link and a reload all agree on
+ * which task is showing.
  */
 export function TaskPanel(): JSX.Element {
 	const workspace = useWorkspace();
@@ -83,7 +98,7 @@ export function TaskPanel(): JSX.Element {
 		<Dialog
 			kind="drawer"
 			bare
-			width="32rem"
+			width="64rem"
 			open={number() !== null}
 			onClose={workspace.closeTask}
 			// Naming the panel from the task itself would read the board's first load outside the
@@ -119,11 +134,61 @@ function TaskFields(props: { task: Task }): JSX.Element {
 
 	const saving = () => saveCount() > 0;
 	const me = () => auth.user()?.username ?? null;
+	// The agents and roles Grid knows on this project's machine: the assignee picker offers them by
+	// name, and "Start with…" opens a chat with the one picked.
+	const scope = () => scopeFor(placementsStore.environmentOf(workspace.activeSlug() ?? undefined));
+	const agents = () => providersStore.providers(scope());
+	const roles = () => rolesStore.roles(scope());
+	const known = () => [...agents().map((agent) => agent.name), ...roles().map((role) => role.name)];
+	createEffect(
+		() => [auth.token(), scope()] as const,
+		([token, where]) => {
+			if (!token) return;
+			void providersStore.load(token, where);
+			void rolesStore.load(token, where);
+		},
+	);
 	// Yours when it names you: the board's "Assigned to me" matches the same way.
-	const ownerChoice = (): OwnerChoice =>
-		ownerKind() === "human" && me() !== null && ownerName().toLowerCase() === me()?.toLowerCase()
-			? "me"
-			: (ownerKind() ?? "none");
+	const ownerChoice = () => assigneeValue({ kind: ownerKind(), name: ownerName() }, me(), known());
+	const assigneeGroups = (): SelectGroup<string>[] => [
+		{
+			options: [
+				{ value: "none", label: "Nobody" },
+				{ value: "me", label: "Me", icon: <UserIcon size="sm" /> },
+			],
+		},
+		...(agents().length
+			? [
+					{
+						label: "Agents",
+						options: agents().map((agent) => ({
+							value: `agent:${agent.name}`,
+							label: agent.name,
+							icon: <AgentLogo id={agent.id} name={agent.name} />,
+						})),
+					},
+				]
+			: []),
+		...(roles().length
+			? [
+					{
+						label: "Roles",
+						options: roles().map((role) => ({
+							value: `agent:${role.name}`,
+							label: role.name,
+							icon: <RoleMark icon={role.icon ?? "code"} size="sm" />,
+						})),
+					},
+				]
+			: []),
+		{
+			label: "Someone else",
+			options: [
+				{ value: "human", label: "A person" },
+				{ value: "agent", label: "Another agent" },
+			],
+		},
+	];
 
 	// Seeding is keyed on the task's number, not on the task object: a board refresh after a save
 	// must not overwrite an edit the user is still typing in another field. The read is untracked
@@ -181,24 +246,19 @@ function TaskFields(props: { task: Task }): JSX.Element {
 		await save({ status: next }, () => setStatus(previous));
 	}
 
-	async function changeOwnerKind(next: OwnerChoice): Promise<void> {
-		if (next === "me") {
-			const name = me();
-			if (!name) return;
-			const previous = { kind: props.task.owner?.kind ?? null, name: props.task.owner?.name ?? "" };
-			setOwnerKind("human");
-			setOwnerName(name);
-			await save({ ownerKind: "human", ownerName: name }, () => {
-				setOwnerKind(previous.kind);
-				setOwnerName(previous.name);
-			});
+	async function changeOwner(next: string): Promise<void> {
+		const owner = ownerFor(next, me());
+		if (!owner) return;
+		const previous = { kind: props.task.owner?.kind ?? null, name: props.task.owner?.name ?? "" };
+		if (owner.ownerKind === previous.kind && (owner.ownerName ?? previous.name) === previous.name)
 			return;
-		}
-		const kind: TaskOwnerKind | null = next === "none" ? null : next;
-		const previous = props.task.owner?.kind ?? null;
-		if (kind === previous) return;
-		setOwnerKind(kind);
-		await save({ ownerKind: kind }, () => setOwnerKind(previous));
+		setOwnerKind(owner.ownerKind);
+		// Picking "A person" or "Another agent" keeps the name for typing; the rest name it.
+		if (owner.ownerName !== undefined) setOwnerName(owner.ownerName ?? "");
+		await save(owner, () => {
+			setOwnerKind(previous.kind);
+			setOwnerName(previous.name);
+		});
 	}
 
 	async function commitOwnerName(): Promise<void> {
@@ -248,17 +308,48 @@ function TaskFields(props: { task: Task }): JSX.Element {
 
 	const [message, setMessage] = createSignal("");
 	const [copied, setCopied] = createSignal(false);
-	const ownerIsAgent = () => props.task.owner?.kind === "agent";
-	const agentName = () => (ownerIsAgent() ? props.task.owner?.name : null) ?? null;
+	// Who "Start with…" opens a chat with: the agent the task is assigned to, else the first one.
+	const [startAgent, setStartAgent] = createSignal<string | null>(null);
+	const assignedAgent = () =>
+		props.task.owner?.kind === "agent"
+			? agents().find((agent) => agent.name.toLowerCase() === props.task.owner?.name?.toLowerCase())
+			: undefined;
+	const starter = () =>
+		agents().find((agent) => agent.id === startAgent()) ?? assignedAgent() ?? agents()[0] ?? null;
 
-	/** Start a thread about this task: the task, then what you wrote, ready to send. */
+	/**
+	 * Start an agent on this task: a chat that opens with the task and what was written, with the
+	 * agent picked. A task nobody has goes to that agent, and one not yet started moves to In
+	 * progress, so the board says who is on it.
+	 */
 	function runWithAgent(note = ""): void {
 		const slug = workspace.activeSlug();
 		if (!slug) return;
 		const draft = taskDraft(props.task);
 		draftsStore.set(slug, note.trim() ? `${draft}\n\n${note.trim()}` : draft);
+		const agent = starter();
+		if (agent) {
+			rememberAgent(agent.id);
+			const patch: UpdateTaskInput = {};
+			if (!props.task.owner) Object.assign(patch, { ownerKind: "agent", ownerName: agent.name });
+			const next = statusOnStart(props.task.status);
+			if (next) patch.status = next;
+			if (Object.keys(patch).length) void save(patch, () => undefined);
+		}
 		navigate(`/chat/${slug}`);
 	}
+
+	// The threads started from this task (a chat opened from it is titled with its key).
+	const work = createMemo(() =>
+		threadsForTask(threadsStore.threads(workspace.activeSlug() ?? ""), props.task.key),
+	);
+	const agentLabel = (id: string) => agents().find((agent) => agent.id === id)?.name ?? id;
+	const workState = (id: string, updatedAt: string) =>
+		threadsStore.isWaiting(id)
+			? "Needs you"
+			: threadsStore.isRunning(id)
+				? "Working"
+				: relativeTime(updatedAt);
 
 	async function copyLink(): Promise<void> {
 		try {
@@ -325,96 +416,181 @@ function TaskFields(props: { task: Task }): JSX.Element {
 				</Text>
 			</PanelBar>
 
-			<Stack gap={5} class="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-				<Show when={error()}>
-					{(message) => <Alert tone="danger" title={message()} onDismiss={() => setError(null)} />}
-				</Show>
-
-				<TitleInput
-					value={title()}
-					onInput={(event) => setTitle(event.currentTarget.value)}
-					onBlur={() => void commitTitle()}
-					onKeyDown={saveOnEnter}
-					placeholder="Task title"
-					aria-label="Task title"
-					maxlength={200}
-				/>
-
-				<Stack gap={1}>
-					<PropertyRow label="Status">
-						<Select<TaskStatus>
-							label="Status"
-							look="chip"
-							groups={STATUS_GROUPS}
-							value={status()}
-							onChange={(value) => void changeStatus(value)}
-						/>
-					</PropertyRow>
-
-					<PropertyRow label="Assignee">
-						<Select<OwnerChoice>
-							label="Assignee"
-							look="chip"
-							groups={[{ options: OWNER_OPTIONS.map((option) => ({ ...option })) }]}
-							value={ownerChoice()}
-							onChange={(next) => void changeOwnerKind(next)}
-						/>
-						<Show when={ownerKind()}>
-							<QuietInput
-								value={ownerName()}
-								onInput={(event) => setOwnerName(event.currentTarget.value)}
-								onBlur={() => void commitOwnerName()}
+			<div class="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+				<DetailColumns
+					head={
+						<Stack gap={3}>
+							<Show when={error()}>
+								{(message) => (
+									<Alert tone="danger" title={message()} onDismiss={() => setError(null)} />
+								)}
+							</Show>
+							<TitleInput
+								value={title()}
+								onInput={(event) => setTitle(event.currentTarget.value)}
+								onBlur={() => void commitTitle()}
 								onKeyDown={saveOnEnter}
-								aria-label={ownerKind() === "agent" ? "Agent name" : "Person's name"}
-								placeholder={ownerKind() === "agent" ? "Which agent" : "Who"}
+								placeholder="Task title"
+								aria-label="Task title"
+								maxlength={200}
 							/>
-						</Show>
-					</PropertyRow>
-
-					<PropertyRow label="Branch">
-						<span class="shrink-0 text-fg-subtle [&_svg]:size-4">
-							<BranchIcon />
-						</span>
-						<QuietInput
-							value={branch()}
-							onInput={(event) => setBranch(event.currentTarget.value)}
-							onBlur={() => void commitBranch()}
-							onKeyDown={saveOnEnter}
-							aria-label="Branch"
-							placeholder="No branch yet"
-							class="font-mono"
-						/>
-					</PropertyRow>
-				</Stack>
-
-				<MarkdownField
-					label="Description"
-					value={description()}
-					onInput={setDescription}
-					onBlur={() => void commitDescription()}
-					onSubmit={() => void commitDescription()}
-					placeholder="Context a teammate or an agent needs, in Markdown"
-					rows={6}
+						</Stack>
+					}
+					aside={
+						<ThreadDetailsCard>
+							<ThreadDetailsSection title="Properties">
+								<div class="flex flex-col gap-1 px-2.5 pb-1">
+									<PropertyRow label="Status">
+										<Select<TaskStatus>
+											label="Status"
+											look="chip"
+											groups={STATUS_GROUPS}
+											value={status()}
+											onChange={(value) => void changeStatus(value)}
+										/>
+									</PropertyRow>
+									<PropertyRow label="Assignee">
+										<Select<string>
+											label="Assignee"
+											look="chip"
+											groups={assigneeGroups()}
+											value={ownerChoice()}
+											onChange={(next) => void changeOwner(next)}
+										/>
+									</PropertyRow>
+									<Show when={ownerChoice() === "human" || ownerChoice() === "agent"}>
+										<PropertyRow label={ownerKind() === "agent" ? "Agent" : "Person"}>
+											<QuietInput
+												value={ownerName()}
+												onInput={(event) => setOwnerName(event.currentTarget.value)}
+												onBlur={() => void commitOwnerName()}
+												onKeyDown={saveOnEnter}
+												aria-label={ownerKind() === "agent" ? "Agent name" : "Person's name"}
+												placeholder={ownerKind() === "agent" ? "Which agent" : "Who"}
+											/>
+										</PropertyRow>
+									</Show>
+									<PropertyRow label="Branch">
+										<span class="shrink-0 text-fg-subtle [&_svg]:size-4">
+											<BranchIcon />
+										</span>
+										<QuietInput
+											value={branch()}
+											onInput={(event) => setBranch(event.currentTarget.value)}
+											onBlur={() => void commitBranch()}
+											onKeyDown={saveOnEnter}
+											aria-label="Branch"
+											placeholder="No branch yet"
+											class="font-mono"
+										/>
+									</PropertyRow>
+								</div>
+							</ThreadDetailsSection>
+							<ThreadDetailsSection title="Details">
+								<ThreadDetailsRow icon={<LinkIcon />} label="Key" value={props.task.key} />
+								<ThreadDetailsRow
+									icon={<ClockIcon />}
+									label="Created"
+									value={relativeTime(props.task.createdAt)}
+								/>
+								<ThreadDetailsRow
+									icon={<ClockIcon />}
+									label="Updated"
+									value={relativeTime(props.task.updatedAt)}
+								/>
+							</ThreadDetailsSection>
+						</ThreadDetailsCard>
+					}
+					main={
+						<>
+							<MarkdownField
+								label="Description"
+								value={description()}
+								onInput={setDescription}
+								onBlur={() => void commitDescription()}
+								onSubmit={() => void commitDescription()}
+								placeholder="Context a teammate or an agent needs, in Markdown"
+								rows={6}
+							/>
+							<ThreadDetailsCard>
+								<ThreadDetailsSection
+									title="Agent work"
+									actions={
+										<Show when={work().length > 0}>
+											<Text as="span" size="caption" tone="subtle">
+												{work().length} thread{work().length === 1 ? "" : "s"}
+											</Text>
+										</Show>
+									}
+								>
+									<Show
+										when={work().length > 0}
+										fallback={
+											<p class="px-2.5 pb-1 text-caption text-fg-subtle">
+												No agent has worked on this task yet. Start one below, and its thread shows
+												here.
+											</p>
+										}
+									>
+										<For each={work()}>
+											{(thread) => (
+												<ThreadDetailsRow
+													icon={
+														<AgentLogo id={thread.provider} name={agentLabel(thread.provider)} />
+													}
+													label={withoutKey(thread.title, props.task.key)}
+													title={thread.title}
+													value={workState(thread.id, thread.updatedAt)}
+													href={workspaceHref(
+														`/chat/${encodeURIComponent(thread.project)}/${encodeURIComponent(thread.id)}`,
+													)}
+												/>
+											)}
+										</For>
+									</Show>
+								</ThreadDetailsSection>
+							</ThreadDetailsCard>
+						</>
+					}
 				/>
-			</Stack>
+			</div>
 
-			{/* Ask an agent about the task (Figma's message box): it opens a thread with the task in it. */}
+			{/* Start an agent on the task: a chat with the task in it, with the agent picked here. */}
 			<PanelFooter
 				onSubmit={() => {
-					if (!message().trim()) return;
 					runWithAgent(message());
 					setMessage("");
 				}}
 			>
+				<Show when={agents().length > 1}>
+					<Select<string>
+						label="Agent to start"
+						look="chip"
+						placement="top-start"
+						groups={[
+							{
+								options: agents().map((agent) => ({
+									value: agent.id,
+									label: agent.name,
+									icon: <AgentLogo id={agent.id} name={agent.name} />,
+								})),
+							},
+						]}
+						value={starter()?.id ?? ""}
+						onChange={setStartAgent}
+					/>
+				</Show>
 				<Input
 					shape="pill"
 					value={message()}
 					onInput={(event) => setMessage(event.currentTarget.value)}
 					aria-label="Message an agent about this task"
 					placeholder={
-						agentName()
-							? `Message ${agentName()} about this task…`
-							: "Ask an agent about this task…"
+						starter()
+							? `Start ${starter()?.name} on this task…`
+							: props.task.owner?.kind === "agent" && props.task.owner.name
+								? `Message ${props.task.owner.name} about this task…`
+								: "Ask an agent about this task…"
 					}
 				/>
 				<button

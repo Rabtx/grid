@@ -111,7 +111,18 @@ export {
 	TitleInput,
 } from "./field";
 export * from "./icons";
-export { Divider, Grid, MainAside, Page, PageHeader, Row, Section, Spacer, Stack } from "./layout";
+export {
+	DetailColumns,
+	Divider,
+	Grid,
+	MainAside,
+	Page,
+	PageHeader,
+	Row,
+	Section,
+	Spacer,
+	Stack,
+} from "./layout";
 export { Breadcrumbs, type HeaderTab, HeaderTabs } from "./header";
 export { Menu, MENU_ITEM, type MenuGroup, type MenuItem, MenuList, menuTrigger } from "./menu";
 export {

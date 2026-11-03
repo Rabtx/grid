@@ -227,6 +227,14 @@ answered. A live turn stays open. An agent's own HTML page is drawn bare at its 
 full screen" in its corner under the pointer; when the thread is scrolled up, a "Scroll to end"
 pill is centred over its end.
 
+**A task opens as a record, not a form** (`DetailColumns`): a wide panel over the board with the
+title across the top, then what it is about and the agent work on it (the threads started from it,
+each with its agent, and whether it is working, waiting on you or when it last moved) beside a
+properties card — status, the assignee picked from the people and agents Grid knows, the branch,
+and its key and dates. On phones the properties come right after the title. Its footer starts an
+agent on it: a chat opens with the task and the agent picked, and a task nobody has goes to that
+agent and moves to In progress.
+
 ### Motion
 
 `duration-fast` 120ms (feedback), `duration-base` 160ms (disclosure, reorder), `duration-slow`
