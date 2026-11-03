@@ -4,7 +4,7 @@ import { agyArgs, agyModelId, antigravityProvider, parseAgyModels } from "./anti
 import { claudeModelChoice, claudeModels, modelContextWindow } from "./claude";
 import { effortChoices } from "./catalog";
 import type { ChatEvent, Choice } from "./events";
-import { parseOpencodeModels } from "./opencode";
+import { parseOpencodeModelIds, parseOpencodeModels } from "./opencode";
 import type { JsonProcess, Spawn } from "./stdio";
 
 describe("Claude Code's model list", () => {
@@ -168,6 +168,34 @@ describe("opencode's model list", () => {
 				defaultEffort: "medium",
 			},
 		]);
+	});
+
+	it("reads opencode 2's plain id list, which has no details", () => {
+		const text = [
+			"opencode/big-pickle",
+			"opencode/deepseek-v4.1-flash-free",
+			"openai/gpt-6",
+			"",
+		].join("\n");
+		expect(parseOpencodeModelIds(text)).toEqual([
+			{
+				id: "opencode/big-pickle",
+				name: "big-pickle",
+				group: "opencode",
+				description: "opencode/big-pickle",
+			},
+			{
+				id: "opencode/deepseek-v4.1-flash-free",
+				name: "deepseek-v4.1-flash-free",
+				group: "opencode",
+				description: "opencode/deepseek-v4.1-flash-free · free",
+			},
+			{ id: "openai/gpt-6", name: "gpt-6", group: "openai", description: "openai/gpt-6" },
+		]);
+	});
+
+	it("skips lines that are not model ids", () => {
+		expect(parseOpencodeModelIds("ERROR\n  Unrecognized flag\nnot an id\n")).toEqual([]);
 	});
 });
 

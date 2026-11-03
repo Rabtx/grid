@@ -58,8 +58,37 @@ export function parseOpencodeModels(text: string): Choice[] {
 	return models;
 }
 
-const opencodeModels = cached(10 * 60 * 1000, async () => ({
-	models: parseOpencodeModels(await runCli(["opencode", "models", "--verbose"], 60_000)),
-}));
+/**
+ * opencode's plain model list (`opencode models`: one `provider/model` id per line), for
+ * opencode 2, which dropped `--verbose`. Only the id is known: grouped by provider, and marked
+ * free when the id says so.
+ */
+export function parseOpencodeModelIds(text: string): Choice[] {
+	const models: Choice[] = [];
+	for (const line of text.split("\n")) {
+		const id = line.trim();
+		const slash = id.indexOf("/");
+		if (slash <= 0 || /\s/.test(id)) continue;
+		const model = id.slice(slash + 1);
+		models.push({
+			id,
+			name: model,
+			group: id.slice(0, slash),
+			description: [id, /(^|-)free$/.test(model) ? "free" : null].filter(Boolean).join(" · "),
+		});
+	}
+	return models;
+}
+
+/** The detailed list where this opencode still offers it, else the plain one. */
+async function loadOpencodeModels(): Promise<Choice[]> {
+	try {
+		return parseOpencodeModels(await runCli(["opencode", "models", "--verbose"], 60_000));
+	} catch {
+		return parseOpencodeModelIds(await runCli(["opencode", "models"], 60_000));
+	}
+}
+
+const opencodeModels = cached(10 * 60 * 1000, async () => ({ models: await loadOpencodeModels() }));
 
 export const opencodeCatalog = (fresh?: boolean) => opencodeModels(fresh);
