@@ -124,6 +124,18 @@ export function agyStatus(output: string, code: number): AgentStatus {
 	return /sign|log ?in|auth|credential/i.test(output) ? { signedIn: false } : { signedIn: null };
 }
 
+/**
+ * `grok models` says whether it is signed in ("You are logged in", "Not logged in") without
+ * starting the agent. An expired token prints the logged-out line and is refreshed in the same
+ * run, so a "no" is asked once more before it counts (as t3code does).
+ */
+export function grokStatus(output: string, code: number): AgentStatus {
+	if (code === 127) return { signedIn: null };
+	if (/you are logged in/i.test(output)) return { signedIn: true, account: "Grok account" };
+	if (/not authenticated|not logged in/i.test(output)) return { signedIn: false };
+	return { signedIn: null };
+}
+
 export const AGENT_SETUP: Record<string, AgentSetup> = {
 	claude: {
 		install: "curl -fsSL https://claude.ai/install.sh | bash",
@@ -169,6 +181,20 @@ export const AGENT_SETUP: Record<string, AgentSetup> = {
 			return cursorStatus(result.output, result.code);
 		},
 	},
+	grok: {
+		install: "curl -fsSL https://x.ai/cli/install.sh | bash",
+		// Device-code sign-in: a link and a code to enter on any device.
+		signIn: "grok login --device-auth",
+		update: "grok update",
+		docs: "https://x.ai/cli",
+		async status() {
+			const first = grokStatus((await run(["grok", "models"], 20_000)).output, 0);
+			if (first.signedIn !== false) return first;
+			const again = await run(["grok", "models"], 20_000);
+			const second = grokStatus(again.output, again.code);
+			return second.signedIn === null ? first : second;
+		},
+	},
 	antigravity: {
 		install: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
 		// `agy` signs in when it first starts; on a machine without a browser it prints a link and
@@ -211,8 +237,8 @@ export function setupCommand(agent: string, step: SetupStep): string | null {
  * from Grid is found (and runs) at once, without a restart or a shell profile change.
  */
 export function withAgentBins(path: string | undefined, home = homedir()): string {
-	const bins = [".local/bin", ".opencode/bin", ".bun/bin", ".npm-global/bin"].map((dir) =>
-		join(home, dir),
+	const bins = [".local/bin", ".opencode/bin", ".bun/bin", ".npm-global/bin", ".grok/bin"].map(
+		(dir) => join(home, dir),
 	);
 	const current = (path ?? "").split(delimiter).filter(Boolean);
 	return [...current, ...bins.filter((bin) => !current.includes(bin))].join(delimiter);

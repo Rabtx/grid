@@ -7,6 +7,7 @@ import {
 	agyStatus,
 	claudeStatus,
 	codexStatus,
+	grokStatus,
 	cursorStatus,
 	opencodeStatus,
 	setupCommand,
@@ -85,6 +86,16 @@ describe("agent setup", () => {
 		});
 		expect(agyStatus("Please sign in to continue", 1)).toEqual({ signedIn: false });
 		expect(agyStatus("", 127)).toEqual({ signedIn: null });
+
+		expect(grokStatus("You are logged in.\ngrok-4.5\n", 0)).toEqual({
+			signedIn: true,
+			account: "Grok account",
+		});
+		expect(grokStatus("Not logged in. Run `grok login`.", 1)).toEqual({ signedIn: false });
+		expect(grokStatus("", 127)).toEqual({ signedIn: null });
+		expect(setupCommand("grok", "install")).toBe("curl -fsSL https://x.ai/cli/install.sh | bash");
+		expect(setupCommand("grok", "sign-in")).toBe("grok login --device-auth");
+		expect(setupCommand("grok", "update")).toBe("grok update");
 	});
 
 	it("adds the installers' folders to PATH once, after what is already there", () => {
@@ -95,6 +106,7 @@ describe("agent setup", () => {
 			"/home/me/.opencode/bin",
 			"/home/me/.bun/bin",
 			"/home/me/.npm-global/bin",
+			"/home/me/.grok/bin",
 		]);
 		expect(withAgentBins(path, "/home/me")).toBe(path);
 	});

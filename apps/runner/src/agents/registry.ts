@@ -24,6 +24,7 @@ const BINARIES = new Map<string, string>([
 	["antigravity", "agy"],
 	["codex", "codex"],
 	["cursor", "cursor-agent"],
+	["grok", "grok"],
 ]);
 
 export function agentBinary(id: string): string | null {
@@ -91,6 +92,16 @@ export function providerRegistry(
 			name: "Cursor",
 			command: ["cursor-agent", "acp"],
 			available: installed("cursor-agent"),
+		}),
+	);
+	// Grok Build (xAI), over ACP as t3code drives it: `grok agent stdio`, asking before it acts.
+	providers.set(
+		"grok",
+		acpProvider({
+			id: "grok",
+			name: "Grok",
+			command: ["grok", "agent", "stdio"],
+			available: installed("grok"),
 		}),
 	);
 	for (const agent of extraAgents(env.RUNNER_ACP_AGENTS)) addAcpAgent(providers, agent);

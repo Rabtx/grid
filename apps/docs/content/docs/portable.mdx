@@ -126,6 +126,7 @@ machine, and shows who it is signed in as.
 | opencode 1 | `opencode` | as above | `opencode acp` (also for sandboxed threads, or if the service cannot start) |
 | Antigravity | `agy` | install script · `agy` (signs in on first start) · `agy update` | Its own CLI |
 | Cursor | `cursor-agent` | install script · `cursor-agent login` · `cursor-agent update` | `cursor-agent acp` |
+| Grok | `grok` | install script · `grok login --device-auth` · `grok update` | `grok agent stdio` (ACP) |
 
 Any other ACP agent can be added in **Settings → Agents → Add ACP agent**, or with
 `RUNNER_ACP_AGENTS`. Move opencode 1 to 2 with `opencode upgrade --major`.
