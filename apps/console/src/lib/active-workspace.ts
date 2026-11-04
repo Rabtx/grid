@@ -32,6 +32,8 @@ const SECTIONS = new Set([
 	"machines",
 	"agents",
 	"operate",
+	// The team, as teammates' Inbox items link to it.
+	"team",
 ]);
 
 function readStored(): string | null {
