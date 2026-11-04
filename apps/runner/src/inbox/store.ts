@@ -17,6 +17,7 @@ const INBOX_KINDS = [
 	"incident_open",
 	"incident_resolved",
 	"budget",
+	"teammate",
 ] as const;
 
 export type InboxKind = (typeof INBOX_KINDS)[number];

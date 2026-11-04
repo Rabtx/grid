@@ -60,6 +60,7 @@ import type { PullRequests } from "./github/pulls";
 import { githubRequest } from "./github/routes";
 import { type InboxDeps, inboxRequest } from "./inbox/routes";
 import { type RoleDeps, roleRequest } from "./roles/routes";
+import { type TeammateDeps, teammateRequest } from "./teammates/routes";
 import { closeLink, createLink, type LinkObserver, type LinkState, linkMessage } from "./link";
 import type { PushAct, PushNotifier } from "./push/notifier";
 import { type MachineDeps, machineRequest } from "./machine/routes";
@@ -177,6 +178,8 @@ export function startServer(
 		automations?: Automations;
 		/** The workspace's team: the roles its threads are started as. */
 		roles?: RoleDeps;
+		/** Teammates at work on cards, their scorecards and lessons. */
+		teammates?: TeammateDeps;
 		/** Crews: coordinator chats and their members. */
 		crews?: Crews;
 		/** Threads' goals and their waits for a usage limit to reset. */
@@ -228,6 +231,7 @@ export function startServer(
 		inbox,
 		automations,
 		roles,
+		teammates,
 		crews,
 		autonomy,
 		outside,
@@ -735,6 +739,13 @@ export function startServer(
 					const who = await whoFrom(request, "Sign in to see your team");
 					if (who instanceof Response) return who;
 					const handled = await roleRequest(request, url, who, roles);
+					if (handled) return handled;
+				}
+
+				if (teammates && url.pathname.startsWith("/teammates")) {
+					const who = await whoFrom(request, "Sign in to see your team");
+					if (who instanceof Response) return who;
+					const handled = await teammateRequest(request, url, who, teammates);
 					if (handled) return handled;
 				}
 

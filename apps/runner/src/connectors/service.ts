@@ -829,11 +829,21 @@ export class Connectors {
 	 * The MCP servers a thread's agent is started with: the workspace's connectors it may use,
 	 * each behind Grid's proxy so its rules hold whatever the agent does.
 	 */
-	serversFor(workspace: string, agent: string, thread: string): McpServerSpec[] {
+	serversFor(
+		workspace: string,
+		agent: string,
+		thread: string,
+		/** A teammate's own connectors: only these, of those its agent may use. Null is all. */
+		only: readonly string[] | null = null,
+	): McpServerSpec[] {
 		return this.deps.store
 			.list(workspace)
 			.filter(
-				(item) => item.enabled && item.status !== "signin" && this.access(item, agent) !== "off",
+				(item) =>
+					item.enabled &&
+					item.status !== "signin" &&
+					this.access(item, agent) !== "off" &&
+					(only === null || only.includes(item.id)),
 			)
 			.map((item) => ({
 				name: serverName(item),

@@ -624,8 +624,8 @@ describe("ChatHub", () => {
 		await chat.prompt("me", session.id, "Thanks");
 		expect(sent).toEqual([
 			"/compact",
-			"You are working as the team's Engineer. What this role does:\nBuilds features.\n\n---\n\nAdd a retry",
-			"You are working as the team's Engineer. What this role does:\nBuilds features.\n\n---\n\nAdd a retry",
+			"You are Engineer, a teammate on this team.\nBuilds features.\n\n---\n\nAdd a retry",
+			"You are Engineer, a teammate on this team.\nBuilds features.\n\n---\n\nAdd a retry",
 			"Thanks",
 		]);
 		// The transcript keeps what the person typed.
@@ -653,7 +653,7 @@ describe("ChatHub", () => {
 		await chat.prompt("me", session.id, "Fix the ETA");
 		await chat.prompt("me", session.id, "Thanks");
 		expect(sent).toEqual([
-			"You are working as the team's Engineer.\n\n---\n\nNotes the team shares with agents working on this project. Follow them unless the message says otherwise:\n\n# ETA rules\n\n- Round to 5 min\n\n---\n\nFix the ETA",
+			"You are Engineer, a teammate on this team.\n\n---\n\nNotes the team shares with agents working on this project. Follow them unless the message says otherwise:\n\n# ETA rules\n\n- Round to 5 min\n\n---\n\nFix the ETA",
 			"Thanks",
 		]);
 		// The thread keeps the notes it started with, marked as given.

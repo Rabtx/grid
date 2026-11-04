@@ -361,8 +361,8 @@ export function agentPromptText(provider: string, text: string): string {
 export function withRoleBrief(role: SessionRole, text: string): string {
 	const brief = role.brief.trim();
 	const about = brief
-		? `You are working as the team's ${role.name}. What this role does:\n${brief}`
-		: `You are working as the team's ${role.name}.`;
+		? `You are ${role.name}, a teammate on this team.\n${brief}`
+		: `You are ${role.name}, a teammate on this team.`;
 	return `${about}\n\n---\n\n${text}`;
 }
 
@@ -432,6 +432,10 @@ export class ChatHub {
 	private readonly removed: ((thread: string) => void)[] = [];
 	private mcp: (workspace: string, agent: string, thread: string) => McpServerSpec[] = () => [];
 	private skills: (workspace: string, project: string) => Promise<string> | string = () => "";
+	private roleBrief?: (
+		workspace: string,
+		role: SessionRole,
+	) => Promise<string | null> | string | null;
 	/** Grid's own questions waiting in threads, by their approval id. */
 	private readonly asks = new Map<
 		string,
@@ -692,6 +696,16 @@ export class ChatHub {
 		}
 		live.visuals = (live.visuals ?? 0) + 1;
 		this.record(thread, { type: "visual", id: crypto.randomUUID(), ...visual });
+	}
+
+	/**
+	 * A teammate's whole brief for a thread it starts (see `teammates/brief.ts`): what it does, its
+	 * skills and its lessons, read when the first message goes out. Null keeps the brief it had.
+	 */
+	setRoleBrief(
+		brief: (workspace: string, role: SessionRole) => Promise<string | null> | string | null,
+	): void {
+		this.roleBrief = brief;
 	}
 
 	/** Enabled workspace and project skills, added to each provider's message context. */
@@ -1711,7 +1725,13 @@ export class ChatHub {
 						: null;
 				if (note) text = `${note}\n\n---\n\n${text}`;
 				if (briefNotes && session.notes) text = withSharedNotes(session.notes, text);
-				if (briefRole && session.role) text = withRoleBrief(session.role, text);
+				if (briefRole && session.role) {
+					// A teammate's brief as it is now: its skills and the lessons it has been taught.
+					const brief = await Promise.resolve(
+						this.roleBrief?.(session.workspaceId, session.role),
+					).catch(() => null);
+					text = withRoleBrief(brief ? { ...session.role, brief } : session.role, text);
+				}
 				const history = command
 					? null
 					: this.historyFor(id, earlier, {

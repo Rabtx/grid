@@ -88,6 +88,10 @@ import { spawnPty } from "./pty";
 import { startServer } from "./server";
 import { TerminalStore } from "./terminals";
 import { SkillStore } from "./skills/store";
+import { teammateBrief } from "./teammates/brief";
+import { rememberTool } from "./teammates/routes";
+import { TeammateStore } from "./teammates/store";
+import { TeammateWork } from "./teammates/work";
 
 // Agents installed from Grid land in these folders: found at once, and on terminals' PATH too.
 process.env.PATH = withAgentBins(process.env.PATH);
@@ -129,6 +133,37 @@ chat.onBusy((running) => keepAwake.update(running));
 // Everything waiting on the people in a workspace, kept in the same database as their chats.
 const inbox = new InboxStore(config.chatDb);
 const roles = new RoleStore(config.chatDb);
+// Teammates at work on board cards, and what they have learned.
+const teammateStore = new TeammateStore(config.chatDb);
+const teammateWork = new TeammateWork({
+	chat,
+	roles,
+	store: teammateStore,
+	inbox,
+	// A card moves on the board as the person who gave it, through the API (needs the runner key).
+	board: runnerKey
+		? async (ownerId, workspace, project, number, status) => {
+				await fetch(
+					`${config.apiUrl}/api/v1/runner/tasks/${encodeURIComponent(workspace)}/${encodeURIComponent(project)}/${number}`,
+					{
+						method: "PATCH",
+						headers: { authorization: `Runner ${runnerKey}`, "content-type": "application/json" },
+						body: JSON.stringify({ user: ownerId, task: { status } }),
+					},
+				);
+			}
+		: undefined,
+});
+teammateWork.recover();
+// A teammate's thread starts with its whole brief: what it does, its skills and its lessons.
+chat.setRoleBrief(async (workspace, started) => {
+	const role = roles.get(workspace, started.id);
+	if (!role) return null;
+	return teammateBrief(role, {
+		skills: await skills.indexOf(workspace, role.skills),
+		lessons: teammateStore.lessons(workspace, role.id),
+	});
+});
 // Rate limits that must hold across restarts (webhooks, guests, outside agents' starts).
 const rates = new RateLog(config.chatDb);
 // What keys, guests, webhooks and automations did (Settings → Audit log), and what agents cost.
@@ -293,7 +328,12 @@ const connectors = new Connectors({
 	ask: (thread, question) => chat.ask(thread, question),
 	runnerUrl: () => `http://127.0.0.1:${server.port}`,
 });
-chat.setMcp((workspace, agent, thread) => connectors.serversFor(workspace, agent, thread));
+chat.setMcp((workspace, agent, thread) => {
+	// A teammate with its own connectors gets only those; others get every one their agent may use.
+	const started = chatStore.get(thread)?.role;
+	const only = started ? roles.get(workspace, started.id)?.connectors : null;
+	return connectors.serversFor(workspace, agent, thread, only ?? null);
+});
 // Grid's own tools for each thread's agent (show_visual), calling back on this machine.
 chat.setGridTools(() => `http://127.0.0.1:${server.port}`);
 // Crews: coordinator chats that hand tasks to member threads, and watch them for stalls.
@@ -435,6 +475,7 @@ crews.watch();
 // The board, for agents: through the API, as the thread's person (needs the runner key).
 for (const tool of boardTools(runnerKey ? { url: config.apiUrl, key: runnerKey } : null))
 	chat.registerTool(tool);
+chat.registerTool(rememberTool({ store: teammateStore, roles, inbox }));
 const pulseStore = new PulseStore(config.chatDb);
 const pulse = new Pulse({ chat, gh, connections, store: pulseStore });
 // Ship: deploys as GitHub records them, promoted the way each project already deploys. Sites
@@ -552,7 +593,12 @@ const server = startServer(config, store, verify, chat, {
 	pulls,
 	inbox: { store: inbox, github: githubInbox, projectsDir: config.projectsDir },
 	automations,
-	roles: { store: roles, knownProvider: (id) => chat.knowsProvider(id) },
+	roles: {
+		store: roles,
+		knownProvider: (id) => chat.knowsProvider(id),
+		onRemoved: (workspace, id) => teammateStore.forget(workspace, id),
+	},
+	teammates: { work: teammateWork, store: teammateStore, roles },
 	crews,
 	autonomy: { goals, limits },
 	outside,

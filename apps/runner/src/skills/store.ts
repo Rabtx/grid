@@ -246,6 +246,24 @@ export class SkillStore {
 		].join("\n");
 	}
 
+	/**
+	 * A teammate's own skills, as an index like `instructions` gives (name, what it is for, where its
+	 * SKILL.md is), enabled or not: the teammate was given them by name. Ids no longer here are left out.
+	 */
+	async indexOf(workspace: string, ids: readonly string[]): Promise<string> {
+		if (ids.length === 0) return "";
+		const wanted = new Set(ids);
+		const mine = (await this.list(workspace)).filter((skill) => wanted.has(skill.id));
+		if (mine.length === 0) return "";
+		const root = await this.ready();
+		return mine
+			.map(
+				(skill) =>
+					`- ${skill.name}: ${skill.description}\n  Read ${storedPath(storedPath(root, skill.id), "SKILL.md")}`,
+			)
+			.join("\n");
+	}
+
 	private async readOwned(root: string, workspace: string, id: string): Promise<Skill> {
 		if (!/^[-\da-f]{36}$/i.test(id)) throw new SkillError("That skill does not exist", 404);
 		let skill: Skill;
