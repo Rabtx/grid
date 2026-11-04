@@ -1303,16 +1303,19 @@ export class ChatStore {
 			.run(workspace, project, path);
 	}
 
-	/** A kept model list, or null when the agent has not been asked yet. */
+	/**
+	 * A kept model list, or null when the agent has not been asked yet, or was asked by a Grid
+	 * that read its answer differently (an older `CATALOG_VERSION`): that one is asked again.
+	 */
 	catalog(provider: string): { data: ProviderCatalog; refreshedAt: string } | null {
 		const row = this.db
 			.query<{ data: string; refreshed_at: string }, [string]>(
 				"SELECT data, refreshed_at FROM provider_catalogs WHERE provider = ?",
 			)
 			.get(provider);
-		return row
-			? { data: JSON.parse(row.data) as ProviderCatalog, refreshedAt: row.refreshed_at }
-			: null;
+		if (!row) return null;
+		const data = JSON.parse(row.data) as ProviderCatalog;
+		return data.version === CATALOG_VERSION ? { data, refreshedAt: row.refreshed_at } : null;
 	}
 
 	setCatalog(provider: string, data: ProviderCatalog): string {
@@ -1322,7 +1325,7 @@ export class ChatStore {
 				`INSERT INTO provider_catalogs (provider, data, refreshed_at) VALUES (?, ?, ?)
 				 ON CONFLICT (provider) DO UPDATE SET data = excluded.data, refreshed_at = excluded.refreshed_at`,
 			)
-			.run(provider, JSON.stringify(data), refreshedAt);
+			.run(provider, JSON.stringify({ ...data, version: CATALOG_VERSION }), refreshedAt);
 		return refreshedAt;
 	}
 
@@ -1370,7 +1373,13 @@ function hasColumn(db: Database, table: string, column: string): boolean {
 }
 
 /** What an agent said it offers: its models (with effort levels) and modes. */
-export type ProviderCatalog = { models: Choice[]; modes?: Choice[] };
+export type ProviderCatalog = { models: Choice[]; modes?: Choice[]; version?: number };
+
+/**
+ * How kept model lists are read. Raise it when a change reads agents' answers differently (each
+ * model's effort levels, say), so lists kept before the change are asked for again.
+ */
+export const CATALOG_VERSION = 2;
 
 /** One person's choices for one agent. Everything is optional: unset means the agent's default. */
 export type ProviderSettings = {
