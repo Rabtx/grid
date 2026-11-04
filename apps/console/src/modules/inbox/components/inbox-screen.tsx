@@ -126,7 +126,7 @@ export function InboxScreen(): JSX.Element {
 	function open(item: InboxItem): void {
 		const token = auth.token();
 		if (token) void inboxStore.open(token, item);
-		navigate(workspaceHref(item.url));
+		navigate(item.url);
 	}
 
 	// Each day's rows, by label, so a change re-renders the rows that changed, not every group.

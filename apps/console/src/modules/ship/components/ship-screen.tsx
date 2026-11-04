@@ -187,7 +187,7 @@ export function ShipScreen(): JSX.Element {
 		if (!text || !slug()) return;
 		draftsStore.set(slug(), text);
 		setAsk("");
-		navigate(workspaceHref(`/chat/${slug()}`));
+		navigate(`/chat/${slug()}`);
 	};
 
 	return (

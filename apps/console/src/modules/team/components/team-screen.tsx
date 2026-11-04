@@ -163,7 +163,7 @@ export function TeamScreen(): JSX.Element {
 			: await rolesStore.create(token, draft);
 		if (!target) {
 			notify({ title: `${saved.name} joined the team` });
-			navigate(workspaceHref(`/team/${saved.id}`));
+			navigate(`/team/${saved.id}`);
 		}
 	}
 
@@ -194,7 +194,7 @@ export function TeamScreen(): JSX.Element {
 
 	function chatWith(role: Role): void {
 		rememberRole(role.id);
-		navigate(workspaceHref("/chat"));
+		navigate("/chat");
 	}
 
 	const newTeammate = () => setEditing({ role: null });
@@ -314,7 +314,7 @@ export function TeamScreen(): JSX.Element {
 					if (!token || !target) return;
 					await rolesStore.remove(token, target.id);
 					notify({ title: `${target.name} left the team` });
-					navigate(workspaceHref("/team"));
+					navigate("/team");
 				}}
 			/>
 		</div>

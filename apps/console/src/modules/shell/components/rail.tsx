@@ -182,7 +182,7 @@ export function Rail(): JSX.Element {
 					]}
 					onSelect={(id) => {
 						const view = more.find((item) => item.match === id);
-						if (view) navigate(workspaceHref(view.href(workspace.currentSlug())));
+						if (view) navigate(view.href(workspace.currentSlug()));
 					}}
 				/>
 			</div>

@@ -92,7 +92,7 @@ export function PreviewsView(props: { project: string; onBack: () => void }): JS
 		setStarting(preview.number);
 		try {
 			const id = await startPullThread(token, props.project, folder, preview, testPrompt(preview));
-			navigate(workspaceHref(`/chat/${props.project}/${id}`));
+			navigate(`/chat/${props.project}/${id}`);
 		} catch (cause) {
 			notify({ title: message(cause, "Could not start the thread"), tone: "danger" });
 		} finally {

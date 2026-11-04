@@ -473,7 +473,7 @@ export function PullsScreen(): JSX.Element {
 								project={slug()}
 								number={pull()}
 								changesHref={href(pull(), "changes")}
-								onBack={() => navigate(workspaceHref(`/pulls/${slug()}`))}
+								onBack={() => navigate(`/pulls/${slug()}`)}
 								onChanged={() => setRevision((n) => n + 1)}
 							/>
 						}

@@ -14,7 +14,6 @@ import {
 	Skeleton,
 	Text,
 } from "@/kit";
-import { workspaceHref } from "@/lib/active-workspace";
 import { now as clockNow } from "@/lib/clock";
 import { useAuth } from "@/modules/auth";
 import {
@@ -126,11 +125,11 @@ export function HomeScreen(): JSX.Element {
 	function openItem(item: InboxItem): void {
 		const token = auth.token();
 		if (token) void inboxStore.open(token, item);
-		navigate(workspaceHref(item.url));
+		navigate(item.url);
 	}
 
 	const openTask = (entry: ProjectTask) =>
-		navigate(workspaceHref(`/board/${entry.project.slug}/tasks/${entry.task.number}`));
+		navigate(`/board/${entry.project.slug}/tasks/${entry.task.number}`);
 
 	return (
 		<div class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
@@ -175,11 +174,7 @@ export function HomeScreen(): JSX.Element {
 								title="Needs you"
 								count={needCount() ?? undefined}
 								action={
-									<Button
-										size="sm"
-										variant="ghost"
-										onClick={() => navigate(workspaceHref("/inbox"))}
-									>
+									<Button size="sm" variant="ghost" onClick={() => navigate("/inbox")}>
 										Inbox
 									</Button>
 								}
@@ -242,11 +237,7 @@ export function HomeScreen(): JSX.Element {
 							<SectionCard
 								title="Agents' plan for today"
 								action={
-									<Button
-										size="sm"
-										variant="ghost"
-										onClick={() => navigate(workspaceHref("/board"))}
-									>
+									<Button size="sm" variant="ghost" onClick={() => navigate("/board")}>
 										Board
 									</Button>
 								}
@@ -343,11 +334,7 @@ export function HomeScreen(): JSX.Element {
 							<SectionCard
 								title="Scheduled"
 								action={
-									<Button
-										size="sm"
-										variant="ghost"
-										onClick={() => navigate(workspaceHref("/automations"))}
-									>
+									<Button size="sm" variant="ghost" onClick={() => navigate("/automations")}>
 										Automations
 									</Button>
 								}
@@ -377,7 +364,7 @@ export function HomeScreen(): JSX.Element {
 																	.find((project) => project.slug === item.project)?.name ??
 																item.project
 															}
-															onClick={() => navigate(workspaceHref("/automations"))}
+															onClick={() => navigate("/automations")}
 														/>
 													)}
 												</For>

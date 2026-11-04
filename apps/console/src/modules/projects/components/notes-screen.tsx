@@ -265,7 +265,7 @@ export function NotesScreen(): JSX.Element {
 	/** Ask an agent: a new thread in the project, with the question waiting in its composer. */
 	function ask(text: string): void {
 		draftsStore.set(slug(), text);
-		navigate(workspaceHref(`/chat/${slug()}`));
+		navigate(`/chat/${slug()}`);
 	}
 
 	return (

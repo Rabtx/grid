@@ -276,7 +276,7 @@ export function AutomationsScreen(): JSX.Element {
 			}
 			if (kind === "delete") {
 				setDeleting(null);
-				if (openId() === item.id) navigate(workspaceHref("/automations"));
+				if (openId() === item.id) navigate("/automations");
 			}
 			await load();
 			setRevision((n) => n + 1);
@@ -290,7 +290,7 @@ export function AutomationsScreen(): JSX.Element {
 
 	function openRun(item: Automation, run: AutomationRun): void {
 		if (!run.sessionId) return;
-		navigate(workspaceHref(`/chat/${item.project}/${run.sessionId}`));
+		navigate(`/chat/${item.project}/${run.sessionId}`);
 	}
 
 	const who = (item: Automation) => (
@@ -556,7 +556,7 @@ export function AutomationsScreen(): JSX.Element {
 						busy={busy()}
 						error={editing() ? null : error()}
 						reviewHref={(pull) => workspaceHref(`/pulls/${item().project}/${pull}`)}
-						onBack={() => navigate(workspaceHref("/automations"))}
+						onBack={() => navigate("/automations")}
 						onEdit={() => edit(item())}
 						onDelete={() => setDeleting(item())}
 						onRun={() => void act("run", item())}

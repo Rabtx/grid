@@ -36,7 +36,6 @@ import {
 	TerminalIcon,
 	Text,
 } from "@/kit";
-import { workspaceHref } from "@/lib/active-workspace";
 import { runnerUp } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
 import { offeredProviders, providersStore } from "@/modules/chat/stores/providers";
@@ -252,7 +251,7 @@ export function MachinesScreen(): JSX.Element {
 									size="sm"
 									variant="ghost"
 									icon={<TerminalIcon size="sm" />}
-									onClick={() => navigate(workspaceHref("/terminal"))}
+									onClick={() => navigate("/terminal")}
 								>
 									Open terminals
 								</Button>
@@ -379,13 +378,13 @@ export function MachinesScreen(): JSX.Element {
 					leading={<BranchIcon />}
 					label="Worktrees"
 					description="Separate checkouts threads work in"
-					onClick={() => navigate(workspaceHref("/settings/worktrees"))}
+					onClick={() => navigate("/settings/worktrees")}
 				/>
 				<SettingsLinkRow
 					leading={<InfoIcon />}
 					label="Diagnostics"
 					description="Runner errors and connection events"
-					onClick={() => navigate(workspaceHref("/settings/diagnostics"))}
+					onClick={() => navigate("/settings/diagnostics")}
 				/>
 			</SettingsGroup>
 

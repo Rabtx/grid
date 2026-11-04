@@ -28,7 +28,8 @@ export function workspaceHistory(base: string = routerBase()): RouterHistory {
 				? withoutBase(source, base)
 				: { ...source, value: withoutBase(source.value, base) };
 		},
-		set: (next) => browser.set({ ...next, value: `${base}${next.value}` }),
+		// A path that already names the workspace (built with `workspaceHref`) keeps one copy of it.
+		set: (next) => browser.set({ ...next, value: `${base}${withoutBase(next.value, base)}` }),
 		utils: {
 			...browser.utils,
 			parsePath: (path) => withoutBase(path, base),
