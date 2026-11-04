@@ -1,9 +1,8 @@
-import { useLocation } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { For, Show } from "solid-js";
 
 import {
-	AsteriskIcon,
 	AlertIcon,
 	BoardIcon,
 	BoltIcon,
@@ -14,11 +13,13 @@ import {
 	HomeIcon,
 	InboxIcon,
 	LaptopIcon,
+	Menu,
+	MoreIcon,
 	NoteIcon,
 	PullRequestIcon,
 	RailButton,
 	RailLink,
-	SettingsIcon,
+	railItem,
 	TerminalIcon,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
@@ -38,6 +39,8 @@ type Destination = {
 	/** The path prefix that marks it current. */
 	match: string;
 	shortcut?: string;
+	/** Used less: under the rail's More button, not a tile of its own. */
+	more?: boolean;
 };
 
 // The Figma rail, in its order. Browser joins it once its screen ships; a rail
@@ -78,30 +81,36 @@ export const VIEWS: readonly Destination[] = [
 	},
 	{
 		label: "Pull requests",
+		more: true,
 		icon: () => <PullRequestIcon />,
 		href: (slug) => (slug ? `/pulls/${slug}` : "/board"),
 		match: "/pulls",
 	},
 	{
 		label: "Ship",
+		more: true,
 		icon: () => <CloudIcon />,
 		href: (slug) => (slug ? `/ship/${slug}` : "/board"),
 		match: "/ship",
 	},
 	{
 		label: "Operate",
+		more: true,
 		icon: () => <AlertIcon />,
 		href: (slug) => (slug ? `/operate/${slug}` : "/board"),
 		match: "/operate",
 	},
 	{
 		label: "Automations",
+		more: true,
 		icon: () => <BoltIcon />,
 		href: () => "/automations",
 		match: "/automations",
 	},
 ];
 
+// Agents are reached from the Machines screen (its panel lists both), and Settings from the account
+// menu and Mod-, — so the foot holds only Machines and who is signed in.
 const FOOT: readonly Destination[] = [
 	{
 		label: "Machines",
@@ -109,30 +118,26 @@ const FOOT: readonly Destination[] = [
 		href: () => "/machines",
 		match: "/machines",
 	},
-	{
-		label: "Agents",
-		icon: () => <AsteriskIcon />,
-		href: () => "/agents",
-		match: "/agents",
-	},
 ];
-
-const SETTINGS_PAGES = /^\/settings(?!\/(machines|agents)(\/|$))(\/|$)/;
 
 /**
  * The icon rail (the Figma Grid/Sidebar/Rail): the mark, which folds the panel away on desktop,
- * then every destination as a 32px tile with its name as a tooltip, and at the foot the machines,
- * agents, settings and who is signed in.
+ * then the places used every day as 32px tiles with their names as tooltips, the rest under More,
+ * and at the foot the machines and who is signed in (whose menu holds Settings).
  */
 export function Rail(): JSX.Element {
 	const shell = useShell();
 	const workspace = useWorkspace();
 	const terminals = useTerminalAccess();
 	// Terminals only for roles that may open one.
-	const views = () => VIEWS.filter((view) => view.match !== "/terminal" || terminals());
+	const views = () =>
+		VIEWS.filter((view) => !view.more && (view.match !== "/terminal" || terminals()));
+	const more = VIEWS.filter((view) => view.more);
 	const location = useLocation();
+	const navigate = useNavigate();
 	const at = (prefix: string) =>
 		location.pathname === prefix || location.pathname.startsWith(`${prefix}/`);
+	const inMore = () => more.some((view) => at(view.match));
 
 	return (
 		<nav aria-label="Destinations" class="flex h-full min-h-0 flex-col items-center">
@@ -164,6 +169,26 @@ export function Rail(): JSX.Element {
 						/>
 					)}
 				</For>
+				<Menu
+					label="More"
+					placement="bottom-start"
+					width="md:w-56"
+					triggerClass={`${railItem()} ${inMore() ? "bg-selection text-fg" : ""}`}
+					trigger={<MoreIcon />}
+					groups={[
+						{
+							items: more.map((view) => ({
+								id: view.match,
+								label: view.label,
+								icon: view.icon(),
+							})),
+						},
+					]}
+					onSelect={(id) => {
+						const view = more.find((item) => item.match === id);
+						if (view) navigate(workspaceHref(view.href(workspace.currentSlug())));
+					}}
+				/>
 			</div>
 			<div class="flex shrink-0 flex-col items-center gap-1 pt-2 pb-2">
 				<For each={FOOT}>
@@ -176,13 +201,6 @@ export function Rail(): JSX.Element {
 						/>
 					)}
 				</For>
-				<RailLink
-					href={workspaceHref("/settings")}
-					label="Settings"
-					shortcut="Mod ,"
-					icon={<SettingsIcon />}
-					current={SETTINGS_PAGES.test(location.pathname)}
-				/>
 				<AccountMenu compact />
 			</div>
 		</nav>
