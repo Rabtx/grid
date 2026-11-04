@@ -241,10 +241,7 @@ export async function commitFiles(
 		const add = await run(root, ["add", "--all", "--", ...kept]);
 		if (!add.ok) throw new SourceError(said(add, "git could not take those files"));
 	}
-	const who =
-		!status.identity.email && input.author
-			? ["-c", `user.name=${input.author.name}`, "-c", `user.email=${input.author.email}`]
-			: [];
+	const who = signedAs(status, input.author);
 	// With paths, git commits just these, whatever else was staged before.
 	const done = await commitWithMessage(root, who, paths, message);
 	if (!done.ok) {
@@ -258,6 +255,13 @@ export async function commitFiles(
 	const head = await run(root, ["log", "-1", "--format=%h%x1f%s"]);
 	const [sha = "", subject = message.split("\n")[0]] = head.out.trim().split("\x1f");
 	return { sha, subject };
+}
+
+/** Who git signs as: its own setting, or else the person signed in to Grid. */
+function signedAs(status: SourceStatus, author?: { name: string; email: string }): string[] {
+	return !status.identity.email && author
+		? ["-c", `user.name=${author.name}`, "-c", `user.email=${author.email}`]
+		: [];
 }
 
 /** `git commit` with the message on its standard input, so any text is passed as written. */
@@ -286,6 +290,132 @@ async function commitWithMessage(
 	return { ok: code === 0, code, out, err };
 }
 
+/** Git signs in to GitHub with the GitHub CLI's credential, and nothing else it may have kept. */
+const CREDENTIAL = ["-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential"];
+
+/**
+ * Ask the remote what it has (so "to pull" is current). Best effort: offline, signed out or no
+ * remote leaves the counts as they were.
+ */
+export async function fetchRemote(root: string): Promise<void> {
+	await run(root, [...CREDENTIAL, "fetch", "--quiet", "--prune"], { timeoutMs: 30_000 });
+}
+
+/**
+ * Bring in the remote's commits: fast-forward when this copy has nothing of its own, otherwise
+ * replay its commits on top. Uncommitted work is set aside and put back. Anything that would need
+ * a person to settle a conflict is undone, and said.
+ */
+export async function pullBranch(
+	root: string,
+	author?: { name: string; email: string },
+): Promise<void> {
+	const status = await sourceStatus(root);
+	if (!status.repo) throw new SourceError("This project is not in git yet");
+	if (!status.upstream)
+		throw new SourceError("This branch is not on the remote yet: push it first");
+	// Replaying commits (and setting work aside) makes commits: signed by the person when git has no one.
+	const who = signedAs(status, author);
+	const pull = (mode: string[]) =>
+		run(root, [...who, ...CREDENTIAL, "pull", "--quiet", "--autostash", ...mode], {
+			timeoutMs: 120_000,
+		});
+	const fast = await pull(["--ff-only"]);
+	if (fast.ok) return;
+	const text = said(fast, "git could not pull");
+	if (/authentication|could not read Username|403/i.test(text))
+		throw new SourceError(
+			"GitHub refused: sign in to GitHub in Settings → Connectors, with access to this repository",
+		);
+	if (!/fast-forward|diverg/i.test(text)) throw new SourceError(text);
+	// Both sides moved: put this copy's commits on top of the remote's.
+	const rebased = await pull(["--rebase"]);
+	if (rebased.ok) return;
+	await run(root, ["rebase", "--abort"]);
+	throw new SourceError(
+		"Your commits and the remote's change the same lines, so nothing was changed: ask an agent to merge them",
+	);
+}
+
+/** A GitHub repository name, or `owner/name` for an organisation's. */
+const REPO_NAME = /^(?:[A-Za-z0-9-]{1,39}\/)?[A-Za-z0-9._-]{1,100}$/;
+
+/** The GitHub CLI run in the project's folder, to the end. */
+async function gh(root: string, args: string[], binary: string): Promise<Ran> {
+	try {
+		const child = Bun.spawn([binary, ...args], {
+			cwd: root,
+			stdin: "ignore",
+			stdout: "pipe",
+			stderr: "pipe",
+			env: { ...process.env, GH_PROMPT_DISABLED: "1", GH_NO_UPDATE_NOTIFIER: "1" },
+		});
+		const timer = setTimeout(() => child.kill(), 60_000);
+		const [out, err, code] = await Promise.all([
+			new Response(child.stdout).text(),
+			new Response(child.stderr).text(),
+			child.exited,
+		]);
+		clearTimeout(timer);
+		return { ok: code === 0, code, out, err };
+	} catch {
+		return { ok: false, code: 127, out: "", err: "" };
+	}
+}
+
+/**
+ * Make a GitHub repository for the project with the GitHub CLI, add it as `origin`, and push the
+ * branch when there is something to push. Returns the repository's web address.
+ */
+export async function createGithubRepo(
+	root: string,
+	input: { name: string; private: boolean; description?: string },
+	binary = "gh",
+): Promise<{ url: string; pushed: boolean }> {
+	const name = input.name.trim();
+	if (!REPO_NAME.test(name) || name.endsWith(".git"))
+		throw new SourceError("Name it with letters, numbers, dots, dashes or underscores", 400);
+	const status = await sourceStatus(root);
+	if (!status.repo) throw new SourceError("Start git for this project first");
+	if (!status.top)
+		throw new SourceError(
+			"This project is a folder inside a larger repository: make the repository for that one",
+		);
+	if (status.remote) throw new SourceError(`This project already pushes to ${status.remote.url}`);
+	const signedIn = await gh(root, ["auth", "status", "--hostname", "github.com"], binary);
+	if (signedIn.code === 127)
+		throw new SourceError("Install the GitHub CLI in Settings → Connectors → GitHub first");
+	if (!signedIn.ok) throw new SourceError("Sign in to GitHub in Settings → Connectors first");
+	const description = input.description?.trim().slice(0, 300);
+	const made = await gh(
+		root,
+		[
+			"repo",
+			"create",
+			name,
+			input.private ? "--private" : "--public",
+			"--source=.",
+			"--remote=origin",
+			...(description ? ["--description", description] : []),
+		],
+		binary,
+	);
+	if (!made.ok) {
+		const text = said(made, "GitHub could not make the repository");
+		throw new SourceError(
+			/already exists/i.test(text)
+				? `There is already a repository called ${name} on GitHub`
+				: text,
+		);
+	}
+	const url =
+		/https:\/\/github\.com\/\S+/.exec(made.out)?.[0] ??
+		(await run(root, ["remote", "get-url", "origin"])).out.trim();
+	if (!status.commits || !status.branch) return { url, pushed: false };
+	await pushBranch(root);
+	return { url, pushed: true };
+}
+
 /**
  * Push the branch to its remote, setting where it pushes the first time. GitHub remotes sign in
  * with the GitHub CLI's credential (Settings → Connectors → GitHub), never a typed password.
@@ -297,14 +427,8 @@ export async function pushBranch(root: string): Promise<void> {
 		throw new SourceError("This project has no remote to push to: add one on GitHub first");
 	if (!status.branch) throw new SourceError("Switch to a branch before pushing");
 	if (!status.commits) throw new SourceError("Commit something before pushing");
-	const credential = [
-		"-c",
-		"credential.helper=",
-		"-c",
-		"credential.helper=!gh auth git-credential",
-	];
 	const args = status.upstream ? ["push"] : ["push", "--set-upstream", status.remote.name, "HEAD"];
-	const ran = await run(root, [...credential, ...args], { timeoutMs: 120_000 });
+	const ran = await run(root, [...CREDENTIAL, ...args], { timeoutMs: 120_000 });
 	if (ran.ok) return;
 	const text = said(ran, "git could not push");
 	if (/authentication|could not read Username|403|permission/i.test(text))

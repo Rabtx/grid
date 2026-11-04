@@ -1,14 +1,17 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
 	cleanMessage,
 	commitFiles,
+	createGithubRepo,
+	fetchRemote,
 	fileDiff,
 	initRepo,
 	messagePrompt,
+	pullBranch,
 	pushBranch,
 	run,
 	sourceStatus,
@@ -83,13 +86,91 @@ describe("source control", () => {
 
 	it("pushes to a remote, setting where the branch goes the first time", async () => {
 		await expect(pushBranch(folder)).rejects.toThrow("no remote");
-		await run(remote, ["init", "--bare", "-q"]);
+		await run(remote, ["init", "--bare", "-q", "--initial-branch=main"]);
 		await run(folder, ["remote", "add", "origin", remote]);
 		expect((await sourceStatus(folder)).ahead).toBe(2);
 		await pushBranch(folder);
 		const status = await sourceStatus(folder);
 		expect(status).toMatchObject({ upstream: "origin/main", ahead: 0, behind: 0 });
 		expect(status.remote?.name).toBe("origin");
+	});
+});
+
+describe("pull", () => {
+	const other = mkdtempSync(join(tmpdir(), "grid-source-other-"));
+	afterAll(() => rmSync(other, { recursive: true, force: true }));
+	const signed = ["-c", "user.name=Ana", "-c", "user.email=ana@example.com"];
+
+	it("brings in the remote's commits, and replays its own on top when both moved", async () => {
+		await run(other, ["clone", "--quiet", remote, "."]);
+		writeFileSync(join(other, "theirs.txt"), "from ana\n");
+		await run(other, ["add", "theirs.txt"]);
+		await run(other, [...signed, "commit", "--quiet", "-m", "feat: theirs"]);
+		await run(other, ["push", "--quiet"]);
+		await fetchRemote(folder);
+		expect((await sourceStatus(folder)).behind).toBe(1);
+		await pullBranch(folder);
+		expect(readFileSync(join(folder, "theirs.txt"), "utf8")).toBe("from ana\n");
+		// Both sides move on different files: this copy's commit goes on top of theirs.
+		writeFileSync(join(other, "second.txt"), "again\n");
+		await run(other, ["add", "second.txt"]);
+		await run(other, [...signed, "commit", "--quiet", "-m", "feat: second"]);
+		await run(other, ["push", "--quiet"]);
+		writeFileSync(join(folder, "mine.txt"), "mine\n");
+		await commitFiles(folder, { paths: ["mine.txt"], message: "feat: mine", author });
+		await pullBranch(folder, author);
+		const status = await sourceStatus(folder);
+		expect(status).toMatchObject({ behind: 0, ahead: 1 });
+		expect(status.recent.map((commit) => commit.subject).slice(0, 2)).toEqual([
+			"feat: mine",
+			"feat: second",
+		]);
+		// b.txt's uncommitted edit came through untouched.
+		expect(status.changes.map((change) => change.path)).toContain("b.txt");
+	});
+});
+
+describe("createGithubRepo", () => {
+	const project = mkdtempSync(join(tmpdir(), "grid-source-new-"));
+	const bare = mkdtempSync(join(tmpdir(), "grid-source-bare-"));
+	const bin = mkdtempSync(join(tmpdir(), "grid-source-gh-"));
+	const fake = join(bin, "gh");
+	afterAll(() => {
+		for (const dir of [project, bare, bin]) rmSync(dir, { recursive: true, force: true });
+	});
+	// A stand-in for the GitHub CLI: signed in, and "making" the repository as a local bare one.
+	writeFileSync(
+		fake,
+		`#!/bin/sh
+case "$1 $2" in
+"auth status") exit 0 ;;
+"repo create") git remote add origin "${bare}" && echo "https://github.com/sam/$3" ;;
+*) exit 1 ;;
+esac
+`,
+	);
+	chmodSync(fake, 0o755);
+
+	it("refuses a bad name and a folder not in git", async () => {
+		await expect(
+			createGithubRepo(project, { name: "bad name", private: true }, fake),
+		).rejects.toThrow("Name it");
+		await expect(createGithubRepo(project, { name: "web", private: true }, fake)).rejects.toThrow(
+			"Start git",
+		);
+	});
+
+	it("makes the repository, adds it as origin and pushes", async () => {
+		await run(bare, ["init", "--bare", "-q", "--initial-branch=main"]);
+		await initRepo(project, "main");
+		writeFileSync(join(project, "a.txt"), "a\n");
+		await commitFiles(project, { paths: ["a.txt"], message: "feat: a", author });
+		const made = await createGithubRepo(project, { name: "web", private: true }, fake);
+		expect(made).toEqual({ url: "https://github.com/sam/web", pushed: true });
+		expect(await sourceStatus(project)).toMatchObject({ upstream: "origin/main", ahead: 0 });
+		await expect(createGithubRepo(project, { name: "web", private: true }, fake)).rejects.toThrow(
+			"already pushes",
+		);
 	});
 });
 

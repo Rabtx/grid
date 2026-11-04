@@ -163,7 +163,9 @@ const post = (body: unknown = {}) => ({ method: "POST", body: JSON.stringify(bod
 
 /** A project's source control: status, diffs, starting git, committing, a message, pushing. */
 export const sourceService = {
-	status: (token: string, project: string) => runnerCall<SourceStatus>(sourcePath(project), token),
+	/** With `fetch`, the remote is asked first, so what there is to pull is current. */
+	status: (token: string, project: string, fetch = false) =>
+		runnerCall<SourceStatus>(`${sourcePath(project)}${fetch ? "?fetch=1" : ""}`, token),
 	diff: (token: string, project: string, path: string) =>
 		runnerCall<SourceDiff>(
 			`${sourcePath(project, "diff")}?path=${encodeURIComponent(path)}`,
@@ -189,4 +191,17 @@ export const sourceService = {
 		),
 	push: (token: string, project: string) =>
 		runnerCall<SourceStatus>(sourcePath(project, "push"), token, post()),
+	pull: (token: string, project: string, author?: { name: string; email: string }) =>
+		runnerCall<SourceStatus>(sourcePath(project, "pull"), token, post(author ? { author } : {})),
+	/** Make a GitHub repository for the project, add it as `origin`, and push what is committed. */
+	github: (
+		token: string,
+		project: string,
+		input: { name: string; private: boolean; description?: string },
+	) =>
+		runnerCall<{ url: string; pushed: boolean; status: SourceStatus }>(
+			sourcePath(project, "github"),
+			token,
+			post(input),
+		),
 };

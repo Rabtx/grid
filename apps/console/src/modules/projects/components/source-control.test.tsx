@@ -10,6 +10,8 @@ const service = vi.hoisted(() => ({
 	commit: vi.fn(),
 	message: vi.fn(),
 	push: vi.fn(),
+	pull: vi.fn(),
+	github: vi.fn(),
 }));
 vi.mock("../services/files.service", () => ({ sourceService: service }));
 vi.mock("@/modules/auth", () => ({
@@ -43,7 +45,7 @@ async function settle(): Promise<void> {
 }
 function button(host: HTMLElement, text: RegExp): HTMLButtonElement | undefined {
 	return [...host.querySelectorAll<HTMLButtonElement>("button")].find((item) =>
-		text.test(item.textContent ?? item.getAttribute("aria-label") ?? ""),
+		text.test(item.textContent || item.getAttribute("aria-label") || ""),
 	);
 }
 
@@ -124,6 +126,62 @@ describe("SourceControl", () => {
 		await settle();
 		expect(service.diff).toHaveBeenCalledWith("token", "alpha", "src/a.ts");
 		expect(host.textContent).toContain("fresh");
+	});
+});
+
+describe("SourceControl remote", () => {
+	let dispose = () => {};
+	beforeEach(() => {
+		for (const fn of Object.values(service)) fn.mockReset();
+	});
+	afterEach(() => {
+		dispose();
+		document.body.replaceChildren();
+	});
+	async function mount(status: SourceStatus): Promise<HTMLElement> {
+		service.status.mockResolvedValue(status);
+		const host = document.createElement("div");
+		document.body.append(host);
+		dispose = render(
+			() => (
+				<SourceControl slug="alpha" name="Alpha" fileHref={(path) => path} onChanged={() => {}} />
+			),
+			host,
+		);
+		await settle();
+		return host;
+	}
+
+	it("asks the remote after the first read, and pulls what it has", async () => {
+		const host = await mount({ ...base, changes: [] });
+		expect(service.status).toHaveBeenCalledWith("token", "alpha", true);
+		service.status.mockResolvedValue({ ...base, changes: [], behind: 2 });
+		button(host, /Refresh/)?.click();
+		await settle();
+		expect(button(host, /Pull 2/)).toBeDefined();
+		service.pull.mockResolvedValue({ ...base, changes: [] });
+		button(host, /Pull 2/)?.click();
+		await settle();
+		expect(service.pull).toHaveBeenCalledWith("token", "alpha", {
+			name: "sam",
+			email: "sam@example.com",
+		});
+		expect(button(host, /^Pull$/)).toBeDefined();
+	});
+
+	it("puts a project with no remote on GitHub", async () => {
+		const host = await mount({ ...base, remote: null, upstream: null, changes: [] });
+		expect(host.textContent).toContain("Not on GitHub yet");
+		expect(button(host, /^Pull/)).toBeUndefined();
+		service.github.mockResolvedValue({
+			url: "https://github.com/sam/alpha",
+			pushed: true,
+			status: { ...base, changes: [] },
+		});
+		button(host, /Create on GitHub/)?.click();
+		await settle();
+		expect(service.github).toHaveBeenCalledWith("token", "alpha", { name: "alpha", private: true });
+		expect(host.textContent).not.toContain("Not on GitHub yet");
 	});
 });
 

@@ -16,22 +16,26 @@ import {
 	EntryIcon,
 	GitMark,
 	IconButton,
+	Input,
 	notify,
 	RestoreIcon,
 	Skeleton,
 	SparklesIcon,
 	Spinner,
 	Stack,
+	Switch,
 	Text,
 	Textarea,
+	TextLink,
 } from "@/kit";
+import { workspaceHref } from "@/lib/active-workspace";
 import { useAuth } from "@/modules/auth";
 import { diffRows } from "@/modules/chat/lib/diff";
 
 import { relativeTime } from "../lib/relative-time";
 import { type SourceDiff, sourceService, type SourceStatus } from "../services/files.service";
 
-type Busy = "load" | "init" | "commit" | "message" | "push" | null;
+type Busy = "load" | "init" | "commit" | "message" | "push" | "pull" | "github" | null;
 
 function said(cause: unknown, fallback: string): string {
 	return cause instanceof Error ? cause.message : fallback;
@@ -88,10 +92,11 @@ export function SourceControl(props: {
 		}
 	}
 
-	async function load(token: string, slug: string): Promise<void> {
+	/** Read where the project stands; `fetch` asks the remote first (a second or two). */
+	async function load(token: string, slug: string, fetch = false): Promise<void> {
 		setBusy("load");
 		try {
-			const next = await sourceService.status(token, slug);
+			const next = await sourceService.status(token, slug, fetch);
 			if (slug !== props.slug) return;
 			setStatus(next);
 			setDiffs(new Map());
@@ -102,9 +107,18 @@ export function SourceControl(props: {
 			if (slug === props.slug) setBusy(null);
 		}
 	}
+	/** After the first read, ask the remote quietly: "to pull" fills in when it answers. */
+	async function check(token: string, slug: string): Promise<void> {
+		const next = await sourceService.status(token, slug, true).catch(() => null);
+		if (next && slug === props.slug && busy() === null) setStatus(next);
+	}
 	const reload = () => {
 		const token = auth.token();
-		if (token) void load(token, props.slug);
+		if (token) void load(token, props.slug, true);
+	};
+	const signer = () => {
+		const user = auth.user();
+		return user ? { name: user.username, email: user.email } : undefined;
 	};
 	createEffect(
 		() => [auth.token() !== null, props.slug] as const,
@@ -114,7 +128,7 @@ export function SourceControl(props: {
 			setOpen(new Set<string>());
 			setMessage("");
 			const token = auth.token();
-			if (signedIn && token) void load(token, slug);
+			if (signedIn && token) void load(token, slug).then(() => check(token, slug));
 		},
 	);
 
@@ -164,11 +178,11 @@ export function SourceControl(props: {
 
 	const commit = () =>
 		void act("commit", async (token) => {
-			const user = auth.user();
+			const author = signer();
 			const done = await sourceService.commit(token, props.slug, {
 				paths: chosen().map((change) => change.path),
 				message: message(),
-				...(user ? { author: { name: user.username, email: user.email } } : {}),
+				...(author ? { author } : {}),
 			});
 			setStatus(done.status);
 			setMessage("");
@@ -183,6 +197,32 @@ export function SourceControl(props: {
 		void act("push", async (token) => {
 			setStatus(await sourceService.push(token, props.slug));
 			notify({ title: "Pushed", description: status()?.upstream ?? undefined });
+		});
+
+	const pull = () =>
+		void act("pull", async (token) => {
+			const before = status()?.behind ?? 0;
+			setStatus(await sourceService.pull(token, props.slug, signer()));
+			setDiffs(new Map());
+			notify({
+				title: before > 0 ? `Pulled ${before} commit${before === 1 ? "" : "s"}` : "Up to date",
+			});
+			props.onChanged();
+		});
+
+	const [repoName, setRepoName] = createSignal("");
+	const [repoPrivate, setRepoPrivate] = createSignal(true);
+	const createRepo = () =>
+		void act("github", async (token) => {
+			const made = await sourceService.github(token, props.slug, {
+				name: repoName().trim() || props.slug,
+				private: repoPrivate(),
+			});
+			setStatus(made.status);
+			notify({
+				title: made.pushed ? "On GitHub and pushed" : "On GitHub",
+				description: made.url,
+			});
 		});
 
 	return (
@@ -222,6 +262,21 @@ export function SourceControl(props: {
 							</span>
 						</Show>
 					</div>
+					<Show when={status()?.upstream}>
+						<Button
+							size="sm"
+							variant="secondary"
+							icon={busy() === "pull" ? <Spinner /> : <ArrowUpIcon class="rotate-180" />}
+							disabled={busy() !== null}
+							onClick={pull}
+						>
+							{busy() === "pull"
+								? "Pulling…"
+								: (status()?.behind ?? 0) > 0
+									? `Pull ${status()?.behind}`
+									: "Pull"}
+						</Button>
+					</Show>
 					<IconButton label="Refresh" size="sm" onClick={reload} disabled={busy() !== null}>
 						<RestoreIcon />
 					</IconButton>
@@ -260,6 +315,45 @@ export function SourceControl(props: {
 								/>
 							}
 						>
+							<Show when={!current().remote && current().top}>
+								<section aria-label="Put it on GitHub" class="surface-card flex flex-col gap-3 p-4">
+									<div class="flex flex-col gap-1">
+										<Text weight="medium" tone="strong">
+											Not on GitHub yet
+										</Text>
+										<Text size="caption" tone="subtle">
+											Make a repository for {props.name} on your GitHub account and push what is
+											committed. Uses your GitHub sign-in from{" "}
+											<TextLink href={workspaceHref("/settings/connectors")} tone="accent">
+												Settings → Connectors
+											</TextLink>
+											.
+										</Text>
+									</div>
+									<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+										<Input
+											aria-label="Repository name"
+											placeholder={props.slug}
+											value={repoName()}
+											onInput={(event) => setRepoName(event.currentTarget.value)}
+											class="min-w-0 flex-1"
+										/>
+										<span class="flex items-center gap-2 text-body text-fg">
+											<Switch label="Private" checked={repoPrivate()} onChange={setRepoPrivate} />
+											<span aria-hidden="true">Private</span>
+										</span>
+										<Button
+											variant="primary"
+											icon={busy() === "github" ? <Spinner /> : <ArrowUpIcon />}
+											disabled={busy() !== null}
+											onClick={createRepo}
+										>
+											{busy() === "github" ? "Creating…" : "Create on GitHub"}
+										</Button>
+									</div>
+								</section>
+							</Show>
+
 							<Show when={current().ahead > 0 && current().remote}>
 								<div class="surface-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
 									<Text tone="subtle" class="min-w-0 flex-1">

@@ -7,9 +7,12 @@ import { byAgents, linkedRoot } from "./routes";
 import {
 	cleanMessage,
 	commitFiles,
+	createGithubRepo,
+	fetchRemote,
 	fileDiff,
 	initRepo,
 	messagePrompt,
+	pullBranch,
 	pushBranch,
 	SourceError,
 	sourceStatus,
@@ -46,7 +49,11 @@ export async function sourceRequest(
 			const found = await sourceStatus(root);
 			return { ...found, changes: await byAgents(hub, who.workspace, root, found.changes) };
 		};
-		if (request.method === "GET" && action === "") return Response.json({ data: await status() });
+		if (request.method === "GET" && action === "") {
+			// `?fetch=1` asks the remote first, so what there is to pull is current.
+			if (url.searchParams.get("fetch") === "1") await fetchRemote(root);
+			return Response.json({ data: await status() });
+		}
 		if (request.method === "GET" && action === "diff") {
 			const path = projectFilePath(root, url.searchParams.get("path") ?? "");
 			return Response.json({ data: await fileDiff(root, path) });
@@ -60,16 +67,18 @@ export async function sourceRequest(
 			await initRepo(root, who.settings?.defaultBranch || "main");
 			return Response.json({ data: await status() });
 		}
+		const author = body.author as { name?: unknown; email?: unknown } | undefined;
+		const signer =
+			typeof author?.name === "string" &&
+			typeof author.email === "string" &&
+			author.email.includes("@")
+				? { name: author.name.slice(0, 200), email: author.email.slice(0, 200) }
+				: undefined;
 		if (action === "commit") {
-			const author = body.author as { name?: unknown; email?: unknown } | undefined;
 			const commit = await commitFiles(root, {
 				paths,
 				message: typeof body.message === "string" ? body.message.slice(0, 10_000) : "",
-				...(typeof author?.name === "string" &&
-				typeof author.email === "string" &&
-				author.email.includes("@")
-					? { author: { name: author.name.slice(0, 200), email: author.email.slice(0, 200) } }
-					: {}),
+				...(signer ? { author: signer } : {}),
 			});
 			return Response.json({ data: { commit, status: await status() } });
 		}
@@ -77,6 +86,18 @@ export async function sourceRequest(
 			if (paths.length === 0) return failure(400, "Choose the files to describe");
 			const prompt = await messagePrompt(root, paths);
 			return Response.json({ data: await writeMessage(who, hub, root, prompt) });
+		}
+		if (action === "pull") {
+			await pullBranch(root, signer);
+			return Response.json({ data: await status() });
+		}
+		if (action === "github") {
+			const created = await createGithubRepo(root, {
+				name: typeof body.name === "string" ? body.name : "",
+				private: body.private !== false,
+				...(typeof body.description === "string" ? { description: body.description } : {}),
+			});
+			return Response.json({ data: { ...created, status: await status() } });
 		}
 		if (action === "push") {
 			await pushBranch(root);
