@@ -130,7 +130,7 @@ export function Rail(): JSX.Element {
 
 	return (
 		<nav aria-label="Destinations" class="flex h-full min-h-0 flex-col items-center">
-			<div class="flex h-13 w-full shrink-0 items-center justify-center border-line border-b pointer-coarse:h-14">
+			<div class="flex h-13 w-full shrink-0 items-center justify-center pointer-coarse:h-14">
 				<Show when={shell.desktop()} fallback={<BrandTile />}>
 					<RailButton
 						label={shell.collapsed() ? "Show panel" : "Hide panel"}

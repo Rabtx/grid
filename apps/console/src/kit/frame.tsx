@@ -81,7 +81,7 @@ export function AppFrame(props: {
 			<div class="backdrop-app flex h-[var(--app-height,100dvh)] overflow-hidden bg-surface text-fg">
 				{/* Rail and panel are one surface (a breath of ink over the app), with no line between. */}
 				<Show when={props.rail || props.sidebar}>
-					<div class="backdrop-sidebar hidden shrink-0 border-line border-r bg-fill lg:flex">
+					<div class="backdrop-sidebar rule-fade-r hidden shrink-0 bg-fill lg:flex">
 						<Show when={props.rail}>
 							<div class="w-12 shrink-0 rail-labels:w-17">{props.rail}</div>
 						</Show>

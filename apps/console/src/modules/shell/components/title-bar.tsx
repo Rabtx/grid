@@ -99,7 +99,7 @@ export function TitleBar(): JSX.Element {
 	const shell = useShell();
 
 	return (
-		<header class="flex h-13 shrink-0 select-none items-center gap-2 border-line border-b pr-3 pl-5">
+		<header class="rule-fade-b flex h-13 shrink-0 select-none items-center gap-2 pr-3 pl-5">
 			<div class="flex min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none]">
 				<Show when={shell.tabs()} fallback={<Breadcrumb />}>
 					{(tabs) => <>{tabs()()}</>}

@@ -391,7 +391,7 @@ export function PanelHeader(props: { title: JSX.Element; actions?: JSX.Element }
 	// Built once: read twice, the actions would be made twice (see `builtOnce`).
 	const actions = children(() => props.actions);
 	return (
-		<div class="flex h-13 shrink-0 items-center gap-0.5 border-line border-b pr-3 pl-4 pointer-coarse:h-14">
+		<div class="rule-fade-b flex h-13 shrink-0 items-center gap-0.5 pr-3 pl-4 pointer-coarse:h-14">
 			<h2 class="min-w-0 flex-1 truncate font-medium text-body-lg text-fg">{props.title}</h2>
 			<Show when={actions.toArray().length > 0}>{actions()}</Show>
 		</div>

@@ -529,6 +529,37 @@
 	);
 }
 
+/*
+ * A rule that dissolves instead of ending hard: the line fades to nothing towards its ends. Drawn as
+ * a background (not a border or a pseudo-element), so it sits under the content and leaves
+ * ::before/::after free. `-b` is a bottom rule fading left and right; `-r` a right rule fading at the
+ * top and bottom.
+ */
+@utility rule-fade-b {
+	background-image: linear-gradient(
+		90deg,
+		transparent,
+		var(--kit-line) 22%,
+		var(--kit-line) 78%,
+		transparent
+	);
+	background-position: bottom;
+	background-size: 100% 1px;
+	background-repeat: no-repeat;
+}
+@utility rule-fade-r {
+	background-image: linear-gradient(
+		180deg,
+		transparent,
+		var(--kit-line) 18%,
+		var(--kit-line) 82%,
+		transparent
+	);
+	background-position: right;
+	background-size: 1px 100%;
+	background-repeat: no-repeat;
+}
+
 /* The kit slider: a thin track filled in ink up to the value, a white thumb with a hairline. */
 @layer components {
 	.kit-slider::-webkit-slider-runnable-track {
