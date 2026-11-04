@@ -229,9 +229,13 @@ export function TeamScreen(): JSX.Element {
 					)}
 				</For>
 			</ShellSlot>
-			<ShellSlot name="crumb">
-				<Text tone="strong">{opened()?.name ?? "Team"}</Text>
-			</ShellSlot>
+			<Show when={opened()}>
+				{(role) => (
+					<ShellSlot name="crumb">
+						<Text tone="strong">{role().name}</Text>
+					</ShellSlot>
+				)}
+			</Show>
 			<ShellSlot name="trailing">
 				<IconButton
 					label="New teammate"

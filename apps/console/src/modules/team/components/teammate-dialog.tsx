@@ -232,7 +232,7 @@ export function TeammateDialog(props: {
 					/>
 				</Show>
 
-				<Section title="Who">
+				<div class="flex flex-col gap-3">
 					<div class="grid gap-3 sm:grid-cols-2">
 						<Field label="Name">
 							{(id) => (
@@ -269,9 +269,9 @@ export function TeammateDialog(props: {
 							/>
 						)}
 					</Field>
-				</Section>
+				</div>
 
-				<Section title="Runs on">
+				<div class="flex flex-col gap-3">
 					<div class="grid gap-3 sm:grid-cols-2">
 						<Field label="Agent">
 							{() => (
@@ -318,7 +318,7 @@ export function TeammateDialog(props: {
 							</Field>
 						</Show>
 					</div>
-				</Section>
+				</div>
 
 				<Section title="Skills">
 					<Show
