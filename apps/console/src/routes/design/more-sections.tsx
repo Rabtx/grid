@@ -64,6 +64,7 @@ import {
 	UsageBar,
 	UserIcon,
 	UserMessage,
+	EffortDial,
 	EffortSlider,
 	playArrival,
 } from "@/kit";
@@ -294,6 +295,8 @@ export function FormsSection(): JSX.Element {
 	const [notifications, setNotifications] = createSignal(true);
 	const [step, setStep] = createSignal(1);
 	const [effort, setEffort] = createSignal("high");
+	const [dial, setDial] = createSignal("high");
+	const [small, setSmall] = createSignal("medium");
 	return (
 		<div class="grid gap-4 md:grid-cols-2">
 			<Specimen label="Effort slider · and the flagship arrival">
@@ -324,6 +327,36 @@ export function FormsSection(): JSX.Element {
 							Play the arrival
 						</Button>
 					</div>
+				</Stack>
+			</Specimen>
+			<Specimen label="Effort dial · proposal, not in the app yet">
+				<Stack gap={6}>
+					<div data-specimen="effort-dial">
+						<EffortDial
+							label="Reasoning effort"
+							levels={[
+								{ id: "low", name: "Low" },
+								{ id: "medium", name: "Medium" },
+								{ id: "high", name: "High" },
+								{ id: "xhigh", name: "Extra" },
+								{ id: "max", name: "Max" },
+							]}
+							value={dial()}
+							defaultId="high"
+							onChange={setDial}
+						/>
+					</div>
+					<EffortDial
+						label="A model with three levels"
+						levels={[
+							{ id: "low", name: "Low" },
+							{ id: "medium", name: "Medium" },
+							{ id: "high", name: "High" },
+						]}
+						value={small()}
+						defaultId="medium"
+						onChange={setSmall}
+					/>
 				</Stack>
 			</Specimen>
 			<Specimen label="Select">

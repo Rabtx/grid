@@ -191,7 +191,7 @@ export {
 	TurnFold,
 	TurnHeader,
 } from "./run";
-export { type EffortLevel, EffortSlider } from "./effort";
+export { EffortDial, type EffortLevel, EffortSlider } from "./effort";
 export { type ArrivalOptions, playArrival } from "./arrival";
 export { ListDetail, ListRow, PaneHeader } from "./pane";
 export { type AgentChoice, AgentChoices, FlagshipMark, ModelRow } from "./picker";
