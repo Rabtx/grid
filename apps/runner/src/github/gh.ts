@@ -81,3 +81,61 @@ export function createGh(binary = "gh"): Gh {
 		},
 	};
 }
+
+/** A GitHub CLI release asset, as GitHub's releases API lists it. */
+type ReleaseAsset = { name: string; browser_download_url: string };
+
+/**
+ * The release archive for this machine: `gh_<version>_linux_amd64.tar.gz`, `gh_<version>_macOS_arm64.zip`
+ * and the like; null where GitHub publishes none for it (Windows takes the MSI installer).
+ */
+export function ghAsset(
+	release: { tag_name: string; assets: readonly ReleaseAsset[] },
+	platform: string = process.platform,
+	arch: string = process.arch,
+): ReleaseAsset | null {
+	const os = platform === "linux" ? "linux" : platform === "darwin" ? "macOS" : null;
+	const cpu = arch === "x64" ? "amd64" : arch === "arm64" ? "arm64" : null;
+	if (!os || !cpu) return null;
+	const version = release.tag_name.replace(/^v/, "");
+	const name = `gh_${version}_${os}_${cpu}${os === "linux" ? ".tar.gz" : ".zip"}`;
+	return release.assets.find((asset) => asset.name === name) ?? null;
+}
+
+/**
+ * Install the GitHub CLI without a terminal or root: GitHub's own latest release for this machine,
+ * unpacked into `~/.local/bin`, where the runner already looks for programs (`withAgentBins`).
+ * Throws with what went wrong, for the person to read.
+ */
+export async function installGh(home: string, fetchImpl: typeof fetch = fetch): Promise<void> {
+	const { join } = await import("node:path");
+	const { mkdir, mkdtemp, copyFile, chmod, rm } = await import("node:fs/promises");
+	const { tmpdir } = await import("node:os");
+	const latest = await fetchImpl("https://api.github.com/repos/cli/cli/releases/latest", {
+		headers: { accept: "application/vnd.github+json", "user-agent": "grid-runner" },
+	});
+	if (!latest.ok) throw new Error(`GitHub did not list the CLI's releases (${latest.status})`);
+	const release = (await latest.json()) as { tag_name: string; assets: ReleaseAsset[] };
+	const asset = ghAsset(release);
+	if (!asset)
+		throw new Error(`There is no GitHub CLI download for ${process.platform} on ${process.arch}`);
+	const archive = await fetchImpl(asset.browser_download_url);
+	if (!archive.ok) throw new Error(`Could not download the GitHub CLI (${archive.status})`);
+	const work = await mkdtemp(join(tmpdir(), "grid-gh-"));
+	try {
+		const file = join(work, asset.name);
+		await Bun.write(file, archive);
+		const unpack = asset.name.endsWith(".zip")
+			? ["unzip", "-q", file, "-d", work]
+			: ["tar", "-xzf", file, "-C", work];
+		const code = await Bun.spawn(unpack, { stdout: "ignore", stderr: "ignore" }).exited;
+		if (code !== 0) throw new Error("Could not unpack the GitHub CLI download");
+		const folder = asset.name.replace(/\.(tar\.gz|zip)$/, "");
+		const bin = join(home, ".local", "bin");
+		await mkdir(bin, { recursive: true });
+		await copyFile(join(work, folder, "bin", "gh"), join(bin, "gh"));
+		await chmod(join(bin, "gh"), 0o755);
+	} finally {
+		await rm(work, { recursive: true, force: true });
+	}
+}

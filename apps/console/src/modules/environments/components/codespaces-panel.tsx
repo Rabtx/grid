@@ -149,6 +149,7 @@ export function CodespacesPanel(): JSX.Element {
 										busy={busy() !== null}
 										purpose="to manage Codespaces here"
 										onSignIn={() => void run("signin", githubService.signIn)}
+										onInstall={() => void run("install", githubService.install)}
 									/>
 								</div>
 							}

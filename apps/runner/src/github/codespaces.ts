@@ -119,7 +119,9 @@ export class CodespacesLink {
 	}
 
 	async status(ownerId: string): Promise<GitHubStatus> {
-		this.installed ??= (await this.gh.run(["--version"], { timeoutMs: 10_000 })).code === 0;
+		// Asked again until it is there, so installing it shows at once (not after a restart).
+		if (!this.installed)
+			this.installed = (await this.gh.run(["--version"], { timeoutMs: 10_000 })).code === 0;
 		const claim = this.claim();
 		const base = {
 			installed: this.installed,
@@ -137,6 +139,22 @@ export class CodespacesLink {
 		if (!this.installed) return { ...base, login: null, canManageCodespaces: false };
 		const { login, scopes } = await this.auth();
 		return { ...base, login, canManageCodespaces: scopes.includes("codespace") };
+	}
+
+	/**
+	 * Install the GitHub CLI on this machine from GitHub's own release (no terminal, no root), then
+	 * say where things stand, so signing in can follow straight away.
+	 */
+	async install(ownerId: string, run: () => Promise<void>): Promise<GitHubStatus> {
+		if (!this.installed) {
+			try {
+				await run();
+			} catch (cause) {
+				throw new GitHubError(cause instanceof Error ? cause.message : String(cause), 502);
+			}
+			this.installed = null;
+		}
+		return this.status(ownerId);
 	}
 
 	/**

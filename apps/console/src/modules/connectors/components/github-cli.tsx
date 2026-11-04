@@ -62,6 +62,21 @@ export function GithubCli(props: { onReady: (ready: boolean) => void }): JSX.Ele
 		}
 	}
 
+	async function install(): Promise<void> {
+		const token = auth.token();
+		if (!token || busy()) return;
+		setBusy(true);
+		setError(null);
+		try {
+			setStatus(await githubService.install(token));
+			await refresh();
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : "Could not install the GitHub CLI");
+		} finally {
+			setBusy(false);
+		}
+	}
+
 	return (
 		<>
 			<Show when={error()}>{(message) => <Alert tone="danger" title={message()} />}</Show>
@@ -75,6 +90,7 @@ export function GithubCli(props: { onReady: (ready: boolean) => void }): JSX.Ele
 								busy={busy()}
 								purpose="to connect GitHub"
 								onSignIn={() => void signIn()}
+								onInstall={() => void install()}
 							/>
 						}
 					>

@@ -1,7 +1,10 @@
+import { homedir } from "node:os";
+
 import type { Who } from "../auth";
 import { may, NOT_ALLOWED } from "../permissions";
 import { type CodespacesLink, GitHubError } from "./codespaces";
 import { type FixInclude, fixPlan } from "./fix";
+import { installGh } from "./gh";
 import type { MergeMethod, PullFilter, PullRequests, PullState, ReviewSubmission } from "./pulls";
 
 /** The Grid thread working on a branch: who made a pull request from it. */
@@ -82,6 +85,7 @@ export async function githubRequest(
 		// Connecting GitHub, and Codespaces as machines, are for roles that manage them.
 		const connecting =
 			(url.pathname === "/github/sign-in" && request.method === "POST") ||
+			(url.pathname === "/github/install" && request.method === "POST") ||
 			(url.pathname === "/github" && request.method === "DELETE");
 		if (connecting && !may(who, "integrations")) return failure(403, NOT_ALLOWED);
 		if (
@@ -90,6 +94,11 @@ export async function githubRequest(
 			!may(who, "machines")
 		)
 			return failure(403, NOT_ALLOWED);
+		if (url.pathname === "/github/install" && request.method === "POST") {
+			return Response.json({
+				data: await github.install(userId, () => installGh(homedir())),
+			});
+		}
 		if (url.pathname === "/github/sign-in" && request.method === "POST") {
 			return Response.json({ data: await github.signIn(userId) });
 		}

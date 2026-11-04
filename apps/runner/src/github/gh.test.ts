@@ -3,7 +3,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createGh } from "./gh";
+import { createGh, ghAsset, installGh } from "./gh";
 
 // `gh` is spawned as a bare binary, so the fake needs a name the OS will run. It is a wrapper
 // that hands the fixture to bun, the way the other fake CLI in the runner's tests is run.
@@ -53,5 +53,28 @@ describe("gh sign-in output", () => {
 		await Bun.sleep(20);
 		expect(seen).toBe("→ done\n");
 		delete process.env.FAKE_GH_TEXT;
+	});
+});
+
+describe("installing the GitHub CLI", () => {
+	const release = {
+		tag_name: "v2.70.1",
+		assets: [
+			{ name: "gh_2.70.1_linux_amd64.tar.gz", browser_download_url: "https://x/linux-amd64" },
+			{ name: "gh_2.70.1_linux_arm64.tar.gz", browser_download_url: "https://x/linux-arm64" },
+			{ name: "gh_2.70.1_macOS_arm64.zip", browser_download_url: "https://x/mac-arm64" },
+			{ name: "gh_2.70.1_windows_amd64.msi", browser_download_url: "https://x/win" },
+		],
+	};
+	it("picks this machine's release archive", () => {
+		expect(ghAsset(release, "linux", "x64")?.browser_download_url).toBe("https://x/linux-amd64");
+		expect(ghAsset(release, "linux", "arm64")?.browser_download_url).toBe("https://x/linux-arm64");
+		expect(ghAsset(release, "darwin", "arm64")?.browser_download_url).toBe("https://x/mac-arm64");
+		expect(ghAsset(release, "win32", "x64")).toBeNull();
+		expect(ghAsset(release, "linux", "ia32")).toBeNull();
+	});
+	it("says why when GitHub will not list releases", async () => {
+		const failing = (async () => new Response("", { status: 503 })) as unknown as typeof fetch;
+		await expect(installGh("/tmp/nowhere", failing)).rejects.toThrow("(503)");
 	});
 });

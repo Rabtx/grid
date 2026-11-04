@@ -25,6 +25,9 @@ export const githubService = {
 	status: (token: string) => runnerCall<GitHubStatus>("/github", token),
 	/** Sign in (or use the machine's existing GitHub sign-in); may return a code to enter. */
 	signIn: (token: string) => runnerCall<GitHubStatus>("/github/sign-in", token, { method: "POST" }),
+	/** Install the GitHub CLI on the machine from GitHub's own release: no terminal needed. */
+	install: (token: string) =>
+		runnerCall<GitHubStatus>("/github/install", token, { method: "POST" }),
 	signOut: (token: string) => runnerCall<void>("/github", token, { method: "DELETE" }),
 	codespaces: (token: string) => runnerCall<Codespace[]>("/github/codespaces", token),
 	create: (token: string, input: { repository: string; branch?: string }) =>

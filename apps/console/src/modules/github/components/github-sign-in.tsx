@@ -13,6 +13,8 @@ export function GitHubSignIn(props: {
 	status: GitHubStatus;
 	busy: boolean;
 	onSignIn: () => void;
+	/** Install the GitHub CLI here; without it, the person is told to install it themselves. */
+	onInstall?: () => void;
 	/** What connecting is for, in the "install gh" line: "to manage Codespaces here". */
 	purpose: string;
 }): JSX.Element {
@@ -21,9 +23,32 @@ export function GitHubSignIn(props: {
 		<Show
 			when={props.status.installed}
 			fallback={
-				<Text tone="subtle">
-					Install the GitHub CLI (<Code>gh</Code>) on the machine Grid runs on {props.purpose}.
-				</Text>
+				<Stack gap={3} align="start">
+					<Text tone="subtle">
+						The GitHub CLI (<Code>gh</Code>) is not on the machine Grid runs on yet. Grid installs
+						it from GitHub {props.purpose}; then you sign in right here.
+					</Text>
+					<Show when={props.status.error}>
+						{(message) => <Alert tone="danger" title={message()} />}
+					</Show>
+					<Show
+						when={props.onInstall}
+						fallback={
+							<Text tone="subtle">
+								Install <Code>gh</Code> on that machine, then come back.
+							</Text>
+						}
+					>
+						{(install) => (
+							<Button variant="primary" disabled={props.busy} onClick={() => install()()}>
+								<Show when={props.busy} fallback="Install GitHub CLI">
+									<Spinner label="Installing" />
+									Installing…
+								</Show>
+							</Button>
+						)}
+					</Show>
+				</Stack>
 			}
 		>
 			<Show
