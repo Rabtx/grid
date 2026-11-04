@@ -258,7 +258,7 @@ export function EffortDial(props: {
 					</For>
 					<span
 						aria-hidden="true"
-						class={`absolute top-1/2 h-6 w-7 -translate-x-1/2 -translate-y-1/2 rounded-pill bg-surface shadow-knob transition-[scale] duration-fast ease-out-grid ${drag() === null ? "scale-100" : "scale-110"}`}
+						class={`absolute top-1/2 h-6 w-7 -translate-x-1/2 -translate-y-1/2 rounded-pill bg-white shadow-knob transition-[scale] duration-fast ease-out-grid ${drag() === null ? "scale-100" : "scale-110"}`}
 						style={{
 							left: `${position()}%`,
 							transition:
