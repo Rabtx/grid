@@ -79,7 +79,7 @@ function nowLine(runs: readonly TeammateRun[]): string | null {
 /** A quiet group heading over a list. */
 function Heading(props: { children: JSX.Element; trailing?: JSX.Element }): JSX.Element {
 	return (
-		<div class="flex h-8 items-center justify-between gap-3 px-1">
+		<div class="flex h-8 items-center justify-between gap-3 md:px-1">
 			<Text size="caption" tone="subtle">
 				{props.children}
 			</Text>
@@ -90,7 +90,8 @@ function Heading(props: { children: JSX.Element; trailing?: JSX.Element }): JSX.
 
 /** Rows in one quiet frame, divided by hairlines. */
 function Rows(props: { children: JSX.Element }): JSX.Element {
-	return <div class="surface-card flex flex-col divide-y divide-line">{props.children}</div>;
+	// Framed from md; on phones the rows run edge to edge like the Inbox's.
+	return <div class="flex flex-col divide-y divide-line md:surface-card">{props.children}</div>;
 }
 
 /**
@@ -249,7 +250,7 @@ export function TeamScreen(): JSX.Element {
 			</ShellSlot>
 
 			<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-				<div class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pt-4 pb-12 md:px-8 md:pt-10">
+				<div class="flex w-full max-w-4xl flex-col gap-6 px-4 pt-3 pb-8 md:px-6 md:pt-5">
 					<Show when={error()}>{(text) => <Alert tone="danger" title={text()} />}</Show>
 					<Show
 						when={openId()}
@@ -374,7 +375,7 @@ function Everyone(props: {
 					<Rows>
 						<For each={props.waiting}>
 							{(run) => (
-								<div class="flex min-h-14 items-center gap-3 px-4 py-2.5">
+								<div class="flex min-h-14 items-center gap-3 py-2.5 md:px-4">
 									<StatusDot
 										status={run.state === "plan_ready" ? "waiting" : "error"}
 										label={RUN_STATE[run.state].label}
@@ -422,7 +423,7 @@ function Everyone(props: {
 						</For>
 						<For each={props.proposed}>
 							{(lesson) => (
-								<div class="flex min-h-14 items-center gap-3 px-4 py-2.5">
+								<div class="flex min-h-14 items-center gap-3 py-2.5 md:px-4">
 									<StatusDot status="waiting" label="A lesson to keep" />
 									<div class="flex min-w-0 flex-1 flex-col">
 										<Text truncate>{lesson.text}</Text>
@@ -463,7 +464,7 @@ function Everyone(props: {
 							{(role) => (
 								<a
 									href={workspaceHref(`/team/${role.id}`)}
-									class="focus-ring flex min-h-14 items-center gap-3 px-4 py-2.5 transition-colors duration-fast hover:bg-fill"
+									class="focus-ring flex min-h-14 items-center gap-3 py-2.5 md:px-4 transition-colors duration-fast hover:bg-fill"
 								>
 									<RoleMark icon={role.icon} />
 									<div class="flex min-w-0 flex-1 flex-col">
@@ -494,7 +495,7 @@ function Everyone(props: {
 							)}
 						</For>
 						<Show when={props.team.length === 0}>
-							<div class="flex min-h-14 items-center gap-3 px-4 py-3">
+							<div class="flex min-h-14 items-center gap-3 py-3 md:px-4">
 								<Text tone="subtle" class="min-w-0 flex-1">
 									No teammates yet. A teammate is a specialist any agent can be, with its own brief,
 									skills and memory.
@@ -526,7 +527,7 @@ function Everyone(props: {
 						<Rows>
 							<For each={people()}>
 								{(person) => (
-									<div class="flex min-h-14 items-center gap-3 px-4 py-2.5">
+									<div class="flex min-h-14 items-center gap-3 py-2.5 md:px-4">
 										<Avatar
 											name={person.displayName || person.username}
 											src={person.avatarUrl}
@@ -622,7 +623,7 @@ function TeammatePage(props: {
 			/>
 
 			<Show when={tab() === "work"}>
-				<Text size="caption" tone="subtle" class="px-1">
+				<Text size="caption" tone="subtle" class="md:px-1">
 					{score()}
 				</Text>
 				<RunList
@@ -668,7 +669,7 @@ function RunList(props: {
 			<Show
 				when={props.runs.length > 0}
 				fallback={
-					<Text tone="subtle" class="px-1">
+					<Text tone="subtle" class="md:px-1">
 						{props.empty}
 					</Text>
 				}
@@ -676,7 +677,7 @@ function RunList(props: {
 				<Rows>
 					<For each={props.runs}>
 						{(run) => (
-							<div class="flex min-h-14 items-center gap-3 px-4 py-2.5">
+							<div class="flex min-h-14 items-center gap-3 py-2.5 md:px-4">
 								<StatusDot status={RUN_STATE[run.state].dot} label={RUN_STATE[run.state].label} />
 								<div class="flex min-w-0 flex-1 flex-col">
 									<a
@@ -805,7 +806,7 @@ function Memory(props: { role: Role; onChanged: () => void }): JSX.Element {
 						<Rows>
 							<For each={proposed()}>
 								{(lesson) => (
-									<div class="flex min-h-12 items-center gap-3 px-4 py-2">
+									<div class="flex min-h-12 items-center gap-3 py-2 md:px-4">
 										<Text class="min-w-0 flex-1">{lesson.text}</Text>
 										<Button
 											size="sm"
@@ -838,7 +839,7 @@ function Memory(props: { role: Role; onChanged: () => void }): JSX.Element {
 					<Show
 						when={kept().length > 0}
 						fallback={
-							<Text tone="subtle" class="px-1">
+							<Text tone="subtle" class="md:px-1">
 								Nothing yet. Correct {props.role.name} in a thread and it proposes a lesson here.
 							</Text>
 						}
@@ -846,7 +847,7 @@ function Memory(props: { role: Role; onChanged: () => void }): JSX.Element {
 						<Rows>
 							<For each={kept()}>
 								{(lesson) => (
-									<div class="flex min-h-12 items-center gap-3 px-4 py-2">
+									<div class="flex min-h-12 items-center gap-3 py-2 md:px-4">
 										<Text class="min-w-0 flex-1">{lesson.text}</Text>
 										<IconButton
 											label="Forget this"

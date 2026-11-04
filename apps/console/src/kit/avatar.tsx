@@ -46,6 +46,22 @@ export function Avatar(props: {
 	size?: keyof typeof SIZES;
 	/** Their photo, when they have one. */
 	src?: string | null;
+	/** A dotted ring around it, a little apart: the signed-in person's own avatar. */
+	ring?: boolean;
+}): JSX.Element {
+	return (
+		<Show when={props.ring} fallback={<Face {...props} />}>
+			<span class="grid shrink-0 place-items-center rounded-full border border-fg-faint border-dotted p-0.5 transition-colors duration-fast group-hover:border-fg-subtle">
+				<Face {...props} />
+			</span>
+		</Show>
+	);
+}
+
+function Face(props: {
+	name: string;
+	size?: keyof typeof SIZES;
+	src?: string | null;
 }): JSX.Element {
 	// A photo that will not load (moved, or its server is down) falls back to the initials.
 	const [broken, setBroken] = createSignal<string | null>(null);
