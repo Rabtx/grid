@@ -13,7 +13,7 @@ type Kind = "dialog" | "drawer" | "sidebar";
 // sidebar: navigation from the left edge, for phones; it shows the background image, if any.
 const PLACEMENT: Record<Kind, string> = {
 	sidebar:
-		"backdrop-drawer m-0 mr-auto h-dvh max-h-dvh w-[min(20rem,calc(100vw-3rem))] max-w-none -translate-x-full bg-surface-sunken pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] open:translate-x-0 starting:open:-translate-x-full",
+		"backdrop-drawer rule-fade-r !shadow-none m-0 mr-auto h-dvh max-h-dvh w-[min(20rem,calc(100vw-3rem))] max-w-none -translate-x-full bg-surface-sunken pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] open:translate-x-0 starting:open:-translate-x-full",
 	dialog:
 		"mx-0 mt-auto mb-0 max-h-[92dvh] w-full max-w-none translate-y-full rounded-t-kit-2xl pb-[env(safe-area-inset-bottom)] open:translate-y-0 starting:open:translate-y-full md:m-auto md:max-h-[85dvh] md:w-[min(var(--dialog-width,30rem),calc(100vw-2rem))] md:translate-y-0 md:rounded-kit-xl md:pb-0 md:opacity-0 md:open:opacity-100 md:starting:open:translate-y-2 md:starting:open:opacity-0",
 	drawer:
