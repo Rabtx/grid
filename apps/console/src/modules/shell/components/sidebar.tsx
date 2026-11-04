@@ -32,6 +32,7 @@ const SECTIONS: [prefix: string, title: string][] = [
 	["/ship", "Ship"],
 	["/operate", "Operate"],
 	["/automations", "Automations"],
+	["/team", "Team"],
 	["/settings", "Settings"],
 	["/machines", "Machines"],
 	["/agents", "Agents"],

@@ -1,15 +1,13 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Show, untrack } from "solid-js";
+import { createEffect, createSignal, Show, untrack } from "solid-js";
 
 import {
 	AgentLogo,
 	Button,
+	ChoiceChips,
 	Dialog,
-	EffortSlider,
 	Field,
 	Input,
-	RoleIconChoices,
-	RoleMark,
 	Select,
 	Switch,
 	Text,
@@ -173,9 +171,6 @@ export function TeammateDialog(props: {
 		models().find((item) => item.id === model()) ??
 		models().find((item) => item.id === provider()?.settings?.model) ??
 		models()[0];
-	const efforts = () => chosenModel()?.efforts ?? [];
-	const chosenEffort = () =>
-		efforts().find((level) => level.id === effort())?.id ?? chosenModel()?.defaultEffort ?? null;
 	const others = () => props.team.filter((item) => item.id !== props.target?.id);
 
 	async function save(): Promise<void> {
@@ -216,12 +211,7 @@ export function TeammateDialog(props: {
 			open={props.open}
 			onClose={props.onClose}
 			title={props.target ? `Edit ${props.target.name}` : "New teammate"}
-			description={
-				props.target
-					? undefined
-					: "A specialist any agent can be: its brief, skills, tools and what it learns go with every thread it takes."
-			}
-			width="40rem"
+			width="34rem"
 		>
 			<form
 				class="flex flex-col gap-6"
@@ -231,60 +221,43 @@ export function TeammateDialog(props: {
 				}}
 			>
 				<Show when={!props.target}>
-					<Section title="Start from">
-						<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-							<For each={TEAMMATE_TEMPLATES}>
-								{(item) => (
-									<button
-										type="button"
-										aria-pressed={template() === item.id ? "true" : "false"}
-										onClick={() => useTemplate(item)}
-										class="surface-card focus-ring flex min-w-0 flex-col items-start gap-2 p-3 text-left transition-colors duration-fast hover:bg-fill aria-pressed:bg-accent/10"
-									>
-										<RoleMark icon={item.icon} size="sm" />
-										<span class="w-full truncate font-medium text-body text-fg">
-											{item.specialty}
-										</span>
-									</button>
-								)}
-							</For>
-						</div>
-					</Section>
+					<ChoiceChips
+						label="Start from"
+						value={template() ?? ""}
+						onChange={(id) => {
+							const chosen = TEAMMATE_TEMPLATES.find((item) => item.id === id);
+							if (chosen) useTemplate(chosen);
+						}}
+						options={TEAMMATE_TEMPLATES.map((item) => ({ value: item.id, label: item.specialty }))}
+					/>
 				</Show>
 
 				<Section title="Who">
-					<div class="flex items-center gap-3">
-						<RoleMark icon={icon()} size="lg" />
-						<div class="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
-							<Field label="Name">
-								{(id) => (
-									<Input
-										id={id}
-										value={name()}
-										maxlength={40}
-										placeholder="Riley"
-										onInput={(event) => setName(event.currentTarget.value)}
-									/>
-								)}
-							</Field>
-							<Field label="Specialty">
-								{(id) => (
-									<Input
-										id={id}
-										value={specialty()}
-										maxlength={60}
-										placeholder="Frontend engineer"
-										onInput={(event) => setSpecialty(event.currentTarget.value)}
-									/>
-								)}
-							</Field>
-						</div>
+					<div class="grid gap-3 sm:grid-cols-2">
+						<Field label="Name">
+							{(id) => (
+								<Input
+									id={id}
+									value={name()}
+									maxlength={40}
+									placeholder="Riley"
+									onInput={(event) => setName(event.currentTarget.value)}
+								/>
+							)}
+						</Field>
+						<Field label="Specialty">
+							{(id) => (
+								<Input
+									id={id}
+									value={specialty()}
+									maxlength={60}
+									placeholder="Frontend engineer"
+									onInput={(event) => setSpecialty(event.currentTarget.value)}
+								/>
+							)}
+						</Field>
 					</div>
-					<RoleIconChoices label="Icon" value={icon()} onChange={setIcon} />
-					<Field
-						label="How it works"
-						hint="Given to the agent with the first message of every thread it takes."
-					>
+					<Field label="How it works" hint="Goes with the first message of every thread it takes.">
 						{(id) => (
 							<Textarea
 								id={id}
@@ -298,10 +271,7 @@ export function TeammateDialog(props: {
 					</Field>
 				</Section>
 
-				<Section
-					title="Runs on"
-					hint="Any agent can be this teammate; change it any time, or per thread."
-				>
+				<Section title="Runs on">
 					<div class="grid gap-3 sm:grid-cols-2">
 						<Field label="Agent">
 							{() => (
@@ -348,24 +318,16 @@ export function TeammateDialog(props: {
 							</Field>
 						</Show>
 					</div>
-					<Show when={efforts().length > 0}>
-						<EffortSlider
-							label="Reasoning effort"
-							levels={efforts()}
-							value={chosenEffort()}
-							onChange={setEffort}
-						/>
-					</Show>
 				</Section>
 
-				<Section title="Skills" hint="Read before work they cover, as well as the team's own.">
+				<Section title="Skills">
 					<Show
 						when={skillOptions()?.length}
 						fallback={
 							<Text size="caption" tone="subtle">
 								{skillOptions() === null
-									? "Reading the workspace's skills…"
-									: "No skills yet. Add them in Settings → Skills, then give them here."}
+									? "Reading skills…"
+									: "No skills yet: add them in Settings → Skills."}
 							</Text>
 						}
 					>
@@ -379,7 +341,7 @@ export function TeammateDialog(props: {
 					</Show>
 				</Section>
 
-				<Section title="Tools" hint="The connectors (MCP servers) its threads get.">
+				<Section title="Tools">
 					<Toggle
 						label="Every connector"
 						hint="Whatever its agent may use in this workspace"
@@ -392,8 +354,8 @@ export function TeammateDialog(props: {
 							fallback={
 								<Text size="caption" tone="subtle">
 									{toolOptions() === null
-										? "Reading the workspace's connectors…"
-										: "No connectors yet. Connect them in Settings → Connectors."}
+										? "Reading connectors…"
+										: "No connectors yet: add them in Settings → Connectors."}
 								</Text>
 							}
 						>
@@ -408,7 +370,7 @@ export function TeammateDialog(props: {
 					</Show>
 				</Section>
 
-				<Section title="On the board" hint="When a card is assigned to this teammate.">
+				<Section title="On the board">
 					<Toggle
 						label="Start cards by itself"
 						hint="Begins as soon as a card is assigned, in its own worktree"

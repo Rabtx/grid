@@ -7,15 +7,12 @@ import {
 	AgentLogo,
 	Alert,
 	Avatar,
-	Badge,
 	Button,
 	ButtonLink,
-	ChatIcon,
-	CheckIcon,
+	ChevronRightIcon,
 	CloseIcon,
+	DescriptionList,
 	EditIcon,
-	EmptyState,
-	Figures,
 	IconButton,
 	Input,
 	NavLink,
@@ -26,7 +23,6 @@ import {
 	Skeleton,
 	StatusDot,
 	Text,
-	UserIcon,
 } from "@/kit";
 import { useAuth } from "@/modules/auth";
 import { describeRole } from "@/modules/chat/components/roles";
@@ -40,7 +36,6 @@ import { workspacesService } from "@/modules/workspaces/services/workspaces.serv
 import type { Member } from "@/modules/workspaces/types/workspace.types";
 
 import { duration, isOpen, RUN_STATE, waitsOnYou } from "../lib/run-state";
-import { TEAMMATE_TEMPLATES } from "../lib/templates";
 import { teamService } from "../services/team.service";
 import type { TeammateLesson, TeammateRun, TeammateStats } from "../types/team.types";
 
@@ -48,6 +43,8 @@ import { TeammateDialog } from "./teammate-dialog";
 
 /** How often an open Team screen reads its teammates' work again: they work on their own. */
 const REFRESH_MS = 15_000;
+
+type Step = (run: TeammateRun, action: "approve" | "stop" | "retry", done: string) => Promise<void>;
 
 function message(cause: unknown, fallback: string): string {
 	return cause instanceof Error ? cause.message : fallback;
@@ -58,17 +55,49 @@ function since(at: string): string {
 	return minutes < 1 ? "just now" : `${duration(minutes)} ago`;
 }
 
+const plural = (count: number, one: string, many = `${one}s`) =>
+	`${count} ${count === 1 ? one : many}`;
+
 /** Where a run's card is on the board, and its thread. */
 const cardHref = (run: TeammateRun) =>
 	workspaceHref(`/board/${run.project}/tasks/${run.taskNumber}`);
 const threadHref = (run: TeammateRun) =>
 	run.sessionId ? workspaceHref(`/chat/${run.project}/${run.sessionId}`) : null;
 
+/** What a teammate is doing now, in a few words; null when it is free. */
+function nowLine(runs: readonly TeammateRun[]): string | null {
+	const open = runs.filter(isOpen);
+	const lead =
+		open.find((run) => run.state === "working" || run.state === "planning") ??
+		runs.find(waitsOnYou) ??
+		open[0];
+	if (!lead) return null;
+	const more = open.length > 1 ? ` · +${open.length - 1}` : "";
+	return `${RUN_STATE[lead.state].label} ${lead.taskKey}${more}`;
+}
+
+/** A quiet group heading over a list. */
+function Heading(props: { children: JSX.Element; trailing?: JSX.Element }): JSX.Element {
+	return (
+		<div class="flex h-8 items-center justify-between gap-3 px-1">
+			<Text size="caption" tone="subtle">
+				{props.children}
+			</Text>
+			{props.trailing}
+		</div>
+	);
+}
+
+/** Rows in one quiet frame, divided by hairlines. */
+function Rows(props: { children: JSX.Element }): JSX.Element {
+	return <div class="surface-card flex flex-col divide-y divide-line">{props.children}</div>;
+}
+
 /**
- * The team (Team): the people in the workspace and its teammates side by side. The overview leads
- * with what waits on you (plans to approve, stuck cards, lessons to keep), then each teammate with
- * what it is doing now and its scorecard, then the people. A teammate's page has its work, its
- * memory and its setup. Everything a teammate does is read again every few seconds while open.
+ * The team (Team): the workspace's teammates and its people, in one list. What waits on you leads
+ * (plans to approve, stuck cards, lessons to keep); each teammate says what it is doing now. A
+ * teammate's own page holds its work, its scorecard, its memory and its setup. Read again every
+ * few seconds while open, as teammates work on their own.
  */
 export function TeamScreen(): JSX.Element {
 	const auth = useAuth();
@@ -81,7 +110,6 @@ export function TeamScreen(): JSX.Element {
 	const [runs, setRuns] = createSignal<TeammateRun[]>([]);
 	const [proposed, setProposed] = createSignal<TeammateLesson[]>([]);
 	const [members, setMembers] = createSignal<Member[] | null>(null);
-	const [loaded, setLoaded] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
 	const [editing, setEditing] = createSignal<{ role: Role | null } | null>(null);
 
@@ -103,8 +131,6 @@ export function TeamScreen(): JSX.Element {
 			setError(null);
 		} catch (cause) {
 			setError(message(cause, "Could not read what the team is doing"));
-		} finally {
-			setLoaded(true);
 		}
 	}
 
@@ -141,12 +167,7 @@ export function TeamScreen(): JSX.Element {
 		}
 	}
 
-	/** Runs a step on a run, then reads the team again. */
-	async function step(
-		run: TeammateRun,
-		action: "approve" | "stop" | "retry",
-		done: string,
-	): Promise<void> {
+	const step: Step = async (run, action, done) => {
 		const token = auth.token();
 		if (!token) return;
 		try {
@@ -156,7 +177,7 @@ export function TeamScreen(): JSX.Element {
 		} catch (cause) {
 			notify({ title: message(cause, "That did not work"), tone: "danger" });
 		}
-	}
+	};
 
 	async function lesson(item: TeammateLesson, keep: boolean): Promise<void> {
 		const token = auth.token();
@@ -176,28 +197,26 @@ export function TeamScreen(): JSX.Element {
 		navigate(workspaceHref("/chat"));
 	}
 
+	const newTeammate = () => setEditing({ role: null });
+
 	return (
 		<div class="flex min-h-0 flex-1 flex-col">
 			<ShellSlot name="panelActions">
-				<IconButton label="New teammate" size="sm" onClick={() => setEditing({ role: null })}>
+				<IconButton label="New teammate" size="sm" onClick={newTeammate}>
 					<PlusIcon size="sm" />
 				</IconButton>
 			</ShellSlot>
 			<ShellSlot name="panel">
 				<NavLink
 					href={workspaceHref("/team")}
-					icon={<UserIcon />}
-					label="Overview"
+					label="Everyone"
 					current={openId() === null}
 					trailing={
 						waiting().length + proposed().length > 0 ? (
-							<Badge tone="warning">{waiting().length + proposed().length}</Badge>
+							<StatusDot status="waiting" label="Waiting on you" />
 						) : undefined
 					}
 				/>
-				<Text size="caption" tone="subtle" class="px-2.5 pt-3 pb-1">
-					Teammates
-				</Text>
 				<For each={team()}>
 					{(role) => (
 						<NavLink
@@ -209,35 +228,41 @@ export function TeamScreen(): JSX.Element {
 						/>
 					)}
 				</For>
-				<Show when={rolesStore.loaded("") && team().length === 0}>
-					<Text size="caption" tone="subtle" class="px-2.5 py-1">
-						None yet.
-					</Text>
-				</Show>
 			</ShellSlot>
-			<ShellSlot name="subtitle">Team</ShellSlot>
+			<ShellSlot name="crumb">
+				<Text tone="strong">{opened()?.name ?? "Team"}</Text>
+			</ShellSlot>
+			<ShellSlot name="trailing">
+				<IconButton
+					label="New teammate"
+					variant="secondary"
+					shape="round"
+					size="lg"
+					onClick={newTeammate}
+				>
+					<PlusIcon />
+				</IconButton>
+			</ShellSlot>
 
 			<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-				<div class="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 pt-4 pb-12 md:px-8 md:pt-10">
+				<div class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pt-4 pb-12 md:px-8 md:pt-10">
 					<Show when={error()}>{(text) => <Alert tone="danger" title={text()} />}</Show>
 					<Show
 						when={openId()}
 						fallback={
-							<Overview
+							<Everyone
 								team={team()}
 								agents={agents()}
-								loaded={loaded() && rolesStore.loaded("")}
+								loaded={rolesStore.loaded("")}
 								members={members()}
 								waiting={waiting()}
 								proposed={proposed()}
-								stats={statsOf}
 								runs={runsOf}
 								nameOf={nameOf}
 								me={auth.user()?.id ?? null}
-								onNew={() => setEditing({ role: null })}
+								onNew={newTeammate}
 								onStep={step}
 								onLesson={lesson}
-								onChat={chatWith}
 							/>
 						}
 					>
@@ -245,15 +270,12 @@ export function TeamScreen(): JSX.Element {
 							when={opened()}
 							fallback={
 								<Show when={rolesStore.loaded("")} fallback={<Skeleton class="h-40" />}>
-									<EmptyState
-										icon={<UserIcon size="lg" />}
-										title="This teammate has left the team"
-										action={
-											<ButtonLink href={workspaceHref("/team")} size="sm">
-												Back to the team
-											</ButtonLink>
-										}
-									/>
+									<Text tone="subtle">
+										This teammate has left the team.{" "}
+										<a href={workspaceHref("/team")} class="focus-ring text-fg underline">
+											Back to the team
+										</a>
+									</Text>
 								</Show>
 							}
 						>
@@ -295,7 +317,7 @@ export function TeamScreen(): JSX.Element {
 	);
 }
 
-/** A teammate's state at a glance: waiting on you, at work, or nothing. */
+/** A dot only when it means something: waiting on you, or at work. */
 function TeammateDot(props: { runs: readonly TeammateRun[] }): JSX.Element {
 	const waiting = () => props.runs.some(waitsOnYou);
 	const working = () =>
@@ -310,328 +332,219 @@ function TeammateDot(props: { runs: readonly TeammateRun[] }): JSX.Element {
 	);
 }
 
-/** What a teammate is doing now, in a few words. */
-function nowLine(runs: readonly TeammateRun[]): string {
-	const open = runs.filter(isOpen);
-	const lead =
-		open.find((run) => run.state === "working" || run.state === "planning") ??
-		open.find(waitsOnYou) ??
-		runs.find(waitsOnYou) ??
-		open[0];
-	if (!lead) return "Free for a card";
-	const more = open.length > 1 ? ` · ${open.length - 1} more` : "";
-	return `${RUN_STATE[lead.state].label} · ${lead.taskKey}${more}`;
-}
-
-function Overview(props: {
+/** The overview: what waits on you, then the teammates, then the people. */
+function Everyone(props: {
 	team: readonly Role[];
 	agents: ReturnType<typeof providersStore.providers>;
 	loaded: boolean;
 	members: readonly Member[] | null;
 	waiting: readonly TeammateRun[];
 	proposed: readonly TeammateLesson[];
-	stats: (id: string) => TeammateStats | null;
 	runs: (id: string) => TeammateRun[];
 	nameOf: (id: string) => string;
 	me: string | null;
 	onNew: () => void;
-	onStep: (run: TeammateRun, action: "approve" | "stop" | "retry", done: string) => Promise<void>;
+	onStep: Step;
 	onLesson: (lesson: TeammateLesson, keep: boolean) => Promise<void>;
-	onChat: (role: Role) => void;
 }): JSX.Element {
-	const roleOf = (id: string) => props.team.find((item) => item.id === id);
 	return (
 		<>
-			<header class="flex flex-col gap-4 sm:flex-row sm:items-end">
-				<div class="flex min-w-0 flex-1 flex-col gap-1">
-					<Text as="h1" size="display" tone="strong" weight="medium">
+			<header class="hidden items-center gap-3 md:flex">
+				<div class="flex min-w-0 flex-1 flex-col">
+					<Text as="h1" size="headline" tone="strong" weight="medium">
 						Team
 					</Text>
-					<Text tone="subtle">
-						{props.members
-							? `${props.members.length} ${props.members.length === 1 ? "person" : "people"}`
-							: "People"}{" "}
-						· {props.team.length} teammate{props.team.length === 1 ? "" : "s"}. Give a teammate a
-						card on the board and it works on it in its own worktree.
+					<Text size="caption" tone="subtle">
+						{props.members ? plural(props.members.length, "person", "people") : "People"} ·{" "}
+						{plural(props.team.length, "teammate")}
 					</Text>
 				</div>
-				<Button variant="primary" icon={<PlusIcon />} onClick={props.onNew}>
+				<Button size="sm" icon={<PlusIcon />} onClick={props.onNew}>
 					New teammate
 				</Button>
 			</header>
 
 			<Show when={props.waiting.length + props.proposed.length > 0}>
-				<section aria-label="Waiting on you" class="flex flex-col gap-2">
-					<Text size="caption" tone="subtle" weight="medium" class="px-1">
-						Waiting on you
-					</Text>
-					<div class="surface-card flex flex-col divide-y divide-line">
+				<section aria-label="Waiting on you" class="flex flex-col gap-1">
+					<Heading>Waiting on you</Heading>
+					<Rows>
 						<For each={props.waiting}>
 							{(run) => (
-								<div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-									<div class="flex min-w-0 flex-1 items-center gap-3">
-										<RoleMark icon={roleOf(run.teammateId)?.icon ?? "code"} />
-										<div class="flex min-w-0 flex-col">
-											<a
-												href={cardHref(run)}
-												class="focus-ring truncate font-medium text-body text-fg hover:underline"
-											>
-												{run.taskKey}: {run.taskTitle}
-											</a>
-											<Text size="caption" tone="subtle" truncate>
-												{props.nameOf(run.teammateId)} ·{" "}
-												{run.state === "plan_ready"
-													? "wrote a plan for you to approve"
-													: (run.error ?? "got stuck")}
-											</Text>
-										</div>
-									</div>
-									<div class="flex shrink-0 items-center gap-2">
-										<Show when={threadHref(run)}>
-											{(href) => (
-												<ButtonLink href={href()} size="sm" variant="ghost">
-													{run.state === "plan_ready" ? "Read plan" : "Open"}
-												</ButtonLink>
-											)}
-										</Show>
-										<Show
-											when={run.state === "plan_ready"}
-											fallback={
-												<Button
-													size="sm"
-													onClick={() => void props.onStep(run, "retry", "Trying again")}
-												>
-													Retry
-												</Button>
-											}
+								<div class="flex min-h-14 items-center gap-3 px-4 py-2.5">
+									<StatusDot
+										status={run.state === "plan_ready" ? "waiting" : "error"}
+										label={RUN_STATE[run.state].label}
+									/>
+									<div class="flex min-w-0 flex-1 flex-col">
+										<a
+											href={cardHref(run)}
+											class="focus-ring truncate text-body text-fg hover:underline"
 										>
-											<Button
-												size="sm"
-												variant="primary"
-												icon={<CheckIcon />}
-												onClick={() =>
-													void props.onStep(
-														run,
-														"approve",
-														`${props.nameOf(run.teammateId)} is on it`,
-													)
-												}
-											>
-												Approve
-											</Button>
-										</Show>
+											{run.taskKey} {run.taskTitle}
+										</a>
+										<Text size="caption" tone="subtle" truncate>
+											{props.nameOf(run.teammateId)} ·{" "}
+											{run.state === "plan_ready" ? "plan ready" : (run.error ?? "stuck")}
+										</Text>
 									</div>
+									<Show when={threadHref(run)}>
+										{(href) => (
+											<ButtonLink
+												href={href()}
+												size="sm"
+												variant="ghost"
+												class="hidden sm:inline-flex"
+											>
+												{run.state === "plan_ready" ? "Read" : "Open"}
+											</ButtonLink>
+										)}
+									</Show>
+									<Button
+										size="sm"
+										onClick={() =>
+											void props.onStep(
+												run,
+												run.state === "plan_ready" ? "approve" : "retry",
+												run.state === "plan_ready"
+													? `${props.nameOf(run.teammateId)} is on it`
+													: "Trying again",
+											)
+										}
+									>
+										{run.state === "plan_ready" ? "Approve" : "Retry"}
+									</Button>
 								</div>
 							)}
 						</For>
 						<For each={props.proposed}>
 							{(lesson) => (
-								<div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-									<div class="flex min-w-0 flex-1 items-center gap-3">
-										<RoleMark icon={roleOf(lesson.teammateId)?.icon ?? "code"} />
-										<div class="flex min-w-0 flex-col">
-											<Text weight="medium">“{lesson.text}”</Text>
-											<Text size="caption" tone="subtle">
-												{props.nameOf(lesson.teammateId)} wants to remember this
-											</Text>
-										</div>
+								<div class="flex min-h-14 items-center gap-3 px-4 py-2.5">
+									<StatusDot status="waiting" label="A lesson to keep" />
+									<div class="flex min-w-0 flex-1 flex-col">
+										<Text truncate>{lesson.text}</Text>
+										<Text size="caption" tone="subtle" truncate>
+											{props.nameOf(lesson.teammateId)} wants to remember this
+										</Text>
 									</div>
-									<div class="flex shrink-0 items-center gap-2">
-										<Button
-											size="sm"
-											variant="ghost"
-											onClick={() => void props.onLesson(lesson, false)}
-										>
-											Drop
-										</Button>
-										<Button
-											size="sm"
-											variant="primary"
-											icon={<CheckIcon />}
-											onClick={() => void props.onLesson(lesson, true)}
-										>
-											Keep
-										</Button>
-									</div>
+									<Button
+										size="sm"
+										variant="ghost"
+										onClick={() => void props.onLesson(lesson, false)}
+									>
+										Drop
+									</Button>
+									<Button size="sm" onClick={() => void props.onLesson(lesson, true)}>
+										Keep
+									</Button>
 								</div>
 							)}
 						</For>
-					</div>
+					</Rows>
 				</section>
 			</Show>
 
-			<section aria-label="Teammates" class="flex flex-col gap-3">
-				<Text size="caption" tone="subtle" weight="medium" class="px-1">
-					Teammates
-				</Text>
+			<section aria-label="Teammates" class="flex flex-col gap-1">
+				<Heading>Teammates</Heading>
 				<Show
 					when={props.loaded}
 					fallback={
-						<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-							<Skeleton class="h-44" />
-							<Skeleton class="h-44" />
-							<Skeleton class="h-44" />
+						<div class="flex flex-col gap-1">
+							<Skeleton class="h-14" />
+							<Skeleton class="h-14" />
 						</div>
 					}
 				>
-					<Show
-						when={props.team.length > 0}
-						fallback={
-							<div class="surface-card flex flex-col gap-5 p-6">
-								<div class="flex flex-col gap-1">
-									<Text weight="medium" tone="strong">
-										Hire your first teammate
-									</Text>
-									<Text tone="subtle">
-										A specialist any agent can be. Its brief, skills, tools and what it learns go
-										with every card and thread it takes.
-									</Text>
-								</div>
-								<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-									<For each={TEAMMATE_TEMPLATES.slice(0, 4)}>
-										{(item) => (
-											<button
-												type="button"
-												onClick={props.onNew}
-												class="surface-card focus-ring flex min-w-0 flex-col items-start gap-2 p-3 text-left transition-colors duration-fast hover:bg-fill"
-											>
-												<RoleMark icon={item.icon} size="sm" />
-												<span class="w-full truncate font-medium text-body text-fg">
-													{item.specialty}
-												</span>
-											</button>
+					<Rows>
+						<For each={props.team}>
+							{(role) => (
+								<a
+									href={workspaceHref(`/team/${role.id}`)}
+									class="focus-ring flex min-h-14 items-center gap-3 px-4 py-2.5 transition-colors duration-fast hover:bg-fill"
+								>
+									<RoleMark icon={role.icon} />
+									<div class="flex min-w-0 flex-1 flex-col">
+										<Text truncate>{role.name}</Text>
+										<Text size="caption" tone="subtle" truncate>
+											{[role.specialty, describeRole(role, props.agents).agent]
+												.filter(Boolean)
+												.join(" · ")}
+										</Text>
+									</div>
+									<Show
+										when={nowLine(props.runs(role.id))}
+										fallback={
+											<Text size="caption" tone="faint" class="hidden sm:block">
+												Free
+											</Text>
+										}
+									>
+										{(line) => (
+											<span class="flex shrink-0 items-center gap-2 text-caption text-fg-subtle">
+												<TeammateDot runs={props.runs(role.id)} />
+												<span class="hidden sm:inline">{line()}</span>
+											</span>
 										)}
-									</For>
-								</div>
+									</Show>
+									<ChevronRightIcon size="xs" class="shrink-0 text-fg-faint" />
+								</a>
+							)}
+						</For>
+						<Show when={props.team.length === 0}>
+							<div class="flex min-h-14 items-center gap-3 px-4 py-3">
+								<Text tone="subtle" class="min-w-0 flex-1">
+									No teammates yet. A teammate is a specialist any agent can be, with its own brief,
+									skills and memory.
+								</Text>
+								<Button size="sm" onClick={props.onNew}>
+									Add one
+								</Button>
 							</div>
-						}
-					>
-						<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-							<For each={props.team}>
-								{(role) => (
-									<TeammateCard
-										role={role}
-										agents={props.agents}
-										stats={props.stats(role.id)}
-										runs={props.runs(role.id)}
-										onChat={() => props.onChat(role)}
-									/>
-								)}
-							</For>
-						</div>
-					</Show>
+						</Show>
+					</Rows>
 				</Show>
 			</section>
 
-			<section aria-label="People" class="flex flex-col gap-3">
-				<Text size="caption" tone="subtle" weight="medium" class="px-1">
-					People
-				</Text>
-				<Show
-					when={props.members}
-					fallback={
-						<div class="flex flex-col gap-2">
-							<Skeleton class="h-12" />
-							<Skeleton class="h-12" />
-						</div>
+			<section aria-label="People" class="flex flex-col gap-1">
+				<Heading
+					trailing={
+						<a
+							href={workspaceHref("/settings/members")}
+							class="focus-ring text-caption text-fg-subtle hover:text-fg"
+						>
+							Invite
+						</a>
 					}
 				>
+					People
+				</Heading>
+				<Show when={props.members} fallback={<Skeleton class="h-14" />}>
 					{(people) => (
-						<div class="surface-card flex flex-col divide-y divide-line">
+						<Rows>
 							<For each={people()}>
 								{(person) => (
-									<div class="flex min-h-14 items-center gap-3 px-4 py-2">
+									<div class="flex min-h-14 items-center gap-3 px-4 py-2.5">
 										<Avatar
 											name={person.displayName || person.username}
 											src={person.avatarUrl}
 											size="lg"
 										/>
 										<div class="flex min-w-0 flex-1 flex-col">
-											<Text weight="medium" truncate>
+											<Text truncate>
 												{person.displayName || person.username}
 												{person.userId === props.me ? " (you)" : ""}
 											</Text>
 											<Text size="caption" tone="subtle" truncate>
-												{person.email ?? `@${person.username}`}
+												{person.role.charAt(0).toUpperCase() + person.role.slice(1)}
 											</Text>
 										</div>
-										<Badge>{person.role.charAt(0).toUpperCase() + person.role.slice(1)}</Badge>
 									</div>
 								)}
 							</For>
-							<div class="flex items-center justify-between gap-3 px-4 py-3">
-								<Text size="caption" tone="subtle">
-									Invite people and set what they can do in Settings → Members.
-								</Text>
-								<ButtonLink href={workspaceHref("/settings/members")} size="sm" variant="ghost">
-									Members
-								</ButtonLink>
-							</div>
-						</div>
+						</Rows>
 					)}
 				</Show>
 			</section>
 		</>
-	);
-}
-
-/** A teammate on the overview: who, what it runs, what it is doing, and how it has done. */
-function TeammateCard(props: {
-	role: Role;
-	agents: ReturnType<typeof providersStore.providers>;
-	stats: TeammateStats | null;
-	runs: readonly TeammateRun[];
-	onChat: () => void;
-}): JSX.Element {
-	const about = () => describeRole(props.role, props.agents);
-	const busy = () => props.runs.some(isOpen);
-	return (
-		<article class="surface-card flex min-w-0 flex-col gap-4 p-4">
-			<a
-				href={workspaceHref(`/team/${props.role.id}`)}
-				class="focus-ring flex min-w-0 items-center gap-3"
-			>
-				<RoleMark icon={props.role.icon} size="lg" />
-				<div class="flex min-w-0 flex-1 flex-col">
-					<Text weight="medium" tone="strong" truncate>
-						{props.role.name}
-					</Text>
-					<Text size="caption" tone="subtle" truncate>
-						{props.role.specialty || "Teammate"}
-					</Text>
-				</div>
-				<TeammateDot runs={props.runs} />
-			</a>
-			<div class="flex min-w-0 items-center gap-1.5 text-caption text-fg-subtle">
-				<AgentLogo id={props.role.provider} name={about().agent} class="size-3.5" />
-				<span class="truncate">
-					{[about().agent, about().model, about().effort].filter(Boolean).join(" · ")}
-				</span>
-			</div>
-			<Text size="caption" tone={busy() ? "default" : "subtle"} truncate>
-				{nowLine(props.runs)}
-			</Text>
-			<div class="flex items-center gap-3 border-line border-t pt-3 text-caption text-fg-subtle">
-				<span title="Cards finished">
-					<span class="text-fg tabular-nums">{props.stats?.finished ?? 0}</span> done
-				</span>
-				<Show when={props.stats?.successRate !== null && props.stats?.successRate !== undefined}>
-					<span title="Of the cards that ended, the share finished">
-						<span class="text-fg tabular-nums">
-							{Math.round((props.stats?.successRate ?? 0) * 100)}%
-						</span>{" "}
-						clean
-					</span>
-				</Show>
-				<span title="Lessons it keeps">
-					<span class="text-fg tabular-nums">{props.stats?.lessons ?? 0}</span> lessons
-				</span>
-				<span class="flex-1" />
-				<IconButton label={`Chat with ${props.role.name}`} size="sm" onClick={props.onChat}>
-					<ChatIcon />
-				</IconButton>
-			</div>
-		</article>
 	);
 }
 
@@ -646,40 +559,51 @@ function TeammatePage(props: {
 	team: readonly Role[];
 	onEdit: () => void;
 	onChat: () => void;
-	onStep: (run: TeammateRun, action: "approve" | "stop" | "retry", done: string) => Promise<void>;
+	onStep: Step;
 	onLessonsChanged: () => void;
 }): JSX.Element {
 	const [tab, setTab] = createSignal<Tab>("work");
 	const about = () => describeRole(props.role, props.agents);
 	const open = () => props.runs.filter(isOpen);
 	const past = () => props.runs.filter((run) => !isOpen(run));
+	/** The scorecard as one line: only what there is to say. */
+	const score = () => {
+		const stats = props.stats;
+		if (!stats || stats.finished + stats.stuck === 0) return "No cards finished yet";
+		return [
+			plural(stats.finished, "card") + " done",
+			stats.successRate !== null ? `${Math.round(stats.successRate * 100)}% without help` : null,
+			stats.medianMinutes !== null ? `usually ${duration(stats.medianMinutes)}` : null,
+			stats.costUsd > 0 ? `$${stats.costUsd.toFixed(2)}` : null,
+		]
+			.filter(Boolean)
+			.join(" · ");
+	};
 	return (
 		<>
-			<header class="flex flex-col gap-4 sm:flex-row sm:items-center">
-				<div class="flex min-w-0 flex-1 items-center gap-4">
-					<RoleMark icon={props.role.icon} size="lg" />
-					<div class="flex min-w-0 flex-col gap-0.5">
-						<Text as="h1" size="headline" tone="strong" weight="medium" truncate>
-							{props.role.name}
-						</Text>
-						<span class="flex min-w-0 items-center gap-1.5 text-caption text-fg-subtle">
-							<span class="truncate">{props.role.specialty || "Teammate"}</span>
+			<header class="flex items-center gap-3">
+				<RoleMark icon={props.role.icon} />
+				<div class="flex min-w-0 flex-1 flex-col">
+					<Text as="h1" size="headline" tone="strong" weight="medium" truncate>
+						{props.role.name}
+					</Text>
+					<span class="flex min-w-0 items-center gap-1.5 text-caption text-fg-subtle">
+						<Show when={props.role.specialty}>
+							<span class="truncate">{props.role.specialty}</span>
 							<span aria-hidden="true">·</span>
-							<AgentLogo id={props.role.provider} name={about().agent} class="size-3.5" />
-							<span class="truncate">
-								{[about().agent, about().model, about().effort].filter(Boolean).join(" · ")}
-							</span>
+						</Show>
+						<AgentLogo id={props.role.provider} name={about().agent} class="size-3.5" />
+						<span class="truncate">
+							{[about().agent, about().model].filter(Boolean).join(" · ")}
 						</span>
-					</div>
+					</span>
 				</div>
-				<div class="flex shrink-0 items-center gap-2">
-					<Button icon={<EditIcon />} onClick={props.onEdit}>
-						Edit
-					</Button>
-					<Button variant="primary" icon={<ChatIcon />} onClick={props.onChat}>
-						Chat with {props.role.name}
-					</Button>
-				</div>
+				<IconButton label={`Edit ${props.role.name}`} size="sm" onClick={props.onEdit}>
+					<EditIcon />
+				</IconButton>
+				<Button size="sm" onClick={props.onChat}>
+					Chat
+				</Button>
 			</header>
 
 			<Segmented<Tab>
@@ -687,43 +611,20 @@ function TeammatePage(props: {
 				value={tab()}
 				onChange={setTab}
 				options={[
-					{ value: "work", label: "Work", count: open().length || undefined },
-					{ value: "memory", label: "Memory", count: props.stats?.lessons || undefined },
+					{ value: "work", label: "Work", count: open().length || undefined, countTone: "quiet" },
+					{ value: "memory", label: "Memory" },
 					{ value: "setup", label: "Setup" },
 				]}
 			/>
 
 			<Show when={tab() === "work"}>
-				<section aria-label="Scorecard" class="surface-card flex flex-col gap-3 p-4">
-					<Figures
-						items={[
-							{ value: String(props.stats?.finished ?? 0), label: "Cards finished" },
-							{
-								value:
-									props.stats?.successRate === null || props.stats?.successRate === undefined
-										? "—"
-										: `${Math.round(props.stats.successRate * 100)}%`,
-								label: "Finished without getting stuck",
-							},
-							{
-								value:
-									props.stats?.medianMinutes === null || props.stats?.medianMinutes === undefined
-										? "—"
-										: duration(props.stats.medianMinutes),
-								label: "Typical card",
-							},
-						]}
-					/>
-					<Show when={(props.stats?.costUsd ?? 0) > 0}>
-						<Text size="caption" tone="subtle">
-							${props.stats?.costUsd.toFixed(2)} spent on its cards so far
-						</Text>
-					</Show>
-				</section>
+				<Text size="caption" tone="subtle" class="px-1">
+					{score()}
+				</Text>
 				<RunList
-					title="On now"
+					title="Now"
 					runs={open()}
-					empty="No card right now. Assign one to it on the board."
+					empty="Free. Assign it a card on the board."
 					onStep={props.onStep}
 					name={props.role.name}
 				/>
@@ -749,19 +650,17 @@ function TeammatePage(props: {
 	);
 }
 
-/** Cards a teammate has on, or had: each with where it stands and what can be done about it. */
+/** Cards a teammate has on, or had: each a row with where it stands and the one thing to do. */
 function RunList(props: {
 	title: string;
 	runs: readonly TeammateRun[];
 	empty: string;
 	name: string;
-	onStep: (run: TeammateRun, action: "approve" | "stop" | "retry", done: string) => Promise<void>;
+	onStep: Step;
 }): JSX.Element {
 	return (
-		<section aria-label={props.title} class="flex flex-col gap-2">
-			<Text size="caption" tone="subtle" weight="medium" class="px-1">
-				{props.title}
-			</Text>
+		<section aria-label={props.title} class="flex flex-col gap-1">
+			<Heading>{props.title}</Heading>
 			<Show
 				when={props.runs.length > 0}
 				fallback={
@@ -770,75 +669,66 @@ function RunList(props: {
 					</Text>
 				}
 			>
-				<div class="surface-card flex flex-col divide-y divide-line">
+				<Rows>
 					<For each={props.runs}>
 						{(run) => (
-							<div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-								<div class="flex min-w-0 flex-1 flex-col gap-1">
+							<div class="flex min-h-14 items-center gap-3 px-4 py-2.5">
+								<StatusDot status={RUN_STATE[run.state].dot} label={RUN_STATE[run.state].label} />
+								<div class="flex min-w-0 flex-1 flex-col">
 									<a
 										href={cardHref(run)}
-										class="focus-ring truncate font-medium text-body text-fg hover:underline"
+										class="focus-ring truncate text-body text-fg hover:underline"
 									>
-										{run.taskKey}: {run.taskTitle}
+										{run.taskKey} {run.taskTitle}
 									</a>
-									<span class="flex min-w-0 flex-wrap items-center gap-2 text-caption text-fg-subtle">
-										<Badge tone={RUN_STATE[run.state].tone} dot>
-											{RUN_STATE[run.state].label}
-										</Badge>
-										<span>{since(run.updatedAt)}</span>
-										<Show when={run.branch}>
-											<span class="truncate font-mono">{run.branch}</span>
-										</Show>
-										<Show when={run.fromRun}>
-											<span>handed on</span>
-										</Show>
-									</span>
-									<Show when={run.state === "needs_you" && run.error}>
-										<Text size="caption" tone="danger">
-											{run.error}
-										</Text>
-									</Show>
+									<Text
+										size="caption"
+										tone={run.state === "needs_you" ? "danger" : "subtle"}
+										truncate
+									>
+										{run.state === "needs_you" && run.error
+											? run.error
+											: `${RUN_STATE[run.state].label} · ${since(run.updatedAt)}${run.fromRun ? " · handed on" : ""}`}
+									</Text>
 								</div>
-								<div class="flex shrink-0 items-center gap-2">
-									<Show when={threadHref(run)}>
-										{(href) => (
-											<ButtonLink href={href()} size="sm" variant="ghost">
-												Thread
-											</ButtonLink>
-										)}
-									</Show>
-									<Show when={run.state === "plan_ready"}>
-										<Button
+								<Show when={threadHref(run)}>
+									{(href) => (
+										<ButtonLink
+											href={href()}
 											size="sm"
-											variant="primary"
-											icon={<CheckIcon />}
-											onClick={() => void props.onStep(run, "approve", `${props.name} is on it`)}
+											variant="ghost"
+											class="hidden sm:inline-flex"
 										>
-											Approve plan
-										</Button>
-									</Show>
-									<Show when={run.state === "needs_you" || run.state === "stopped"}>
-										<Button
-											size="sm"
-											onClick={() => void props.onStep(run, "retry", "Trying again")}
-										>
-											Retry
-										</Button>
-									</Show>
-									<Show when={isOpen(run)}>
-										<IconButton
-											label="Stop"
-											size="sm"
-											onClick={() => void props.onStep(run, "stop", "Stopped")}
-										>
-											<CloseIcon />
-										</IconButton>
-									</Show>
-								</div>
+											Thread
+										</ButtonLink>
+									)}
+								</Show>
+								<Show when={run.state === "plan_ready"}>
+									<Button
+										size="sm"
+										onClick={() => void props.onStep(run, "approve", `${props.name} is on it`)}
+									>
+										Approve
+									</Button>
+								</Show>
+								<Show when={run.state === "needs_you" || run.state === "stopped"}>
+									<Button size="sm" onClick={() => void props.onStep(run, "retry", "Trying again")}>
+										Retry
+									</Button>
+								</Show>
+								<Show when={isOpen(run) && run.state !== "plan_ready"}>
+									<IconButton
+										label="Stop"
+										size="sm"
+										onClick={() => void props.onStep(run, "stop", "Stopped")}
+									>
+										<CloseIcon />
+									</IconButton>
+								</Show>
 							</div>
 						)}
 					</For>
-				</div>
+				</Rows>
 			</Show>
 		</section>
 	);
@@ -881,7 +771,7 @@ function Memory(props: { role: Role; onChanged: () => void }): JSX.Element {
 	return (
 		<section aria-label="Memory" class="flex flex-col gap-6">
 			<form
-				class="surface-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center"
+				class="flex items-center gap-2"
 				onSubmit={(event) => {
 					event.preventDefault();
 					const lesson = text().trim();
@@ -894,71 +784,62 @@ function Memory(props: { role: Role; onChanged: () => void }): JSX.Element {
 			>
 				<Input
 					aria-label={`Teach ${props.role.name}`}
-					placeholder={`Teach ${props.role.name} something: “Always add a screenshot to UI pull requests”`}
+					placeholder={`Teach ${props.role.name} something`}
 					value={text()}
 					maxlength={300}
 					onInput={(event) => setText(event.currentTarget.value)}
 					class="min-w-0 flex-1"
 				/>
-				<Button type="submit" variant="primary" disabled={busy() || !text().trim()}>
+				<Button type="submit" disabled={busy() || !text().trim()}>
 					Teach
 				</Button>
 			</form>
 			<Show when={lessons()} fallback={<Skeleton class="h-24" />}>
 				<Show when={proposed().length > 0}>
-					<div class="flex flex-col gap-2">
-						<Text size="caption" tone="subtle" weight="medium" class="px-1">
-							Waiting for your approval
-						</Text>
-						<div class="surface-card flex flex-col divide-y divide-line">
+					<div class="flex flex-col gap-1">
+						<Heading>Wants to remember</Heading>
+						<Rows>
 							<For each={proposed()}>
 								{(lesson) => (
-									<div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-										<Text class="min-w-0 flex-1">“{lesson.text}”</Text>
-										<div class="flex shrink-0 items-center gap-2">
-											<Button
-												size="sm"
-												variant="ghost"
-												onClick={() =>
-													void act((token) => teamService.forget(token, lesson.id), "Dropped")
-												}
-											>
-												Drop
-											</Button>
-											<Button
-												size="sm"
-												variant="primary"
-												icon={<CheckIcon />}
-												onClick={() =>
-													void act(
-														(token) => teamService.keep(token, lesson.id),
-														`${props.role.name} will remember that`,
-													)
-												}
-											>
-												Keep
-											</Button>
-										</div>
+									<div class="flex min-h-12 items-center gap-3 px-4 py-2">
+										<Text class="min-w-0 flex-1">{lesson.text}</Text>
+										<Button
+											size="sm"
+											variant="ghost"
+											onClick={() =>
+												void act((token) => teamService.forget(token, lesson.id), "Dropped")
+											}
+										>
+											Drop
+										</Button>
+										<Button
+											size="sm"
+											onClick={() =>
+												void act(
+													(token) => teamService.keep(token, lesson.id),
+													`${props.role.name} will remember that`,
+												)
+											}
+										>
+											Keep
+										</Button>
 									</div>
 								)}
 							</For>
-						</div>
+						</Rows>
 					</div>
 				</Show>
-				<div class="flex flex-col gap-2">
-					<Text size="caption" tone="subtle" weight="medium" class="px-1">
-						What {props.role.name} knows
-					</Text>
+				<div class="flex flex-col gap-1">
+					<Heading>Knows</Heading>
 					<Show
 						when={kept().length > 0}
 						fallback={
 							<Text tone="subtle" class="px-1">
-								Nothing yet. When you correct {props.role.name} in a thread, it proposes a lesson
-								here; or teach it one above.
+								Nothing yet. Correct {props.role.name} in a thread and it proposes a lesson here.
 							</Text>
 						}
 					>
-						<div class="surface-card flex flex-col divide-y divide-line">
+						<Rows>
 							<For each={kept()}>
 								{(lesson) => (
 									<div class="flex min-h-12 items-center gap-3 px-4 py-2">
@@ -975,7 +856,7 @@ function Memory(props: { role: Role; onChanged: () => void }): JSX.Element {
 									</div>
 								)}
 							</For>
-						</div>
+						</Rows>
 					</Show>
 				</div>
 			</Show>
@@ -986,51 +867,40 @@ function Memory(props: { role: Role; onChanged: () => void }): JSX.Element {
 /** How a teammate is set up, in words, with the way to change it. */
 function Setup(props: { role: Role; team: readonly Role[]; onEdit: () => void }): JSX.Element {
 	const next = () => props.team.find((item) => item.id === props.role.handoffTo)?.name ?? null;
-	const rows = (): { label: string; value: string }[] => [
-		{
-			label: "On the board",
-			value: [
-				props.role.autoStart ? "Starts cards by itself" : "Waits for Start",
-				props.role.planFirst ? "plans first" : "works straight away",
-				props.role.parallel === 1 ? "one card at a time" : `${props.role.parallel} cards at once`,
-			].join(", "),
-		},
-		{ label: "When done", value: next() ? `Hands the card to ${next()}` : "Straight to review" },
-		{
-			label: "Skills",
-			value: props.role.skills.length
-				? `${props.role.skills.length} of the workspace's skills`
-				: "The team's skills only",
-		},
-		{
-			label: "Tools",
-			value:
-				props.role.connectors === null
-					? "Every connector its agent may use"
-					: `${props.role.connectors.length} chosen connector${props.role.connectors.length === 1 ? "" : "s"}`,
-		},
-	];
 	return (
 		<section aria-label="Setup" class="flex flex-col gap-4">
-			<div class="surface-card flex flex-col gap-2 p-4">
-				<Text size="caption" tone="subtle" weight="medium">
-					How it works
-				</Text>
-				<Text class="whitespace-pre-wrap">{props.role.brief || "No brief yet."}</Text>
-			</div>
-			<dl class="surface-card flex flex-col divide-y divide-line">
-				<For each={rows()}>
-					{(row) => (
-						<div class="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:gap-4">
-							<dt class="w-32 shrink-0 text-caption text-fg-subtle">{row.label}</dt>
-							<dd class="min-w-0 text-body text-fg">{row.value}</dd>
-						</div>
-					)}
-				</For>
-			</dl>
+			<Rows>
+				<DescriptionList
+					items={[
+						{ label: "How it works", value: props.role.brief || "No brief yet." },
+						{
+							label: "Cards",
+							value: [
+								props.role.autoStart ? "Starts by itself" : "Waits for Start",
+								props.role.planFirst ? "plans first" : "no plan",
+								props.role.parallel === 1 ? "one at a time" : `${props.role.parallel} at once`,
+							].join(", "),
+						},
+						{ label: "When done", value: next() ? `Hands to ${next()}` : "To review" },
+						{
+							label: "Skills",
+							value: props.role.skills.length
+								? plural(props.role.skills.length, "skill")
+								: "The team's",
+						},
+						{
+							label: "Tools",
+							value:
+								props.role.connectors === null
+									? "Every connector"
+									: plural(props.role.connectors.length, "connector"),
+						},
+					]}
+				/>
+			</Rows>
 			<div>
-				<Button icon={<EditIcon />} onClick={props.onEdit}>
-					Change setup
+				<Button size="sm" icon={<EditIcon />} onClick={props.onEdit}>
+					Edit
 				</Button>
 			</div>
 		</section>

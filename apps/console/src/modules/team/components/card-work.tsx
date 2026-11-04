@@ -3,7 +3,6 @@ import { createEffect, createSignal, For, onCleanup, Show, untrack } from "solid
 
 import { workspaceHref } from "@/lib/active-workspace";
 import {
-	Badge,
 	Button,
 	ButtonLink,
 	CheckIcon,
@@ -11,6 +10,7 @@ import {
 	Input,
 	notify,
 	RoleMark,
+	StatusDot,
 	Text,
 } from "@/kit";
 import { useAuth } from "@/modules/auth";
@@ -109,9 +109,10 @@ export function CardWork(props: {
 							</div>
 							<Show when={latest()}>
 								{(run) => (
-									<Badge tone={RUN_STATE[run().state].tone} dot>
+									<span class="flex shrink-0 items-center gap-1.5 text-caption text-fg-subtle">
+										<StatusDot status={RUN_STATE[run().state].dot} />
 										{RUN_STATE[run().state].label}
-									</Badge>
+									</span>
 								)}
 							</Show>
 						</div>

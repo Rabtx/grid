@@ -12,7 +12,10 @@ import { For, Show } from "solid-js";
 import { tap } from "./haptics";
 import { CheckIcon, Icon, type IconData, UserIcon } from "./icons";
 
-/** The glyphs a role can wear, each with its own tint (Figma 11 · Agent roles). */
+/**
+ * The glyphs a teammate can wear. All in ink on a quiet tile: colour is a signal in Grid, never
+ * decoration, so a glyph tells teammates apart by its shape alone.
+ */
 export const ROLE_ICONS = [
 	"code",
 	"review",
@@ -27,14 +30,14 @@ export const ROLE_ICONS = [
 export type RoleIcon = (typeof ROLE_ICONS)[number];
 
 const GLYPH: Record<RoleIcon, { icon: IconData; tint: string; label: string }> = {
-	code: { icon: SourceCodeIcon, tint: "tint-accent", label: "Code" },
-	review: { icon: ViewIcon, tint: "tint-violet", label: "Review" },
-	design: { icon: PaintBoardIcon, tint: "tint-warning", label: "Design" },
-	docs: { icon: Note01Icon, tint: "tint-success", label: "Docs" },
-	test: { icon: TestTube01Icon, tint: "tint-accent", label: "Tests" },
-	ship: { icon: Rocket01Icon, tint: "tint-danger", label: "Ship" },
-	research: { icon: BookOpen01Icon, tint: "tint-violet", label: "Research" },
-	bug: { icon: Bug01Icon, tint: "tint-danger", label: "Bugs" },
+	code: { icon: SourceCodeIcon, tint: "bg-fill-strong text-fg-muted", label: "Code" },
+	review: { icon: ViewIcon, tint: "bg-fill-strong text-fg-muted", label: "Review" },
+	design: { icon: PaintBoardIcon, tint: "bg-fill-strong text-fg-muted", label: "Design" },
+	docs: { icon: Note01Icon, tint: "bg-fill-strong text-fg-muted", label: "Docs" },
+	test: { icon: TestTube01Icon, tint: "bg-fill-strong text-fg-muted", label: "Tests" },
+	ship: { icon: Rocket01Icon, tint: "bg-fill-strong text-fg-muted", label: "Ship" },
+	research: { icon: BookOpen01Icon, tint: "bg-fill-strong text-fg-muted", label: "Research" },
+	bug: { icon: Bug01Icon, tint: "bg-fill-strong text-fg-muted", label: "Bugs" },
 };
 
 const glyph = (icon: string) => GLYPH[icon as RoleIcon] ?? GLYPH.code;
