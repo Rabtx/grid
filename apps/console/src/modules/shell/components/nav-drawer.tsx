@@ -31,7 +31,8 @@ export function NavDrawer(props: { content?: () => JSX.Element }): JSX.Element {
 			{/* Phones only, so the sidebar never draws twice. */}
 			<Show when={!shell.desktop()}>
 				<div class="flex h-full min-h-0">
-					<div class="w-14 shrink-0 border-line border-r bg-fill">
+					{/* One surface: the rail and the list share the drawer's colour, with no line between. */}
+					<div class="w-14 shrink-0">
 						<Rail />
 					</div>
 					<div class="min-w-0 flex-1">

@@ -12,7 +12,6 @@ import {
 	FileIcon,
 	HomeIcon,
 	InboxIcon,
-	LaptopIcon,
 	Menu,
 	MoreIcon,
 	NoteIcon,
@@ -109,21 +108,11 @@ export const VIEWS: readonly Destination[] = [
 	},
 ];
 
-// Agents are reached from the Machines screen (its panel lists both), and Settings from the account
-// menu and Mod-, — so the foot holds only Machines and who is signed in.
-const FOOT: readonly Destination[] = [
-	{
-		label: "Machines",
-		icon: () => <LaptopIcon />,
-		href: () => "/machines",
-		match: "/machines",
-	},
-];
-
 /**
  * The icon rail (the Figma Grid/Sidebar/Rail): the mark, which folds the panel away on desktop,
  * then the places used every day as 32px tiles with their names as tooltips, the rest under More,
- * and at the foot the machines and who is signed in (whose menu holds Settings).
+ * and at the foot who is signed in. Settings — and with it machines, agents and the rest — is in
+ * that account menu (and Mod-,), so the rail does not repeat them.
  */
 export function Rail(): JSX.Element {
 	const shell = useShell();
@@ -191,16 +180,6 @@ export function Rail(): JSX.Element {
 				/>
 			</div>
 			<div class="flex shrink-0 flex-col items-center gap-1 pt-2 pb-2">
-				<For each={FOOT}>
-					{(item) => (
-						<RailLink
-							href={workspaceHref(item.href(null))}
-							label={item.label}
-							icon={item.icon()}
-							current={at(item.match)}
-						/>
-					)}
-				</For>
 				<AccountMenu compact />
 			</div>
 		</nav>
