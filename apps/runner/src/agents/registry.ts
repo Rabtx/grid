@@ -102,6 +102,8 @@ export function providerRegistry(
 			name: "Grok",
 			command: ["grok", "agent", "stdio"],
 			available: installed("grok"),
+			// Grok has no modes over ACP; Grid's answer its permission requests.
+			gridModes: true,
 		}),
 	);
 	for (const agent of extraAgents(env.RUNNER_ACP_AGENTS)) addAcpAgent(providers, agent);

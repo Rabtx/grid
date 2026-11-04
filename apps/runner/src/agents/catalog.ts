@@ -48,6 +48,15 @@ export function effortChoices(levels: string[]): Choice[] {
 		}));
 }
 
+/** Effort levels an agent named itself, put in their natural order (lowest first), names kept. */
+export function orderEfforts(levels: readonly Choice[]): Choice[] {
+	const rank = (id: string) => {
+		const at = EFFORT_ORDER.indexOf(id);
+		return at < 0 ? 99 : at;
+	};
+	return [...levels].sort((a, b) => rank(a.id) - rank(b.id));
+}
+
 /**
  * The effort to send for a model: the chosen one while the model still offers it, else the
  * model's own default, else the middle of its levels. A model without levels takes none, and an

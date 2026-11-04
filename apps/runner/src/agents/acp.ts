@@ -8,7 +8,7 @@ import {
 	type ToolKind,
 	type ToolStatus,
 } from "./events";
-import { cached } from "./catalog";
+import { cached, orderEfforts } from "./catalog";
 import { diffTexts, type FileDiff } from "./diff";
 import { agentCommands } from "./commands";
 import type { AgentContext, AgentSession, Provider, ProviderInfo } from "./provider";
@@ -19,37 +19,71 @@ import { JsonRpc, type Spawn, spawnJsonProcess } from "./stdio";
  * agent. The protocol already has sessions, streamed updates, tool calls, plans and permission
  * requests, so this adapter mostly renames fields.
  */
+/**
+ * Modes Grid keeps for an agent that has none of its own (Grok asks about every tool over ACP and
+ * offers no way to change that): Grid answers the agent's permission requests by the mode.
+ */
+export const GRID_MODES: Choice[] = [
+	{ id: "ask", name: "Ask", description: "Ask before editing files or running commands" },
+	{
+		id: "accept-edits",
+		name: "Accept edits",
+		description: "Edit files without asking; ask for commands",
+	},
+	{ id: "full-access", name: "Full access", description: "Never ask" },
+];
+
+/** Tool kinds a mode lets through without asking: reading, and in "Accept edits" changing files. */
+const QUIET_KINDS = new Set(["read", "search", "think", "fetch"]);
+const EDIT_KINDS = new Set(["edit", "delete", "move"]);
+
+/** Whether Grid answers a permission request itself, for a tool of `kind`, in `mode`. */
+export function allowedByMode(mode: string | null, kind: string | undefined): boolean {
+	if (mode === "full-access") return true;
+	if (mode === "accept-edits") return QUIET_KINDS.has(kind ?? "") || EDIT_KINDS.has(kind ?? "");
+	return false;
+}
+
 export function acpProvider(options: {
 	id: string;
 	name: string;
 	command: string[];
 	available: () => boolean;
+	/** The agent has no modes of its own: Grid's (`GRID_MODES`) answer its permission requests. */
+	gridModes?: boolean;
 	/** The agent's model list with names, groups and effort levels, when it offers one. */
 	catalog?: Provider["catalog"];
 	spawn?: Spawn;
 }): Provider {
 	const spawn = options.spawn ?? spawnJsonProcess;
+	const probed: NonNullable<Provider["catalog"]> =
+		options.catalog ?? cached(10 * 60 * 1000, () => probeCatalog(options.command, spawn));
 	const info = (): ProviderInfo => ({
 		id: options.id,
 		name: options.name,
 		available: options.available(),
 		// Models and modes come from the agent itself once a session starts.
 		models: [],
-		modes: [],
+		modes: options.gridModes ? GRID_MODES : [],
+		...(options.gridModes ? { defaultMode: "ask" } : {}),
 	});
 	return {
 		info,
 		// An agent with no model list of its own (Gemini, any added ACP agent) is asked by opening a
 		// session and reading what it offers, so its models are in the picker before a thread.
-		catalog: options.catalog ?? cached(10 * 60 * 1000, () => probeCatalog(options.command, spawn)),
-		start: (context) => startAcpSession(options.command, spawn, context),
+		catalog: async (fresh) => {
+			const found = await probed(fresh);
+			// The agent's own modes when it has them, else Grid's.
+			return options.gridModes && !found.modes?.length ? { ...found, modes: GRID_MODES } : found;
+		},
+		start: (context) => startAcpSession(options.command, spawn, context, options.gridModes),
 	};
 }
 
 /**
  * An ACP agent's models and modes, read off a session opened for the purpose in a scratch folder
- * and closed straight after; nothing is sent to the agent. Its effort levels come per model, once
- * a thread picks one.
+ * and closed straight after; nothing is sent to the agent. Each model carries its effort levels,
+ * so the picker has them before the first message.
  */
 export async function probeCatalog(
 	command: string[],
@@ -76,10 +110,25 @@ type ConfigOption = {
 	options?: { value: string; name: string; description?: string }[];
 };
 
+/** A model's effort levels as Grok lists them, in the model's `_meta` (not part of ACP). */
+type ModelMeta = {
+	reasoningEfforts?: {
+		id?: string;
+		value?: string;
+		label?: string;
+		description?: string;
+		default?: boolean;
+	}[];
+	reasoningEffort?: string;
+};
+
 type NewSessionResult = {
 	sessionId: string;
 	configOptions?: ConfigOption[];
-	models?: { currentModelId?: string; availableModels?: { modelId: string; name: string }[] };
+	models?: {
+		currentModelId?: string;
+		availableModels?: { modelId: string; name: string; _meta?: ModelMeta }[];
+	};
 	modes?: {
 		currentModeId?: string;
 		availableModes?: { id: string; name: string; description?: string }[];
@@ -181,6 +230,7 @@ async function startAcpSession(
 	command: string[],
 	spawn: Spawn,
 	context: AgentContext,
+	gridModes = false,
 ): Promise<AgentSession> {
 	const stderr: string[] = [];
 	let rpc: JsonRpc | null = null;
@@ -205,6 +255,12 @@ async function startAcpSession(
 	let modelConfigId: string | null = null;
 	let modeConfigId: string | null = null;
 	let effortConfigId: string | null = null;
+	// Each model's own effort levels, when the agent lists them per model (Grok, in `_meta`).
+	const modelEfforts = new Map<string, { efforts: Choice[]; defaultEffort?: string }>();
+	// The agent has modes of its own; until it says so, Grid's are used when asked for.
+	let agentModes = false;
+	// Grid's mode, for an agent without modes: how its permission requests are answered.
+	let localMode: string | null = gridModes ? "ask" : null;
 
 	rpc = new JsonRpc(proc, {
 		onNotification: (method, params) => {
@@ -217,6 +273,16 @@ async function startAcpSession(
 					toolCall: AcpToolCall;
 					options: { optionId: string; name: string; kind: string }[];
 				};
+				// Grid's mode lets this through: allowed once, never "always" on the agent's side.
+				if (!agentModes && allowedByMode(localMode, request.toolCall.kind)) {
+					const allow =
+						request.options.find((option) => option.kind === "allow_once") ??
+						request.options.find((option) => option.kind.startsWith("allow"));
+					if (allow) {
+						respond({ outcome: { outcome: "selected", optionId: allow.optionId } });
+						return;
+					}
+				}
 				const id = `perm-${crypto.randomUUID()}`;
 				approvals.set(id, respond);
 				const options: ApprovalOption[] = request.options.map((option) => ({
@@ -306,18 +372,34 @@ async function startAcpSession(
 			);
 		const model = find("model");
 		const mode = find("mode");
+		if (mode) agentModes = true;
 		// opencode calls it `effort`; the ACP draft calls the category `thought_level`.
 		const effort = find("effort", "thought_level", "reasoning", "variant");
 		if (model) modelConfigId = model.id;
 		if (mode) modeConfigId = mode.id;
 		effortConfigId = effort?.id ?? null;
 		if (!model && !mode && !effort) return;
+		const efforts = effort ? orderEfforts(choicesFrom(effort.options)) : [];
+		// Each model with its levels: its own when the agent lists them, else the session's.
+		const withEfforts = (choice: Choice): Choice => {
+			const own = modelEfforts.get(choice.id);
+			if (own) return { ...choice, ...own };
+			return efforts.length
+				? {
+						...choice,
+						efforts,
+						...(effort?.currentValue ? { defaultEffort: effort.currentValue } : {}),
+					}
+				: choice;
+		};
 		context.emit({
 			type: "info",
-			...(model ? { models: choicesFrom(model.options), model: model.currentValue } : {}),
+			...(model
+				? { models: choicesFrom(model.options).map(withEfforts), model: model.currentValue }
+				: {}),
 			...(mode ? { modes: choicesFrom(mode.options), mode: mode.currentValue } : {}),
 			// Always sent, so a model without levels clears the previous model's.
-			efforts: effort ? choicesFrom(effort.options) : [],
+			efforts,
 			...(effort ? { effort: effort.currentValue } : {}),
 		});
 	}
@@ -335,6 +417,24 @@ async function startAcpSession(
 	}
 
 	function report(result: NewSessionResult): void {
+		if (result.modes?.availableModes?.length) agentModes = true;
+		for (const model of result.models?.availableModels ?? []) {
+			const levels = model._meta?.reasoningEfforts ?? [];
+			const efforts = orderEfforts(
+				levels
+					.map((level) => ({
+						id: level.value ?? level.id ?? "",
+						name: level.label ?? level.value ?? level.id ?? "",
+						...(level.description ? { description: level.description } : {}),
+					}))
+					.filter((level) => level.id),
+			);
+			if (!efforts.length) continue;
+			const fallback = levels.find((level) => level.default);
+			const defaultEffort =
+				model._meta?.reasoningEffort ?? fallback?.value ?? fallback?.id ?? undefined;
+			modelEfforts.set(model.modelId, { efforts, ...(defaultEffort ? { defaultEffort } : {}) });
+		}
 		if (result.configOptions?.length) {
 			reportConfig(result.configOptions);
 			return;
@@ -394,6 +494,9 @@ async function startAcpSession(
 		sessionId = session.sessionId;
 		context.onResumeToken(sessionId);
 		report(session);
+		// An agent without modes of its own: Grid's, so the picker has something to switch.
+		if (gridModes && !agentModes)
+			context.emit({ type: "info", modes: GRID_MODES, mode: localMode ?? "ask" });
 		if (context.resume) resumed = sessionId === context.resume;
 	} catch (cause) {
 		proc.kill();
@@ -409,6 +512,11 @@ async function startAcpSession(
 		}
 	};
 	const setMode = async (mode: string) => {
+		if (gridModes && !agentModes) {
+			localMode = GRID_MODES.some((choice) => choice.id === mode) ? mode : "ask";
+			context.emit({ type: "info", mode: localMode });
+			return;
+		}
 		if (modeConfigId) {
 			await setOption(modeConfigId, mode);
 		} else {
