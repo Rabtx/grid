@@ -1,0 +1,441 @@
+/* Adapted from Bruno Delorence's effort slider (https://brunodelorence.com/components/effort-slider).
+   Copyright (c) 2026 Bruno Delorence. MIT License.
+
+   Grid's version: no card of its own (it sits in a picker or a form), the words in Grid's own ink,
+   and the drawing scaled by --u, a px of the original slider, from the width it is given: one to
+   one and a half screen px, so it fills a picker without growing into a poster. The fill, the
+   brain and the last step's night sky keep their own colours on either theme. */
+
+@property --u {
+	syntax: "<length>";
+	inherits: true;
+	initial-value: 1px;
+}
+
+.root {
+	container-type: inline-size;
+	width: 100%;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.card {
+	--u: clamp(1px, calc(100cqi / 196), 1.5px);
+	--track: color-mix(in oklab, var(--color-fg) 9%, transparent);
+	--dot: color-mix(in oklab, var(--color-fg) 22%, transparent);
+	--tick: color-mix(in oklab, var(--color-fg) 32%, transparent);
+	--fill-from: #e489bb;
+	--fill-to: #8b70dc;
+	--sky-ink: #1a79bd;
+	--focus: var(--color-accent);
+	position: relative;
+	width: calc(196 * var(--u));
+	user-select: none;
+	-webkit-user-select: none;
+}
+:global(.dark) .card,
+:global([data-theme="dark"]) .card {
+	--fill-from: #975179;
+	--fill-to: #6b55a4;
+	--sky-ink: #9fd9ff;
+}
+@media (prefers-color-scheme: dark) {
+	:global(:root:not(.light)) .card {
+		--fill-from: #975179;
+		--fill-to: #6b55a4;
+		--sky-ink: #9fd9ff;
+	}
+}
+
+/* "Effort  High", and the help button at the right. */
+.header {
+	position: relative;
+	display: flex;
+	align-items: baseline;
+	min-height: 1.25rem;
+	font-size: 0.8125rem;
+	line-height: 1.25rem;
+}
+.name {
+	color: var(--color-fg-subtle);
+}
+.level {
+	display: inline-grid;
+	margin-left: 0.5rem;
+	color: var(--color-fg);
+	font-weight: 500;
+}
+.levelIn,
+.levelOut {
+	grid-area: 1 / 1;
+	white-space: nowrap;
+}
+.levelIn[data-special],
+.levelOut[data-special] {
+	color: var(--sky-ink);
+}
+.letter {
+	display: inline-block;
+}
+.levelIn .letter {
+	animation: letterIn 170ms cubic-bezier(0.2, 0.7, 0.3, 1) calc(var(--i) * 22ms) both;
+}
+.levelOut .letter {
+	animation: letterOut 110ms ease-in calc(var(--i) * 10ms) both;
+}
+@keyframes letterIn {
+	from {
+		opacity: 0;
+		transform: translateY(0.3em);
+		filter: blur(0.14em);
+	}
+}
+@keyframes letterOut {
+	to {
+		opacity: 0;
+		transform: translateY(-0.3em);
+		filter: blur(0.14em);
+	}
+}
+
+.help {
+	position: absolute;
+	top: 50%;
+	right: 0;
+	display: grid;
+	place-items: center;
+	width: 0.875rem;
+	height: 0.875rem;
+	margin: -0.4375rem 0 0;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: none;
+	color: var(--color-fg-faint);
+	cursor: help;
+}
+.help::before {
+	content: "";
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 24px;
+	height: 24px;
+	transform: translate(-50%, -50%);
+}
+.help svg {
+	width: 100%;
+	height: 100%;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	overflow: visible;
+}
+.help:focus {
+	outline: none;
+}
+.help:focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+}
+.tip {
+	position: absolute;
+	right: -0.25rem;
+	bottom: calc(100% + 0.375rem);
+	z-index: 3;
+	width: max-content;
+	max-width: 14rem;
+	padding: 0.375rem 0.5rem;
+	border-radius: 0.375rem;
+	background: var(--color-fg);
+	color: var(--color-canvas);
+	font-size: 0.75rem;
+	line-height: 1.35;
+	text-align: left;
+	opacity: 0;
+	transform: translateY(2px);
+	transition:
+		opacity 140ms ease,
+		transform 140ms ease;
+	pointer-events: none;
+}
+.help[data-open] .tip {
+	opacity: 1;
+	transform: none;
+	pointer-events: auto;
+}
+
+/* "Faster … Smarter". */
+.ends {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 0.875rem;
+	color: var(--color-fg-subtle);
+	font-size: 0.75rem;
+	line-height: 1rem;
+}
+
+/* The control: the track, and the thumb's rail over it. */
+.control {
+	position: relative;
+	height: calc(20 * var(--u));
+	margin-top: 0.5rem;
+	touch-action: pan-y;
+	cursor: pointer;
+}
+.track {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	border-radius: calc(6 * var(--u));
+	background: var(--track);
+}
+/* The fill ends under the thumb's middle, 8 px + --pos of the 180 px rail. */
+.fill,
+.sky {
+	position: absolute;
+	inset: 0;
+	clip-path: inset(0 calc((188 - var(--pos) * 180) * var(--u)) 0 0);
+}
+.fill {
+	background: linear-gradient(90deg, var(--fill-from), var(--fill-to));
+	mask: linear-gradient(90deg, rgb(0 0 0 / 0.11), #000) 0 0 / calc((8 + var(--pos) * 180) * var(--u))
+		100% no-repeat;
+}
+.sky {
+	opacity: 0;
+	background: linear-gradient(
+		90deg,
+		#0f0920 40%,
+		#2d133a 57%,
+		#371b52 70%,
+		#34205e 77%,
+		#372d71 83%,
+		#464693 89%,
+		#5a5cb0
+	);
+	transition: opacity 200ms ease;
+}
+.card[data-sky] .sky {
+	opacity: 1;
+	transition-duration: 60ms;
+}
+.mosaic {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+.dot,
+.tick {
+	position: absolute;
+	top: 50%;
+	left: calc((10.75 + var(--stop) * 174.5) * var(--u));
+	width: calc(3 * var(--u));
+	border-radius: calc(1.5 * var(--u));
+	transform: translate(-50%, -50%);
+}
+.dot {
+	height: calc(3 * var(--u));
+	background: var(--dot);
+}
+.tick {
+	height: calc(10 * var(--u));
+	background: var(--tick);
+}
+
+.rail {
+	position: absolute;
+	top: 50%;
+	left: calc(8 * var(--u));
+	width: 0;
+	height: 0;
+}
+.thumb {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: calc(16 * var(--u));
+	height: calc(20 * var(--u));
+	margin: calc(-10 * var(--u)) 0 0 calc(-8 * var(--u));
+	border-radius: calc(8 * var(--u));
+	transform: translateX(calc(var(--pos) * 180 * var(--u)));
+	cursor: grab;
+}
+.thumb:active {
+	cursor: grabbing;
+}
+.thumb:focus {
+	outline: none;
+}
+.thumb::after {
+	content: "";
+	position: absolute;
+	inset: calc(-5 * var(--u)) calc(-7 * var(--u));
+	border-radius: 50%;
+	box-shadow: 0 0 0 2px var(--focus);
+	opacity: 0;
+	pointer-events: none;
+}
+.thumb:focus-visible::after {
+	opacity: 1;
+}
+
+.brain {
+	position: absolute;
+	left: calc(-4 * var(--u));
+	top: calc(-2 * var(--u));
+	width: calc(24 * var(--u));
+	height: calc(24 * var(--u));
+	overflow: visible;
+	filter: drop-shadow(0 0 calc(1.2 * var(--u)) rgb(0 0 0 / 0.35));
+	transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pink,
+.galaxy {
+	stroke-width: 4.4;
+	stroke-linejoin: round;
+	paint-order: stroke;
+	transition: opacity 120ms ease;
+}
+.pink {
+	fill: #f684ba;
+	stroke: #5f0a35;
+}
+.galaxy {
+	stroke: #220a78;
+	stroke-width: 3.8;
+	opacity: 0;
+}
+.card[data-sky] .brain {
+	transform: scale(1.3);
+}
+.card[data-sky] .pink {
+	opacity: 0;
+}
+.card[data-sky] .galaxy {
+	opacity: 1;
+}
+
+.halo,
+.flash {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	border-radius: 50%;
+	pointer-events: none;
+}
+.halo {
+	width: calc(60 * var(--u));
+	height: calc(60 * var(--u));
+	margin: calc(-30 * var(--u)) 0 0 calc(-30 * var(--u));
+	background: radial-gradient(
+		closest-side,
+		rgb(150 130 255 / 0.2),
+		rgb(150 130 255 / 0.1) 50%,
+		rgb(150 130 255 / 0.04) 70%,
+		transparent
+	);
+	opacity: 0;
+	transition: opacity 200ms ease;
+}
+.card[data-sky] .halo {
+	opacity: 1;
+	transition-duration: 500ms;
+}
+.flash {
+	width: calc(64 * var(--u));
+	height: calc(64 * var(--u));
+	margin: calc(-32 * var(--u)) 0 0 calc(-32 * var(--u));
+	background: radial-gradient(
+		closest-side,
+		rgb(255 255 255 / 0.62),
+		rgb(255 255 255 / 0.3) 47%,
+		rgb(255 255 255 / 0.14) 69%,
+		transparent
+	);
+	animation: flash 700ms linear both;
+}
+@keyframes flash {
+	0% {
+		opacity: 0.8;
+	}
+	5% {
+		opacity: 1;
+	}
+	24% {
+		opacity: 0.55;
+	}
+	38% {
+		opacity: 0.4;
+	}
+	52% {
+		opacity: 0.22;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+.burst {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: calc(100 * var(--u));
+	height: calc(100 * var(--u));
+	margin: calc(-50 * var(--u)) 0 0 calc(-50 * var(--u));
+	opacity: 0;
+	transition: opacity 200ms ease;
+	pointer-events: none;
+}
+.card[data-sky] .burst {
+	opacity: 1;
+	transition-duration: 0ms;
+}
+
+/* "Recommended", under its tick. */
+.under {
+	position: relative;
+	height: 1rem;
+	margin-top: 0.375rem;
+	color: var(--color-fg-subtle);
+	font-size: 0.75rem;
+	line-height: 1rem;
+}
+.recommended {
+	position: absolute;
+	top: 0;
+	left: calc((10.75 + var(--stop) * 174.5) * var(--u));
+	white-space: nowrap;
+	transform: translateX(-39%);
+}
+.recommended[data-edge="start"] {
+	left: 0;
+	transform: none;
+}
+.recommended[data-edge="end"] {
+	left: auto;
+	right: 0;
+	transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.levelIn .letter,
+	.levelOut .letter {
+		animation: none;
+	}
+	.levelOut {
+		display: none;
+	}
+	.brain,
+	.pink,
+	.galaxy,
+	.sky,
+	.halo,
+	.burst,
+	.tip {
+		transition: none;
+	}
+	.flash {
+		display: none;
+	}
+}

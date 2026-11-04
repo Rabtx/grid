@@ -191,7 +191,7 @@ export {
 	TurnFold,
 	TurnHeader,
 } from "./run";
-export { EffortDial, type EffortLevel, EffortSlider } from "./effort";
+export { type EffortLevel, EffortSlider } from "./effort";
 export { type ArrivalOptions, playArrival } from "./arrival";
 export { ListDetail, ListRow, PaneHeader } from "./pane";
 export { type AgentChoice, AgentChoices, FlagshipMark, ModelRow } from "./picker";
@@ -485,3 +485,4 @@ export {
 } from "./agent-work";
 export { ThreadDetailsCard, ThreadDetailsRow, ThreadDetailsSection } from "./thread-details";
 export { type PaneRect, PaneBox, PaneDivider } from "./pane-layer";
+export { EffortSky, type SkyLevel } from "./effort-sky/effort-sky";

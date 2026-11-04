@@ -64,7 +64,7 @@ import {
 	UsageBar,
 	UserIcon,
 	UserMessage,
-	EffortDial,
+	EffortSky,
 	EffortSlider,
 	playArrival,
 } from "@/kit";
@@ -295,7 +295,7 @@ export function FormsSection(): JSX.Element {
 	const [notifications, setNotifications] = createSignal(true);
 	const [step, setStep] = createSignal(1);
 	const [effort, setEffort] = createSignal("high");
-	const [dial, setDial] = createSignal("high");
+	const [dial, setDial] = createSignal("medium");
 	const [small, setSmall] = createSignal("medium");
 	return (
 		<div class="grid gap-4 md:grid-cols-2">
@@ -329,11 +329,10 @@ export function FormsSection(): JSX.Element {
 					</div>
 				</Stack>
 			</Specimen>
-			<Specimen label="Effort dial · proposal, not in the app yet">
-				<Stack gap={6}>
-					<div data-specimen="effort-dial">
-						<EffortDial
-							label="Reasoning effort"
+			<Specimen label="Effort slider · the brain (proposal, not in the app yet)">
+				<Stack gap={8}>
+					<div data-specimen="effort-sky">
+						<EffortSky
 							levels={[
 								{ id: "low", name: "Low" },
 								{ id: "medium", name: "Medium" },
@@ -342,19 +341,20 @@ export function FormsSection(): JSX.Element {
 								{ id: "max", name: "Max" },
 							]}
 							value={dial()}
-							defaultId="high"
+							recommendedId="medium"
 							onChange={setDial}
 						/>
 					</div>
-					<EffortDial
-						label="A model with three levels"
+					<EffortSky
+						label="Thinking"
 						levels={[
 							{ id: "low", name: "Low" },
 							{ id: "medium", name: "Medium" },
 							{ id: "high", name: "High" },
 						]}
 						value={small()}
-						defaultId="medium"
+						recommendedId="medium"
+						payoff={false}
 						onChange={setSmall}
 					/>
 				</Stack>
