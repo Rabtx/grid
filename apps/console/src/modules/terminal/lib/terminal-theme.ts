@@ -2,22 +2,23 @@ import type { ITheme } from "@xterm/xterm";
 
 // ANSI palettes tuned for the console's near-black and near-white canvases.
 const ANSI_DARK = {
-	black: "#1d2428",
-	red: "#f87171",
-	green: "#4ade80",
-	yellow: "#fbbf24",
-	blue: "#60a5fa",
-	magenta: "#c084fc",
-	cyan: "#22d3ee",
-	white: "#e8eef2",
-	brightBlack: "#64748b",
-	brightRed: "#fca5a5",
-	brightGreen: "#86efac",
-	brightYellow: "#fde68a",
-	brightBlue: "#93c5fd",
-	brightMagenta: "#d8b4fe",
-	brightCyan: "#67e8f9",
-	brightWhite: "#f8fafc",
+	// Softer than the classic set: colour still says what it means, without shouting.
+	black: "#2a2f35",
+	red: "#e8838a",
+	green: "#8fcf9b",
+	yellow: "#e6c384",
+	blue: "#82aaf0",
+	magenta: "#c3a0f0",
+	cyan: "#7fcfd9",
+	white: "#d7dce2",
+	brightBlack: "#6b7380",
+	brightRed: "#f0a3a8",
+	brightGreen: "#ade0b6",
+	brightYellow: "#f0d6a3",
+	brightBlue: "#a6c2f5",
+	brightMagenta: "#d6bcf5",
+	brightCyan: "#a3dfe6",
+	brightWhite: "#f2f4f7",
 };
 
 const ANSI_LIGHT = {
@@ -79,7 +80,7 @@ export function terminalTheme(): ITheme {
 		foreground,
 		cursor: resolveColor("var(--user-accent, var(--ink))", foreground),
 		cursorAccent: background,
-		selectionBackground: light ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.22)",
+		selectionBackground: light ? "rgba(0,0,0,0.16)" : "rgba(255,255,255,0.18)",
 		selectionInactiveBackground: light ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.1)",
 		...(light ? ANSI_LIGHT : ANSI_DARK),
 	};

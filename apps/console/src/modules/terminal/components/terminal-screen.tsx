@@ -1,3 +1,5 @@
+import LayoutTwoColumnIcon from "@hugeicons/core-free-icons/LayoutTwoColumnIcon";
+import LayoutTwoRowIcon from "@hugeicons/core-free-icons/LayoutTwoRowIcon";
 import { useMatch, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
@@ -14,12 +16,18 @@ import {
 	Button,
 	button,
 	EmptyState,
+	CloseIcon,
 	GlobeIcon,
+	Icon,
 	IconButton,
 	iconButton,
 	Menu,
 	type MenuGroup,
 	MoreIcon,
+	notify,
+	PaneBox,
+	PaneDivider,
+	type PaneRect,
 	PlusIcon,
 	Row,
 	Skeleton,
@@ -57,6 +65,38 @@ const STATUS_EVERY_MS = 4000;
 const DEFAULT_SIZE = { cols: 80, rows: 24 };
 
 type Load = { status: "loading" } | { status: "ready" } | { status: "error"; message: string };
+
+/**
+ * Terminals shown together on a larger screen: which, side by side (`row`) or stacked
+ * (`column`), and each one's share in percent. Kept per device.
+ */
+type Split = { ids: string[]; direction: "row" | "column"; sizes: number[] };
+const SPLIT_KEY = "grid.terminal.split";
+const NO_SPLIT: Split = { ids: [], direction: "row", sizes: [] };
+/** Panes at most: past four, each is too small to work in. */
+const MAX_PANES = 4;
+/** The smallest share a pane can be dragged to. */
+const MIN_SHARE = 12;
+const FULL: PaneRect = { x: 0, y: 0, w: 100, h: 100 };
+
+function readSplit(): Split {
+	try {
+		const saved = JSON.parse(localStorage.getItem(SPLIT_KEY) ?? "null") as Partial<Split> | null;
+		if (!saved || !Array.isArray(saved.ids)) return NO_SPLIT;
+		return {
+			ids: saved.ids.filter((id): id is string => typeof id === "string").slice(0, MAX_PANES),
+			direction: saved.direction === "column" ? "column" : "row",
+			sizes: Array.isArray(saved.sizes)
+				? saved.sizes.filter((size): size is number => typeof size === "number")
+				: [],
+		};
+	} catch {
+		return NO_SPLIT;
+	}
+}
+
+/** Equal shares for `count` panes. */
+const even = (count: number) => Array.from({ length: count }, () => 100 / count);
 
 /**
  * Terminals: tabs of shells running on the machine, each a live view. Opening the screen with no
@@ -132,9 +172,9 @@ export function TerminalScreen(): JSX.Element {
 	 * Open a shell. Left unsaid, it opens where the current project runs, in its folder: on this
 	 * machine or on the environment holding the folder. `null` is this machine, explicitly.
 	 */
-	async function openTerminal(machine?: string | null): Promise<void> {
+	async function openTerminal(machine?: string | null): Promise<TerminalInfo | null> {
 		const token = auth.token();
-		if (!token || busy()) return;
+		if (!token || busy()) return null;
 		setBusy(true);
 		try {
 			const slug = untrack(workspace.currentSlug);
@@ -147,12 +187,98 @@ export function TerminalScreen(): JSX.Element {
 			const info = await terminalsService.open(token, DEFAULT_SIZE, cwd, environment);
 			setTerminals((list) => [...list, info]);
 			navigate(`/terminal/${info.id}`);
+			return info;
 		} catch (cause) {
 			setLoad({ status: "error", message: describe(cause) });
+			return null;
 		} finally {
 			setBusy(false);
 		}
 	}
+
+	// The split: terminals shown together on a larger screen, resized by the lines between them.
+	const [split, setSplitState] = createSignal<Split>(readSplit());
+	function setSplit(next: Split): void {
+		setSplitState(next);
+		try {
+			localStorage.setItem(SPLIT_KEY, JSON.stringify(next));
+		} catch {
+			// Not remembered; the split still holds for this visit.
+		}
+	}
+	/** The panes on screen: two or more terminals that still exist, on a larger screen only. */
+	const panes = createMemo(() => {
+		if (!shell.desktop()) return [];
+		const known = new Set(terminals().map((terminal) => terminal.id));
+		const ids = split().ids.filter((id) => known.has(id));
+		return ids.length >= 2 ? ids : [];
+	});
+	const sizes = createMemo(() => {
+		const count = panes().length;
+		const saved = split().sizes;
+		return saved.length === count ? saved : even(count);
+	});
+	/** Where a terminal sits in the split, or null when it is not in one. */
+	function rectOf(id: string): PaneRect | null {
+		const ids = panes();
+		const at = ids.indexOf(id);
+		if (at < 0) return null;
+		const shares = sizes();
+		const offset = shares.slice(0, at).reduce((total, share) => total + share, 0);
+		return split().direction === "row"
+			? { x: offset, y: 0, w: shares[at] ?? 0, h: 100 }
+			: { x: 0, y: offset, w: 100, h: shares[at] ?? 0 };
+	}
+	/** The lines between panes: where each sits, and which two panes it divides. */
+	const dividers = createMemo(() => {
+		const shares = sizes();
+		let offset = 0;
+		return shares.slice(0, -1).map((share, index) => {
+			offset += share;
+			return { index, at: offset };
+		});
+	});
+	function drag(index: number, percent: number): void {
+		const shares = [...sizes()];
+		const start = shares.slice(0, index).reduce((total, share) => total + share, 0);
+		const pair = (shares[index] ?? 0) + (shares[index + 1] ?? 0);
+		const first = Math.min(pair - MIN_SHARE, Math.max(MIN_SHARE, percent - start));
+		shares[index] = first;
+		shares[index + 1] = pair - first;
+		setSplit({ ...split(), ids: panes(), sizes: shares });
+	}
+	/** Opens a new terminal beside (or below) the one in focus. */
+	async function splitWith(direction: Split["direction"]): Promise<void> {
+		const current = activeId();
+		if (!current) return;
+		const showing = panes();
+		if (showing.length >= MAX_PANES) {
+			notify({ title: `Up to ${MAX_PANES} terminals side by side` });
+			return;
+		}
+		const info = await openTerminal();
+		if (!info) return;
+		const ids = showing.length ? [...showing, info.id] : [current, info.id];
+		setSplit({
+			ids,
+			direction: showing.length ? split().direction : direction,
+			sizes: even(ids.length),
+		});
+	}
+	/** Takes a terminal out of the split; it stays open as a tab. */
+	function unsplit(id: string): void {
+		const ids = panes().filter((item) => item !== id);
+		setSplit(ids.length >= 2 ? { ...split(), ids, sizes: even(ids.length) } : NO_SPLIT);
+	}
+	// A tab picked while split takes the place of the pane that was in focus.
+	let lastActive: string | null = null;
+	createEffect(activeId, (id) => {
+		const ids = untrack(panes);
+		const from = lastActive;
+		lastActive = id;
+		if (!id || ids.length === 0 || ids.includes(id) || !from || !ids.includes(from)) return;
+		setSplit({ ...untrack(split), ids: ids.map((item) => (item === from ? id : item)) });
+	});
 
 	async function closeTerminal(id: string): Promise<void> {
 		const token = auth.token();
@@ -162,6 +288,10 @@ export function TerminalScreen(): JSX.Element {
 		const environment = list[index]?.environment;
 		const next = list[index + 1] ?? list[index - 1] ?? null;
 		setTerminals(list.filter((terminal) => terminal.id !== id));
+		if (split().ids.includes(id)) {
+			const ids = split().ids.filter((item) => item !== id);
+			setSplit(ids.length >= 2 ? { ...split(), ids, sizes: even(ids.length) } : NO_SPLIT);
+		}
 		handles.delete(id);
 		forgetScreen(id);
 		if (activeId() === id) navigate(next ? `/terminal/${next.id}` : "/terminal", { replace: true });
@@ -554,7 +684,32 @@ export function TerminalScreen(): JSX.Element {
 						tabs={tabs()}
 						current={activeId()}
 						onClose={(id) => void closeTerminal(id)}
-						where={where()}
+						where={
+							<>
+								{where()}
+								{/* Larger screens: another terminal beside or below this one. */}
+								<Show when={shell.desktop()}>
+									<span class="flex shrink-0 items-center">
+										<IconButton
+											size="xs"
+											label="Split right"
+											disabled={busy()}
+											onClick={() => void splitWith("row")}
+										>
+											<Icon icon={LayoutTwoColumnIcon} size="sm" />
+										</IconButton>
+										<IconButton
+											size="xs"
+											label="Split down"
+											disabled={busy()}
+											onClick={() => void splitWith("column")}
+										>
+											<Icon icon={LayoutTwoRowIcon} size="sm" />
+										</IconButton>
+									</span>
+								</Show>
+							</>
+						}
 					/>
 				</Show>
 				<div class="relative min-h-0 flex-1">
@@ -581,19 +736,56 @@ export function TerminalScreen(): JSX.Element {
 					    hidden frame measures nothing and draws nothing. The screen cache redraws it. */}
 					<For each={listing() ? [] : terminals()} keyed={(terminal) => terminal.id}>
 						{(terminal) => (
-							<div class="absolute inset-0" hidden={activeId() !== terminal().id}>
-								<TerminalView
-									id={terminal().id}
-									environment={terminal().environment}
-									active={!listing() && activeId() === terminal().id}
-									fontSize={fontSize()}
-									takeModifiers={takeModifiers}
-									onFontSizeChange={changeFontSize}
-									onHandle={(handle) => handles.set(terminal().id, handle)}
-									onState={(state) => setStates((all) => ({ ...all, [terminal().id]: state }))}
-									onTitle={(title) => setTitles((all) => ({ ...all, [terminal().id]: title }))}
-								/>
-							</div>
+							<PaneBox
+								rect={rectOf(terminal().id) ?? FULL}
+								hidden={!rectOf(terminal().id) && activeId() !== terminal().id}
+								framed={rectOf(terminal().id) !== null}
+								lit={rectOf(terminal().id) !== null && activeId() === terminal().id}
+								onFocusIn={() => {
+									if (rectOf(terminal().id) && activeId() !== terminal().id)
+										navigate(`/terminal/${terminal().id}`, { replace: true });
+								}}
+							>
+								{/* A pane's own strip in a split: its name, and taking it out of the split. */}
+								<Show when={rectOf(terminal().id)}>
+									<div
+										class={`flex h-7 shrink-0 items-center gap-2 pr-1 pl-3 font-mono text-caption ${activeId() === terminal().id ? "text-terminal-fg" : "text-terminal-dim"}`}
+									>
+										<span class="min-w-0 flex-1 truncate">{titleOf(terminal())}</span>
+										<IconButton
+											size="xs"
+											label="Take out of the split"
+											onClick={() => unsplit(terminal().id)}
+										>
+											<CloseIcon />
+										</IconButton>
+									</div>
+								</Show>
+								<div class="relative min-h-0 flex-1">
+									<TerminalView
+										id={terminal().id}
+										environment={terminal().environment}
+										active={!listing() && activeId() === terminal().id}
+										fontSize={fontSize()}
+										takeModifiers={takeModifiers}
+										onFontSizeChange={changeFontSize}
+										onHandle={(handle) => handles.set(terminal().id, handle)}
+										onState={(state) => setStates((all) => ({ ...all, [terminal().id]: state }))}
+										onTitle={(title) => setTitles((all) => ({ ...all, [terminal().id]: title }))}
+									/>
+								</div>
+							</PaneBox>
+						)}
+					</For>
+					<For each={dividers()}>
+						{(divider) => (
+							<PaneDivider
+								direction={split().direction}
+								at={divider.at}
+								label="Resize the terminals"
+								onDrag={(percent) => drag(divider.index, percent)}
+								onReset={() => setSplit({ ...split(), ids: panes(), sizes: even(panes().length) })}
+							/>
 						)}
 					</For>
 				</div>

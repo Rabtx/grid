@@ -179,7 +179,7 @@ export function TerminalView(props: {
 			cursorStyle: "bar",
 			fontFamily: monoFontFamily(),
 			fontSize: untrack(() => props.fontSize),
-			lineHeight: 1.15,
+			lineHeight: 1.3,
 			scrollback: 10_000,
 			theme: terminalTheme(),
 			macOptionIsMeta: true,
@@ -477,7 +477,7 @@ export function TerminalView(props: {
 				}}
 				// xterm draws its own padding-free grid; the gutter keeps glyphs off the rounded edge.
 				// On touch screens its mouse-only scrollbar gives way to the draggable one below.
-				class="size-full overflow-hidden px-2 py-1.5 pointer-coarse:pr-5 pointer-coarse:[&_.xterm-scrollable-element>.scrollbar]:hidden!"
+				class="size-full overflow-hidden px-3 py-2.5 pointer-coarse:pr-5 pointer-coarse:[&_.xterm-scrollable-element>.scrollbar]:hidden!"
 				data-terminal={props.id}
 			/>
 

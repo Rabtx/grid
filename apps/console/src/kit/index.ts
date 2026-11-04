@@ -484,3 +484,4 @@ export {
 	SubagentStrip,
 } from "./agent-work";
 export { ThreadDetailsCard, ThreadDetailsRow, ThreadDetailsSection } from "./thread-details";
+export { type PaneRect, PaneBox, PaneDivider } from "./pane-layer";
