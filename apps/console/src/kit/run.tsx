@@ -324,7 +324,7 @@ export function RunFailedCard(props: {
 	actions?: JSX.Element;
 }): JSX.Element {
 	return (
-		<section class="flex min-w-0 flex-col gap-3 rounded-kit-lg bg-surface p-4 ring-1 ring-danger">
+		<section class="flex min-w-0 flex-col gap-3 rounded-kit-lg bg-surface p-4 ring-line-strong">
 			<header class="flex min-w-0 items-center gap-2.5">
 				<span
 					aria-hidden="true"
@@ -336,7 +336,7 @@ export function RunFailedCard(props: {
 			</header>
 			<p class="whitespace-pre-wrap break-words text-body text-fg-muted">{props.summary}</p>
 			<Show when={props.excerpt}>
-				<pre class="surface-well max-h-72 overflow-auto px-4 py-3 font-mono text-caption leading-5 text-fg">
+				<pre class="surface-well max-h-72 overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 font-mono text-caption leading-5 text-fg">
 					{props.excerpt}
 				</pre>
 			</Show>

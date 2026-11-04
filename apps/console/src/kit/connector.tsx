@@ -118,9 +118,7 @@ export function ProbeResult(props: {
 	tools?: readonly string[];
 }): JSX.Element {
 	return (
-		<output
-			class={`flex flex-col gap-2.5 rounded-kit-lg p-3.5 ${props.ok ? "ring-[1.5px] ring-success" : "ring-[1.5px] ring-danger"}`}
-		>
+		<output class="flex flex-col gap-2.5 rounded-kit-lg bg-fill p-3.5">
 			<div class="flex items-center gap-2">
 				<span
 					class={`grid size-5 shrink-0 place-items-center rounded-full text-white ${props.ok ? "bg-success" : "bg-danger"}`}

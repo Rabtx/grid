@@ -400,4 +400,44 @@ describe("opencode service: which way a thread runs", () => {
 			modes: [{ id: "build", name: "Build" }],
 		});
 	});
+
+	it("drops a reasoning level the model does not have, instead of sending it as a variant", async () => {
+		const created: unknown[] = [];
+		const client = {
+			model: {
+				list: async () => ({
+					data: [
+						{
+							id: "mimo-free",
+							providerID: "opencode",
+							name: "MiMo Free",
+							status: "active",
+							enabled: true,
+							limit: { context: 0, output: 0 },
+							variants: [],
+							cost: [],
+						},
+					],
+				}),
+			},
+			agent: { list: async () => ({ data: [] }) },
+			session: {
+				create: async (input: unknown) => {
+					created.push(input);
+					return { id: "ses_1" };
+				},
+			},
+		} as unknown as OpenCodeClient;
+		const provider = opencodeServiceProvider({
+			available: () => true,
+			fallback: fallback([]),
+			version: async () => "2.2.5",
+			connect: async () => client,
+		});
+		await provider
+			.start(context({ model: "opencode/mimo-free", effort: "max" }))
+			.catch(() => undefined);
+		expect(created[0]).toMatchObject({ model: { providerID: "opencode", id: "mimo-free" } });
+		expect((created[0] as { model: { variant?: string } }).model.variant).toBeUndefined();
+	});
 });

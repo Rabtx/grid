@@ -199,7 +199,7 @@ export function Attachment(props: {
 	return (
 		<span
 			class={`relative inline-flex min-h-12 max-w-full items-center gap-1 overflow-hidden rounded-control-lg py-1.5 pr-1 pl-1.5 text-body md:max-w-80 ${
-				props.error ? "bg-danger/8 ring-1 ring-danger/30" : "bg-fill"
+				props.error ? "bg-danger/8" : "bg-fill"
 			}`}
 		>
 			<Show

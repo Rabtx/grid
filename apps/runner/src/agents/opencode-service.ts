@@ -1,7 +1,7 @@
 import { OpenCode, type OpenCodeClient, type OpenCodeEvent } from "@opencode/client/promise";
 import { Service } from "@opencode/client/service";
 
-import { cached, effortChoices, runCli } from "./catalog";
+import { cached, effortChoices, resolveEffort, runCli } from "./catalog";
 import {
 	type AgentQuestion,
 	type ApprovalOption,
@@ -55,7 +55,12 @@ export function opencodeServiceProvider(options: {
 		start: async (context) => {
 			if (!context.sandbox && (await native())) {
 				try {
-					return await startServiceSession(await connect(), context);
+					// A model's own levels, so a level it does not have is never sent as its variant.
+					const modelOf = async (id: string) =>
+						(await catalog().catch(() => ({ models: [] as Choice[] }))).models.find(
+							(item) => item.id === id,
+						);
+					return await startServiceSession(await connect(), context, modelOf);
 				} catch (error) {
 					console.error(`[runner] opencode service unavailable, using ACP: ${String(error)}`);
 				}
@@ -423,10 +428,19 @@ export function opencodeMcpName(sessionID: string, server: string): string {
 async function startServiceSession(
 	client: OpenCodeClient,
 	context: AgentContext,
+	modelOf: (id: string) => Promise<Choice | undefined> = async () => undefined,
 ): Promise<AgentSession> {
 	const location = { directory: context.cwd };
 	let model = context.model;
-	let effort = context.effort;
+	/**
+	 * The level a model takes: the one asked for while the model has it, else its default (a
+	 * level kept from another model, "max" on a model without it, is refused by the service).
+	 */
+	const fit = async (id: string | undefined, level: string | undefined) => {
+		const choice = id ? await modelOf(id) : undefined;
+		return choice ? resolveEffort(choice, level) : level;
+	};
+	let effort = await fit(model, context.effort);
 	let mode = context.mode;
 	let sessionID: string | null = null;
 	let resumed: boolean | undefined;
@@ -594,15 +608,16 @@ async function startServiceSession(
 		},
 		setModel: async (next) => {
 			model = next;
+			effort = await fit(next, effort);
 			const nextRef = opencodeModelRef(next, effort);
 			if (nextRef) await client.session.switchModel({ sessionID: id, model: nextRef });
 			context.emit({ type: "info", model: next });
 		},
 		setEffort: async (next) => {
-			effort = next;
+			effort = await fit(model, next);
 			const nextRef = model ? opencodeModelRef(model, next) : null;
 			if (nextRef) await client.session.switchModel({ sessionID: id, model: nextRef });
-			context.emit({ type: "info", effort: next });
+			context.emit({ type: "info", effort: effort ?? next });
 		},
 		setMode: async (next) => {
 			mode = next;
