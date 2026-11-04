@@ -160,7 +160,7 @@ export function EffortDial(props: {
 						{/* The name rolls to the new level, like an odometer. */}
 						<span class="relative block h-5 overflow-hidden" aria-hidden="true">
 							<span
-								class="flex flex-col transition-transform duration-300 motion-reduce:transition-none"
+								class="flex flex-col transition-transform duration-base motion-reduce:transition-none"
 								style={{
 									transform: `translateY(-${index() * 1.25}rem)`,
 									"transition-timing-function": SPRING,
@@ -169,7 +169,7 @@ export function EffortDial(props: {
 								<For each={props.levels}>
 									{(level, place) => (
 										<span
-											class={`block h-5 font-medium text-body leading-5 transition-colors duration-300 ${place() === index() ? "text-fg" : "text-fg-faint"}`}
+											class={`block h-5 font-medium text-body leading-5 transition-colors duration-base ${place() === index() ? "text-fg" : "text-fg-faint"}`}
 										>
 											{level.name}
 										</span>
@@ -184,7 +184,7 @@ export function EffortDial(props: {
 					aria-hidden="true"
 				>
 					<span
-						class="flex flex-col transition-transform duration-300 ease-out-grid motion-reduce:transition-none"
+						class="flex flex-col transition-transform duration-base ease-out-grid motion-reduce:transition-none"
 						style={{ transform: `translateY(-${index()}rem)` }}
 					>
 						<For each={props.levels}>
@@ -251,14 +251,14 @@ export function EffortDial(props: {
 						{(level, place) => (
 							<span
 								aria-hidden="true"
-								class={`absolute top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors duration-300 ${at(place()) <= position() + 0.5 ? "bg-white/70" : "bg-fg-faint"} ${level.id === props.defaultId ? "ring-2 ring-fg-subtle/40" : ""}`}
+								class={`absolute top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors duration-base ${at(place()) <= position() + 0.5 ? "bg-white/70" : "bg-fg-faint"} ${level.id === props.defaultId ? "ring-2 ring-fg-subtle/40" : ""}`}
 								style={{ left: `${at(place())}%` }}
 							/>
 						)}
 					</For>
 					<span
 						aria-hidden="true"
-						class={`absolute top-1/2 h-6 w-7 -translate-x-1/2 -translate-y-1/2 rounded-pill bg-surface shadow-knob transition-[scale] duration-200 ease-out-grid ${drag() === null ? "scale-100" : "scale-110"}`}
+						class={`absolute top-1/2 h-6 w-7 -translate-x-1/2 -translate-y-1/2 rounded-pill bg-surface shadow-knob transition-[scale] duration-fast ease-out-grid ${drag() === null ? "scale-100" : "scale-110"}`}
 						style={{
 							left: `${position()}%`,
 							transition:
@@ -279,7 +279,7 @@ export function EffortDial(props: {
 								type="button"
 								tabindex={-1}
 								onClick={() => choose(place())}
-								class={`absolute top-0 text-caption whitespace-nowrap transition-colors duration-300 ${place() === 0 ? "-translate-x-3.5" : place() === count() - 1 ? "-translate-x-[calc(100%-0.875rem)]" : "-translate-x-1/2"} ${place() === index() ? "font-medium text-fg" : "text-fg-subtle hover:text-fg"}`}
+								class={`absolute top-0 text-caption whitespace-nowrap transition-colors duration-base ${place() === 0 ? "-translate-x-3.5" : place() === count() - 1 ? "-translate-x-[calc(100%-0.875rem)]" : "-translate-x-1/2"} ${place() === index() ? "font-medium text-fg" : "text-fg-subtle hover:text-fg"}`}
 								style={{ left: `${at(place())}%` }}
 							>
 								{level.name}
@@ -302,7 +302,7 @@ function Meter(props: { lit: number; of: number }): JSX.Element {
 			<For each={Array.from({ length: bars }, (_, bar) => bar)}>
 				{(bar) => (
 					<span
-						class={`w-1 rounded-full transition-[height,background-color] duration-300 motion-reduce:transition-none ${bar < filled() ? "bg-accent" : "bg-fg-faint/40"}`}
+						class={`w-1 rounded-full transition-[height,background-color] duration-base motion-reduce:transition-none ${bar < filled() ? "bg-accent" : "bg-fg-faint/40"}`}
 						style={{
 							height: bar < filled() ? `${((bar + 1) / bars) * 100}%` : "20%",
 							"transition-delay": `${bar * 40}ms`,
