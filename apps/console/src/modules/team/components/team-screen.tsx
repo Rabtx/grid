@@ -348,9 +348,11 @@ function Overview(props: {
 						Team
 					</Text>
 					<Text tone="subtle">
-						{props.members ? `${props.members.length} people` : "People"} · {props.team.length}{" "}
-						teammate{props.team.length === 1 ? "" : "s"}. Give a teammate a card on the board and it
-						works on it in its own worktree.
+						{props.members
+							? `${props.members.length} ${props.members.length === 1 ? "person" : "people"}`
+							: "People"}{" "}
+						· {props.team.length} teammate{props.team.length === 1 ? "" : "s"}. Give a teammate a
+						card on the board and it works on it in its own worktree.
 					</Text>
 				</div>
 				<Button variant="primary" icon={<PlusIcon />} onClick={props.onNew}>
