@@ -56,6 +56,25 @@ describe("EffortSlider", () => {
 		expect(thumb.getAttribute("aria-valuetext")).toBe("Medium, recommended");
 	});
 
+	it("leaves an agent's default level off the steps, as nothing chosen", () => {
+		const container = document.createElement("div");
+		document.body.append(container);
+		dispose = render(
+			() => (
+				<EffortSlider
+					label="Effort"
+					levels={[...LEVELS, { id: "default", name: "Default" }]}
+					value="default"
+					onChange={() => {}}
+				/>
+			),
+			container,
+		);
+		const thumb = container.querySelector('[role="slider"]');
+		expect(thumb?.getAttribute("aria-valuemax")).toBe("3");
+		expect(thumb?.getAttribute("aria-valuetext")).toBe("Medium, recommended");
+	});
+
 	it("moves a step at a time with the arrows, and to the ends with Home and End", async () => {
 		const { value, thumb } = mount("low");
 		key(thumb, "ArrowRight");

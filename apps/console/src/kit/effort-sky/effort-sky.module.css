@@ -3,7 +3,7 @@
 
    Grid's version: no card of its own (it sits in a picker or a form), the words in Grid's own ink,
    and the drawing scaled by --u, a px of the original slider, from the width it is given: one to
-   one and a half screen px, so it fills a picker without growing into a poster. The fill, the
+   1.8 screen px, so it fills a picker or a phone sheet without growing into a poster. The fill, the
    brain and the last step's night sky keep their own colours on either theme. */
 
 @property --u {
@@ -19,7 +19,7 @@
 }
 
 .card {
-	--u: clamp(1px, calc(100cqi / 196), 1.5px);
+	--u: clamp(1px, calc(100cqi / 196), 1.8px);
 	--track: color-mix(in oklab, var(--color-fg) 9%, transparent);
 	--dot: color-mix(in oklab, var(--color-fg) 22%, transparent);
 	--tick: color-mix(in oklab, var(--color-fg) 32%, transparent);
