@@ -35,6 +35,9 @@ const PulseScreen = lazy(() => import("@/modules/home/components/pulse-screen"),
 const InboxScreen = lazy(() => import("@/modules/inbox/components/inbox-screen"), {
 	export: "InboxScreen",
 });
+const TeamScreen = lazy(() => import("@/modules/team/components/team-screen"), {
+	export: "TeamScreen",
+});
 const AutomationsScreen = lazy(
 	() => import("@/modules/automations/components/automations-screen"),
 	{
@@ -138,6 +141,7 @@ const Router = createRouter({
 		{ path: "/inbox", component: InboxRoute },
 		// Automations; the open one by its id.
 		{ path: "/automations/:id?", component: () => <Authed screen={AutomationsScreen} /> },
+		{ path: "/team/:id?", component: () => <Authed screen={TeamScreen} /> },
 		{ path: "/board", component: RedirectRoute },
 		{ path: "/board/:slug", component: BoardRoute },
 		{ path: "/files/:slug", component: FilesRoute },

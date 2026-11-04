@@ -64,21 +64,12 @@ import { GitControl, type WorkPlace } from "./git-control";
 import { Composer, type ComposerControl } from "./composer";
 import { Conversation, queueFirstMessage } from "./conversation";
 import { ModelPicker, ModePicker } from "./pickers";
-import { RoleDialog, RoleMenu, RoleSettings } from "./roles";
+import { TeammateDialog } from "@/modules/team/components/teammate-dialog";
+
+import { rememberRole, ROLE_KEY } from "../lib/chosen-role";
+import { RoleMenu, RoleSettings } from "./roles";
 import { planLimits } from "./usage-rings";
 import { SessionTabs } from "./session-list";
-
-// The role the last thread started as, so the next one does too.
-const ROLE_KEY = "grid.chat.role";
-
-function rememberRole(id: string | null): void {
-	try {
-		if (id) localStorage.setItem(ROLE_KEY, id);
-		else localStorage.removeItem(ROLE_KEY);
-	} catch {
-		// Not remembered; the next thread starts without a role.
-	}
-}
 
 function remembered(key: string): string | null {
 	try {
@@ -1087,10 +1078,11 @@ function NewChat(props: {
 					</Show>
 				</Stack>
 			</Stack>
-			<RoleDialog
+			<TeammateDialog
 				open={editing() !== null}
 				target={editing()?.role ?? null}
 				agents={available()}
+				team={roles()}
 				onClose={() => setEditing(null)}
 				onSave={saveRole}
 				onDelete={async () => {

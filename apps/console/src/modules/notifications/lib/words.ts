@@ -19,6 +19,7 @@ export const ARRIVAL_TITLE: Record<Exclude<InboxKind, "approval">, string> = {
 	pull_review: "Pull request ready",
 	pull_checks: "Checks are failing",
 	budget: "Spending limit",
+	teammate: "From a teammate",
 };
 
 /** "now" for the first minute, then minutes, then hours. */

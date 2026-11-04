@@ -404,6 +404,7 @@ const ACTION: Record<InboxItem["kind"], string> = {
 	turn_done: "Open",
 	turn_error: "Open",
 	budget: "Open",
+	teammate: "Review",
 };
 
 /** Which agent's logo a task owner's name is, as far as Grid knows its agents. */

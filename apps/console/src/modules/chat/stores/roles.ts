@@ -3,7 +3,7 @@ import { createSignal, untrack } from "solid-js";
 import { localStore } from "@/lib/local-store";
 
 import { chatService } from "../services/chat.service";
-import type { Role, RoleDraft } from "../types/chat.types";
+import { asTeammate, type Role, type RoleDraft } from "../types/chat.types";
 
 // The team per machine (its runner keeps the roles), read once per visit and kept in step with
 // every change made here.
@@ -18,7 +18,7 @@ localStore.onUserChange(() => {
 });
 
 function put(scope: string, list: Role[]): void {
-	setByScope({ ...untrack(byScope), [scope]: list });
+	setByScope({ ...untrack(byScope), [scope]: list.map(asTeammate) });
 }
 
 export const rolesStore = {

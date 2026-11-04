@@ -207,26 +207,79 @@ export type FileDiff = {
 
 /** A chat session as the runner lists it. */
 /** A role on the workspace's team (Figma 11 · Agent roles): a named preset a thread starts as. */
+/**
+ * A teammate: a specialist on the team that any agent can be. Its specialty, brief, skills,
+ * connectors and lessons go with every thread it takes; it can take board cards by itself.
+ * (A role before teammates; older runners send only the first fields, see `asTeammate`.)
+ */
 export type Role = {
 	id: string;
 	name: string;
 	/** One of the kit's role glyphs. */
 	icon: string;
-	/** What the role does; the agent is given it with a thread's first message. */
+	/** What it is in a few words: "Frontend engineer". */
+	specialty: string;
+	/** How it works; the agent is given it with a thread's first message. */
 	brief: string;
 	provider: string;
 	/** Unset means the agent's own default. */
 	model: string | null;
 	effort: string | null;
 	mode: string | null;
+	/** Ids of the workspace skills it reads first. */
+	skills: string[];
+	/** Ids of the connectors it may use; null is every one its agent may use. */
+	connectors: string[] | null;
+	/** A card given to it starts by itself. */
+	autoStart: boolean;
+	/** It writes a plan for a card and waits for approval first. */
+	planFirst: boolean;
+	/** Cards it works on at once. */
+	parallel: number;
+	/** The teammate its finished cards go to next. */
+	handoffTo: string | null;
 	createdAt: string;
 	updatedAt: string;
 };
 
 export type RoleDraft = Pick<
 	Role,
-	"name" | "icon" | "brief" | "provider" | "model" | "effort" | "mode"
+	| "name"
+	| "icon"
+	| "specialty"
+	| "brief"
+	| "provider"
+	| "model"
+	| "effort"
+	| "mode"
+	| "skills"
+	| "connectors"
+	| "autoStart"
+	| "planFirst"
+	| "parallel"
+	| "handoffTo"
 >;
+
+/** A teammate as an older runner sends it (a role), with the teammate fields filled in. */
+export function asTeammate(
+	role: Partial<Role> & Pick<Role, "id" | "name" | "icon" | "brief" | "provider">,
+): Role {
+	return {
+		model: null,
+		effort: null,
+		mode: null,
+		createdAt: "",
+		updatedAt: "",
+		...role,
+		specialty: role.specialty ?? "",
+		skills: role.skills ?? [],
+		connectors: role.connectors ?? null,
+		autoStart: role.autoStart ?? false,
+		planFirst: role.planFirst ?? true,
+		parallel: role.parallel ?? 1,
+		handoffTo: role.handoffTo ?? null,
+	};
+}
 
 /** The role a thread was started as, as the role was then. */
 export type SessionRole = { id: string; name: string; icon: string; brief: string };

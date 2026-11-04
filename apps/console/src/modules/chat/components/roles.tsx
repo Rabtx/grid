@@ -1,12 +1,11 @@
 import SlidersHorizontalIcon from "@hugeicons/core-free-icons/SlidersHorizontalIcon";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Show, untrack } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 
 import {
 	AgentLogo,
 	Button,
 	ChevronDownIcon,
-	Dialog,
 	EffortSlider,
 	Field,
 	Icon,
@@ -14,23 +13,20 @@ import {
 	NoRoleMark,
 	NoRoleRow,
 	PANEL_ACTION,
-	Input,
 	PlusIcon,
 	Popover,
 	type PopoverControl,
 	ROLE_CHIP,
 	ROLE_CHIP_ICON,
-	RoleIconChoices,
 	RoleMark,
 	Select,
 	SettingsIcon,
 	TeamRow,
 	Text,
-	Textarea,
 } from "@/kit";
 
 import { shortModelName } from "../lib/choices";
-import type { ChatProvider, Choice, Role, RoleDraft } from "../types/chat.types";
+import type { ChatProvider, Choice, Role } from "../types/chat.types";
 
 /** What a role runs, in words: the agent, the model it resolves to, and its effort. */
 export function describeRole(
@@ -83,7 +79,7 @@ export function RoleMenu(props: {
 	const current = () => props.roles.find((role) => role.id === props.value) ?? null;
 	return (
 		<Popover
-			label="Role"
+			label="Teammate"
 			title="Your team"
 			placement="top-start"
 			width="md:w-84"
@@ -94,7 +90,7 @@ export function RoleMenu(props: {
 					<Show when={current()} fallback={<NoRoleMark size="sm" />}>
 						{(role) => <RoleMark icon={role().icon} size="sm" />}
 					</Show>
-					<span class="truncate">{current()?.name ?? "No role"}</span>
+					<span class="truncate">{current()?.name ?? "No teammate"}</span>
 					<ChevronDownIcon size="xs" class="shrink-0 text-fg-faint" />
 				</>
 			}
@@ -147,13 +143,13 @@ export function RoleMenu(props: {
 						</For>
 						<Show when={props.roles.length === 0}>
 							<Text size="caption" tone="subtle" class="px-2 py-3">
-								No roles yet. A role is an agent, model and effort with a brief: make one for each
-								kind of work, and pick it here.
+								No teammates yet. A teammate is a specialist any agent can be: its brief, skills and
+								tools go with the thread. Add one for each kind of work, and pick it here.
 							</Text>
 						</Show>
 						<Show when={props.value}>
 							<NoRoleRow
-								label="No role"
+								label="No teammate"
 								onPick={() => {
 									props.onPick(null);
 									close();
@@ -189,7 +185,7 @@ export function RoleMenu(props: {
 								props.onNew();
 							}}
 						>
-							New role
+							New teammate
 						</Button>
 					</div>
 				</div>
@@ -312,7 +308,7 @@ export function RoleSettings(props: {
 					</Show>
 					<div class="flex items-center gap-2 border-line border-t pt-3">
 						<Text size="caption" tone="subtle" class="hidden flex-1 md:block">
-							{props.changed ? "Only this thread" : "As the role is set"}
+							{props.changed ? "Only this thread" : "As the teammate is set"}
 						</Text>
 						<Button
 							variant="secondary"
@@ -334,214 +330,17 @@ export function RoleSettings(props: {
 									await props.onSave();
 									close();
 								} catch (cause) {
-									setError(cause instanceof Error ? cause.message : "Could not save the role");
+									setError(cause instanceof Error ? cause.message : "Could not save the teammate");
 								} finally {
 									setSaving(false);
 								}
 							}}
 						>
-							{saving() ? "Saving…" : "Save to role"}
+							{saving() ? "Saving…" : "Save to teammate"}
 						</Button>
 					</div>
 				</div>
 			)}
 		</Popover>
-	);
-}
-
-/**
- * Make a role, or change one (Figma 11 · Agent roles, New role): its glyph and name, what it
- * does, and the agent, model and effort it runs. A sheet on phones, a card on desktop.
- */
-export function RoleDialog(props: {
-	open: boolean;
-	/** The role to change; none makes a new one. */
-	target: Role | null;
-	agents: readonly ChatProvider[];
-	onClose: () => void;
-	onSave: (draft: RoleDraft) => Promise<void>;
-	onDelete?: () => Promise<void>;
-}): JSX.Element {
-	const [name, setName] = createSignal("");
-	const [icon, setIcon] = createSignal("code");
-	const [brief, setBrief] = createSignal("");
-	const [agent, setAgent] = createSignal("");
-	const [model, setModel] = createSignal<string | null>(null);
-	const [effort, setEffort] = createSignal<string | null>(null);
-	const [busy, setBusy] = createSignal(false);
-	const [confirming, setConfirming] = createSignal(false);
-	const [error, setError] = createSignal<string | null>(null);
-
-	// Each opening starts from the role (or a blank one on the first agent).
-	createEffect(
-		() => props.open,
-		(open) => {
-			if (!open) return;
-			const role = untrack(() => props.target);
-			const first = untrack(() => props.agents[0]?.id ?? "");
-			setName(role?.name ?? "");
-			setIcon(role?.icon ?? "code");
-			setBrief(role?.brief ?? "");
-			setAgent(role?.provider ?? first);
-			setModel(role?.model ?? null);
-			setEffort(role?.effort ?? null);
-			setConfirming(false);
-			setError(null);
-		},
-	);
-
-	const provider = () => props.agents.find((item) => item.id === agent()) ?? null;
-	const models = () => provider()?.models ?? [];
-	const chosenModel = () =>
-		models().find((item) => item.id === model()) ??
-		models().find((item) => item.id === provider()?.settings?.model) ??
-		models()[0];
-	const efforts = () => chosenModel()?.efforts ?? [];
-	const chosenEffort = () =>
-		efforts().find((level) => level.id === effort())?.id ?? chosenModel()?.defaultEffort ?? null;
-
-	async function save(): Promise<void> {
-		if (!name().trim()) {
-			setError("Give the role a name");
-			return;
-		}
-		setBusy(true);
-		setError(null);
-		try {
-			await props.onSave({
-				name: name().trim(),
-				icon: icon(),
-				brief: brief().trim(),
-				provider: agent(),
-				// What was picked; unpicked stays the agent's default.
-				model: model(),
-				effort: effort(),
-				mode: props.target?.mode ?? null,
-			});
-			props.onClose();
-		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : "Could not save the role");
-		} finally {
-			setBusy(false);
-		}
-	}
-
-	return (
-		<Dialog
-			open={props.open}
-			onClose={props.onClose}
-			title={props.target ? `Edit ${props.target.name}` : "New role"}
-			width="28rem"
-		>
-			<form
-				class="flex flex-col gap-4"
-				onSubmit={(event) => {
-					event.preventDefault();
-					void save();
-				}}
-			>
-				<Field label="Name">
-					{(id) => (
-						<Input
-							id={id}
-							value={name()}
-							maxlength={40}
-							placeholder="Design engineer"
-							onInput={(event) => setName(event.currentTarget.value)}
-						/>
-					)}
-				</Field>
-				<RoleIconChoices label="Icon" value={icon()} onChange={setIcon} />
-				<Field
-					label="What this role does"
-					hint="The agent is given this when a thread starts as the role."
-				>
-					{(id) => (
-						<Textarea
-							id={id}
-							rows={3}
-							maxlength={2000}
-							value={brief()}
-							placeholder="Ships UI with the design tokens. Prefers small PRs with screenshots."
-							onInput={(event) => setBrief(event.currentTarget.value)}
-						/>
-					)}
-				</Field>
-				<Field label="Agent">
-					{() => (
-						<Select
-							label="Agent"
-							value={agent()}
-							onChange={(id) => {
-								setAgent(id);
-								setModel(null);
-								setEffort(null);
-							}}
-							groups={[{ options: agentOptions(props.agents) }]}
-						/>
-					)}
-				</Field>
-				<Show when={models().length > 0}>
-					<Field label="Model">
-						{() => (
-							<Select
-								label="Model"
-								value={chosenModel()?.id ?? ""}
-								onChange={(id) => {
-									setModel(id);
-									setEffort(null);
-								}}
-								groups={[{ options: modelOptions(models()) }]}
-							/>
-						)}
-					</Field>
-				</Show>
-				<Show when={efforts().length > 0}>
-					<EffortSlider
-						label="Reasoning effort"
-						levels={efforts()}
-						value={chosenEffort()}
-						onChange={setEffort}
-					/>
-				</Show>
-				<Show when={error()}>
-					{(message) => (
-						<Text size="caption" tone="danger">
-							{message()}
-						</Text>
-					)}
-				</Show>
-				<div class="flex flex-col-reverse gap-2 md:flex-row md:items-center">
-					<Show when={props.target && props.onDelete}>
-						<Button
-							variant="danger"
-							size="xl"
-							disabled={busy()}
-							onClick={async () => {
-								if (!confirming()) {
-									setConfirming(true);
-									return;
-								}
-								setBusy(true);
-								try {
-									await props.onDelete?.();
-									props.onClose();
-								} catch (cause) {
-									setError(cause instanceof Error ? cause.message : "Could not delete the role");
-								} finally {
-									setBusy(false);
-								}
-							}}
-						>
-							{confirming() ? "Delete — sure?" : "Delete role"}
-						</Button>
-					</Show>
-					<span class="hidden flex-1 md:block" />
-					<Button type="submit" variant="primary" size="xl" disabled={busy() || !agent()}>
-						{busy() ? "Saving…" : props.target ? "Save role" : "Create role"}
-					</Button>
-				</div>
-			</form>
-		</Dialog>
 	);
 }

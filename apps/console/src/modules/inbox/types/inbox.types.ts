@@ -8,7 +8,9 @@ export type InboxKind =
 	| "incident_open"
 	| "incident_resolved"
 	/** A spending limit nearly or fully used (Settings → Spending). */
-	| "budget";
+	| "budget"
+	/** A teammate's card: a plan to approve or done; or a lesson it wants to keep. */
+	| "teammate";
 
 /** One thing waiting on a person, across every project. */
 export type InboxItem = {

@@ -1,6 +1,14 @@
 import type { JSX } from "@solidjs/web";
 
-import { AlertIcon, CheckIcon, CloseIcon, type FeedTone, PullRequestIcon, ShieldIcon } from "@/kit";
+import {
+	AlertIcon,
+	CheckIcon,
+	CloseIcon,
+	type FeedTone,
+	PullRequestIcon,
+	ShieldIcon,
+	UserIcon,
+} from "@/kit";
 
 import type { InboxKind } from "../types/inbox.types";
 
@@ -56,5 +64,11 @@ export const KINDS: Record<
 		icon: () => <AlertIcon />,
 		state: "Spending limit",
 		open: "Open Spending",
+	},
+	teammate: {
+		tone: "violet",
+		icon: () => <UserIcon />,
+		state: "From a teammate",
+		open: "Open",
 	},
 };

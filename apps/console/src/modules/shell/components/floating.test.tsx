@@ -83,6 +83,7 @@ describe("floating sidebar", () => {
 			"Inbox",
 			"Threads",
 			"Board",
+			"Team",
 			"Files",
 			"Notes",
 			"Terminal",
@@ -105,7 +106,7 @@ describe("floating sidebar", () => {
 		const row = nav.querySelector(":scope > div") as HTMLElement;
 		expect(row.className).toContain("overflow-x-auto");
 		expect(row.className).toContain("scrollbar-none");
-		expect(row.querySelectorAll("a")).toHaveLength(11);
+		expect(row.querySelectorAll("a")).toHaveLength(12);
 		const body = nav.querySelector(":scope > div:last-child") as HTMLElement;
 		expect(body.className).toContain("overflow-y-auto");
 		expect(body.className).toContain("scrollbar-none");

@@ -47,8 +47,11 @@ import { rememberAgent } from "@/modules/chat/lib/agent-choice";
 import { draftsStore, taskDraft } from "@/modules/chat/stores/drafts";
 import { providersStore } from "@/modules/chat/stores/providers";
 import { rolesStore } from "@/modules/chat/stores/roles";
+import type { Role } from "@/modules/chat/types/chat.types";
 import { threadsStore } from "@/modules/chat/stores/threads";
 import { placementsStore, scopeFor } from "@/modules/environments";
+import { CardWork } from "@/modules/team/components/card-work";
+import { teamService } from "@/modules/team/services/team.service";
 
 import { useWorkspace } from "../context/workspace-context";
 import { relativeTime } from "../lib/relative-time";
@@ -157,6 +160,18 @@ function TaskFields(props: { task: Task }): JSX.Element {
 				{ value: "me", label: "Me", icon: <UserIcon size="sm" /> },
 			],
 		},
+		...(roles().length
+			? [
+					{
+						label: "Teammates",
+						options: roles().map((role) => ({
+							value: `agent:${role.name}`,
+							label: role.specialty ? `${role.name} · ${role.specialty}` : role.name,
+							icon: <RoleMark icon={role.icon ?? "code"} size="sm" />,
+						})),
+					},
+				]
+			: []),
 		...(agents().length
 			? [
 					{
@@ -165,18 +180,6 @@ function TaskFields(props: { task: Task }): JSX.Element {
 							value: `agent:${agent.name}`,
 							label: agent.name,
 							icon: <AgentLogo id={agent.id} name={agent.name} />,
-						})),
-					},
-				]
-			: []),
-		...(roles().length
-			? [
-					{
-						label: "Roles",
-						options: roles().map((role) => ({
-							value: `agent:${role.name}`,
-							label: role.name,
-							icon: <RoleMark icon={role.icon ?? "code"} size="sm" />,
 						})),
 					},
 				]
@@ -208,21 +211,57 @@ function TaskFields(props: { task: Task }): JSX.Element {
 	);
 
 	/** Send one changed field, then re-read the board. `restore` puts the field back on failure. */
-	async function save(input: UpdateTaskInput, restore: () => void): Promise<void> {
+	/** Saves a change to the task; true once it is saved. */
+	async function save(input: UpdateTaskInput, restore: () => void): Promise<boolean> {
 		const token = auth.token();
 		const slug = workspace.activeSlug();
-		if (!token || !slug) return;
+		if (!token || !slug) return false;
 
 		setError(null);
 		setSaveCount((count) => count + 1);
 		try {
 			await projectsService.updateTask(token, slug, props.task.number, input);
 			workspace.refreshTasks();
+			return true;
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : "Could not save the task");
 			restore();
+			return false;
 		} finally {
 			setSaveCount((count) => count - 1);
+		}
+	}
+
+	// The teammate the task is assigned to, when its owner names one; and a nudge for its work to
+	// be read again once the card was just given to it.
+	const teammate = () =>
+		ownerKind() === "agent"
+			? (roles().find((role) => role.name.toLowerCase() === ownerName().trim().toLowerCase()) ??
+				null)
+			: null;
+	const [workBump, setWorkBump] = createSignal(0);
+	/** A teammate that starts cards by itself starts on this one as soon as it is given it. */
+	async function startTeammate(role: Role): Promise<void> {
+		const token = auth.token();
+		const slug = workspace.activeSlug();
+		if (!token || !slug || !role.autoStart) return;
+		try {
+			await teamService.start(
+				token,
+				role.id,
+				slug,
+				{
+					number: props.task.number,
+					key: props.task.key,
+					title: props.task.title,
+					description: props.task.description ?? "",
+				},
+				scope(),
+			);
+			notify({ title: `${role.name} is on ${props.task.key}` });
+			setWorkBump((count) => count + 1);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : `${role.name} could not start`);
 		}
 	}
 
@@ -255,10 +294,13 @@ function TaskFields(props: { task: Task }): JSX.Element {
 		setOwnerKind(owner.ownerKind);
 		// Picking "A person" or "Another agent" keeps the name for typing; the rest name it.
 		if (owner.ownerName !== undefined) setOwnerName(owner.ownerName ?? "");
-		await save(owner, () => {
+		const saved = await save(owner, () => {
 			setOwnerKind(previous.kind);
 			setOwnerName(previous.name);
 		});
+		const role =
+			owner.ownerKind === "agent" ? roles().find((item) => item.name === owner.ownerName) : null;
+		if (saved && role) await startTeammate(role);
 	}
 
 	async function commitOwnerName(): Promise<void> {
@@ -512,6 +554,23 @@ function TaskFields(props: { task: Task }): JSX.Element {
 								placeholder="Context a teammate or an agent needs, in Markdown"
 								rows={6}
 							/>
+							<Show when={workspace.activeSlug()}>
+								{(slug) => (
+									<CardWork
+										project={slug()}
+										card={{
+											number: props.task.number,
+											key: props.task.key,
+											title: props.task.title,
+											description: props.task.description ?? "",
+										}}
+										teammate={teammate()}
+										team={roles()}
+										scope={scope()}
+										bump={workBump()}
+									/>
+								)}
+							</Show>
 							<ThreadDetailsCard>
 								<ThreadDetailsSection
 									title="Agent work"

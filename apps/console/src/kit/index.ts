@@ -55,6 +55,7 @@ export {
 	RadioCards,
 	type RadioOption,
 	Slider,
+	ToggleChips,
 } from "./choice";
 export { CodeEditor, type CodeEditorProps } from "./code-editor";
 export {

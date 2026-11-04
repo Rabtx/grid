@@ -12,10 +12,15 @@ import {
 	type MenuGroup,
 	MoreIcon,
 	type PopoverControl,
+	RoleMark,
 	TaskCard as KitTaskCard,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
 import { draftsStore, taskDraft } from "@/modules/chat/stores/drafts";
+import { rolesStore } from "@/modules/chat/stores/roles";
+import { placementsStore, scopeFor } from "@/modules/environments";
+import { RUN_STATE } from "@/modules/team/lib/run-state";
+import { cardRunsStore } from "@/modules/team/stores/card-runs";
 
 import { useWorkspace } from "../context/workspace-context";
 import { laneOf, laneStatus } from "../lib/board";
@@ -91,11 +96,17 @@ export function TaskCard(props: {
 			].join(", ")}
 			ownerMark={props.task.owner ? <OwnerMark task={props.task} /> : undefined}
 			tag={
-				// Its column holds more than one stage: say which one this is (Backlog, Blocked, QA).
-				laneStatus(laneOf(props.task.status)) !== props.task.status ? (
-					<CardChip tone={props.task.status === "blocked" ? "danger" : undefined}>
-						{TASK_STATUS_LABELS[props.task.status]}
-					</CardChip>
+				laneStatus(laneOf(props.task.status)) !== props.task.status ||
+				cardRunsStore.latest(workspace.activeSlug() ?? "", props.task.number) ? (
+					<>
+						{/* Its column holds more than one stage: say which one this is (Backlog, Blocked, QA). */}
+						<Show when={laneStatus(laneOf(props.task.status)) !== props.task.status}>
+							<CardChip tone={props.task.status === "blocked" ? "danger" : undefined}>
+								{TASK_STATUS_LABELS[props.task.status]}
+							</CardChip>
+						</Show>
+						<TeammateChip task={props.task} />
+					</>
 				) : undefined
 			}
 			meta={props.task.branch ?? undefined}
@@ -127,8 +138,48 @@ export function TaskCard(props: {
 	);
 }
 
+/** The teammates on the project's machine, for a card's owner and its teammate's state. */
+function useTeam() {
+	const workspace = useWorkspace();
+	return () => rolesStore.roles(scopeFor(placementsStore.environmentOf(workspace.activeSlug())));
+}
+
+/** What a teammate is doing on a card, as a chip: "Riley · Plan ready". */
+function TeammateChip(props: { task: Task }): JSX.Element {
+	const workspace = useWorkspace();
+	const team = useTeam();
+	const run = () => cardRunsStore.latest(workspace.activeSlug() ?? "", props.task.number);
+	return (
+		<Show when={run()}>
+			{(latest) => (
+				<CardChip
+					tone={
+						latest().state === "needs_you"
+							? "danger"
+							: latest().state === "plan_ready" ||
+								  latest().state === "working" ||
+								  latest().state === "planning"
+								? "accent"
+								: undefined
+					}
+				>
+					{team().find((role) => role.id === latest().teammateId)?.name ?? "Teammate"} ·{" "}
+					{RUN_STATE[latest().state].label}
+				</CardChip>
+			)}
+		</Show>
+	);
+}
+
 /** A task's owner as a small mark: an agent's logo, a person's initials, nothing when nobody. */
 export function OwnerMark(props: { task: Task }): JSX.Element {
+	const team = useTeam();
+	const mate = () =>
+		props.task.owner?.kind === "agent"
+			? team().find(
+					(role) => role.name.toLowerCase() === (props.task.owner?.name ?? "").toLowerCase(),
+				)
+			: undefined;
 	return (
 		<Show when={props.task.owner}>
 			{(owner) => (
@@ -140,7 +191,14 @@ export function OwnerMark(props: { task: Task }): JSX.Element {
 						when={owner().kind === "agent"}
 						fallback={<Avatar name={owner().name ?? "Someone"} size="xs" />}
 					>
-						<AgentLogo id={(owner().name ?? "").toLowerCase()} name={owner().name ?? "Agent"} />
+						<Show
+							when={mate()}
+							fallback={
+								<AgentLogo id={(owner().name ?? "").toLowerCase()} name={owner().name ?? "Agent"} />
+							}
+						>
+							{(role) => <RoleMark icon={role().icon} size="sm" />}
+						</Show>
 					</Show>
 				</span>
 			)}

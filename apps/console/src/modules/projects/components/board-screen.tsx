@@ -48,7 +48,9 @@ import {
 import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
 import { providersStore } from "@/modules/chat/stores/providers";
+import { rolesStore } from "@/modules/chat/stores/roles";
 import { threadsStore } from "@/modules/chat/stores/threads";
+import { cardRunsStore } from "@/modules/team/stores/card-runs";
 import { inboxStore } from "@/modules/inbox";
 import { ShellSlot } from "@/modules/shell";
 
@@ -93,8 +95,19 @@ export function BoardScreen(): JSX.Element {
 			if (!token || !project) return;
 			void threadsStore.reload(token, project);
 			void providersStore.load(token, where);
+			void rolesStore.load(token, where);
+			void cardRunsStore.read(token, project, where);
 		},
 	);
+	// What teammates are doing on the cards, read again while the board is open.
+	onSettled(() => {
+		const timer = setInterval(() => {
+			const token = auth.token();
+			const project = slug();
+			if (token && project) void cardRunsStore.read(token, project, scope());
+		}, 15_000);
+		return () => clearInterval(timer);
+	});
 	onSettled(() => threadsStore.watchRunning(() => auth.token()));
 	const working = createMemo(() =>
 		threadsStore.threads(slug() ?? "").filter((thread) => threadsStore.isRunning(thread.id)),

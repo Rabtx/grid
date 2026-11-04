@@ -162,6 +162,51 @@ export function ChoiceChips<T extends string>(props: {
 }
 
 /**
+ * Any of several, as chips that wrap, each on or off: a teammate's skills or connectors. With
+ * `hint`, an option says what it is under its name in the chip's tooltip.
+ */
+export function ToggleChips(props: {
+	label: string;
+	options: readonly { value: string; label: string; hint?: string; icon?: JSX.Element }[];
+	value: readonly string[];
+	onChange: (value: string[]) => void;
+	/** Named elsewhere (a field): the legend is for screen readers only. */
+	labelHidden?: boolean;
+}): JSX.Element {
+	const on = (value: string) => props.value.includes(value);
+	return (
+		<fieldset class="flex min-w-0 flex-col gap-2 border-0 p-0">
+			<legend class={props.labelHidden ? "sr-only" : "mb-2 font-medium text-body text-fg"}>
+				{props.label}
+			</legend>
+			<div class="flex flex-wrap gap-1.5">
+				<For each={props.options}>
+					{(option) => (
+						<button
+							type="button"
+							title={option.hint}
+							aria-pressed={on(option.value) ? "true" : "false"}
+							onClick={() => {
+								tap();
+								props.onChange(
+									on(option.value)
+										? props.value.filter((item) => item !== option.value)
+										: [...props.value, option.value],
+								);
+							}}
+							class="focus-ring inline-flex h-kit-control-sm max-w-full items-center gap-1.5 rounded-tile px-2 text-body text-fg-subtle ring-line-strong transition-colors duration-fast hover:text-fg aria-pressed:bg-accent/10 aria-pressed:text-accent pointer-coarse:h-10"
+						>
+							{option.icon}
+							<span class="truncate">{option.label}</span>
+						</button>
+					)}
+				</For>
+			</div>
+		</fieldset>
+	);
+}
+
+/**
  * A colour from a palette, "Automatic" first and a custom colour last: round swatches, the chosen
  * one ringed. `null` is automatic; a custom colour is a hex value.
  */

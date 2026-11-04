@@ -289,17 +289,20 @@ export function AutomationEditor(props: {
 						)}
 					</Show>
 					<Show when={props.roles.length}>
-						<Field label="Role" hint="Its brief goes with the instructions on every run.">
+						<Field
+							label="Teammate"
+							hint="Its brief, skills and lessons go with the instructions on every run."
+						>
 							{() => (
 								<Select
-									label="Role"
+									label="Teammate"
 									look="field"
 									value={form().options.role ?? ""}
 									onChange={(role) => option({ role: role || null })}
 									groups={[
 										{
 											options: [
-												{ value: "", label: "No role" },
+												{ value: "", label: "No teammate" },
 												...props.roles.map((role) => ({ value: role.id, label: role.name })),
 											],
 										},

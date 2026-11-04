@@ -20,6 +20,7 @@ import {
 	RailLink,
 	railItem,
 	TerminalIcon,
+	UserIcon,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
 import { inboxStore } from "@/modules/inbox";
@@ -58,6 +59,12 @@ export const VIEWS: readonly Destination[] = [
 		icon: () => <BoardIcon />,
 		href: (slug) => (slug ? `/board/${slug}` : "/board"),
 		match: "/board",
+	},
+	{
+		label: "Team",
+		icon: () => <UserIcon />,
+		href: () => "/team",
+		match: "/team",
 	},
 	{
 		label: "Files",
