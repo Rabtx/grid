@@ -121,19 +121,24 @@ export function AccountMenu(props: {
 							</Text>
 						</Stack>
 					</Row>
-					{/* The theme as one switch, not three rows. */}
-					<Segmented<Theme>
-						label="Theme"
-						block
-						size="sm"
-						value={appearance().theme}
-						onChange={(theme) => updateAppearance({ theme })}
-						options={THEMES.map((theme) => ({
-							value: theme.id,
-							label: theme.label,
-							icon: theme.icon(),
-						}))}
-					/>
+					{/* The theme as one small switch, not three rows. */}
+					<Row gap={2} class="justify-between">
+						<Text size="caption" tone="subtle">
+							Theme
+						</Text>
+						<Segmented<Theme>
+							label="Theme"
+							size="sm"
+							iconsOnly
+							value={appearance().theme}
+							onChange={(theme) => updateAppearance({ theme })}
+							options={THEMES.map((theme) => ({
+								value: theme.id,
+								label: theme.label,
+								icon: theme.icon(),
+							}))}
+						/>
+					</Row>
 				</Stack>
 			}
 			groups={[
