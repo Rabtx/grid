@@ -138,3 +138,55 @@ export class FileConflictError extends Error {
 export function isFileConflict(cause: unknown): cause is FileConflictError {
 	return cause instanceof FileConflictError;
 }
+
+/** Where a project stands in git, for its source control (Files → Source control). */
+export type SourceStatus = {
+	repo: boolean;
+	/** The project's folder is the top of its repository. */
+	top: boolean;
+	branch: string | null;
+	remote: { name: string; url: string } | null;
+	upstream: string | null;
+	ahead: number;
+	behind: number;
+	commits: boolean;
+	identity: { name: string | null; email: string | null };
+	recent: { sha: string; subject: string; author: string; at: string }[];
+	changes: (FileChange & { from?: string })[];
+};
+/** One file's diff against the last commit; null when binary or too large. */
+export type SourceDiff = { path: string; diff: string | null; tooLarge: boolean; binary: boolean };
+
+const sourcePath = (project: string, action = "") =>
+	`${placementsStore.scopeOf(project)}/projects/files/${project}/source${action ? `/${action}` : ""}`;
+const post = (body: unknown = {}) => ({ method: "POST", body: JSON.stringify(body) });
+
+/** A project's source control: status, diffs, starting git, committing, a message, pushing. */
+export const sourceService = {
+	status: (token: string, project: string) => runnerCall<SourceStatus>(sourcePath(project), token),
+	diff: (token: string, project: string, path: string) =>
+		runnerCall<SourceDiff>(
+			`${sourcePath(project, "diff")}?path=${encodeURIComponent(path)}`,
+			token,
+		),
+	init: (token: string, project: string) =>
+		runnerCall<SourceStatus>(sourcePath(project, "init"), token, post()),
+	commit: (
+		token: string,
+		project: string,
+		input: { paths: string[]; message: string; author?: { name: string; email: string } },
+	) =>
+		runnerCall<{ commit: { sha: string; subject: string }; status: SourceStatus }>(
+			sourcePath(project, "commit"),
+			token,
+			post(input),
+		),
+	message: (token: string, project: string, paths: string[]) =>
+		runnerCall<{ message: string; agent: string }>(
+			sourcePath(project, "message"),
+			token,
+			post({ paths }),
+		),
+	push: (token: string, project: string) =>
+		runnerCall<SourceStatus>(sourcePath(project, "push"), token, post()),
+};

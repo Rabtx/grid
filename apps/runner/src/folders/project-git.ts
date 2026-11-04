@@ -14,6 +14,8 @@ export type FileChange = {
 	/** Lines added and removed, when git can count them. */
 	added: number | null;
 	removed: number | null;
+	/** A rename's old path, so committing the rename takes the removal with it. */
+	from?: string;
 };
 
 /**
@@ -86,7 +88,7 @@ export function agentOf(
 /** The co-author trailers, NUL-free and one per entry, as `%(trailers…)` printed them. */
 const TRAILERS = "%(trailers:key=Co-authored-by,valueonly,separator=%x1d)";
 
-async function git(cwd: string, args: string[]): Promise<{ ok: boolean; out: string }> {
+export async function git(cwd: string, args: string[]): Promise<{ ok: boolean; out: string }> {
 	try {
 		const child = Bun.spawn(["git", "-C", cwd, ...args], {
 			stdout: "pipe",
@@ -164,7 +166,7 @@ export async function projectGit(root: string, prefix: string): Promise<ProjectG
 			const kind = STATUS[code] ?? "modified";
 			const full = record.slice(3);
 			// A rename's old path follows as its own record.
-			if (record[0] === "R" || record[0] === "C") index++;
+			const old = record[0] === "R" || record[0] === "C" ? records[++index] : undefined;
 			if (!full.startsWith(prefix)) continue;
 			const path = full.slice(prefix.length);
 			if (!path) continue;
@@ -174,6 +176,7 @@ export async function projectGit(root: string, prefix: string): Promise<ProjectG
 				status: kind,
 				added: counted?.added ?? null,
 				removed: counted?.removed ?? null,
+				...(record[0] === "R" && old?.startsWith(prefix) ? { from: old.slice(prefix.length) } : {}),
 			});
 		}
 	}

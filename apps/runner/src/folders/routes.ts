@@ -219,7 +219,7 @@ export async function folderRequest(
  * A change not committed yet, and the agent that made it when an agent was the last to edit: when,
  * and the thread it was working in.
  */
-type AttributedChange = FileChange & {
+export type AttributedChange = FileChange & {
 	agent: string | null;
 	editedAt: string | null;
 	thread: { id: string; title: string | null } | null;
@@ -229,7 +229,7 @@ type AttributedChange = FileChange & {
  * Says which changes an agent made: a file an agent edited after the checked-out commit was
  * made is that agent's change. Edits before it were committed (or undone) since.
  */
-async function byAgents(
+export async function byAgents(
 	hub: ChatHub,
 	workspace: string,
 	root: string,
@@ -261,7 +261,7 @@ async function byAgents(
 	});
 }
 
-function linkedRoot(
+export function linkedRoot(
 	hub: ChatHub,
 	userId: string,
 	project: string,

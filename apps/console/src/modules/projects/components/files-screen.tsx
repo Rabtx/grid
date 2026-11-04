@@ -12,7 +12,9 @@ import {
 	BlameLines,
 	BranchIcon,
 	Button,
+	ButtonLink,
 	ChevronRightIcon,
+	Count,
 	CodeAskAction,
 	CodeAskBar,
 	CodeLines,
@@ -43,6 +45,7 @@ import {
 	Menu,
 	type MenuGroup,
 	MoreIcon,
+	NavLink,
 	NavNote,
 	notify,
 	PlusIcon,
@@ -86,6 +89,7 @@ import {
 } from "../services/files.service";
 
 import { FileEditor } from "./file-editor";
+import { SourceControl } from "./source-control";
 
 const NEEDS_FOLDER = "Choose this project's folder";
 
@@ -369,6 +373,9 @@ function FilesView(): JSX.Element {
 		const text = query.toString();
 		return workspaceHref(`/files/${slug()}${text ? `?${text}` : ""}`);
 	};
+	/** Source control is open in place of the folder (`?show=source`). */
+	const sourceOpen = () => !file() && search.show === "source";
+	const sourceHref = () => workspaceHref(`/files/${slug()}?show=source`);
 	const machine = () =>
 		environmentsStore.labelOf(placementsStore.environmentOf(slug())) ?? "This machine";
 
@@ -402,6 +409,15 @@ function FilesView(): JSX.Element {
 						</span>
 					</Show>
 				</div>
+				<Show when={!rootError()}>
+					<NavLink
+						href={sourceHref()}
+						icon={<BranchIcon />}
+						label="Source control"
+						current={sourceOpen()}
+						trailing={changes().length > 0 ? <Count quiet>{changes().length}</Count> : undefined}
+					/>
+				</Show>
 				<Show
 					when={!rootError()}
 					fallback={
@@ -504,22 +520,35 @@ function FilesView(): JSX.Element {
 				<Show
 					when={file()}
 					fallback={
-						<FolderView
-							slug={slug()}
-							path={dir()}
-							name={dir() ? baseName(dir()) : (project()?.name ?? slug())}
-							entries={listings().get(dir())}
-							error={errors().get(dir()) ?? null}
-							changes={changesIn(changes(), dir())}
-							lasts={lasts()}
-							branch={repo()?.branch ?? null}
-							inGit={repo() !== null && repo() !== undefined}
-							show={search.show === "changed" || search.show === "mine" ? search.show : "all"}
-							onShow={(show) =>
-								setSearch({ show: show === "all" ? undefined : show }, { replace: true })
+						<Show
+							when={!sourceOpen()}
+							fallback={
+								<SourceControl
+									slug={slug()}
+									name={project()?.name ?? slug()}
+									fileHref={(path) => href({ file: path })}
+									onChanged={() => refresh(dir())}
+								/>
 							}
-							href={href}
-						/>
+						>
+							<FolderView
+								slug={slug()}
+								path={dir()}
+								name={dir() ? baseName(dir()) : (project()?.name ?? slug())}
+								entries={listings().get(dir())}
+								error={errors().get(dir()) ?? null}
+								changes={changesIn(changes(), dir())}
+								lasts={lasts()}
+								branch={repo()?.branch ?? null}
+								inGit={repo() !== null && repo() !== undefined}
+								show={search.show === "changed" || search.show === "mine" ? search.show : "all"}
+								onShow={(show) =>
+									setSearch({ show: show === "all" ? undefined : show }, { replace: true })
+								}
+								href={href}
+								sourceHref={sourceHref()}
+							/>
+						</Show>
 					}
 				>
 					{(path) => (
@@ -640,6 +669,8 @@ function FolderView(props: {
 	show: FolderShow;
 	onShow: (show: FolderShow) => void;
 	href: (params: { file?: string; dir?: string }) => string;
+	/** The project's source control: commit, view changes, push (or start git). */
+	sourceHref: string;
 }): JSX.Element {
 	const auth = useAuth();
 	const scope = () => {
@@ -807,6 +838,9 @@ function FolderView(props: {
 							]}
 						/>
 					</Show>
+					<ButtonLink href={props.sourceHref} icon={<BranchIcon />}>
+						{props.inGit ? "Commit" : "Start git"}
+					</ButtonLink>
 				</div>
 
 				<Show when={props.error}>{(text) => <Alert tone="danger" title={text()} />}</Show>

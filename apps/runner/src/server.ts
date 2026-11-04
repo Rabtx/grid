@@ -54,6 +54,7 @@ import { RELAYED_SOCKETS, relayHttp, SocketRelay } from "./environments/relay";
 import { type EnvironmentDeps, environmentRequest, pairRequest } from "./environments/routes";
 import { insideProjectsDir } from "./folders/folders";
 import { folderRequest } from "./folders/routes";
+import { sourceRequest } from "./folders/source-routes";
 import type { CodespacesLink } from "./github/codespaces";
 import type { PullRequests } from "./github/pulls";
 import { githubRequest } from "./github/routes";
@@ -552,6 +553,8 @@ export function startServer(
 				if (url.pathname.startsWith("/fs/") || url.pathname.startsWith("/projects/")) {
 					const who = await whoFrom(request, "Sign in to browse folders");
 					if (who instanceof Response) return who;
+					const source = await sourceRequest(request, url, who, chat, config.projectsDir);
+					if (source) return source;
 					const handled = await folderRequest(
 						request,
 						url,

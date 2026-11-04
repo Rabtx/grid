@@ -1,4 +1,5 @@
 import type { JSX } from "@solidjs/web";
+import { createEffect } from "solid-js";
 
 import { tap } from "./haptics";
 
@@ -36,6 +37,14 @@ export function Checkbox(props: {
 	onChange: (checked: boolean) => void;
 	indeterminate?: boolean;
 }): JSX.Element {
+	let input: HTMLInputElement | undefined;
+	// A property, not an attribute: kept in step as it changes ("some chosen" turning to "all").
+	createEffect(
+		() => props.indeterminate ?? false,
+		(on) => {
+			if (input) input.indeterminate = on;
+		},
+	);
 	return (
 		<span class="relative inline-grid size-4 shrink-0 place-items-center">
 			<input
@@ -43,7 +52,7 @@ export function Checkbox(props: {
 				aria-label={props.label}
 				checked={props.checked}
 				ref={(el) => {
-					el.indeterminate = props.indeterminate ?? false;
+					input = el;
 				}}
 				onChange={(event) => {
 					tap();
