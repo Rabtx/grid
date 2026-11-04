@@ -10,7 +10,7 @@ const STORAGE_KEY = "grid.workspace";
  * Top-level pages that belong to no workspace: signing in, first-run setup, invites, the kit, and
  * where a connector's sign-in comes back to.
  */
-const OUTSIDE = new Set([
+export const OUTSIDE: ReadonlySet<string> = new Set([
 	"login",
 	"setup",
 	"invite",
@@ -20,20 +20,30 @@ const OUTSIDE = new Set([
 	"oauth",
 	"guest",
 ]);
-/** The console's own sections, as links from before workspaces spelled them. */
-const SECTIONS = new Set([
+/**
+ * The console's own sections: a path starting with one is a page in the current workspace, not a
+ * workspace's name. Links without a workspace come from notifications, the Inbox, links people
+ * copied and links from before workspaces; each must open its page. Every top-level route in
+ * `app.tsx` is here or in `OUTSIDE` (a test holds them to it).
+ */
+export const SECTIONS: ReadonlySet<string> = new Set([
+	"home",
+	"inbox",
 	"chat",
 	"thread",
 	"board",
 	"files",
 	"notes",
+	"memory",
 	"terminal",
+	"pulls",
+	"ship",
+	"operate",
+	"automations",
+	"team",
 	"settings",
 	"machines",
 	"agents",
-	"operate",
-	// The team, as teammates' Inbox items link to it.
-	"team",
 ]);
 
 function readStored(): string | null {

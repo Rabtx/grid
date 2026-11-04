@@ -1,6 +1,6 @@
 export { BoardScreen } from "./components/board-screen";
 export { NewTaskDialog } from "./components/new-task-dialog";
-export { ProjectRedirect } from "./components/project-redirect";
+export { ProjectRedirect, type ProjectSection } from "./components/project-redirect";
 export {
 	AddProjectSheet,
 	ChooseFolderSheet,

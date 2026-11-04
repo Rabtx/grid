@@ -10,7 +10,18 @@ import { useWorkspace } from "../context/workspace-context";
  * `/` and `/board` have no project of their own: open the current one (last used, else first) —
  * its chats from `/`, its board from `/board`.
  */
-export function ProjectRedirect(props: { to: "chat" | "board" }): JSX.Element {
+/** The project pages a link can name without a project: opened in the current one. */
+export type ProjectSection =
+	| "chat"
+	| "board"
+	| "files"
+	| "notes"
+	| "memory"
+	| "pulls"
+	| "ship"
+	| "operate";
+
+export function ProjectRedirect(props: { to: ProjectSection }): JSX.Element {
 	const workspace = useWorkspace();
 	const navigate = useNavigate();
 
@@ -18,7 +29,7 @@ export function ProjectRedirect(props: { to: "chat" | "board" }): JSX.Element {
 		() => workspace.currentSlug(),
 		(slug) => {
 			if (!slug) return;
-			navigate(props.to === "board" ? `/board/${slug}` : workspace.projectHref(slug), {
+			navigate(props.to === "chat" ? workspace.projectHref(slug) : `/${props.to}/${slug}`, {
 				replace: true,
 			});
 		},

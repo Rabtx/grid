@@ -4,8 +4,10 @@ import { lazy, Loading, onSettled, Show } from "solid-js";
 
 import { EmptyState, Text, TextLink } from "@/kit";
 import { AuthProvider } from "@/modules/auth";
+import type { ProjectSection } from "@/modules/projects";
 import { TERMINALS_NOT_ALLOWED, useTerminalAccess } from "@/modules/workspaces";
 
+import { workspaceHref } from "./lib/active-workspace";
 import { workspaceHistory } from "./lib/workspace-history";
 
 import { AppShell } from "./routes/app-shell";
@@ -143,6 +145,12 @@ const Router = createRouter({
 		{ path: "/automations/:id?", component: () => <Authed screen={AutomationsScreen} /> },
 		{ path: "/team/:id?", component: () => <Authed screen={TeamScreen} /> },
 		{ path: "/board", component: RedirectRoute },
+		{ path: "/files", component: sectionRedirect("files") },
+		{ path: "/notes", component: sectionRedirect("notes") },
+		{ path: "/memory", component: sectionRedirect("memory") },
+		{ path: "/pulls", component: sectionRedirect("pulls") },
+		{ path: "/ship", component: sectionRedirect("ship") },
+		{ path: "/operate", component: sectionRedirect("operate") },
 		{ path: "/board/:slug", component: BoardRoute },
 		{ path: "/files/:slug", component: FilesRoute },
 		// A project's notes; the open one (or `new`) after it.
@@ -287,14 +295,18 @@ function Moved(props: { to: string }): JSX.Element {
 	return null;
 }
 
-function RedirectRoute(): JSX.Element {
-	return (
+/** A project page named without its project (`/ship`, an old link): the current project's. */
+function sectionRedirect(to: ProjectSection): () => JSX.Element {
+	return () => (
 		<RequireAuth>
 			<Loading fallback={null}>
-				<ProjectRedirect to="board" />
+				<ProjectRedirect to={to} />
 			</Loading>
 		</RequireAuth>
 	);
+}
+function RedirectRoute(): JSX.Element {
+	return sectionRedirect("board")();
 }
 
 function BoardRoute(): JSX.Element {
@@ -472,7 +484,7 @@ function NotFoundRoute(): JSX.Element {
 		<EmptyState
 			title="That page does not exist"
 			action={
-				<TextLink tone="accent" href="/">
+				<TextLink tone="accent" href={workspaceHref("/board")}>
 					Go to your board
 				</TextLink>
 			}
