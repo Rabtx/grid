@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 
+import { BACKDROP_EDGE_EVENT, backdropEdgeColor } from "./backdrop";
 import { registerCommand } from "./keybindings";
 
 /**
@@ -202,15 +203,47 @@ export function canvasColor(value: Appearance, prefersDark: boolean): string {
 	return `#${[0, 8, 4].map((offset) => channel(offset).toString(16).padStart(2, "0")).join("")}`;
 }
 
+/** `a` over `b` at `amount` (0–1), as `#rrggbb`. */
+export function mixHex(a: string, b: string, amount: number): string {
+	const parse = (hex: string) =>
+		[1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16) || 0);
+	const [x, y] = [parse(a), parse(b)];
+	return `#${x
+		.map((channel, index) =>
+			Math.round(channel * amount + (y[index] ?? 0) * (1 - amount))
+				.toString(16)
+				.padStart(2, "0"),
+		)
+		.join("")}`;
+}
+
+let lastThemed: Appearance | null = null;
+
+/**
+ * The browser's and an installed app's bar colour (`theme-color`): the canvas, or — with a
+ * background image behind the whole app — the picture's top edge under the veil, as the app shows it.
+ */
 function syncThemeColor(value: Appearance): void {
-	const color = canvasColor(
+	lastThemed = value;
+	const canvas = canvasColor(
 		value,
 		window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false,
 	);
+	const edge = backdropEdgeColor();
+	const behindApp =
+		value.backdrop === "app" &&
+		document.documentElement.getAttribute("data-backdrop-image") === "on";
+	const color = behindApp && edge ? mixHex(canvas, edge, value.backdropOpacity / 100) : canvas;
 	document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((meta) => {
 		meta.content = color;
 	});
 }
+
+// The image's colour is read after the image is shown: colour the bar again once it is known.
+if (typeof document !== "undefined")
+	document.addEventListener(BACKDROP_EDGE_EVENT, () => {
+		if (lastThemed) syncThemeColor(lastThemed);
+	});
 
 /** Write an appearance onto the document root as the variables and classes the tokens read. */
 export function applyAppearance(

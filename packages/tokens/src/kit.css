@@ -64,8 +64,11 @@
 	--kit-surface: var(--canvas);
 	--kit-surface-sunken: var(--backdrop);
 	/* Figma bg/field: what you type into, a step below the card (#f5f5f5 / #141414). */
-	--kit-field: var(--backdrop);
-	--kit-surface-raised: var(--canvas);
+	--kit-field-solid: var(--backdrop);
+	--kit-field: var(--kit-field-solid);
+	/* The `-solid` values are what floating layers keep when a background image shows through. */
+	--kit-surface-raised-solid: var(--canvas);
+	--kit-surface-raised: var(--kit-surface-raised-solid);
 	--kit-inverse: var(--primary-fill);
 	--kit-inverse-fg: var(--primary-ink);
 	--kit-accent: var(--signal-accent);
@@ -164,8 +167,8 @@
 		--kit-fill-strength: 3.3%;
 		--kit-fill-strong-strength: 6%;
 		--kit-line-hover-strength: 26%;
-		--kit-surface-raised: color-mix(in srgb, var(--ink) 6%, var(--canvas));
-		--kit-field: var(--canvas);
+		--kit-surface-raised-solid: color-mix(in srgb, var(--ink) 6%, var(--canvas));
+		--kit-field-solid: var(--canvas);
 		--kit-highlight-on: rgb(255 255 255 / 0.06);
 	}
 }
@@ -180,8 +183,8 @@
 	--kit-fill-strength: 3.3%;
 	--kit-fill-strong-strength: 6%;
 	--kit-line-hover-strength: 26%;
-	--kit-surface-raised: color-mix(in srgb, var(--ink) 6%, var(--canvas));
-	--kit-field: var(--canvas);
+	--kit-surface-raised-solid: color-mix(in srgb, var(--ink) 6%, var(--canvas));
+	--kit-field-solid: var(--canvas);
 	--kit-highlight-on: rgb(255 255 255 / 0.06);
 }
 

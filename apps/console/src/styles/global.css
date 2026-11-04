@@ -601,8 +601,26 @@ html[data-motion="reduced"] *::after {
 :root[data-backdrop-image="on"][data-backdrop="sidebar"] .backdrop-sidebar {
 	background-color: transparent;
 }
-/* Everything: cards and panels let the veiled picture through as well. */
+/*
+ * Everything: the veil alone keeps text legible, so what lies on it adds only a tint, never a
+ * second veil (two layers at 78% hide 95% of the picture, which read as solid). The screen and its
+ * bars are the veil itself; raised things (cards, the composer) and fields are a light tint of
+ * their own colour, as see-through as the veil allows. The opacity slider moves all of them.
+ */
 :root[data-backdrop-image="on"][data-backdrop="app"] {
-	--kit-surface: color-mix(in srgb, var(--canvas) var(--backdrop-opacity), transparent);
-	--kit-surface-sunken: color-mix(in srgb, var(--backdrop) var(--backdrop-opacity), transparent);
+	--kit-surface: transparent;
+	--kit-surface-sunken: color-mix(in srgb, var(--backdrop) calc(var(--backdrop-opacity) * 0.3), transparent);
+	--kit-surface-raised: color-mix(
+		in srgb,
+		var(--kit-surface-raised-solid) calc(var(--backdrop-opacity) * 0.45),
+		transparent
+	);
+	--kit-field: color-mix(in srgb, var(--kit-field-solid) calc(var(--backdrop-opacity) * 0.5), transparent);
+}
+/* Menus, dialogs, sheets and drawers float over the content: they stay solid to be read. */
+:root[data-backdrop-image="on"][data-backdrop="app"] :is(dialog, [popover]) {
+	--kit-surface: var(--canvas);
+	--kit-surface-sunken: var(--backdrop);
+	--kit-surface-raised: var(--kit-surface-raised-solid);
+	--kit-field: var(--kit-field-solid);
 }

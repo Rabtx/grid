@@ -20,6 +20,39 @@ const [has, setHas] = createSignal(false);
 export const hasBackdropImage = has;
 
 let url: string | null = null;
+let edge: string | null = null;
+
+/** Sent on `document` once the image's top-edge colour is known (or gone). */
+export const BACKDROP_EDGE_EVENT = "grid:backdrop-edge";
+
+/**
+ * The average colour along the top of the background image (`#rrggbb`), once read; null without
+ * an image. A phone's status bar takes it (with the veil over it), so the bar above the app is the
+ * picture's colour, not a solid block.
+ */
+export function backdropEdgeColor(): string | null {
+	return edge;
+}
+
+/** The mean colour of the top sixteenth of an image, drawn down to one pixel. */
+async function readEdge(image: Blob): Promise<string | null> {
+	if (typeof createImageBitmap !== "function") return null;
+	try {
+		const bitmap = await createImageBitmap(image);
+		const canvas = document.createElement("canvas");
+		canvas.width = 1;
+		canvas.height = 1;
+		const context = canvas.getContext("2d");
+		if (!context) return null;
+		context.drawImage(bitmap, 0, 0, bitmap.width, Math.max(1, bitmap.height / 16), 0, 0, 1, 1);
+		bitmap.close();
+		const [r = 0, g = 0, b = 0] = context.getImageData(0, 0, 1, 1).data;
+		return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+	} catch (cause) {
+		console.warn("Could not read the background image's colour", cause);
+		return null;
+	}
+}
 
 function open(): Promise<IDBDatabase | null> {
 	if (typeof indexedDB === "undefined") return Promise.resolve(null);
@@ -60,6 +93,18 @@ export function applyBackdropImage(
 	else root.style.removeProperty("--backdrop-image");
 	root.setAttribute("data-backdrop-image", url ? "on" : "off");
 	setHas(Boolean(url));
+	edge = null;
+	const current = url;
+	const announce = () => document.dispatchEvent(new Event(BACKDROP_EDGE_EVENT));
+	if (!image) {
+		announce();
+		return;
+	}
+	void readEdge(image).then((color) => {
+		if (url !== current) return;
+		edge = color;
+		announce();
+	});
 }
 
 /** Scale an image down to what a background needs, as a JPEG. */

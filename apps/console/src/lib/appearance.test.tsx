@@ -2,11 +2,12 @@ import { flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
-	APPEARANCE_DEFAULTS,
 	appearance,
+	APPEARANCE_DEFAULTS,
 	applyAppearance,
 	canvasColor,
 	installScaleShortcuts,
+	mixHex,
 	normalizeAppearance,
 	readableInk,
 	resetAppearance,
@@ -245,5 +246,13 @@ describe("installScaleShortcuts", () => {
 		press("=");
 		expect(scale()).toBe(1);
 		stop();
+	});
+});
+
+describe("the bar colour over a background image", () => {
+	it("lays the canvas over the picture's edge as solid as the veil", () => {
+		expect(mixHex("#141414", "#ffffff", 1)).toBe("#141414");
+		expect(mixHex("#141414", "#ffffff", 0)).toBe("#ffffff");
+		expect(mixHex("#000000", "#ffffff", 0.5)).toBe("#808080");
 	});
 });
