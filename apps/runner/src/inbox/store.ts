@@ -104,6 +104,10 @@ export class InboxStore {
 				owner_id TEXT
 			);
 			CREATE INDEX IF NOT EXISTS inbox_by_workspace ON inbox_items (workspace_id, created_at);
+			CREATE TABLE IF NOT EXISTS inbox_removed (
+				id TEXT PRIMARY KEY,
+				removed_at TEXT NOT NULL
+			);
 		`);
 		const columns = this.db.query<{ name: string }, []>("PRAGMA table_info(inbox_items)").all();
 		if (!columns.some((column) => column.name === "owner_id")) {
@@ -116,6 +120,8 @@ export class InboxStore {
 	 * stays read: the person dealt with it, and the same event asking again would be noise.
 	 */
 	keep(draft: InboxDraft): void {
+		// Deleted by a person: the same event arriving again (a GitHub refresh) stays deleted.
+		if (this.db.query("SELECT 1 FROM inbox_removed WHERE id = ?").get(draft.id)) return;
 		this.db
 			.query(
 				`INSERT INTO inbox_items (id, workspace_id, kind, project, title, body, url, created_at, owner_id)
@@ -187,6 +193,44 @@ export class InboxStore {
 					.query(`UPDATE inbox_items SET read_at = ? WHERE ${VISIBLE} AND read_at IS NULL`)
 					.run(now, workspaceId, viewer);
 		return result.changes;
+	}
+
+	/**
+	 * Deletes items this person can see: the ones named, or every read one with `read`. They stay
+	 * deleted if the same event is kept again. How many went.
+	 */
+	remove(
+		workspaceId: string,
+		viewer: string,
+		which: { ids?: readonly string[]; read?: boolean },
+	): number {
+		return this.db.transaction(() => {
+			const ids = which.read
+				? this.db
+						.query<{ id: string }, [string, string]>(
+							`SELECT id FROM inbox_items WHERE ${VISIBLE} AND read_at IS NOT NULL`,
+						)
+						.all(workspaceId, viewer)
+						.map((row) => row.id)
+				: [...(which.ids ?? [])];
+			const now = new Date().toISOString();
+			let removed = 0;
+			for (const id of ids) {
+				const gone = this.db
+					.query(`DELETE FROM inbox_items WHERE ${VISIBLE} AND id = ?`)
+					.run(workspaceId, viewer, id).changes;
+				if (!gone) continue;
+				removed += gone;
+				this.db
+					.query("INSERT OR REPLACE INTO inbox_removed (id, removed_at) VALUES (?, ?)")
+					.run(id, now);
+			}
+			// What was deleted long ago cannot come back as the same event: forget it.
+			this.db
+				.query("DELETE FROM inbox_removed WHERE removed_at < ?")
+				.run(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
+			return removed;
+		})();
 	}
 
 	/**

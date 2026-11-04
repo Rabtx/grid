@@ -1,5 +1,8 @@
 import type { JSX } from "@solidjs/web";
-import { createUniqueId, Show } from "solid-js";
+import { createUniqueId, onSettled, Show } from "solid-js";
+
+import { attachContextMenu } from "./context-menu";
+import { CheckIcon } from "./icons";
 
 import { variants } from "./variants";
 
@@ -67,17 +70,49 @@ export function FeedRow(props: {
 	/** Below the text: a row's own actions (Open diff, Review) on phones. */
 	footer?: JSX.Element;
 	onClick: () => void;
+	/**
+	 * Picking rows to act on many at once: the tile turns into a check, and a tap toggles the row
+	 * instead of opening it.
+	 */
+	selecting?: boolean;
+	selected?: boolean;
+	/** A quiet action at the right, shown under the pointer (Delete); not on touch. */
+	action?: JSX.Element;
+	/** A long press on touch (and right-click): starts picking rows, from this one. */
+	onLongPress?: () => void;
 }): JSX.Element {
+	let frame: HTMLDivElement | undefined;
+	onSettled(() => {
+		const press = props.onLongPress;
+		return frame && press ? attachContextMenu(frame, () => press()) : undefined;
+	});
 	return (
-		<div class="rounded-kit transition-colors duration-fast hover:bg-fill-strong has-[[aria-current=true]]:bg-selection">
+		<div
+			ref={(el) => {
+				frame = el;
+			}}
+			class="group/feed relative rounded-kit transition-colors duration-fast hover:bg-fill-strong has-[[aria-current=true]]:bg-selection has-[[aria-checked=true]]:bg-selection"
+		>
 			<button
 				type="button"
 				aria-current={props.current ? "true" : undefined}
+				aria-checked={props.selecting ? (props.selected ? "true" : "false") : undefined}
+				role={props.selecting ? "checkbox" : undefined}
+				aria-label={props.selecting ? props.title : undefined}
 				data-feed-id={props.id}
 				onClick={() => props.onClick()}
 				class="focus-ring flex w-full min-w-0 items-start gap-3 rounded-kit p-3 text-left"
 			>
-				<ToneTile tone={props.tone}>{props.icon}</ToneTile>
+				<Show when={props.selecting} fallback={<ToneTile tone={props.tone}>{props.icon}</ToneTile>}>
+					<span
+						aria-hidden="true"
+						class={`grid size-8 shrink-0 place-items-center rounded-full transition-colors duration-fast [&_svg]:size-4 ${props.selected ? "bg-inverse text-inverse-fg" : "ring-line-strong"}`}
+					>
+						<Show when={props.selected}>
+							<CheckIcon />
+						</Show>
+					</span>
+				</Show>
 				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 					<span class="flex min-w-0 items-baseline gap-2">
 						<span class="min-w-0 flex-1 truncate font-medium text-body text-fg">{props.title}</span>
@@ -97,6 +132,11 @@ export function FeedRow(props: {
 					</Show>
 				</span>
 			</button>
+			<Show when={props.action && !props.selecting}>
+				<div class="absolute top-2 right-2 hidden pointer-fine:group-hover/feed:block pointer-fine:group-focus-within/feed:block">
+					{props.action}
+				</div>
+			</Show>
 			<Show when={props.footer}>
 				<div class="flex gap-2 pr-3 pb-3 pl-13">{props.footer}</div>
 			</Show>

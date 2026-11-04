@@ -24,6 +24,8 @@ let latestLoad = 0;
  * does not put back what it replaced.
  */
 let version = 0;
+/** Items deleted from here this visit: a list read while they went is not to bring them back. */
+const removedHere = new Set<string>();
 /**
  * What was marked read here while a list was being read, applied again to its answer: the runner
  * may have answered before it heard, and the person's own tap should not come undone.
@@ -116,7 +118,9 @@ export const inboxStore = {
 				if (answered.length === 0) {
 					setError(answers[0]?.reason ?? "The inbox did not answer");
 				} else {
-					let next = newestFirst(answered.flatMap((answer) => answer.view?.items ?? []));
+					let next = newestFirst(answered.flatMap((answer) => answer.view?.items ?? [])).filter(
+						(item) => !removedHere.has(item.id),
+					);
 					for (const matches of readWhileLoading) next = markRead(next, matches);
 					const readHere = readWhileLoading.length > 0;
 					version += 1;
@@ -194,6 +198,33 @@ export const inboxStore = {
 	async readItem(token: string, id: string): Promise<void> {
 		markReadLocally((row) => row.id === id);
 		await Promise.all(untrack(placementsStore.scopes).map((scope) => ask(token, scope, { id })));
+		await inboxStore.count(token);
+	},
+
+	/** Deletes items, here at once and on every machine they could be on. */
+	async remove(token: string, ids: readonly string[]): Promise<void> {
+		const gone = new Set(ids);
+		for (const id of gone) removedHere.add(id);
+		version += 1;
+		setItems(untrack(items).filter((item) => !gone.has(item.id)));
+		await Promise.all(
+			untrack(placementsStore.scopes).map((scope) =>
+				inboxService.remove(token, { ids: [...gone] }, scope).catch(() => null),
+			),
+		);
+		await inboxStore.count(token);
+	},
+
+	/** Deletes everything already dealt with. */
+	async clearDone(token: string): Promise<void> {
+		for (const item of untrack(items)) if (item.readAt !== null) removedHere.add(item.id);
+		version += 1;
+		setItems(untrack(items).filter((item) => item.readAt === null));
+		await Promise.all(
+			untrack(placementsStore.scopes).map((scope) =>
+				inboxService.remove(token, { read: true }, scope).catch(() => null),
+			),
+		);
 		await inboxStore.count(token);
 	},
 

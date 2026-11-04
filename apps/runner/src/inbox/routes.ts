@@ -23,6 +23,7 @@ const METHODS: Record<string, string> = {
 	"/inbox": "GET",
 	"/inbox/unread": "GET",
 	"/inbox/read": "POST",
+	"/inbox/remove": "POST",
 };
 
 /**
@@ -70,6 +71,17 @@ export async function inboxRequest(
 		const changed =
 			id !== undefined ? store.read(workspace, userId, id) : store.readAt(workspace, userId, path);
 		return Response.json({ data: { changed, unread: store.unread(workspace, userId) } });
+	}
+
+	// Deleting: the items named (`ids`), or every read one (`read: true`).
+	if (url.pathname === "/inbox/remove" && request.method === "POST") {
+		const body = (await request.json().catch(() => ({}))) as { ids?: unknown; read?: unknown };
+		const ids = Array.isArray(body.ids)
+			? body.ids.filter((id): id is string => typeof id === "string").slice(0, 500)
+			: [];
+		if (body.read !== true && ids.length === 0) return failure(400, "Say which items");
+		const removed = store.remove(workspace, userId, body.read === true ? { read: true } : { ids });
+		return Response.json({ data: { removed, unread: store.unread(workspace, userId) } });
 	}
 
 	if (url.pathname in METHODS) return failure(405, `Use ${METHODS[url.pathname]}`);

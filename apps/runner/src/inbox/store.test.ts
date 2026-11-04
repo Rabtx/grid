@@ -165,3 +165,32 @@ describe("InboxStore", () => {
 		store.close();
 	});
 });
+
+describe("deleting from the inbox", () => {
+	it("deletes the items named, or every read one, and keeps them deleted when they come again", () => {
+		const store = new InboxStore(":memory:");
+		const item = (id: string) => ({
+			id,
+			workspaceId: "w1",
+			kind: "turn_done" as const,
+			project: "grid",
+			title: id,
+			body: "",
+			url: "/chat/grid/s1",
+			createdAt: new Date().toISOString(),
+		});
+		store.keep(item("a"));
+		store.keep(item("b"));
+		store.keep(item("c"));
+		store.read("w1", "u1", "b");
+		expect(store.remove("w1", "u1", { ids: ["a"] })).toBe(1);
+		expect(store.remove("w1", "u1", { read: true })).toBe(1);
+		expect(store.list("w1", "u1").items.map((row) => row.id)).toEqual(["c"]);
+		// The same event again (a GitHub refresh) does not bring it back.
+		store.keep(item("a"));
+		expect(store.list("w1", "u1").items.map((row) => row.id)).toEqual(["c"]);
+		// Nobody deletes what is not theirs.
+		store.keep({ ...item("mine"), ownerId: "u2" } as never);
+		expect(store.remove("w1", "u1", { ids: ["mine"] })).toBe(0);
+	});
+});

@@ -57,6 +57,7 @@ import { type Project, ProjectIcon, useWorkspace } from "@/modules/projects";
 
 import { useShell } from "../context/shell-context";
 
+import { CleanThreadsDialog } from "./clean-threads-dialog";
 import { ShareDialog } from "./share-dialog";
 import { WorktreeDialog } from "./worktree-dialog";
 
@@ -109,7 +110,12 @@ function projectMenu(settings: ProjectChatSettings | null): MenuGroup[] {
 				},
 			],
 		},
-		{ items: [{ id: "remove", label: "Remove from Grid", icon: <TrashIcon />, danger: true }] },
+		{
+			items: [
+				{ id: "clean", label: "Delete threads…", icon: <TrashIcon /> },
+				{ id: "remove", label: "Remove from Grid", icon: <TrashIcon />, danger: true },
+			],
+		},
 	];
 }
 
@@ -173,6 +179,7 @@ export function ProjectTree(): JSX.Element {
 	const [deleting, setDeleting] = createSignal<ChatSession | null>(null);
 	const [discarding, setDiscarding] = createSignal<ChatSession | null>(null);
 	const [sharing, setSharing] = createSignal<ChatSession | null>(null);
+	const [cleaning, setCleaning] = createSignal<string | null>(null);
 	const [pending, setPending] = createSignal(false);
 	const [projectLimit, setProjectLimit] = createSignal(DEFAULT_PROJECT_LIMIT);
 
@@ -238,6 +245,7 @@ export function ProjectTree(): JSX.Element {
 								onDelete={setDeleting}
 								onWorktree={setDiscarding}
 								onShare={setSharing}
+								onClean={setCleaning}
 							/>
 						)}
 					</For>
@@ -268,6 +276,7 @@ export function ProjectTree(): JSX.Element {
 			</Show>
 			<WorktreeDialog session={discarding()} onClose={() => setDiscarding(null)} />
 			<ShareDialog session={sharing()} onClose={() => setSharing(null)} />
+			<CleanThreadsDialog project={cleaning()} onClose={() => setCleaning(null)} />
 			<ConfirmDialog
 				open={deleting() !== null}
 				onClose={() => setDeleting(null)}
@@ -297,6 +306,8 @@ function ProjectNode(props: {
 	open: boolean;
 	onWorktree: (session: ChatSession) => void;
 	onShare: (session: ChatSession) => void;
+	/** Delete many of its threads at once. */
+	onClean: (project: string) => void;
 	onToggle: (open: boolean) => void;
 	onDelete: (session: ChatSession) => void;
 }): JSX.Element {
@@ -412,6 +423,7 @@ function ProjectNode(props: {
 		else if (id === "notes") navigate(`/notes/${slug()}`);
 		else if (id === "memory") navigate(`/memory/${slug()}`);
 		else if (id === "pulls") navigate(`/pulls/${slug()}`);
+		else if (id === "clean") props.onClean(slug());
 	}
 
 	return (

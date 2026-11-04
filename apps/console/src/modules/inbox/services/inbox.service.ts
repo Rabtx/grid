@@ -25,4 +25,10 @@ export const inboxService = {
 			method: "POST",
 			body: JSON.stringify(what),
 		}),
+	/** Deletes the items named, or every read one; they stay deleted if they come again. */
+	remove: (token: string, what: { ids?: string[]; read?: boolean }, scope = "") =>
+		runnerCall<{ removed: number; unread: number }>(`${base(scope)}/remove`, token, {
+			method: "POST",
+			body: JSON.stringify(what),
+		}),
 };

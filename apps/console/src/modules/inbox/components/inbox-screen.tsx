@@ -16,6 +16,7 @@ import {
 	IconButton,
 	InboxIcon,
 	Kbd,
+	notify,
 	NavLink,
 	NavSection,
 	FolderIcon,
@@ -26,6 +27,7 @@ import {
 	SpinnerIcon,
 	Text,
 	ToneTile,
+	TrashIcon,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
 import { now as clockNow } from "@/lib/clock";
@@ -85,6 +87,26 @@ export function InboxScreen(): JSX.Element {
 	const [search, setSearch] = useSearchParams<{ view?: string; project?: string }>();
 	const [revision, setRevision] = createSignal(0);
 	const [selectedId, setSelectedId] = createSignal<string | null>(null);
+	// Picking items to delete many at once.
+	const [selecting, setSelecting] = createSignal(false);
+	const [picked, setPicked] = createSignal<ReadonlySet<string>>(new Set<string>());
+	const pick = (id: string) => {
+		const next = new Set(picked());
+		if (next.has(id)) next.delete(id);
+		else next.add(id);
+		setPicked(next);
+	};
+	const stopSelecting = () => {
+		setSelecting(false);
+		setPicked(new Set<string>());
+	};
+	function remove(ids: readonly string[]): void {
+		const token = auth.token();
+		if (!token || ids.length === 0) return;
+		void inboxStore.remove(token, ids);
+		notify({ title: ids.length === 1 ? "Deleted" : `Deleted ${ids.length}` });
+		stopSelecting();
+	}
 
 	const view = (): View =>
 		search.view === "all" || search.view === "done" ? search.view : "needs";
@@ -189,6 +211,24 @@ export function InboxScreen(): JSX.Element {
 					: needLabel(inboxStore.unread())}
 			</ShellSlot>
 			<ShellSlot name="actions">
+				<Show when={!selecting() && shown().length > 0}>
+					<Button size="sm" variant="ghost" onClick={() => setSelecting(true)}>
+						Select
+					</Button>
+				</Show>
+				<Show when={view() === "done" && shown().length > 0 && !selecting()}>
+					<Button
+						size="sm"
+						variant="ghost"
+						onClick={() => {
+							const token = auth.token();
+							if (token) void inboxStore.clearDone(token);
+							notify({ title: "Cleared what was done" });
+						}}
+					>
+						Clear done
+					</Button>
+				</Show>
 				<IconButton label="Refresh" size="sm" disabled={inboxStore.loading()} onClick={refresh}>
 					<Show when={inboxStore.loading()} fallback={<RestoreIcon />}>
 						<SpinnerIcon />
@@ -281,6 +321,11 @@ export function InboxScreen(): JSX.Element {
 								)}
 							</Show>
 							<span class="flex-1" />
+							<Show when={!selecting() && shown().length > 0}>
+								<Button size="sm" variant="ghost" onClick={() => setSelecting(true)}>
+									Select
+								</Button>
+							</Show>
 							<Show when={inboxStore.unread() > 0}>
 								<Button
 									size="sm"
@@ -305,6 +350,40 @@ export function InboxScreen(): JSX.Element {
 							</IconButton>
 						</div>
 					</div>
+
+					{/* Picking many: how many, all of them, delete, or stop. */}
+					<Show when={selecting()}>
+						<div class="sticky top-0 z-10 flex items-center gap-2 bg-canvas px-2 py-2">
+							<Text size="caption" tone="subtle" class="min-w-0 flex-1">
+								{picked().size ? `${picked().size} selected` : "Tap items to select them"}
+							</Text>
+							<Button
+								size="sm"
+								variant="ghost"
+								onClick={() =>
+									setPicked(
+										picked().size === shown().length
+											? new Set<string>()
+											: new Set(shown().map((item) => item.id)),
+									)
+								}
+							>
+								{picked().size === shown().length ? "None" : "All"}
+							</Button>
+							<Button
+								size="sm"
+								variant="danger"
+								icon={<TrashIcon size="sm" />}
+								disabled={picked().size === 0}
+								onClick={() => remove([...picked()])}
+							>
+								Delete
+							</Button>
+							<Button size="sm" variant="ghost" onClick={stopSelecting}>
+								Cancel
+							</Button>
+						</div>
+					</Show>
 
 					<Show when={inboxStore.error()}>
 						{(reason) => (
@@ -376,8 +455,33 @@ export function InboxScreen(): JSX.Element {
 													time={relativeTime(item.createdAt)}
 													unread={item.readAt === null}
 													id={item.id}
-													current={shell.desktop() && selected()?.id === item.id}
-													onClick={() => (shell.desktop() ? setSelectedId(item.id) : open(item))}
+													current={!selecting() && shell.desktop() && selected()?.id === item.id}
+													selecting={selecting()}
+													selected={picked().has(item.id)}
+													onClick={() =>
+														selecting()
+															? pick(item.id)
+															: shell.desktop()
+																? setSelectedId(item.id)
+																: open(item)
+													}
+													onLongPress={() => {
+														if (selecting()) return;
+														setSelecting(true);
+														setPicked(new Set([item.id]));
+													}}
+													action={
+														<IconButton
+															label="Delete"
+															size="sm"
+															onClick={(event) => {
+																event.stopPropagation();
+																remove([item.id]);
+															}}
+														>
+															<TrashIcon size="sm" />
+														</IconButton>
+													}
 												/>
 											)}
 										</For>
@@ -413,6 +517,7 @@ export function InboxScreen(): JSX.Element {
 								project={item().project}
 								onOpen={() => open(item())}
 								onDone={() => markDone(item())}
+								onDelete={() => remove([item().id])}
 							/>
 						)}
 					</Show>
@@ -428,6 +533,7 @@ function InboxDetail(props: {
 	project: string;
 	onOpen: () => void;
 	onDone: () => void;
+	onDelete: () => void;
 }): JSX.Element {
 	const kind = () => KINDS[props.item.kind];
 	return (
@@ -455,6 +561,9 @@ function InboxDetail(props: {
 						<CheckIcon />
 					</IconButton>
 				</Show>
+				<IconButton label="Delete" size="sm" onClick={props.onDelete}>
+					<TrashIcon />
+				</IconButton>
 				<Button size="sm" icon={<ExternalIcon size="sm" />} onClick={props.onOpen}>
 					{kind().open}
 				</Button>
