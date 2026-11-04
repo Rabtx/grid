@@ -617,8 +617,50 @@ html[data-motion="reduced"] *::after {
 	);
 	--kit-field: color-mix(in srgb, var(--kit-field-solid) calc(var(--backdrop-opacity) * 0.5), transparent);
 }
-/* Menus, dialogs, sheets and drawers float over the content: they stay solid to be read. */
+/* Menus, dialogs and sheets float over the content: they stay solid to be read. */
 :root[data-backdrop-image="on"][data-backdrop="app"] :is(dialog, [popover]) {
+	--kit-surface: var(--canvas);
+	--kit-surface-sunken: var(--backdrop);
+	--kit-surface-raised: var(--kit-surface-raised-solid);
+	--kit-field: var(--kit-field-solid);
+}
+
+/*
+ * The phone's navigation drawer is the sidebar: with a background image (behind the sidebar or the
+ * whole app) it draws the picture itself, softened and veiled like the app, and what is in it is a
+ * tint over that veil. Menus opened from it stay solid. (Specific enough to win over the solid
+ * rule for dialogs above.)
+ */
+:root[data-backdrop-image][data-backdrop-image="on"] dialog.backdrop-drawer {
+	isolation: isolate;
+	background-color: transparent;
+	--kit-surface: transparent;
+	--kit-surface-sunken: transparent;
+	--kit-surface-raised: color-mix(
+		in srgb,
+		var(--kit-surface-raised-solid) calc(var(--backdrop-opacity) * 0.45),
+		transparent
+	);
+	--kit-field: color-mix(in srgb, var(--kit-field-solid) calc(var(--backdrop-opacity) * 0.5), transparent);
+}
+:root[data-backdrop-image="on"] dialog.backdrop-drawer::before {
+	content: "";
+	position: absolute;
+	inset: calc(var(--backdrop-blur) * -2);
+	z-index: -1;
+	pointer-events: none;
+	background: var(--backdrop-image) center / cover no-repeat;
+	filter: blur(var(--backdrop-blur));
+}
+:root[data-backdrop-image="on"] dialog.backdrop-drawer::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background: color-mix(in srgb, var(--backdrop) var(--backdrop-opacity), transparent);
+}
+:root[data-backdrop-image="on"] dialog.backdrop-drawer [popover] {
 	--kit-surface: var(--canvas);
 	--kit-surface-sunken: var(--backdrop);
 	--kit-surface-raised: var(--kit-surface-raised-solid);
