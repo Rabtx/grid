@@ -18,10 +18,10 @@ describe("EffortSlider", () => {
 		document.body.replaceChildren();
 	});
 
-	function mount(start: string): { value: () => string; input: HTMLInputElement } {
+	function mount(start: string | null): { value: () => string | null; thumb: HTMLElement } {
 		const container = document.createElement("div");
 		document.body.append(container);
-		const [value, setValue] = createSignal(start);
+		const [value, setValue] = createSignal<string | null>(start);
 		dispose = render(
 			() => (
 				<EffortSlider
@@ -33,41 +33,39 @@ describe("EffortSlider", () => {
 			),
 			container,
 		);
-		const input = container.querySelector<HTMLInputElement>('input[type="range"]');
-		if (!input) throw new Error("no slider");
-		return { value, input };
+		const thumb = container.querySelector<HTMLElement>('[role="slider"]');
+		if (!thumb) throw new Error("no slider");
+		return { value, thumb };
 	}
 
 	const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-	const pressed = () =>
-		[...document.querySelectorAll("button[aria-pressed='true']")].map((b) => b.textContent);
+	const key = (thumb: HTMLElement, name: string) =>
+		thumb.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true }));
 
-	it("is a stepped range named by its level, for keys and screen readers", () => {
-		const { input } = mount("high");
-		expect(input.max).toBe("3");
-		expect(input.value).toBe("2");
-		expect(input.getAttribute("aria-valuetext")).toBe("High");
-		expect(document.querySelector("label")?.textContent).toBe("Reasoning effort");
+	it("is a stepped slider named by its label and level", () => {
+		const { thumb } = mount("high");
+		expect(thumb.getAttribute("aria-valuemax")).toBe("3");
+		expect(thumb.getAttribute("aria-valuenow")).toBe("2");
+		expect(thumb.getAttribute("aria-valuetext")).toBe("High");
+		const label = document.getElementById(thumb.getAttribute("aria-labelledby") ?? "");
+		expect(label?.textContent).toBe("Reasoning effort");
 	});
 
-	it("raises the chosen segment and says what the level means", async () => {
-		const { value, input } = mount("low");
-		expect(pressed()).toEqual(["Low"]);
-		expect(document.body.textContent).toContain("Quick, light thinking");
-		input.value = "2";
-		input.dispatchEvent(new Event("input", { bubbles: true }));
+	it("shows medium, marked recommended, while nothing is chosen", () => {
+		const { thumb } = mount(null);
+		expect(thumb.getAttribute("aria-valuetext")).toBe("Medium, recommended");
+	});
+
+	it("moves a step at a time with the arrows, and to the ends with Home and End", async () => {
+		const { value, thumb } = mount("low");
+		key(thumb, "ArrowRight");
 		await settle();
-		expect(value()).toBe("high");
-		expect(pressed()).toEqual(["High"]);
-		expect(document.body.textContent).toContain("Thinks it through");
-	});
-
-	it("picks a level from its segment", async () => {
-		const { value } = mount("low");
-		[...document.querySelectorAll("button")]
-			.find((button) => button.textContent === "Max")
-			?.click();
+		expect(value()).toBe("medium");
+		key(thumb, "End");
 		await settle();
 		expect(value()).toBe("max");
+		key(thumb, "Home");
+		await settle();
+		expect(value()).toBe("low");
 	});
 });

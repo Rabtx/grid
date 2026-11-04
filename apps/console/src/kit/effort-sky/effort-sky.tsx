@@ -17,7 +17,7 @@ import {
 import { tap } from "../haptics";
 import { Brain } from "./brain";
 import styles from "./effort-sky.module.css";
-import { Galaxy, TRACK_WIDTH } from "./galaxy";
+import { canDrawSky, Galaxy, TRACK_WIDTH } from "./galaxy";
 
 export type SkyLevel = { id: string; name: string };
 
@@ -180,7 +180,9 @@ export function EffortSky(props: {
 	}
 
 	onSettled(() => {
-		if (!mosaic || !burst || !track) return;
+		// Without a canvas to draw on, the last step keeps its colours and simply has no sky.
+		if (!mosaic || !burst || !track || !canDrawSky(mosaic))
+			return () => cancelAnimationFrame(frame);
 		const instance = new Galaxy(mosaic, burst, track);
 		engine = instance;
 		instance.set(untrack(sky), false);

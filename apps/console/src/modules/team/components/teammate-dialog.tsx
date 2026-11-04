@@ -6,6 +6,7 @@ import {
 	Button,
 	ChoiceChips,
 	Dialog,
+	EffortSlider,
 	Field,
 	Input,
 	Select,
@@ -318,6 +319,14 @@ export function TeammateDialog(props: {
 							</Field>
 						</Show>
 					</div>
+					<Show when={chosenModel()?.efforts?.length}>
+						<EffortSlider
+							label="Effort"
+							levels={chosenModel()?.efforts ?? []}
+							value={effort()}
+							onChange={setEffort}
+						/>
+					</Show>
 				</div>
 
 				<Section title="Skills">

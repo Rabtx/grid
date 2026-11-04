@@ -65,7 +65,6 @@ import {
 	UserIcon,
 	UserMessage,
 	EffortSky,
-	EffortSlider,
 	playArrival,
 } from "@/kit";
 import { type ChatProvider, type Choice, ModelPicker } from "@/modules/chat";
@@ -294,24 +293,12 @@ export function FormsSection(): JSX.Element {
 	const [scale, setScale] = createSignal(100);
 	const [notifications, setNotifications] = createSignal(true);
 	const [step, setStep] = createSignal(1);
-	const [effort, setEffort] = createSignal("high");
 	const [dial, setDial] = createSignal("medium");
 	const [small, setSmall] = createSignal("medium");
 	return (
 		<div class="grid gap-4 md:grid-cols-2">
-			<Specimen label="Effort slider · and the flagship arrival">
+			<Specimen label="Flagship arrival">
 				<Stack gap={3}>
-					<EffortSlider
-						label="Reasoning effort"
-						levels={[
-							{ id: "low", name: "Low" },
-							{ id: "medium", name: "Medium" },
-							{ id: "high", name: "High" },
-							{ id: "max", name: "Max" },
-						]}
-						value={effort()}
-						onChange={setEffort}
-					/>
 					<div>
 						<Button
 							size="sm"
@@ -329,7 +316,7 @@ export function FormsSection(): JSX.Element {
 					</div>
 				</Stack>
 			</Specimen>
-			<Specimen label="Effort slider · the brain (proposal, not in the app yet)">
+			<Specimen label="Effort slider · the brain">
 				<Stack gap={8}>
 					<div data-specimen="effort-sky">
 						<EffortSky

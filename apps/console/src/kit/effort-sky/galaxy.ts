@@ -44,6 +44,16 @@ const BURST_HUES: Rgb[] = [
 	[201, 184, 255],
 ];
 
+/** Whether this browser can draw the sky: a 2D canvas, paths, and the observers it runs on. */
+export function canDrawSky(canvas: HTMLCanvasElement): boolean {
+	return (
+		typeof Path2D !== "undefined" &&
+		typeof ResizeObserver !== "undefined" &&
+		typeof IntersectionObserver !== "undefined" &&
+		canvas.getContext("2d") !== null
+	);
+}
+
 export const TRACK_WIDTH = 196;
 const TRACK_HEIGHT = 20;
 const PITCH = 4;
