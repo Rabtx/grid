@@ -7,8 +7,9 @@ import type { JSX } from "@solidjs/web";
 /** An icon from `@hugeicons/core-free-icons`: a list of `[tag, attributes]` SVG children. */
 export type IconData = readonly (readonly [string, { readonly [key: string]: string | number }])[];
 
-// The console draws every glyph at one light stroke weight, like the rest of the product chrome.
-const STROKE_WIDTH = 1.5;
+// The console draws every glyph at one stroke weight, 2px: as heavy as iOS draws its symbols, so
+// an icon holds its own beside text and inside a button.
+const STROKE_WIDTH = 2;
 
 function kebab(name: string): string {
 	return name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
