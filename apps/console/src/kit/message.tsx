@@ -400,7 +400,8 @@ export function DiffCard(props: {
 
 /**
  * Who answered (the Figma thread's agent line): the agent's logo on a small tile, its name, the
- * model in the quiet ink, and when, on the right.
+ * model in the quiet ink, and when, on the right (left out where the turn's line above says it).
+ * On phones the name gives way to the model: the logo already says which agent.
  */
 export function AgentHeader(props: {
 	logo: JSX.Element;
@@ -413,9 +414,14 @@ export function AgentHeader(props: {
 			<span class="grid size-7 shrink-0 place-items-center rounded-control bg-fill-strong [&>*]:size-4">
 				{props.logo}
 			</span>
-			<span class="min-w-0 truncate font-medium text-body text-fg">{props.name}</span>
+			{/* On phones the logo names the agent; the model beside it says the rest. */}
+			<span
+				class={`min-w-0 truncate font-medium text-body text-fg ${props.model ? "max-md:hidden" : ""}`}
+			>
+				{props.name}
+			</span>
 			<Show when={props.model}>
-				<span class="truncate text-body text-fg-subtle">{props.model}</span>
+				<span class="truncate text-body text-fg-subtle max-md:text-fg">{props.model}</span>
 			</Show>
 			<span class="flex-1" />
 			<Show when={props.time}>

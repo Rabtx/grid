@@ -348,11 +348,14 @@ function TurnView(props: {
 							name={people().agentName}
 							model={people().model}
 							time={
-								props.turn.user?.endedAt
-									? relativeTime(props.turn.user.endedAt)
-									: props.live
-										? "now"
-										: undefined
+								// The folded turn's line above already says when it ended.
+								foldable() && props.turn.user?.endedAt
+									? undefined
+									: props.turn.user?.endedAt
+										? relativeTime(props.turn.user.endedAt)
+										: props.live
+											? "now"
+											: undefined
 							}
 						/>
 					</div>

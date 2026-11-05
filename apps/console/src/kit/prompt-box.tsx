@@ -98,7 +98,7 @@ export function PromptBox(props: {
 								ref={(el) => {
 									tools = el;
 								}}
-								class="edge-fade flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]"
+								class="edge-fade flex min-w-8 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] pointer-coarse:min-w-10"
 							>
 								{props.tools}
 								<Show when={props.tray}>
@@ -107,7 +107,10 @@ export function PromptBox(props: {
 									</span>
 								</Show>
 							</div>
-							{props.options}
+							{/* The model and the mic give way before + does: a long model name scrolls here. */}
+							<div class="flex min-w-0 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
+								{props.options}
+							</div>
 							{props.send}
 						</div>
 					</div>

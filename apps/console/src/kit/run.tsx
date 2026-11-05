@@ -211,7 +211,7 @@ export function Disclosure(props: {
 }
 
 /**
- * The line that opens an agent's turn, over a hairline: while it goes, what the agent is doing
+ * The line that opens an agent's turn, no rule under it: while it goes, what the agent is doing
  * (the caller's `ThinkingLoader`); after, how long it took and what it did.
  */
 export function TurnHeader(props: {
@@ -222,7 +222,7 @@ export function TurnHeader(props: {
 	ended?: "stopped" | "failed";
 }): JSX.Element {
 	return (
-		<p class="flex min-w-0 flex-wrap items-baseline gap-x-2 border-line border-b px-1 pb-2.5 text-body-lg text-fg-subtle tabular-nums">
+		<p class="flex min-w-0 flex-wrap items-baseline gap-x-2 px-1 text-body-lg text-fg-subtle tabular-nums">
 			<span
 				class={
 					props.ended === "failed" ? "text-danger" : props.ended === "stopped" ? "text-warning" : ""
@@ -239,7 +239,7 @@ export function TurnHeader(props: {
 
 /**
  * A finished turn's work folded away, after T3 Code's turn fold (MIT, © T3 Tools Inc.): one quiet
- * line — "Worked for 1m 12s", what it did, a chevron — over a hairline, that opens to the calls,
+ * line — "Worked for 1m 12s", what it did, a chevron, when — that opens to the calls,
  * thoughts and subagents behind the reply. The reply itself stays open below it.
  */
 export function TurnFold(props: {
@@ -254,7 +254,7 @@ export function TurnFold(props: {
 	onToggle: () => void;
 }): JSX.Element {
 	return (
-		<div class="border-line border-b pt-1 pb-2">
+		<div class="pt-1">
 			<div class="flex min-w-0 items-center gap-1">
 				<button
 					type="button"
