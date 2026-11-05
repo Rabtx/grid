@@ -13,6 +13,13 @@ import { CloseIcon } from "./icons";
 
 export type Placement = "bottom-start" | "bottom-end" | "top-start" | "top-end";
 
+/**
+ * Every sheet's and dialog's close: round and filled like the phone header's buttons, the glyph in
+ * full ink. 40px on touch, 32px with a mouse.
+ */
+export const SHEET_CLOSE =
+	"focus-ring grid size-10 shrink-0 place-items-center rounded-pill bg-fill-strong text-fg transition-colors duration-fast hover:bg-selection [&_svg]:size-5 pointer-fine:size-8 pointer-fine:[&_svg]:size-4";
+
 /** Open or close a popover from code: under its trigger, or at a point (right-click, long press). */
 export type PopoverControl = { open: (point?: MenuPoint) => void; close: () => void };
 
@@ -197,9 +204,9 @@ export function Popover(props: {
 							type="button"
 							aria-label="Close"
 							onClick={() => panel?.hidePopover?.()}
-							class="focus-ring grid size-10 shrink-0 place-items-center rounded-pill bg-fill-strong text-fg-muted transition-colors duration-fast hover:bg-selection hover:text-fg"
+							class={SHEET_CLOSE}
 						>
-							<CloseIcon size="sm" />
+							<CloseIcon />
 						</button>
 					</div>
 				</Show>

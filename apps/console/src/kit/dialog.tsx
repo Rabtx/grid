@@ -1,8 +1,8 @@
 import type { JSX } from "@solidjs/web";
 import { createEffect, Show, untrack } from "solid-js";
 
-import { iconButton } from "./button";
 import { CloseIcon } from "./icons";
+import { SHEET_CLOSE } from "./popover";
 
 import { attachSwipe } from "./sheet-gestures";
 
@@ -95,7 +95,7 @@ export function Dialog(props: {
 						type="button"
 						aria-label="Close"
 						onClick={() => props.onClose()}
-						class={iconButton({ size: "sm", class: "-mt-1 -mr-1" })}
+						class={`${SHEET_CLOSE} -mt-1 -mr-1`}
 					>
 						<CloseIcon />
 					</button>
