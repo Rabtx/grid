@@ -3,7 +3,7 @@ import type { JSX } from "@solidjs/web";
 import { Loading, Show } from "solid-js";
 
 import {
-	JOINED_BUTTON,
+	JOINED_BUTTON_COMPACT,
 	Joined,
 	CloseIcon,
 	EditIcon,
@@ -93,13 +93,13 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 						fallback={<>{shell.panelActions()?.()}</>}
 					>
 						{/* One surface, as iOS joins a toolbar's related buttons: the phone header's pill. */}
-						<Joined label="Threads">
+						<Joined label="Threads" compact>
 							<button
 								type="button"
 								aria-label="Search"
 								aria-keyshortcuts="Control+K"
 								data-shortcut="Mod K"
-								class={JOINED_BUTTON}
+								class={JOINED_BUTTON_COMPACT}
 								onClick={() => shell.setPaletteOpen(true)}
 							>
 								<SearchIcon />
@@ -110,7 +110,7 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 								<button
 									type="button"
 									aria-label="Open a folder as a project"
-									class={JOINED_BUTTON}
+									class={JOINED_BUTTON_COMPACT}
 									onClick={() => workspace.setAddProjectOpen(true)}
 								>
 									<PlusIcon />
@@ -124,7 +124,7 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 									<button
 										type="button"
 										aria-label="New thread"
-										class={JOINED_BUTTON}
+										class={JOINED_BUTTON_COMPACT}
 										onClick={newThread}
 									>
 										<EditIcon />
@@ -135,7 +135,7 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 									<button
 										type="button"
 										aria-label="Close"
-										class={JOINED_BUTTON}
+										class={JOINED_BUTTON_COMPACT}
 										onClick={() => close()()}
 									>
 										<CloseIcon />
