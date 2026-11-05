@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, For } from "solid-js";
 
 import {
+	ContextMeter,
 	ShieldIcon,
 	WaitingLine,
 	DocumentSkeleton,
@@ -315,6 +316,47 @@ export function FormsSection(): JSX.Element {
 						</Button>
 					</div>
 				</Stack>
+			</Specimen>
+			<Specimen label="Context window">
+				<div data-specimen="context" class="flex justify-end">
+					<ContextMeter
+						used={132_000}
+						total={200_000}
+						model="Sonnet 5.5"
+						parts={[
+							{
+								id: "setup",
+								label: "System & tools",
+								detail: "The agent's own",
+								tokens: 15_000,
+								tone: "neutral",
+								fixed: true,
+							},
+							{
+								id: "talk",
+								label: "Conversation",
+								detail: "38 messages",
+								tokens: 74_000,
+								tone: "accent",
+							},
+							{
+								id: "tools",
+								label: "Tool results",
+								detail: "21 calls",
+								tokens: 43_000,
+								tone: "violet",
+							},
+						]}
+						account="Your sign-in"
+						limits={[
+							{ window: "5h", used: 38, limited: false, resets: "in 2h 10m · Thu 18:00" },
+							{ window: "Weekly", used: 71, limited: false, resets: "in 3d · Mon 09:00" },
+							{ window: "Weekly · Opus", used: 92, limited: false, resets: "in 3d · Mon 09:00" },
+						]}
+						thread={{ input: 1_240_000, output: 38_000, cost: 2.41 }}
+						onCompact={() => {}}
+					/>
+				</div>
 			</Specimen>
 			<Specimen label="Effort slider · the brain">
 				<Stack gap={8}>
