@@ -3,7 +3,6 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { Avatar, SettingsGroup, SettingsLinkRow, StatusDot } from "@/kit";
-import { workspaceHref } from "@/lib/active-workspace";
 import { runnerUp } from "@/lib/runner-health";
 import { useAuth } from "@/modules/auth";
 import { ShellSlot, useShell } from "@/modules/shell";
@@ -58,7 +57,8 @@ function PhoneSettings(): JSX.Element {
 		);
 	});
 	const name = () => me()?.name || auth.user()?.username || "Your account";
-	const open = (href: SettingsHref) => navigate(workspaceHref(href));
+	// The router adds the workspace itself: a path given with it would carry it twice.
+	const open = (href: SettingsHref) => navigate(href);
 	const value = (href: SettingsHref): JSX.Element =>
 		href === "/settings/machines" ? (
 			<span class="flex items-center gap-1.5">
