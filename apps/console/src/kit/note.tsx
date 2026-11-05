@@ -320,7 +320,7 @@ export function NoteAskDock(props: {
 					type="submit"
 					aria-label="Ask"
 					disabled={!props.value.trim()}
-					class="focus-ring grid size-10 shrink-0 place-items-center rounded-pill bg-inverse text-inverse-fg surface-primary transition-[background-color,color] duration-fast disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none [&_svg]:size-4"
+					class="focus-ring grid size-10 shrink-0 place-items-center rounded-tile bg-inverse text-inverse-fg surface-primary transition-[background-color,color] duration-fast disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none [&_svg]:size-4"
 				>
 					<SendIcon />
 				</button>
@@ -334,7 +334,7 @@ export function NoteAskDock(props: {
 /** The document's column: 680px, centred, with the Figma note's spacing between blocks. */
 export function NoteColumn(props: { children: JSX.Element }): JSX.Element {
 	return (
-		<div class="mx-auto flex w-full max-w-170 flex-col gap-4 px-4 pt-2 pb-8 md:px-8 md:pt-10 md:pb-16 lg:px-0">
+		<div class="mx-auto flex w-full max-w-170 flex-col gap-4 px-gutter pt-2 pb-8 md:pt-10 md:pb-16 lg:px-0">
 			{props.children}
 		</div>
 	);
@@ -417,7 +417,7 @@ export function FormatFootBar(props: { label: string; children: JSX.Element }): 
 
 /** One button on a format bar: 28px on desktop, 36px on the phone's bar. */
 export const FORMAT_BUTTON =
-	"focus-ring grid size-7 shrink-0 place-items-center rounded-pill font-medium text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-pressed:bg-fill-strong aria-pressed:text-fg disabled:opacity-40 pointer-coarse:size-9 [&_svg]:size-4";
+	"focus-ring grid size-7 shrink-0 place-items-center rounded-tile font-medium text-body text-fg-muted transition-colors duration-fast hover:bg-fill hover:text-fg aria-pressed:bg-fill-strong aria-pressed:text-fg disabled:opacity-40 pointer-coarse:size-9 [&_svg]:size-4";
 
 /** The text style picker at the start of the bar: "Text ▾". */
 export const FORMAT_STYLE =

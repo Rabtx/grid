@@ -18,7 +18,7 @@ export function Joined(props: {
 		<div
 			role="group"
 			aria-label={props.label}
-			class={`flex h-11 shrink-0 items-center rounded-pill bg-fill-strong p-0.5 [&>button:only-of-type]:min-w-10 [&>button:only-of-type]:px-0 ${props.compact ? "pointer-fine:h-9" : ""}`}
+			class={`flex h-11 shrink-0 items-center rounded-tile bg-fill-strong p-0.5 [&>button:only-of-type]:min-w-10 [&>button:only-of-type]:px-0 ${props.compact ? "pointer-fine:h-9" : ""}`}
 		>
 			{props.children}
 		</div>
@@ -26,7 +26,7 @@ export function Joined(props: {
 }
 
 const SEGMENT =
-	"focus-ring inline-grid shrink-0 place-items-center rounded-pill text-fg transition-[background-color,color] duration-fast hover:bg-selection aria-expanded:bg-selection";
+	"focus-ring inline-grid shrink-0 place-items-center rounded-tile text-fg transition-[background-color,color] duration-fast hover:bg-selection aria-expanded:bg-selection";
 
 /**
  * A segment of a `Joined` pill: a button's or a popover trigger's class. Its glyph is in full

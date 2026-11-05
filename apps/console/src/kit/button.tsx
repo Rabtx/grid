@@ -62,11 +62,12 @@ export const iconButton = variants({
 			/** 44px: the Figma mobile header's round buttons. */
 			lg: "size-11 [&_svg]:size-5",
 		},
-		// The Figma Icon Button's Shape: Square (the 8px tile corner) or Round (mobile headers).
-		// Both follow Appearance → Corners: square tiles turn into circles when corners are pill.
+		// The Figma Icon Button's Shape: Square or Round (mobile headers). Both take the tile corner,
+		// so every icon control in a row matches whatever Appearance → Corners says: soft-cornered
+		// squares under Round, circles only under Pill.
 		shape: {
 			square: "rounded-tile",
-			round: "rounded-pill",
+			round: "rounded-tile",
 		},
 	},
 	defaults: { variant: "ghost", size: "md", shape: "square" },

@@ -203,20 +203,20 @@ const TOOL_FILL =
  * The round button at the start of the toolbar (add files, context, tools, a crew): filled like
  * send, in a quiet fill instead of ink, so the toolbar's two ends match and + is easy to find.
  */
-export const PROMPT_ADD = `focus-ring grid size-8 shrink-0 place-items-center rounded-pill bg-fill-strong text-fg transition-[background-color,scale] duration-base ease-out-grid hover:scale-105 active:scale-95 aria-expanded:bg-inverse aria-expanded:text-inverse-fg pointer-coarse:size-10 ${ICON_SIZE.md}`;
+export const PROMPT_ADD = `focus-ring grid size-8 shrink-0 place-items-center rounded-tile bg-fill-strong text-fg transition-[background-color,scale] duration-base ease-out-grid hover:scale-105 active:scale-95 aria-expanded:bg-inverse aria-expanded:text-inverse-fg pointer-coarse:size-10 ${ICON_SIZE.md}`;
 
 /**
  * The send button, after T3 Code's: round (a pill, so it follows Appearance → Corners), in ink
  * like every primary button (or the accent, when one is chosen), lifting a little under the
  * pointer, and greyed until there is something to send.
  */
-export const SEND_BUTTON = `focus-ring relative grid size-8 shrink-0 place-items-center rounded-pill bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid enabled:hover:scale-105 hover:bg-inverse/90 active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none pointer-coarse:size-10 ${ICON_SIZE.md}`;
+export const SEND_BUTTON = `focus-ring relative grid size-8 shrink-0 place-items-center rounded-tile bg-inverse text-inverse-fg surface-primary transition-[background-color,color,box-shadow,scale] duration-base ease-out-grid enabled:hover:scale-105 hover:bg-inverse/90 active:scale-95 disabled:bg-fill-strong disabled:bg-none disabled:text-fg-faint disabled:shadow-none pointer-coarse:size-10 ${ICON_SIZE.md}`;
 
 /** Beside stop while the agent works: send the message into the turn going on. */
 export const STEER_BUTTON = `focus-ring relative inline-flex ${TOOL} items-center px-2.5 font-medium text-caption text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg disabled:text-fg-faint`;
 
 /** Stop, in place of send while the agent works: a ring turns inside it until it is done. */
-export const STOP_BUTTON = `focus-ring relative grid size-8 shrink-0 place-items-center rounded-pill bg-fill-strong text-fg transition-transform duration-fast active:scale-95 pointer-coarse:size-10 ${ICON_SIZE.md}`;
+export const STOP_BUTTON = `focus-ring relative grid size-8 shrink-0 place-items-center rounded-tile bg-fill-strong text-fg transition-transform duration-fast active:scale-95 pointer-coarse:size-10 ${ICON_SIZE.md}`;
 
 /** The ring turning inside the stop button while the agent works. */
 export function WorkingRing(): JSX.Element {
@@ -308,7 +308,7 @@ export function VoiceBar(props: {
 				type="button"
 				aria-label="Cancel voice input"
 				onClick={() => props.onCancel()}
-				class="focus-ring grid size-8 shrink-0 place-items-center rounded-pill text-fg-subtle transition-colors duration-fast hover:bg-fill hover:text-fg pointer-coarse:size-10"
+				class="focus-ring grid size-8 shrink-0 place-items-center rounded-tile text-fg-subtle transition-colors duration-fast hover:bg-fill hover:text-fg pointer-coarse:size-10"
 			>
 				<CloseIcon size="sm" />
 			</button>
@@ -360,7 +360,7 @@ export function VoiceBar(props: {
 				aria-label="Done, insert the words"
 				disabled={props.transcribing}
 				onClick={() => props.onDone()}
-				class={`focus-ring grid size-9 shrink-0 place-items-center rounded-pill bg-inverse text-inverse-fg surface-primary transition-transform duration-fast active:scale-95 disabled:opacity-60 ${ICON_SIZE.md}`}
+				class={`focus-ring grid size-9 shrink-0 place-items-center rounded-tile bg-inverse text-inverse-fg surface-primary transition-transform duration-fast active:scale-95 disabled:opacity-60 ${ICON_SIZE.md}`}
 			>
 				<CheckIcon />
 			</button>

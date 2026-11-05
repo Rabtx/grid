@@ -246,7 +246,7 @@ export function Attachment(props: {
 					aria-label={`Remove ${props.name}`}
 					disabled={props.disabled}
 					onClick={() => props.onRemove?.()}
-					class="focus-ring grid size-7 shrink-0 place-items-center rounded-pill text-fg-subtle hover:bg-fill-strong hover:text-fg disabled:opacity-40 pointer-coarse:size-10"
+					class="focus-ring grid size-7 shrink-0 place-items-center rounded-tile text-fg-subtle hover:bg-fill-strong hover:text-fg disabled:opacity-40 pointer-coarse:size-10"
 				>
 					<CloseIcon size="sm" />
 				</button>
