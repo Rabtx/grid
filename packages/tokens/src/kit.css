@@ -339,33 +339,29 @@
 }
 
 /*
- * A signal's tint, as the Figma Inbox glyphs draw it: the signal at 12% for the fill, 35% for the
- * edge, and the signal itself for the glyph. Dark keeps the same mix, which reads as a deep tint.
+ * A signal's tint: a solid fill of the signal over the surface, and the signal itself for the
+ * glyph. No edge: a ring of colour around a pale wash read as an outline, not a tile. The fill is
+ * opaque, so the tile is the same on any background; dark keeps the mix, a deep solid tint.
  */
 @utility tint-accent {
 	color: var(--signal-accent);
-	background: color-mix(in srgb, var(--signal-accent) 10%, var(--kit-surface));
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-accent) 22%, transparent);
+	background: color-mix(in srgb, var(--signal-accent) 16%, var(--kit-surface));
 }
 @utility tint-violet {
 	color: var(--signal-violet);
-	background: color-mix(in srgb, var(--signal-violet) 12%, var(--kit-surface));
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-violet) 45%, transparent);
+	background: color-mix(in srgb, var(--signal-violet) 18%, var(--kit-surface));
 }
 @utility tint-success {
 	color: var(--signal-success);
-	background: color-mix(in srgb, var(--signal-success) 12%, var(--kit-surface));
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-success) 50%, transparent);
+	background: color-mix(in srgb, var(--signal-success) 16%, var(--kit-surface));
 }
 @utility tint-warning {
 	color: var(--signal-warning);
-	background: color-mix(in srgb, var(--signal-warning) 12%, var(--kit-surface));
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-warning) 45%, transparent);
+	background: color-mix(in srgb, var(--signal-warning) 18%, var(--kit-surface));
 }
 @utility tint-danger {
 	color: var(--signal-danger);
-	background: color-mix(in srgb, var(--signal-danger) 10%, var(--kit-surface));
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal-danger) 45%, transparent);
+	background: color-mix(in srgb, var(--signal-danger) 16%, var(--kit-surface));
 }
 
 /* Hairline edges drawn inside the box, so they never shift layout. */
