@@ -1,3 +1,4 @@
+import UserGroupIcon from "@hugeicons/core-free-icons/UserGroupIcon";
 import type { JSX } from "@solidjs/web";
 import { useParams } from "@solidjs/router";
 import {
@@ -20,7 +21,9 @@ import {
 	AttachIcon,
 	Attachment,
 	CameraIcon,
+	CheckIcon,
 	EditIcon,
+	Icon,
 	FolderIcon,
 	ImageIcon,
 	Menu,
@@ -109,6 +112,11 @@ export function Composer(props: {
 	banners?: JSX.Element;
 	/** Under the card: the branch, the mode, the context — what would crowd the toolbar. */
 	dock?: JSX.Element;
+	/**
+	 * Start the thread as a crew: in the + menu, ticked while on. The thread's agent leads; it
+	 * splits the work and hands each part to a worker thread of its own.
+	 */
+	crew?: { on: boolean; onToggle: () => void };
 	/** Text to start with, e.g. a task a thread is started from. */
 	initial?: string;
 	/** The project slug, for file mentions autocomplete. */
@@ -516,6 +524,8 @@ export function Composer(props: {
 			triggerMention();
 		} else if (id === "commands") {
 			triggerCommand();
+		} else if (id === "crew") {
+			props.crew?.onToggle();
 		}
 	}
 
@@ -546,6 +556,21 @@ export function Composer(props: {
 
 		return [
 			{ look: "tiles", items: add },
+			...(props.crew
+				? [
+						{
+							items: [
+								{
+									id: "crew",
+									label: props.crew.on ? "Crew is on" : "Start as a crew",
+									description: "This agent leads; worker threads take the parts",
+									icon: <Icon icon={UserGroupIcon} size="sm" />,
+									...(props.crew.on ? { trailing: <CheckIcon /> } : {}),
+								},
+							],
+						},
+					]
+				: []),
 			{
 				items: [
 					{

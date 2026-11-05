@@ -14,6 +14,7 @@ import { ShellSlot, useShell } from "@/modules/shell";
 import { useWorkspaces } from "@/modules/workspaces";
 import { isAdmin } from "@/modules/workspaces/lib/members";
 import {
+	CloseIcon,
 	Alert,
 	BranchIcon,
 	Button,
@@ -918,6 +919,7 @@ function NewChat(props: {
 							}
 							disabled={!chosen() || !props.project || !props.folder}
 							onSend={(text, files) => (asCrew() ? startCrew(text, files) : start(text, files))}
+							crew={{ on: asCrew(), onToggle: () => setAsCrew((on) => !on) }}
 							dock={
 								<Row wrap gap={1.5} class="w-full min-w-0">
 									<Show when={props.folder && props.project}>
@@ -976,15 +978,19 @@ function NewChat(props: {
 														</Show>
 													</RoleChipGroup>
 												</Show>
-												<button
-													type="button"
-													aria-pressed={asCrew() ? "true" : "false"}
-													title="Start a crew: this agent coordinates, and hands the work to member threads of its own"
-													onClick={() => setAsCrew((on) => !on)}
-													class={`${DOCK_CHIP} aria-pressed:bg-accent/15 aria-pressed:text-accent`}
-												>
-													Crew
-												</button>
+												{/* Crew is turned on from the + menu; while on, this says so and turns it off. */}
+												<Show when={asCrew()}>
+													<button
+														type="button"
+														aria-pressed="true"
+														title="Starts as a crew: this agent leads, and hands parts of the work to worker threads. Tap to turn off."
+														onClick={() => setAsCrew(false)}
+														class={`${DOCK_CHIP} aria-pressed:bg-accent/15 aria-pressed:text-accent`}
+													>
+														Crew
+														<CloseIcon />
+													</button>
+												</Show>
 												<Show when={provider().modes.length > 0}>
 													<ModePicker
 														modes={provider().modes}

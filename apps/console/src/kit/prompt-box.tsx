@@ -196,8 +196,11 @@ export const DOCK_CHIP =
 const TOOL_FILL =
 	"text-fg-muted transition-colors duration-fast hover:bg-fill-strong hover:text-fg aria-expanded:bg-fill-strong aria-expanded:text-fg";
 
-/** The square at the start of the toolbar: add files, context, tools. */
-export const PROMPT_ADD = `focus-ring grid ${SQUARE} place-items-center ${TOOL_FILL} ${ICON_SIZE.md}`;
+/**
+ * The round button at the start of the toolbar (add files, context, tools, a crew): filled like
+ * send, in a quiet fill instead of ink, so the toolbar's two ends match and + is easy to find.
+ */
+export const PROMPT_ADD = `focus-ring grid size-8 shrink-0 place-items-center rounded-pill bg-fill-strong text-fg transition-[background-color,scale] duration-base ease-out-grid hover:scale-105 active:scale-95 aria-expanded:bg-inverse aria-expanded:text-inverse-fg pointer-coarse:size-10 ${ICON_SIZE.md}`;
 
 /**
  * The send button, after T3 Code's: round (a pill, so it follows Appearance → Corners), in ink
