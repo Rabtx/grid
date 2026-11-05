@@ -1379,7 +1379,7 @@ export type ProviderCatalog = { models: Choice[]; modes?: Choice[]; version?: nu
  * How kept model lists are read. Raise it when a change reads agents' answers differently (each
  * model's effort levels, say), so lists kept before the change are asked for again.
  */
-export const CATALOG_VERSION = 2;
+export const CATALOG_VERSION = 3;
 
 /** One person's choices for one agent. Everything is optional: unset means the agent's default. */
 export type ProviderSettings = {

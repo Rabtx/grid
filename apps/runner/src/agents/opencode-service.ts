@@ -125,14 +125,14 @@ export function opencodeModelChoices(
 			const id = `${model.providerID}/${model.id}`;
 			const free = model.cost.length > 0 && model.cost.every((cost) => isFree(cost));
 			const levels = model.variants.map((variant) => variant.id);
+			// What a request may carry: the input cap where the model has one, as T3 Code reads it.
+			const window = model.limit.input || model.limit.context;
 			return {
 				id,
 				name: model.name,
 				group: model.providerID,
-				description: [id, free ? "free" : null, contextLabel(model.limit.context)]
-					.filter(Boolean)
-					.join(" · "),
-				...(model.limit.context ? { contextWindow: model.limit.context } : {}),
+				description: [id, free ? "free" : null, contextLabel(window)].filter(Boolean).join(" · "),
+				...(window ? { contextWindow: window } : {}),
 				...(levels.length
 					? {
 							efforts: effortChoices(levels),
