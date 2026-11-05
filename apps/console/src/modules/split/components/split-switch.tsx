@@ -165,7 +165,10 @@ export function SplitPicker(props: WorkspaceProps): JSX.Element {
 		<SplitChooser
 			open={asked() !== null}
 			title={asked() === "below" ? "Open below" : "Open beside the thread"}
-			description="Arrow keys to choose, Enter to open."
+			description={
+				// Keys only help where there is a keyboard to press them on.
+				matchMedia("(pointer: fine)").matches ? "Arrow keys to choose, Enter to open." : undefined
+			}
 			choices={choices()}
 			onPick={(id) => {
 				const where = asked();
