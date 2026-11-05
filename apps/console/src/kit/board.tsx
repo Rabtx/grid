@@ -252,7 +252,7 @@ export function LaneStrip(props: {
 	return (
 		<div
 			ref={(el) => props.ref?.(el)}
-			class="-mx-4 flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 [scrollbar-width:none] motion-safe:scroll-smooth md:-mx-6 md:snap-none md:scroll-px-6 md:px-6 md:[scrollbar-width:thin]"
+			class="-mx-gutter flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-gutter px-gutter pb-4 [scrollbar-width:none] motion-safe:scroll-smooth md:snap-none md:[scrollbar-width:thin]"
 		>
 			{props.children}
 		</div>

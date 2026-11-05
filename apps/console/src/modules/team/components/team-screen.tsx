@@ -251,7 +251,7 @@ export function TeamScreen(): JSX.Element {
 			</ShellSlot>
 
 			<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-				<div class="flex w-full max-w-4xl flex-col gap-6 px-4 pt-3 pb-8 md:px-6 md:pt-5">
+				<div class="flex w-full max-w-4xl flex-col gap-6 px-gutter pt-3 pb-8 md:pt-5">
 					<Show when={error()}>{(text) => <Alert tone="danger" title={text()} />}</Show>
 					<Show
 						when={openId()}

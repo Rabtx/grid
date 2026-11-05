@@ -1064,7 +1064,7 @@ export function Conversation(props: {
 						setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 48);
 						if (el.scrollTop < 400 && hasEarlier()) void loadEarlier();
 					}}
-					class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 md:px-6"
+					class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-gutter py-6"
 				>
 					<div class="mx-auto flex w-full max-w-160 flex-col gap-6">
 						<Show when={embedded ? null : session()}>
@@ -1135,7 +1135,7 @@ export function Conversation(props: {
 					</div>
 				</Show>
 			</div>
-			<div class="shrink-0 px-3 pt-1 pb-safe md:px-6 md:pb-4">
+			<div class="shrink-0 px-gutter pt-1 pb-safe md:pb-4">
 				<div class="mx-auto w-full max-w-160">
 					<Show when={error()}>
 						{(message) => (

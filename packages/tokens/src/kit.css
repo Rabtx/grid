@@ -46,6 +46,8 @@
 	--kit-radius-tile: 8px;
 	--kit-density: 1;
 	--kit-line-scale: 1;
+	/* A screen's side margin: content's left and right edge, every screen alike (px-gutter). */
+	--kit-gutter: 12px;
 
 	--kit-line: color-mix(
 		in srgb,
@@ -269,6 +271,7 @@
 	--text-field: var(--kit-fs-field);
 	--text-field--line-height: 1.4;
 
+	--spacing-gutter: var(--kit-gutter);
 	--spacing-kit-row: var(--kit-h-row);
 	--spacing-kit-control-sm: var(--kit-h-control-sm);
 	--spacing-kit-control: var(--kit-h-control);
@@ -850,5 +853,12 @@
 		.kit-split-down {
 			animation: none;
 		}
+	}
+}
+
+/* Wider screens keep a little more air at the sides; still slimmer than the old 24px. */
+@media (min-width: 48rem) {
+	:root {
+		--kit-gutter: 20px;
 	}
 }

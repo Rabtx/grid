@@ -131,7 +131,7 @@ export function AutomationLayout(props: {
 }): JSX.Element {
 	return (
 		<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-			<div class="mx-auto grid w-full max-w-280 grid-cols-1 gap-4 px-4 pt-2 pb-28 md:grid-cols-[minmax(0,1fr)_23.75rem] md:items-start md:gap-x-6 md:px-8 md:pt-8 md:pb-10 lg:px-12">
+			<div class="mx-auto grid w-full max-w-280 grid-cols-1 gap-4 px-gutter pt-2 pb-28 md:grid-cols-[minmax(0,1fr)_23.75rem] md:items-start md:gap-x-6 md:pt-8 md:pb-10">
 				<div class="min-w-0 md:col-start-1 md:row-start-1">{props.heading}</div>
 				<aside class="flex min-w-0 flex-col md:col-start-2 md:row-span-2 md:row-start-1">
 					{props.aside}

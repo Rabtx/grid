@@ -22,7 +22,7 @@ const DOT: Record<FeedTone, string> = {
 export function ShipPage(props: { children: JSX.Element }): JSX.Element {
 	return (
 		<div class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-			<div class="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 pt-4 pb-10 md:px-10 md:pt-10">
+			<div class="mx-auto flex w-full max-w-6xl flex-col gap-5 px-gutter pt-4 pb-10 md:pt-10">
 				{props.children}
 			</div>
 		</div>

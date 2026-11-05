@@ -856,7 +856,7 @@ function NewChat(props: {
 	);
 
 	return (
-		<div class="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-3 pb-3 md:justify-center md:px-6 md:pt-12 md:pb-24">
+		<div class="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-gutter pb-3 md:justify-center md:pt-12 md:pb-24">
 			{/* Phones: the context and a new thread, joined in the header. */}
 			<Show when={!shell.desktop()}>
 				<ShellSlot name="trailing">

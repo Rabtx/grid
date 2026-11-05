@@ -242,7 +242,7 @@ export function PulseScreen(): JSX.Element {
 				</div>
 			</ShellSlot>
 
-			<div class="flex w-full flex-col gap-4 px-4 pt-3 pb-8 md:px-6 md:pt-5 lg:gap-5">
+			<div class="flex w-full flex-col gap-4 px-gutter pt-3 pb-8 md:pt-5 lg:gap-5">
 				<HomeNav current="pulse" pulse={pulseLine()} />
 				<header class="flex flex-wrap items-end justify-between gap-3 max-lg:hidden">
 					<div class="flex min-w-0 flex-col gap-1">

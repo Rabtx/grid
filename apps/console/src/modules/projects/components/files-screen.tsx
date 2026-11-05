@@ -792,7 +792,7 @@ function FolderView(props: {
 
 	return (
 		<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-			<div class="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 pt-4 pb-8 md:px-8 md:pt-10">
+			<div class="mx-auto flex w-full max-w-4xl flex-col gap-4 px-gutter pt-4 pb-8 md:pt-10">
 				<header class="hidden items-center gap-3 md:flex">
 					<ProjectTile>
 						<EntryIcon name={props.name} folder open />

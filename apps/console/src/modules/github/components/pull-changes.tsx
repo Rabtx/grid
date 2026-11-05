@@ -620,7 +620,7 @@ export function PullChanges(props: {
 						</Show>
 					</div>
 					<Show when={canReview()}>
-						<div class="shrink-0 px-3 pb-3 md:px-6">
+						<div class="shrink-0 px-gutter pb-3">
 							<Show
 								when={shell.desktop()}
 								fallback={

@@ -126,7 +126,7 @@ export function TopBar(): JSX.Element {
 
 	return (
 		<header class="z-30 shrink-0 bg-surface pt-safe">
-			<Row gap={2} class="h-16 px-4">
+			<Row gap={2} class="h-16 px-gutter">
 				<Show
 					when={shell.leading()}
 					fallback={

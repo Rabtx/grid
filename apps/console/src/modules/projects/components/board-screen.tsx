@@ -259,7 +259,7 @@ export function BoardScreen(): JSX.Element {
 					</div>
 				</Show>
 			</ShellSlot>
-			<div class="flex min-h-0 flex-1 flex-col px-4 pt-3 md:px-6 md:pt-4">
+			<div class="flex min-h-0 flex-1 flex-col px-gutter pt-3 md:pt-4">
 				<Loading fallback={<BoardSkeleton />}>
 					<Errored fallback={(error, reset) => <BoardError error={error()} onRetry={reset} />}>
 						<Board

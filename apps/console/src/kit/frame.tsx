@@ -51,7 +51,7 @@ export function AppFrame(props: {
 			class={
 				props.bleed
 					? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-					: "min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-4 md:px-6 md:pt-5"
+					: "min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-gutter pt-3 pb-4 md:pt-5"
 			}
 		>
 			{props.children}

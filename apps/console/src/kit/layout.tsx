@@ -140,7 +140,7 @@ const WIDTH = {
  */
 export function Page(props: { width?: keyof typeof WIDTH; children: JSX.Element }): JSX.Element {
 	return (
-		<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-6 pb-10 md:px-8 md:pt-8">
+		<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-gutter pt-6 pb-10 md:pt-8">
 			<div class={`mx-auto flex w-full flex-col gap-8 ${WIDTH[props.width ?? "md"]}`}>
 				{props.children}
 			</div>
