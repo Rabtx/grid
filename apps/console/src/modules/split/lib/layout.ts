@@ -30,6 +30,8 @@ export type SplitLayout = {
 	stack: number;
 	/** One pane for Split, a second under it for Three. Three always has both. */
 	panes: Pane[];
+	/** The workspace fills the frame and the thread steps aside, until it is restored. */
+	zoomed?: boolean;
 };
 
 /** How narrow either side can be dragged: the thread and the workspace each stay usable. */
@@ -123,6 +125,7 @@ export function normalize(value: unknown): SplitLayout {
 		ratio: clampRatio(ratio),
 		stack: clampStack(stack),
 		panes: panes.length ? panes : fallback.panes,
+		...(raw.zoomed === true && mode !== "focus" ? { zoomed: true } : {}),
 	});
 }
 
@@ -150,6 +153,8 @@ function withPanes(layout: SplitLayout): SplitLayout {
  * there is lost.
  */
 export function setMode(layout: SplitLayout, mode: SplitMode): SplitLayout {
+	// Shutting the workspace gives the thread its whole side back.
+	if (mode === "focus" && layout.zoomed) return setMode(toggleZoom(layout), mode);
 	if (mode === "three") return withPanes({ ...layout, mode });
 	if (layout.panes.length < 2) return { ...layout, mode };
 	const [first, second] = layout.panes;
@@ -253,4 +258,44 @@ export function moveToOtherPane(layout: SplitLayout, from: number, id: string): 
 	// Closing may have dropped the source pane: the target is then the only one left.
 	const target = removed.panes.length === 1 ? 0 : to;
 	return openTab(removed, tab, target);
+}
+
+/** Fill the frame with the workspace, or give the thread its side back. Nothing to fill in Focus. */
+export function toggleZoom(layout: SplitLayout): SplitLayout {
+	if (layout.mode === "focus") return layout;
+	const { zoomed, ...rest } = layout;
+	return zoomed ? rest : { ...rest, zoomed: true };
+}
+
+/**
+ * Open a tab in a pane of its own under the first (Three): the pane header's "Split down". A tab
+ * already open elsewhere moves there; with two panes already, it opens in the lower one.
+ */
+export function openBelow(layout: SplitLayout, tab: PaneTab): SplitLayout {
+	const id = tabId(tab);
+	const opened = layout.mode === "focus" ? { ...layout, mode: "split" as const } : layout;
+	if (opened.panes.length >= 2) return openTab(opened, tab, 1);
+	const [first] = opened.panes;
+	const rest = first.tabs.filter((item) => tabId(item) !== id);
+	if (rest.length === 0) return opened;
+	const active = first.active === id ? tabId(rest[0]) : first.active;
+	return {
+		...opened,
+		mode: "three",
+		panes: [
+			{ tabs: rest, active },
+			{ tabs: [tab], active: id },
+		],
+	};
+}
+
+/**
+ * Close a whole pane. Its tabs go with it; the last pane closing puts the thread back in Focus
+ * (and out of zoom), with the default tabs ready for next time.
+ */
+export function closePane(layout: SplitLayout, pane: number): SplitLayout {
+	if (!layout.panes[pane]) return layout;
+	const panes = layout.panes.filter((_, index) => index !== pane);
+	if (panes.length === 0) return { ...defaultLayout(), ratio: layout.ratio, stack: layout.stack };
+	return { ...layout, mode: "split", panes };
 }

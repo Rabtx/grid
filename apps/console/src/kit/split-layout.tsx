@@ -12,12 +12,16 @@ export function SplitShare(props: {
 	hidden?: boolean;
 	/** A row of its own children (the default is a column). */
 	row?: boolean;
+	/** Drawn as a card of its own, as each side of an open split is. Toggling it keeps the children. */
+	card?: boolean;
+	/** Slides in as it appears: from the side (a pane beside) or from below (a pane under). */
+	enter?: "side" | "below";
 	children: JSX.Element;
 }): JSX.Element {
 	return (
 		<div
 			hidden={props.hidden}
-			class={`flex min-h-0 min-w-0 ${props.row ? "flex-row" : "flex-col"}`}
+			class={`flex min-h-0 min-w-0 ${props.row ? "flex-row" : "flex-col"} ${props.card ? "surface-card overflow-hidden" : ""} ${props.enter === "side" ? "kit-split-in" : props.enter === "below" ? "kit-split-down" : ""}`}
 			style={{ flex: `${props.share} 1 0%` }}
 		>
 			{props.children}
@@ -56,7 +60,7 @@ export function SplitHandle(props: {
 			onPointerDown={(event) => props.onPointerDown(event)}
 			onKeyDown={(event) => props.onKeyDown(event)}
 			onDblClick={() => props.onReset?.()}
-			class={`focus-ring m-0 shrink-0 touch-none rounded-full border-0 transition-colors duration-fast hover:bg-fill-strong ${props.orientation === "vertical" ? "h-auto w-2 cursor-col-resize self-stretch" : "-my-1.5 h-2 cursor-row-resize"}`}
+			class={`focus-ring relative m-0 shrink-0 touch-none border-0 bg-transparent after:absolute after:rounded-full after:bg-transparent after:transition-colors after:duration-fast hover:after:bg-fill-strong active:after:bg-accent ${props.orientation === "vertical" ? "-mx-1 h-auto w-2 cursor-col-resize self-stretch after:inset-y-1/3 after:left-[3px] after:w-0.5" : "-my-1 h-2 cursor-row-resize after:inset-x-1/3 after:top-[3px] after:h-0.5"}`}
 		/>
 	);
 	/* oxlint-enable jsx-a11y/no-noninteractive-tabindex, jsx-a11y/no-noninteractive-element-interactions */

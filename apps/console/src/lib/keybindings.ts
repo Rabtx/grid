@@ -58,6 +58,13 @@ export const COMMANDS = [
 		group: "View",
 		defaults: ["mod+shift+b"],
 	},
+	{ id: "split.toggle", label: "Split view", group: "View", defaults: ["mod+\\"] },
+	{
+		id: "split.zoom",
+		label: "Maximize or restore the split pane",
+		group: "View",
+		defaults: ["mod+shift+enter"],
+	},
 	{ id: "zoom.in", label: "Zoom in", group: "View", defaults: ["mod+=", "mod+shift+="] },
 	{ id: "zoom.out", label: "Zoom out", group: "View", defaults: ["mod+-"] },
 	{ id: "zoom.reset", label: "Actual size", group: "View", defaults: ["mod+0"] },

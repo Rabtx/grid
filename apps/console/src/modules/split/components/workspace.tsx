@@ -8,15 +8,17 @@ import {
 	CodeIcon,
 	BrowserIcon,
 	GlobeIcon,
-	iconButton,
-	Menu,
-	type MenuGroup,
-	MoreIcon,
+	CloseIcon,
+	IconButton,
+	MaximizeIcon,
+	MinimizeIcon,
+	PlusIcon,
 	SPLIT_TAB_TYPE,
 	SplitDropTarget,
 	SplitHandle,
 	SplitShare,
 	type SplitTab,
+	SplitDownIcon,
 	SplitTabs,
 	TerminalIcon,
 } from "@/kit";
@@ -24,16 +26,20 @@ import {
 import {
 	activate,
 	clampStack,
+	closePane,
 	closeTab,
 	moveToOtherPane,
 	openTab,
 	type Pane,
 	type PaneTab,
 	paneOf,
+	setMode,
 	STACK,
 	tabId,
+	toggleZoom,
 } from "../lib/layout";
 import { baseName } from "../lib/paths";
+import { splitChooser } from "../stores/chooser";
 import { layoutsStore } from "../stores/layouts";
 import type { ThreadPlace } from "../stores/thread-terminals";
 
@@ -54,6 +60,8 @@ export type WorkspaceProps = {
 	single?: boolean;
 	/** Draws a side chat's tab: the chat module's conversation, which this module cannot import. */
 	renderChat?: (id: string) => JSX.Element;
+	/** Starts a side chat beside the thread (the chooser's Side chat); the chat module owns it. */
+	onSideChat?: () => void;
 };
 
 type PaneActions = {
@@ -61,6 +69,8 @@ type PaneActions = {
 	close: (id: string) => void;
 	open: (tab: PaneTab) => void;
 	move: (id: string) => void;
+	/** Shut the whole pane (the last one shuts the split). */
+	closePane: () => void;
 };
 
 function describe(tab: PaneTab): SplitTab {
@@ -108,12 +118,14 @@ export function Workspace(props: WorkspaceProps): JSX.Element {
 					setPhoneActive(tabId(tab));
 				},
 				move: () => {},
+				closePane: () => change((current) => setMode(current, "focus")),
 			};
 		return {
 			activate: (id) => change((current) => activate(current, index, id)),
 			close: (id) => change((current) => closeTab(current, index, id)),
 			open: (tab) => change((current) => openTab(current, tab, index)),
 			move: (id) => change((current) => moveToOtherPane(current, index, id)),
+			closePane: () => change((current) => closePane(current, index)),
 		};
 	}
 
@@ -243,69 +255,19 @@ function PaneView(
 		return tab ? describe(tab).label : "";
 	};
 
-	const menu = (): MenuGroup[] => {
-		const open = (tab: PaneTab) => paneOf(layout(), tabId(tab)) < 0;
-		const candidates: PaneTab[] = [
-			{ kind: "terminal" },
-			{ kind: "preview" },
-			{ kind: "browser" },
-			...props.files.map((file): PaneTab => ({ kind: "file", path: file.path })),
-		];
-		const offers = candidates.filter(open);
-		const active = props.pane.active;
-		const groups: MenuGroup[] = [];
-		if (offers.length)
-			groups.push({
-				label: "Open",
-				items: offers.map((tab) => ({
-					id: `open:${tabId(tab)}`,
-					label: describe(tab).label,
-					description:
-						tab.kind === "file" ? tab.path : tab.kind === "chat" ? "Side chat" : undefined,
-					icon: describe(tab).icon,
-				})),
-			});
-		const here: MenuGroup["items"][number][] = [];
-		if (props.canSplit && (layout().panes.length > 1 || props.pane.tabs.length > 1))
-			here.push({
-				id: "move",
-				label: layout().panes.length > 1 ? "Move to the other pane" : "Open in a new pane",
-			});
-		here.push({
-			id: "close",
-			label: `Close ${describe(props.pane.tabs.find((t) => tabId(t) === active) ?? { kind: "terminal" }).label}`,
-		});
-		groups.push({ items: here });
-		return groups;
-	};
-
-	function select(id: string): void {
-		const active = props.pane.active;
-		if (id.startsWith("open:")) {
-			const key = id.slice("open:".length);
-			const tab: PaneTab =
-				key === "terminal"
-					? { kind: "terminal" }
-					: key === "preview"
-						? { kind: "preview" }
-						: key === "browser"
-							? { kind: "browser" }
-							: { kind: "file", path: key.slice("file:".length) };
-			props.actions.open(tab);
-		} else if (id === "move") {
-			props.actions.move(active);
-		} else if (id === "close") {
-			props.actions.close(active);
-		}
-	}
+	const many = () => layout().panes.length > 1;
+	const zoomed = () => layout().zoomed === true;
+	const thread = () => props.place.thread;
 
 	return (
-		<SplitShare share={props.grow}>
+		<SplitShare share={props.grow} enter={props.index === 1 ? "below" : undefined}>
 			<section
 				aria-label={`Workspace pane ${props.index + 1}`}
 				class="surface-card relative flex min-h-0 flex-1 flex-col overflow-hidden"
 			>
-				<header class="flex h-12 shrink-0 items-center gap-2 border-line border-b px-2">
+				{/* Its tabs, + to add one (asking what), then the pane's own controls: split down,
+				    maximize or restore, close. No menu to open first: each is one click. */}
+				<header class="flex h-11 shrink-0 items-center gap-1 border-line border-b px-1.5">
 					<SplitTabs
 						label="Open in this pane"
 						tabs={props.pane.tabs.map(describe)}
@@ -316,15 +278,42 @@ function PaneView(
 						onDragStart={props.onDragStart}
 						onDragEnd={props.onDragEnd}
 					/>
+					<IconButton
+						size="xs"
+						label="Open a tab here"
+						onClick={() => splitChooser.open(thread(), props.canSplit ? props.index : 0)}
+					>
+						<PlusIcon />
+					</IconButton>
 					<span class="flex-1" />
-					<Menu
-						label="Pane actions"
-						trigger={<MoreIcon size="sm" />}
-						triggerClass={iconButton({ size: "xs" })}
-						placement="bottom-end"
-						groups={menu()}
-						onSelect={select}
-					/>
+					<Show when={props.canSplit && !many()}>
+						<IconButton
+							size="xs"
+							label="Split down"
+							onClick={() => splitChooser.open(thread(), "below")}
+						>
+							<SplitDownIcon />
+						</IconButton>
+					</Show>
+					<Show when={props.canSplit}>
+						<IconButton
+							size="xs"
+							label={zoomed() ? "Restore" : "Maximize"}
+							shortcut="Mod Shift Enter"
+							onClick={() => layoutsStore.update(thread(), toggleZoom)}
+						>
+							<Show when={zoomed()} fallback={<MaximizeIcon />}>
+								<MinimizeIcon />
+							</Show>
+						</IconButton>
+					</Show>
+					<IconButton
+						size="xs"
+						label={props.canSplit && many() ? "Close this pane" : "Close the split"}
+						onClick={props.actions.closePane}
+					>
+						<CloseIcon />
+					</IconButton>
 				</header>
 				<div class="relative flex min-h-0 flex-1 flex-col">
 					<For each={live()} keyed={(tab) => tabId(tab)}>

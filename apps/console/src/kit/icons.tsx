@@ -83,3 +83,7 @@ export { BrowserIcon } from "./glyphs/browser-icon";
 export { ChevronUpIcon } from "./glyphs/chevron-up-icon";
 export { BotIcon } from "./glyphs/bot-icon";
 export { BrainIcon } from "./glyphs/brain-icon";
+export { SplitIcon } from "./glyphs/split-icon";
+export { SplitDownIcon } from "./glyphs/split-down-icon";
+export { MaximizeIcon } from "./glyphs/maximize-icon";
+export { MinimizeIcon } from "./glyphs/minimize-icon";

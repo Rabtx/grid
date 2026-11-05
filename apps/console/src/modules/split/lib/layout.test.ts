@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	toggleZoom,
+	openBelow,
+	closePane,
 	activate,
 	closeTab,
 	defaultLayout,
@@ -158,5 +161,39 @@ describe("the browser tab", () => {
 		]);
 		const shut = toggleTab(opened, { kind: "browser" });
 		expect(ids(shut)).toEqual([["terminal", "preview"]]);
+	});
+});
+
+describe("split controls", () => {
+	const open = () => setMode(defaultLayout(), "split");
+
+	it("maximizes the workspace and restores it, and never in Focus", () => {
+		expect(toggleZoom(open()).zoomed).toBe(true);
+		expect(toggleZoom(toggleZoom(open())).zoomed).toBeUndefined();
+		expect(toggleZoom(defaultLayout()).zoomed).toBeUndefined();
+	});
+
+	it("keeps a maximized workspace through a reload, and drops it on closing the split", () => {
+		const zoomed = toggleZoom(open());
+		expect(normalize(JSON.parse(JSON.stringify(zoomed))).zoomed).toBe(true);
+		expect(setMode(zoomed, "focus").zoomed).toBeUndefined();
+	});
+
+	it("opens a tab in a new pane below, taking it from the first pane", () => {
+		const below = openBelow(open(), { kind: "preview" });
+		expect(below.mode).toBe("three");
+		expect(below.panes.map((pane) => pane.tabs.map((tab) => tab.kind))).toEqual([
+			["terminal"],
+			["preview"],
+		]);
+		expect(below.panes[0]?.active).toBe("terminal");
+	});
+
+	it("closes a whole pane, and the last one shuts the split", () => {
+		const below = openBelow(open(), { kind: "browser" });
+		const one = closePane(below, 1);
+		expect(one.mode).toBe("split");
+		expect(one.panes).toHaveLength(1);
+		expect(closePane(one, 0).mode).toBe("focus");
 	});
 });

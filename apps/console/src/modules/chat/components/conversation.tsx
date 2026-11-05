@@ -29,7 +29,7 @@ import {
 	layoutsStore,
 	openTab,
 	SplitFrame,
-	SplitSwitch,
+	SplitButton,
 	toggleTab,
 	type WorkspaceProps,
 	WorkspaceToggle,
@@ -996,6 +996,7 @@ export function Conversation(props: {
 					embedded
 				/>
 			),
+			onSideChat: () => void openSide(),
 		};
 	};
 	const split = () => layoutsStore.of(props.id).mode !== "focus";
@@ -1462,15 +1463,8 @@ export function Conversation(props: {
 						)}
 					</Show>
 					<Show when={workspaceProps()}>
-						<IconButton
-							size="sm"
-							label="Open a side chat"
-							tooltip="Side chat: ask a narrow question beside this thread"
-							onClick={() => void openSide()}
-						>
-							<ChatIcon size="sm" />
-						</IconButton>
-						<SplitSwitch thread={props.id} />
+						{/* One button for the split; a side chat is one of the things it offers to open. */}
+						<SplitButton thread={props.id} />
 					</Show>
 				</ShellSlot>
 			</Show>
