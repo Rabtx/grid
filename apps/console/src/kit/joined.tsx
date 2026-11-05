@@ -21,6 +21,9 @@ export function Joined(props: { label: string; children: JSX.Element }): JSX.Ele
 	);
 }
 
-/** A segment of a `Joined` pill: a button's or a popover trigger's class. */
+/**
+ * A segment of a `Joined` pill: a button's or a popover trigger's class. Its glyph is in full ink
+ * with a 2px stroke, as iOS draws its toolbar symbols.
+ */
 export const JOINED_BUTTON =
-	"focus-ring inline-grid h-10 min-w-12 shrink-0 place-items-center rounded-pill px-2.5 text-fg-muted transition-[background-color,color] duration-fast hover:bg-selection hover:text-fg aria-expanded:bg-selection aria-expanded:text-fg [&_svg]:size-5";
+	"focus-ring inline-grid h-10 min-w-12 shrink-0 place-items-center rounded-pill px-2.5 text-fg transition-[background-color,color] duration-fast hover:bg-selection aria-expanded:bg-selection [&_svg]:size-5 [&_svg_*]:[stroke-width:2]";

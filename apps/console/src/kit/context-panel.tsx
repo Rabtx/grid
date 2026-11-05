@@ -182,7 +182,7 @@ export function ContextMeter(props: {
 							cy="8"
 							r={radius}
 							fill="none"
-							stroke={props.joined ? "var(--kit-line-strong)" : "var(--kit-fill-strong)"}
+							stroke={props.joined ? "var(--kit-fg-subtle)" : "var(--kit-fill-strong)"}
 							stroke-width={props.joined ? "1.5" : "2"}
 						/>
 						<circle

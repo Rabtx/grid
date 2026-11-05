@@ -47,9 +47,12 @@ export const iconButton = variants({
 		variant: {
 			ghost: "icon-tile text-fg-muted hover:text-fg aria-expanded:text-fg",
 			bare: "text-fg-subtle hover:bg-fill hover:text-fg",
-			/** A solid fill, for header actions that stand alone (back, new, the menu). */
+			/**
+			 * A solid fill, for header actions that stand alone (back, new, the menu): the glyph in
+			 * full ink with a 2px stroke, as iOS draws its toolbar symbols.
+			 */
 			secondary:
-				"bg-fill-strong text-fg-muted hover:bg-selection hover:text-fg aria-expanded:bg-selection aria-expanded:text-fg",
+				"bg-fill-strong text-fg hover:bg-selection aria-expanded:bg-selection [&_svg_*]:[stroke-width:2]",
 			danger:
 				"icon-tile text-fg-subtle [--tile-hover:color-mix(in_srgb,var(--signal-danger)_12%,transparent)] hover:text-danger",
 		},
