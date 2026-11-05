@@ -6,6 +6,7 @@ import { For, Show } from "solid-js";
 
 import { Button } from "./button";
 import { Icon } from "./icons";
+import { JOINED_BUTTON } from "./joined";
 import { Popover } from "./popover";
 import { DOCK_CHIP } from "./prompt-box";
 
@@ -137,6 +138,8 @@ export function ContextMeter(props: {
 	onCompact?: () => void;
 	/** Why compacting cannot happen right now (the agent is working), shown instead. */
 	compactBlocked?: string | null;
+	/** A segment of a joined pill (the phone header): the ring alone, larger, opening downwards. */
+	joined?: boolean;
 }): JSX.Element {
 	const ratio = () =>
 		props.used !== undefined && props.total
@@ -168,9 +171,9 @@ export function ContextMeter(props: {
 		<Popover
 			label={label()}
 			title="Context and usage"
-			placement="top-end"
+			placement={props.joined ? "bottom-end" : "top-end"}
 			width="md:w-96"
-			triggerClass={`${DOCK_CHIP} tabular-nums`}
+			triggerClass={props.joined ? JOINED_BUTTON : `${DOCK_CHIP} tabular-nums`}
 			trigger={
 				<>
 					<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" class="-rotate-90">
@@ -179,7 +182,7 @@ export function ContextMeter(props: {
 							cy="8"
 							r={radius}
 							fill="none"
-							stroke="var(--kit-fill-strong)"
+							stroke={props.joined ? "var(--kit-line-strong)" : "var(--kit-fill-strong)"}
 							stroke-width="2"
 						/>
 						<circle
@@ -195,9 +198,11 @@ export function ContextMeter(props: {
 							class="transition-[stroke-dashoffset] duration-slow ease-out-grid"
 						/>
 					</svg>
-					<span aria-hidden="true">
-						{amount() ?? (props.total ? formatTokens(props.total) : "Context")}
-					</span>
+					<Show when={!props.joined}>
+						<span aria-hidden="true">
+							{amount() ?? (props.total ? formatTokens(props.total) : "Context")}
+						</span>
+					</Show>
 				</>
 			}
 		>

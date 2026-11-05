@@ -5,6 +5,6 @@ export { ShortcutsHelp } from "./components/shortcuts-help";
 export { FloatingSidebar, FloatingTopBar, SettingsCorner } from "./components/floating";
 export { Rail } from "./components/rail";
 export { Sidebar, sectionTitle } from "./components/sidebar";
-export { TitleBar, TopBar } from "./components/title-bar";
+export { NewThreadButton, TitleBar, TopBar } from "./components/title-bar";
 export { UpdateBanner } from "./components/update-banner";
 export { ShellProvider, ShellSlot, useShell } from "./context/shell-context";

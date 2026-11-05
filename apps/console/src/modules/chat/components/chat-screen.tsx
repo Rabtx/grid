@@ -10,10 +10,12 @@ import { shortcutHint, useCommand } from "@/lib/keybindings";
 import { useAuth } from "@/modules/auth";
 import { placementsStore, scopeFor } from "@/modules/environments";
 import { notesStore, ProjectIcon, useWorkspace } from "@/modules/projects";
-import { ShellSlot, useShell } from "@/modules/shell";
+import { NewThreadButton, ShellSlot, useShell } from "@/modules/shell";
 import { useWorkspaces } from "@/modules/workspaces";
 import { isAdmin } from "@/modules/workspaces/lib/members";
 import {
+	AgentLogo,
+	Joined,
 	CloseIcon,
 	Alert,
 	BranchIcon,
@@ -833,8 +835,37 @@ function NewChat(props: {
 
 	const ready = () => Boolean(chosen() && props.project && props.folder);
 
+	const shell = useShell();
+	/** The model's window and the plan's limits: on the composer's shelf, or the phone header. */
+	const contextMeter = (joined = false) => (
+		<Show when={chosen()}>
+			{(provider) => (
+				<ContextMeter
+					joined={joined}
+					total={currentModel()?.contextWindow}
+					model={currentModel()?.name}
+					limits={planLimits(provider().id, accountScope(), account(), now())}
+					agentName={provider().name}
+					agentMark={<AgentLogo id={provider().id} name={provider().name} />}
+					account={
+						accountsStore.label(accountScope(), account()) ?? provider().setup?.account ?? undefined
+					}
+				/>
+			)}
+		</Show>
+	);
+
 	return (
 		<div class="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-3 pb-3 md:justify-center md:px-6 md:pt-12 md:pb-24">
+			{/* Phones: the context and a new thread, joined in the header. */}
+			<Show when={!shell.desktop()}>
+				<ShellSlot name="trailing">
+					<Joined label="Thread">
+						{contextMeter(true)}
+						<NewThreadButton joined />
+					</Joined>
+				</ShellSlot>
+			</Show>
 			<Stack gap={4} class="mx-auto w-full max-w-160">
 				{/* The project the thread starts in (Figma "First thread"): its tile, where it lives and
 				    how many threads it has, and its name. */}
@@ -1046,17 +1077,9 @@ function NewChat(props: {
 											</>
 										)}
 									</Show>
-									<Show when={chosen()}>
-										{(provider) => (
-											<span class="ml-auto">
-												<ContextMeter
-													total={currentModel()?.contextWindow}
-													model={currentModel()?.name}
-													limits={planLimits(provider().id, accountScope(), account(), now())}
-													account={accountsStore.label(accountScope(), account()) ?? "Your sign-in"}
-												/>
-											</span>
-										)}
+									{/* On phones the context sits in the header's pill instead. */}
+									<Show when={shell.desktop()}>
+										<span class="ml-auto">{contextMeter()}</span>
 									</Show>
 								</Row>
 							}

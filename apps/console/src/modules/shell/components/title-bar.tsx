@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from "@solidjs/router";
 import type { JSX } from "@solidjs/web";
 import { Loading, Show } from "solid-js";
 
-import { EditIcon, IconButton, Row, SidebarIcon, Text } from "@/kit";
+import { EditIcon, IconButton, JOINED_BUTTON, Row, SidebarIcon, Text } from "@/kit";
 import { useWorkspace } from "@/modules/projects";
 
 import { useShell } from "../context/shell-context";
@@ -71,26 +71,30 @@ export function Breadcrumb(): JSX.Element {
 }
 
 /**
- * The phone header's one action, in thumb reach and the same on every screen: a new thread. A
- * screen's own actions (a new task, a new note) sit in its pane header.
+ * A new thread, in this project if one is open: the phone header's action, in thumb reach and the
+ * same on every screen. On its own a round button; `joined`, the last segment of a screen's pill
+ * (a thread puts its context and details beside it). A screen's other actions sit in its pane.
  */
-function PhoneAction(): JSX.Element {
+export function NewThreadButton(props: { joined?: boolean }): JSX.Element {
 	const workspace = useWorkspace();
 	const navigate = useNavigate();
-
+	const open = () => {
+		const slug = workspace.currentSlug();
+		navigate(slug ? `/chat/${slug}` : "/chat");
+	};
 	return (
-		<IconButton
-			label="New thread"
-			variant="secondary"
-			shape="round"
-			size="lg"
-			onClick={() => {
-				const slug = workspace.currentSlug();
-				navigate(slug ? `/chat/${slug}` : "/chat");
-			}}
+		<Show
+			when={props.joined}
+			fallback={
+				<IconButton label="New thread" variant="secondary" shape="round" size="lg" onClick={open}>
+					<EditIcon />
+				</IconButton>
+			}
 		>
-			<EditIcon />
-		</IconButton>
+			<button type="button" aria-label="New thread" class={JOINED_BUTTON} onClick={open}>
+				<EditIcon />
+			</button>
+		</Show>
 	);
 }
 
@@ -185,7 +189,7 @@ export function TopBar(): JSX.Element {
 						</Show>
 					</Show>
 				</div>
-				<Show when={shell.trailing()} fallback={<PhoneAction />}>
+				<Show when={shell.trailing()} fallback={<NewThreadButton />}>
 					{(trailing) => <>{trailing()()}</>}
 				</Show>
 			</Row>

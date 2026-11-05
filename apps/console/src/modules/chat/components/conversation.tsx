@@ -22,7 +22,7 @@ import { useAuth } from "@/modules/auth";
 import { environmentsStore } from "@/modules/environments";
 import { placementsStore } from "@/modules/environments/stores/placements";
 import { relativeTime } from "@/modules/projects/lib/relative-time";
-import { ShellSlot, useShell } from "@/modules/shell";
+import { NewThreadButton, ShellSlot, useShell } from "@/modules/shell";
 import { notesStore, useWorkspace } from "@/modules/projects";
 import {
 	DockedWorkspace,
@@ -35,6 +35,7 @@ import {
 	WorkspaceToggle,
 } from "@/modules/split";
 import {
+	Joined,
 	AgentLogo,
 	Alert,
 	Badge,
@@ -221,6 +222,37 @@ export function Conversation(props: {
 			transcript().usage?.contextUsed,
 			(transcript().usage?.inputTokens ?? 0) + (transcript().usage?.outputTokens ?? 0),
 		),
+	);
+	/** How full the context is, and the plan's limits: on the composer's shelf, or the header. */
+	const contextMeter = (joined = false) => (
+		<ContextMeter
+			joined={joined}
+			used={context().used || undefined}
+			estimated={context().estimated}
+			total={transcript().usage?.contextWindow ?? currentModel()?.contextWindow}
+			model={modelName()}
+			parts={context().parts}
+			limits={planLimits(session()?.provider ?? "", props.scope, session()?.account ?? null, now())}
+			agentName={provider()?.name}
+			agentMark={<AgentLogo id={session()?.provider ?? ""} name={provider()?.name ?? ""} />}
+			account={
+				accountsStore.label(props.scope, session()?.account ?? null) ??
+				provider()?.setup?.account ??
+				undefined
+			}
+			carryOn={
+				transcript().limitWait
+					? `Grid carries this thread on when the limit resets, ${resetsText(transcript().limitWait ?? "", now())}.`
+					: null
+			}
+			thread={{
+				input: transcript().usage?.inputTokens,
+				output: transcript().usage?.outputTokens,
+				cost: transcript().usage?.costUsd,
+			}}
+			onCompact={compactCommand() ? compactNow : undefined}
+			compactBlocked={running() ? "Compacting waits until the agent finishes this turn." : null}
+		/>
 	);
 	const efforts = () => transcript().efforts ?? currentModel()?.efforts ?? [];
 	const effort = () =>
@@ -1034,13 +1066,6 @@ export function Conversation(props: {
 					class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 md:px-6"
 				>
 					<div class="mx-auto flex w-full max-w-160 flex-col gap-6">
-						<Show when={!embedded && !shell.desktop() ? details() : null}>
-							{(data) => (
-								<div class="-mb-4 flex justify-end">
-									<ThreadDetailsButton data={data()} />
-								</div>
-							)}
-						</Show>
 						<Show when={embedded ? null : session()}>
 							{(current) => (
 								<div class="hidden md:block">
@@ -1324,44 +1349,10 @@ export function Conversation(props: {
 											}}
 										/>
 									</Show>
-									<span class="ml-auto">
-										<ContextMeter
-											used={context().used || undefined}
-											estimated={context().estimated}
-											total={transcript().usage?.contextWindow ?? currentModel()?.contextWindow}
-											model={modelName()}
-											parts={context().parts}
-											limits={planLimits(
-												session()?.provider ?? "",
-												props.scope,
-												session()?.account ?? null,
-												now(),
-											)}
-											agentName={provider()?.name}
-											agentMark={
-												<AgentLogo id={session()?.provider ?? ""} name={provider()?.name ?? ""} />
-											}
-											account={
-												accountsStore.label(props.scope, session()?.account ?? null) ??
-												provider()?.setup?.account ??
-												undefined
-											}
-											carryOn={
-												transcript().limitWait
-													? `Grid carries this thread on when the limit resets, ${resetsText(transcript().limitWait ?? "", now())}.`
-													: null
-											}
-											thread={{
-												input: transcript().usage?.inputTokens,
-												output: transcript().usage?.outputTokens,
-												cost: transcript().usage?.costUsd,
-											}}
-											onCompact={compactCommand() ? compactNow : undefined}
-											compactBlocked={
-												running() ? "Compacting waits until the agent finishes this turn." : null
-											}
-										/>
-									</span>
+									{/* On phones the context sits in the header's pill instead. */}
+									<Show when={shell.desktop() || embedded}>
+										<span class="ml-auto">{contextMeter()}</span>
+									</Show>
 								</Row>
 							</>
 						}
@@ -1444,6 +1435,16 @@ export function Conversation(props: {
 						}
 					/>
 				)}
+			</Show>
+			{/* Phones: the thread's context, its details and a new thread, joined in the header. */}
+			<Show when={!shell.desktop() && !embedded}>
+				<ShellSlot name="trailing">
+					<Joined label="Thread">
+						{contextMeter(true)}
+						<Show when={details()}>{(data) => <ThreadDetailsButton data={data()} joined />}</Show>
+						<NewThreadButton joined />
+					</Joined>
+				</ShellSlot>
 			</Show>
 			<Show when={shell.desktop() && !embedded}>
 				<ShellSlot name="actions">

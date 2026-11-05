@@ -18,6 +18,7 @@ import {
 	ThreadDetailsRow,
 	ThreadDetailsSection,
 	iconButton,
+	JOINED_BUTTON,
 } from "@/kit";
 
 import { formatDuration } from "../lib/transcript";
@@ -172,6 +173,8 @@ export function ThreadDetails(props: { data: ThreadDetailsData; bare?: boolean }
 export function ThreadDetailsButton(props: {
 	data: ThreadDetailsData;
 	class?: string;
+	/** A segment of the phone header's joined pill. */
+	joined?: boolean;
 }): JSX.Element {
 	return (
 		<Popover
@@ -179,7 +182,9 @@ export function ThreadDetailsButton(props: {
 			title="Thread details"
 			placement="bottom-end"
 			width="md:w-80"
-			triggerClass={`${iconButton({ size: "sm" })} ${props.class ?? ""}`}
+			triggerClass={
+				props.joined ? JOINED_BUTTON : `${iconButton({ size: "sm" })} ${props.class ?? ""}`
+			}
 			trigger={<InfoIcon size="sm" />}
 		>
 			{() => <ThreadDetails data={props.data} bare />}
