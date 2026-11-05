@@ -159,7 +159,7 @@ export function PromptHighlights(props: {
 							part.text
 						) : (
 							<span
-								class={`-mx-0.5 rounded-kit-xs px-0.5 box-decoration-clone ${part.kind === "command" ? "bg-accent/20" : "bg-accent/12"}`}
+								class={`-mx-0.5 rounded-kit-xs px-0.5 box-decoration-clone ${part.kind === "command" ? "bg-accent/30" : "bg-accent/20"}`}
 							>
 								{part.text}
 							</span>
