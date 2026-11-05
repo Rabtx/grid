@@ -379,7 +379,7 @@ export function PullsScreen(): JSX.Element {
 						}
 					>
 						{/* Phones: Open, Merged and Closed, what waits on you first. */}
-						<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-6">
+						<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-gutter pt-2 pb-6">
 							<Segmented<PullState>
 								block
 								label="Which pull requests"

@@ -292,7 +292,8 @@ export function InboxScreen(): JSX.Element {
 
 			<div class="flex min-h-0 flex-1">
 				<div class="flex min-h-0 w-full flex-col overflow-y-auto overscroll-contain p-2 lg:w-100 lg:shrink-0 lg:border-line lg:border-r">
-					<div class={`flex flex-col gap-2 px-2 pt-1 pb-2 ${shell.collapsed() ? "" : "lg:hidden"}`}>
+					{/* The list's own 8px and this 4px: the 12px gutter every screen shares. */}
+					<div class={`flex flex-col gap-2 px-1 pt-1 pb-2 ${shell.collapsed() ? "" : "lg:hidden"}`}>
 						<Segmented
 							label="Show"
 							block

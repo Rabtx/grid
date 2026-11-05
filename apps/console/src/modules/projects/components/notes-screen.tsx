@@ -497,7 +497,7 @@ function NotesHome(props: {
 			</ShellSlot>
 			<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
 				<div class="mx-auto flex w-full max-w-2xl flex-col pb-4 md:pt-6">
-					<div class="px-4 pt-1 pb-2">
+					<div class="px-gutter pt-1 pb-2">
 						<NoteSearchField
 							label="Search notes"
 							placeholder="Search notes"

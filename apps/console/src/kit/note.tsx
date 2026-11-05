@@ -300,7 +300,7 @@ export function NoteAskDock(props: {
 }): JSX.Element {
 	return (
 		<form
-			class="shrink-0 px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+			class="shrink-0 px-gutter pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
 			onSubmit={(event) => {
 				event.preventDefault();
 				if (props.value.trim()) props.onSubmit();

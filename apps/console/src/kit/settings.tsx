@@ -177,7 +177,7 @@ export function SettingsColumn(props: {
 }): JSX.Element {
 	return (
 		<div class="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
-			<div class="mx-auto flex w-full max-w-180 flex-col gap-4 px-4 pt-2 pb-12 md:gap-8 md:pt-12">
+			<div class="mx-auto flex w-full max-w-180 flex-col gap-4 px-gutter pt-2 pb-12 md:gap-8 md:pt-12">
 				<header class="flex flex-col gap-1 max-md:hidden">
 					<h1 class="font-medium text-title text-fg">{props.title}</h1>
 					<Show when={props.description}>

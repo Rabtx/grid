@@ -451,7 +451,7 @@ export function AutomationsScreen(): JSX.Element {
 						}
 					>
 						{/* Phones: All, Active and Paused, what runs next, then each one's last runs. */}
-						<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-6">
+						<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-gutter pt-2 pb-6">
 							<Segmented<Filter>
 								block
 								label="Which automations"
