@@ -68,6 +68,7 @@ import {
 	type ChatSocket,
 } from "../lib/chat-socket";
 import { threadFacts } from "../lib/thread-facts";
+import { contextSplit } from "../lib/context-split";
 import {
 	applyEvent,
 	emptyTranscript,
@@ -1319,6 +1320,10 @@ export function Conversation(props: {
 											used={transcript().usage?.contextUsed}
 											total={transcript().usage?.contextWindow ?? currentModel()?.contextWindow}
 											model={modelName()}
+											parts={contextSplit(
+												transcript().blocks,
+												transcript().usage?.contextUsed ?? 0,
+											)}
 											limits={planLimits(
 												session()?.provider ?? "",
 												props.scope,

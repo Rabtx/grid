@@ -44,6 +44,16 @@ describe("ContextMeter", () => {
 				used={150_000}
 				total={200_000}
 				model="Opus 5.5"
+				parts={[
+					{ id: "setup", label: "System & tools", tokens: 20_000, tone: "neutral", fixed: true },
+					{
+						id: "talk",
+						label: "Conversation",
+						detail: "38 messages",
+						tokens: 130_000,
+						tone: "accent",
+					},
+				]}
 				account="Your sign-in"
 				limits={[
 					{ window: "5h", used: 42, limited: false, resets: "in 2h 10m · Sat 14:00" },
@@ -57,17 +67,21 @@ describe("ContextMeter", () => {
 		open(host);
 		const text = host.textContent ?? "";
 		expect(text).toContain("Opus 5.5");
-		expect(text).toContain("150k / 200k");
-		expect(text).toContain("75% used");
-		expect(text).toContain("50k tokens left.");
-		expect(text).toContain("42% used");
+		expect(text).toContain("75%");
+		expect(text).toContain("150k of 200k tokens");
+		expect(text).toContain("50k left");
+		expect(text).toContain("System & tools");
+		expect(text).toContain("Fixed");
+		expect(text).toContain("38 messages");
+		expect(text).toContain("130k");
+		expect(text).toContain("58% left");
 		expect(text).toContain("Resets in 2h 10m · Sat 14:00");
 		expect(text).toContain("Used up");
-		expect(text).toContain("Available again: in 3d · Tue 09:00");
+		expect(text).toContain("Back in 3d · Tue 09:00");
 		expect(text).toContain("Grid carries this thread on when the limit resets.");
 		expect(text).toContain("1.2M");
 		expect(text).toContain("$1.50");
-		[...host.querySelectorAll("button")].find((b) => b.textContent === "Compact")?.click();
+		[...host.querySelectorAll("button")].find((b) => b.textContent === "Compact now")?.click();
 		expect(onCompact).toHaveBeenCalledOnce();
 	});
 
@@ -81,18 +95,20 @@ describe("ContextMeter", () => {
 		));
 		open(host);
 		const text = host.textContent ?? "";
-		expect(text).toContain("1.0M");
-		expect(text).toContain("Nothing used yet");
-		expect(text).toContain("Limits show here once the agent reports them");
+		expect(text).toContain("0 of 1.0M tokens");
+		expect(text).toContain("1.0M left");
+		expect(text).toContain("What is left of the plan");
 		expect(text).toContain("Compacting waits until the agent finishes this turn.");
-		const compact = [...host.querySelectorAll("button")].find((b) => b.textContent === "Compact");
+		const compact = [...host.querySelectorAll("button")].find(
+			(b) => b.textContent === "Compact now",
+		);
 		expect(compact?.disabled).toBe(true);
 	});
 
 	it("leaves the compact button out where the agent cannot compact", () => {
 		const host = mount(() => <ContextMeter total={200_000} />);
 		open(host);
-		expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Compact")).toBe(
+		expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Compact now")).toBe(
 			false,
 		);
 	});
