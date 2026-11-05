@@ -2,6 +2,7 @@ import type { JSX } from "@solidjs/web";
 import { useParams } from "@solidjs/router";
 import {
 	createEffect,
+	createMemo,
 	createSignal,
 	createUniqueId,
 	For,
@@ -30,6 +31,7 @@ import {
 	PROMPT_FIELD,
 	PROMPT_ADD,
 	PromptBox,
+	PromptHighlights,
 	Row,
 	SEND_BUTTON,
 	SendIcon,
@@ -50,6 +52,7 @@ import {
 	validateIncomingFiles,
 	type AttachedFile,
 } from "../lib/attachments";
+import { promptParts } from "../lib/prompt-tokens";
 import { type SlashCommand, useSlashCommands } from "../lib/slash-commands";
 import { useFileMentions } from "../lib/use-file-mentions";
 import { chatService } from "../services/chat.service";
@@ -374,6 +377,13 @@ export function Composer(props: {
 		keepTimer = undefined;
 		if (keptFor) composerDrafts.clear(keptFor);
 	}
+
+	// Mentions and known commands, tinted behind the text as it is written.
+	let followScroll: ((top: number) => void) | undefined;
+	const commandNames = createMemo(
+		() => new Set((props.commands ?? []).map((command) => command.name.toLowerCase())),
+	);
+	const highlights = createMemo(() => promptParts(draft(), commandNames()));
 
 	const slash = useSlashCommands({
 		textarea: () => textarea,
@@ -721,69 +731,78 @@ export function Composer(props: {
 						</>
 					}
 					field={
-						<textarea
-							ref={(el) => {
-								textarea = el;
-							}}
-							rows={props.roomy ? 2 : 1}
-							value={draft()}
-							placeholder={props.placeholder ?? PLACEHOLDER}
-							aria-label="Message"
-							aria-controls={openList()?.id}
-							aria-activedescendant={(() => {
-								const list = openList();
-								return list && list.count > 0 ? `${list.id}-${list.active}` : undefined;
-							})()}
-							enterkeyhint="send"
-							disabled={props.disabled || sending()}
-							onInput={(event) => {
-								setDraft(event.currentTarget.value);
-								grow();
-								keepSoon();
-								mentions.handleInput();
-								slash.handleInput();
-							}}
-							onKeyUp={() => {
-								mentions.handleInput();
-								slash.handleInput();
-							}}
-							onClick={() => {
-								mentions.handleInput();
-								slash.handleInput();
-							}}
-							onPaste={(event) => {
-								const pastedFiles = Array.from(event.clipboardData?.files ?? []);
-								if (pastedFiles.length) {
-									event.preventDefault();
-									addFiles(pastedFiles);
-								}
-							}}
-							onKeyDown={(event) => {
-								if (mentions.handleKeyDown(event)) return;
-								if (slash.handleKeyDown(event)) return;
-								if (
-									(event.metaKey || event.ctrlKey) &&
-									!event.shiftKey &&
-									!event.altKey &&
-									event.key.toLowerCase() === "u"
-								) {
-									event.preventDefault();
-									filePicker?.click();
-									return;
-								}
-								if (
-									event.key === "Enter" &&
-									!event.shiftKey &&
-									!event.isComposing &&
-									matchMedia("(pointer: fine)").matches
-								) {
-									event.preventDefault();
-									// While the agent works, ⌘/Ctrl+Enter steers; Enter queues.
-									void send(event.metaKey || event.ctrlKey);
-								}
-							}}
-							class={PROMPT_FIELD}
-						/>
+						<div class="relative">
+							<PromptHighlights
+								parts={highlights()}
+								scroller={(follow) => {
+									followScroll = follow;
+								}}
+							/>
+							<textarea
+								ref={(el) => {
+									textarea = el;
+								}}
+								onScroll={(event) => followScroll?.(event.currentTarget.scrollTop)}
+								rows={props.roomy ? 2 : 1}
+								value={draft()}
+								placeholder={props.placeholder ?? PLACEHOLDER}
+								aria-label="Message"
+								aria-controls={openList()?.id}
+								aria-activedescendant={(() => {
+									const list = openList();
+									return list && list.count > 0 ? `${list.id}-${list.active}` : undefined;
+								})()}
+								enterkeyhint="send"
+								disabled={props.disabled || sending()}
+								onInput={(event) => {
+									setDraft(event.currentTarget.value);
+									grow();
+									keepSoon();
+									mentions.handleInput();
+									slash.handleInput();
+								}}
+								onKeyUp={() => {
+									mentions.handleInput();
+									slash.handleInput();
+								}}
+								onClick={() => {
+									mentions.handleInput();
+									slash.handleInput();
+								}}
+								onPaste={(event) => {
+									const pastedFiles = Array.from(event.clipboardData?.files ?? []);
+									if (pastedFiles.length) {
+										event.preventDefault();
+										addFiles(pastedFiles);
+									}
+								}}
+								onKeyDown={(event) => {
+									if (mentions.handleKeyDown(event)) return;
+									if (slash.handleKeyDown(event)) return;
+									if (
+										(event.metaKey || event.ctrlKey) &&
+										!event.shiftKey &&
+										!event.altKey &&
+										event.key.toLowerCase() === "u"
+									) {
+										event.preventDefault();
+										filePicker?.click();
+										return;
+									}
+									if (
+										event.key === "Enter" &&
+										!event.shiftKey &&
+										!event.isComposing &&
+										matchMedia("(pointer: fine)").matches
+									) {
+										event.preventDefault();
+										// While the agent works, ⌘/Ctrl+Enter steers; Enter queues.
+										void send(event.metaKey || event.ctrlKey);
+									}
+								}}
+								class={PROMPT_FIELD}
+							/>
+						</div>
 					}
 					tools={
 						<>

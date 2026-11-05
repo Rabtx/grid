@@ -125,7 +125,53 @@ export function PromptBox(props: {
  * composer grows it with the text to five lines, then it scrolls (the cap here is a backstop).
  */
 export const PROMPT_FIELD =
-	"block max-h-40 w-full resize-none overflow-y-hidden bg-transparent px-4 pt-3.5 pb-2 text-fg text-field outline-none [scrollbar-width:thin] placeholder:text-fg-subtle";
+	"relative block max-h-40 w-full resize-none overflow-y-hidden bg-transparent px-4 pt-3.5 pb-2 text-fg text-field outline-none [scrollbar-width:thin] placeholder:text-fg-subtle";
+
+/** A run of the field's text, and whether it is a file mention or a command. */
+export type PromptHighlight = { text: string; kind: "plain" | "mention" | "command" };
+
+/**
+ * The tint behind mentions and commands in the composer: a copy of the field's text, laid out as
+ * the field lays it out, under the field, invisible but for a soft chip behind each marked run.
+ * The field keeps its own text, caret and selection; hand `scroller` the field's scroll to follow.
+ * Put it before the field (both inside one `relative` box).
+ */
+export function PromptHighlights(props: {
+	parts: readonly PromptHighlight[];
+	scroller?: (follow: (top: number) => void) => void;
+}): JSX.Element {
+	let layer: HTMLDivElement | undefined;
+	props.scroller?.((top) => {
+		if (layer) layer.scrollTop = top;
+	});
+	return (
+		<Show when={props.parts.some((part) => part.kind !== "plain")}>
+			<div
+				ref={(el) => {
+					layer = el;
+				}}
+				aria-hidden="true"
+				class="pointer-events-none absolute inset-0 overflow-hidden px-4 pt-3.5 pb-2 text-field break-words whitespace-pre-wrap text-transparent select-none"
+			>
+				<For each={props.parts}>
+					{(part) =>
+						part.kind === "plain" ? (
+							part.text
+						) : (
+							<span
+								class={`-mx-0.5 rounded-kit-xs px-0.5 box-decoration-clone ${part.kind === "command" ? "bg-accent/20" : "bg-accent/12"}`}
+							>
+								{part.text}
+							</span>
+						)
+					}
+				</For>
+				{/* The field keeps a last empty line's height; so does the copy. */}
+				{"\u200b"}
+			</div>
+		</Show>
+	);
+}
 
 /**
  * Every control on the composer's toolbar is one size and one corner: 32px on desktop (40px on
