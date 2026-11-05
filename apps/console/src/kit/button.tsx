@@ -47,11 +47,9 @@ export const iconButton = variants({
 		variant: {
 			ghost: "icon-tile text-fg-muted hover:text-fg aria-expanded:text-fg",
 			bare: "text-fg-subtle hover:bg-fill hover:text-fg",
-			/**
-			 * The outlined surface (a hairline, a highlight, a soft drop: iOS's glass bubbles), for
-			 * header actions that stand alone (back, new, the menu); the same as a `Joined` pill.
-			 */
-			secondary: "surface-outline text-fg hover:bg-selection aria-expanded:bg-selection",
+			/** A solid fill, for header actions that stand alone (back, new, the menu). */
+			secondary:
+				"bg-fill-strong text-fg-muted hover:bg-selection hover:text-fg aria-expanded:bg-selection aria-expanded:text-fg",
 			danger:
 				"icon-tile text-fg-subtle [--tile-hover:color-mix(in_srgb,var(--signal-danger)_12%,transparent)] hover:text-danger",
 		},
