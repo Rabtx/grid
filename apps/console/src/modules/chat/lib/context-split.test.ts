@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { contextSplit } from "./context-split";
+import { contextUsage } from "./context-split";
 import type { Block } from "./transcript";
 
 const blocks: Block[] = [
@@ -17,9 +17,10 @@ const blocks: Block[] = [
 	},
 ];
 
-describe("contextSplit", () => {
+describe("contextUsage", () => {
 	it("sizes the thread's text and leaves the rest of the total to the agent's setup", () => {
-		const parts = contextSplit(blocks, 10_000);
+		const { parts, estimated } = contextUsage(blocks, 10_000);
+		expect(estimated).toBe(false);
 		expect(parts.map((part) => [part.id, part.tokens, part.detail])).toEqual([
 			["setup", 9300, "The agent's own"],
 			["conversation", 200, "2 messages"],
@@ -28,13 +29,19 @@ describe("contextSplit", () => {
 	});
 
 	it("scales the thread's text down to the total after a compact, with no setup left", () => {
-		const parts = contextSplit(blocks, 350);
+		const { parts } = contextUsage(blocks, 350);
 		expect(parts.map((part) => part.id)).toEqual(["conversation", "tools"]);
 		expect(parts.reduce((sum, part) => sum + part.tokens, 0)).toBe(350);
 		expect(parts[0]?.tokens).toBe(100);
 	});
 
-	it("has nothing to split before the agent reports", () => {
-		expect(contextSplit(blocks, 0)).toEqual([]);
+	it("sizes the thread's own text when the agent reports no total", () => {
+		const usage = contextUsage(blocks);
+		expect(usage).toMatchObject({ used: 700, estimated: true });
+		expect(usage.parts.map((part) => part.id)).toEqual(["conversation", "tools"]);
+	});
+
+	it("has nothing to show for an empty thread", () => {
+		expect(contextUsage([])).toEqual({ used: 0, estimated: true, parts: [] });
 	});
 });

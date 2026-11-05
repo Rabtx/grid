@@ -347,7 +347,8 @@ export function FormsSection(): JSX.Element {
 								tone: "violet",
 							},
 						]}
-						account="Your sign-in"
+						agentName="Claude Code"
+						account="you@example.com · Max plan"
 						limits={[
 							{ window: "5h", used: 38, limited: false, resets: "in 2h 10m · Thu 18:00" },
 							{ window: "Weekly", used: 71, limited: false, resets: "in 3d · Mon 09:00" },

@@ -97,12 +97,34 @@ describe("ContextMeter", () => {
 		const text = host.textContent ?? "";
 		expect(text).toContain("0 of 1.0M tokens");
 		expect(text).toContain("1.0M left");
-		expect(text).toContain("What is left of the plan");
+		expect(text).toContain("has not reported plan limits");
 		expect(text).toContain("Compacting waits until the agent finishes this turn.");
 		const compact = [...host.querySelectorAll("button")].find(
 			(b) => b.textContent === "Compact now",
 		);
 		expect(compact?.disabled).toBe(true);
+	});
+
+	it("shows an estimate with ≈ when the agent reports no context, and who it runs as", () => {
+		const host = mount(() => (
+			<ContextMeter
+				used={13_000}
+				estimated
+				model="Gemini 3.8 Flash"
+				agentName="Antigravity"
+				account="me@example.com"
+			/>
+		));
+		expect(host.querySelector("button")?.getAttribute("aria-label")).toBe(
+			"Context ≈13k tokens used",
+		);
+		open(host);
+		const text = host.textContent ?? "";
+		expect(text).toContain("≈13k tokens used");
+		expect(text).toContain("Window not reported");
+		expect(text).toContain("Antigravity does not report its context");
+		expect(text).toContain("me@example.com");
+		expect(text).toContain("Antigravity has not reported plan limits");
 	});
 
 	it("leaves the compact button out where the agent cannot compact", () => {

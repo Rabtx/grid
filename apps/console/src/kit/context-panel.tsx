@@ -122,7 +122,12 @@ export function ContextMeter(props: {
 	/** What fills the context, estimated; drawn as its split. */
 	parts?: readonly ContextPart[];
 	limits?: readonly ContextLimit[];
-	/** Which account the limits are for: "Your sign-in", an account's label. */
+	/** The agent's own count, or the thread's text sized when it reports none: shown with "≈". */
+	estimated?: boolean;
+	/** The agent the thread runs on, and its mark, for its account row. */
+	agentName?: string;
+	agentMark?: JSX.Element;
+	/** Who it runs as: the email or plan it is signed in with, or an added account's name. */
 	account?: string;
 	/** When Grid carries the thread on after a limit resets, in words. */
 	carryOn?: string | null;
@@ -139,13 +144,24 @@ export function ContextMeter(props: {
 			: 0;
 	const percent = () => Math.round(ratio() * 100);
 	const limited = () => (props.limits ?? []).some((limit) => limit.limited);
-	const known = () => props.used !== undefined && Boolean(props.total);
+	const approx = () => (props.estimated ? "≈" : "");
+	const hasUsed = () => (props.used ?? 0) > 0;
+	const known = () => hasUsed() && Boolean(props.total);
+	/** How full, in a few characters: "≈12%", "≈13k" without a window, "–" before anything. */
+	const amount = () =>
+		known()
+			? `${approx()}${percent()}%`
+			: hasUsed()
+				? `${approx()}${formatTokens(props.used ?? 0)}`
+				: null;
 	const label = () =>
 		known()
-			? `Context ${percent()}% · ${formatTokens(props.used ?? 0)} of ${formatTokens(props.total ?? 0)} tokens`
-			: props.total
-				? `Context window ${formatTokens(props.total)} tokens`
-				: "Context and usage";
+			? `Context ${approx()}${percent()}% · ${formatTokens(props.used ?? 0)} of ${formatTokens(props.total ?? 0)} tokens`
+			: hasUsed()
+				? `Context ${approx()}${formatTokens(props.used ?? 0)} tokens used`
+				: props.total
+					? `Context window ${formatTokens(props.total)} tokens`
+					: "Context and usage";
 	const radius = 6;
 	const around = 2 * Math.PI * radius;
 	return (
@@ -180,7 +196,7 @@ export function ContextMeter(props: {
 						/>
 					</svg>
 					<span aria-hidden="true">
-						{known() ? `${percent()}%` : props.total ? formatTokens(props.total) : "Context"}
+						{amount() ?? (props.total ? formatTokens(props.total) : "Context")}
 					</span>
 				</>
 			}
@@ -198,51 +214,50 @@ export function ContextMeter(props: {
 									{props.model ?? "This thread"}
 								</span>
 							</div>
-							<span class="shrink-0 text-title text-fg tabular-nums">
-								{known() ? `${percent()}%` : "–"}
-							</span>
+							<span class="shrink-0 text-title text-fg tabular-nums">{amount() ?? "–"}</span>
 						</header>
 						<div class="flex flex-col rounded-kit-xl bg-surface ring-line">
 							<Show
-								when={props.total}
+								when={props.total || hasUsed()}
 								fallback={
 									<p class="px-3.5 py-3 text-body text-fg-muted">
-										The agent reports its context size with its first answer.
+										Nothing in the context yet: it fills from the first message.
 									</p>
 								}
 							>
-								{(total) => (
-									<div class="flex flex-col gap-2.5 px-3.5 pt-3 pb-3.5">
-										<div class="flex items-baseline justify-between gap-3">
-											<span class="text-body text-fg-subtle">
-												<span class="font-mono text-body-lg text-fg tabular-nums">
-													{formatTokens(props.used ?? 0)}
-												</span>{" "}
-												of {formatTokens(total())} tokens
-											</span>
-											<span class="shrink-0 font-mono text-caption text-fg-muted tabular-nums">
-												{formatTokens(Math.max(0, total() - (props.used ?? 0)))} left
-											</span>
-										</div>
-										<meter
-											class="sr-only"
-											aria-label="Context used"
-											min={0}
-											max={1}
-											value={ratio()}
-										/>
-										<Show
-											when={props.parts?.length}
-											fallback={
-												<span aria-hidden="true" class="flex h-2 w-full gap-1">
-													<span class="block h-full min-w-0 flex-1 rounded-full bg-fill-strong" />
-												</span>
-											}
-										>
-											<SplitBar parts={props.parts ?? []} total={total()} />
-										</Show>
+								<div class="flex flex-col gap-2.5 px-3.5 pt-3 pb-3.5">
+									<div class="flex items-baseline justify-between gap-3">
+										<span class="text-body text-fg-subtle">
+											<span class="font-mono text-body-lg text-fg tabular-nums">
+												{approx()}
+												{formatTokens(props.used ?? 0)}
+											</span>{" "}
+											{props.total ? `of ${formatTokens(props.total)} tokens` : "tokens used"}
+										</span>
+										<span class="shrink-0 font-mono text-caption text-fg-muted tabular-nums">
+											{props.total
+												? `${formatTokens(Math.max(0, props.total - (props.used ?? 0)))} left`
+												: "Window not reported"}
+										</span>
 									</div>
-								)}
+									<meter
+										class="sr-only"
+										aria-label="Context used"
+										min={0}
+										max={1}
+										value={ratio()}
+									/>
+									<Show
+										when={props.parts?.length}
+										fallback={
+											<span aria-hidden="true" class="flex h-2 w-full gap-1">
+												<span class="block h-full min-w-0 flex-1 rounded-full bg-fill-strong" />
+											</span>
+										}
+									>
+										<SplitBar parts={props.parts ?? []} total={props.total || props.used || 1} />
+									</Show>
+								</div>
 							</Show>
 							<Show when={props.parts?.length}>
 								<ul class="flex flex-col border-line border-t px-3.5 py-1.5">
@@ -277,11 +292,13 @@ export function ContextMeter(props: {
 							<div class="flex items-center gap-3 border-line border-t px-3.5 py-2.5">
 								<p class="min-w-0 flex-1 text-caption text-fg-subtle">
 									{props.compactBlocked ??
-										(props.parts?.length
-											? "Split estimated from the thread; the agent reports the total."
-											: props.onCompact
-												? "Compact summarises the conversation to make room."
-												: "This agent compacts on its own as it fills.")}
+										(props.estimated && hasUsed()
+											? `Estimated from the thread: ${props.agentName ?? "the agent"} does not report its context.`
+											: props.parts?.length
+												? "Split estimated from the thread; the agent reports the total."
+												: props.onCompact
+													? "Compact summarises the conversation to make room."
+													: "This agent compacts on its own as it fills.")}
 								</p>
 								<Show when={props.onCompact}>
 									{(compact) => (
@@ -303,17 +320,27 @@ export function ContextMeter(props: {
 					</div>
 
 					<section class="flex flex-col gap-2.5 px-2">
-						<header class="flex items-baseline justify-between gap-3">
-							<h3 class="text-caption text-fg-subtle">Plan limits</h3>
-							<Show when={props.account}>
-								<span class="min-w-0 truncate text-caption text-fg-subtle">{props.account}</span>
+						<h3 class="text-caption text-fg-subtle">Account and limits</h3>
+						<div class="flex items-center gap-2.5">
+							<Show when={props.agentMark}>
+								<span class="grid size-8 shrink-0 place-items-center rounded-control bg-fill [&_img]:size-4 [&_svg]:size-4">
+									{props.agentMark}
+								</span>
 							</Show>
-						</header>
+							<div class="flex min-w-0 flex-col">
+								<span class="truncate text-body text-fg">{props.agentName ?? "This agent"}</span>
+								<span class="truncate text-caption text-fg-subtle">
+									{props.account ?? "Signed in on this machine"}
+								</span>
+							</div>
+						</div>
 						<Show
 							when={props.limits?.length}
 							fallback={
 								<p class="text-caption text-fg-muted">
-									What is left of the plan (5h, weekly, monthly) shows once the agent reports it.
+									{props.agentName ?? "This agent"} has not reported plan limits. Codex and Claude
+									Code report what is left (5h, weekly) after an answer; other agents do not share
+									theirs.
 								</p>
 							}
 						>

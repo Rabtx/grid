@@ -7,13 +7,35 @@ const CHARS_PER_TOKEN = 4;
 
 const plural = (count: number, one: string) => `${count} ${one}${count === 1 ? "" : "s"}`;
 
+/** How full a thread's context is, and what fills it. */
+export type ContextUsage = {
+	/** Tokens in the context: the agent's own count, or the thread's text sized when it gives none. */
+	used: number;
+	/** The thread's text sized: the agent did not say. */
+	estimated: boolean;
+	parts: ContextPart[];
+};
+
 /**
- * What fills a thread's context, estimated: agents report only the total, so the thread's own text
- * is sized (its messages, and its tool calls with what they returned) and the rest of the total is
- * the agent's setup (its instructions and tool definitions). After a compact the thread's text is
- * more than the context holds; it is scaled down to fit, setup then being too small to tell.
+ * What fills a thread's context: the agent's own total when it reports one (Codex, Claude Code,
+ * opencode), else the thread's text sized (Antigravity says only what each turn cost). The split
+ * is always estimated: the thread's text is sized (its messages, and its tool calls with what they
+ * returned) and the rest of the agent's total is its setup (instructions and tool definitions).
+ * After a compact the thread's text is more than the context holds; it is scaled down to fit.
  */
-export function contextSplit(blocks: readonly Block[], used: number): ContextPart[] {
+export function contextUsage(blocks: readonly Block[], reported?: number): ContextUsage {
+	const estimated = !reported || reported <= 0;
+	const used = estimated ? textTokens(blocks) : reported;
+	return { used, estimated, parts: contextSplit(blocks, used, estimated) };
+}
+
+/** The thread's own text, in tokens. */
+function textTokens(blocks: readonly Block[]): number {
+	const parts = contextSplit(blocks, Number.MAX_SAFE_INTEGER, true);
+	return parts.reduce((sum, part) => sum + part.tokens, 0);
+}
+
+function contextSplit(blocks: readonly Block[], used: number, estimated: boolean): ContextPart[] {
 	if (used <= 0) return [];
 	let talk = 0;
 	let messages = 0;
@@ -39,7 +61,7 @@ export function contextSplit(blocks: readonly Block[], used: number): ContextPar
 		conversation = Math.round(conversation * scale);
 		tools = used - conversation;
 	}
-	const setup = used - conversation - tools;
+	const setup = estimated ? 0 : used - conversation - tools;
 	const parts: ContextPart[] = [];
 	if (setup > 0)
 		parts.push({

@@ -35,6 +35,7 @@ import {
 	WorkspaceToggle,
 } from "@/modules/split";
 import {
+	AgentLogo,
 	Alert,
 	Badge,
 	Banner,
@@ -68,7 +69,7 @@ import {
 	type ChatSocket,
 } from "../lib/chat-socket";
 import { threadFacts } from "../lib/thread-facts";
-import { contextSplit } from "../lib/context-split";
+import { contextUsage } from "../lib/context-split";
 import {
 	applyEvent,
 	emptyTranscript,
@@ -213,6 +214,10 @@ export function Conversation(props: {
 	const mode = () => transcript().mode ?? session()?.mode ?? modes()[0]?.id ?? "";
 	const currentModel = () => models().find((item) => item.id === model());
 	// Live levels from the agent (ACP) win; otherwise the catalog's levels for this model.
+	// How full the context is: the agent's count, or the thread's text sized when it gives none.
+	const context = createMemo(() =>
+		contextUsage(transcript().blocks, transcript().usage?.contextUsed),
+	);
 	const efforts = () => transcript().efforts ?? currentModel()?.efforts ?? [];
 	const effort = () =>
 		transcript().effort ?? session()?.effort ?? currentModel()?.defaultEffort ?? null;
@@ -1317,22 +1322,25 @@ export function Conversation(props: {
 									</Show>
 									<span class="ml-auto">
 										<ContextMeter
-											used={transcript().usage?.contextUsed}
+											used={context().used || undefined}
+											estimated={context().estimated}
 											total={transcript().usage?.contextWindow ?? currentModel()?.contextWindow}
 											model={modelName()}
-											parts={contextSplit(
-												transcript().blocks,
-												transcript().usage?.contextUsed ?? 0,
-											)}
+											parts={context().parts}
 											limits={planLimits(
 												session()?.provider ?? "",
 												props.scope,
 												session()?.account ?? null,
 												now(),
 											)}
+											agentName={provider()?.name}
+											agentMark={
+												<AgentLogo id={session()?.provider ?? ""} name={provider()?.name ?? ""} />
+											}
 											account={
 												accountsStore.label(props.scope, session()?.account ?? null) ??
-												"Your sign-in"
+												provider()?.setup?.account ??
+												undefined
 											}
 											carryOn={
 												transcript().limitWait
