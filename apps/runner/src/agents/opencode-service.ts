@@ -389,6 +389,16 @@ export function opencodeEventHandler(
 					costUsd: event.data.cost,
 				});
 				return null;
+			case "session.step.ended": {
+				// What the context holds after a step: everything the model read and wrote in it, as
+				// T3 Code counts it. The window comes from the model's catalog entry.
+				const tokens = event.data.tokens;
+				emit({
+					type: "usage",
+					contextUsed: tokens.input + tokens.cache.read + tokens.cache.write + tokens.output,
+				});
+				return null;
+			}
 			case "session.retry.scheduled":
 				emit({ type: "error", message: "opencode is retrying the model request" });
 				return null;

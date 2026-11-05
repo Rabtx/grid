@@ -223,6 +223,14 @@ describe("opencode service: a session's events", () => {
 				tokens: { input: 10, output: 5, reasoning: 2, cache: { read: 3, write: 0 } },
 			}),
 		);
+		handle(
+			event("session.step.ended", {
+				sessionID: "s1",
+				finish: "stop",
+				cost: 0.01,
+				tokens: { input: 900, output: 40, reasoning: 0, cache: { read: 8000, write: 60 } },
+			}),
+		);
 		expect(emitted).toEqual([
 			{ type: "message", text: "Hi" },
 			{ type: "tool", id: "t1", title: "bash", kind: "execute", status: "pending" },
@@ -247,6 +255,7 @@ describe("opencode service: a session's events", () => {
 				],
 			},
 			{ type: "usage", inputTokens: 13, outputTokens: 7, costUsd: 0.01 },
+			{ type: "usage", contextUsed: 9000 },
 		]);
 		expect(handle(event("session.execution.succeeded", { sessionID: "s1" }))).toEqual({
 			reason: "done",
