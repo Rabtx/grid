@@ -147,7 +147,14 @@ export function OperateCosts(props: { tabs: JSX.Element }): JSX.Element {
 				/>
 			</ShellSlot>
 			<ShellSlot name="trailing">
-				<IconButton label="Refresh costs" disabled={costs.loading()} onClick={costs.refresh}>
+				<IconButton
+					variant="secondary"
+					shape="round"
+					size="lg"
+					label="Refresh costs"
+					disabled={costs.loading()}
+					onClick={costs.refresh}
+				>
 					<RestoreIcon />
 				</IconButton>
 			</ShellSlot>

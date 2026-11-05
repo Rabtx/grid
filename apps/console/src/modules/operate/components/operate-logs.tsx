@@ -151,6 +151,9 @@ export function OperateLogs(props: { tabs: JSX.Element }): JSX.Element {
 			</ShellSlot>
 			<ShellSlot name="trailing">
 				<IconButton
+					variant="secondary"
+					shape="round"
+					size="lg"
 					label="Refresh logs"
 					disabled={sources.loading() || tail.loading()}
 					onClick={refresh}

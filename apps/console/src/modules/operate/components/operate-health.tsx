@@ -183,7 +183,14 @@ export function OperateHealth(props: { tabs: JSX.Element }): JSX.Element {
 			</ShellSlot>
 			<ShellSlot name="actions">{add()}</ShellSlot>
 			<ShellSlot name="trailing">
-				<IconButton label="Refresh Operate" disabled={loading()} onClick={refresh}>
+				<IconButton
+					variant="secondary"
+					shape="round"
+					size="lg"
+					label="Refresh Operate"
+					disabled={loading()}
+					onClick={refresh}
+				>
 					<RestoreIcon />
 				</IconButton>
 			</ShellSlot>

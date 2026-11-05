@@ -23,9 +23,11 @@ export function SettingsRoute(): JSX.Element {
 		<Show when={!shell.desktop()}>
 			{/* No new thread here: the phone bar keeps that action for screens you work in. */}
 			<ShellSlot name="trailing">
-				<span aria-hidden="true" />
+				{/* As wide as the menu button, so the title stays in the middle. */}
+				<span aria-hidden="true" class="size-11 shrink-0" />
 			</ShellSlot>
-			<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+			{/* The rows' own 8px inset plus this one: 16px, the header buttons' edge. */}
+			<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
 				<SettingsSidebar bare />
 			</div>
 		</Show>
