@@ -216,7 +216,11 @@ export function Conversation(props: {
 	// Live levels from the agent (ACP) win; otherwise the catalog's levels for this model.
 	// How full the context is: the agent's count, or the thread's text sized when it gives none.
 	const context = createMemo(() =>
-		contextUsage(transcript().blocks, transcript().usage?.contextUsed),
+		contextUsage(
+			transcript().blocks,
+			transcript().usage?.contextUsed,
+			(transcript().usage?.inputTokens ?? 0) + (transcript().usage?.outputTokens ?? 0),
+		),
 	);
 	const efforts = () => transcript().efforts ?? currentModel()?.efforts ?? [];
 	const effort = () =>

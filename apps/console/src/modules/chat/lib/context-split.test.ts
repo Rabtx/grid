@@ -41,6 +41,12 @@ describe("contextUsage", () => {
 		expect(usage.parts.map((part) => part.id)).toEqual(["conversation", "tools"]);
 	});
 
+	it("never estimates more than the agent says it read and wrote", () => {
+		const usage = contextUsage(blocks, undefined, 400);
+		expect(usage.used).toBe(400);
+		expect(usage.parts.reduce((sum, part) => sum + part.tokens, 0)).toBe(400);
+	});
+
 	it("has nothing to show for an empty thread", () => {
 		expect(contextUsage([])).toEqual({ used: 0, estimated: true, parts: [] });
 	});

@@ -18,14 +18,24 @@ export type ContextUsage = {
 
 /**
  * What fills a thread's context: the agent's own total when it reports one (Codex, Claude Code,
- * opencode), else the thread's text sized (Antigravity says only what each turn cost). The split
+ * opencode), else the thread's text sized, no more than the agent says it read and wrote
+ * (Antigravity and Grok say only what each turn cost). The split
  * is always estimated: the thread's text is sized (its messages, and its tool calls with what they
  * returned) and the rest of the agent's total is its setup (instructions and tool definitions).
  * After a compact the thread's text is more than the context holds; it is scaled down to fit.
  */
-export function contextUsage(blocks: readonly Block[], reported?: number): ContextUsage {
+export function contextUsage(
+	blocks: readonly Block[],
+	reported?: number,
+	/**
+	 * What the agent says it read and wrote (input plus output, per turn or all told): every
+	 * request carries the conversation, so the context never holds more. It caps the estimate.
+	 */
+	billed?: number,
+): ContextUsage {
 	const estimated = !reported || reported <= 0;
-	const used = estimated ? textTokens(blocks) : reported;
+	const sized = textTokens(blocks);
+	const used = estimated ? (billed && billed > 0 ? Math.min(sized, billed) : sized) : reported;
 	return { used, estimated, parts: contextSplit(blocks, used, estimated) };
 }
 
