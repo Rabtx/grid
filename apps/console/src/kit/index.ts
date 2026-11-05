@@ -488,4 +488,4 @@ export {
 export { ThreadDetailsCard, ThreadDetailsRow, ThreadDetailsSection } from "./thread-details";
 export { type PaneRect, PaneBox, PaneDivider } from "./pane-layer";
 export { EffortSky, type SkyLevel } from "./effort-sky/effort-sky";
-export { JOINED_BUTTON, Joined } from "./joined";
+export { JOINED_BUTTON, JOINED_BUTTON_SM, Joined } from "./joined";
