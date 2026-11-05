@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, For, onCleanup, Show, untrack }
 
 import { workspaceHref } from "@/lib/active-workspace";
 import {
+	ChatIcon,
 	AgentLogo,
 	Alert,
 	Avatar,
@@ -30,7 +31,7 @@ import { rememberRole } from "@/modules/chat/lib/chosen-role";
 import { providersStore } from "@/modules/chat/stores/providers";
 import { rolesStore } from "@/modules/chat/stores/roles";
 import type { Role, RoleDraft } from "@/modules/chat/types/chat.types";
-import { ShellSlot } from "@/modules/shell";
+import { ShellSlot, useShell } from "@/modules/shell";
 import { useWorkspaces } from "@/modules/workspaces";
 import { workspacesService } from "@/modules/workspaces/services/workspaces.service";
 import type { Member } from "@/modules/workspaces/types/workspace.types";
@@ -567,6 +568,7 @@ function TeammatePage(props: {
 	onStep: Step;
 	onLessonsChanged: () => void;
 }): JSX.Element {
+	const shell = useShell();
 	const [tab, setTab] = createSignal<Tab>("work");
 	const about = () => describeRole(props.role, props.agents);
 	const open = () => props.runs.filter(isOpen);
@@ -586,35 +588,43 @@ function TeammatePage(props: {
 	};
 	return (
 		<>
-			<header class="flex items-center gap-3">
-				<RoleMark icon={props.role.icon} />
-				<div class="flex min-w-0 flex-1 flex-col">
-					<Text as="h1" size="headline" tone="strong" weight="medium" truncate>
-						{props.role.name}
-					</Text>
-					<span class="flex min-w-0 items-center gap-1.5 text-caption text-fg-subtle">
+			{/* Phones: who it is, wrapped rather than cut, then its two actions side by side at full
+			    width. From md the actions sit at the end of the same line. */}
+			<header class="flex flex-col gap-4 md:flex-row md:items-center md:gap-3">
+				<div class="flex min-w-0 items-center gap-3 md:flex-1">
+					<RoleMark icon={props.role.icon} size="lg" />
+					<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+						<Text as="h1" size="headline" tone="strong" weight="medium" truncate>
+							{props.role.name}
+						</Text>
 						<Show when={props.role.specialty}>
-							<span class="truncate">{props.role.specialty}</span>
-							<span aria-hidden="true">·</span>
+							<Text size="caption" tone="subtle">
+								{props.role.specialty}
+							</Text>
 						</Show>
-						<AgentLogo id={props.role.provider} name={about().agent} class="size-3.5" />
-						<span class="truncate">
-							{[about().agent, about().model].filter(Boolean).join(" · ")}
+						<span class="flex min-w-0 items-center gap-1.5 text-caption text-fg-subtle">
+							<AgentLogo id={props.role.provider} name={about().agent} class="size-3.5" />
+							<span class="min-w-0 break-words">
+								{[about().agent, about().model].filter(Boolean).join(" · ")}
+							</span>
 						</span>
-					</span>
+					</div>
 				</div>
-				<IconButton label={`Edit ${props.role.name}`} size="sm" onClick={props.onEdit}>
-					<EditIcon />
-				</IconButton>
-				<Button size="sm" onClick={props.onChat}>
-					Chat
-				</Button>
+				<div class="flex gap-2 [&>*]:flex-1 md:[&>*]:flex-none">
+					<Button variant="primary" icon={<ChatIcon />} onClick={props.onChat}>
+						Chat
+					</Button>
+					<Button icon={<EditIcon />} onClick={props.onEdit}>
+						Edit
+					</Button>
+				</div>
 			</header>
 
 			<Segmented<Tab>
 				label="Show"
 				value={tab()}
 				onChange={setTab}
+				block={!shell.desktop()}
 				options={[
 					{ value: "work", label: "Work", count: open().length || undefined, countTone: "quiet" },
 					{ value: "memory", label: "Memory" },
@@ -903,7 +913,8 @@ function Setup(props: { role: Role; team: readonly Role[]; onEdit: () => void })
 					]}
 				/>
 			</Rows>
-			<div>
+			{/* On phones the header's Edit is right above; from md it ends the list too. */}
+			<div class="hidden md:block">
 				<Button size="sm" icon={<EditIcon />} onClick={props.onEdit}>
 					Edit
 				</Button>

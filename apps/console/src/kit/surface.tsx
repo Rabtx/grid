@@ -51,15 +51,18 @@ export function Panel(props: {
 	);
 }
 
-/** Label and value pairs, as a review or a detail pane lists them. */
+/**
+ * Label and value pairs, as a review or a detail pane lists them: on phones each label sits over
+ * its value, full width, so a long value is not squeezed into a column; side by side from md.
+ */
 export function DescriptionList(props: {
 	items: readonly { label: string; value: JSX.Element }[];
 }): JSX.Element {
 	return (
 		<dl class="divide-y divide-line">
 			{props.items.map((item) => (
-				<div class="grid grid-cols-[minmax(7rem,40%)_1fr] items-center gap-3 px-3 py-2.5 text-body">
-					<dt class="text-fg-subtle">{item.label}</dt>
+				<div class="flex flex-col gap-0.5 py-3 text-body md:grid md:grid-cols-[minmax(7rem,40%)_1fr] md:items-center md:gap-3 md:px-3 md:py-2.5">
+					<dt class="text-caption text-fg-subtle md:text-body">{item.label}</dt>
 					<dd class="min-w-0 text-fg">{item.value}</dd>
 				</div>
 			))}
