@@ -1439,7 +1439,7 @@ export function Conversation(props: {
 			{/* Phones: the thread's details alone, then its context and a new thread joined. */}
 			<Show when={!shell.desktop() && !embedded}>
 				<ShellSlot name="trailing">
-					<div class="flex shrink-0 items-center gap-2">
+					<div class="flex shrink-0 items-center gap-3">
 						<Show when={details()}>
 							{(data) => (
 								<Joined label="Details">

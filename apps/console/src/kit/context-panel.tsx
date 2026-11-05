@@ -183,7 +183,7 @@ export function ContextMeter(props: {
 							r={radius}
 							fill="none"
 							stroke={props.joined ? "var(--kit-line-strong)" : "var(--kit-fill-strong)"}
-							stroke-width="2"
+							stroke-width={props.joined ? "1.5" : "2"}
 						/>
 						<circle
 							cx="8"
@@ -191,7 +191,7 @@ export function ContextMeter(props: {
 							r={radius}
 							fill="none"
 							stroke={tone(ratio(), limited())}
-							stroke-width="2"
+							stroke-width={props.joined ? "1.5" : "2"}
 							stroke-linecap="round"
 							stroke-dasharray={String(around)}
 							stroke-dashoffset={String(around * (1 - (limited() ? 1 : ratio())))}
