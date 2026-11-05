@@ -3,9 +3,9 @@
 import type { JSX } from "@solidjs/web";
 
 /**
- * Buttons joined into one pill, as the phone header's actions: one fill, one round edge, each
- * button a segment that lights when pressed or open, a hairline before each but the first (only
- * buttons: a popover's panel sits among them and keeps its own place). 44px tall, the header's
+ * Buttons joined into one pill, as the phone header's actions (after iOS 27's toolbars): one
+ * fill, one round edge, no dividers; each button a segment that lights when pressed or open. A
+ * single button in its own pill is the same shape, so a header can mix lone and joined ones. 44px tall, the header's
  * size; segments are 40px wide at least, so each stays a full thumb target.
  */
 export function Joined(props: { label: string; children: JSX.Element }): JSX.Element {
@@ -13,7 +13,7 @@ export function Joined(props: { label: string; children: JSX.Element }): JSX.Ele
 		<div
 			role="group"
 			aria-label={props.label}
-			class="flex h-11 shrink-0 items-center rounded-pill bg-fill-strong p-0.5 [&>button:not(:first-child)]:relative [&>button:not(:first-child)]:before:absolute [&>button:not(:first-child)]:before:inset-y-2.5 [&>button:not(:first-child)]:before:-left-px [&>button:not(:first-child)]:before:w-px [&>button:not(:first-child)]:before:bg-line-strong [&>button:not(:first-child)]:before:content-['']"
+			class="flex h-11 shrink-0 items-center rounded-pill bg-fill-strong p-0.5"
 		>
 			{props.children}
 		</div>

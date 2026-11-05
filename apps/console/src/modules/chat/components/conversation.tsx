@@ -1436,14 +1436,22 @@ export function Conversation(props: {
 					/>
 				)}
 			</Show>
-			{/* Phones: the thread's context, its details and a new thread, joined in the header. */}
+			{/* Phones: the thread's details alone, then its context and a new thread joined. */}
 			<Show when={!shell.desktop() && !embedded}>
 				<ShellSlot name="trailing">
-					<Joined label="Thread">
-						{contextMeter(true)}
-						<Show when={details()}>{(data) => <ThreadDetailsButton data={data()} joined />}</Show>
-						<NewThreadButton joined />
-					</Joined>
+					<div class="flex shrink-0 items-center gap-2">
+						<Show when={details()}>
+							{(data) => (
+								<Joined label="Details">
+									<ThreadDetailsButton data={data()} joined />
+								</Joined>
+							)}
+						</Show>
+						<Joined label="Thread">
+							{contextMeter(true)}
+							<NewThreadButton joined />
+						</Joined>
+					</div>
 				</ShellSlot>
 			</Show>
 			<Show when={shell.desktop() && !embedded}>
