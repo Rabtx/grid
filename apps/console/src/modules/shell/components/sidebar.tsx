@@ -3,6 +3,7 @@ import type { JSX } from "@solidjs/web";
 import { Loading, Show } from "solid-js";
 
 import {
+	JOINED_BUTTON,
 	Joined,
 	CloseIcon,
 	EditIcon,
@@ -91,41 +92,54 @@ export function Sidebar(props: { onClose?: () => void }): JSX.Element {
 						when={props.onClose || !shell.panelActions()}
 						fallback={<>{shell.panelActions()?.()}</>}
 					>
-						{/* The same buttons, joined in one pill as iOS joins a toolbar's related ones. */}
-						<Joined label="Threads" size="sm">
-							<IconButton
-								label="Search"
-								shortcut="Mod K"
-								size="sm"
+						{/* One surface, as iOS joins a toolbar's related buttons: the phone header's pill. */}
+						<Joined label="Threads">
+							<button
+								type="button"
+								aria-label="Search"
+								aria-keyshortcuts="Control+K"
+								data-shortcut="Mod K"
+								class={JOINED_BUTTON}
 								onClick={() => shell.setPaletteOpen(true)}
 							>
 								<SearchIcon />
-							</IconButton>
+							</button>
 							{/* Adding a project belongs to the projects list, so it sits in the header that
 							    already names it rather than in a label the list no longer has. */}
 							<Show when={!shell.panel()}>
-								<IconButton
-									label="Open a folder as a project"
-									size="sm"
+								<button
+									type="button"
+									aria-label="Open a folder as a project"
+									class={JOINED_BUTTON}
 									onClick={() => workspace.setAddProjectOpen(true)}
 								>
 									<PlusIcon />
-								</IconButton>
+								</button>
 							</Show>
 							<Show
 								when={props.onClose}
 								fallback={
 									/* Its own glyph, like the phone bar's: a plain + beside the header's
 									   + for adding a project would be two identical buttons. */
-									<IconButton label="New thread" size="sm" onClick={newThread}>
+									<button
+										type="button"
+										aria-label="New thread"
+										class={JOINED_BUTTON}
+										onClick={newThread}
+									>
 										<EditIcon />
-									</IconButton>
+									</button>
 								}
 							>
 								{(close) => (
-									<IconButton label="Close" size="sm" onClick={() => close()()}>
+									<button
+										type="button"
+										aria-label="Close"
+										class={JOINED_BUTTON}
+										onClick={() => close()()}
+									>
 										<CloseIcon />
-									</IconButton>
+									</button>
 								)}
 							</Show>
 						</Joined>
