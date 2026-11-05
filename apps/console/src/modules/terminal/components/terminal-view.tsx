@@ -475,9 +475,11 @@ export function TerminalView(props: {
 				ref={(el) => {
 					host = el;
 				}}
-				// xterm draws its own padding-free grid; the gutter keeps glyphs off the rounded edge.
-				// On touch screens its mouse-only scrollbar gives way to the draggable one below.
-				class="size-full overflow-hidden px-3 py-2.5 pointer-coarse:pr-5 pointer-coarse:[&_.xterm-scrollable-element>.scrollbar]:hidden!"
+				// The gutter keeps glyphs off the rounded edge. It sits on xterm's own element, where its
+				// fit counts it: on this box it would be measured as room for rows, and the last row
+				// would run past the bottom. On touch screens xterm's mouse-only scrollbar gives way to
+				// the draggable one below.
+				class="size-full overflow-hidden [&_.xterm]:px-3 [&_.xterm]:py-2.5 pointer-coarse:[&_.xterm]:pr-5 pointer-coarse:[&_.xterm-scrollable-element>.scrollbar]:hidden!"
 				data-terminal={props.id}
 			/>
 
