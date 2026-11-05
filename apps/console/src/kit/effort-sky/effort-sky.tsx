@@ -351,7 +351,8 @@ export function EffortSky(props: {
 							aria-valuetext={`${name()}${index() === recommended() ? `, ${recommendedWord().toLowerCase()}` : ""}`}
 							aria-orientation="horizontal"
 							onKeyDown={(event) => {
-								const from = index();
+								// From the step last picked: a held key outruns the update.
+								const from = picked;
 								const moves: Record<string, number> = {
 									ArrowRight: from + 1,
 									ArrowUp: from + 1,

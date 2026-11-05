@@ -38,7 +38,7 @@ describe("EffortSlider", () => {
 		return { value, thumb };
 	}
 
-	const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+	const settle = () => new Promise((resolve) => setTimeout(resolve, 300));
 	const key = (thumb: HTMLElement, name: string) =>
 		thumb.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true }));
 
@@ -73,6 +73,27 @@ describe("EffortSlider", () => {
 		const thumb = container.querySelector('[role="slider"]');
 		expect(thumb?.getAttribute("aria-valuemax")).toBe("3");
 		expect(thumb?.getAttribute("aria-valuetext")).toBe("Medium, recommended");
+	});
+
+	it("shows a step at once and sends only where a quick run of steps comes to rest", async () => {
+		const sent: string[] = [];
+		const container = document.createElement("div");
+		document.body.append(container);
+		dispose = render(
+			() => (
+				<EffortSlider label="Effort" levels={LEVELS} value="low" onChange={(id) => sent.push(id)} />
+			),
+			container,
+		);
+		const thumb = container.querySelector<HTMLElement>('[role="slider"]');
+		if (!thumb) throw new Error("no slider");
+		key(thumb, "ArrowRight");
+		key(thumb, "ArrowRight");
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(thumb.getAttribute("aria-valuetext")).toBe("High");
+		expect(sent).toEqual([]);
+		await settle();
+		expect(sent).toEqual(["high"]);
 	});
 
 	it("moves a step at a time with the arrows, and to the ends with Home and End", async () => {
