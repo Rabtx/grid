@@ -11,8 +11,9 @@
  * Every role is ink mixed over transparent, so a tint or the dark theme follows for free.
  *
  * Tweaks: four knobs move the whole system at once, live, from Settings → Appearance:
- *   data-corners         pill (everything round) · round (the reference) · soft (no pills) ·
- *                        square (no corners); it sets --kit-radius-scale for the kit radii,
+ *   data-corners         pill (capsules and circles) · round (the default: 12px buttons, chips
+ *                        and icon buttons) · soft (6px) · square (no corners); it sets
+ *                        --kit-radius-scale for the kit radii,
  *                        --kit-radius-pill for buttons and chips and --kit-radius-tile for icon
  *                        tiles and the composer's controls
  *   --kit-density        control and row heights (1 = the reference; touch never drops below 44px)
@@ -40,10 +41,10 @@
 	--kit-radius-scale: 1;
 	/* 0, except under pill corners, where it rounds every control into a capsule (rounded-control-*). */
 	--kit-control-pill: 0px;
-	/* Buttons, chips and pill fields: round ends in the reference design. */
-	--kit-radius-pill: 9999px;
-	/* Icon tiles and the composer's controls: the 8px control corner in the reference design. */
-	--kit-radius-tile: 8px;
+	/* Buttons, chips and pill fields: 12px under Round, full capsules only under Pill. */
+	--kit-radius-pill: 12px;
+	/* Icon buttons, joined menus and the composer's controls: 12px under Round, matching buttons. */
+	--kit-radius-tile: 12px;
 	--kit-density: 1;
 	--kit-line-scale: 1;
 	/* A screen's side margin: content's left and right edge, every screen alike (px-gutter). */
