@@ -33,7 +33,8 @@ export function TaskStatus(props: { status: TaskStatusKind; class?: string }): J
 				r="6"
 				fill="none"
 				stroke={look().color}
-				stroke-width="1.5"
+				stroke-width="1.8"
+				vector-effect="non-scaling-stroke"
 				stroke-dasharray={props.status === "backlog" ? "2 2" : undefined}
 			/>
 			<Show when={look().fill > 0}>

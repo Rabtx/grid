@@ -7,9 +7,10 @@ import type { JSX } from "@solidjs/web";
 /** An icon from `@hugeicons/core-free-icons`: a list of `[tag, attributes]` SVG children. */
 export type IconData = readonly (readonly [string, { readonly [key: string]: string | number }])[];
 
-// The console draws every glyph at one stroke weight, 2px: as heavy as iOS draws its symbols, so
-// an icon holds its own beside text and inside a button.
-const STROKE_WIDTH = 2;
+// Every glyph's lines are 1.8px on screen whatever size it is drawn at, as iOS keeps its symbols'
+// weight: the stroke does not scale with the icon (non-scaling-stroke), so a 16px icon in a menu
+// is as heavy as a 24px one in the rail, not two thirds of it.
+const STROKE_WIDTH = 1.8;
 
 function kebab(name: string): string {
 	return name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
@@ -30,7 +31,7 @@ function markup(icon: IconData, strokeWidth: number): string {
 				.filter(([name]) => name !== "key")
 				.map(([name, value]) =>
 					name === "strokeWidth"
-						? `stroke-width="${strokeWidth}"`
+						? `stroke-width="${strokeWidth}" vector-effect="non-scaling-stroke"`
 						: `${kebab(name)}="${escape(String(value))}"`,
 				)
 				.join(" ");

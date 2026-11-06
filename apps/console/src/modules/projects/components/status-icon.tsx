@@ -41,14 +41,17 @@ export function StatusIcon(props: { status: TaskStatus; class?: string }): JSX.E
 			</Match>
 			<Match when={props.status === "blocked"}>
 				<Drawn class={cls()}>
-					<path d="M8.5 12h7" stroke-linecap="round" />
+					<path d="M8.5 12h7" stroke-linecap="round" vector-effect="non-scaling-stroke" />
 				</Drawn>
 			</Match>
 		</Switch>
 	);
 }
 
-/** A ring on the icon set's grid and stroke weight, with an optional mark inside. */
+/**
+ * A ring on the icon set's grid and stroke weight (1.8px on screen at any size, as the icons draw
+ * theirs), with an optional mark inside.
+ */
 function Drawn(props: { class: string; children?: JSX.Element }): JSX.Element {
 	return (
 		<svg
@@ -56,10 +59,10 @@ function Drawn(props: { class: string; children?: JSX.Element }): JSX.Element {
 			class={props.class}
 			fill="none"
 			stroke="currentColor"
-			stroke-width="1.75"
+			stroke-width="1.8"
 			aria-hidden="true"
 		>
-			<circle cx="12" cy="12" r="10" />
+			<circle cx="12" cy="12" r="10" vector-effect="non-scaling-stroke" />
 			{props.children}
 		</svg>
 	);
