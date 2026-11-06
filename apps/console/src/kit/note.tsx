@@ -738,7 +738,8 @@ function Task(props: { item: NoteListItem; context: BlockContext }): JSX.Element
 						<path
 							d="M4 8.5l2.5 2.5L12 5.5"
 							stroke="currentColor"
-							stroke-width="2"
+							stroke-width="1.8"
+							vector-effect="non-scaling-stroke"
 							stroke-linecap="round"
 							stroke-linejoin="round"
 						/>
