@@ -58,9 +58,9 @@ describe("board tools", () => {
 			"GRID-8 [done] Docs",
 		);
 		await expect(
-			tools.board_update_task?.run(session, { number: 7, status: "shipped" }) ??
+			tools.board_update_task?.run(session, { number: 7, status: "Not a key" }) ??
 				Promise.resolve(""),
-		).rejects.toThrow("status must be one of");
+		).rejects.toThrow("status must be a status key");
 	});
 
 	it("are not offered without a way to the API", () => {

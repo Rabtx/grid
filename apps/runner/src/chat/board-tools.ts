@@ -75,10 +75,17 @@ function text(args: Record<string, unknown>, key: string, max: number): string |
 function status(args: Record<string, unknown>): string | undefined {
 	const value = args.status;
 	if (value === undefined || value === null) return undefined;
-	if (typeof value !== "string" || !(TASK_STATUSES as readonly string[]).includes(value))
-		throw new Error(`status must be one of ${TASK_STATUSES.join(", ")}`);
+	// A project can add statuses of its own, so any status key goes; the board says if it has it.
+	if (typeof value !== "string" || !/^[a-z][a-z0-9_]{0,47}$/.test(value))
+		throw new Error(`status must be a status key, such as ${TASK_STATUSES.join(", ")}`);
 	return value;
 }
+
+/** A status, as the tools take it: a built-in or one the project added (board_list_tasks shows them). */
+const STATUS_PROPERTY = {
+	type: "string",
+	description: `A status key: one of ${TASK_STATUSES.join(", ")}, or one this project added.`,
+} as const;
 
 /** The board's tools, or none when this runner has no way to reach Grid's API. */
 export function boardTools(api: BoardApi | null, fetcher: Fetch = fetch): GridTool[] {
@@ -92,7 +99,7 @@ export function boardTools(api: BoardApi | null, fetcher: Fetch = fetch): GridTo
 				"List the tasks on this project's Grid board: each task's key (GRID-12), status and title. Pass status to list only one column.",
 			inputSchema: {
 				type: "object",
-				properties: { status: { type: "string", enum: [...TASK_STATUSES] } },
+				properties: { status: STATUS_PROPERTY },
 			},
 			run: async (session, args) => {
 				const wanted = status(args);
@@ -115,7 +122,7 @@ export function boardTools(api: BoardApi | null, fetcher: Fetch = fetch): GridTo
 				properties: {
 					title: { type: "string" },
 					description: { type: "string" },
-					status: { type: "string", enum: [...TASK_STATUSES] },
+					status: STATUS_PROPERTY,
 				},
 				required: ["title"],
 			},
@@ -149,7 +156,7 @@ export function boardTools(api: BoardApi | null, fetcher: Fetch = fetch): GridTo
 				type: "object",
 				properties: {
 					number: { type: "integer" },
-					status: { type: "string", enum: [...TASK_STATUSES] },
+					status: STATUS_PROPERTY,
 					title: { type: "string" },
 					description: { type: "string" },
 				},
