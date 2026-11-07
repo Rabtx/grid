@@ -35,19 +35,22 @@ export function StageTabs(props: {
 			aria-label="Board lanes"
 			class="edge-fade -mx-gutter mb-2 flex shrink-0 items-center gap-1 overflow-x-auto px-gutter [scrollbar-width:none] md:hidden"
 		>
-			<Segmented
-				label="Board lanes"
-				value={props.active}
-				onChange={props.onSelect}
-				options={props.lanes.map((lane) => ({
-					value: lane.id,
-					label: lane.short,
-					icon: lane.icon(),
-					count: lane.tasks.length,
-					countTone: "quiet",
-					controls: boardLaneId(lane.id),
-				}))}
-			/>
+			{/* Its own width, so the row scrolls rather than squeezing the tabs under the +. */}
+			<div class="shrink-0">
+				<Segmented
+					label="Board lanes"
+					value={props.active}
+					onChange={props.onSelect}
+					options={props.lanes.map((lane) => ({
+						value: lane.id,
+						label: lane.short,
+						icon: lane.icon(),
+						count: lane.tasks.length,
+						countTone: "quiet",
+						controls: boardLaneId(lane.id),
+					}))}
+				/>
+			</div>
 			{props.onAdd ? (
 				<IconButton size="sm" label="Add a status" onClick={() => props.onAdd?.()}>
 					<PlusIcon />
