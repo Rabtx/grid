@@ -1,5 +1,5 @@
 import { notify } from "@/kit";
-import { projectsService, TASK_STATUS_LABELS } from "@/modules/projects";
+import { defaultStatusName, projectsService } from "@/modules/projects";
 
 import type { Choice } from "../types/chat.types";
 import type { SlashCommand } from "./slash-commands";
@@ -174,7 +174,7 @@ export async function addBoardTask(input: {
 		});
 		input.workspace.refreshTasks();
 		notify({
-			title: `Added ${task.key} to ${TASK_STATUS_LABELS[task.status]}`,
+			title: `Added ${task.key} to ${defaultStatusName(task.status)}`,
 			action: { label: "Open", run: () => input.workspace.openTask(task.number) },
 		});
 	} catch (cause) {

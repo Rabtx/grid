@@ -179,11 +179,12 @@ describe("TaskPanel", () => {
 
 		const title = container.querySelector<HTMLInputElement>('input[aria-label="Task title"]');
 		expect(title?.value).toBe("First task in backlog");
-		expect(dialogs(container)[0]?.open).toBe(true);
+		expect(dialogs(container).some((dialog) => dialog.open)).toBe(true);
 
 		const status = container.querySelector<HTMLButtonElement>('button[aria-label="Status"]');
 		expect(status?.textContent).toContain("Backlog");
-		expect((await openStatus()).length).toBe(7);
+		// The workflow's shown statuses (Blocked and QA are hidden until used).
+		expect((await openStatus()).length).toBe(5);
 
 		const branch = container.querySelector<HTMLInputElement>('input[aria-label="Branch"]');
 		expect(branch?.value).toBe("feature/first-task");
@@ -199,7 +200,9 @@ describe("TaskPanel", () => {
 		mount("/board/alpha/tasks/1");
 		await settle();
 
-		const review = (await openStatus()).find((option) => option.textContent?.trim() === "Review");
+		const review = (await openStatus()).find(
+			(option) => option.textContent?.trim() === "In review",
+		);
 		expect(review).toBeDefined();
 		review?.click();
 		await settle();

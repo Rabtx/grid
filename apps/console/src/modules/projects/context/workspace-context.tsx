@@ -17,7 +17,14 @@ import { placementsStore, scopeFor } from "@/modules/environments";
 
 import { foldersService } from "../services/folders.service";
 import { projectsService } from "../services/projects.service";
-import type { Project, Task, TaskOwnerKind, TaskStatus } from "../types/project.types";
+import { workflowOf } from "../lib/workflow";
+import type {
+	Project,
+	Task,
+	TaskOwnerKind,
+	TaskStatus,
+	WorkflowState,
+} from "../types/project.types";
 
 type WorkspaceState = {
 	projects: () => Project[];
@@ -26,6 +33,13 @@ type WorkspaceState = {
 	/** The project the URL points at; null when there is no slug or it matches nothing. */
 	activeProject: () => Project | null;
 	tasks: () => Task[];
+	/** The active project's statuses in order: its board's columns. */
+	workflow: () => WorkflowState[];
+	/**
+	 * Save the active project's statuses. The board shows the change at once; a refusal puts the
+	 * last saved workflow back and is thrown to the caller to say.
+	 */
+	saveWorkflow: (next: WorkflowState[]) => Promise<void>;
 	/** Re-read the active project's tasks after a write. */
 	refreshTasks: () => void;
 	/** Task number the URL opens, or null when no task is open. */
@@ -173,6 +187,40 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 	const activeProject = createMemo(
 		() => projects().find((project) => project.slug === activeSlug()) ?? null,
 	);
+	// A workflow change shows at once, ahead of the project list catching up with it.
+	const [workflowDraft, setWorkflowDraft] = createSignal<{
+		slug: string;
+		states: WorkflowState[];
+	} | null>(null);
+	const workflow = createMemo(() => {
+		const draft = workflowDraft();
+		return draft && draft.slug === activeSlug() ? draft.states : workflowOf(activeProject());
+	});
+	// Once the project list carries the saved workflow, it is the truth again.
+	createEffect(activeProject, (project) => {
+		const draft = untrack(workflowDraft);
+		if (
+			draft &&
+			project?.slug === draft.slug &&
+			JSON.stringify(workflowOf(project)) === JSON.stringify(draft.states)
+		)
+			setWorkflowDraft(null);
+	});
+	async function saveWorkflow(next: WorkflowState[]): Promise<void> {
+		const token = untrack(auth.token);
+		const slug = untrack(activeSlug);
+		if (!token || !slug) return;
+		setWorkflowDraft({ slug, states: next });
+		try {
+			await projectsService.update(token, slug, { workflow: next });
+			setProjectsRevision((n) => n + 1);
+			// Tasks of a removed status moved to Backlog on the server: read them again.
+			setRevision((n) => n + 1);
+		} catch (cause) {
+			setWorkflowDraft(null);
+			throw cause;
+		}
+	}
 
 	const currentSlug = createMemo(() => {
 		const list = projects();
@@ -330,6 +378,8 @@ export function WorkspaceProvider(props: { children: JSX.Element }): JSX.Element
 		activeSlug,
 		activeProject,
 		tasks,
+		workflow,
+		saveWorkflow,
 		refreshTasks: () => setRevision((n) => n + 1),
 		activeTaskNumber,
 		activeTask,

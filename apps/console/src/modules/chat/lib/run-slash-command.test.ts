@@ -8,7 +8,7 @@ const { notify, createTask } = vi.hoisted(() => ({ notify: vi.fn(), createTask: 
 vi.mock("@/kit", () => ({ notify }));
 vi.mock("@/modules/projects", () => ({
 	projectsService: { createTask },
-	TASK_STATUS_LABELS: { backlog: "Backlog" },
+	defaultStatusName: (key: string) => (key === "backlog" ? "Backlog" : key),
 }));
 
 const EFFORTS = [

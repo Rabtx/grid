@@ -64,27 +64,11 @@ import {
 } from "../lib/task-work";
 import { projectsService } from "../services/projects.service";
 
-import {
-	TASK_STATUS_LABELS,
-	TASK_STATUSES,
-	type Task,
-	type TaskOwnerKind,
-	type TaskStatus,
-	type UpdateTaskInput,
-} from "../types/project.types";
+import { statusName } from "../lib/workflow";
+import type { Task, TaskOwnerKind, TaskStatus, UpdateTaskInput } from "../types/project.types";
 
 import { MarkdownField } from "./markdown-field";
 import { StatusIcon } from "./status-icon";
-
-const STATUS_GROUPS = [
-	{
-		options: TASK_STATUSES.map((status) => ({
-			value: status,
-			label: TASK_STATUS_LABELS[status],
-			icon: <StatusIcon status={status} />,
-		})),
-	},
-];
 
 /**
  * The open task, as a wide panel over the board: what it is and the agent work on it beside its
@@ -278,7 +262,7 @@ function TaskFields(props: { task: Task }): JSX.Element {
 	}
 
 	async function changeStatus(value: string): Promise<void> {
-		const next = TASK_STATUSES.find((candidate) => candidate === value);
+		const next = workspace.workflow().some((state) => state.key === value) ? value : null;
 		if (!next || next === props.task.status) return;
 		const previous = props.task.status;
 		setStatus(next);
@@ -454,7 +438,7 @@ function TaskFields(props: { task: Task }): JSX.Element {
 				<Text as="span" size="caption" tone="subtle" truncate>
 					{saving()
 						? "Saving…"
-						: `${TASK_STATUS_LABELS[status()]} · updated ${relativeTime(props.task.updatedAt)}`}
+						: `${statusName(workspace.workflow(), status())} · updated ${relativeTime(props.task.updatedAt)}`}
 				</Text>
 			</PanelBar>
 
@@ -486,7 +470,18 @@ function TaskFields(props: { task: Task }): JSX.Element {
 										<Select<TaskStatus>
 											label="Status"
 											look="chip"
-											groups={STATUS_GROUPS}
+											groups={[
+												{
+													options: workspace
+														.workflow()
+														.filter((state) => !state.hidden || state.key === status())
+														.map((state) => ({
+															value: state.key,
+															label: state.name,
+															icon: <StatusIcon status={state.key} category={state.category} />,
+														})),
+												},
+											]}
 											value={status()}
 											onChange={(value) => void changeStatus(value)}
 										/>

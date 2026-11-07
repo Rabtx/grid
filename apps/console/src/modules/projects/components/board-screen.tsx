@@ -23,10 +23,10 @@ import {
 	BoardStats,
 	Button,
 	button,
+	IconButton,
 	CheckIcon,
 	EmptyState,
 	InfoStrip,
-	LaneDot,
 	LinkButton,
 	LoadingBar,
 	MiniBars,
@@ -55,15 +55,18 @@ import { inboxStore } from "@/modules/inbox";
 import { ShellSlot } from "@/modules/shell";
 
 import { useWorkspace } from "../context/workspace-context";
-import { BOARD_LANES, doneByDay, filterTasks, groupByOwner, laneOf, ownedBy } from "../lib/board";
-import type { Task } from "../types/project.types";
+import { doneByDay, filterTasks, groupByOwner, ownedBy } from "../lib/board";
+import { boardStates, stateOf } from "../lib/workflow";
+import type { Task, WorkflowState } from "../types/project.types";
 
 import { BoardLanes, boardLaneId, type BoardLane } from "./board-lanes";
 import { StageTabs } from "./stage-tabs";
+import { StatusDialog } from "./status-dialog";
+import { StatusIcon } from "./status-icon";
+import { TaskList } from "./task-list";
 
-export type BoardView = "status" | "owner";
-
-const LANE_TONE = { todo: "todo", doing: "doing", review: "review", done: "done" } as const;
+/** Columns by status (the board), a list grouped by status, or columns by who has each task. */
+export type BoardView = "status" | "list" | "owner";
 
 /**
  * A project's board (Figma 12 · Board): what the agents and the team are doing across the top,
@@ -74,7 +77,9 @@ export function BoardScreen(): JSX.Element {
 	const workspace = useWorkspace();
 	const auth = useAuth();
 	const [searchParams, setSearchParams] = useSearchParams();
-	const view = createMemo<BoardView>(() => (searchParams.view === "owner" ? "owner" : "status"));
+	const view = createMemo<BoardView>(() =>
+		searchParams.view === "owner" ? "owner" : searchParams.view === "list" ? "list" : "status",
+	);
 	const owner = createMemo(() =>
 		typeof searchParams.owner === "string" ? searchParams.owner : "all",
 	);
@@ -126,7 +131,7 @@ export function BoardScreen(): JSX.Element {
 	const viewHref = (next: string) => {
 		const params = new URLSearchParams();
 		if (next !== "all") params.set("owner", next);
-		if (view() === "owner") params.set("view", "owner");
+		if (view() !== "status") params.set("view", view());
 		if (query()) params.set("q", query());
 		const search = params.toString();
 		return workspaceHref(`/board/${slug()}${search ? `?${search}` : ""}`);
@@ -171,7 +176,8 @@ export function BoardScreen(): JSX.Element {
 						groups={[
 							{
 								options: [
-									{ value: "status", label: "By status" },
+									{ value: "status", label: "Board" },
+									{ value: "list", label: "List" },
 									{ value: "owner", label: "By owner" },
 								],
 							},
@@ -188,6 +194,19 @@ export function BoardScreen(): JSX.Element {
 				>
 					New task
 				</Button>
+			</ShellSlot>
+			{/* Phones: the header's one action here is a new task, not a new thread. */}
+			<ShellSlot name="trailing">
+				<IconButton
+					label="New task"
+					variant="secondary"
+					shape="round"
+					size="lg"
+					aria-haspopup="dialog"
+					onClick={() => workspace.setNewTaskOpen(true)}
+				>
+					<PlusIcon />
+				</IconButton>
 			</ShellSlot>
 			<ShellSlot name="subtitle">
 				{[
@@ -311,13 +330,19 @@ function Board(props: {
 	const filteredTasks = createMemo(() =>
 		filterTasks(workspace.tasks(), { query: props.query, owner: props.owner, me: props.me }),
 	);
+	// One column per status the board shows: its shown statuses, and a hidden one while it has a
+	// task (decided on every task, so a filter never makes a column come and go).
+	const states = createMemo<WorkflowState[]>(() =>
+		boardStates(workspace.workflow(), workspace.tasks()),
+	);
 	const statusLanes = createMemo<BoardLane[]>(() =>
-		BOARD_LANES.map((lane) => ({
-			id: lane.id,
-			title: lane.title,
-			short: lane.short,
-			icon: () => <LaneDot tone={LANE_TONE[lane.id]} />,
-			tasks: filteredTasks().filter((task) => laneOf(task.status) === lane.id),
+		states().map((state) => ({
+			id: state.key,
+			title: state.name,
+			short: state.name,
+			icon: () => <StatusIcon status={state.key} category={state.category} />,
+			tasks: filteredTasks().filter((task) => task.status === state.key),
+			status: state,
 		})),
 	);
 	const ownerLanes = createMemo<BoardLane[]>(() =>
@@ -335,6 +360,10 @@ function Board(props: {
 		})),
 	);
 	const lanes = createMemo(() => (props.view === "owner" ? ownerLanes() : statusLanes()));
+	const [statusDialog, setStatusDialog] = createSignal<{ editing: WorkflowState | null } | null>(
+		null,
+	);
+	const categoryOf = (task: Task) => stateOf(workspace.workflow(), task.status).category;
 	const isFiltered = createMemo(() => props.query.trim().length > 0 || props.owner !== "all");
 	const filteredEmpty = createMemo(() => isFiltered() && filteredTasks().length === 0);
 	const [selectedLane, setSelectedLane] = createSignal("");
@@ -348,9 +377,11 @@ function Board(props: {
 
 	// The strip's numbers: in review now, and what was finished this week against the last.
 	const inReview = createMemo(() =>
-		workspace.tasks().filter((task) => laneOf(task.status) === "review"),
+		workspace.tasks().filter((task) => categoryOf(task) === "review"),
 	);
-	const week = createMemo(() => doneByDay(workspace.tasks(), new Date(), 14));
+	const week = createMemo(() =>
+		doneByDay(workspace.tasks(), new Date(), 14, (task) => categoryOf(task) === "done"),
+	);
 	const DAY = new Intl.DateTimeFormat(undefined, { weekday: "short" });
 	const barsLabel = () =>
 		week()
@@ -370,11 +401,27 @@ function Board(props: {
 			.slice(0, 7)
 			.reduce((sum, n) => sum + n, 0);
 
+	// A tab tapped scrolls its lane in; the lanes passed on the way must not light their tabs,
+	// so the scroll's own reports wait until it reaches the lane asked for (or gives up).
+	let heading: string | null = null;
+	let headingTimer: ReturnType<typeof setTimeout> | undefined;
 	function selectLane(lane: string): void {
 		setSelectedLane(lane);
+		heading = lane;
+		clearTimeout(headingTimer);
+		headingTimer = setTimeout(() => {
+			heading = null;
+		}, 900);
 		document
 			.getElementById(boardLaneId(lane))
 			?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+	}
+	function laneInView(lane: string): void {
+		if (heading) {
+			if (lane === heading) heading = null;
+			return;
+		}
+		setSelectedLane(lane);
 	}
 
 	return (
@@ -508,8 +555,28 @@ function Board(props: {
 					onInput={(event) => props.onQuery(event.currentTarget.value)}
 					class="mb-2 lg:hidden"
 				/>
-				<StageTabs lanes={lanes()} active={activeLane()} onSelect={selectLane} />
-				<BoardLanes lanes={lanes()} onActiveChange={setSelectedLane} />
+				<Show
+					when={props.view !== "list"}
+					fallback={<TaskList states={states()} tasks={filteredTasks()} />}
+				>
+					<StageTabs
+						lanes={lanes()}
+						active={activeLane()}
+						onSelect={selectLane}
+						onAdd={props.view === "status" ? () => setStatusDialog({ editing: null }) : undefined}
+					/>
+					<BoardLanes
+						lanes={lanes()}
+						onActiveChange={laneInView}
+						onAddStatus={() => setStatusDialog({ editing: null })}
+						onRenameStatus={(state) => setStatusDialog({ editing: state })}
+					/>
+				</Show>
+				<StatusDialog
+					open={statusDialog() !== null}
+					editing={statusDialog()?.editing ?? null}
+					onClose={() => setStatusDialog(null)}
+				/>
 			</Show>
 		</Show>
 	);

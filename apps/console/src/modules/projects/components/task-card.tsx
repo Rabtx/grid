@@ -23,13 +23,8 @@ import { RUN_STATE } from "@/modules/team/lib/run-state";
 import { cardRunsStore } from "@/modules/team/stores/card-runs";
 
 import { useWorkspace } from "../context/workspace-context";
-import { laneOf, laneStatus } from "../lib/board";
-import {
-	TASK_STATUS_LABELS,
-	TASK_STATUSES,
-	type Task,
-	type TaskStatus,
-} from "../types/project.types";
+import { statusName } from "../lib/workflow";
+import type { Task, TaskStatus } from "../types/project.types";
 
 import { StatusIcon } from "./status-icon";
 
@@ -42,7 +37,7 @@ import { StatusIcon } from "./status-icon";
  */
 export function TaskCard(props: {
 	task: Task;
-	/** Move the task to another stage, the same way the lane drop does. */
+	/** Move the task to another status, the same way the lane drop does. */
 	onMove: (status: TaskStatus) => void;
 	/** HTML5 drag source: switched on only where the pointer can drag and drop. */
 	canDrag?: boolean;
@@ -61,11 +56,14 @@ export function TaskCard(props: {
 		{ items: [{ id: "run-with-agent", label: "Run with agent", icon: <ChatIcon size="sm" /> }] },
 		{
 			label: "Move to",
-			items: TASK_STATUSES.filter((status) => status !== props.task.status).map((status) => ({
-				id: status,
-				label: TASK_STATUS_LABELS[status],
-				icon: <StatusIcon status={status} />,
-			})),
+			items: workspace
+				.workflow()
+				.filter((state) => !state.hidden && state.key !== props.task.status)
+				.map((state) => ({
+					id: `status:${state.key}`,
+					label: state.name,
+					icon: <StatusIcon status={state.key} category={state.category} />,
+				})),
 		},
 	];
 
@@ -77,8 +75,7 @@ export function TaskCard(props: {
 			navigate(`/chat/${slug}`);
 			return;
 		}
-		const status = TASK_STATUSES.find((candidate) => candidate === id);
-		if (status) props.onMove(status);
+		if (id.startsWith("status:")) props.onMove(id.slice("status:".length));
 	}
 
 	return (
@@ -91,22 +88,14 @@ export function TaskCard(props: {
 			owner={props.task.owner ? (props.task.owner.name ?? props.task.owner.kind) : null}
 			label={[
 				`${props.task.key} ${props.task.title}`,
-				TASK_STATUS_LABELS[props.task.status],
+				statusName(workspace.workflow(), props.task.status),
 				props.task.owner?.name ?? (props.task.owner ? props.task.owner.kind : "unassigned"),
 			].join(", ")}
 			ownerMark={props.task.owner ? <OwnerMark task={props.task} /> : undefined}
+			// Its column already names its status: the card says only what a teammate is doing.
 			tag={
-				laneStatus(laneOf(props.task.status)) !== props.task.status ||
 				cardRunsStore.latest(workspace.activeSlug() ?? "", props.task.number) ? (
-					<>
-						{/* Its column holds more than one stage: say which one this is (Backlog, Blocked, QA). */}
-						<Show when={laneStatus(laneOf(props.task.status)) !== props.task.status}>
-							<CardChip tone={props.task.status === "blocked" ? "danger" : undefined}>
-								{TASK_STATUS_LABELS[props.task.status]}
-							</CardChip>
-						</Show>
-						<TeammateChip task={props.task} />
-					</>
+					<TeammateChip task={props.task} />
 				) : undefined
 			}
 			meta={props.task.branch ?? undefined}

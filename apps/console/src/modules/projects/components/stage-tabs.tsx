@@ -1,15 +1,19 @@
 import type { JSX } from "@solidjs/web";
 import { createEffect, onSettled } from "solid-js";
 
-import { attachEdgeFade, Segmented } from "@/kit";
+import { attachEdgeFade, IconButton, PlusIcon, Segmented } from "@/kit";
 
 import { boardLaneId, type BoardLane } from "./board-lanes";
 
-/** Phones see one lane at a time; these tabs name them and jump between them. */
+/**
+ * Phones see one lane at a time; these tabs name them and jump between them, and the + after them
+ * adds a status (the board by status).
+ */
 export function StageTabs(props: {
 	lanes: BoardLane[];
 	active: string;
 	onSelect: (laneId: string) => void;
+	onAdd?: () => void;
 }): JSX.Element {
 	let strip: HTMLElement | undefined;
 	onSettled(() => (strip ? attachEdgeFade(strip) : undefined));
@@ -29,7 +33,7 @@ export function StageTabs(props: {
 				strip = el;
 			}}
 			aria-label="Board lanes"
-			class="edge-fade -mx-4 mb-2 shrink-0 overflow-x-auto px-4 [scrollbar-width:none] md:hidden"
+			class="edge-fade -mx-gutter mb-2 flex shrink-0 items-center gap-1 overflow-x-auto px-gutter [scrollbar-width:none] md:hidden"
 		>
 			<Segmented
 				label="Board lanes"
@@ -44,6 +48,11 @@ export function StageTabs(props: {
 					controls: boardLaneId(lane.id),
 				}))}
 			/>
+			{props.onAdd ? (
+				<IconButton size="sm" label="Add a status" onClick={() => props.onAdd?.()}>
+					<PlusIcon />
+				</IconButton>
+			) : null}
 		</nav>
 	);
 }

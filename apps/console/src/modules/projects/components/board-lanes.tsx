@@ -5,11 +5,16 @@ import { useAuth } from "@/modules/auth";
 import {
 	Alert,
 	BoardColumn,
+	button,
 	DoneRow,
 	IconButton,
+	iconButton,
 	InlineAdd,
 	LaneStrip,
 	LinkButton,
+	Menu,
+	type MenuGroup,
+	MoreIcon,
 	notify,
 	PlusIcon,
 	Text,
@@ -17,10 +22,11 @@ import {
 import { workspaceHref } from "@/lib/active-workspace";
 
 import { type NewTaskDefaults, useWorkspace } from "../context/workspace-context";
-import { laneOf, laneStatus as statusForLane, ownerKey } from "../lib/board";
+import { ownerKey } from "../lib/board";
 import { applyMove, nextPosition } from "../lib/move-task";
+import { isBuiltIn, moveState, removeState, setHidden } from "../lib/workflow";
 import { projectsService } from "../services/projects.service";
-import { type Task, type TaskStatus } from "../types/project.types";
+import type { Task, TaskStatus, WorkflowState } from "../types/project.types";
 
 import { OwnerMark, TaskCard } from "./task-card";
 
@@ -32,6 +38,8 @@ export type BoardLane = {
 	/** Drawn fresh for each place that shows it: one DOM node can only sit in one place. */
 	icon: () => JSX.Element;
 	tasks: Task[];
+	/** A status lane's status (the board by status); an owner lane has none. */
+	status?: WorkflowState;
 };
 
 /** How long a failed move stays on screen before it clears itself. */
@@ -55,6 +63,9 @@ export function boardLaneId(id: string): string {
 export function BoardLanes(props: {
 	lanes: BoardLane[];
 	onActiveChange: (laneId: string) => void;
+	/** Ask for a new status (the "Add status" column) or a new name for one. */
+	onAddStatus?: () => void;
+	onRenameStatus?: (state: WorkflowState) => void;
 }): JSX.Element {
 	const workspace = useWorkspace();
 	const auth = useAuth();
@@ -101,10 +112,10 @@ export function BoardLanes(props: {
 		if (pending().length === 0) {
 			return new Map(props.lanes.map((lane) => [lane.id, lane.tasks]));
 		}
-		const laneIds = new Set(props.lanes.map((lane) => lane.id));
+		const byStatus = props.lanes.some((lane) => lane.status);
 		const buckets = new Map<string, Task[]>();
 		for (const task of movedTasks()) {
-			const key = laneIds.has(laneOf(task.status)) ? laneOf(task.status) : ownerKey(task);
+			const key = byStatus ? task.status : ownerKey(task);
 			const bucket = buckets.get(key);
 			if (bucket) bucket.push(task);
 			else buckets.set(key, [task]);
@@ -142,7 +153,52 @@ export function BoardLanes(props: {
 	}
 
 	function laneStatus(id: string): TaskStatus | null {
-		return statusForLane(id);
+		return props.lanes.find((lane) => lane.id === id)?.status?.key ?? null;
+	}
+	const isDoneLane = (lane: BoardLane) => lane.status?.category === "done";
+
+	/** A status column's own menu: rename, move, hide, or delete one the project added. */
+	const statusMenu = (state: WorkflowState): MenuGroup[] => [
+		{
+			items: [
+				{ id: "rename", label: "Rename" },
+				{ id: "left", label: "Move left" },
+				{ id: "right", label: "Move right" },
+				{ id: "hide", label: "Hide column" },
+			],
+		},
+		...(isBuiltIn(state.key)
+			? []
+			: [{ items: [{ id: "delete", label: "Delete status", danger: true }] }]),
+	];
+	async function onStatusMenu(state: WorkflowState, id: string): Promise<void> {
+		if (id === "rename") {
+			props.onRenameStatus?.(state);
+			return;
+		}
+		const flow = workspace.workflow();
+		const next =
+			id === "left"
+				? moveState(flow, state.key, -1)
+				: id === "right"
+					? moveState(flow, state.key, 1)
+					: id === "hide"
+						? setHidden(flow, state.key, true)
+						: removeState(flow, state.key);
+		try {
+			await workspace.saveWorkflow(next);
+			if (id === "hide")
+				notify({
+					title: `${state.name} is hidden`,
+					action: { label: "Undo", run: () => void workspace.saveWorkflow(flow) },
+				});
+			if (id === "delete") notify({ title: `Deleted ${state.name}; its tasks are in Backlog` });
+		} catch (cause) {
+			notify({
+				title: cause instanceof Error ? cause.message : "The board did not take that",
+				tone: "danger",
+			});
+		}
 	}
 	// Done shows its newest few; the rest wait behind "Show more".
 	const [showAllDone, setShowAllDone] = createSignal(false);
@@ -225,17 +281,31 @@ export function BoardLanes(props: {
 								// Phones name the lane in the stage tabs above, so the header only shows from md.
 								headerFromMd
 								action={
-									<IconButton
-										size="xs"
-										label={`Add a task to ${lane().title}`}
-										onClick={() => workspace.openNewTask(laneDefaults(lane().id))}
-									>
-										<PlusIcon size="sm" />
-									</IconButton>
+									<>
+										<IconButton
+											size="xs"
+											label={`Add a task to ${lane().title}`}
+											onClick={() => workspace.openNewTask(laneDefaults(lane()))}
+										>
+											<PlusIcon size="sm" />
+										</IconButton>
+										<Show when={lane().status}>
+											{(state) => (
+												<Menu
+													label={`${state().name} options`}
+													trigger={<MoreIcon size="sm" />}
+													triggerClass={iconButton({ size: "xs" })}
+													placement="bottom-end"
+													groups={statusMenu(state())}
+													onSelect={(id) => void onStatusMenu(state(), id)}
+												/>
+											)}
+										</Show>
+									</>
 								}
 								bottom={
 									<>
-										<Show when={lane().id === "done" && laneTasks().length > DONE_SHOWN}>
+										<Show when={isDoneLane(lane()) && laneTasks().length > DONE_SHOWN}>
 											<LinkButton
 												onClick={() => setShowAllDone((open) => !open)}
 												class="self-start px-2 py-1"
@@ -245,9 +315,9 @@ export function BoardLanes(props: {
 													: `Show ${laneTasks().length - DONE_SHOWN} more`}
 											</LinkButton>
 										</Show>
-										{/* Typing a title at the foot of Todo adds it there (Figma "Add a task"). */}
-										<Show when={lane().id === "todo"}>
-											<QuickAdd status="ready" />
+										{/* Typing a title at a status's foot adds it there (Figma "Add a task"). */}
+										<Show when={lane().status && !isDoneLane(lane()) ? lane().status : null}>
+											{(state) => <QuickAdd status={state().key} />}
 										</Show>
 									</>
 								}
@@ -270,8 +340,8 @@ export function BoardLanes(props: {
 									const number = dragging();
 									const task = movedTasks().find((item) => item.number === number);
 									endDrag();
-									// Dropped back in its own column (a blocked task on In progress): it stays as it is.
-									if (status === null || !task || laneOf(task.status) === lane().id) return;
+									// Dropped back in its own column: it stays as it is.
+									if (status === null || !task || task.status === status) return;
 									void move(task, status);
 								}}
 							>
@@ -284,7 +354,7 @@ export function BoardLanes(props: {
 									}
 								>
 									<Show
-										when={lane().id === "done"}
+										when={isDoneLane(lane())}
 										fallback={
 											<For each={laneTasks()}>
 												{(task) => (
@@ -324,17 +394,29 @@ export function BoardLanes(props: {
 						);
 					}}
 				</For>
+				{/* The board's last column: a new status, from desktop. Phones add one from the tabs. */}
+				<Show when={props.onAddStatus && props.lanes.some((lane) => lane.status)}>
+					<div class="hidden w-56 shrink-0 md:block">
+						<button
+							type="button"
+							class={button({ variant: "ghost", class: "w-full justify-start text-fg-muted" })}
+							onClick={() => props.onAddStatus?.()}
+						>
+							<PlusIcon size="sm" />
+							Add status
+						</button>
+					</div>
+				</Show>
 			</LaneStrip>
 		</>
 	);
 }
 
-/** What a task added from a lane starts with: the lane's stage, or its owner. */
-function laneDefaults(laneId: string): NewTaskDefaults {
-	const status = statusForLane(laneId);
-	if (status) return { status };
-	if (laneId === "unassigned") return {};
-	const [kind, ...name] = laneId.split(":");
+/** What a task added from a lane starts with: the lane's status, or its owner. */
+function laneDefaults(lane: BoardLane): NewTaskDefaults {
+	if (lane.status) return { status: lane.status.key };
+	if (lane.id === "unassigned") return {};
+	const [kind, ...name] = lane.id.split(":");
 	return kind === "human" || kind === "agent"
 		? { ownerKind: kind, ownerName: name.join(":") || null }
 		: {};

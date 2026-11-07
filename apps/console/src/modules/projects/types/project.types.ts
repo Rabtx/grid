@@ -1,3 +1,7 @@
+/**
+ * The statuses every project starts with, by key. A task's status is a key of its project's
+ * workflow (`Project.workflow`): these, renamed, hidden or reordered, plus any it adds.
+ */
 export const TASK_STATUSES = [
 	"backlog",
 	"ready",
@@ -8,15 +12,29 @@ export const TASK_STATUSES = [
 	"done",
 ] as const;
 
-export type TaskStatus = (typeof TASK_STATUSES)[number];
+/** A workflow state's key: a built-in (`TASK_STATUSES`) or one the project added. */
+export type TaskStatus = string;
+export type BuiltInStatus = (typeof TASK_STATUSES)[number];
 export type TaskOwnerKind = "human" | "agent";
 
-/** Column headings for the board, in workflow order. */
-export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+/** Where a state sits in the work's life: how it is drawn and what it counts as. */
+export type WorkflowCategory = "backlog" | "unstarted" | "started" | "review" | "done";
+
+/** One state of a project's workflow: one column of its board. */
+export type WorkflowState = {
+	key: TaskStatus;
+	name: string;
+	category: WorkflowCategory;
+	/** Kept, but no column of its own unless a task is in it. */
+	hidden?: boolean;
+};
+
+/** The built-ins' names until a project renames them, for places that show any project's task. */
+export const TASK_STATUS_LABELS: Record<BuiltInStatus, string> = {
 	backlog: "Backlog",
-	ready: "Ready",
+	ready: "Todo",
 	in_progress: "In progress",
-	review: "Review",
+	review: "In review",
 	qa: "QA",
 	blocked: "Blocked",
 	done: "Done",
@@ -32,6 +50,8 @@ export type Project = {
 	/** A palette colour id or `#rrggbb`; unset picks one from the project's name. */
 	color?: string | null;
 	status: "active" | "archived";
+	/** Its board's states in order; older APIs leave it out (the default workflow). */
+	workflow?: WorkflowState[];
 	createdAt: string;
 	updatedAt: string;
 };
@@ -51,6 +71,7 @@ export type UpdateProjectInput = {
 	status?: "active" | "archived";
 	icon?: string | null;
 	color?: string | null;
+	workflow?: WorkflowState[];
 };
 
 export type Task = {

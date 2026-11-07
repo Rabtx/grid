@@ -219,11 +219,11 @@ describe("TaskCard", () => {
 		expect(container.querySelector('[data-testid="chat-screen"]')).not.toBeNull();
 	});
 
-	it("moves stage when a stage item is selected without setting a draft", async () => {
+	it("moves status when a status item is selected without setting a draft", async () => {
 		mount();
 		await settle();
 
-		const readyItem = (await openMenu()).find((b) => b.textContent?.trim() === "Ready");
+		const readyItem = (await openMenu()).find((b) => b.textContent?.trim() === "Todo");
 
 		expect(readyItem).toBeDefined();
 		readyItem?.click();

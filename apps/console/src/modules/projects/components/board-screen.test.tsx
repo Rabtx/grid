@@ -235,32 +235,40 @@ describe("BoardScreen", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("renders the four columns, each stage in its own", async () => {
+	it("draws one column per status of the workflow, each task in its own status", async () => {
 		await settle();
 
 		const headings = container.querySelectorAll("section[id^=lane-] h2");
 		const labels = Array.from(headings).map((h) => h.textContent?.trim());
-		expect(labels).toEqual(["Todo", "In progress", "In review", "Done"]);
+		// The default workflow, Blocked and QA hidden until a task is in them.
+		expect(labels).toEqual(["Backlog", "Todo", "In progress", "In review", "Done"]);
 		const counts = container.querySelectorAll("section[id^=lane-] header [data-count]");
-		expect(Array.from(counts).map((n) => Number(n.textContent))).toEqual([2, 0, 0, 0]);
-		// Todo holds Ready and Backlog: the backlog card says which it is.
-		expect(laneTaskKeys(container, "todo")).toEqual(["TASK-1", "TASK-2"]);
+		expect(Array.from(counts).map((n) => Number(n.textContent))).toEqual([1, 1, 0, 0, 0]);
+		expect(laneTaskKeys(container, "backlog")).toEqual(["TASK-1"]);
+		expect(laneTaskKeys(container, "ready")).toEqual(["TASK-2"]);
+		// Its column names its status: the card does not say it again.
 		const backlog = container.querySelector('a[href="/board/alpha/tasks/1"]');
-		expect(backlog?.textContent).toContain("Backlog");
+		expect(backlog?.textContent).not.toContain("Backlog");
 	});
 
 	it("names the columns in phone tabs with their counts", async () => {
 		await settle();
 
 		const tabs = container.querySelectorAll('nav[aria-label="Board lanes"] button');
-		expect(Array.from(tabs).map((tab) => tab.textContent?.replace(/\d+/g, "").trim())).toEqual([
+		const named = Array.from(tabs).filter((tab) => tab.getAttribute("aria-controls"));
+		expect(named.map((tab) => tab.textContent?.replace(/\d+/g, "").trim())).toEqual([
+			"Backlog",
 			"Todo",
-			"Doing",
-			"Review",
+			"In progress",
+			"In review",
 			"Done",
 		]);
-		expect(tabs[0].getAttribute("aria-pressed")).toBe("true");
-		expect(tabs[0].getAttribute("aria-controls")).toBe("lane-todo");
+		expect(named[0].getAttribute("aria-pressed")).toBe("true");
+		expect(named[0].getAttribute("aria-controls")).toBe("lane-backlog");
+		// After them, a way to add a status.
+		expect(
+			container.querySelector('nav[aria-label="Board lanes"] button[aria-label="Add a status"]'),
+		).not.toBeNull();
 	});
 
 	it("shows 'No tasks' in empty columns", async () => {
@@ -339,11 +347,11 @@ describe("BoardScreen", () => {
 		clear?.click();
 		await settle();
 
-		expect(container.querySelectorAll("section[data-lane]")).toHaveLength(4);
+		expect(container.querySelectorAll("section[data-lane]")).toHaveLength(5);
 		expect(container.querySelectorAll("article")).toHaveLength(2);
 	});
 
-	it("offers the other six stages from a menu outside the card's link", async () => {
+	it("offers the workflow's other shown statuses from a menu outside the card's link", async () => {
 		await settle();
 
 		const card = container.querySelector('a[href="/board/alpha/tasks/1"]');
@@ -356,15 +364,7 @@ describe("BoardScreen", () => {
 		expect(card?.contains(trigger ?? null)).toBe(false);
 
 		const items = (await openCardMenu(container, "TASK-1")).map((item) => item.textContent?.trim());
-		expect(items).toEqual([
-			"Run with agent",
-			"Ready",
-			"In progress",
-			"Review",
-			"QA",
-			"Blocked",
-			"Done",
-		]);
+		expect(items).toEqual(["Run with agent", "Todo", "In progress", "In review", "Done"]);
 	});
 
 	it("moves a card into the target lane as soon as the move is chosen", async () => {
@@ -375,8 +375,8 @@ describe("BoardScreen", () => {
 		await settle();
 
 		// Optimistic: the card changes lane before the write has come back.
-		expect(laneTaskKeys(container, "todo")).toEqual(["TASK-2"]);
-		expect(laneTaskKeys(container, "doing")).toEqual(["TASK-1"]);
+		expect(laneTaskKeys(container, "backlog")).toEqual([]);
+		expect(laneTaskKeys(container, "in_progress")).toEqual(["TASK-1"]);
 
 		releasePatch();
 		await settle();
@@ -386,8 +386,8 @@ describe("BoardScreen", () => {
 		expect(patches[0].url).toContain("/projects/alpha/tasks/1");
 		expect(patches[0].body).toEqual({ status: "in_progress", position: 0 });
 		// Once the write lands the overlay is gone: the card stays where the API put it.
-		expect(laneTaskKeys(container, "todo")).toEqual(["TASK-2"]);
-		expect(laneTaskKeys(container, "doing")).toEqual(["TASK-1"]);
+		expect(laneTaskKeys(container, "backlog")).toEqual([]);
+		expect(laneTaskKeys(container, "in_progress")).toEqual(["TASK-1"]);
 	});
 
 	it("puts the card back and says why when the move is rejected", async () => {
@@ -400,8 +400,8 @@ describe("BoardScreen", () => {
 		expect(container.textContent).toContain(
 			"Couldn't move TASK-1: Stage 'in_progress' is not allowed here",
 		);
-		expect(laneTaskKeys(container, "todo")).toEqual(["TASK-1", "TASK-2"]);
-		expect(laneTaskKeys(container, "doing")).toEqual([]);
+		expect(laneTaskKeys(container, "backlog")).toEqual(["TASK-1"]);
+		expect(laneTaskKeys(container, "in_progress")).toEqual([]);
 	});
 
 	it("toasts after adding a task and, with Add another on, keeps the sheet open", async () => {

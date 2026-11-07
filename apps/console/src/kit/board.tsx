@@ -213,7 +213,7 @@ export function BoardColumn(props: {
 			id={props.id}
 			data-lane={props.id?.replace(/^lane-/, "")}
 			aria-label={props.title}
-			class="flex min-h-0 w-full shrink-0 snap-start flex-col md:w-auto md:min-w-64 md:flex-1 md:basis-0"
+			class="flex min-h-0 w-full shrink-0 snap-start snap-always flex-col md:w-auto md:min-w-64 md:flex-1 md:basis-0"
 		>
 			<div
 				onDragOver={(event) => props.onDragOver?.(event)}

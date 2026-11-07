@@ -19,12 +19,8 @@ import { useAuth } from "@/modules/auth";
 
 import { useWorkspace } from "../context/workspace-context";
 import { projectsService } from "../services/projects.service";
-import {
-	TASK_STATUS_LABELS,
-	TASK_STATUSES,
-	type TaskOwnerKind,
-	type TaskStatus,
-} from "../types/project.types";
+import { statusName } from "../lib/workflow";
+import type { TaskOwnerKind, TaskStatus } from "../types/project.types";
 
 import { MarkdownField } from "./markdown-field";
 import { StatusIcon } from "./status-icon";
@@ -89,7 +85,7 @@ export function NewTaskDialog(): JSX.Element {
 			reset();
 			workspace.refreshTasks();
 			notify({
-				title: `Added ${task.key} to ${TASK_STATUS_LABELS[task.status]}`,
+				title: `Added ${task.key} to ${statusName(workspace.workflow(), task.status)}`,
 				action: { label: "Open", run: () => workspace.openTask(task.number) },
 			});
 			if (another()) input?.focus();
@@ -163,11 +159,14 @@ export function NewTaskDialog(): JSX.Element {
 					/>
 					<ChoiceChips<TaskStatus>
 						label="Status"
-						options={TASK_STATUSES.map((value) => ({
-							value,
-							label: TASK_STATUS_LABELS[value],
-							icon: <StatusIcon status={value} />,
-						}))}
+						options={workspace
+							.workflow()
+							.filter((state) => !state.hidden || state.key === status())
+							.map((state) => ({
+								value: state.key,
+								label: state.name,
+								icon: <StatusIcon status={state.key} category={state.category} />,
+							}))}
 						value={status()}
 						onChange={setStatus}
 					/>

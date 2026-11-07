@@ -21,7 +21,7 @@ import {
 	automationsService,
 } from "@/modules/automations/services/automations.service";
 import { INBOX_KINDS, type InboxItem, inboxStore } from "@/modules/inbox";
-import { projectsService, TASK_STATUS_LABELS, useWorkspace } from "@/modules/projects";
+import { projectsService, statusName, useWorkspace, workflowOf } from "@/modules/projects";
 import { ShellSlot, useShell } from "@/modules/shell";
 
 import {
@@ -279,7 +279,7 @@ export function HomeScreen(): JSX.Element {
 															</Show>
 														}
 														title={entry.task.title}
-														meta={`${entry.task.key} · ${entry.project.name} · ${ownerLabel(entry.task)} · ${TASK_STATUS_LABELS[entry.task.status]}`}
+														meta={`${entry.task.key} · ${entry.project.name} · ${ownerLabel(entry.task)} · ${statusName(workflowOf(workspace.projects().find((project) => project.slug === entry.project.slug)), entry.task.status)}`}
 														onClick={() => openTask(entry)}
 														action={
 															<Button
