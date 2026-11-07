@@ -23,7 +23,7 @@ const DEMO_PASSWORD = "GridDemo2026!";
 type SeedTask = {
 	title: string;
 	description?: string;
-	status: (typeof schema.taskStatus.enumValues)[number];
+	status: (typeof schema.BUILT_IN_TASK_STATUSES)[number];
 	ownerKind?: "human" | "agent";
 	ownerName?: string;
 	branch?: string;
@@ -83,7 +83,7 @@ function loadAgentBoardTasks(): SeedTask[] {
 		const whatMatch = body.match(/## What\s*\n+([\s\S]*?)(?=\n## |$)/);
 		const description = whatMatch ? whatMatch[1].trim() : body.trim().slice(0, 500) || undefined;
 
-		let status: (typeof schema.taskStatus.enumValues)[number] =
+		let status: (typeof schema.BUILT_IN_TASK_STATUSES)[number] =
 			entry.sub === "done" ? "done" : entry.sub === "doing" ? "in_progress" : "ready";
 		if (meta.status) {
 			const s = meta.status.toLowerCase();

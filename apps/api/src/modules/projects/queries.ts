@@ -1,5 +1,5 @@
 import { type Database, schema } from "@grid/db";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 const { projects, tasks, notes } = schema;
@@ -84,6 +84,19 @@ export async function updateTask(db: Database, id: string, input: Partial<schema
 		.where(eq(tasks.id, id))
 		.returning();
 	return task ?? null;
+}
+/** Move every task of a project out of `statuses` (states the workflow no longer has) to `to`. */
+export async function moveTasksOut(
+	db: Database,
+	projectId: string,
+	statuses: readonly string[],
+	to: string,
+) {
+	if (statuses.length === 0) return;
+	await db
+		.update(tasks)
+		.set({ status: to, updatedAt: new Date() })
+		.where(and(eq(tasks.projectId, projectId), inArray(tasks.status, [...statuses])));
 }
 export async function deleteTask(db: Database, id: string) {
 	return (await db.delete(tasks).where(eq(tasks.id, id)).returning()).length > 0;

@@ -13,11 +13,11 @@ import {
 import { projects } from "./projects.schema";
 
 /**
- * The workflow stages from the Grid product definition. Stages are fixed for now;
- * making them configurable per project is a later concern, and a closed enum keeps
- * the board honest until then.
+ * The stages every project starts with. A task's status is one of its project's workflow states
+ * (projects.workflow): these, renamed, hidden or reordered, plus any the project adds. The
+ * runner and its teammates move cards by these keys, so they are always there.
  */
-export const taskStatus = pgEnum("task_status", [
+export const BUILT_IN_TASK_STATUSES = [
 	"backlog",
 	"ready",
 	"in_progress",
@@ -25,7 +25,7 @@ export const taskStatus = pgEnum("task_status", [
 	"qa",
 	"blocked",
 	"done",
-]);
+] as const;
 
 /** Humans and agents are both first-class workers, so ownership records which kind. */
 export const taskOwnerKind = pgEnum("task_owner_kind", ["human", "agent"]);
@@ -41,7 +41,8 @@ export const tasks = pgTable(
 		number: integer("number").notNull(),
 		title: varchar("title", { length: 200 }).notNull(),
 		description: text("description"),
-		status: taskStatus("status").notNull().default("backlog"),
+		/** A workflow state's key: a built-in one or one the project added (projects.workflow). */
+		status: varchar("status", { length: 48 }).notNull().default("backlog"),
 		ownerKind: taskOwnerKind("owner_kind"),
 		/** Free text until agents are entities of their own, e.g. "backend agent". */
 		ownerName: varchar("owner_name", { length: 120 }),

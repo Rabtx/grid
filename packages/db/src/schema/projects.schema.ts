@@ -1,9 +1,45 @@
-import { index, pgEnum, pgTable, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import {
+	index,
+	jsonb,
+	pgEnum,
+	pgTable,
+	timestamp,
+	uniqueIndex,
+	uuid,
+	varchar,
+} from "drizzle-orm/pg-core";
 
 import { users } from "./users.schema";
 import { workspaces } from "./workspaces.schema";
 
 export const projectStatus = pgEnum("project_status", ["active", "archived"]);
+
+/** Where a workflow state sits in the work's life: how Grid colours it and what it counts as. */
+export type WorkflowCategory = "backlog" | "unstarted" | "started" | "review" | "done";
+
+/** One state of a project's workflow, as it is kept: its key, name, kind and whether it shows. */
+export type WorkflowStateRecord = {
+	key: string;
+	name: string;
+	category: WorkflowCategory;
+	/** Kept but not shown as a column (a built-in state the project does not use). */
+	hidden?: boolean;
+};
+
+/**
+ * The workflow a project has until it changes it, after Linear's: Backlog, Todo, In progress,
+ * In review, Done, with Blocked and QA kept but hidden. Every key here is a built-in: always in
+ * a workflow, renamed, reordered or hidden but never removed, because agents move cards by them.
+ */
+export const DEFAULT_WORKFLOW: readonly WorkflowStateRecord[] = [
+	{ key: "backlog", name: "Backlog", category: "backlog" },
+	{ key: "ready", name: "Todo", category: "unstarted" },
+	{ key: "in_progress", name: "In progress", category: "started" },
+	{ key: "blocked", name: "Blocked", category: "started", hidden: true },
+	{ key: "review", name: "In review", category: "review" },
+	{ key: "qa", name: "QA", category: "review", hidden: true },
+	{ key: "done", name: "Done", category: "done" },
+];
 
 export const projects = pgTable(
 	"projects",
@@ -23,6 +59,8 @@ export const projects = pgTable(
 		icon: varchar("icon", { length: 64 }),
 		color: varchar("color", { length: 32 }),
 		status: projectStatus("status").notNull().default("active"),
+		/** The board's states in order; null until the project changes them (the built-ins). */
+		workflow: jsonb("workflow").$type<WorkflowStateRecord[]>(),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 	},

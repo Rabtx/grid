@@ -1,6 +1,6 @@
-import type { Database } from "@grid/db";
+import { type Database, schema } from "@grid/db";
 
-import { conflict, notFound } from "../../http/errors";
+import { badRequest, conflict, notFound } from "../../http/errors";
 import type {
 	CreateNoteInput,
 	CreateProjectInput,
@@ -13,6 +13,16 @@ import { requireRole, workspaceAccess, type WorkspaceScope } from "../workspaces
 import * as q from "./queries";
 
 const taskKey = (number: number) => `TASK-${number}`;
+
+/** A project's workflow: what it set, or the one every project starts with. */
+const workflowOf = (r: q.ProjectRecord) => r.workflow ?? [...schema.DEFAULT_WORKFLOW];
+
+/** A status a task can take in this project: one of its workflow's states. */
+function requireStatus(project: q.ProjectRecord, status: string | undefined): void {
+	if (status === undefined) return;
+	if (!workflowOf(project).some((state) => state.key === status))
+		throw badRequest(`"${status}" is not one of this project's statuses`);
+}
 const projectView = (r: q.ProjectRecord) => ({
 	slug: r.slug,
 	name: r.name,
@@ -21,6 +31,7 @@ const projectView = (r: q.ProjectRecord) => ({
 	icon: r.icon,
 	color: r.color,
 	status: r.status,
+	workflow: workflowOf(r),
 	createdAt: r.createdAt.toISOString(),
 	updatedAt: r.updatedAt.toISOString(),
 });
@@ -103,6 +114,14 @@ export async function updateProject(
 	input: UpdateProjectInput,
 ) {
 	const project = await requireProject(db, scope, slug, true);
+	// A status taken out of the workflow takes its tasks back to the backlog, so none is lost.
+	if (input.workflow) {
+		const kept = new Set(input.workflow.map((state) => state.key));
+		const removed = workflowOf(project)
+			.map((state) => state.key)
+			.filter((key) => !kept.has(key));
+		await q.moveTasksOut(db, project.id, removed, "backlog");
+	}
 	const updated = await q.updateProject(db, project.id, input);
 	if (!updated) throw notFound(`Project "${slug}" not found`);
 	return projectView(updated);
@@ -118,6 +137,7 @@ export async function createTask(
 	input: CreateTaskInput,
 ) {
 	const project = await requireProject(db, scope, slug, true);
+	requireStatus(project, input.status);
 	return taskView(
 		await q.createTask(db, {
 			projectId: project.id,
@@ -138,6 +158,8 @@ export async function updateTask(
 	input: UpdateTaskInput,
 ) {
 	const task = await requireTask(db, scope, slug, number);
+	if (input.status !== undefined)
+		requireStatus(await requireProject(db, scope, slug, true), input.status);
 	const updated = await q.updateTask(db, task.id, input);
 	if (!updated) throw notFound(`Task ${taskKey(number)} not found`);
 	return taskView(updated);

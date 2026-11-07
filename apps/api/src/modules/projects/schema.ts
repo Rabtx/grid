@@ -14,6 +14,38 @@ export const TASK_STATUSES = [
 
 export const TASK_OWNER_KINDS = ["human", "agent"] as const;
 
+export const WORKFLOW_CATEGORIES = ["backlog", "unstarted", "started", "review", "done"] as const;
+
+/** A workflow state's key: lowercase, digits and underscores, starting with a letter. */
+const statusKey = z
+	.string()
+	.trim()
+	.regex(/^[a-z][a-z0-9_]{0,47}$/, "A status is named by its key");
+
+const workflowState = z
+	.object({
+		key: statusKey,
+		name: z.string().trim().min(1).max(40),
+		category: z.enum(WORKFLOW_CATEGORIES),
+		hidden: z.boolean().optional(),
+	})
+	.strict();
+
+/** A project's states in order: every built-in kept (hidden at most), keys unique, one showing. */
+const workflow = z
+	.array(workflowState)
+	.min(1)
+	.max(30)
+	.refine(
+		(states) => new Set(states.map((state) => state.key)).size === states.length,
+		"Each status needs its own key",
+	)
+	.refine(
+		(states) => TASK_STATUSES.every((key) => states.some((state) => state.key === key)),
+		"The built-in statuses can be hidden or renamed, not removed",
+	)
+	.refine((states) => states.some((state) => !state.hidden), "Keep at least one status showing");
+
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type TaskOwnerKind = (typeof TASK_OWNER_KINDS)[number];
 
@@ -62,6 +94,7 @@ export const updateProjectSchema = z
 		status: z.enum(["active", "archived"]).optional(),
 		icon,
 		color,
+		workflow: workflow.optional(),
 	})
 	.strict()
 	.refine((input) => Object.keys(input).length > 0, "At least one project field is required");
@@ -77,7 +110,7 @@ export const createTaskSchema = z
 	.object({
 		title: z.string().trim().min(1).max(200),
 		description: optionalText(4000),
-		status: z.enum(TASK_STATUSES).optional(),
+		status: statusKey.optional(),
 		branch: optionalText(200),
 	})
 	.extend(owner.shape)
@@ -87,7 +120,7 @@ export const updateTaskSchema = z
 	.object({
 		title: z.string().trim().min(1).max(200).optional(),
 		description: optionalText(4000),
-		status: z.enum(TASK_STATUSES).optional(),
+		status: statusKey.optional(),
 		branch: optionalText(200),
 		position: z.number().int().min(0).max(1_000_000).optional(),
 	})
