@@ -177,7 +177,7 @@ describe("TaskPanel", () => {
 		// The card on the board behind the panel links to the same task URL.
 		expect(container.querySelector('a[href="/board/alpha/tasks/1"]')).not.toBeNull();
 
-		const title = container.querySelector<HTMLInputElement>('input[aria-label="Task title"]');
+		const title = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task title"]');
 		expect(title?.value).toBe("First task in backlog");
 		expect(dialogs(container).some((dialog) => dialog.open)).toBe(true);
 
@@ -192,7 +192,9 @@ describe("TaskPanel", () => {
 		const owner = container.querySelector<HTMLInputElement>('input[aria-label="Person\'s name"]');
 		expect(owner?.value).toBe("Alice");
 
-		const description = container.querySelector<HTMLTextAreaElement>("textarea");
+		const description = container.querySelector<HTMLTextAreaElement>(
+			'textarea:not([aria-label="Task title"])',
+		);
 		expect(description?.value).toBe("Draft the empty state.");
 	});
 

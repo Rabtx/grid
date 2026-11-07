@@ -137,6 +137,55 @@ export function TitleInput(props: JSX.InputHTMLAttributes<HTMLInputElement>): JS
 	);
 }
 
+/**
+ * A title that wraps (a task's): a headline-sized field that grows with its text instead of
+ * cutting it off on a phone. Enter saves (it blurs) rather than starting a new line.
+ */
+export function TitleArea(props: {
+	value: string;
+	onInput: (value: string) => void;
+	onCommit: () => void;
+	placeholder?: string;
+	"aria-label": string;
+	maxlength?: number;
+}): JSX.Element {
+	let field: HTMLTextAreaElement | undefined;
+	const fit = () => {
+		if (!field) return;
+		field.style.height = "auto";
+		field.style.height = `${field.scrollHeight}px`;
+	};
+	onSettled(() => {
+		fit();
+		const observer = new ResizeObserver(fit);
+		if (field) observer.observe(field);
+		return () => observer.disconnect();
+	});
+	return (
+		<textarea
+			ref={(el) => {
+				field = el;
+			}}
+			rows={1}
+			value={props.value}
+			placeholder={props.placeholder}
+			aria-label={props["aria-label"]}
+			maxlength={props.maxlength}
+			onInput={(event) => {
+				props.onInput(event.currentTarget.value.replace(/\n/g, " "));
+				fit();
+			}}
+			onBlur={() => props.onCommit()}
+			onKeyDown={(event) => {
+				if (event.key !== "Enter" || event.isComposing) return;
+				event.preventDefault();
+				event.currentTarget.blur();
+			}}
+			class="focus-ring block w-full min-w-0 resize-none overflow-hidden rounded-kit-sm bg-transparent font-medium text-fg text-headline leading-snug outline-none placeholder:text-fg-faint"
+		/>
+	);
+}
+
 /** A value that edits in place (a task's branch, an owner's name): plain until hovered or focused. */
 export function QuietInput(props: JSX.InputHTMLAttributes<HTMLInputElement>): JSX.Element {
 	const rest = omit(props, "class");

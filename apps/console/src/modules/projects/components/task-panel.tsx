@@ -37,7 +37,7 @@ import {
 	ThreadDetailsCard,
 	ThreadDetailsRow,
 	ThreadDetailsSection,
-	TitleInput,
+	TitleArea,
 	TrashIcon,
 	UserIcon,
 } from "@/kit";
@@ -387,6 +387,58 @@ function TaskFields(props: { task: Task }): JSX.Element {
 		}
 	}
 
+	// Each property's control, drawn where it is wanted: the phone's row under the title, and the
+	// side panel's rows from lg. Each call draws its own, since one element sits in one place.
+	const statusSelect = () => (
+		<Select<TaskStatus>
+			label="Status"
+			look="chip"
+			groups={[
+				{
+					options: workspace
+						.workflow()
+						.filter((state) => !state.hidden || state.key === status())
+						.map((state) => ({
+							value: state.key,
+							label: state.name,
+							icon: <StatusIcon status={state.key} category={state.category} />,
+						})),
+				},
+			]}
+			value={status()}
+			onChange={(value) => void changeStatus(value)}
+		/>
+	);
+	const assigneeSelect = () => (
+		<Select<string>
+			label="Assignee"
+			look="chip"
+			groups={assigneeGroups()}
+			value={ownerChoice()}
+			onChange={(next) => void changeOwner(next)}
+		/>
+	);
+	const ownerNameInput = () => (
+		<QuietInput
+			value={ownerName()}
+			onInput={(event) => setOwnerName(event.currentTarget.value)}
+			onBlur={() => void commitOwnerName()}
+			onKeyDown={saveOnEnter}
+			aria-label={ownerKind() === "agent" ? "Agent name" : "Person's name"}
+			placeholder={ownerKind() === "agent" ? "Which agent" : "Who"}
+		/>
+	);
+	const branchInput = () => (
+		<QuietInput
+			value={branch()}
+			onInput={(event) => setBranch(event.currentTarget.value)}
+			onBlur={() => void commitBranch()}
+			onKeyDown={saveOnEnter}
+			aria-label="Branch"
+			placeholder="No branch yet"
+			class="font-mono"
+		/>
+	);
 	return (
 		<div class="flex h-full min-h-0 flex-col">
 			<PanelBar
@@ -451,75 +503,45 @@ function TaskFields(props: { task: Task }): JSX.Element {
 									<Alert tone="danger" title={message()} onDismiss={() => setError(null)} />
 								)}
 							</Show>
-							<TitleInput
+							<TitleArea
 								value={title()}
-								onInput={(event) => setTitle(event.currentTarget.value)}
-								onBlur={() => void commitTitle()}
-								onKeyDown={saveOnEnter}
+								onInput={setTitle}
+								onCommit={() => void commitTitle()}
 								placeholder="Task title"
 								aria-label="Task title"
 								maxlength={200}
 							/>
 						</Stack>
 					}
+					bar={
+						<>
+							{statusSelect()}
+							{assigneeSelect()}
+							<Show when={ownerChoice() === "human" || ownerChoice() === "agent"}>
+								<span class="w-36">{ownerNameInput()}</span>
+							</Show>
+							<span class="flex min-w-0 flex-1 basis-40 items-center gap-1 text-fg-subtle [&_svg]:size-4">
+								<BranchIcon />
+								{branchInput()}
+							</span>
+						</>
+					}
 					aside={
 						<ThreadDetailsCard>
 							<ThreadDetailsSection title="Properties">
 								<div class="flex flex-col gap-1 px-2.5 pb-1">
-									<PropertyRow label="Status">
-										<Select<TaskStatus>
-											label="Status"
-											look="chip"
-											groups={[
-												{
-													options: workspace
-														.workflow()
-														.filter((state) => !state.hidden || state.key === status())
-														.map((state) => ({
-															value: state.key,
-															label: state.name,
-															icon: <StatusIcon status={state.key} category={state.category} />,
-														})),
-												},
-											]}
-											value={status()}
-											onChange={(value) => void changeStatus(value)}
-										/>
-									</PropertyRow>
-									<PropertyRow label="Assignee">
-										<Select<string>
-											label="Assignee"
-											look="chip"
-											groups={assigneeGroups()}
-											value={ownerChoice()}
-											onChange={(next) => void changeOwner(next)}
-										/>
-									</PropertyRow>
+									<PropertyRow label="Status">{statusSelect()}</PropertyRow>
+									<PropertyRow label="Assignee">{assigneeSelect()}</PropertyRow>
 									<Show when={ownerChoice() === "human" || ownerChoice() === "agent"}>
 										<PropertyRow label={ownerKind() === "agent" ? "Agent" : "Person"}>
-											<QuietInput
-												value={ownerName()}
-												onInput={(event) => setOwnerName(event.currentTarget.value)}
-												onBlur={() => void commitOwnerName()}
-												onKeyDown={saveOnEnter}
-												aria-label={ownerKind() === "agent" ? "Agent name" : "Person's name"}
-												placeholder={ownerKind() === "agent" ? "Which agent" : "Who"}
-											/>
+											{ownerNameInput()}
 										</PropertyRow>
 									</Show>
 									<PropertyRow label="Branch">
 										<span class="shrink-0 text-fg-subtle [&_svg]:size-4">
 											<BranchIcon />
 										</span>
-										<QuietInput
-											value={branch()}
-											onInput={(event) => setBranch(event.currentTarget.value)}
-											onBlur={() => void commitBranch()}
-											onKeyDown={saveOnEnter}
-											aria-label="Branch"
-											placeholder="No branch yet"
-											class="font-mono"
-										/>
+										{branchInput()}
 									</PropertyRow>
 								</div>
 							</ThreadDetailsSection>

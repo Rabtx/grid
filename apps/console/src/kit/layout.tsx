@@ -207,13 +207,21 @@ export function DetailColumns(props: {
 	head: JSX.Element;
 	main: JSX.Element;
 	aside: JSX.Element;
+	/**
+	 * Below lg, in the aside's place: the few properties that matter, as a row under the head
+	 * (a task's status, assignee, branch), and the aside only from lg.
+	 */
+	bar?: JSX.Element;
 }): JSX.Element {
 	return (
 		<div class="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-x-8">
 			<div class="min-w-0 lg:col-span-2">{props.head}</div>
+			<Show when={props.bar}>
+				<div class="-mt-2 flex min-w-0 flex-wrap items-center gap-1.5 lg:hidden">{props.bar}</div>
+			</Show>
 			<aside
 				aria-label="Properties"
-				class="flex min-w-0 flex-col gap-3 lg:sticky lg:top-0 lg:col-start-2 lg:row-start-2 lg:self-start"
+				class={`min-w-0 flex-col gap-3 lg:sticky lg:top-0 lg:col-start-2 lg:row-start-2 lg:flex lg:self-start ${props.bar ? "hidden" : "flex"}`}
 			>
 				{props.aside}
 			</aside>

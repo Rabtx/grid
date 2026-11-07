@@ -109,6 +109,7 @@ export {
 	PasswordInput,
 	SearchInput,
 	Textarea,
+	TitleArea,
 	TitleInput,
 } from "./field";
 export * from "./icons";
