@@ -94,7 +94,8 @@ Tailscale provisioning (the installer keeps its existing tailnet guidance).
 
 ## Resolution
 
-Implemented on `agent/backend/distributed-execution`. Both modes share the Postgres
+Implemented on `agent/backend/distributed-execution` as `91ea827d`.
+Pull request: https://github.com/Rabtx/grid/pull/274 (open, not merged). Both modes share the Postgres
 machine registry. A member may start one rootless container for themselves; someone with the
 `machines` permission may start one for another member. Brought machines enroll with a one-time
 code, and a shared runner only serves the workspace it joined. Settings → Machines can add either
