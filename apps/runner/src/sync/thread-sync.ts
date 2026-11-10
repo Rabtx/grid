@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import { dirname, resolve } from "node:path";
 
+import { authorization, type RunnerAuth } from "../api-auth";
 import { type Attachment, AttachmentFiles } from "../chat/attachments";
 
 import { openPrivateDatabase } from "../private-database";
@@ -15,6 +16,13 @@ const EVERY_MS = 5_000;
 const BACKOFF_MS = 30_000;
 
 export type Machine = { id: string; name: string };
+
+/** How this runner proves itself to the API, and the workspace a machine is scoped to. */
+export type SyncApi = RunnerAuth & {
+	url: string;
+	/** The workspace this machine joined; its rounds only carry that workspace's threads. */
+	workspaceId?: string;
+};
 
 type SessionRow = {
 	id: string;
@@ -69,8 +77,10 @@ export class ThreadSync {
 
 	constructor(
 		chatDb: string,
-		private readonly api: { url: string; key: string },
+		private readonly api: SyncApi,
 		private readonly fetcher: typeof fetch = fetch,
+		/** The machine Grid knows this runner as; the local id when it has not enrolled. */
+		machine?: Machine,
 	) {
 		this.db = openPrivateDatabase(chatDb);
 		this.db.exec("PRAGMA busy_timeout = 5000");
@@ -92,7 +102,7 @@ export class ThreadSync {
 				DELETE FROM sync_threads WHERE session_id = old.id;
 			END;
 		`);
-		this.machine = { id: this.machineId(), name: hostname() };
+		this.machine = machine ?? { id: this.machineId(), name: hostname() };
 		this.files = new AttachmentFiles(resolve(dirname(chatDb), "attachments"));
 	}
 
@@ -150,13 +160,15 @@ export class ThreadSync {
 	 */
 	private async sendAttachments(): Promise<void> {
 		const pending = this.db
-			.query<{ session_id: string; id: string; data: string }, []>(
+			.query<{ session_id: string; id: string; data: string }, [string | null, string | null]>(
 				`SELECT a.session_id, a.id, a.data FROM attachments a
 				   JOIN sync_threads t ON t.session_id = a.session_id
+				   JOIN sessions s ON s.id = a.session_id
 				  WHERE NOT EXISTS (SELECT 1 FROM sync_attachments s WHERE s.session_id = a.session_id AND s.id = a.id)
+				    AND (? IS NULL OR s.workspace_id = ?)
 				  LIMIT 20`,
 			)
-			.all();
+			.all(this.api.workspaceId ?? null, this.api.workspaceId ?? null);
 		const done = this.db.query(
 			"INSERT OR IGNORE INTO sync_attachments (session_id, id) VALUES (?, ?)",
 		);
@@ -176,20 +188,22 @@ export class ThreadSync {
 
 	/** What changed since the server last confirmed, at most one round of it; null when nothing. */
 	nextRound(): Round | null {
+		const scoped = Boolean(this.api.workspaceId);
 		const changed = this.db
-			.query<SessionRow, [number]>(
+			.query<SessionRow, (string | number)[]>(
 				`SELECT s.id, s.owner_id, s.workspace_id, s.project, s.provider, s.title, s.model, s.mode,
 				        s.effort, s.created_at, s.updated_at,
 				        (SELECT MAX(seq) FROM events e WHERE e.session_id = s.id) AS last_seq,
 				        t.seq AS sent_seq
 				   FROM sessions s LEFT JOIN sync_threads t ON t.session_id = s.id
 				  WHERE s.workspace_id IS NOT NULL
+				    ${scoped ? "AND s.workspace_id = ?" : ""}
 				    AND (t.session_id IS NULL OR t.updated_at != s.updated_at
 				         OR COALESCE((SELECT MAX(seq) FROM events e WHERE e.session_id = s.id), 0) > t.seq)
 				  ORDER BY s.updated_at
 				  LIMIT ?`,
 			)
-			.all(THREADS_PER_ROUND);
+			.all(...(scoped ? [this.api.workspaceId as string, THREADS_PER_ROUND] : [THREADS_PER_ROUND]));
 		const deleted = this.db
 			.query<{ session_id: string }, []>("SELECT session_id FROM sync_deleted LIMIT 500")
 			.all()
@@ -293,12 +307,12 @@ export type RoundResult = { seqs: Record<string, number>; skipped: string[] };
 /** Sends one round to the API's runner sync route. */
 export async function postRound(
 	fetcher: typeof fetch,
-	api: { url: string; key: string },
+	api: SyncApi,
 	round: Round,
 ): Promise<RoundResult> {
 	const reply = await fetcher(`${api.url}/api/v1/runner/sync`, {
 		method: "POST",
-		headers: { authorization: `Runner ${api.key}`, "content-type": "application/json" },
+		headers: { authorization: authorization(api), "content-type": "application/json" },
 		body: JSON.stringify(round),
 	});
 	if (!reply.ok) throw new Error(`the API answered ${reply.status}`);
@@ -311,7 +325,7 @@ export async function postRound(
  */
 export async function sendAttachment(
 	fetcher: typeof fetch,
-	api: { url: string; key: string },
+	api: SyncApi,
 	machine: Machine,
 	threadId: string,
 	attachment: Attachment,
@@ -321,7 +335,7 @@ export async function sendAttachment(
 		`${api.url}/api/v1/runner/threads/${encodeURIComponent(threadId)}/attachments/${encodeURIComponent(attachment.id)}`,
 		{
 			method: "PUT",
-			headers: { authorization: `Runner ${api.key}`, "content-type": "application/json" },
+			headers: { authorization: authorization(api), "content-type": "application/json" },
 			body: JSON.stringify({
 				machine,
 				name: attachment.name,

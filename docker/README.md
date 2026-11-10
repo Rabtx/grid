@@ -11,6 +11,7 @@ Compose is split into **fragments** under `compose/` and merged by the root
 | `compose/grid.yml` | Portable Grid — the whole product in one image (`docker/grid.Dockerfile`); run with `postgres.yml`, see `/docs/portable` |
 | `compose/web.yml` | Next.js web image (standalone output) |
 | `sandbox/Dockerfile` | The image sandboxed threads run their agent in (`bun run sandbox:build` tags it `grid-sandbox`) |
+| `runner.Dockerfile` | One teammate's runner (`grid-runner:latest`). Built from `compose/machines.yml`, which is **not** included by the root compose file. The API starts a rootless container per team-managed machine. |
 
 **Env:** copy `env.docker.example` from the repo root to `.env`.
 
@@ -37,4 +38,10 @@ docker compose up -d postgres
 
 ```bash
 docker compose -f docker/compose/postgres.yml --project-name grid up -d
+```
+
+**Team runner image** (not part of `docker compose up`):
+
+```bash
+docker compose -f docker/compose/machines.yml --profile manual build
 ```

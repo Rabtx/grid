@@ -5,8 +5,9 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from "solid-js";
 
 import { workspaceHref } from "@/lib/active-workspace";
+import { machinePlacement } from "@/lib/machine-scope";
 import { useAuth } from "@/modules/auth";
-import { environmentsStore, placementsStore } from "@/modules/environments";
+import { environmentsStore, machinesStore, placementsStore } from "@/modules/environments";
 import { useWorkspace } from "@/modules/projects";
 import { ShellSlot, useShell } from "@/modules/shell";
 import {
@@ -146,15 +147,20 @@ export function TerminalScreen(): JSX.Element {
 		if (!token) return null;
 		try {
 			const here = await terminalsService.list(token, undefined, true);
-			// Each environment's shells too. One that cannot be reached right now just shows none;
-			// its tabs come back on the next refresh.
-			await environmentsStore.load(token);
+			// Each paired environment's and team machine's shells too. One that cannot be reached
+			// right now just shows none; its tabs come back on the next refresh.
+			await Promise.all([environmentsStore.load(token), machinesStore.load(token)]);
+			const elsewhere = [
+				...environmentsStore.environments().map((environment) => environment.id),
+				...machinesStore
+					.machines()
+					.filter((machine) => machine.status !== "disabled")
+					.map((machine) => machinePlacement(machine.id)),
+			];
 			const away = await Promise.all(
-				environmentsStore
-					.environments()
-					.map((environment) =>
-						terminalsService.list(token, environment.id, true).catch(() => [] as TerminalInfo[]),
-					),
+				elsewhere.map((place) =>
+					terminalsService.list(token, place, true).catch(() => [] as TerminalInfo[]),
+				),
 			);
 			const list = [...here, ...away.flat()];
 			// Each terminal's screen as this device last saw it, ready before its view opens.

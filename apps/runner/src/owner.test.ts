@@ -65,6 +65,15 @@ describe("RunnerOwner", () => {
 		expect(owner.admits(STRANGER, "ws-stranger")).toBe(false);
 	});
 
+	it("when shared, serves every member of the workspace it joined and no other", () => {
+		const owner = new RunnerOwner(database(), null, () => [], true, "ws-team");
+		expect(owner.admits(TEAMMATE, "ws-team")).toBe(true);
+		expect(owner.admits(ME, "ws-team")).toBe(true);
+		expect(owner.admits(ME, "ws-home")).toBe(false);
+		expect(owner.admits(TEAMMATE, "ws-theirs")).toBe(false);
+		expect(owner.admits(STRANGER, "ws-stranger")).toBe(false);
+	});
+
 	it("keeps its owner across restarts, and follows the workspaces they join and leave", () => {
 		const path = database();
 		new RunnerOwner(path).admits(ME, "ws-home");

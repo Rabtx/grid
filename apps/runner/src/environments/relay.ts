@@ -7,11 +7,18 @@
 /** What the console may reach on an environment: its terminals, agents and folders. */
 // `link` is here so the console can tell whether an environment has the link (426) or not (404).
 const RELAYED_HTTP = /^\/(terminals|chat|fs|projects|transcribe|link)(\/|$)/;
+/** A team machine also answers how it is (Settings → Machines → this machine's numbers). */
+const RELAYED_MACHINE_HTTP = /^\/(terminals|chat|fs|projects|transcribe|link|machine)(\/|$)/;
 export const RELAYED_SOCKETS = new Set(["/terminal", "/chat", "/link"]);
 
 const CLOSE_NOT_FOUND = 4404;
 
-export type RelayTarget = { url: string; token: string };
+export type RelayTarget = {
+	url: string;
+	token: string;
+	/** A team machine rather than a paired environment; it may answer a few more routes. */
+	machine?: boolean;
+};
 
 /** Forward one HTTP call, keeping only the headers the runner reads. */
 export async function relayHttp(
@@ -21,9 +28,10 @@ export async function relayHttp(
 	target: RelayTarget,
 	fetcher: typeof fetch = fetch,
 ): Promise<Response> {
-	if (!RELAYED_HTTP.test(path)) return Response.json({ message: "Not found" }, { status: 404 });
+	if (!(target.machine ? RELAYED_MACHINE_HTTP : RELAYED_HTTP).test(path))
+		return Response.json({ message: "Not found" }, { status: 404 });
 	const headers: Record<string, string> = { Authorization: `Bearer ${target.token}` };
-	for (const name of ["content-type", "accept"]) {
+	for (const name of ["content-type", "accept", "x-grid-workspace"]) {
 		const value = request.headers.get(name);
 		if (value) headers[name] = value;
 	}

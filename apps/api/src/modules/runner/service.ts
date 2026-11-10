@@ -206,6 +206,16 @@ export async function machineThreads(db: Database, machineId: string) {
 		.orderBy(asc(threads.createdAt));
 }
 
+/** Which workspace a thread belongs to; null when Grid does not hold it. */
+export async function threadWorkspace(db: Database, threadId: string): Promise<string | null> {
+	const [row] = await db
+		.select({ workspaceId: threads.workspaceId })
+		.from(threads)
+		.where(eq(threads.id, threadId))
+		.limit(1);
+	return row?.workspaceId ?? null;
+}
+
 /** A page of a thread's events after `after`, oldest first. */
 export async function events(db: Database, threadId: string, after: number, limit: number) {
 	return db

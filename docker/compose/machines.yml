@@ -1,0 +1,12 @@
+# The runner image team-managed machines start from. Not included by the root
+# docker-compose.yml: `docker compose up` must not launch a machine. The API runs
+# `docker run` itself (one container and volume per teammate). Build the image with:
+#
+#   docker compose -f docker/compose/machines.yml --profile manual build
+services:
+  runner:
+    profiles: ["manual"]
+    build:
+      context: ../..
+      dockerfile: docker/runner.Dockerfile
+    image: grid-runner:latest

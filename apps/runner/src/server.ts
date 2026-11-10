@@ -52,6 +52,7 @@ import type { RunnerConfig } from "./config";
 import type { PairingStore } from "./environments/pairing";
 import { RELAYED_SOCKETS, relayHttp, SocketRelay } from "./environments/relay";
 import { type EnvironmentDeps, environmentRequest, pairRequest } from "./environments/routes";
+import type { MachineFleet } from "./machines/fleet";
 import { insideProjectsDir } from "./folders/folders";
 import { folderRequest } from "./folders/routes";
 import { sourceRequest } from "./folders/source-routes";
@@ -95,9 +96,12 @@ type Hello = {
 type SocketData = {
 	/** A terminal's byte stream, a chat session's event stream, or the link carrying many. */
 	kind: "terminal" | "chat" | "link";
-	/** Set when the socket belongs to an environment: carried there rather than served here. */
+	/** Set when the socket belongs to an environment or team machine: carried there. */
 	relay: {
-		environmentId: string;
+		/** An environment this Grid paired (`/env/<id>`). */
+		environmentId?: string;
+		/** One of the team's enrolled machines (`/machines/<id>`). */
+		machineId?: string;
 		path: string;
 		link: SocketRelay | null;
 		/** Frames that arrived while the hello was still being checked; sent once linked. */
@@ -165,6 +169,8 @@ export function startServer(
 		diagnostics?: DiagnosticJournal;
 		/** This Grid's environments (the home side). */
 		environments?: EnvironmentDeps;
+		/** The team machines a hosted runner carries console calls to (`/machines/<id>`). */
+		machines?: { fleet: MachineFleet };
 		/** Other Grids may pair with this runner and drive it (the environment side). */
 		pairing?: PairingStore;
 		/** The paired home Grid reading this environment's threads, to keep them in its database. */
@@ -224,6 +230,7 @@ export function startServer(
 		machine,
 		diagnostics,
 		environments,
+		machines,
 		pairing,
 		syncExport,
 		github,
@@ -500,24 +507,48 @@ export function startServer(
 					const target = environments.store.target(who.workspace, environmentId);
 					if (!target) return error(404, "That environment does not exist");
 					const response = await relayHttp(request, path, url.search, target, environments.fetcher);
-					if (
-						request.method === "GET" &&
-						/^\/chat\/sessions\/[\w-]+\/attachments\/[\w-]+$/.test(path) &&
-						response.ok
-					) {
-						const mediaType = response.headers.get("Content-Type") ?? "";
-						if (!/^image\/(png|jpeg|gif|webp)$/.test(mediaType)) {
-							response.headers.set("Content-Type", "application/octet-stream");
-							// The file's name may come through; never an inline disposition.
-							const disposition = response.headers.get("Content-Disposition") ?? "";
-							if (!disposition.startsWith("attachment"))
-								response.headers.set("Content-Disposition", "attachment");
+					return protectAttachment(path, response);
+				}
+
+				// `/machines/<id>/…`: the same routes on one of the team's enrolled machines. This
+				// hosted runner signs the person in, then forwards their own token; the machine checks
+				// it again against the same API and only ever serves its own workspace.
+				const carried = machines ? url.pathname.match(/^\/machines\/([\w-]+)(\/.*)$/) : null;
+				if (machines && carried) {
+					const [, machineId, path] = carried;
+					if (RELAYED_SOCKETS.has(path)) {
+						const upgraded = server.upgrade(request, {
+							data: {
+								kind: path === "/chat" ? "chat" : path === "/link" ? "link" : "terminal",
+								relay: { machineId, path, link: null, early: null },
+								who: null,
+								helloing: false,
+								early: null,
+								openedAt: null,
+								sessionId: null,
+								linkChannels: null,
+								channel: null,
+								link: null,
+							},
+						});
+						if (!upgraded) {
+							failedUpgrade("machine");
+							return new Response("Expected a WebSocket", { status: 426 });
 						}
-						response.headers.set("X-Content-Type-Options", "nosniff");
-						response.headers.set("Content-Security-Policy", "default-src 'none'; sandbox");
-						response.headers.set("Cache-Control", "private, no-store");
+						return undefined;
 					}
-					return response;
+					const who = await whoFrom(request, "Sign in to use your machines");
+					if (who instanceof Response) return who;
+					const address = await machines.fleet.address(who.workspace, machineId);
+					if (!address) return error(404, "That machine is not online");
+					const token = bearerToken(request);
+					if (!token) return error(401, "Sign in again to use that machine");
+					const response = await relayHttp(request, path, url.search, {
+						url: address,
+						token,
+						machine: true,
+					});
+					return protectAttachment(path, response);
 				}
 
 				if (github && (url.pathname === "/github" || url.pathname.startsWith("/github/"))) {
@@ -929,8 +960,8 @@ export function startServer(
 	return served;
 
 	/**
-	 * The console's hello on an environment socket: check the person here, then carry the socket
-	 * through with the environment's own token in place of theirs.
+	 * The console's hello on a relayed socket: check the person here, then carry the socket
+	 * through with the environment's pairing token or the person's own token for a team machine.
 	 */
 	async function relayHello(
 		ws: ServerWebSocket<SocketData>,
@@ -950,9 +981,21 @@ export function startServer(
 		if (ws.readyState !== WebSocket.OPEN) return;
 		const who = signedIn(ws, verified, (status) => refusedSignIn(ws.data.kind, status));
 		if (!who) return;
-		const target = environments?.store.target(who.workspace, relay.environmentId);
+		const target =
+			relay.machineId && machines
+				? await machines.fleet
+						.address(who.workspace, relay.machineId)
+						.then((address) =>
+							address ? { url: address, token: first.token, machine: true } : null,
+						)
+				: relay.environmentId
+					? environments?.store.target(who.workspace, relay.environmentId)
+					: null;
 		if (!target) {
-			ws.close(CLOSE_NOT_FOUND, "That environment does not exist");
+			ws.close(
+				CLOSE_NOT_FOUND,
+				relay.machineId ? "That machine is not online" : "That environment does not exist",
+			);
 			return;
 		}
 		ws.data.who = who;
@@ -1155,4 +1198,31 @@ function parse<T>(text: string): T | null {
 
 function error(status: number, message: string): Response {
 	return Response.json({ message }, { status });
+}
+
+function bearerToken(request: Request): string | null {
+	const header = request.headers.get("authorization") ?? "";
+	return header.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
+}
+
+/**
+ * A thread's attachment downloaded through a relay: only images render inline; anything else is
+ * forced to download, and no page may run from it. The remote runner may be the team's or a
+ * person's, but the browser is the same.
+ */
+function protectAttachment(path: string, response: Response): Response {
+	if (!/^\/chat\/sessions\/[\w-]+\/attachments\/[\w-]+$/.test(path) || !response.ok)
+		return response;
+	const mediaType = response.headers.get("content-type") ?? "";
+	if (!/^image\/(png|jpeg|gif|webp)$/.test(mediaType)) {
+		response.headers.set("Content-Type", "application/octet-stream");
+		// The file's name may come through; never an inline disposition.
+		const disposition = response.headers.get("Content-Disposition") ?? "";
+		if (!disposition.startsWith("attachment"))
+			response.headers.set("Content-Disposition", "attachment");
+	}
+	response.headers.set("X-Content-Type-Options", "nosniff");
+	response.headers.set("Content-Security-Policy", "default-src 'none'; sandbox");
+	response.headers.set("Cache-Control", "private, no-store");
+	return response;
 }

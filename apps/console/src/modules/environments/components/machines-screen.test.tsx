@@ -20,6 +20,19 @@ vi.mock("./codespaces-panel", () => ({ CodespacesPanel: () => null }));
 vi.mock("../stores/environments", () => ({
 	environmentsStore: { load: vi.fn(), environments: () => [], remove: vi.fn(), add: vi.fn() },
 }));
+vi.mock("../stores/machines", () => ({
+	machinesStore: {
+		load: vi.fn(async () => {}),
+		reload: vi.fn(async () => {}),
+		machines: () => [],
+		error: () => null,
+		canProvision: () => false,
+		provisionReason: () => null,
+		create: vi.fn(),
+		remove: vi.fn(),
+		reissue: vi.fn(),
+	},
+}));
 vi.mock("../services/machine.service", () => ({
 	machineService: {
 		status: vi.fn(),
@@ -96,6 +109,18 @@ describe("MachinesScreen", () => {
 		expect(text).toContain("Only work inside ~/Projects");
 		expect(text).toContain("Worktrees");
 		expect(text).toContain("Diagnostics");
+		expect(text).toContain("No team machines yet");
+	});
+	it("offers a brought computer or a team server", async () => {
+		await settle();
+		[...container.querySelectorAll("button")]
+			.find((button) => button.textContent === "Add")
+			?.click();
+		await settle();
+		const text = container.textContent ?? "";
+		expect(text).toContain("Your computer");
+		expect(text).toContain("Team server");
+		expect(text).toContain("Create code");
 	});
 	it("changes how many agents work at once", async () => {
 		await settle();
