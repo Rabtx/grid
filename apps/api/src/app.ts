@@ -16,6 +16,8 @@ import { billingRoutes } from "./modules/billing/routes";
 import type { EmailSender } from "./modules/email/email";
 import { healthRoutes } from "./modules/health/routes";
 import { instanceRoutes } from "./modules/instance/routes";
+import { machineRoutes } from "./modules/machines/routes";
+import { type MachineProvisioner, createDockerProvisioner } from "./modules/machines/provision";
 import { projectRoutes } from "./modules/projects/routes";
 import { runnerRoutes } from "./modules/runner/routes";
 import { profileRoutes, uploadedFile } from "./modules/profiles/routes";
@@ -33,6 +35,8 @@ export type AppDeps = {
 	sessions: SessionLookup;
 	/** Sends the codes and sign-in links. */
 	send: EmailSender;
+	/** Starts team-managed machines; tests pass a fake, production uses this host's Docker. */
+	provisioner?: MachineProvisioner;
 };
 
 /** The Grid API: `/api/v1/...`, plus the uploaded files it serves at `/uploads/...`. */
@@ -85,6 +89,14 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 		backupsDir: config.backupsDir,
 	};
 	api.route("/workspaces", workspaceRoutes(workspaces));
+	api.route(
+		"/workspaces",
+		machineRoutes({
+			db: deps.db,
+			sessions: deps.sessions,
+			provisioner: deps.provisioner ?? createDockerProvisioner(config),
+		}),
+	);
 	api.route("/invites", inviteRoutes(workspaces));
 	// The user's default workspace, for clients that do not pick one yet.
 	api.route(

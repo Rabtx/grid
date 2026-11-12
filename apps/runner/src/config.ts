@@ -38,6 +38,14 @@ export type RunnerConfig = {
 	 * the API). Without it threads stay on this machine only.
 	 */
 	runnerKey: string | null;
+	/** The one-time code that joins this runner to a team as a machine; used once at first start. */
+	enrollmentCode: string | null;
+	/** The address the control plane reaches this runner at; derived from its interface otherwise. */
+	machineAddress: string | null;
+	/** What the control plane calls this machine; the hostname when unset. */
+	machineName: string | null;
+	/** Serve every teammate in the workspaces this machine joined, not only its first owner. */
+	shared: boolean;
 };
 
 export function readConfig(env: Record<string, string | undefined> = process.env): RunnerConfig {
@@ -62,5 +70,9 @@ export function readConfig(env: Record<string, string | undefined> = process.env
 			.filter(Boolean),
 		owner: env.RUNNER_OWNER?.trim() || null,
 		runnerKey: env.GRID_RUNNER_KEY?.trim() || null,
+		enrollmentCode: env.GRID_ENROLLMENT_CODE?.trim() || null,
+		machineAddress: env.GRID_MACHINE_ADDRESS?.trim() || null,
+		machineName: env.RUNNER_NAME?.trim() || null,
+		shared: env.RUNNER_SHARED === "1" || env.RUNNER_SHARED === "true",
 	};
 }

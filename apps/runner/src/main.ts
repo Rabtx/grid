@@ -58,7 +58,10 @@ import { approvalItemId, inboxItem } from "./inbox/attention";
 import { type RestoreDeps, restoreMachine, storedMachines } from "./restore";
 import { EnvironmentSync } from "./sync/environment-sync";
 import { machineRunnerKey } from "./sync/runner-key";
-import { boardTools } from "./chat/board-tools";
+import { MachineAgent } from "./machines/agent";
+import { MachineFleet } from "./machines/fleet";
+import { authorization } from "./api-auth";
+import { boardTools, type BoardApi } from "./chat/board-tools";
 import { Browsers } from "./browser/browsers";
 import { Accounts } from "./chat/accounts";
 import { browserTools } from "./chat/browser-tools";
@@ -110,10 +113,34 @@ const chat = new ChatHub(chatStore, providers, config.projectsDir);
 // back on another). Without GRID_RUNNER_KEY, the key this machine's API also reads
 // (`sync/runner-key.ts`). A paired environment answers no API of its own, so it does not sync.
 const runnerKey = config.runnerKey ?? (config.pairing ? null : machineRunnerKey());
-const threadSync = runnerKey
-	? new ThreadSync(config.chatDb, { url: config.apiUrl, key: runnerKey })
+// This runner as one of the team's machines: it joins with a one-time code the first time, then
+// keeps saying it is alive so the hosted runner can carry console calls here. A machine syncs
+// only its joined workspace; a runner with the Grid key syncs every workspace it serves.
+const machineAgent = new MachineAgent(config.chatDb, config);
+await machineAgent.connect();
+const machineToken = machineAgent.token();
+const machine = machineAgent.machine();
+const machineWorkspace = machineAgent.workspaceId();
+const syncApi =
+	machineToken && machine
+		? {
+				url: config.apiUrl,
+				machine: machineToken,
+				...(machineWorkspace ? { workspaceId: machineWorkspace } : {}),
+			}
+		: runnerKey
+			? { url: config.apiUrl, key: runnerKey }
+			: null;
+const threadSync = syncApi
+	? new ThreadSync(config.chatDb, syncApi, fetch, machine ?? undefined)
 	: null;
 threadSync?.start();
+// The board tools act as the thread's person, with whichever credential this runner has.
+const boardApi: BoardApi | null = machineToken
+	? { url: config.apiUrl, machine: machineToken }
+	: runnerKey
+		? { url: config.apiUrl, key: runnerKey }
+		: null;
 const skills = new SkillStore(join(dirname(config.chatDb), "skills"));
 chat.setSkills((workspace, project) => skills.instructions(workspace, project));
 chat.setDescribe(async (id, installed, fresh) => ({
@@ -140,14 +167,15 @@ const teammateWork = new TeammateWork({
 	roles,
 	store: teammateStore,
 	inbox,
-	// A card moves on the board as the person who gave it, through the API (needs the runner key).
-	board: runnerKey
+	// A card moves on the board as the person who gave it, through the API (needs the runner key
+	// or an enrolled machine's secret).
+	board: boardApi
 		? async (ownerId, workspace, project, number, status) => {
 				await fetch(
 					`${config.apiUrl}/api/v1/runner/tasks/${encodeURIComponent(workspace)}/${encodeURIComponent(project)}/${number}`,
 					{
 						method: "PATCH",
-						headers: { authorization: `Runner ${runnerKey}`, "content-type": "application/json" },
+						headers: { authorization: authorization(boardApi), "content-type": "application/json" },
 						body: JSON.stringify({ user: ownerId, task: { status } }),
 					},
 				);
@@ -278,8 +306,17 @@ setInterval(() => {
 		if (cleared) console.log(`[runner] cleared ${cleared} threads older than ${days} days`);
 	}
 }, 3_600_000);
-// Whose machine this is: the runner serves its owner's workspaces and no one else's.
-const owner = new RunnerOwner(config.chatDb, config.owner, () => chat.workspaces());
+// Whose machine this is: the runner serves its owner's workspaces and no one else's. A team
+// machine is shared with every member of the workspace it joined.
+// A shared machine only opens once it has joined a workspace. Until then it stays a
+// single-owner runner, so a code that has not enrolled yet cannot serve every workspace.
+const owner = new RunnerOwner(
+	config.chatDb,
+	config.owner,
+	() => chat.workspaces(),
+	config.shared && Boolean(machineWorkspace),
+	machineWorkspace,
+);
 const signIn = createTokenVerifier(
 	config.apiUrl,
 	fetch,
@@ -472,9 +509,9 @@ for (const tool of browserTools(browsers, (session, page) =>
 	chat.registerTool(tool);
 chat.onRemoved((thread) => void browsers.close(thread));
 crews.watch();
-// The board, for agents: through the API, as the thread's person (needs the runner key).
-for (const tool of boardTools(runnerKey ? { url: config.apiUrl, key: runnerKey } : null))
-	chat.registerTool(tool);
+// The board, for agents: through the API, as the thread's person (needs the runner key or a
+// machine's secret).
+for (const tool of boardTools(boardApi)) chat.registerTool(tool);
 chat.registerTool(rememberTool({ store: teammateStore, roles, inbox }));
 const pulseStore = new PulseStore(config.chatDb);
 const pulse = new Pulse({ chat, gh, connections, store: pulseStore });
@@ -577,6 +614,10 @@ const server = startServer(config, store, verify, chat, {
 	ship,
 	operate,
 	operateTelemetry,
+	// The hosted runner carries console calls to enrolled team machines at their addresses.
+	...(runnerKey
+		? { machines: { fleet: new MachineFleet({ url: config.apiUrl, key: runnerKey }) } }
+		: {}),
 	// Someone not seen since the runner started keeps the access their notification was sent with.
 	mayApprove: (act) => {
 		const who = lastSeen.get(`${act.ownerId}:${act.workspace}`);

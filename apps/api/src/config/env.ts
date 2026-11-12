@@ -83,6 +83,34 @@ export const envSchema = z
 		 * Unset, the runner routes are off. The launcher makes one per data folder.
 		 */
 		GRID_RUNNER_KEY: z.string().min(32).optional(),
+		/**
+		 * Team-managed machines: one hardened runner container each, made with this host's
+		 * rootless Docker. Off, only BYOM machines can enroll.
+		 */
+		MACHINES_MANAGED: z
+			.enum(["true", "false"])
+			.default("true")
+			.transform((value) => value === "true"),
+		MACHINES_DOCKER: z.string().min(1).default("docker"),
+		MACHINES_IMAGE: z.string().min(1).default("grid-runner:latest"),
+		/** An existing Docker network the machine containers join; unset uses Docker's default. */
+		MACHINES_NETWORK: z.string().min(1).optional(),
+		/** The API address a managed machine enrolls and heartbeats against. */
+		MACHINES_CONTROL_URL: z.url().optional(),
+		/** The host part of a managed machine's published address, as the hosted runner reaches it. */
+		MACHINES_ADDRESS_HOST: z.string().min(1).default("127.0.0.1"),
+		MACHINES_PORT_MIN: z.coerce.number().int().min(1024).max(65_535).default(4300),
+		MACHINES_PORT_MAX: z.coerce.number().int().min(1024).max(65_535).default(4399),
+		MACHINES_MAX_PER_WORKSPACE: z.coerce.number().int().min(1).max(500).default(25),
+		MACHINES_MEMORY_MB: z.coerce.number().int().min(512).max(262_144).default(4096),
+		MACHINES_CPUS: z.coerce.number().min(0.5).max(64).default(2),
+		MACHINES_PIDS: z.coerce.number().int().min(128).max(1_000_000).default(2048),
+		/** Refuse to provision unless Docker runs rootless, unless an operator says otherwise. */
+		MACHINES_ALLOW_ROOTFUL: booleanFromString,
+	})
+	.refine((env) => env.MACHINES_PORT_MIN <= env.MACHINES_PORT_MAX, {
+		path: ["MACHINES_PORT_MIN"],
+		message: "MACHINES_PORT_MIN must not be greater than MACHINES_PORT_MAX",
 	})
 	.superRefine((env, context) => {
 		if (env.NODE_ENV !== "production") {

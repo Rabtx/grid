@@ -52,6 +52,7 @@ import { GridVersion } from "./grid-version";
 
 import { CodespacesPanel } from "./codespaces-panel";
 import { StoredThreadsPanel } from "./stored-threads-panel";
+import { TeamMachines } from "./team-machines";
 
 /** While the page is open, how often this machine's numbers are read again. */
 const REFRESH_MS = 5_000;
@@ -260,6 +261,8 @@ export function MachinesScreen(): JSX.Element {
 					</section>
 				)}
 			</Show>
+
+			<TeamMachines />
 
 			<SettingsGroup
 				title="Other machines"

@@ -7,6 +7,7 @@ import "@xterm/xterm/css/xterm.css";
 import { createEffect, createSignal, onSettled, Show, untrack } from "solid-js";
 
 import { onAppResume } from "@/lib/app-resume";
+import { scopeForPlacement } from "@/lib/machine-scope";
 import { linkFor } from "@/lib/runner-link";
 import { quietReconnects } from "@/lib/quiet-reconnects";
 import { useAuth } from "@/modules/auth";
@@ -223,8 +224,10 @@ export function TerminalView(props: {
 			// One connection per machine, shared with every other open terminal and chat on it.
 			createSocket: (url) => {
 				const environment = untrack(() => props.environment);
-				const scope = environment ? `/env/${encodeURIComponent(environment)}` : "";
-				return linkFor(scope, auth.token).socket("terminal", url) as unknown as WebSocket;
+				return linkFor(scopeForPlacement(environment), auth.token).socket(
+					"terminal",
+					url,
+				) as unknown as WebSocket;
 			},
 			id: props.id,
 			token: auth.token,

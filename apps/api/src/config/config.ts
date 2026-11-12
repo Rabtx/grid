@@ -35,6 +35,22 @@ export type AppConfig = {
 	backupsDir: string;
 	/** What runners authenticate with to send threads; the runner routes are off without it. */
 	runnerKey?: string;
+	/** Team-managed machine provisioning, and the container settings it uses. */
+	machines: {
+		managed: boolean;
+		docker: string;
+		image: string;
+		network?: string;
+		controlUrl: string;
+		addressHost: string;
+		portMin: number;
+		portMax: number;
+		maxPerWorkspace: number;
+		memoryMb: number;
+		cpus: number;
+		pidsLimit: number;
+		allowRootful: boolean;
+	};
 	corsOrigin: string;
 	trustProxy: boolean;
 	authDevExposeCodes: boolean;
@@ -96,6 +112,24 @@ export function createConfig(env: Env = parseEnv()): AppConfig {
 		trustProxy: env.TRUST_PROXY,
 		authDevExposeCodes: env.AUTH_DEV_EXPOSE_CODES,
 		...(env.GRID_RUNNER_KEY ? { runnerKey: env.GRID_RUNNER_KEY } : {}),
+		machines: {
+			managed: env.MACHINES_MANAGED,
+			docker: env.MACHINES_DOCKER,
+			image: env.MACHINES_IMAGE,
+			...(env.MACHINES_NETWORK ? { network: env.MACHINES_NETWORK } : {}),
+			controlUrl: (env.MACHINES_CONTROL_URL ?? `http://host.docker.internal:${env.PORT}`).replace(
+				/\/$/,
+				"",
+			),
+			addressHost: env.MACHINES_ADDRESS_HOST,
+			portMin: env.MACHINES_PORT_MIN,
+			portMax: env.MACHINES_PORT_MAX,
+			maxPerWorkspace: env.MACHINES_MAX_PER_WORKSPACE,
+			memoryMb: env.MACHINES_MEMORY_MB,
+			cpus: env.MACHINES_CPUS,
+			pidsLimit: env.MACHINES_PIDS,
+			allowRootful: env.MACHINES_ALLOW_ROOTFUL,
+		},
 		...(env.RESEND_API_KEY ? { resendApiKey: env.RESEND_API_KEY } : {}),
 		authEmailFrom: env.AUTH_EMAIL_FROM,
 		webAuthnRpId: env.WEBAUTHN_RP_ID,

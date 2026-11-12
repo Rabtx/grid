@@ -1,9 +1,11 @@
+import { authorization, type RunnerAuth } from "../api-auth";
 import type { GridTool } from "./hub";
 
 /**
  * The board, for agents: Grid tools that list a thread's project tasks, add one and move or edit
- * one. They go to the API with the runner's key and act as the person whose thread it is, so an
- * agent can do exactly what its person could on the board, in that thread's project and no other.
+ * one. They go to the API with the runner's key or the machine's own secret and act as the person
+ * whose thread it is, so an agent can do exactly what its person could on the board, in that
+ * thread's project and no other.
  */
 
 export const TASK_STATUSES = [
@@ -25,7 +27,7 @@ type Task = {
 	ownerName?: string | null;
 };
 
-export type BoardApi = { url: string; key: string };
+export type BoardApi = RunnerAuth & { url: string };
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 async function call<T>(
@@ -39,7 +41,7 @@ async function call<T>(
 		response = await fetcher(`${api.url}/api/v1/runner/tasks/${path}`, {
 			...init,
 			headers: {
-				authorization: `Runner ${api.key}`,
+				authorization: authorization(api),
 				"content-type": "application/json",
 				...init.headers,
 			},

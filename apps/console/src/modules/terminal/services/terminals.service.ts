@@ -1,13 +1,16 @@
+import { workspaceHeaders } from "@/lib/active-workspace";
+import { scopeForPlacement } from "@/lib/machine-scope";
+
 import type { TerminalInfo } from "../types/terminal.types";
 
 /**
  * The runner sits behind the console's own origin (`/runner`, proxied by Vite), like the API
- * does, so it works the same over localhost, the LAN and an HTTPS tunnel. An environment's
- * terminals go through the same runner, under `/env/<id>`, which carries them there.
+ * does, so it works the same over localhost, the LAN and an HTTPS tunnel. A project on another
+ * machine goes through the same runner under `/env/<id>` or `/machines/<id>`, which carries it
+ * there.
  */
 function runnerUrl(path: string, environment?: string): string {
-	const scope = environment ? `/env/${encodeURIComponent(environment)}` : "";
-	return `${window.location.origin}/runner${scope}${path}`;
+	return `${window.location.origin}/runner${scopeForPlacement(environment)}${path}`;
 }
 
 export function terminalSocketUrl(environment?: string): string {
@@ -35,7 +38,7 @@ async function call<T>(
 	try {
 		response = await fetch(runnerUrl(path, environment), {
 			...init,
-			headers: { ...init.headers, Authorization: `Bearer ${token}` },
+			headers: { ...init.headers, ...workspaceHeaders(), Authorization: `Bearer ${token}` },
 		});
 	} catch {
 		throw new RunnerError("The terminal service is not reachable.", 0);

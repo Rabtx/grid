@@ -28,6 +28,7 @@ import {
 	notify,
 } from "@/kit";
 import { workspaceHref } from "@/lib/active-workspace";
+import { machinePlacement } from "@/lib/machine-scope";
 import { now } from "@/lib/clock";
 import { useAuth } from "@/modules/auth";
 import { agentName, offeredProviders, providersStore } from "@/modules/chat/stores/providers";
@@ -42,6 +43,7 @@ import { useTerminalAccess } from "@/modules/workspaces";
 import { activityService, type RunHere } from "../services/activity.service";
 import { machineService, type MachineStatus } from "../services/machine.service";
 import { environmentsStore } from "../stores/environments";
+import { machinesStore } from "../stores/machines";
 import { placementsStore, scopeFor } from "../stores/placements";
 
 const errorOf = (cause: unknown) =>
@@ -92,6 +94,7 @@ function OperationsScreen(props: { kind: "machines" | "agents" }): JSX.Element {
 		([token, where]) => {
 			if (token) {
 				untrack(() => void environmentsStore.load(token));
+				untrack(() => void machinesStore.load(token));
 				void placementsStore.load(token);
 				void providersStore.load(token, where);
 			}
@@ -249,6 +252,18 @@ function OperationsScreen(props: { kind: "machines" | "agents" }): JSX.Element {
 									icon={<LaptopIcon />}
 									href={workspaceHref(`/machines/${environment.id}`)}
 									current={machineId() === environment.id}
+								/>
+							)}
+						</For>
+						<For each={machinesStore.machines()}>
+							{(machine) => (
+								<NavLink
+									label={machine.name}
+									icon={<LaptopIcon />}
+									href={workspaceHref(
+										`/machines/${encodeURIComponent(machinePlacement(machine.id))}`,
+									)}
+									current={machineId() === machinePlacement(machine.id)}
 								/>
 							)}
 						</For>

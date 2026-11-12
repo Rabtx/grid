@@ -53,11 +53,17 @@ run() {
         exec "$bun" src/main.ts
     fi
     runner_env
-    RUNNER_HOST="${GRID_RUNNER_HOST:-$(tailnet_ip)}"
-    [[ -n "$RUNNER_HOST" ]] || {
-        echo "[grid] this machine is not on a tailnet: run tailscale up, then grid start" >&2
-        exit 1
-    }
+    if [[ -n "${GRID_ENROLLMENT_CODE:-}" ]]; then
+        # The team Grid reaches this runner at GRID_MACHINE_ADDRESS, or at a tailnet or LAN
+        # address the runner advertises. Binding every interface lets either one work.
+        RUNNER_HOST="${GRID_RUNNER_HOST:-0.0.0.0}"
+    else
+        RUNNER_HOST="${GRID_RUNNER_HOST:-$(tailnet_ip)}"
+        [[ -n "$RUNNER_HOST" ]] || {
+            echo "[grid] this machine is not on a tailnet: run tailscale up, then grid start" >&2
+            exit 1
+        }
+    fi
     export RUNNER_HOST
     cd "$app/apps/runner"
     exec "$bun" src/main.ts

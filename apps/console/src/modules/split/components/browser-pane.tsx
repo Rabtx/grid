@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/modules/auth";
 import { chatService } from "@/modules/chat/services/chat.service";
 import type { BrowserState } from "@/modules/chat/types/chat.types";
+import { scopeForPlacement } from "@/lib/machine-scope";
 
 import type { ThreadPlace } from "../stores/thread-terminals";
 
@@ -38,7 +39,7 @@ export function BrowserPane(props: { place: ThreadPlace; active: boolean }): JSX
 	let typed = "";
 	let typeTimer: ReturnType<typeof setTimeout> | undefined;
 
-	const scope = () => props.place.environment ?? "";
+	const scope = () => scopeForPlacement(props.place.environment);
 	const showFrame = (blob: Blob | null) => {
 		const previous = untrack(frame);
 		setFrame(blob ? URL.createObjectURL(blob) : null);

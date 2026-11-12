@@ -101,6 +101,35 @@ Invites last 7 days and work once. One for an email only works for that address,
 with it starts the account verified. Roles are `admin` or `member`; ownership is handed over, not
 invited.
 
+### Machines
+
+A workspace's execution machines live in the control plane, beside its projects and roles. A
+machine is either **managed** (this Grid starts a rootless container for one teammate) or
+**byom** (a teammate installs Grid Runner on their own computer and enrolls it). A teammate may
+connect several brought machines. Each teammate gets one managed machine. Viewers cannot create
+either kind. Provisioning a managed machine for someone else needs the `machines` permission, and
+that person must already be a member.
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/workspaces/:ws/machines` | member | Machines, project placements, `canProvision`, `canPlace`, `provisionReason` |
+| `POST` | `/api/v1/workspaces/:ws/machines` | non-viewer | Create `{ name, kind: "byom" \| "managed", ownerId? }` (`201`). The reply includes a one-time enrollment `{ code, expiresAt }` |
+| `POST` | `/api/v1/workspaces/:ws/machines/:id/enrollment` | owner or `machines` | Replace the code for a machine that has not connected |
+| `PATCH` | `/api/v1/workspaces/:ws/machines/:id` | owner or `machines` | Rename (`{ name }`) |
+| `DELETE` | `/api/v1/workspaces/:ws/machines/:id` | owner or `machines` | Remove (`204`). A managed machine's container and volume are deleted too |
+| `PUT` | `/api/v1/workspaces/:ws/machines/placements/:project` | `startAgents` | Run that project on `{ machineId }` or, with `null`, on the hosted runner |
+| `POST` | `/api/v1/runner/machines/enroll` | the one-time code | The runner joins. No account. Answers `{ machine, secret }` once |
+| `POST` | `/api/v1/runner/machines/heartbeat` | `Authorization: Machine <id>.<secret>` | The runner says it is alive, and a brought machine may update its address |
+| `GET` | `/api/v1/runner/fleet` | `Authorization: Runner <key>` | Addresses the hosted runner uses to relay. A machine token cannot read this |
+
+The enrollment code starts with `gme_`, lasts 15 minutes and works once. Only its hash is stored.
+The machine secret starts with `gms_` and is stored only as a hash; the runner keeps the clear
+secret. The console talks to a machine through the hosted runner at `/machines/<id>/…`, still
+with the person's own bearer token. The machine checks that token with the API. A machine token
+is limited to the workspace it joined. Managed containers publish their runner on `127.0.0.1`
+only, drop every capability, run read-only outside a private volume, and mount nothing from the
+host: no Docker socket, no host network, no privileged mode.
+
 ### Billing
 
 Plans belong to a workspace. `GET /api/v1/billing/subscription?workspace=:ws` shows it to any
@@ -708,6 +737,7 @@ Record every public API change, newest first, so consumers can see what moved.
 
 | Date | Change | Breaking |
 | --- | --- | --- |
+| 2026-11-10 | Machines: workspace inventory, one-time enrollment, heartbeat and runner-key fleet; managed rootless containers and brought machines; project placement | no |
 | 2026-10-27 | Runner: `/memory` routes and the `memory_save` and `memory_search` tools; `/reviews` routes; `sandbox` on threads, on thread creation and in project settings; `GET /sandbox`; `sandboxImage` machine setting; audit actor kind `agent` and actions `memory.*` and `review.*` | no |
 | 2026-10-27 | Runner: scoped agent keys (`expiresInDays`, `projects`, `budgetUsd`, `ownThreads`, `spentUsd`); `/spend` and budgets; `402` from a turn a budget refuses; Inbox kind `budget`; `GET /audit` | no |
 | 2026-10-27 | Runner: webhook triggers and their routes; run trigger `webhook`; agent keys and `POST /mcp`; guest links, guest routes and `guest_request` events; origins `outside` and `guest`; snooze and `snoozedUntil`; `GET /chat/sessions/:id`; thread tools answer with `grid-thread://` links; full-text search | no |

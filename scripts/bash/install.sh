@@ -10,6 +10,11 @@
 #       reached over your Tailscale network. Prints the address and a pairing code to add it in
 #       Settings → Environments on that Grid.
 #
+#   GRID_API_URL=https://grid.example GRID_ENROLLMENT_CODE=gme_… \
+#       curl -fsSL https://grid.rabtx.dev/install.sh | bash -s -- runner
+#       Join a team's Grid instead. The code is the one Settings → Machines shows once. Tailscale
+#       is not required; the runner enrolls with that Grid and checks in on its own.
+#
 # Either way it installs Bun if it is missing, puts Grid in ~/.grid, adds a `grid` command to
 # ~/.local/bin and keeps Grid running as a user service (systemd on Linux, launchd on macOS).
 #
@@ -149,6 +154,19 @@ if [[ -n "$database_url" ]]; then
     printf 'DATABASE_URL=%q\n' "$database_url" >>"$home/grid.env"
     say "Grid's data goes to the database in GRID_DATABASE_URL"
 fi
+# A runner joining a team Grid keeps the enrollment the console printed, including on a
+# reinstall, so a restart stays enrolled. A new code replaces the previous one.
+if [[ "$mode" == runner && -n "${GRID_ENROLLMENT_CODE:-}" ]]; then
+    [[ -n "${GRID_API_URL:-}" ]] || fail "GRID_API_URL is required with GRID_ENROLLMENT_CODE: the address of the team Grid."
+    [[ "$GRID_API_URL" =~ ^https?:// ]] || fail "GRID_API_URL must be an http or https URL."
+    sed -i.bak '/^GRID_API_URL=/d;/^GRID_ENROLLMENT_CODE=/d;/^RUNNER_SHARED=/d' "$home/grid.env" && rm -f "$home/grid.env.bak"
+    {
+        printf 'GRID_API_URL=%q\n' "$GRID_API_URL"
+        printf 'GRID_ENROLLMENT_CODE=%q\n' "$GRID_ENROLLMENT_CODE"
+        printf 'RUNNER_SHARED=%q\n' "1"
+    } >>"$home/grid.env"
+    say "this runner will join the Grid at $GRID_API_URL"
+fi
 mkdir -p "$home/data" "$home/logs"
 
 # --- The grid command ----------------------------------------------------------------------------
@@ -162,7 +180,12 @@ chmod +x "$app/scripts/bash/grid.sh"
 grid="$app/scripts/bash/grid.sh"
 
 # --- Start ---------------------------------------------------------------------------------------
-if [[ "$mode" == runner ]] && ! tailscale status >/dev/null 2>&1; then
+# Enrollment may already be in grid.env from an earlier install, so a reinstall does not
+# demand Tailscale again just because this shell was not given the code.
+enrolled=0
+[[ -n "${GRID_ENROLLMENT_CODE:-}" ]] && enrolled=1
+grep -q '^GRID_ENROLLMENT_CODE=' "$home/grid.env" && enrolled=1
+if [[ "$mode" == runner && "$enrolled" == 0 ]] && ! tailscale status >/dev/null 2>&1; then
     "$grid" enable --no-start
     printf '\n%sThe runner is installed.%s It needs Tailscale to talk to your Grid:\n' "$bold" "$reset"
     printf '  1. install Tailscale: https://tailscale.com/download\n'

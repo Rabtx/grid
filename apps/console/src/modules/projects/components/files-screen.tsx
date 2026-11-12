@@ -71,7 +71,7 @@ import { useAuth } from "@/modules/auth";
 import { highlightLines, languageFor, renderMarkdown } from "@/modules/chat/lib/markdown";
 import { draftsStore } from "@/modules/chat/stores/drafts";
 import { providersStore } from "@/modules/chat/stores/providers";
-import { environmentsStore, placementsStore } from "@/modules/environments";
+import { placementsStore } from "@/modules/environments";
 import { ShellSlot } from "@/modules/shell";
 
 import { useWorkspace } from "../context/workspace-context";
@@ -376,8 +376,7 @@ function FilesView(): JSX.Element {
 	/** Source control is open in place of the folder (`?show=source`). */
 	const sourceOpen = () => !file() && search.show === "source";
 	const sourceHref = () => workspaceHref(`/files/${slug()}?show=source`);
-	const machine = () =>
-		environmentsStore.labelOf(placementsStore.environmentOf(slug())) ?? "This machine";
+	const machine = () => placementsStore.labelOf(placementsStore.environmentOf(slug()));
 
 	return (
 		<Show when={project()} fallback={<EmptyState title="Project not found" />}>

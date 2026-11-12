@@ -22,6 +22,9 @@ export const OTHER_WORKSPACE = "This runner works for another workspace";
  * owner to sign in, and on a runner that already holds work, only an owner of a workspace that
  * work belongs to. Each time the owner signs in, the workspaces served follow theirs, so a
  * workspace they join or make is served and one they leave is not.
+ *
+ * A team machine (`RUNNER_SHARED=1`) has no single owner: any signed-in member of the workspace
+ * it joined may use it. The machine's own scoping keeps it to that workspace's work.
  */
 export class RunnerOwner {
 	private readonly db: Database;
@@ -32,6 +35,10 @@ export class RunnerOwner {
 		private readonly configured: string | null = null,
 		/** Workspaces this runner already keeps work for, from before it had an owner. */
 		private readonly existing: () => string[] = () => [],
+		/** Serve every member of the joined workspace rather than only one owner. */
+		private readonly shared = false,
+		/** The workspace a shared machine enrolled in. Other workspaces are refused. */
+		private readonly joined: string | null = null,
 	) {
 		this.db = openPrivateDatabase(path);
 		this.db.run(
@@ -48,6 +55,10 @@ export class RunnerOwner {
 
 	/** Whether this runner answers this person acting in this workspace. */
 	admits(person: Person, workspace: string): boolean {
+		if (this.shared) {
+			if (this.joined && this.joined !== workspace) return false;
+			return person.workspaces.some((item) => item.id === workspace);
+		}
 		if (this.isConfigured(person)) {
 			this.keep(person);
 			return true;

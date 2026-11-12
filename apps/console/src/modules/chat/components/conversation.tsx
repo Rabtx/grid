@@ -937,9 +937,7 @@ export function Conversation(props: {
 		);
 	}
 	const machine = () => {
-		const name =
-			environmentsStore.labelOf(placementsStore.environmentOf(session()?.project)) ??
-			"This machine";
+		const name = placementsStore.labelOf(placementsStore.environmentOf(session()?.project));
 		// Its agent runs in a container there, seeing only the thread's folder.
 		return session()?.sandbox ? `${name}, in a sandbox` : name;
 	};

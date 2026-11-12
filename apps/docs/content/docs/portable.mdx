@@ -155,6 +155,42 @@ your sign-in, projects and settings.
 the `TS_AUTH_KEY` Codespaces secret, rebuild, `bun run grid:pair`, then Settings → Environments at
 home.
 
+## Team machines
+
+Pairing above connects one Grid to another. A team also shares one control plane — the same
+projects, tasks, boards and roles — and chooses where each project's agents run. There are two
+ways to add a machine, both from **Settings → Machines**:
+
+1. **Team server.** This Grid starts one rootless container per teammate (`docker/runner.Dockerfile`,
+   image `grid-runner:latest`). The container drops every capability, runs read-only outside its
+   own volume, publishes its runner only on `127.0.0.1`, and mounts nothing from the host. Rootful
+   Docker is refused unless `MACHINES_ALLOW_ROOTFUL=1`. A teammate gets one of these.
+2. **Your computer.** Settings shows a one-time code. On that computer:
+
+```bash
+GRID_API_URL=https://grid.example GRID_ENROLLMENT_CODE=gme_… \
+  curl -fsSL https://grid.rabtx.dev/install.sh | bash -s -- runner
+```
+
+The code lasts 15 minutes and works once. The runner stores the machine secret and checks in
+every 30 seconds. A teammate can connect more than one computer. Viewers cannot add either kind.
+
+The console never talks to a teammate's machine directly. It calls the hosted runner at
+`/machines/<id>/…` with the person's own sign-in. The hosted runner looks up the address (loopback
+for a team server, the address the brought machine advertised) and forwards the call. The machine
+checks that sign-in with the API, and a machine token only serves the workspace it joined.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MACHINES_MANAGED` | on | Let this Grid start team containers |
+| `MACHINES_IMAGE` | `grid-runner:latest` | The runner image |
+| `MACHINES_PORT_MIN` / `MACHINES_PORT_MAX` | `4300` / `4399` | Loopback ports for those containers |
+| `MACHINES_MAX_PER_WORKSPACE` | `25` | How many team containers one workspace may have |
+| `MACHINES_ALLOW_ROOTFUL` | off | Permit a rootful Docker daemon. Leave this off |
+| `GRID_ENROLLMENT_CODE` | — | The one-time code a brought runner joins with |
+| `GRID_API_URL` | — | The team Grid that runner enrolls against |
+| `RUNNER_SHARED` | off | `1` serves every member of the workspace the runner joined |
+
 ## Always on, on your own machine
 
 `bun run dev` is for working on Grid: Vite and Next.js dev servers, Solid's dev checks and file
